@@ -1,0 +1,15 @@
+{
+  textures: {
+    spritesheet: {
+      maxWidth: 512,
+      maxHeight: 512,
+      globImages: [
+        {
+          path: "assets/",
+          glob: "*",
+          prefix: "img/",
+        },
+      ],
+    }
+  }
+}
