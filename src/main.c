@@ -20,25 +20,6 @@ static void *panic_malloc(size_t count, size_t size) {
     return mem;
 }
 
-static int image_format(FIBITMAP *bmp) {
-    unsigned int red_mask = FreeImage_GetRedMask(bmp);
-    unsigned int green_mask = FreeImage_GetGreenMask(bmp);
-    unsigned int blue_mask = FreeImage_GetBlueMask(bmp);
-    char hasAlpha = FreeImage_IsTransparent(bmp);
-
-    if (red_mask == 0x0000ff00 && green_mask == 0x00ff0000 && blue_mask == 0xff000000 && hasAlpha) {
-        return SDL_PIXELFORMAT_RGBA8888;
-    } else if (red_mask == 0x0000ff && green_mask == 0x00ff00 && blue_mask == 0xff0000 && !hasAlpha) {
-        return SDL_PIXELFORMAT_RGB888;
-    } else if (red_mask == 0xff0000 && green_mask == 0x00ff00 && blue_mask == 0x0000ff) {
-        return hasAlpha ? SDL_PIXELFORMAT_RGBA8888 : SDL_PIXELFORMAT_BGR888;
-    } else {
-        fprintf(stderr, "red: %u green: %u  blue: %u  hasAlpha: %d\n",
-                red_mask, green_mask, blue_mask, (int)hasAlpha);
-        panic("unrecognized image format");
-    }
-}
-
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         panic("unable to init SDL");
@@ -88,8 +69,9 @@ int main(int argc, char *argv[]) {
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-    SDL_Texture *texture = SDL_CreateTexture(renderer, image_format(bmp),
+    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
             SDL_TEXTUREACCESS_STATIC, spritesheet_width, spritesheet_height);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD);
 
     SDL_UpdateTexture(texture, NULL, FreeImage_GetBits(bmp), FreeImage_GetPitch(bmp));
 
