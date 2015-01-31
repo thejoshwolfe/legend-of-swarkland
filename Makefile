@@ -1,12 +1,17 @@
 .PHONY: all
 all:
 
+-include $(wildcard build/*.d)
+
+C_FLAGS += -Ibuild -Isrc -g -Wall -Werror
+COMPILE_C = clang -c -o $@ -MMD -MP -MF $@.d $(C_FLAGS) $<
+
 build/legend-of-swarkland: build/main.o
 	clang -o $@ $<
 all: build/legend-of-swarkland
 
-build/main.o: src/main.c
-	clang -o $@ -c $<
+build/%.o: src/%.c
+	$(COMPILE_C)
 
 build/main.o: | build
 
