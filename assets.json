@@ -1,6 +1,7 @@
 {
   textures: {
     spritesheet: {
+      allowRotate90: false, // SDL2 textures don't let you override the vertex array
       maxWidth: 512,
       maxHeight: 512,
       globImages: [
