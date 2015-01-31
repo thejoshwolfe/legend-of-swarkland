@@ -6,7 +6,9 @@
 #include <SDL2/SDL.h>
 #include <FreeImage.h>
 
-static void panic(const char *str) {
+static void panic(const char *str) __attribute__ ((noreturn));
+
+static void panic(const char *str)  {
     fprintf(stderr, "%s\n", str);
     abort();
 }
@@ -16,6 +18,25 @@ static void *panic_malloc(size_t count, size_t size) {
     if (!mem)
         panic("out of memory");
     return mem;
+}
+
+static int image_format(FIBITMAP *bmp) {
+    unsigned int red_mask = FreeImage_GetRedMask(bmp);
+    unsigned int green_mask = FreeImage_GetGreenMask(bmp);
+    unsigned int blue_mask = FreeImage_GetBlueMask(bmp);
+    char hasAlpha = FreeImage_IsTransparent(bmp);
+
+    if (red_mask == 0x0000ff00 && green_mask == 0x00ff0000 && blue_mask == 0xff000000 && hasAlpha) {
+        return SDL_PIXELFORMAT_RGBA8888;
+    } else if (red_mask == 0x0000ff && green_mask == 0x00ff00 && blue_mask == 0xff0000 && !hasAlpha) {
+        return SDL_PIXELFORMAT_RGB888;
+    } else if (red_mask == 0xff0000 && green_mask == 0x00ff00 && blue_mask == 0x0000ff) {
+        return hasAlpha ? SDL_PIXELFORMAT_RGBA8888 : SDL_PIXELFORMAT_BGR888;
+    } else {
+        fprintf(stderr, "red: %u green: %u  blue: %u  hasAlpha: %d\n",
+                red_mask, green_mask, blue_mask, (int)hasAlpha);
+        panic("unrecognized image format");
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -67,13 +88,23 @@ int main(int argc, char *argv[]) {
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+    SDL_Texture *texture = SDL_CreateTexture(renderer, image_format(bmp),
             SDL_TEXTUREACCESS_STATIC, spritesheet_width, spritesheet_height);
 
-    SDL_UpdateTexture(texture, NULL, FreeImage_GetBits(bmp), spritesheet_width * 4);
+    SDL_UpdateTexture(texture, NULL, FreeImage_GetBits(bmp), FreeImage_GetPitch(bmp));
 
     FreeImage_Unload(bmp);
     FreeImage_CloseMemory(fi_mem);
+    free(image_buffer);
+
+    long image_count = rucksack_texture_image_count(rs_texture);
+    struct RuckSackImage **spritesheet_images = panic_malloc(image_count,
+            sizeof(struct RuckSackImage*));
+    rucksack_texture_get_images(rs_texture, spritesheet_images);
+    if (image_count != 1) {
+        panic("code only handles 1 image at the moment");
+    }
+    struct RuckSackImage *guy_image = spritesheet_images[0];
 
     bool running = true;
     while (running) {
@@ -96,10 +127,25 @@ int main(int argc, char *argv[]) {
         }
 
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, NULL, NULL);
+
+        SDL_Rect source_rect;
+        source_rect.x = guy_image->x;
+        source_rect.y = guy_image->y;
+        source_rect.w = guy_image->width;
+        source_rect.h = guy_image->height;
+        SDL_Rect dest_rect;
+        dest_rect.x = 100; // arbitrary value
+        dest_rect.y = 100; // arbitrary value
+        dest_rect.w = guy_image->width;
+        dest_rect.h = guy_image->height;
+        SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
+
         SDL_RenderPresent(renderer);
         SDL_Delay(17);
     }
+
+    free(spritesheet_images);
+    rucksack_texture_destroy(rs_texture);
 
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
