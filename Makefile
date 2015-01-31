@@ -7,7 +7,7 @@ C_FLAGS += -Ibuild -Isrc -g -Wall -Werror
 COMPILE_C = clang -c -o $@ -MMD -MP -MF $@.d $(C_FLAGS) $<
 
 build/legend-of-swarkland: build/main.o
-	clang -o $@ $<
+	clang -o $@ $< -lSDL2
 all: build/legend-of-swarkland
 
 build/%.o: src/%.c
