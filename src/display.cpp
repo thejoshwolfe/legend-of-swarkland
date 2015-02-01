@@ -143,6 +143,7 @@ void render() {
 
     // status box
     render_text(String("HP: ") + toString(you->hitpoints), status_box_area.x, status_box_area.y);
+    render_text(String("Kills: ") + toString(you->kill_counter), status_box_area.x + 200, status_box_area.y);
 
     SDL_RenderPresent(renderer);
 }

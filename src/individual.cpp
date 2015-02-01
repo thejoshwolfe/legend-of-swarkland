@@ -8,5 +8,6 @@ Individual::Individual(SpeciesId species_id, Coord location) :
     hitpoints = species->starting_hitpoints;
     is_alive = true;
     movement_points = 0;
+    kill_counter = 0;
     ai = species->default_ai;
 }

@@ -60,6 +60,7 @@ static void attack(Individual * attacker, Individual * target) {
     if (target->hitpoints <= 0) {
         target->hitpoints = 0;
         target->is_alive = false;
+        attacker->kill_counter++;
     }
 }
 

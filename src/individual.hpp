@@ -41,6 +41,7 @@ struct Individual {
     bool is_alive;
     Species * species;
     int hitpoints;
+    int kill_counter;
     Coord location;
     AiStrategy ai;
     // once this reaches movement_cost, make a move
