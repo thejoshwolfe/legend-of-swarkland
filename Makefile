@@ -3,7 +3,7 @@ all:
 
 -include $(wildcard build/*.d)
 
-OBJECTS = build/main.o build/load_image.o build/util.o build/individual.o
+OBJECTS = build/main.o build/swarkland.o build/display.o build/load_image.o build/util.o build/individual.o
 
 CPP_FLAGS += -Ibuild -Isrc -g -Wall -Werror
 COMPILE_CPP = clang -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
