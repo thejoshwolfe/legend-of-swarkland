@@ -27,7 +27,7 @@ SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_
     int spritesheet_height = FreeImage_GetHeight(bmp);
 
     SDL_Texture * texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, spritesheet_width, spritesheet_height);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
     SDL_UpdateTexture(texture, NULL, FreeImage_GetBits(bmp), FreeImage_GetPitch(bmp));
 

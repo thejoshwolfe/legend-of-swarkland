@@ -26,6 +26,30 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
+static struct RuckSackImage * find_image(struct RuckSackImage ** spritesheet_images, long image_count, const char * name) {
+    for (int i = 0; i< image_count; i++)
+        if (strcmp(spritesheet_images[i]->key, name) == 0)
+            return spritesheet_images[i];
+    panic("sprite not found");
+}
+
+static int you_x = 4;
+static int you_y = 4;
+static int bad_x = 10;
+static int bad_y = 10;
+static void move_the_bad(void) {
+    int dx = sign(bad_x - you_x);
+    int dy = sign(bad_y - you_y);
+    bad_x -= dx;
+    bad_y -= dy;
+}
+static void move(int dx, int dy){
+    you_x = clamp(you_x + dx, 0, map_size_x - 1);
+    you_y = clamp(you_y + dy, 0, map_size_y - 1);
+
+    move_the_bad();
+}
+
 int main(int argc, char * argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         panic("unable to init SDL");
@@ -60,13 +84,9 @@ int main(int argc, char * argv[]) {
     long image_count = rucksack_texture_image_count(rs_texture);
     struct RuckSackImage ** spritesheet_images = panic_malloc(image_count, sizeof(struct RuckSackImage*));
     rucksack_texture_get_images(rs_texture, spritesheet_images);
-    if (image_count != 1) {
-        panic("code only handles 1 image at the moment");
-    }
-    struct RuckSackImage * guy_image = spritesheet_images[0];
+    struct RuckSackImage * guy_image =  find_image(spritesheet_images, image_count, "img/guy.png");
+    struct RuckSackImage * bad_image =  find_image(spritesheet_images, image_count, "img/bad.png");
 
-    int you_x = 4;
-    int you_y = 4;
     bool running = true;
     while (running) {
         SDL_Event event;
@@ -78,16 +98,16 @@ int main(int argc, char * argv[]) {
                             running = false;
                             break;
                         case SDL_SCANCODE_LEFT:
-                            you_x = clamp(you_x - 1, 0, map_size_x - 1);
+                            move(-1, 0);
                             break;
                         case SDL_SCANCODE_UP:
-                            you_y = clamp(you_y - 1, 0, map_size_y - 1);
+                            move(0, -1);
                             break;
                         case SDL_SCANCODE_RIGHT:
-                            you_x = clamp(you_x + 1, 0, map_size_x - 1);
+                            move(1, 0);
                             break;
                         case SDL_SCANCODE_DOWN:
-                            you_y = clamp(you_y + 1, 0, map_size_y - 1);
+                            move(0, 1);
                             break;
                         default:
                             break;
@@ -102,6 +122,7 @@ int main(int argc, char * argv[]) {
         SDL_RenderClear(renderer);
 
         render_tile(renderer, texture, guy_image, you_x, you_y);
+        render_tile(renderer, texture, bad_image, bad_x, bad_y);
 
         SDL_RenderPresent(renderer);
         SDL_Delay(17); // 60Hz or whatever
@@ -121,4 +142,3 @@ int main(int argc, char * argv[]) {
     SDL_Quit();
     return 0;
 }
-
