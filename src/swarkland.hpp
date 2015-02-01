@@ -15,7 +15,7 @@ void swarkland_init();
 void swarkland_finish();
 
 void advance_time();
-void you_move(Coord delta);
+bool you_move(Coord delta);
 Individual * find_individual_at(Coord location);
 
 #endif

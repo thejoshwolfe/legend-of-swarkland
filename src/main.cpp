@@ -62,13 +62,15 @@ static void step_game() {
     while (you->is_alive) {
         if (you->movement_points >= you->species->movement_cost) {
             // you can move. do you choose to?
-            if (requested_move.x == 0 && requested_move.y == 0)
-                break; // stop time until the player moves
-            // choose to move
-            you->movement_points = 0;
-            you_move(requested_move);
+            if (you_move(requested_move)) {
+                // chose to move
+                you->movement_points = 0;
+                // resume time.
+            } else {
+                // stop time until the player moves
+                break;
+            }
             requested_move = Coord(0, 0);
-            // resume time.
         }
 
         advance_time();

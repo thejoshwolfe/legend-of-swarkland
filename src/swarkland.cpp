@@ -143,16 +143,21 @@ static void move_with_ai(Individual * individual) {
             break;
     }
 }
-void you_move(Coord delta) {
+bool you_move(Coord delta) {
     if (!you->is_alive)
-        return;
-    Coord new_position(clamp(you->location.x + delta.x, 0, map_size.x - 1), clamp(you->location.y + delta.y, 0, map_size.y - 1));
+        return false;
+    if (delta.x == 0 && delta.y == 0)
+        return false; // not moving
+    Coord new_position(you->location.x + delta.x, you->location.y + delta.y);
+    if (new_position.x < 0 || new_position.x >= map_size.x || new_position.y < 0 || new_position.y >= map_size.y)
+        return false;
     Individual * target = find_individual_at(new_position);
     if (target != NULL && target != you) {
         attack(you, target);
     } else {
         you->location = new_position;
     }
+    return true;
 }
 
 void advance_time() {
