@@ -19,7 +19,7 @@ $(OBJECTS): | build
 build:
 	mkdir -p $@
 
-build/resources.bundle:
+build/resources.bundle: assets
 	rucksack bundle assets.json $@ --deps $@.d
 all: build/resources.bundle
 
