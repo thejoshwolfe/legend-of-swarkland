@@ -2,19 +2,31 @@
 
 ## Status
 
-Not cool yet.
+Basic turn-based, hack-n-slash survival game.
 
-## Dependencies (Ubuntu)
+## How Do I Shot Game? (Ubuntu)
 
-ppa for rucksack:
+add ppa for rucksack:
 
 ```
 sudo apt-add-repository ppa:andrewrk/rucksack
 sudo apt-get update
 ```
 
-dependencies:
+install dependencies:
 
 ```
 sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev clang libfreeimage-dev
+```
+
+build:
+
+```
+make
+```
+
+run:
+
+```
+./build/legend-of-swarkland
 ```
