@@ -12,7 +12,7 @@ extern Individual * you;
 extern long long time_counter;
 
 void swarkland_init();
-void move_with_ai(Individual * individual);
+void advance_time();
 void you_move(Coord delta);
 
 #endif

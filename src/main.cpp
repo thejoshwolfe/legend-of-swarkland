@@ -71,29 +71,7 @@ static void step_game() {
             // resume time.
         }
 
-        time_counter++;
-
-        // award movement points to the living
-        for (int i = 0; i <individuals.size(); i++) {
-            Individual * individual = individuals.at(i);
-            if (!individual->is_alive)
-                continue;
-            individual->movement_points++;
-        }
-
-        // move monsters
-        for (int i = 0; i <individuals.size(); i++) {
-            Individual * individual = individuals.at(i);
-            if (!individual->is_alive)
-                continue;
-            if (individual->ai == AiStrategy_PLAYER)
-                continue;
-            if (individual->movement_points >= individual->species->movement_cost) {
-                // make a move
-                individual->movement_points = 0;
-                move_with_ai(individual);
-            }
-        }
+        advance_time();
     }
 }
 

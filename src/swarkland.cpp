@@ -16,6 +16,7 @@ void init_specieses() {
 static void init_individuals() {
     individuals.add(new Individual(SpeciesId_HUMAN, Coord(4, 4), AiStrategy_PLAYER));
     you = individuals.at(0);
+    // here's a few warm-up monsters
     individuals.add(new Individual(SpeciesId_OGRE, Coord(10, 10), AiStrategy_LEROY_JENKINS));
     individuals.add(new Individual(SpeciesId_OGRE, Coord(20, 15), AiStrategy_LEROY_JENKINS));
     individuals.add(new Individual(SpeciesId_DOG, Coord(5, 20), AiStrategy_LEROY_JENKINS));
@@ -28,6 +29,25 @@ void swarkland_init() {
 
     init_individuals();
 }
+
+static void spawn_monsters() {
+    if (time_counter % 120 == 0) {
+        individuals.add(new Individual(SpeciesId_DOG, Coord(0, 0), AiStrategy_LEROY_JENKINS));
+    }
+}
+static void heal_the_living() {
+    if (time_counter % 60 == 0) {
+        for (int i = 0; i <individuals.size(); i++) {
+            Individual * individual = individuals.at(i);
+            if (!individual->is_alive)
+                continue;
+            if (individual->hitpoints < individual->species->starting_hitpoints)
+                individual->hitpoints++;
+        }
+    }
+}
+
+
 static void attack(Individual * attacker, Individual * target) {
     target->hitpoints -= attacker->species->attack_power;
     if (target->hitpoints <= 0) {
@@ -63,7 +83,7 @@ static Individual * find_individual_at(Coord location) {
     return NULL;
 }
 
-void move_with_ai(Individual * individual) {
+static void move_with_ai(Individual * individual) {
     switch (individual->ai) {
         case AiStrategy_LEROY_JENKINS:
             move_leroy_jenkins(individual);
@@ -88,3 +108,31 @@ void you_move(Coord delta) {
     }
 }
 
+void advance_time() {
+    time_counter++;
+
+    spawn_monsters();
+    heal_the_living();
+
+    // award movement points to the living
+    for (int i = 0; i <individuals.size(); i++) {
+        Individual * individual = individuals.at(i);
+        if (!individual->is_alive)
+            continue;
+        individual->movement_points++;
+    }
+
+    // move monsters
+    for (int i = 0; i <individuals.size(); i++) {
+        Individual * individual = individuals.at(i);
+        if (!individual->is_alive)
+            continue;
+        if (individual->ai == AiStrategy_PLAYER)
+            continue;
+        if (individual->movement_points >= individual->species->movement_cost) {
+            // make a move
+            individual->movement_points = 0;
+            move_with_ai(individual);
+        }
+    }
+}
