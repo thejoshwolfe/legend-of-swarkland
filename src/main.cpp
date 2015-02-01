@@ -141,16 +141,32 @@ int main(int argc, char * argv[]) {
                         case SDL_SCANCODE_ESCAPE:
                             running = false;
                             break;
+                        case SDL_SCANCODE_KP_1:
+                            you_move(-1, 1);
+                            break;
+                        case SDL_SCANCODE_KP_3:
+                            you_move(1, 1);
+                            break;
+                        case SDL_SCANCODE_KP_7:
+                            you_move(-1, -1);
+                            break;
+                        case SDL_SCANCODE_KP_9:
+                            you_move(1, -1);
+                            break;
                         case SDL_SCANCODE_LEFT:
+                        case SDL_SCANCODE_KP_4:
                             you_move(-1, 0);
                             break;
                         case SDL_SCANCODE_UP:
+                        case SDL_SCANCODE_KP_8:
                             you_move(0, -1);
                             break;
                         case SDL_SCANCODE_RIGHT:
+                        case SDL_SCANCODE_KP_6:
                             you_move(1, 0);
                             break;
                         case SDL_SCANCODE_DOWN:
+                        case SDL_SCANCODE_KP_2:
                             you_move(0, 1);
                             break;
                         default:
