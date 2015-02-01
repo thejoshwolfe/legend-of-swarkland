@@ -1,5 +1,7 @@
 #include "swarkland.hpp"
 
+#include "path_finding.hpp"
+
 #include <stdlib.h>
 
 Species * specieses[SpeciesId_COUNT];
@@ -25,12 +27,18 @@ static void init_individuals() {
     individuals.add(new Individual(SpeciesId_OGRE, Coord(20, 15)));
     individuals.add(new Individual(SpeciesId_DOG, Coord(5, 20)));
     individuals.add(new Individual(SpeciesId_GELATINOUS_CUBE, Coord(0, 0)));
-    individuals.add(new Individual(SpeciesId_DUST_VORTEX, Coord(55, 29)));
+    individuals.add(new Individual(SpeciesId_DUST_VORTEX, Coord(54, 29)));
 }
 
 void swarkland_init() {
     init_specieses();
     init_individuals();
+}
+void swarkland_finish() {
+    for (int i = 0; i < individuals.size(); i++)
+        delete individuals.at(i);
+    for (int i = 0; i < SpeciesId_COUNT; i++)
+        delete specieses[i];
 }
 
 static void spawn_monsters() {
@@ -67,13 +75,17 @@ static void attack(Individual * attacker, Individual * target) {
 }
 
 static void move_toward_point(Individual * individual, Coord point) {
-    int dx = sign(point.x - individual->location.x);
-    int dy = sign(point.y - individual->location.y);
-    Coord new_position = { clamp(individual->location.x + dx, 0, map_size.x - 1), clamp(individual->location.y + dy, 0, map_size.y - 1), };
-    if (new_position.x == you->location.x && new_position.y == you->location.y) {
-        attack(individual, you);
+    List<Coord> path;
+    if (find_path(individual->location, point, path)) {
+        Coord new_position = path.at(0);
+        if (new_position.x == you->location.x && new_position.y == you->location.y) {
+            attack(individual, you);
+        } else {
+            individual->location = new_position;
+        }
     } else {
-        individual->location = new_position;
+        // no clera path.
+        // TODO: do our best anyway
     }
 }
 
@@ -107,7 +119,7 @@ static void move_bumble_around(Individual * individual) {
     }
 }
 
-static Individual * find_individual_at(Coord location) {
+Individual * find_individual_at(Coord location) {
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
         if (!individual->is_alive)

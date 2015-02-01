@@ -32,7 +32,7 @@ String::String(CharBuffer * char_buffer, int start, int end) {
 String::~String() {
     _char_buffer->reference_count--;
     if (_char_buffer->reference_count == 0) {
-        delete _char_buffer->chars;
+        delete[] _char_buffer->chars;
         delete _char_buffer;
     }
 }
