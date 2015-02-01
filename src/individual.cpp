@@ -7,4 +7,5 @@ Individual::Individual(SpeciesId species_id, Coord location, AiStrategy ai) :
     species = specieses[species_id];
     hitpoints = species->starting_hitpoints;
     is_alive = true;
+    movement_points = 0;
 }

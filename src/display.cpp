@@ -66,6 +66,9 @@ void display_init() {
     rucksack_texture_get_images(rs_texture, spritesheet_images);
     images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/human.png");
     images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/ogre.png");
+    images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/dog.png");
+    images[SpeciesId_GELATINOUS_CUBE] = find_image(spritesheet_images, image_count, "img/gelatinous_cube.png");
+    images[SpeciesId_DUST_VORTEX] = find_image(spritesheet_images, image_count, "img/dust_vortex.png");
 
     TTF_Init();
 

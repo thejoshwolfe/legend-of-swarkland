@@ -9,8 +9,10 @@ static const Coord map_size = { 55, 30 };
 extern Species * specieses[SpeciesId_COUNT];
 extern List<Individual *> individuals;
 extern Individual * you;
+extern long long time_counter;
 
 void swarkland_init();
-void you_move(int dx, int dy);
+void move_with_ai(Individual * individual);
+void you_move(Coord delta);
 
 #endif

@@ -13,6 +13,7 @@ static bool request_shutdown = false;
 
 static void step_game() {
     SDL_Event event;
+    Coord requested_move(0, 0);
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_KEYDOWN:
@@ -21,32 +22,32 @@ static void step_game() {
                         request_shutdown = true;
                         break;
                     case SDL_SCANCODE_KP_1:
-                        you_move(-1, 1);
+                        requested_move = Coord(-1, 1);
                         break;
                     case SDL_SCANCODE_KP_3:
-                        you_move(1, 1);
+                        requested_move = Coord(1, 1);
                         break;
                     case SDL_SCANCODE_KP_7:
-                        you_move(-1, -1);
+                        requested_move = Coord(-1, -1);
                         break;
                     case SDL_SCANCODE_KP_9:
-                        you_move(1, -1);
+                        requested_move = Coord(1, -1);
                         break;
                     case SDL_SCANCODE_LEFT:
                     case SDL_SCANCODE_KP_4:
-                        you_move(-1, 0);
+                        requested_move = Coord(-1, 0);
                         break;
                     case SDL_SCANCODE_UP:
                     case SDL_SCANCODE_KP_8:
-                        you_move(0, -1);
+                        requested_move = Coord(0, -1);
                         break;
                     case SDL_SCANCODE_RIGHT:
                     case SDL_SCANCODE_KP_6:
-                        you_move(1, 0);
+                        requested_move = Coord(1, 0);
                         break;
                     case SDL_SCANCODE_DOWN:
                     case SDL_SCANCODE_KP_2:
-                        you_move(0, 1);
+                        requested_move = Coord(0, 1);
                         break;
                     default:
                         break;
@@ -55,6 +56,43 @@ static void step_game() {
             case SDL_QUIT:
                 request_shutdown = true;
                 break;
+        }
+    }
+
+    while (you->is_alive) {
+        if (you->movement_points >= you->species->movement_cost) {
+            // you can move. do you choose to?
+            if (requested_move.x == 0 && requested_move.y == 0)
+                break; // stop time until the player moves
+            // choose to move
+            you->movement_points = 0;
+            you_move(requested_move);
+            requested_move = Coord(0, 0);
+            // resume time.
+        }
+
+        time_counter++;
+
+        // award movement points to the living
+        for (int i = 0; i <individuals.size(); i++) {
+            Individual * individual = individuals.at(i);
+            if (!individual->is_alive)
+                continue;
+            individual->movement_points++;
+        }
+
+        // move monsters
+        for (int i = 0; i <individuals.size(); i++) {
+            Individual * individual = individuals.at(i);
+            if (!individual->is_alive)
+                continue;
+            if (individual->ai == AiStrategy_PLAYER)
+                continue;
+            if (individual->movement_points >= individual->species->movement_cost) {
+                // make a move
+                individual->movement_points = 0;
+                move_with_ai(individual);
+            }
         }
     }
 }

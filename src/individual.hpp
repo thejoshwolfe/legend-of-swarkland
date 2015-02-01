@@ -8,6 +8,9 @@
 enum SpeciesId {
     SpeciesId_HUMAN, //
     SpeciesId_OGRE, //
+    SpeciesId_DOG, //
+    SpeciesId_GELATINOUS_CUBE, //
+    SpeciesId_DUST_VORTEX, //
 
     SpeciesId_COUNT, //
 };
@@ -17,6 +20,8 @@ enum AiStrategy {
     AiStrategy_PLAYER,
     // always move toward the player and attack without hesitation
     AiStrategy_LEROY_JENKINS,
+    // blind, so move randomly unless the player is near, then move in for the kill
+    AiStrategy_BUMBLE_AROUND,
 };
 
 struct Species {
@@ -37,6 +42,8 @@ struct Individual {
     int hitpoints;
     Coord location;
     AiStrategy ai;
+    // once this reaches movement_cost, make a move
+    int movement_points;
     Individual(SpeciesId species_id, Coord location, AiStrategy ai);
     Individual(Individual &) = delete;
 };
