@@ -88,10 +88,22 @@ static void move_bumble_around(Individual * individual) {
     if (distance < 10) {
         // there he is!
         move_leroy_jenkins(individual);
+        // if we lose him. reroll our new destination.
+        individual->bumble_destination = Coord(-1, -1);
     } else {
         // idk where 2 go
-        Coord destination(random_int(map_size.x), random_int(map_size.y));
-        move_toward_point(individual, destination);
+        if (individual->bumble_destination == Coord(-1, -1))
+            individual->bumble_destination = individual->location;
+        while (individual->bumble_destination == individual->location) {
+            // choose a random place to go.
+            // don't look too far, or else the monsters end up sweeping back and forth in straight lines. it looks dumb.
+            int min_x = clamp(individual->location.x - 5, 0, map_size.x - 1);
+            int max_x = clamp(individual->location.x + 5, 0, map_size.x - 1);
+            int min_y = clamp(individual->location.y - 5, 0, map_size.y - 1);
+            int max_y = clamp(individual->location.y + 5, 0, map_size.y - 1);
+            individual->bumble_destination = Coord(random_int(min_x, max_x + 1), random_int(min_y, max_y + 1));
+        }
+        move_toward_point(individual, individual->bumble_destination);
     }
 }
 
@@ -123,9 +135,9 @@ void you_move(Coord delta) {
     if (!you->is_alive)
         return;
     Coord new_position(clamp(you->location.x + delta.x, 0, map_size.x - 1), clamp(you->location.y + delta.y, 0, map_size.y - 1));
-    Individual * badguy = find_individual_at(new_position);
-    if (badguy != NULL) {
-        attack(you, badguy);
+    Individual * target = find_individual_at(new_position);
+    if (target != NULL && target != you) {
+        attack(you, target);
     } else {
         you->location = new_position;
     }

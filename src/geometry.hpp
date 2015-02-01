@@ -9,4 +9,8 @@ struct Coord {
     }
 };
 
+static inline bool operator==(const Coord & a, const Coord & b) {
+    return a.x == b.x && a.y == b.y;
+}
+
 #endif

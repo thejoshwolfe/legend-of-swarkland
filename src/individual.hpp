@@ -43,9 +43,10 @@ struct Individual {
     int hitpoints;
     int kill_counter;
     Coord location;
-    AiStrategy ai;
     // once this reaches movement_cost, make a move
     int movement_points;
+    AiStrategy ai;
+    Coord bumble_destination;
     Individual(SpeciesId species_id, Coord location);
     Individual(Individual &) = delete;
 };

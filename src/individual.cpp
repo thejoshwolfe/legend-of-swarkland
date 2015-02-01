@@ -3,7 +3,7 @@
 #include "swarkland.hpp"
 
 Individual::Individual(SpeciesId species_id, Coord location) :
-        location(location) {
+        location(location), bumble_destination(-1, -1) {
     species = specieses[species_id];
     hitpoints = species->starting_hitpoints;
     is_alive = true;
