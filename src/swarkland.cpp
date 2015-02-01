@@ -1,5 +1,7 @@
 #include "swarkland.hpp"
 
+#include <stdlib.h>
+
 Species * specieses[SpeciesId_COUNT];
 List<Individual *> individuals;
 Individual * you;
@@ -64,9 +66,9 @@ static void attack(Individual * attacker, Individual * target) {
     }
 }
 
-static void move_leroy_jenkins(Individual * individual) {
-    int dx = sign(you->location.x - individual->location.x);
-    int dy = sign(you->location.y - individual->location.y);
+static void move_toward_point(Individual * individual, Coord point) {
+    int dx = sign(point.x - individual->location.x);
+    int dy = sign(point.y - individual->location.y);
     Coord new_position = { clamp(individual->location.x + dx, 0, map_size.x - 1), clamp(individual->location.y + dy, 0, map_size.y - 1), };
     if (new_position.x == you->location.x && new_position.y == you->location.y) {
         attack(individual, you);
@@ -75,9 +77,22 @@ static void move_leroy_jenkins(Individual * individual) {
     }
 }
 
+static void move_leroy_jenkins(Individual * individual) {
+    move_toward_point(individual, you->location);
+}
+
 static void move_bumble_around(Individual * individual) {
-    // TODO
-    move_leroy_jenkins(individual);
+    int dx = you->location.x - individual->location.x;
+    int dy = you->location.y - individual->location.y;
+    int distance = abs(dx) + abs(dy);
+    if (distance < 10) {
+        // there he is!
+        move_leroy_jenkins(individual);
+    } else {
+        // idk where 2 go
+        Coord destination(random_int(map_size.x), random_int(map_size.y));
+        move_toward_point(individual, destination);
+    }
 }
 
 static Individual * find_individual_at(Coord location) {
