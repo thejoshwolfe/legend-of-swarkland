@@ -21,8 +21,7 @@ static struct RuckSackBundle * bundle;
 static struct RuckSackTexture * rs_texture;
 static struct RuckSackImage ** spritesheet_images;
 
-static struct RuckSackImage * guy_image;
-static struct RuckSackImage * bad_image;
+static struct RuckSackImage * images[SpeciesId_COUNT];
 
 static TTF_Font * status_box_font;
 
@@ -65,8 +64,8 @@ void display_init() {
     long image_count = rucksack_texture_image_count(rs_texture);
     spritesheet_images = new struct RuckSackImage*[image_count];
     rucksack_texture_get_images(rs_texture, spritesheet_images);
-    guy_image = find_image(spritesheet_images, image_count, "img/guy.png");
-    bad_image = find_image(spritesheet_images, image_count, "img/bad.png");
+    images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/human.png");
+    images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/ogre.png");
 
     TTF_Init();
 
@@ -136,7 +135,7 @@ void render() {
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
         if (individual->is_alive)
-            render_tile(renderer, sprite_sheet_texture, individual->is_ai ? bad_image : guy_image, individual->location);
+            render_tile(renderer, sprite_sheet_texture, images[individual->species->species_id], individual->location);
     }
 
     // status box

@@ -6,6 +6,7 @@
 #include "individual.hpp"
 
 static const Coord map_size = { 55, 30 };
+extern Species * specieses[SpeciesId_COUNT];
 extern List<Individual *> individuals;
 extern Individual * you;
 
