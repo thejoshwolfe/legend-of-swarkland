@@ -1,12 +1,12 @@
-#include "load_image.h"
+#include "load_image.hpp"
 
-#include "util.h"
+#include "util.hpp"
 
 #include <FreeImage.h>
 
 SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture) {
     long size = rucksack_texture_size(rs_texture);
-    unsigned char * image_buffer = panic_malloc(size, sizeof(char));
+    unsigned char * image_buffer = (unsigned char *)panic_malloc(size, sizeof(char));
     if (rucksack_texture_read(rs_texture, image_buffer) != RuckSackErrorNone) {
         panic("read texture failed");
     }

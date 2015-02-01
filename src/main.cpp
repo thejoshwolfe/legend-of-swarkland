@@ -1,7 +1,7 @@
-#include "individual.h"
-#include "load_image.h"
-#include "util.h"
-#include "geometry.h"
+#include "individual.hpp"
+#include "load_image.hpp"
+#include "util.hpp"
+#include "geometry.hpp"
 
 #include <stdbool.h>
 
@@ -126,7 +126,7 @@ int main(int argc, char * argv[]) {
     SDL_Texture * texture = load_texture(renderer, rs_texture);
 
     long image_count = rucksack_texture_image_count(rs_texture);
-    struct RuckSackImage ** spritesheet_images = panic_malloc(image_count, sizeof(struct RuckSackImage*));
+    struct RuckSackImage ** spritesheet_images = (struct RuckSackImage **)panic_malloc(image_count, sizeof(struct RuckSackImage*));
     rucksack_texture_get_images(rs_texture, spritesheet_images);
     struct RuckSackImage * guy_image = find_image(spritesheet_images, image_count, "img/guy.png");
     struct RuckSackImage * bad_image = find_image(spritesheet_images, image_count, "img/bad.png");

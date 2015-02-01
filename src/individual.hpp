@@ -1,7 +1,7 @@
 #ifndef INDIVIDUAL_H
 #define INDIVIDUAL_H
 
-#include "geometry.h"
+#include "geometry.hpp"
 
 #include <stdbool.h>
 

@@ -5,15 +5,15 @@ all:
 
 OBJECTS = build/main.o build/load_image.o build/util.o build/individual.o
 
-C_FLAGS += -Ibuild -Isrc -g -Wall -Werror
-COMPILE_C = clang -c -o $@ -MMD -MP -MF $@.d $(C_FLAGS) $<
+CPP_FLAGS += -Ibuild -Isrc -g -Wall -Werror
+COMPILE_CPP = clang -c -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/legend-of-swarkland: $(OBJECTS)
 	clang -o $@ -lSDL2 -lrucksack -lfreeimage $(OBJECTS)
 all: build/legend-of-swarkland
 
-build/%.o: src/%.c
-	$(COMPILE_C)
+build/%.o: src/%.cpp
+	$(COMPILE_CPP)
 
 $(OBJECTS): | build
 build:
