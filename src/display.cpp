@@ -3,6 +3,7 @@
 #include "util.hpp"
 #include "swarkland.hpp"
 #include "load_image.hpp"
+#include "string.hpp"
 
 #include <rucksack.h>
 #include <SDL2/SDL.h>
@@ -70,7 +71,7 @@ void display_init() {
     TTF_Init();
 
     // TODO: absolute paths? really?
-    status_box_font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24);
+    status_box_font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16);
 }
 
 void display_finish() {
@@ -106,10 +107,14 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
-static void render_text(const char * text, int x, int y) {
+static void render_text(String text, int x, int y) {
     // this seems like an awful lot of setup and tear down for every little string
     SDL_Color color = { 0xff, 0xff, 0xff };
-    SDL_Surface * surface = TTF_RenderText_Solid(status_box_font, text, color);
+    char * str = new char[text.size() + 1];
+    text.copy(str, 0, text.size());
+    str[text.size()] = '\0';
+
+    SDL_Surface * surface = TTF_RenderText_Solid(status_box_font, str, color);
     SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
 
     SDL_Rect dest_rect;
@@ -121,6 +126,7 @@ static void render_text(const char * text, int x, int y) {
 
     SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
+    delete[] str;
 }
 
 void render() {
@@ -134,7 +140,7 @@ void render() {
     }
 
     // status box
-    render_text("HP: 10", status_box_area.x, status_box_area.y);
+    render_text(String("HP: ") + toString(you->hitpoints), status_box_area.x, status_box_area.y);
 
     SDL_RenderPresent(renderer);
 }
