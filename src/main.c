@@ -1,3 +1,4 @@
+#include "individual.h"
 #include "load_image.h"
 #include "util.h"
 #include "geometry.h"
@@ -33,41 +34,55 @@ static struct RuckSackImage * find_image(struct RuckSackImage ** spritesheet_ima
     panic("sprite not found");
 }
 
-static void attack(int damage, int * hitpoints, bool * alive) {
-    *hitpoints -= damage;
-    if (*hitpoints <= 0) {
-        *hitpoints = 0;
-        *alive = false;
+static void attack(Individual * attacker, Individual * target) {
+    target->hitpoints -= attacker->damage;
+    if (target->hitpoints <= 0) {
+        target->hitpoints = 0;
+        target->is_alive = false;
     }
 }
 
-static Coord you_position = { 4, 4 };
-static Coord badguy_position = { 10, 10 };
-static int you_attack = 3;
-static int you_hitpoints = 10;
-static bool you_alive = true;
-static int badguy_attack = 2;
-static int badguy_hitpoints = 10;
-static bool badguy_alive = true;
-static void move_the_bad(void) {
-    int dx = sign(you_position.x - badguy_position.x);
-    int dy = sign(you_position.y - badguy_position.y);
-    Coord new_position = { clamp(badguy_position.x + dx, 0, map_size.x - 1), clamp(badguy_position.y + dy, 0, map_size.y - 1) };
-    if (new_position.x == you_position.x && new_position.y == you_position.y) {
-        attack(badguy_attack, &you_hitpoints, &you_alive);
+static Individual individuals[] = {
+        { 10, 3, { 4, 4 }, true, false },
+        { 10, 2, { 10, 10 }, true, true },
+        { 10, 2, { 20, 15 }, true, true },
+};
+static Individual * you = &individuals[0];
+
+static void move_with_ai(Individual * individual) {
+    int dx = sign(you->location.x - individual->location.x);
+    int dy = sign(you->location.y - individual->location.y);
+    Coord new_position = { clamp(individual->location.x + dx, 0, map_size.x - 1), clamp(individual->location.y + dy, 0, map_size.y - 1) };
+    if (new_position.x == you->location.x && new_position.y == you->location.y) {
+        attack(individual, you);
     } else {
-        badguy_position = new_position;
+        individual->location = new_position;
     }
+}
+static Individual * find_not_you_at(Coord location) {
+    for (int i = 0; i < sizeof(individuals) / sizeof(individuals[0]); i++) {
+        Individual * badguy = &individuals[i];
+        if (badguy == you)
+            continue;
+        if (badguy->location.x == location.x && badguy->location.y == location.y)
+            return badguy;
+    }
+    return NULL;
 }
 static void you_move(int dx, int dy) {
-    Coord new_position = { clamp(you_position.x + dx, 0, map_size.x - 1), clamp(you_position.y + dy, 0, map_size.y - 1) };
-    if (new_position.x == badguy_position.x && new_position.y == badguy_position.y) {
-        attack(you_attack, &badguy_hitpoints, &badguy_alive);
+    Coord new_position = { clamp(you->location.x + dx, 0, map_size.x - 1), clamp(you->location.y + dy, 0, map_size.y - 1) };
+    Individual * badguy = find_not_you_at(new_position);
+    if (badguy != NULL) {
+        attack(you, badguy);
     } else {
-        you_position = new_position;
+        you->location = new_position;
     }
-
-    move_the_bad();
+    for (int i = 0; i < sizeof(individuals) / sizeof(individuals[0]); i++) {
+        Individual * badguy = &individuals[i];
+        if (badguy == you)
+            continue;
+        move_with_ai(badguy);
+    }
 }
 
 int main(int argc, char * argv[]) {
@@ -141,10 +156,11 @@ int main(int argc, char * argv[]) {
 
         SDL_RenderClear(renderer);
 
-        if (you_alive)
-            render_tile(renderer, texture, guy_image, you_position);
-        if (badguy_alive)
-            render_tile(renderer, texture, bad_image, badguy_position);
+        for (int i = 0; i < sizeof(individuals) / sizeof(individuals[0]); i++) {
+            Individual * individual = &individuals[i];
+            if (individual->is_alive)
+                render_tile(renderer, texture, individual->is_ai ? bad_image : guy_image, individual->location);
+        }
 
         SDL_RenderPresent(renderer);
         SDL_Delay(17); // 60Hz or whatever
