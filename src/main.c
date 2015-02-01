@@ -6,16 +6,30 @@
 #include <rucksack.h>
 #include <SDL2/SDL.h>
 
+static const int tile_size = 64;
+
+static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct RuckSackImage * guy_image, int x, int y) {
+    SDL_Rect source_rect;
+    source_rect.x = guy_image->x;
+    source_rect.y = guy_image->y;
+    source_rect.w = guy_image->width;
+    source_rect.h = guy_image->height;
+
+    SDL_Rect dest_rect;
+    dest_rect.x = x * tile_size;
+    dest_rect.y = y * tile_size;
+    dest_rect.w = tile_size;
+    dest_rect.h = tile_size;
+
+    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
+}
+
 int main(int argc, char * argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         panic("unable to init SDL");
     }
     rucksack_init();
 
-    struct RuckSackBundle * bundle;
-    if (rucksack_bundle_open("build/resources.bundle", &bundle) != RuckSackErrorNone) {
-        panic("error opening resource bundle");
-    }
     SDL_Window * window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
     if (!window) {
         panic("window create failed");
@@ -25,6 +39,10 @@ int main(int argc, char * argv[]) {
         panic("renderer create failed");
     }
 
+    struct RuckSackBundle * bundle;
+    if (rucksack_bundle_open("build/resources.bundle", &bundle) != RuckSackErrorNone) {
+        panic("error opening resource bundle");
+    }
     struct RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
     if (!entry) {
         panic("spritesheet not found in bundle");
@@ -43,8 +61,10 @@ int main(int argc, char * argv[]) {
     if (image_count != 1) {
         panic("code only handles 1 image at the moment");
     }
-    struct RuckSackImage *guy_image = spritesheet_images[0];
+    struct RuckSackImage * guy_image = spritesheet_images[0];
 
+    int you_x = 4;
+    int you_y = 4;
     bool running = true;
     while (running) {
         SDL_Event event;
@@ -54,6 +74,18 @@ int main(int argc, char * argv[]) {
                     switch (event.key.keysym.scancode) {
                         case SDL_SCANCODE_ESCAPE:
                             running = false;
+                            break;
+                        case SDL_SCANCODE_LEFT:
+                            you_x -= 1;
+                            break;
+                        case SDL_SCANCODE_UP:
+                            you_y -= 1;
+                            break;
+                        case SDL_SCANCODE_RIGHT:
+                            you_x += 1;
+                            break;
+                        case SDL_SCANCODE_DOWN:
+                            you_y += 1;
                             break;
                         default:
                             break;
@@ -67,17 +99,7 @@ int main(int argc, char * argv[]) {
 
         SDL_RenderClear(renderer);
 
-        SDL_Rect source_rect;
-        source_rect.x = guy_image->x;
-        source_rect.y = guy_image->y;
-        source_rect.w = guy_image->width;
-        source_rect.h = guy_image->height;
-        SDL_Rect dest_rect;
-        dest_rect.x = 100; // arbitrary value
-        dest_rect.y = 100; // arbitrary value
-        dest_rect.w = guy_image->width;
-        dest_rect.h = guy_image->height;
-        SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
+        render_tile(renderer, texture, guy_image, you_x, you_y);
 
         SDL_RenderPresent(renderer);
         SDL_Delay(17); // 60Hz or whatever

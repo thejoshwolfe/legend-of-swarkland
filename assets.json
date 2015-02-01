@@ -9,6 +9,7 @@
           path: "assets/",
           glob: "*",
           prefix: "img/",
+          anchor: "topleft",
         },
       ],
     }
