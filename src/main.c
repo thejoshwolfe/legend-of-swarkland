@@ -50,19 +50,24 @@ static Individual individuals[] = {
 static Individual * you = &individuals[0];
 
 static void move_with_ai(Individual * individual) {
+    if (!individual->is_alive)
+        return;
     int dx = sign(you->location.x - individual->location.x);
     int dy = sign(you->location.y - individual->location.y);
-    Coord new_position = { clamp(individual->location.x + dx, 0, map_size.x - 1), clamp(individual->location.y + dy, 0, map_size.y - 1) };
+    Coord new_position = {
+            clamp(individual->location.x + dx, 0, map_size.x - 1),
+            clamp(individual->location.y + dy, 0, map_size.y - 1),
+    };
     if (new_position.x == you->location.x && new_position.y == you->location.y) {
         attack(individual, you);
     } else {
         individual->location = new_position;
     }
 }
-static Individual * find_not_you_at(Coord location) {
+static Individual * find_individual_at(Coord location) {
     for (int i = 0; i < sizeof(individuals) / sizeof(individuals[0]); i++) {
         Individual * badguy = &individuals[i];
-        if (badguy == you)
+        if (!badguy->is_alive)
             continue;
         if (badguy->location.x == location.x && badguy->location.y == location.y)
             return badguy;
@@ -70,8 +75,13 @@ static Individual * find_not_you_at(Coord location) {
     return NULL;
 }
 static void you_move(int dx, int dy) {
-    Coord new_position = { clamp(you->location.x + dx, 0, map_size.x - 1), clamp(you->location.y + dy, 0, map_size.y - 1) };
-    Individual * badguy = find_not_you_at(new_position);
+    if (!you->is_alive)
+        return;
+    Coord new_position = {
+            clamp(you->location.x + dx, 0, map_size.x - 1),
+            clamp(you->location.y + dy, 0, map_size.y - 1),
+    };
+    Individual * badguy = find_individual_at(new_position);
     if (badguy != NULL) {
         attack(you, badguy);
     } else {
@@ -79,9 +89,8 @@ static void you_move(int dx, int dy) {
     }
     for (int i = 0; i < sizeof(individuals) / sizeof(individuals[0]); i++) {
         Individual * badguy = &individuals[i];
-        if (badguy == you)
-            continue;
-        move_with_ai(badguy);
+        if (badguy->is_ai)
+            move_with_ai(badguy);
     }
 }
 
