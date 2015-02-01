@@ -6,7 +6,7 @@
 
 SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture) {
     long size = rucksack_texture_size(rs_texture);
-    unsigned char * image_buffer = (unsigned char *)panic_malloc(size, sizeof(char));
+    unsigned char * image_buffer = new unsigned char[size];
     if (rucksack_texture_read(rs_texture, image_buffer) != RuckSackErrorNone) {
         panic("read texture failed");
     }
@@ -33,7 +33,7 @@ SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_
 
     FreeImage_Unload(bmp);
     FreeImage_CloseMemory(fi_mem);
-    free(image_buffer);
+    delete[] image_buffer;
 
     return texture;
 }

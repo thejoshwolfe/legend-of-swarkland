@@ -6,10 +6,10 @@ all:
 OBJECTS = build/main.o build/load_image.o build/util.o build/individual.o
 
 CPP_FLAGS += -Ibuild -Isrc -g -Wall -Werror
-COMPILE_CPP = clang -c -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
+COMPILE_CPP = clang -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/legend-of-swarkland: $(OBJECTS)
-	clang -o $@ -lSDL2 -lrucksack -lfreeimage $(OBJECTS)
+	clang -o $@ -lstdc++ -lSDL2 -lrucksack -lfreeimage $(OBJECTS)
 all: build/legend-of-swarkland
 
 build/%.o: src/%.cpp

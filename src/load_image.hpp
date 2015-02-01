@@ -1,5 +1,5 @@
-#ifndef LOAD_IMAGE_H
-#define LOAD_IMAGE_H
+#ifndef LOAD_IMAGE_HPP
+#define LOAD_IMAGE_HPP
 
 #include <rucksack.h>
 #include <SDL2/SDL.h>

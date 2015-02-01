@@ -1,9 +1,12 @@
-#ifndef GEOMETRY_H
-#define GEOMETRY_H
+#ifndef GEOMETRY_HPP
+#define GEOMETRY_HPP
 
-typedef struct {
+struct Coord {
     int x;
     int y;
-} Coord;
+    Coord(int x, int y) :
+            x(x), y(y) {
+    }
+};
 
 #endif

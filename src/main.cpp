@@ -1,3 +1,4 @@
+#include "list.hpp"
 #include "individual.hpp"
 #include "load_image.hpp"
 #include "util.hpp"
@@ -42,12 +43,8 @@ static void attack(Individual * attacker, Individual * target) {
     }
 }
 
-static Individual individuals[] = {
-        { 10, 3, { 4, 4 }, true, false },
-        { 10, 2, { 10, 10 }, true, true },
-        { 10, 2, { 20, 15 }, true, true },
-};
-static Individual * you = &individuals[0];
+static List<Individual *> individuals;
+static Individual * you;
 
 static void move_with_ai(Individual * individual) {
     if (!individual->is_alive)
@@ -65,8 +62,8 @@ static void move_with_ai(Individual * individual) {
     }
 }
 static Individual * find_individual_at(Coord location) {
-    for (int i = 0; i < sizeof(individuals) / sizeof(individuals[0]); i++) {
-        Individual * badguy = &individuals[i];
+    for (int i = 0; i < individuals.size(); i++) {
+        Individual * badguy = individuals.at(i);
         if (!badguy->is_alive)
             continue;
         if (badguy->location.x == location.x && badguy->location.y == location.y)
@@ -87,8 +84,8 @@ static void you_move(int dx, int dy) {
     } else {
         you->location = new_position;
     }
-    for (int i = 0; i < sizeof(individuals) / sizeof(individuals[0]); i++) {
-        Individual * badguy = &individuals[i];
+    for (int i = 0; i < individuals.size(); i++) {
+        Individual * badguy = individuals.at(i);
         if (badguy->is_ai)
             move_with_ai(badguy);
     }
@@ -126,10 +123,16 @@ int main(int argc, char * argv[]) {
     SDL_Texture * texture = load_texture(renderer, rs_texture);
 
     long image_count = rucksack_texture_image_count(rs_texture);
-    struct RuckSackImage ** spritesheet_images = (struct RuckSackImage **)panic_malloc(image_count, sizeof(struct RuckSackImage*));
+    struct RuckSackImage ** spritesheet_images = new struct RuckSackImage*[image_count];
     rucksack_texture_get_images(rs_texture, spritesheet_images);
     struct RuckSackImage * guy_image = find_image(spritesheet_images, image_count, "img/guy.png");
     struct RuckSackImage * bad_image = find_image(spritesheet_images, image_count, "img/bad.png");
+
+    individuals.add(new Individual(10, 3, Coord(4, 4), true, false));
+    individuals.add(new Individual(10, 2, Coord(10, 10 ), true, true));
+    individuals.add(new Individual(10, 2, Coord(20, 15 ), true, true));
+    you = individuals.at(0);
+
 
     bool running = true;
     while (running) {
@@ -181,8 +184,8 @@ int main(int argc, char * argv[]) {
 
         SDL_RenderClear(renderer);
 
-        for (int i = 0; i < sizeof(individuals) / sizeof(individuals[0]); i++) {
-            Individual * individual = &individuals[i];
+        for (int i = 0; i < individuals.size(); i++) {
+            Individual * individual = individuals.at(i);
             if (individual->is_alive)
                 render_tile(renderer, texture, individual->is_ai ? bad_image : guy_image, individual->location);
         }
@@ -191,7 +194,7 @@ int main(int argc, char * argv[]) {
         SDL_Delay(17); // 60Hz or whatever
     }
 
-    free(spritesheet_images);
+    delete[] spritesheet_images;
     rucksack_texture_destroy(rs_texture);
 
     SDL_DestroyTexture(texture);
