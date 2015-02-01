@@ -6,47 +6,54 @@ Individual * you;
 long long time_counter = 0;
 
 void init_specieses() {
-    specieses[SpeciesId_HUMAN] = new Species(SpeciesId_HUMAN, 12, 10, 3);
-    specieses[SpeciesId_OGRE] = new Species(SpeciesId_OGRE, 24, 10, 2);
-    specieses[SpeciesId_DOG] = new Species(SpeciesId_DOG, 12, 4, 2);
-    specieses[SpeciesId_GELATINOUS_CUBE] = new Species(SpeciesId_GELATINOUS_CUBE, 48, 12, 4);
-    specieses[SpeciesId_DUST_VORTEX] = new Species(SpeciesId_DUST_VORTEX, 6, 8, 1);
+    specieses[SpeciesId_HUMAN] = new Species(SpeciesId_HUMAN, 12, 10, 3, AiStrategy_LEROY_JENKINS);
+    specieses[SpeciesId_OGRE] = new Species(SpeciesId_OGRE, 24, 10, 2, AiStrategy_LEROY_JENKINS);
+    specieses[SpeciesId_DOG] = new Species(SpeciesId_DOG, 12, 4, 2, AiStrategy_LEROY_JENKINS);
+    specieses[SpeciesId_GELATINOUS_CUBE] = new Species(SpeciesId_GELATINOUS_CUBE, 48, 12, 4, AiStrategy_BUMBLE_AROUND);
+    specieses[SpeciesId_DUST_VORTEX] = new Species(SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_BUMBLE_AROUND);
 }
 
 static void init_individuals() {
-    individuals.add(new Individual(SpeciesId_HUMAN, Coord(4, 4), AiStrategy_PLAYER));
+    individuals.add(new Individual(SpeciesId_HUMAN, Coord(4, 4)));
     you = individuals.at(0);
+    you->ai = AiStrategy_PLAYER;
+
     // here's a few warm-up monsters
-    individuals.add(new Individual(SpeciesId_OGRE, Coord(10, 10), AiStrategy_LEROY_JENKINS));
-    individuals.add(new Individual(SpeciesId_OGRE, Coord(20, 15), AiStrategy_LEROY_JENKINS));
-    individuals.add(new Individual(SpeciesId_DOG, Coord(5, 20), AiStrategy_LEROY_JENKINS));
-    individuals.add(new Individual(SpeciesId_GELATINOUS_CUBE, Coord(0, 0), AiStrategy_BUMBLE_AROUND));
-    individuals.add(new Individual(SpeciesId_DUST_VORTEX, Coord(55, 29), AiStrategy_BUMBLE_AROUND));
+    individuals.add(new Individual(SpeciesId_OGRE, Coord(10, 10)));
+    individuals.add(new Individual(SpeciesId_OGRE, Coord(20, 15)));
+    individuals.add(new Individual(SpeciesId_DOG, Coord(5, 20)));
+    individuals.add(new Individual(SpeciesId_GELATINOUS_CUBE, Coord(0, 0)));
+    individuals.add(new Individual(SpeciesId_DUST_VORTEX, Coord(55, 29)));
 }
 
 void swarkland_init() {
     init_specieses();
-
     init_individuals();
 }
 
 static void spawn_monsters() {
-    if (time_counter % 120 == 0) {
-        individuals.add(new Individual(SpeciesId_DOG, Coord(0, 0), AiStrategy_LEROY_JENKINS));
+    if (random_int(120) == 0) {
+        SpeciesId species_id = (SpeciesId)random_int(SpeciesId_COUNT);
+        if (species_id == SpeciesId_HUMAN) {
+            // human's are too hard. without giving one side a powerup, they're evenly matched.
+            return;
+        }
+        Coord location(random_int(map_size.x), random_int(map_size.y));
+        individuals.add(new Individual(species_id, location));
     }
 }
 static void heal_the_living() {
-    if (time_counter % 60 == 0) {
-        for (int i = 0; i <individuals.size(); i++) {
-            Individual * individual = individuals.at(i);
-            if (!individual->is_alive)
-                continue;
-            if (individual->hitpoints < individual->species->starting_hitpoints)
+    for (int i = 0; i < individuals.size(); i++) {
+        Individual * individual = individuals.at(i);
+        if (!individual->is_alive)
+            continue;
+        if (individual->hitpoints < individual->species->starting_hitpoints) {
+            if (random_int(60) == 0) {
                 individual->hitpoints++;
+            }
         }
     }
 }
-
 
 static void attack(Individual * attacker, Individual * target) {
     target->hitpoints -= attacker->species->attack_power;
@@ -115,7 +122,7 @@ void advance_time() {
     heal_the_living();
 
     // award movement points to the living
-    for (int i = 0; i <individuals.size(); i++) {
+    for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
         if (!individual->is_alive)
             continue;
@@ -123,7 +130,7 @@ void advance_time() {
     }
 
     // move monsters
-    for (int i = 0; i <individuals.size(); i++) {
+    for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
         if (!individual->is_alive)
             continue;

@@ -5,6 +5,12 @@
 
 void panic(const char * str) __attribute__ ((noreturn));
 
+void init_random();
+int random_int(int less_than_this);
+static inline int random_int(int at_least_this, int less_than_this) {
+    return random_int(less_than_this - at_least_this) + at_least_this;
+}
+
 static inline int clamp(int value, int min, int max) {
     if (value < min)
         return min;

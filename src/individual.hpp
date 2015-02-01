@@ -30,8 +30,9 @@ struct Species {
     int movement_cost;
     int starting_hitpoints;
     int attack_power;
-    Species(SpeciesId species_id, int movement_cost, int starting_hitpoints, int attack_power) :
-            species_id(species_id), movement_cost(movement_cost), starting_hitpoints(starting_hitpoints), attack_power(attack_power) {
+    AiStrategy default_ai;
+    Species(SpeciesId species_id, int movement_cost, int starting_hitpoints, int attack_power, AiStrategy default_ai) :
+            species_id(species_id), movement_cost(movement_cost), starting_hitpoints(starting_hitpoints), attack_power(attack_power), default_ai(default_ai) {
     }
     Species(Species &) = delete;
 };
@@ -44,7 +45,7 @@ struct Individual {
     AiStrategy ai;
     // once this reaches movement_cost, make a move
     int movement_points;
-    Individual(SpeciesId species_id, Coord location, AiStrategy ai);
+    Individual(SpeciesId species_id, Coord location);
     Individual(Individual &) = delete;
 };
 
