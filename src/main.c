@@ -6,7 +6,9 @@
 #include <rucksack.h>
 #include <SDL2/SDL.h>
 
-static const int tile_size = 64;
+static const int tile_size = 32;
+static const int map_size_x = 55;
+static const int map_size_y = 30;
 
 static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct RuckSackImage * guy_image, int x, int y) {
     SDL_Rect source_rect;
@@ -30,7 +32,7 @@ int main(int argc, char * argv[]) {
     }
     rucksack_init();
 
-    SDL_Window * window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
+    SDL_Window * window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, map_size_x * tile_size, map_size_y * tile_size, 0);
     if (!window) {
         panic("window create failed");
     }
@@ -76,16 +78,16 @@ int main(int argc, char * argv[]) {
                             running = false;
                             break;
                         case SDL_SCANCODE_LEFT:
-                            you_x -= 1;
+                            you_x = clamp(you_x - 1, 0, map_size_x - 1);
                             break;
                         case SDL_SCANCODE_UP:
-                            you_y -= 1;
+                            you_y = clamp(you_y - 1, 0, map_size_y - 1);
                             break;
                         case SDL_SCANCODE_RIGHT:
-                            you_x += 1;
+                            you_x = clamp(you_x + 1, 0, map_size_x - 1);
                             break;
                         case SDL_SCANCODE_DOWN:
-                            you_y += 1;
+                            you_y = clamp(you_y + 1, 0, map_size_y - 1);
                             break;
                         default:
                             break;
