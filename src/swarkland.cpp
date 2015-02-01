@@ -5,8 +5,8 @@ Individual * you;
 
 void swarkland_init() {
     individuals.add(new Individual(10, 3, Coord(4, 4), true, false));
-    individuals.add(new Individual(10, 2, Coord(10, 10 ), true, true));
-    individuals.add(new Individual(10, 2, Coord(20, 15 ), true, true));
+    individuals.add(new Individual(10, 2, Coord(10, 10), true, true));
+    individuals.add(new Individual(10, 2, Coord(20, 15), true, true));
     you = individuals.at(0);
 }
 

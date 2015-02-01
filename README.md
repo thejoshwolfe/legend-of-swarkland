@@ -16,5 +16,5 @@ sudo apt-get update
 dependencies:
 
 ```
-sudo apt-get install librucksack-dev rucksack libsdl2-dev clang libfreeimage-dev
+sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev clang libfreeimage-dev
 ```

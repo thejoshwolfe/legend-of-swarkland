@@ -6,9 +6,14 @@
 
 #include <rucksack.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+
+static const SDL_Rect main_map_area = { 0, 0, map_size.x * tile_size, map_size.y * tile_size };
+static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, main_map_area.w, 32 };
+static const SDL_Rect entire_window_area = { 0, 0, status_box_area.w, status_box_area.y + status_box_area.h };
 
 static SDL_Window * window;
-static SDL_Texture * texture;
+static SDL_Texture * sprite_sheet_texture;
 static SDL_Renderer * renderer;
 
 static struct RuckSackBundle * bundle;
@@ -17,6 +22,8 @@ static struct RuckSackImage ** spritesheet_images;
 
 static struct RuckSackImage * guy_image;
 static struct RuckSackImage * bad_image;
+
+static TTF_Font * status_box_font;
 
 static struct RuckSackImage * find_image(struct RuckSackImage ** spritesheet_images, long image_count, const char * name) {
     for (int i = 0; i < image_count; i++)
@@ -31,7 +38,7 @@ void display_init() {
     }
     rucksack_init();
 
-    window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, map_size.x * tile_size, map_size.y * tile_size, 0);
+    window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, entire_window_area.w, entire_window_area.h, 0);
     if (!window) {
         panic("window create failed");
     }
@@ -52,20 +59,27 @@ void display_init() {
         panic("open texture failed");
     }
 
-    texture = load_texture(renderer, rs_texture);
+    sprite_sheet_texture = load_texture(renderer, rs_texture);
 
     long image_count = rucksack_texture_image_count(rs_texture);
     spritesheet_images = new struct RuckSackImage*[image_count];
     rucksack_texture_get_images(rs_texture, spritesheet_images);
     guy_image = find_image(spritesheet_images, image_count, "img/guy.png");
     bad_image = find_image(spritesheet_images, image_count, "img/bad.png");
+
+    TTF_Init();
+
+    // TODO: absolute paths? really?
+    status_box_font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24);
 }
 
 void display_finish() {
+    TTF_Quit();
+
     delete[] spritesheet_images;
     rucksack_texture_destroy(rs_texture);
 
-    SDL_DestroyTexture(texture);
+    SDL_DestroyTexture(sprite_sheet_texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 
@@ -92,14 +106,35 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
+static void render_text(const char * text, int x, int y) {
+    // this seems like an awful lot of setup and tear down for every little string
+    SDL_Color color = { 0xff, 0xff, 0xff };
+    SDL_Surface * surface = TTF_RenderText_Solid(status_box_font, text, color);
+    SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    SDL_Rect dest_rect;
+    dest_rect.x = x;
+    dest_rect.y = y;
+    dest_rect.w = surface->w;
+    dest_rect.h = surface->h;
+    SDL_RenderCopy(renderer, texture, NULL, &dest_rect);
+
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
+}
+
 void render() {
     SDL_RenderClear(renderer);
 
+    // main map
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
         if (individual->is_alive)
-            render_tile(renderer, texture, individual->is_ai ? bad_image : guy_image, individual->location);
+            render_tile(renderer, sprite_sheet_texture, individual->is_ai ? bad_image : guy_image, individual->location);
     }
+
+    // status box
+    render_text("HP: 10", status_box_area.x, status_box_area.y);
 
     SDL_RenderPresent(renderer);
 }
