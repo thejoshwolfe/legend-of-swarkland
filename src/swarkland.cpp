@@ -17,6 +17,8 @@ static void init_specieses() {
     specieses[SpeciesId_DUST_VORTEX] = new Species(SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_ATTACK_IF_VISIBLE);
 }
 
+static const int no_spawn_radius = 10;
+
 Individual * spawn_a_monster(SpeciesId species_id) {
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
@@ -25,15 +27,23 @@ Individual * spawn_a_monster(SpeciesId species_id) {
             species_id = SpeciesId_COUNT;
         }
     }
-    Coord location;
-    while (true) {
-        location = Coord(random_int(map_size.x), random_int(map_size.y));
-        if (find_individual_at(location) != NULL)
-            continue;
-        if (actual_map_tiles[location].tile_type == TileType_WALL)
-            continue;
-        break;
+    List<Coord> available_spawn_locations;
+    for (Coord location(0, 0); location.y  < map_size.y; location.y++) {
+        for (location.x = 0; location.x < map_size.x; location.x++) {
+            if (actual_map_tiles[location].tile_type == TileType_WALL)
+                continue;
+            if (you != NULL && distance_squared(location, you->location) < no_spawn_radius * no_spawn_radius)
+                continue;
+            if (find_individual_at(location) != NULL)
+                continue;
+            available_spawn_locations.add(location);
+        }
     }
+    if (available_spawn_locations.size() == 0) {
+        // it must be pretty crowded in here
+        return NULL;
+    }
+    Coord location = available_spawn_locations.at(random_int(available_spawn_locations.size()));
     Individual * individual = new Individual(species_id, location);
     individuals.add(individual);
     return individual;
@@ -41,6 +51,8 @@ Individual * spawn_a_monster(SpeciesId species_id) {
 
 static void init_individuals() {
     you = spawn_a_monster(SpeciesId_HUMAN);
+    if (you == NULL)
+        panic("can't spawn you");
     you->ai = AiStrategy_PLAYER;
 
     // generate a few warm-up monsters

@@ -47,4 +47,10 @@ private:
     int _width;
 };
 
+static inline int distance_squared(Coord a, Coord b) {
+    int dx = b.x - a.x;
+    int dy = a.y - b.y;
+    return dx * dx + dy * dy;
+}
+
 #endif
