@@ -295,3 +295,8 @@ void cheatcode_kill_everybody_in_the_world() {
     // you're cool
     you->is_alive = true;
 }
+void cheatcode_polymorph() {
+    SpeciesId species_id = you->species->species_id;
+    species_id = (SpeciesId)((species_id + 1) % SpeciesId_COUNT);
+    you->species = specieses[species_id];
+}

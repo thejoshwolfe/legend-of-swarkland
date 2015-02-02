@@ -55,6 +55,9 @@ static void step_game() {
                     case SDL_SCANCODE_K:
                         cheatcode_kill_everybody_in_the_world();
                         break;
+                    case SDL_SCANCODE_P:
+                        cheatcode_polymorph();
+                        break;
                     default:
                         break;
                 }
