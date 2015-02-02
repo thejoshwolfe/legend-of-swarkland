@@ -23,6 +23,11 @@ enum AiStrategy {
     AiStrategy_ATTACK_IF_VISIBLE,
 };
 
+struct VisionTypes {
+    unsigned normal : 1;
+    unsigned ethereal : 1;
+};
+
 struct Species {
     SpeciesId species_id;
     // how many ticks does it cost to move one space? average human is 12.
@@ -30,22 +35,19 @@ struct Species {
     int starting_hitpoints;
     int attack_power;
     AiStrategy default_ai;
-    Species(SpeciesId species_id, int movement_cost, int starting_hitpoints, int attack_power, AiStrategy default_ai) :
-            species_id(species_id), movement_cost(movement_cost), starting_hitpoints(starting_hitpoints), attack_power(attack_power), default_ai(default_ai) {
-    }
-    Species(Species &) = delete;
+    VisionTypes vision_types;
 };
 
 struct Individual {
-    bool is_alive;
+    bool is_alive = true;
     Species * species;
     int hitpoints;
-    int kill_counter;
+    int kill_counter = 0;
     Coord location;
     // once this reaches movement_cost, make a move
-    int movement_points;
+    int movement_points = 0;
     AiStrategy ai;
-    Coord bumble_destination;
+    Coord bumble_destination = Coord(-1, -1);
     Map believed_map;
     long long vision_last_calculated_time = -1;
     bool invisible = false;

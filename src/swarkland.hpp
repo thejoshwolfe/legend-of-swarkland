@@ -5,7 +5,7 @@
 #include "list.hpp"
 #include "individual.hpp"
 
-extern Species * specieses[SpeciesId_COUNT];
+extern Species specieses[SpeciesId_COUNT];
 
 extern List<Individual *> individuals;
 extern Individual * you;

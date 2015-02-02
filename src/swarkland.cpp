@@ -2,7 +2,7 @@
 
 #include "path_finding.hpp"
 
-Species * specieses[SpeciesId_COUNT];
+Species specieses[SpeciesId_COUNT];
 List<Individual *> individuals;
 Individual * you;
 long long time_counter = 0;
@@ -10,11 +10,11 @@ long long time_counter = 0;
 bool cheatcode_full_visibility;
 
 static void init_specieses() {
-    specieses[SpeciesId_HUMAN] = new Species(SpeciesId_HUMAN, 12, 10, 3, AiStrategy_ATTACK_IF_VISIBLE);
-    specieses[SpeciesId_OGRE] = new Species(SpeciesId_OGRE, 24, 10, 2, AiStrategy_ATTACK_IF_VISIBLE);
-    specieses[SpeciesId_DOG] = new Species(SpeciesId_DOG, 12, 4, 2, AiStrategy_ATTACK_IF_VISIBLE);
-    specieses[SpeciesId_GELATINOUS_CUBE] = new Species(SpeciesId_GELATINOUS_CUBE, 48, 12, 4, AiStrategy_ATTACK_IF_VISIBLE);
-    specieses[SpeciesId_DUST_VORTEX] = new Species(SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_ATTACK_IF_VISIBLE);
+    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}};
+    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}};
+    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}};
+    specieses[SpeciesId_GELATINOUS_CUBE] = {SpeciesId_GELATINOUS_CUBE, 48, 12, 4, AiStrategy_ATTACK_IF_VISIBLE, {0, 1}};
+    specieses[SpeciesId_DUST_VORTEX] = {SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_ATTACK_IF_VISIBLE, {0, 1}};
 }
 
 static const int no_spawn_radius = 10;
@@ -98,8 +98,6 @@ void swarkland_finish() {
     // this is to make valgrind happy. valgrind is useful when it's happy.
     for (int i = 0; i < individuals.size(); i++)
         delete individuals.at(i);
-    for (int i = 0; i < SpeciesId_COUNT; i++)
-        delete specieses[i];
 }
 
 static void spawn_monsters() {
@@ -268,7 +266,7 @@ void cheatcode_kill_everybody_in_the_world() {
 void cheatcode_polymorph() {
     SpeciesId species_id = you->species->species_id;
     species_id = (SpeciesId)((species_id + 1) % SpeciesId_COUNT);
-    you->species = specieses[species_id];
+    you->species = &specieses[species_id];
 }
 Individual * cheatcode_spectator = NULL;
 void cheatcode_spectate(Coord individual_at) {
