@@ -10,11 +10,11 @@ long long time_counter = 0;
 bool cheatcode_full_visibility;
 
 static void init_specieses() {
-    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}};
-    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}};
-    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}};
-    specieses[SpeciesId_GELATINOUS_CUBE] = {SpeciesId_GELATINOUS_CUBE, 48, 12, 4, AiStrategy_ATTACK_IF_VISIBLE, {0, 1}};
-    specieses[SpeciesId_DUST_VORTEX] = {SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_ATTACK_IF_VISIBLE, {0, 1}};
+    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}, true};
+    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}, true};
+    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}, true};
+    specieses[SpeciesId_GELATINOUS_CUBE] = {SpeciesId_GELATINOUS_CUBE, 48, 12, 4, AiStrategy_ATTACK_IF_VISIBLE, {0, 1}, false};
+    specieses[SpeciesId_DUST_VORTEX] = {SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_ATTACK_IF_VISIBLE, {0, 1}, false};
 }
 
 static const int no_spawn_radius = 10;

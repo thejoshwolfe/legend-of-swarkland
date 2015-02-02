@@ -32,6 +32,7 @@ struct Species {
     int attack_power;
     AiStrategy default_ai;
     VisionTypes vision_types;
+    bool has_mind;
 };
 
 struct Individual {

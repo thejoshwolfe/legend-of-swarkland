@@ -5,6 +5,8 @@
 
 Matrix<Tile> actual_map_tiles(map_size.y, map_size.x);
 
+
+
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     if (from_location == to_location)
         return true;
@@ -66,7 +68,10 @@ void refresh_vision(Individual *individual) {
         return; // he already knows
     individual->vision_last_calculated_time = time_counter;
 
-    individual->believed_map.is_visible.set_all({0, 0});
+    individual->believed_map.is_visible.set_all(no_vision);
+
+    if (!individual->species->has_mind)
+        individual->believed_map.tiles.set_all(unknown_tile);
 
     if (individual->species->vision_types.normal) {
         refresh_normal_vision(individual);

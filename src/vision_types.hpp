@@ -10,6 +10,6 @@ struct VisionTypes {
     }
 };
 
-
+static const VisionTypes no_vision = {0, 0};
 
 #endif
