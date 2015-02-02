@@ -173,6 +173,14 @@ static void render_text(String text, int x, int y) {
     delete[] str;
 }
 
+Coord get_mouse_tile() {
+    int x;
+    int y;
+    SDL_GetMouseState(&x, &y);
+    Coord tile_coord(x / tile_size, y / tile_size);
+    return tile_coord;
+}
+
 void render() {
     SDL_RenderClear(renderer);
 

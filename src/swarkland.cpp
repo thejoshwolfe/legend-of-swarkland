@@ -258,18 +258,15 @@ void cheatcode_polymorph() {
     you->species = specieses[species_id];
 }
 Individual * cheatcode_spectator = NULL;
-void cheatcode_spectate() {
+void cheatcode_spectate(Coord individual_at) {
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
         if (!individual->is_alive)
             continue;
-        if (individual == you)
-            continue;
-        if (individual == cheatcode_spectator) {
-            cheatcode_spectator = NULL;
-        } else if (cheatcode_spectator == NULL) {
+        if (individual->location == individual_at) {
             cheatcode_spectator = individual;
-            break;
+            return;
         }
     }
+    cheatcode_spectator = NULL;
 }

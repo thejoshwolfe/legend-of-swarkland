@@ -11,6 +11,7 @@ static const int tile_size = 32;
 void display_init();
 void display_finish();
 
+Coord get_mouse_tile();
 void render();
 
 #endif

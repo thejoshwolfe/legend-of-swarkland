@@ -69,7 +69,7 @@ static void step_game() {
                         cheatcode_polymorph();
                         break;
                     case SDL_SCANCODE_S:
-                        cheatcode_spectate();
+                        cheatcode_spectate(get_mouse_tile());
                         break;
                     case SDL_SCANCODE_I:
                         you->invisible = !you->invisible;

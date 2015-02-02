@@ -15,7 +15,7 @@ extern bool cheatcode_full_visibility;
 void cheatcode_kill_everybody_in_the_world();
 void cheatcode_polymorph();
 extern Individual * cheatcode_spectator;
-void cheatcode_spectate();
+void cheatcode_spectate(Coord individual_at);
 
 void swarkland_init();
 void swarkland_finish();
