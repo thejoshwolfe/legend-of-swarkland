@@ -23,7 +23,7 @@ static Individual * spawn_a_monster(SpeciesId species_id) {
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
         if (species_id == SpeciesId_HUMAN) {
-            // human's are too hard. without giving one side a powerup, they're evenly matched.
+            // humans are too hard. without giving one side a powerup, they're evenly matched.
             species_id = SpeciesId_COUNT;
         }
     }

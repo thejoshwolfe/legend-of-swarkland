@@ -11,7 +11,16 @@ static bool is_valid_move(Coord location) {
 }
 
 // start with the cardinal directions, because these are more "direct"
-static const Coord directions[] = { Coord(-1, 0), Coord(0, -1), Coord(1, 0), Coord(0, 1), Coord(-1, -1), Coord(1, -1), Coord(1, 1), Coord(-1, 1), };
+static const Coord directions[] = {
+    Coord(-1,  0),
+    Coord( 0, -1),
+    Coord( 1,  0),
+    Coord( 0,  1),
+    Coord(-1, -1),
+    Coord( 1, -1),
+    Coord( 1,  1),
+    Coord(-1,  1),
+};
 
 bool find_path(Coord start, Coord end, List<Coord> & output_path) {
     Matrix<bool> visited(map_size.y, map_size.x);
