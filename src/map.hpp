@@ -2,6 +2,7 @@
 #define MAP_HPP
 
 #include "geometry.hpp"
+#include "vision_types.hpp"
 
 #include <stdlib.h>
 
@@ -18,16 +19,19 @@ enum TileType {
 struct Tile {
     TileType tile_type;
     int aesthetic_index;
+
 };
+
+static const Tile unknown_tile = {TileType_UNKNOWN, 0};
 
 class Map {
 public:
     Matrix<Tile> tiles;
-    Matrix<bool> is_visible;
+    Matrix<VisionTypes> is_visible;
     Map() :
             tiles(map_size.y, map_size.x), is_visible(map_size.y, map_size.x) {
         tiles.set_all(Tile());
-        is_visible.set_all(false);
+        is_visible.set_all({0, 0});
     }
 };
 

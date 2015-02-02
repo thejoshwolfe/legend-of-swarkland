@@ -64,4 +64,8 @@ static inline Coord sign(Coord value) {
     return Coord(sign(value.x), sign(value.y));
 }
 
+static inline Coord clamp(Coord value, Coord min, Coord max) {
+    return Coord(clamp(value.x, min.x, max.x), clamp(value.y, min.y, max.y));
+}
+
 #endif

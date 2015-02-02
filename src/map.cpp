@@ -5,6 +5,8 @@
 
 Matrix<Tile> actual_map_tiles(map_size.y, map_size.x);
 
+
+
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     if (from_location == to_location)
         return true;
@@ -33,18 +35,48 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     return true;
 }
 
-void refresh_vision(Individual * individual) {
-    if (individual->vision_last_calculated_time == time_counter)
-        return; // he already knows
-    individual->vision_last_calculated_time = time_counter;
+static void refresh_normal_vision(Individual * individual) {
     Coord you_location = individual->location;
     for (Coord target(0, 0); target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
-            bool visible = is_open_line_of_sight(you_location, target);
-            individual->believed_map.is_visible[target] = visible;
-            if (visible)
-                individual->believed_map.tiles[target] = actual_map_tiles[target];
+            if (!is_open_line_of_sight(you_location, target))
+                continue;
+            individual->believed_map.is_visible[target].normal = true;
+            individual->believed_map.tiles[target] = actual_map_tiles[target];
         }
     }
 }
 
+static const int ethereal_radius = 5;
+static void refresh_ethereal_vision(Individual *individual) {
+    Coord you_location = individual->location;
+    Coord upper_left = clamp(Coord(you_location.x - ethereal_radius, you_location.y - ethereal_radius), Coord(0, 0), map_size);
+    Coord lower_right= clamp(Coord(you_location.x + ethereal_radius + 1, you_location.y + ethereal_radius + 1), Coord(0, 0), map_size);
+    for (Coord target = upper_left; target.y < lower_right.y; target.y++) {
+        for (target.x = 0; target.x < lower_right.x; target.x++) {
+            if (distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
+                continue;
+            individual->believed_map.is_visible[target].ethereal = true;
+            individual->believed_map.tiles[target] = actual_map_tiles[target];
+        }
+    }
+
+}
+
+void refresh_vision(Individual *individual) {
+    if (individual->vision_last_calculated_time == time_counter)
+        return; // he already knows
+    individual->vision_last_calculated_time = time_counter;
+
+    individual->believed_map.is_visible.set_all(no_vision);
+
+    if (!individual->species->has_mind)
+        individual->believed_map.tiles.set_all(unknown_tile);
+
+    if (individual->species->vision_types.normal) {
+        refresh_normal_vision(individual);
+    }
+    if (individual->species->vision_types.ethereal) {
+        refresh_ethereal_vision(individual);
+    }
+}
