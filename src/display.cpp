@@ -191,13 +191,13 @@ void render() {
         spectate_from = cheatcode_spectator;
     for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            Tile tile = spectate_from->believed_map.tiles[cursor];
+            Tile tile = spectate_from->knowledge.tiles[cursor];
             if (cheatcode_full_visibility)
                 tile = actual_map_tiles[cursor];
             if (tile.tile_type == TileType_UNKNOWN)
                 continue;
             Uint8 alpha = 0;
-            if (spectate_from->believed_map.is_visible[cursor].any() || cheatcode_full_visibility)
+            if (spectate_from->knowledge.is_visible[cursor].any() || cheatcode_full_visibility)
                 alpha = 255;
             else
                 alpha = 128;
@@ -211,7 +211,7 @@ void render() {
         Individual * individual = individuals.at(i);
         if (!individual->is_alive)
             continue;
-        if (spectate_from->believed_map.is_visible[individual->location].any() || cheatcode_full_visibility) {
+        if (spectate_from->knowledge.is_visible[individual->location].any() || cheatcode_full_visibility) {
             Uint8 alpha;
             if (individual->invisible)
                 alpha = 128;

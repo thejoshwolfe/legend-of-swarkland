@@ -45,7 +45,7 @@ struct Individual {
     int movement_points = 0;
     AiStrategy ai;
     Coord bumble_destination = Coord(-1, -1);
-    Map believed_map;
+    Knowledge knowledge;
     long long vision_last_calculated_time = -1;
     bool invisible = false;
     Individual(SpeciesId species_id, Coord location);

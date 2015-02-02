@@ -135,7 +135,7 @@ static void move_individual(Individual * individual, Coord new_position) {
 }
 
 static void move_bumble_around(Individual * individual) {
-    if (individual->believed_map.is_visible[you->location].any() && !you->invisible) {
+    if (individual->knowledge.is_visible[you->location].any() && !you->invisible) {
         // there he is!
         List<Coord> path;
         find_path(individual->location, you->location, individual, path);
@@ -219,7 +219,7 @@ bool take_action(bool just_wait, Coord delta) {
     Coord new_position(you->location.x + delta.x, you->location.y + delta.y);
     if (new_position.x < 0 || new_position.x >= map_size.x || new_position.y < 0 || new_position.y >= map_size.y)
         return false;
-    if (you->believed_map.tiles[new_position].tile_type == TileType_WALL)
+    if (you->knowledge.tiles[new_position].tile_type == TileType_WALL)
         return false;
     Individual * target = find_individual_at(new_position);
     if (target != NULL && target != you) {

@@ -41,8 +41,8 @@ static void refresh_normal_vision(Individual * individual) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
             if (!is_open_line_of_sight(you_location, target))
                 continue;
-            individual->believed_map.is_visible[target].normal = true;
-            individual->believed_map.tiles[target] = actual_map_tiles[target];
+            individual->knowledge.is_visible[target].normal = true;
+            individual->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
 }
@@ -56,8 +56,8 @@ static void refresh_ethereal_vision(Individual *individual) {
         for (target.x = 0; target.x < lower_right.x; target.x++) {
             if (distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
                 continue;
-            individual->believed_map.is_visible[target].ethereal = true;
-            individual->believed_map.tiles[target] = actual_map_tiles[target];
+            individual->knowledge.is_visible[target].ethereal = true;
+            individual->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
 
@@ -68,10 +68,10 @@ void refresh_vision(Individual *individual) {
         return; // he already knows
     individual->vision_last_calculated_time = time_counter;
 
-    individual->believed_map.is_visible.set_all(no_vision);
+    individual->knowledge.is_visible.set_all(no_vision);
 
     if (!individual->species->has_mind)
-        individual->believed_map.tiles.set_all(unknown_tile);
+        individual->knowledge.tiles.set_all(unknown_tile);
 
     if (individual->species->vision_types.normal) {
         refresh_normal_vision(individual);

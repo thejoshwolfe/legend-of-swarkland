@@ -8,7 +8,7 @@
 bool do_i_think_i_can_move_here(Individual * individual, Coord location) {
     if (!is_in_bounds(location))
         return false;
-    if (individual->believed_map.tiles[location].tile_type == TileType_WALL)
+    if (individual->knowledge.tiles[location].tile_type == TileType_WALL)
         return false;
     if (find_individual_at(location) != NULL)
         return false;
