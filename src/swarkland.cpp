@@ -225,11 +225,13 @@ static void move_with_ai(Individual * individual) {
         panic("unknown ai strategy");
     move_bumble_around(individual);
 }
-bool you_move(Coord delta) {
+bool take_action(bool just_wait, Coord delta) {
     refresh_vision(you);
 
     if (!you->is_alive)
         return false;
+    if (just_wait)
+        return true;
     if (delta.x == 0 && delta.y == 0)
         return false; // not moving
     Coord new_position(you->location.x + delta.x, you->location.y + delta.y);
