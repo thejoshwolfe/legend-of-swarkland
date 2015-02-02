@@ -29,6 +29,9 @@ extern List<Individual *> individuals;
 extern Individual * you;
 extern long long time_counter;
 
+extern bool cheatcode_full_visibility;
+void cheatcode_kill_everybody_in_the_world();
+
 void swarkland_init();
 void swarkland_finish();
 

@@ -180,7 +180,7 @@ void render() {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             const Tile & tile = the_map.tiles[cursor];
             Uint8 alpha = 0;
-            if (tile.is_visible)
+            if (tile.is_visible || cheatcode_full_visibility)
                 alpha = 255;
             else if (tile.is_ever_seen)
                 alpha = 128;
@@ -192,7 +192,7 @@ void render() {
 
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
-        if (the_map.tiles[individual->location].is_visible)
+        if (the_map.tiles[individual->location].is_visible || cheatcode_full_visibility)
             if (individual->is_alive)
                 render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
     }

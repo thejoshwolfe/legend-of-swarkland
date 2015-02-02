@@ -11,6 +11,8 @@ List<Individual *> individuals;
 Individual * you;
 long long time_counter = 0;
 
+bool cheatcode_full_visibility;
+
 static void init_specieses() {
     specieses[SpeciesId_HUMAN] = new Species(SpeciesId_HUMAN, 12, 10, 3, AiStrategy_LEROY_JENKINS);
     specieses[SpeciesId_OGRE] = new Species(SpeciesId_OGRE, 24, 10, 2, AiStrategy_LEROY_JENKINS);
@@ -285,4 +287,11 @@ void advance_time() {
             move_with_ai(individual);
         }
     }
+}
+
+void cheatcode_kill_everybody_in_the_world() {
+    for (int i = 0; i < individuals.size(); i++)
+        individuals.at(i)->is_alive = false;
+    // you're cool
+    you->is_alive = true;
 }
