@@ -74,6 +74,9 @@ static void step_game() {
                     case SDL_SCANCODE_I:
                         you->invisible = !you->invisible;
                         break;
+                    case SDL_SCANCODE_G:
+                        spawn_a_monster(SpeciesId_COUNT);
+                        break;
 
                     default:
                         break;

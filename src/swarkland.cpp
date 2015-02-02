@@ -17,7 +17,7 @@ static void init_specieses() {
     specieses[SpeciesId_DUST_VORTEX] = new Species(SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_ATTACK_IF_VISIBLE);
 }
 
-static Individual * spawn_a_monster(SpeciesId species_id) {
+Individual * spawn_a_monster(SpeciesId species_id) {
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
         if (species_id == SpeciesId_HUMAN) {
@@ -132,7 +132,8 @@ static void move_bumble_around(Individual * individual) {
         if (path.size() > 0) {
             move_individual(individual, path.at(0));
         } else {
-            panic("can't navigate toward a monster i can see");
+            // we must be stuck in a crowd
+            return;
         }
 
         // if we lose him. reroll our new destination.

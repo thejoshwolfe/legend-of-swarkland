@@ -20,6 +20,8 @@ void cheatcode_spectate(Coord individual_at);
 void swarkland_init();
 void swarkland_finish();
 
+// specify SpeciesId_COUNT for random
+Individual * spawn_a_monster(SpeciesId species_id);
 void advance_time();
 bool take_action(bool just_wait, Coord delta);
 Individual * find_individual_at(Coord location);
