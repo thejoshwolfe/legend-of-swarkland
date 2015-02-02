@@ -34,4 +34,14 @@ T * realloc_new(T * old_guy, size_t old_count, size_t new_count) {
     return new_guy;
 }
 
+static inline int signf(float val) {
+    if (val > 0) {
+        return 1;
+    } else if (val < 0) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
 #endif

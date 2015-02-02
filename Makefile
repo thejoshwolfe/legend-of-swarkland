@@ -9,7 +9,7 @@ CPP_FLAGS += -Ibuild -Isrc -g -Wall -Werror
 COMPILE_CPP = clang -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/legend-of-swarkland: $(OBJECTS)
-	clang -o $@ -lstdc++ -lSDL2 -lSDL2_ttf -lrucksack -lfreeimage $(OBJECTS)
+	clang -o $@ -lstdc++ -lm -lSDL2 -lSDL2_ttf -lrucksack -lfreeimage $(OBJECTS)
 all: build/legend-of-swarkland
 
 build/%.o: src/%.cpp

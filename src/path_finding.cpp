@@ -1,6 +1,9 @@
 #include "path_finding.hpp"
 
 #include "swarkland.hpp"
+#include "heap.hpp"
+
+#include <math.h>
 
 static bool is_valid_move(Coord location) {
     if (!the_map.tiles[location].is_open)
@@ -22,39 +25,96 @@ static const Coord directions[] = {
     Coord(-1,  1),
 };
 
-bool find_path(Coord start, Coord end, List<Coord> & output_path) {
-    Matrix<bool> visited(map_size.y, map_size.x);
-    Matrix<Coord> next_node(map_size.y, map_size.x);
-    for (int y = 0; y < map_size.y; y++)
-        for (int x = 0; x < map_size.x; x++)
-            visited[Coord(x, y)] = false;
+struct Node {
+    Coord coord;
+    float f;
+    float g;
+    float h;
+    Node * parent;
+};
 
-    List<Coord> queue;
-    queue.add(end);
-    visited[end] = true;
-    int index = 0;
-    while (index < queue.size()) {
-        Coord node = queue.at(index++);
-        if (node == start) {
-            // reconstruct the path
-            while (node != end) {
-                node = next_node[node];
-                output_path.add(node);
-            }
-            return true;
+static float heuristic(Coord start, Coord end) {
+    float delta_x = (float)(end.x - start.x);
+    float delta_y = (float)(end.y - start.y);
+    return sqrtf(delta_x * delta_x + delta_y * delta_y);
+}
+
+static int compare_nodes(Node *a, Node *b) {
+
+    return signf(a->f - b->f);
+}
+
+bool find_path(Coord start, Coord end, List<Coord> & output_path) {
+    Matrix<bool> closed_set(map_size.y, map_size.x);
+    closed_set.set_all(false);
+
+    Heap<Node*> open_heap(compare_nodes);
+    Matrix<bool> open_set(map_size.y, map_size.x);
+    open_set.set_all(false);
+
+    Matrix<Node> nodes(map_size.y, map_size.x);
+    Node *start_node = &nodes[start];
+    start_node->coord = start;
+    start_node->h = heuristic(start, end);
+    start_node->g = 0.0;
+    start_node->f = start_node->g + start_node->h;
+    start_node->parent = NULL;
+    open_heap.insert(start_node);
+    open_set[start_node->coord] = true;
+    bool found_goal = false;
+    Node *best_node = start_node;
+    while (open_heap.size() > 0) {
+        Node *node = open_heap.extract_min();
+        open_set[node->coord] = false;
+
+        if (node->h < best_node->h)
+            best_node = node;
+        if (node->coord == end) {
+            found_goal = true;
+            break;
         }
+        // not done yet
+        closed_set[node->coord] = true;
         for (int i = 0; i < 8; i++) {
             Coord direction = directions[i];
-            Coord neighbor(node.x + direction.x, node.y + direction.y);
-            if (neighbor.y < 0 || neighbor.y >= map_size.y || neighbor.x < 0 || neighbor.x >= map_size.x)
+            Coord neighbor_coord(node->coord.x + direction.x, node->coord.y + direction.y);
+            if (neighbor_coord.y < 0 || neighbor_coord.y >= map_size.y ||
+                    neighbor_coord.x < 0 || neighbor_coord.x >= map_size.x)
+            {
                 continue;
-            if (visited[neighbor])
+            }
+
+            if (neighbor_coord != end && !is_valid_move(neighbor_coord))
                 continue;
-            visited[neighbor] = true;
-            next_node[neighbor] = node;
-            if (neighbor == start || neighbor == end || is_valid_move(neighbor))
-                queue.add(neighbor);
+            if (closed_set[neighbor_coord])
+                continue;
+
+            Node *neighbor = &nodes[neighbor_coord];
+            neighbor->coord = neighbor_coord;
+
+            float g_from_this_node = node->g + 1.0f;
+            if (!open_set[neighbor->coord] || g_from_this_node < neighbor->g) {
+                neighbor->parent = node;
+                neighbor->g = g_from_this_node;
+                neighbor->h = heuristic(neighbor->coord, end);
+                neighbor->f = neighbor->g + neighbor->h;
+                if (!open_set[neighbor->coord]) {
+                    open_heap.insert(neighbor);
+                    open_set[neighbor->coord] = true;
+                }
+            }
         }
     }
-    return false;
+    // construct path
+    // take a double dump
+    List<Coord> backwards_path;
+    Node *it = best_node;
+    while (it != NULL) {
+        backwards_path.add(it->coord);
+        it = it->parent;
+    }
+    for (int i = backwards_path.size() - 2; i >= 0; i--) {
+        output_path.add(backwards_path.at(i));
+    }
+    return found_goal;
 }
