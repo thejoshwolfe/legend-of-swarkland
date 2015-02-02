@@ -24,8 +24,8 @@ public:
     Matrix<bool> is_visible;
     Map() :
             tiles(map_size.y, map_size.x), is_visible(map_size.y, map_size.x) {
-        tiles.setAll(Tile());
-        is_visible.setAll(false);
+        tiles.set_all(Tile());
+        is_visible.set_all(false);
     }
 };
 

@@ -36,9 +36,10 @@ public:
             panic("matrix bounds check");
         return items[index.y * _width + index.x];
     }
-    void setAll(T value) {
-        for (int i = 0; i < _height * _width; i++)
+    void set_all(T value) {
+        for (int i = 0; i < _width * _height; i++) {
             items[i] = value;
+        }
     }
 private:
     T * items;
