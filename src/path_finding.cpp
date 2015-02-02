@@ -3,7 +3,7 @@
 #include "swarkland.hpp"
 
 static bool is_valid_move(Coord location) {
-    if (!the_map.tiles[location].is_open)
+    if (actual_map_tiles[location].tile_type == TileType_WALL)
         return false;
     if (find_individual_at(location) != NULL)
         return false;

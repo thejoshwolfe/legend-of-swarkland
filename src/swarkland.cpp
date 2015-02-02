@@ -4,8 +4,6 @@
 
 #include <stdlib.h>
 
-Map the_map;
-
 Species * specieses[SpeciesId_COUNT];
 List<Individual *> individuals;
 Individual * you;
@@ -14,11 +12,11 @@ long long time_counter = 0;
 bool cheatcode_full_visibility;
 
 static void init_specieses() {
-    specieses[SpeciesId_HUMAN] = new Species(SpeciesId_HUMAN, 12, 10, 3, AiStrategy_LEROY_JENKINS);
-    specieses[SpeciesId_OGRE] = new Species(SpeciesId_OGRE, 24, 10, 2, AiStrategy_LEROY_JENKINS);
-    specieses[SpeciesId_DOG] = new Species(SpeciesId_DOG, 12, 4, 2, AiStrategy_LEROY_JENKINS);
-    specieses[SpeciesId_GELATINOUS_CUBE] = new Species(SpeciesId_GELATINOUS_CUBE, 48, 12, 4, AiStrategy_BUMBLE_AROUND);
-    specieses[SpeciesId_DUST_VORTEX] = new Species(SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_BUMBLE_AROUND);
+    specieses[SpeciesId_HUMAN] = new Species(SpeciesId_HUMAN, 12, 10, 3, AiStrategy_ATTACK_IF_VISIBLE);
+    specieses[SpeciesId_OGRE] = new Species(SpeciesId_OGRE, 24, 10, 2, AiStrategy_ATTACK_IF_VISIBLE);
+    specieses[SpeciesId_DOG] = new Species(SpeciesId_DOG, 12, 4, 2, AiStrategy_ATTACK_IF_VISIBLE);
+    specieses[SpeciesId_GELATINOUS_CUBE] = new Species(SpeciesId_GELATINOUS_CUBE, 48, 12, 4, AiStrategy_ATTACK_IF_VISIBLE);
+    specieses[SpeciesId_DUST_VORTEX] = new Species(SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_ATTACK_IF_VISIBLE);
 }
 
 static Individual * spawn_a_monster(SpeciesId species_id) {
@@ -34,7 +32,7 @@ static Individual * spawn_a_monster(SpeciesId species_id) {
         location = Coord(random_int(map_size.x), random_int(map_size.y));
         if (find_individual_at(location) != NULL)
             continue;
-        if (!the_map.tiles[location].is_open)
+        if (actual_map_tiles[location].tile_type == TileType_WALL)
             continue;
         break;
     }
@@ -57,8 +55,8 @@ static void generate_map() {
     // randomize the appearance of every tile, even if it doesn't matter.
     for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            Tile & tile = the_map.tiles[cursor];
-            tile.is_open = true;
+            Tile & tile = actual_map_tiles[cursor];
+            tile.tile_type = TileType_FLOOR;
             tile.aesthetic_index = random_int(8);
         }
     }
@@ -73,7 +71,7 @@ static void generate_map() {
         Coord cursor;
         for (cursor.y = y; cursor.y < y + height; cursor.y++) {
             for (cursor.x = x; cursor.x < x + width; cursor.x++) {
-                the_map.tiles[cursor].is_open = false;
+                actual_map_tiles[cursor].tile_type = TileType_WALL;
             }
         }
     }
@@ -105,7 +103,7 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
             // x = y * m + b
             // m = run / rise
             int x = (y - from_location.y) * (to_location.x - from_location.x) / (to_location.y - from_location.y) + from_location.x;
-            if (!the_map.tiles[Coord(x, y)].is_open)
+            if (actual_map_tiles[Coord(x, y)].tile_type == TileType_WALL)
                 return false;
         }
     } else {
@@ -115,26 +113,24 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
             // y = x * m + b
             // m = rise / run
             int y = (x - from_location.x) * (to_location.y - from_location.y) / (to_location.x - from_location.x) + from_location.y;
-            if (!the_map.tiles[Coord(x, y)].is_open)
+            if (actual_map_tiles[Coord(x, y)].tile_type == TileType_WALL)
                 return false;
         }
     }
     return true;
 }
 
-static long long vision_last_calculated_time = -1;
-void refresh_vision() {
-    if (vision_last_calculated_time == time_counter)
-        return; // we already know
-    vision_last_calculated_time = time_counter;
-    Coord you_location = you->location;
+static void refresh_vision(Individual * individual) {
+    if (individual->vision_last_calculated_time == time_counter)
+        return; // he already knows
+    individual->vision_last_calculated_time = time_counter;
+    Coord you_location = individual->location;
     for (Coord target(0, 0); target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
-            Tile & tile = the_map.tiles[target];
             bool visible = is_open_line_of_sight(you_location, target);
-            tile.is_visible = visible;
+            individual->believed_map.is_visible[target] = visible;
             if (visible)
-                tile.is_ever_seen = true;
+                individual->believed_map.tiles[target] = actual_map_tiles[target];
         }
     }
 }
@@ -185,10 +181,7 @@ static void move_leroy_jenkins(Individual * individual) {
 }
 
 static void move_bumble_around(Individual * individual) {
-    int dx = you->location.x - individual->location.x;
-    int dy = you->location.y - individual->location.y;
-    int distance = abs(dx) + abs(dy);
-    if (distance < 10) {
+    if (individual->believed_map.is_visible[you->location]) {
         // there he is!
         move_leroy_jenkins(individual);
         // if we lose him. reroll our new destination.
@@ -205,7 +198,7 @@ static void move_bumble_around(Individual * individual) {
             int min_y = clamp(individual->location.y - 5, 0, map_size.y - 1);
             int max_y = clamp(individual->location.y + 5, 0, map_size.y - 1);
             individual->bumble_destination = Coord(random_int(min_x, max_x + 1), random_int(min_y, max_y + 1));
-            if (!the_map.tiles[individual->bumble_destination].is_open) {
+            if (individual->believed_map.tiles[individual->bumble_destination].tile_type == TileType_WALL) {
                 // try again
                 // TODO: this can infinite loop
                 individual->bumble_destination = individual->location;
@@ -227,20 +220,13 @@ Individual * find_individual_at(Coord location) {
 }
 
 static void move_with_ai(Individual * individual) {
-    switch (individual->ai) {
-        case AiStrategy_LEROY_JENKINS:
-            move_leroy_jenkins(individual);
-            break;
-        case AiStrategy_BUMBLE_AROUND:
-            move_bumble_around(individual);
-            break;
-        case AiStrategy_PLAYER:
-            panic("player is not ai");
-            break;
-    }
+    refresh_vision(individual);
+    if (individual->ai != AiStrategy_ATTACK_IF_VISIBLE)
+        panic("unknown ai strategy");
+    move_bumble_around(individual);
 }
 bool you_move(Coord delta) {
-    refresh_vision();
+    refresh_vision(you);
 
     if (!you->is_alive)
         return false;
@@ -249,7 +235,7 @@ bool you_move(Coord delta) {
     Coord new_position(you->location.x + delta.x, you->location.y + delta.y);
     if (new_position.x < 0 || new_position.x >= map_size.x || new_position.y < 0 || new_position.y >= map_size.y)
         return false;
-    if (!the_map.tiles[new_position].is_open)
+    if (you->believed_map.tiles[new_position].tile_type == TileType_WALL)
         return false;
     Individual * target = find_individual_at(new_position);
     if (target != NULL && target != you) {

@@ -2,6 +2,7 @@
 #define INDIVIDUAL_HPP
 
 #include "geometry.hpp"
+#include "map.hpp"
 
 #include <stdbool.h>
 
@@ -18,10 +19,8 @@ enum SpeciesId {
 enum AiStrategy {
     // this is you
     AiStrategy_PLAYER,
-    // always move toward the player and attack without hesitation
-    AiStrategy_LEROY_JENKINS,
-    // blind, so move randomly unless the player is near, then move in for the kill
-    AiStrategy_BUMBLE_AROUND,
+    // if you can see the player, move and attack
+    AiStrategy_ATTACK_IF_VISIBLE,
 };
 
 struct Species {
@@ -47,6 +46,8 @@ struct Individual {
     int movement_points;
     AiStrategy ai;
     Coord bumble_destination;
+    Map believed_map;
+    long long vision_last_calculated_time = -1;
     Individual(SpeciesId species_id, Coord location);
     Individual(Individual &) = delete;
 };

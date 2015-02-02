@@ -178,21 +178,26 @@ void render() {
     // render the terrain
     for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            const Tile & tile = the_map.tiles[cursor];
+            Tile tile = you->believed_map.tiles[cursor];
+            if (cheatcode_full_visibility)
+                tile = actual_map_tiles[cursor];
+            if (tile.tile_type == TileType_UNKNOWN)
+                continue;
             Uint8 alpha = 0;
-            if (tile.is_visible || cheatcode_full_visibility)
+            if (you->believed_map.is_visible[cursor] || cheatcode_full_visibility)
                 alpha = 255;
-            else if (tile.is_ever_seen)
+            else
                 alpha = 128;
             SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-            render_tile(renderer, sprite_sheet_texture, (tile.is_open ? floor_images : wall_images)[tile.aesthetic_index], cursor);
+            RuckSackImage * image = (tile.tile_type == TileType_FLOOR ? floor_images : wall_images)[tile.aesthetic_index];
+            render_tile(renderer, sprite_sheet_texture, image, cursor);
         }
     }
     SDL_SetTextureAlphaMod(sprite_sheet_texture, 255);
 
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
-        if (the_map.tiles[individual->location].is_visible || cheatcode_full_visibility)
+        if (you->believed_map.is_visible[individual->location] || cheatcode_full_visibility)
             if (individual->is_alive)
                 render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
     }
