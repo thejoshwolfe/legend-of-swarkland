@@ -116,50 +116,60 @@ static void attack(Individual * attacker, Individual * target) {
     }
 }
 
-static void move_toward_point(Individual * individual, Coord point) {
-    List<Coord> path;
-    find_path(individual->location, point, individual->believed_map.tiles, path);
-    if (path.size() > 0) {
-        Coord new_position = path.at(0);
-        if (new_position.x == you->location.x && new_position.y == you->location.y) {
-            attack(individual, you);
-        } else {
-            individual->location = new_position;
-        }
+static void move_individual(Individual * individual, Coord new_position) {
+    if (new_position.x == you->location.x && new_position.y == you->location.y) {
+        attack(individual, you);
     } else {
-        // TODO: now we're stuck forever
+        individual->location = new_position;
     }
-}
-
-static void move_leroy_jenkins(Individual * individual) {
-    move_toward_point(individual, you->location);
 }
 
 static void move_bumble_around(Individual * individual) {
     if (individual->believed_map.is_visible[you->location] && !you->invisible) {
         // there he is!
-        move_leroy_jenkins(individual);
+        List<Coord> path;
+        find_path(individual->location, you->location, individual->believed_map.tiles, path);
+        if (path.size() > 0) {
+            move_individual(individual, path.at(0));
+        } else {
+            panic("can't navigate toward a monster i can see");
+        }
+
         // if we lose him. reroll our new destination.
         individual->bumble_destination = Coord(-1, -1);
     } else {
         // idk where 2 go
         if (individual->bumble_destination == Coord(-1, -1))
             individual->bumble_destination = individual->location;
-        while (individual->bumble_destination == individual->location) {
-            // choose a random place to go.
-            // don't look too far, or else the monsters end up sweeping back and forth in straight lines. it looks dumb.
-            int min_x = clamp(individual->location.x - 5, 0, map_size.x - 1);
-            int max_x = clamp(individual->location.x + 5, 0, map_size.x - 1);
-            int min_y = clamp(individual->location.y - 5, 0, map_size.y - 1);
-            int max_y = clamp(individual->location.y + 5, 0, map_size.y - 1);
-            individual->bumble_destination = Coord(random_int(min_x, max_x + 1), random_int(min_y, max_y + 1));
-            if (individual->believed_map.tiles[individual->bumble_destination].tile_type == TileType_WALL) {
-                // try again
-                // TODO: this can infinite loop
+        // if we round a corner and find out our destination is in a rock wall, forget about it.
+        if (individual->believed_map.tiles[individual->bumble_destination].tile_type == TileType_WALL)
+            individual->bumble_destination = individual->location;
+        while (true) {
+            while (individual->bumble_destination == individual->location) {
+                // choose a random place to go.
+                // don't look too far, or else the monsters end up sweeping back and forth in straight lines. it looks dumb.
+                int min_x = clamp(individual->location.x - 5, 0, map_size.x - 1);
+                int max_x = clamp(individual->location.x + 5, 0, map_size.x - 1);
+                int min_y = clamp(individual->location.y - 5, 0, map_size.y - 1);
+                int max_y = clamp(individual->location.y + 5, 0, map_size.y - 1);
+                individual->bumble_destination = Coord(random_int(min_x, max_x + 1), random_int(min_y, max_y + 1));
+                if (individual->believed_map.tiles[individual->bumble_destination].tile_type == TileType_WALL) {
+                    // try again
+                    // TODO: this can infinite loop
+                    individual->bumble_destination = individual->location;
+                }
+            }
+            // alright, here's a nice place to go toward.
+            List<Coord> path;
+            bool clear_path = find_path(individual->location, individual->bumble_destination, individual->believed_map.tiles, path);
+            if (clear_path) {
+                move_individual(individual, path.at(0));
+                return;
+            } else {
+                // this point is too hard to reach. pick a different one.
                 individual->bumble_destination = individual->location;
             }
         }
-        move_toward_point(individual, individual->bumble_destination);
     }
 }
 
