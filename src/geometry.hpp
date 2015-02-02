@@ -53,4 +53,8 @@ static inline int distance_squared(Coord a, Coord b) {
     return dx * dx + dy * dy;
 }
 
+static inline Coord clamp(Coord value, Coord min, Coord max) {
+    return Coord(clamp(value.x, min.x, max.x), clamp(value.y, min.y, max.y));
+}
+
 #endif

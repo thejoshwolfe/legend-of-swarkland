@@ -3,6 +3,7 @@
 
 #include "geometry.hpp"
 #include "map.hpp"
+#include "vision_types.hpp"
 
 #include <stdbool.h>
 
@@ -21,11 +22,6 @@ enum AiStrategy {
     AiStrategy_PLAYER,
     // if you can see the player, move and attack
     AiStrategy_ATTACK_IF_VISIBLE,
-};
-
-struct VisionTypes {
-    unsigned normal : 1;
-    unsigned ethereal : 1;
 };
 
 struct Species {

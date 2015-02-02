@@ -135,7 +135,7 @@ static void move_individual(Individual * individual, Coord new_position) {
 }
 
 static void move_bumble_around(Individual * individual) {
-    if (individual->believed_map.is_visible[you->location] && !you->invisible) {
+    if (individual->believed_map.is_visible[you->location].any() && !you->invisible) {
         // there he is!
         List<Coord> path;
         find_path(individual->location, you->location, individual->believed_map.tiles, path);

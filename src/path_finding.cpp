@@ -34,9 +34,7 @@ struct Node {
 };
 
 static float heuristic(Coord start, Coord end) {
-    float delta_x = (float)(end.x - start.x);
-    float delta_y = (float)(end.y - start.y);
-    return sqrtf(delta_x * delta_x + delta_y * delta_y);
+    return sqrtf(distance_squared(start, end));
 }
 
 static int compare_nodes(Node *a, Node *b) {
