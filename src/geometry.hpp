@@ -13,11 +13,17 @@ struct Coord {
             x(x), y(y) {
     }
 };
-static inline bool operator==(const Coord & a, const Coord & b) {
+static inline bool operator==(Coord a, Coord b) {
     return a.x == b.x && a.y == b.y;
 }
-static inline bool operator!=(const Coord & a, const Coord & b) {
+static inline bool operator!=(Coord a, Coord b) {
     return !(a == b);
+}
+static inline Coord operator+(Coord a, Coord b) {
+    return Coord(b.x + a.x, b.y + a.y);
+}
+static inline Coord operator-(Coord a, Coord b) {
+    return Coord(a.x - b.x, a.y - b.y);
 }
 
 template<typename T>
@@ -49,8 +55,13 @@ private:
 
 static inline int distance_squared(Coord a, Coord b) {
     int dx = b.x - a.x;
-    int dy = a.y - b.y;
+    int dy = b.y - a.y;
     return dx * dx + dy * dy;
+}
+
+// each of x and y will be -1, 0, 1
+static inline Coord sign(Coord value) {
+    return Coord(sign(value.x), sign(value.y));
 }
 
 #endif

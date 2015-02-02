@@ -5,8 +5,10 @@
 
 #include <math.h>
 
-static bool is_valid_move(Coord location, Matrix<Tile> & tiles) {
-    if (tiles[location].tile_type == TileType_WALL)
+bool do_i_think_i_can_move_here(Individual * individual, Coord location) {
+    if (!is_in_bounds(location))
+        return false;
+    if (individual->believed_map.tiles[location].tile_type == TileType_WALL)
         return false;
     if (find_individual_at(location) != NULL)
         return false;
@@ -14,7 +16,7 @@ static bool is_valid_move(Coord location, Matrix<Tile> & tiles) {
 }
 
 // start with the cardinal directions, because these are more "direct"
-static const Coord directions[] = {
+const Coord directions[] = {
     Coord(-1,  0),
     Coord( 0, -1),
     Coord( 1,  0),
@@ -43,7 +45,7 @@ static int compare_nodes(Node *a, Node *b) {
     return signf(a->f - b->f);
 }
 
-bool find_path(Coord start, Coord end, Matrix<Tile> & tiles, List<Coord> & output_path) {
+bool find_path(Coord start, Coord end, Individual * according_to_whom, List<Coord> & output_path) {
     Matrix<bool> closed_set(map_size.y, map_size.x);
     closed_set.set_all(false);
 
@@ -77,13 +79,10 @@ bool find_path(Coord start, Coord end, Matrix<Tile> & tiles, List<Coord> & outpu
         for (int i = 0; i < 8; i++) {
             Coord direction = directions[i];
             Coord neighbor_coord(node->coord.x + direction.x, node->coord.y + direction.y);
-            if (neighbor_coord.y < 0 || neighbor_coord.y >= map_size.y ||
-                    neighbor_coord.x < 0 || neighbor_coord.x >= map_size.x)
-            {
+            if (!is_in_bounds(neighbor_coord))
                 continue;
-            }
 
-            if (neighbor_coord != end && !is_valid_move(neighbor_coord, tiles))
+            if (neighbor_coord != end && !do_i_think_i_can_move_here(according_to_whom, neighbor_coord))
                 continue;
             if (closed_set[neighbor_coord])
                 continue;

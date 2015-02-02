@@ -5,6 +5,8 @@
 #include "list.hpp"
 #include "map.hpp"
 
-bool find_path(Coord start, Coord end, Matrix<Tile> & tiles, List<Coord> & output_path);
+extern const Coord directions[8];
+bool do_i_think_i_can_move_here(Individual * individual, Coord location);
+bool find_path(Coord start, Coord end, Individual * according_to_whom, List<Coord> & output_path);
 
 #endif
