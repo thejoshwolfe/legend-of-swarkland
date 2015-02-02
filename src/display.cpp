@@ -163,10 +163,16 @@ void render() {
     for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             const Tile & tile = the_map.tiles[cursor];
+            Uint8 alpha = 0;
             if (tile.is_visible)
-                render_tile(renderer, sprite_sheet_texture, (tile.is_open ? floor_images : wall_images)[tile.aesthetic_index], cursor);
+                alpha = 255;
+            else if (tile.is_ever_seen)
+                alpha = 128;
+            SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
+            render_tile(renderer, sprite_sheet_texture, (tile.is_open ? floor_images : wall_images)[tile.aesthetic_index], cursor);
         }
     }
+    SDL_SetTextureAlphaMod(sprite_sheet_texture, 255);
 
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);

@@ -128,7 +128,11 @@ void refresh_vision() {
     Coord you_location = you->location;
     for (Coord target(0, 0); target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
-            the_map.tiles[target].is_visible = is_open_line_of_sight(you_location, target);
+            Tile & tile = the_map.tiles[target];
+            bool visible = is_open_line_of_sight(you_location, target);
+            tile.is_visible = visible;
+            if (visible)
+                tile.is_ever_seen = true;
         }
     }
 }
