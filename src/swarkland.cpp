@@ -92,6 +92,47 @@ void swarkland_finish() {
         delete specieses[i];
 }
 
+static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
+    if (from_location == to_location)
+        return true;
+    Coord abs_delta(abs(to_location.x - from_location.x), abs(to_location.y - from_location.y));
+    if (abs_delta.y > abs_delta.x) {
+        // primarily vertical
+        int dy = sign(to_location.y - from_location.y);
+        for (int y = from_location.y + dy; y * dy < to_location.y * dy; y += dy) {
+            // x = y * m + b
+            // m = run / rise
+            int x = (y - from_location.y) * (to_location.x - from_location.x) / (to_location.y - from_location.y) + from_location.x;
+            if (!the_map.tiles[Coord(x, y)].is_open)
+                return false;
+        }
+    } else {
+        // primarily horizontal
+        int dx = sign(to_location.x - from_location.x);
+        for (int x = from_location.x + dx; x * dx < to_location.x * dx; x += dx) {
+            // y = x * m + b
+            // m = rise / run
+            int y = (x - from_location.x) * (to_location.y - from_location.y) / (to_location.x - from_location.x) + from_location.y;
+            if (!the_map.tiles[Coord(x, y)].is_open)
+                return false;
+        }
+    }
+    return true;
+}
+
+static long long vision_last_calculated_time = -1;
+void refresh_vision() {
+    if (vision_last_calculated_time == time_counter)
+        return; // we already know
+    vision_last_calculated_time = time_counter;
+    Coord you_location = you->location;
+    for (Coord target(0, 0); target.y < map_size.y; target.y++) {
+        for (target.x = 0; target.x < map_size.x; target.x++) {
+            the_map.tiles[target].is_visible = is_open_line_of_sight(you_location, target);
+        }
+    }
+}
+
 static void spawn_monsters() {
     if (random_int(120) == 0)
         spawn_a_monster(SpeciesId_COUNT);
@@ -193,6 +234,8 @@ static void move_with_ai(Individual * individual) {
     }
 }
 bool you_move(Coord delta) {
+    refresh_vision();
+
     if (!you->is_alive)
         return false;
     if (delta.x == 0 && delta.y == 0)

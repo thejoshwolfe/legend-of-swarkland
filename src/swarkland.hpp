@@ -9,6 +9,7 @@ static const Coord map_size = { 55, 30 };
 
 struct Tile {
     bool is_open;
+    bool is_visible;
     int aesthetic_index;
 };
 class Map {

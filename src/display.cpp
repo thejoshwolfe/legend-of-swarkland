@@ -163,14 +163,16 @@ void render() {
     for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             const Tile & tile = the_map.tiles[cursor];
-            render_tile(renderer, sprite_sheet_texture, (tile.is_open ? floor_images : wall_images)[tile.aesthetic_index], cursor);
+            if (tile.is_visible)
+                render_tile(renderer, sprite_sheet_texture, (tile.is_open ? floor_images : wall_images)[tile.aesthetic_index], cursor);
         }
     }
 
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
-        if (individual->is_alive)
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
+        if (the_map.tiles[individual->location].is_visible)
+            if (individual->is_alive)
+                render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
     }
 
     // status box
