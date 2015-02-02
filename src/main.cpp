@@ -49,6 +49,9 @@ static void step_game() {
                     case SDL_SCANCODE_KP_2:
                         requested_move = Coord(0, 1);
                         break;
+                    case SDL_SCANCODE_V:
+                        cheatcode_full_visibility = !cheatcode_full_visibility;
+                        break;
                     case SDL_SCANCODE_H:
                         you->hitpoints += 100;
                         break;
@@ -67,8 +70,6 @@ static void step_game() {
                 break;
         }
     }
-
-    cheatcode_full_visibility = SDL_GetKeyboardState(NULL)[SDL_SCANCODE_V];
 
     while (you->is_alive) {
         if (you->movement_points >= you->species->movement_cost) {

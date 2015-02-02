@@ -5,8 +5,8 @@
 
 #include <math.h>
 
-static bool is_valid_move(Coord location) {
-    if (actual_map_tiles[location].tile_type == TileType_WALL)
+static bool is_valid_move(Coord location, Matrix<Tile> & tiles) {
+    if (tiles[location].tile_type == TileType_WALL)
         return false;
     if (find_individual_at(location) != NULL)
         return false;
@@ -43,7 +43,7 @@ static int compare_nodes(Node *a, Node *b) {
     return signf(a->f - b->f);
 }
 
-bool find_path(Coord start, Coord end, List<Coord> & output_path) {
+bool find_path(Coord start, Coord end, Matrix<Tile> & tiles, List<Coord> & output_path) {
     Matrix<bool> closed_set(map_size.y, map_size.x);
     closed_set.set_all(false);
 
@@ -83,7 +83,7 @@ bool find_path(Coord start, Coord end, List<Coord> & output_path) {
                 continue;
             }
 
-            if (neighbor_coord != end && !is_valid_move(neighbor_coord))
+            if (neighbor_coord != end && !is_valid_move(neighbor_coord, tiles))
                 continue;
             if (closed_set[neighbor_coord])
                 continue;
