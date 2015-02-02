@@ -167,16 +167,14 @@ static void attack(Individual * attacker, Individual * target) {
 
 static void move_toward_point(Individual * individual, Coord point) {
     List<Coord> path;
-    if (find_path(individual->location, point, path)) {
+    find_path(individual->location, point, path);
+    if (path.size() > 0) {
         Coord new_position = path.at(0);
         if (new_position.x == you->location.x && new_position.y == you->location.y) {
             attack(individual, you);
         } else {
             individual->location = new_position;
         }
-    } else {
-        // no clera path.
-        // TODO: do our best anyway
     }
 }
 
