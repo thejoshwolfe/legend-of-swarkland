@@ -27,6 +27,8 @@ static struct RuckSackImage * floor_images[8];
 static struct RuckSackImage * wall_images[8];
 
 static TTF_Font * status_box_font;
+static unsigned char *font_buffer;
+static SDL_RWops *font_rw_ops;
 
 static struct RuckSackImage * find_image(struct RuckSackImage ** spritesheet_images, long image_count, const char * name) {
     for (int i = 0; i < image_count; i++)
@@ -96,12 +98,26 @@ void display_init() {
 
     TTF_Init();
 
-    // TODO: absolute paths? really?
-    status_box_font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16);
+    struct RuckSackFileEntry *font_entry = rucksack_bundle_find_file(bundle,
+            "font/OpenSans-Regular.ttf", -1);
+    if (!font_entry) {
+        panic("font not found in bundle");
+    }
+    long font_file_size = rucksack_file_size(font_entry);
+    font_buffer = new unsigned char[font_file_size];
+    rucksack_file_read(font_entry, font_buffer);
+    font_rw_ops = SDL_RWFromMem(font_buffer, font_file_size);
+    if (!font_rw_ops) {
+        panic("sdl rwops fail");
+    }
+    status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 16);
 }
 
 void display_finish() {
     TTF_Quit();
+
+    SDL_RWclose(font_rw_ops);
+    delete[] font_buffer;
 
     delete[] spritesheet_images;
     rucksack_texture_destroy(rs_texture);

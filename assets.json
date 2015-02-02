@@ -1,4 +1,11 @@
 {
+  globFiles: [
+    {
+      path: "assets/font/",
+      glob: "*",
+      prefix: "font/",
+    },
+  ],
   textures: {
     spritesheet: {
       allowRotate90: false, // SDL2 textures don't let you override the vertex array
@@ -6,7 +13,7 @@
       maxHeight: 512,
       globImages: [
         {
-          path: "assets/",
+          path: "assets/img/",
           glob: "*",
           prefix: "img/",
           anchor: "topleft",
