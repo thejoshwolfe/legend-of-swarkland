@@ -22,9 +22,9 @@ static struct RuckSackTexture * rs_texture;
 static struct RuckSackImage ** spritesheet_images;
 
 static struct RuckSackImage * species_images[SpeciesId_COUNT];
-
 static struct RuckSackImage * floor_images[8];
 static struct RuckSackImage * wall_images[8];
+static struct RuckSackImage * crosshairs_image;
 
 static TTF_Font * status_box_font;
 static unsigned char *font_buffer;
@@ -60,6 +60,8 @@ static void load_images(struct RuckSackImage ** spritesheet_images, long image_c
     wall_images[5] = find_image(spritesheet_images, image_count, "img/brick_brown5.png");
     wall_images[6] = find_image(spritesheet_images, image_count, "img/brick_brown6.png");
     wall_images[7] = find_image(spritesheet_images, image_count, "img/brick_brown7.png");
+
+    crosshairs_image = find_image(spritesheet_images, image_count, "img/crosshairs.png");
 }
 
 void display_init() {
@@ -203,6 +205,12 @@ void render() {
         if (spectate_from->believed_map.is_visible[individual->location] || cheatcode_full_visibility)
             if (individual->is_alive)
                 render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
+    }
+
+    if (spectate_from->bumble_destination != Coord(-1, -1)) {
+        // you can see this in spectator mode
+        RuckSackImage * image = crosshairs_image;
+        render_tile(renderer, sprite_sheet_texture, image, spectate_from->bumble_destination);
     }
 
     // status box

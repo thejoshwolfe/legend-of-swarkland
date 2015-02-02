@@ -36,7 +36,6 @@ static Individual * spawn_a_monster(SpeciesId species_id) {
     }
     Individual * individual = new Individual(species_id, location);
     individuals.add(individual);
-    refresh_vision(individual);
     return individual;
 }
 
@@ -183,6 +182,10 @@ static void move_with_ai(Individual * individual) {
 }
 bool take_action(bool just_wait, Coord delta) {
     refresh_vision(you);
+    if (cheatcode_spectator != NULL) {
+        // doing this early shouldn't affect anything
+        refresh_vision(cheatcode_spectator);
+    }
 
     if (!you->is_alive)
         return false;
