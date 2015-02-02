@@ -3,6 +3,8 @@
 
 #include "geometry.hpp"
 
+#include <stdlib.h>
+
 static const Coord map_size = { 55, 30 };
 
 enum TileType {
@@ -30,5 +32,8 @@ public:
 };
 
 extern Matrix<Tile> actual_map_tiles;
+
+struct Individual;
+void refresh_vision(Individual * individual);
 
 #endif

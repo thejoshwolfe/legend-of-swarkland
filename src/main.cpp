@@ -68,6 +68,9 @@ static void step_game() {
                     case SDL_SCANCODE_P:
                         cheatcode_polymorph();
                         break;
+                    case SDL_SCANCODE_S:
+                        cheatcode_spectate();
+                        break;
                     default:
                         break;
                 }

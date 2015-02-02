@@ -176,15 +176,18 @@ void render() {
 
     // main map
     // render the terrain
+    Individual * spectate_from = you;
+    if (cheatcode_spectator != NULL)
+        spectate_from = cheatcode_spectator;
     for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            Tile tile = you->believed_map.tiles[cursor];
+            Tile tile = spectate_from->believed_map.tiles[cursor];
             if (cheatcode_full_visibility)
                 tile = actual_map_tiles[cursor];
             if (tile.tile_type == TileType_UNKNOWN)
                 continue;
             Uint8 alpha = 0;
-            if (you->believed_map.is_visible[cursor] || cheatcode_full_visibility)
+            if (spectate_from->believed_map.is_visible[cursor] || cheatcode_full_visibility)
                 alpha = 255;
             else
                 alpha = 128;
@@ -197,7 +200,7 @@ void render() {
 
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
-        if (you->believed_map.is_visible[individual->location] || cheatcode_full_visibility)
+        if (spectate_from->believed_map.is_visible[individual->location] || cheatcode_full_visibility)
             if (individual->is_alive)
                 render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
     }

@@ -14,6 +14,8 @@ extern long long time_counter;
 extern bool cheatcode_full_visibility;
 void cheatcode_kill_everybody_in_the_world();
 void cheatcode_polymorph();
+extern Individual * cheatcode_spectator;
+void cheatcode_spectate();
 
 void swarkland_init();
 void swarkland_finish();
