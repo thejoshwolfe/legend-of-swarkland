@@ -6,7 +6,23 @@
 #include "individual.hpp"
 
 static const Coord map_size = { 55, 30 };
+
+struct Tile {
+    bool is_open;
+    int aesthetic_index;
+};
+class Map {
+public:
+    Matrix<Tile> tiles;
+    Map() :
+            tiles(map_size.y, map_size.x) {
+    }
+};
+
+extern Map the_map;
+
 extern Species * specieses[SpeciesId_COUNT];
+
 extern List<Individual *> individuals;
 extern Individual * you;
 extern long long time_counter;

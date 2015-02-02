@@ -78,9 +78,9 @@ static void step_game() {
 }
 
 int main(int argc, char * argv[]) {
+    init_random();
     display_init();
     swarkland_init();
-    init_random();
 
     while (!request_shutdown) {
         step_game();

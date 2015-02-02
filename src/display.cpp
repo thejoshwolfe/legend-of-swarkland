@@ -21,7 +21,10 @@ static struct RuckSackBundle * bundle;
 static struct RuckSackTexture * rs_texture;
 static struct RuckSackImage ** spritesheet_images;
 
-static struct RuckSackImage * images[SpeciesId_COUNT];
+static struct RuckSackImage * species_images[SpeciesId_COUNT];
+
+static struct RuckSackImage * floor_images[8];
+static struct RuckSackImage * wall_images[8];
 
 static TTF_Font * status_box_font;
 
@@ -30,6 +33,31 @@ static struct RuckSackImage * find_image(struct RuckSackImage ** spritesheet_ima
         if (strcmp(spritesheet_images[i]->key, name) == 0)
             return spritesheet_images[i];
     panic("sprite not found");
+}
+static void load_images(struct RuckSackImage ** spritesheet_images, long image_count) {
+    species_images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/human.png");
+    species_images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/ogre.png");
+    species_images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/dog.png");
+    species_images[SpeciesId_GELATINOUS_CUBE] = find_image(spritesheet_images, image_count, "img/gelatinous_cube.png");
+    species_images[SpeciesId_DUST_VORTEX] = find_image(spritesheet_images, image_count, "img/dust_vortex.png");
+
+    floor_images[0] = find_image(spritesheet_images, image_count, "img/grey_dirt0.png");
+    floor_images[1] = find_image(spritesheet_images, image_count, "img/grey_dirt1.png");
+    floor_images[2] = find_image(spritesheet_images, image_count, "img/grey_dirt2.png");
+    floor_images[3] = find_image(spritesheet_images, image_count, "img/grey_dirt3.png");
+    floor_images[4] = find_image(spritesheet_images, image_count, "img/grey_dirt4.png");
+    floor_images[5] = find_image(spritesheet_images, image_count, "img/grey_dirt5.png");
+    floor_images[6] = find_image(spritesheet_images, image_count, "img/grey_dirt6.png");
+    floor_images[7] = find_image(spritesheet_images, image_count, "img/grey_dirt7.png");
+
+    wall_images[0] = find_image(spritesheet_images, image_count, "img/brick_brown0.png");
+    wall_images[1] = find_image(spritesheet_images, image_count, "img/brick_brown1.png");
+    wall_images[2] = find_image(spritesheet_images, image_count, "img/brick_brown2.png");
+    wall_images[3] = find_image(spritesheet_images, image_count, "img/brick_brown3.png");
+    wall_images[4] = find_image(spritesheet_images, image_count, "img/brick_brown4.png");
+    wall_images[5] = find_image(spritesheet_images, image_count, "img/brick_brown5.png");
+    wall_images[6] = find_image(spritesheet_images, image_count, "img/brick_brown6.png");
+    wall_images[7] = find_image(spritesheet_images, image_count, "img/brick_brown7.png");
 }
 
 void display_init() {
@@ -64,11 +92,7 @@ void display_init() {
     long image_count = rucksack_texture_image_count(rs_texture);
     spritesheet_images = new struct RuckSackImage*[image_count];
     rucksack_texture_get_images(rs_texture, spritesheet_images);
-    images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/human.png");
-    images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/ogre.png");
-    images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/dog.png");
-    images[SpeciesId_GELATINOUS_CUBE] = find_image(spritesheet_images, image_count, "img/gelatinous_cube.png");
-    images[SpeciesId_DUST_VORTEX] = find_image(spritesheet_images, image_count, "img/dust_vortex.png");
+    load_images(spritesheet_images, image_count);
 
     TTF_Init();
 
@@ -135,10 +159,18 @@ void render() {
     SDL_RenderClear(renderer);
 
     // main map
+    // render the terrain
+    for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+            const Tile & tile = the_map.tiles[cursor];
+            render_tile(renderer, sprite_sheet_texture, (tile.is_open ? floor_images : wall_images)[tile.aesthetic_index], cursor);
+        }
+    }
+
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
         if (individual->is_alive)
-            render_tile(renderer, sprite_sheet_texture, images[individual->species->species_id], individual->location);
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
     }
 
     // status box

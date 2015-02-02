@@ -3,7 +3,11 @@
 #include "swarkland.hpp"
 
 static bool is_valid_move(Coord location) {
-    return find_individual_at(location) == NULL;
+    if (!the_map.tiles[location].is_open)
+        return false;
+    if (find_individual_at(location) != NULL)
+        return false;
+    return true;
 }
 
 // start with the cardinal directions, because these are more "direct"

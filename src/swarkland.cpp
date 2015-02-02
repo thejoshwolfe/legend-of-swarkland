@@ -4,12 +4,14 @@
 
 #include <stdlib.h>
 
+Map the_map;
+
 Species * specieses[SpeciesId_COUNT];
 List<Individual *> individuals;
 Individual * you;
 long long time_counter = 0;
 
-void init_specieses() {
+static void init_specieses() {
     specieses[SpeciesId_HUMAN] = new Species(SpeciesId_HUMAN, 12, 10, 3, AiStrategy_LEROY_JENKINS);
     specieses[SpeciesId_OGRE] = new Species(SpeciesId_OGRE, 24, 10, 2, AiStrategy_LEROY_JENKINS);
     specieses[SpeciesId_DOG] = new Species(SpeciesId_DOG, 12, 4, 2, AiStrategy_LEROY_JENKINS);
@@ -17,24 +19,73 @@ void init_specieses() {
     specieses[SpeciesId_DUST_VORTEX] = new Species(SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_BUMBLE_AROUND);
 }
 
+static Individual * spawn_a_monster(SpeciesId species_id) {
+    while (species_id == SpeciesId_COUNT) {
+        species_id = (SpeciesId)random_int(SpeciesId_COUNT);
+        if (species_id == SpeciesId_HUMAN) {
+            // human's are too hard. without giving one side a powerup, they're evenly matched.
+            species_id = SpeciesId_COUNT;
+        }
+    }
+    Coord location;
+    while (true) {
+        location = Coord(random_int(map_size.x), random_int(map_size.y));
+        if (find_individual_at(location) != NULL)
+            continue;
+        if (!the_map.tiles[location].is_open)
+            continue;
+        break;
+    }
+    Individual * individual = new Individual(species_id, location);
+    individuals.add(individual);
+    return individual;
+}
+
 static void init_individuals() {
-    individuals.add(new Individual(SpeciesId_HUMAN, Coord(4, 4)));
-    you = individuals.at(0);
+    you = spawn_a_monster(SpeciesId_HUMAN);
     you->ai = AiStrategy_PLAYER;
 
-    // here's a few warm-up monsters
-    individuals.add(new Individual(SpeciesId_OGRE, Coord(10, 10)));
-    individuals.add(new Individual(SpeciesId_OGRE, Coord(20, 15)));
-    individuals.add(new Individual(SpeciesId_DOG, Coord(5, 20)));
-    individuals.add(new Individual(SpeciesId_GELATINOUS_CUBE, Coord(0, 0)));
-    individuals.add(new Individual(SpeciesId_DUST_VORTEX, Coord(54, 29)));
+    // generate a few warm-up monsters
+    for (int i = 0; i < 6; i++) {
+        spawn_a_monster(SpeciesId_COUNT);
+    }
+}
+
+static void generate_map() {
+    // randomize the appearance of every tile, even if it doesn't matter.
+    for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+            Tile & tile = the_map.tiles[cursor];
+            tile.is_open = true;
+            tile.aesthetic_index = random_int(8);
+        }
+    }
+    // generate some obstructions.
+    // they're all rectangles for now
+    int rock_count = random_int(20, 50);
+    for (int i = 0; i < rock_count; i++) {
+        int width = random_int(2, 8);
+        int height = random_int(2, 8);
+        int x = random_int(0, map_size.x - width);
+        int y = random_int(0, map_size.y - height);
+        Coord cursor;
+        for (cursor.y = y; cursor.y < y + height; cursor.y++) {
+            for (cursor.x = x; cursor.x < x + width; cursor.x++) {
+                the_map.tiles[cursor].is_open = false;
+            }
+        }
+    }
 }
 
 void swarkland_init() {
     init_specieses();
+
+    generate_map();
+
     init_individuals();
 }
 void swarkland_finish() {
+    // this is to make valgrind happy. valgrind is useful when it's happy.
     for (int i = 0; i < individuals.size(); i++)
         delete individuals.at(i);
     for (int i = 0; i < SpeciesId_COUNT; i++)
@@ -42,15 +93,8 @@ void swarkland_finish() {
 }
 
 static void spawn_monsters() {
-    if (random_int(120) == 0) {
-        SpeciesId species_id = (SpeciesId)random_int(SpeciesId_COUNT);
-        if (species_id == SpeciesId_HUMAN) {
-            // human's are too hard. without giving one side a powerup, they're evenly matched.
-            return;
-        }
-        Coord location(random_int(map_size.x), random_int(map_size.y));
-        individuals.add(new Individual(species_id, location));
-    }
+    if (random_int(120) == 0)
+        spawn_a_monster(SpeciesId_COUNT);
 }
 static void heal_the_living() {
     for (int i = 0; i < individuals.size(); i++) {
@@ -114,6 +158,11 @@ static void move_bumble_around(Individual * individual) {
             int min_y = clamp(individual->location.y - 5, 0, map_size.y - 1);
             int max_y = clamp(individual->location.y + 5, 0, map_size.y - 1);
             individual->bumble_destination = Coord(random_int(min_x, max_x + 1), random_int(min_y, max_y + 1));
+            if (!the_map.tiles[individual->bumble_destination].is_open) {
+                // try again
+                // TODO: this can infinite loop
+                individual->bumble_destination = individual->location;
+            }
         }
         move_toward_point(individual, individual->bumble_destination);
     }
@@ -150,6 +199,8 @@ bool you_move(Coord delta) {
         return false; // not moving
     Coord new_position(you->location.x + delta.x, you->location.y + delta.y);
     if (new_position.x < 0 || new_position.x >= map_size.x || new_position.y < 0 || new_position.y >= map_size.y)
+        return false;
+    if (!the_map.tiles[new_position].is_open)
         return false;
     Individual * target = find_individual_at(new_position);
     if (target != NULL && target != you) {
