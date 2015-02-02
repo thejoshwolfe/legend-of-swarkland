@@ -71,6 +71,10 @@ static void step_game() {
                     case SDL_SCANCODE_S:
                         cheatcode_spectate();
                         break;
+                    case SDL_SCANCODE_I:
+                        you->invisible = !you->invisible;
+                        break;
+
                     default:
                         break;
                 }

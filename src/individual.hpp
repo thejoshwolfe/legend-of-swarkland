@@ -48,6 +48,7 @@ struct Individual {
     Coord bumble_destination;
     Map believed_map;
     long long vision_last_calculated_time = -1;
+    bool invisible = false;
     Individual(SpeciesId species_id, Coord location);
     Individual(Individual &) = delete;
 };

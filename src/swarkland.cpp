@@ -136,7 +136,7 @@ static void move_leroy_jenkins(Individual * individual) {
 }
 
 static void move_bumble_around(Individual * individual) {
-    if (individual->believed_map.is_visible[you->location]) {
+    if (individual->believed_map.is_visible[you->location] && !you->invisible) {
         // there he is!
         move_leroy_jenkins(individual);
         // if we lose him. reroll our new destination.

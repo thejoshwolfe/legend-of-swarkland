@@ -198,13 +198,20 @@ void render() {
             render_tile(renderer, sprite_sheet_texture, image, cursor);
         }
     }
-    SDL_SetTextureAlphaMod(sprite_sheet_texture, 255);
 
     for (int i = 0; i < individuals.size(); i++) {
         Individual * individual = individuals.at(i);
-        if (spectate_from->believed_map.is_visible[individual->location] || cheatcode_full_visibility)
-            if (individual->is_alive)
-                render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
+        if (!individual->is_alive)
+            continue;
+        if (spectate_from->believed_map.is_visible[individual->location] || cheatcode_full_visibility) {
+            Uint8 alpha;
+            if (individual->invisible)
+                alpha = 128;
+            else
+                alpha = 255;
+            SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
+        }
     }
 
     if (spectate_from->bumble_destination != Coord(-1, -1)) {
