@@ -47,7 +47,7 @@ bool find_path(Coord start, Coord end, Individual * according_to_whom, List<Coor
     Matrix<bool> closed_set(map_size.y, map_size.x);
     closed_set.set_all(false);
 
-    Heap<Node*> open_heap(compare_nodes);
+    Heap<Node*, compare_nodes> open_heap;
     Matrix<bool> open_set(map_size.y, map_size.x);
     open_set.set_all(false);
 
