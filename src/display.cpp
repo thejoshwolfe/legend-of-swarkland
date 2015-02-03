@@ -207,8 +207,8 @@ void render() {
         }
     }
 
-    for (int i = 0; i < individuals.size(); i++) {
-        Individual * individual = individuals.at(i);
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual * individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (spectate_from->knowledge.is_visible[individual->location].any() || cheatcode_full_visibility) {

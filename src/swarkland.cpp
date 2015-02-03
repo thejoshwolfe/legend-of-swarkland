@@ -3,7 +3,8 @@
 #include "path_finding.hpp"
 
 Species specieses[SpeciesId_COUNT];
-List<Individual *> individuals;
+LinkedHashtable<uint256, Individual *, hash_uint256> individuals;
+
 Individual * you;
 long long time_counter = 0;
 
@@ -45,7 +46,7 @@ Individual * spawn_a_monster(SpeciesId species_id) {
     }
     Coord location = available_spawn_locations.at(random_int(available_spawn_locations.size()));
     Individual * individual = new Individual(species_id, location);
-    individuals.add(individual);
+    individuals.put(individual->id, individual);
     return individual;
 }
 
@@ -70,8 +71,8 @@ void swarkland_init() {
 }
 void swarkland_finish() {
     // this is to make valgrind happy. valgrind is useful when it's happy.
-    for (int i = 0; i < individuals.size(); i++)
-        delete individuals.at(i);
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();)
+        delete iterator.next();
 }
 
 static void spawn_monsters() {
@@ -79,8 +80,8 @@ static void spawn_monsters() {
         spawn_a_monster(SpeciesId_COUNT);
 }
 static void heal_the_living() {
-    for (int i = 0; i < individuals.size(); i++) {
-        Individual * individual = individuals.at(i);
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual * individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (individual->hitpoints < individual->species->starting_hitpoints) {
@@ -161,8 +162,8 @@ static void move_bumble_around(Individual * individual) {
 }
 
 Individual * find_individual_at(Coord location) {
-    for (int i = 0; i < individuals.size(); i++) {
-        Individual * individual = individuals.at(i);
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual * individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (individual->location.x == location.x && individual->location.y == location.y)
@@ -211,16 +212,16 @@ void advance_time() {
     heal_the_living();
 
     // award movement points to the living
-    for (int i = 0; i < individuals.size(); i++) {
-        Individual * individual = individuals.at(i);
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual * individual = iterator.next();
         if (!individual->is_alive)
             continue;
         individual->movement_points++;
     }
 
     // move monsters
-    for (int i = 0; i < individuals.size(); i++) {
-        Individual * individual = individuals.at(i);
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual * individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (individual->ai == AiStrategy_PLAYER)
@@ -234,8 +235,8 @@ void advance_time() {
 }
 
 void cheatcode_kill_everybody_in_the_world() {
-    for (int i = 0; i < individuals.size(); i++)
-        individuals.at(i)->is_alive = false;
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();)
+        iterator.next()->is_alive = false;
     // you're cool
     you->is_alive = true;
 }
@@ -246,8 +247,8 @@ void cheatcode_polymorph() {
 }
 Individual * cheatcode_spectator = NULL;
 void cheatcode_spectate(Coord individual_at) {
-    for (int i = 0; i < individuals.size(); i++) {
-        Individual * individual = individuals.at(i);
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual * individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (individual->location == individual_at) {

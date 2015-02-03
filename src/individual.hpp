@@ -3,6 +3,7 @@
 
 #include "geometry.hpp"
 #include "map.hpp"
+#include "hashtable.hpp"
 
 #include <stdbool.h>
 
@@ -57,6 +58,7 @@ public:
 };
 
 struct Individual {
+    uint256 id;
     bool is_alive = true;
     Species * species;
     int hitpoints;

@@ -1,13 +1,14 @@
 #ifndef SWARKLAND_HPP
 #define SWARKLAND_HPP
 
+#include "hashtable.hpp"
 #include "geometry.hpp"
 #include "list.hpp"
 #include "individual.hpp"
 
 extern Species specieses[SpeciesId_COUNT];
 
-extern List<Individual *> individuals;
+extern LinkedHashtable<uint256, Individual *, hash_uint256> individuals;
 extern Individual * you;
 extern long long time_counter;
 

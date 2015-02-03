@@ -9,7 +9,6 @@ template<int Size64>
 struct uint_oversized {
     uint64_t values[Size64];
 };
-typedef uint_oversized<4> uint256;
 
 template<int Size64>
 static inline bool operator==(uint_oversized<Size64> a, uint_oversized<Size64> b) {
@@ -41,6 +40,12 @@ static inline uint_oversized<Size64> random_oversized() {
                            ((uint64_t)random_int(0x10000)) << 0;
     }
     return result;
+}
+
+typedef uint_oversized<4> uint256;
+int hash_uint256(uint256 a);
+static inline uint256 random_uint256() {
+    return random_oversized<4>();
 }
 
 // sorry. this isn't supposed to be visible.
