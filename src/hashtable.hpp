@@ -22,11 +22,11 @@ static inline bool operator!=(uint_oversized<Size64> a, uint_oversized<Size64> b
     return !(a == b);
 }
 template<int Size64>
-static inline int hash_oversized(uint_oversized<Size64> a) {
+static inline uint32_t hash_oversized(uint_oversized<Size64> a) {
     // it's just a bunch of xor
-    int result = 0;
+    uint32_t result = 0;
     for (int i = 0; i < Size64; i++)
-        result ^= (int)(a.values[i] >> 32) ^ (int)(a.values[i] & 0x00000000ffffffffULL);
+        result ^= (uint32_t)(a.values[i] >> 32) ^ (uint32_t)(a.values[i] & 0x00000000ffffffffULL);
     return result;
 }
 
@@ -43,7 +43,7 @@ static inline uint_oversized<Size64> random_oversized() {
 }
 
 typedef uint_oversized<4> uint256;
-int hash_uint256(uint256 a);
+uint32_t hash_uint256(uint256 a);
 static inline uint256 random_uint256() {
     return random_oversized<4>();
 }
@@ -60,7 +60,7 @@ struct LinkedHashtableEntry {
 
 // A LinkedList and a Hashtable at the same time.
 // iteration preserves insertion order.
-template<typename K, typename V, int (*HashFunction)(K)>
+template<typename K, typename V, uint32_t (*HashFunction)(K)>
 class LinkedHashtable {
 public:
     LinkedHashtable() {
@@ -128,34 +128,34 @@ public:
         return Iterator(_head);
     }
 private:
-    int _size;
-    int _capacity;
+    uint32_t _size;
+    uint32_t _capacity;
     LinkedHashtableEntry<K, V> * _table;
     LinkedHashtableEntry<K, V> * _head;
     LinkedHashtableEntry<K, V> * _tail;
-    void init_capacity(int new_capacity) {
+    void init_capacity(uint32_t new_capacity) {
         _size = 0;
         _capacity = new_capacity;
         _table = new LinkedHashtableEntry<K, V>[_capacity];
-        for (int i = 0; i < _capacity; i++)
+        for (uint32_t i = 0; i < _capacity; i++)
             _table[i].is_valid = false;
         _head = NULL;
         _tail = NULL;
     }
     LinkedHashtableEntry<K, V> & find_entry(K key) {
-        int start_index = HashFunction(key) % _capacity;
-        for (int roll_over = 0; roll_over < _capacity; roll_over++) {
-            int index = (start_index + roll_over) % _capacity;
+        uint32_t start_index = HashFunction(key) % _capacity;
+        for (uint32_t roll_over = 0; roll_over < _capacity; roll_over++) {
+            uint32_t index = (start_index + roll_over) % _capacity;
             if (_table[index].is_valid && _table[index].key == key)
                 return _table[index];
         }
         panic("hashtable key not found");
     }
     void just_put(K key, V value) {
-        int start_index = HashFunction(key) % _capacity;
+        uint32_t start_index = HashFunction(key) % _capacity;
         // resolve hash collisions with linear probing.
-        for (int roll_over = 0; roll_over < _capacity; roll_over++) {
-            int index = (start_index + roll_over) % _capacity;
+        for (uint32_t roll_over = 0; roll_over < _capacity; roll_over++) {
+            uint32_t index = (start_index + roll_over) % _capacity;
             if (_table[index].is_valid && _table[index].key != key)
                 continue;
             // found where to put it
