@@ -18,7 +18,6 @@ enum TileType {
 struct Tile {
     TileType tile_type;
     int aesthetic_index;
-
 };
 
 static const Tile unknown_tile = {TileType_UNKNOWN, 0};

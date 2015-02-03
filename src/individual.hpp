@@ -7,13 +7,13 @@
 #include <stdbool.h>
 
 enum SpeciesId {
-    SpeciesId_HUMAN, //
-    SpeciesId_OGRE, //
-    SpeciesId_DOG, //
-    SpeciesId_GELATINOUS_CUBE, //
-    SpeciesId_DUST_VORTEX, //
+    SpeciesId_HUMAN,
+    SpeciesId_OGRE,
+    SpeciesId_DOG,
+    SpeciesId_GELATINOUS_CUBE,
+    SpeciesId_DUST_VORTEX,
 
-    SpeciesId_COUNT, //
+    SpeciesId_COUNT,
 };
 
 enum AiStrategy {
@@ -51,8 +51,8 @@ public:
     Matrix<VisionTypes> is_visible;
     Knowledge() :
             tiles(map_size.y, map_size.x), is_visible(map_size.y, map_size.x) {
-        tiles.set_all(Tile());
-        is_visible.set_all({0, 0});
+        tiles.set_all(unknown_tile);
+        is_visible.set_all(no_vision);
     }
 };
 
