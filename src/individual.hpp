@@ -3,7 +3,6 @@
 
 #include "geometry.hpp"
 #include "map.hpp"
-#include "vision_types.hpp"
 
 #include <stdbool.h>
 
@@ -24,6 +23,17 @@ enum AiStrategy {
     AiStrategy_ATTACK_IF_VISIBLE,
 };
 
+struct VisionTypes {
+    unsigned normal : 1;
+    unsigned ethereal : 1;
+
+    bool any() const {
+        return normal || ethereal;
+    }
+};
+
+static const VisionTypes no_vision = {0, 0};
+
 struct Species {
     SpeciesId species_id;
     // how many ticks does it cost to move one space? average human is 12.
@@ -33,6 +43,17 @@ struct Species {
     AiStrategy default_ai;
     VisionTypes vision_types;
     bool has_mind;
+};
+
+class Knowledge {
+public:
+    Matrix<Tile> tiles;
+    Matrix<VisionTypes> is_visible;
+    Knowledge() :
+            tiles(map_size.y, map_size.x), is_visible(map_size.y, map_size.x) {
+        tiles.set_all(Tile());
+        is_visible.set_all({0, 0});
+    }
 };
 
 struct Individual {
