@@ -39,6 +39,7 @@ extern Matrix<Tile> actual_map_tiles;
 
 struct Individual;
 void refresh_vision(Individual * individual);
+void generate_map();
 
 static inline bool is_in_bounds(Coord point) {
     return point.y >= 0 && point.y < map_size.y && point.x >= 0 && point.x < map_size.x;

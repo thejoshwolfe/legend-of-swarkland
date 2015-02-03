@@ -61,32 +61,6 @@ static void init_individuals() {
     }
 }
 
-static void generate_map() {
-    // randomize the appearance of every tile, even if it doesn't matter.
-    for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
-        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            Tile & tile = actual_map_tiles[cursor];
-            tile.tile_type = TileType_FLOOR;
-            tile.aesthetic_index = random_int(8);
-        }
-    }
-    // generate some obstructions.
-    // they're all rectangles for now
-    int rock_count = random_int(20, 50);
-    for (int i = 0; i < rock_count; i++) {
-        int width = random_int(2, 8);
-        int height = random_int(2, 8);
-        int x = random_int(0, map_size.x - width);
-        int y = random_int(0, map_size.y - height);
-        Coord cursor;
-        for (cursor.y = y; cursor.y < y + height; cursor.y++) {
-            for (cursor.x = x; cursor.x < x + width; cursor.x++) {
-                actual_map_tiles[cursor].tile_type = TileType_WALL;
-            }
-        }
-    }
-}
-
 void swarkland_init() {
     init_specieses();
 

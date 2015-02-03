@@ -5,8 +5,6 @@
 
 Matrix<Tile> actual_map_tiles(map_size.y, map_size.x);
 
-
-
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     if (from_location == to_location)
         return true;
@@ -60,7 +58,6 @@ static void refresh_ethereal_vision(Individual *individual) {
             individual->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
-
 }
 
 void refresh_vision(Individual *individual) {
@@ -78,5 +75,31 @@ void refresh_vision(Individual *individual) {
     }
     if (individual->species->vision_types.ethereal) {
         refresh_ethereal_vision(individual);
+    }
+}
+
+void generate_map() {
+    // randomize the appearance of every tile, even if it doesn't matter.
+    for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+            Tile & tile = actual_map_tiles[cursor];
+            tile.tile_type = TileType_FLOOR;
+            tile.aesthetic_index = random_int(8);
+        }
+    }
+    // generate some obstructions.
+    // they're all rectangles for now
+    int rock_count = random_int(20, 50);
+    for (int i = 0; i < rock_count; i++) {
+        int width = random_int(2, 8);
+        int height = random_int(2, 8);
+        int x = random_int(0, map_size.x - width);
+        int y = random_int(0, map_size.y - height);
+        Coord cursor;
+        for (cursor.y = y; cursor.y < y + height; cursor.y++) {
+            for (cursor.x = x; cursor.x < x + width; cursor.x++) {
+                actual_map_tiles[cursor].tile_type = TileType_WALL;
+            }
+        }
     }
 }
