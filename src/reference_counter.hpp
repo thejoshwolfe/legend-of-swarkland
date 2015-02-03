@@ -60,7 +60,7 @@ public:
         return _target == other._target;
     }
     bool operator!=(Reference<T> const & other) const {
-        return !(*this != other);
+        return !(*this == other);
     }
 private:
     T * _target;
