@@ -107,11 +107,58 @@ static void step_game() {
     }
 }
 
+#include "hashtable.hpp"
+
 int main(int argc, char * argv[]) {
     init_random();
     display_init();
     swarkland_init();
+    {
+        LinkedHashtable<uint256, int, hash_oversized<4>> table;
+        uint256 a = random_oversized<4>();
+        uint256 b = random_oversized<4>();
+        uint256 c = random_oversized<4>();
+        uint256 d = random_oversized<4>();
+        table.put(a, 0);
+        table.put(b, 1);
+        table.put(c, 2);
+        table.put(d, 3);
 
+        for (auto iterator = table.value_iterator(); iterator.has_next();) {
+            int value = iterator.next();
+            fprintf(stderr, "%d, ", value);
+        }
+        fprintf(stderr, "\n");
+
+        table.remove(b);
+        for (auto iterator = table.value_iterator(); iterator.has_next();) {
+            int value = iterator.next();
+            fprintf(stderr, "%d, ", value);
+        }
+        fprintf(stderr, "\n");
+        table.remove(a);
+        for (auto iterator = table.value_iterator(); iterator.has_next();) {
+            int value = iterator.next();
+            fprintf(stderr, "%d, ", value);
+        }
+        fprintf(stderr, "\n");
+        table.remove(d);
+        for (auto iterator = table.value_iterator(); iterator.has_next();) {
+            int value = iterator.next();
+            fprintf(stderr, "%d, ", value);
+        }
+        fprintf(stderr, "\n");
+        table.remove(c);
+        for (auto iterator = table.value_iterator(); iterator.has_next();) {
+            int value = iterator.next();
+            fprintf(stderr, "%d, ", value);
+        }
+        fprintf(stderr, "\n");
+
+        fprintf(stderr, "%d\n", table.size());
+    }
+
+    request_shutdown = true;
     while (!request_shutdown) {
         step_game();
 
