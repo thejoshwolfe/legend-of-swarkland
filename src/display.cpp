@@ -186,7 +186,7 @@ void render() {
 
     // main map
     // render the terrain
-    Individual * spectate_from = you;
+    Individual spectate_from = you;
     if (cheatcode_spectator != NULL)
         spectate_from = cheatcode_spectator;
     for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
@@ -208,7 +208,7 @@ void render() {
     }
 
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual * individual = iterator.next();
+        Individual individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (spectate_from->knowledge.is_visible[individual->location].any() || cheatcode_full_visibility) {

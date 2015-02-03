@@ -24,8 +24,6 @@ static const Tile unknown_tile = {TileType_UNKNOWN, 0};
 
 extern Matrix<Tile> actual_map_tiles;
 
-struct Individual;
-void refresh_vision(Individual * individual);
 void generate_map();
 
 static inline bool is_in_bounds(Coord point) {

@@ -2,7 +2,7 @@
 
 #include "swarkland.hpp"
 
-Individual::Individual(SpeciesId species_id, Coord location) :
+IndividualImpl::IndividualImpl(SpeciesId species_id, Coord location) :
         location(location)
 {
     id = random_uint256();

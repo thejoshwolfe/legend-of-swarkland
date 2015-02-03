@@ -121,6 +121,5 @@ int main(int argc, char * argv[]) {
     }
 
     display_finish();
-    swarkland_finish();
     return 0;
 }

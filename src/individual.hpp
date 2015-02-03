@@ -1,6 +1,7 @@
 #ifndef INDIVIDUAL_HPP
 #define INDIVIDUAL_HPP
 
+#include "reference_counter.hpp"
 #include "geometry.hpp"
 #include "map.hpp"
 #include "hashtable.hpp"
@@ -57,7 +58,7 @@ public:
     }
 };
 
-struct Individual {
+struct IndividualImpl : public ReferenceCounted {
     uint256 id;
     bool is_alive = true;
     Species * species;
@@ -71,8 +72,12 @@ struct Individual {
     Knowledge knowledge;
     long long vision_last_calculated_time = -1;
     bool invisible = false;
-    Individual(SpeciesId species_id, Coord location);
-    Individual(Individual &) = delete;
+    IndividualImpl(SpeciesId species_id, Coord location);
+    IndividualImpl(IndividualImpl &) = delete;
 };
+typedef Reference<IndividualImpl> Individual;
+
+// TODO: this is in the wrong place
+void refresh_vision(Individual individual);
 
 #endif

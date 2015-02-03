@@ -3,9 +3,9 @@
 #include "path_finding.hpp"
 
 Species specieses[SpeciesId_COUNT];
-LinkedHashtable<uint256, Individual *, hash_uint256> individuals;
+LinkedHashtable<uint256, Individual, hash_uint256> individuals;
 
-Individual * you;
+Individual you;
 long long time_counter = 0;
 
 bool cheatcode_full_visibility;
@@ -20,7 +20,7 @@ static void init_specieses() {
 
 static const int no_spawn_radius = 10;
 
-Individual * spawn_a_monster(SpeciesId species_id) {
+Individual spawn_a_monster(SpeciesId species_id) {
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
         if (species_id == SpeciesId_HUMAN) {
@@ -45,7 +45,7 @@ Individual * spawn_a_monster(SpeciesId species_id) {
         return NULL;
     }
     Coord location = available_spawn_locations.at(random_int(available_spawn_locations.size()));
-    Individual * individual = new Individual(species_id, location);
+    Individual individual = new IndividualImpl(species_id, location);
     individuals.put(individual->id, individual);
     return individual;
 }
@@ -69,11 +69,6 @@ void swarkland_init() {
 
     init_individuals();
 }
-void swarkland_finish() {
-    // this is to make valgrind happy. valgrind is useful when it's happy.
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();)
-        delete iterator.next();
-}
 
 static void spawn_monsters() {
     if (random_int(120) == 0)
@@ -81,7 +76,7 @@ static void spawn_monsters() {
 }
 static void heal_the_living() {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual * individual = iterator.next();
+        Individual individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (individual->hitpoints < individual->species->starting_hitpoints) {
@@ -92,7 +87,7 @@ static void heal_the_living() {
     }
 }
 
-static void attack(Individual * attacker, Individual * target) {
+static void attack(Individual attacker, Individual target) {
     target->hitpoints -= attacker->species->attack_power;
     if (target->hitpoints <= 0) {
         target->hitpoints = 0;
@@ -101,7 +96,7 @@ static void attack(Individual * attacker, Individual * target) {
     }
 }
 
-static void move_individual(Individual * individual, Coord new_position) {
+static void move_individual(Individual individual, Coord new_position) {
     if (new_position.x == you->location.x && new_position.y == you->location.y) {
         attack(individual, you);
     } else {
@@ -109,7 +104,7 @@ static void move_individual(Individual * individual, Coord new_position) {
     }
 }
 
-static void move_bumble_around(Individual * individual) {
+static void move_bumble_around(Individual individual) {
     if (individual->knowledge.is_visible[you->location].any() && !you->invisible) {
         // there he is!
         List<Coord> path;
@@ -161,9 +156,9 @@ static void move_bumble_around(Individual * individual) {
     }
 }
 
-Individual * find_individual_at(Coord location) {
+Individual find_individual_at(Coord location) {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual * individual = iterator.next();
+        Individual individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (individual->location.x == location.x && individual->location.y == location.y)
@@ -172,7 +167,7 @@ Individual * find_individual_at(Coord location) {
     return NULL;
 }
 
-static void move_with_ai(Individual * individual) {
+static void move_with_ai(Individual individual) {
     refresh_vision(individual);
     if (individual->ai != AiStrategy_ATTACK_IF_VISIBLE)
         panic("unknown ai strategy");
@@ -196,7 +191,7 @@ bool take_action(bool just_wait, Coord delta) {
         return false;
     if (you->knowledge.tiles[new_position].tile_type == TileType_WALL)
         return false;
-    Individual * target = find_individual_at(new_position);
+    Individual target = find_individual_at(new_position);
     if (target != NULL && target != you) {
         attack(you, target);
     } else {
@@ -213,7 +208,7 @@ void advance_time() {
 
     // award movement points to the living
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual * individual = iterator.next();
+        Individual individual = iterator.next();
         if (!individual->is_alive)
             continue;
         individual->movement_points++;
@@ -221,7 +216,7 @@ void advance_time() {
 
     // move monsters
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual * individual = iterator.next();
+        Individual individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (individual->ai == AiStrategy_PLAYER)
@@ -245,10 +240,10 @@ void cheatcode_polymorph() {
     species_id = (SpeciesId)((species_id + 1) % SpeciesId_COUNT);
     you->species = &specieses[species_id];
 }
-Individual * cheatcode_spectator = NULL;
+Individual cheatcode_spectator;
 void cheatcode_spectate(Coord individual_at) {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual * individual = iterator.next();
+        Individual individual = iterator.next();
         if (!individual->is_alive)
             continue;
         if (individual->location == individual_at) {

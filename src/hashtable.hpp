@@ -162,7 +162,9 @@ private:
             if (_table[index].is_valid) {
                 panic("hashtable put overwrites existing value");
             }
-            _table[index] = {key, value, true};
+            _table[index].key = key;
+            _table[index].value = value;
+            _table[index].is_valid = true;
             _size++;
             if (_tail == NULL) {
                 _head = &_table[index];

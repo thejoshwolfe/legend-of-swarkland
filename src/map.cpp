@@ -33,7 +33,7 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     return true;
 }
 
-static void refresh_normal_vision(Individual * individual) {
+static void refresh_normal_vision(Individual individual) {
     Coord you_location = individual->location;
     for (Coord target(0, 0); target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
@@ -46,7 +46,7 @@ static void refresh_normal_vision(Individual * individual) {
 }
 
 static const int ethereal_radius = 5;
-static void refresh_ethereal_vision(Individual *individual) {
+static void refresh_ethereal_vision(Individual individual) {
     Coord you_location = individual->location;
     Coord upper_left = clamp(Coord(you_location.x - ethereal_radius, you_location.y - ethereal_radius), Coord(0, 0), map_size);
     Coord lower_right= clamp(Coord(you_location.x + ethereal_radius + 1, you_location.y + ethereal_radius + 1), Coord(0, 0), map_size);
@@ -60,7 +60,7 @@ static void refresh_ethereal_vision(Individual *individual) {
     }
 }
 
-void refresh_vision(Individual *individual) {
+void refresh_vision(Individual individual) {
     if (individual->vision_last_calculated_time == time_counter)
         return; // he already knows
     individual->vision_last_calculated_time = time_counter;
