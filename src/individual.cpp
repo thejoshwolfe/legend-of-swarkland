@@ -11,11 +11,15 @@ IndividualImpl::IndividualImpl(SpeciesId species_id, Coord location) :
     ai = species->default_ai;
 }
 
+PerceivedIndividual to_perceived_individual(Individual target) {
+    return new PerceivedIndividualImpl(target->id, target->is_alive, target->species, target->location, target->invisible);
+}
+
 PerceivedIndividual observe_individual(Individual observer, Individual target) {
     if (!observer->knowledge.tile_is_visible[target->location].any())
         return NULL;
     // invisible creates can only be seen by themselves
     if (target->invisible && observer != target)
         return NULL;
-    return new PerceivedIndividualImpl(target->id, target->is_alive, target->species, target->location, target->invisible);
+    return to_perceived_individual(target);
 }

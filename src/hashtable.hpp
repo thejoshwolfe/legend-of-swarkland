@@ -105,10 +105,15 @@ public:
         // leave the deleted entry's next pointer intact so that iterators can use it
     }
     // the key must be present
-    V get(K key) {
+    V get(K key) const {
         return find_entry(key, false)->value;
     }
-    bool contains(K key) {
+    // returns the default value if the key isn't found
+    V get(K key, V default_value) const {
+        LinkedHashtableEntry<K, V> * entry = find_entry(key, true);
+        return entry != NULL ? entry->value : default_value;
+    }
+    bool contains(K key) const {
         return find_entry(key, true) != NULL;
     }
     class Iterator {
@@ -148,7 +153,7 @@ private:
         _head = NULL;
         _tail = NULL;
     }
-    LinkedHashtableEntry<K, V> * find_entry(K key, bool tolerate_not_found) {
+    LinkedHashtableEntry<K, V> * find_entry(K key, bool tolerate_not_found) const {
         uint32_t start_index = HashFunction(key) % _capacity;
         for (uint32_t roll_over = 0; roll_over < _capacity; roll_over++) {
             uint32_t index = (start_index + roll_over) % _capacity;

@@ -60,21 +60,23 @@ static void refresh_ethereal_vision(Individual individual) {
     }
 }
 
-void refresh_vision(Individual spectator) {
-    if (spectator->knowledge.map_last_observed_from != spectator->location) {
-        // take a look at the terrain
-        spectator->knowledge.map_last_observed_from = spectator->location;
+void compute_vision(Individual spectator) {
+    if (spectator->knowledge.map_last_observed_from == spectator->location)
+        return;
+    // if monsters move since we started standing here, we've got special logic for that.
 
-        // mindless monsters can't remember the terrain
-        if (!spectator->species->has_mind)
-            spectator->knowledge.tiles.set_all(unknown_tile);
-        spectator->knowledge.tile_is_visible.set_all(no_vision);
+    // take a look at the terrain
+    spectator->knowledge.map_last_observed_from = spectator->location;
 
-        if (spectator->species->vision_types.normal)
-            refresh_normal_vision(spectator);
-        if (spectator->species->vision_types.ethereal)
-            refresh_ethereal_vision(spectator);
-    }
+    // mindless monsters can't remember the terrain
+    if (!spectator->species->has_mind)
+        spectator->knowledge.tiles.set_all(unknown_tile);
+
+    spectator->knowledge.tile_is_visible.set_all(no_vision);
+    if (spectator->species->vision_types.normal)
+        refresh_normal_vision(spectator);
+    if (spectator->species->vision_types.ethereal)
+        refresh_ethereal_vision(spectator);
 
     // see individuals
     // first clear out any monsters that we know are no longer where we thought

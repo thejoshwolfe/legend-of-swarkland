@@ -11,100 +11,94 @@
 
 static bool request_shutdown = false;
 
-static void step_game() {
+static Action on_key_down(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            request_shutdown = true;
+            break;
+
+        case SDL_SCANCODE_KP_1:
+            return {Action::MOVE, {-1, 1}};
+        case SDL_SCANCODE_DOWN:
+        case SDL_SCANCODE_KP_2:
+            return {Action::MOVE, {0, 1}};
+        case SDL_SCANCODE_KP_3:
+            return {Action::MOVE, {1, 1}};
+        case SDL_SCANCODE_LEFT:
+        case SDL_SCANCODE_KP_4:
+            return {Action::MOVE, {-1, 0}};
+        case SDL_SCANCODE_RIGHT:
+        case SDL_SCANCODE_KP_6:
+            return {Action::MOVE, {1, 0}};
+        case SDL_SCANCODE_KP_7:
+            return {Action::MOVE, {-1, -1}};
+        case SDL_SCANCODE_UP:
+        case SDL_SCANCODE_KP_8:
+            return {Action::MOVE, {0, -1}};
+        case SDL_SCANCODE_KP_9:
+            return {Action::MOVE, {1, -1}};
+
+        case SDL_SCANCODE_SPACE:
+            return {Action::WAIT, {0, 0}};
+
+        case SDL_SCANCODE_V:
+            cheatcode_full_visibility = !cheatcode_full_visibility;
+            break;
+        case SDL_SCANCODE_H:
+            you->hitpoints += 100;
+            break;
+        case SDL_SCANCODE_K:
+            cheatcode_kill_everybody_in_the_world();
+            break;
+        case SDL_SCANCODE_P:
+            cheatcode_polymorph();
+            break;
+        case SDL_SCANCODE_S:
+            cheatcode_spectate(get_mouse_tile());
+            break;
+        case SDL_SCANCODE_I:
+            you->invisible = !you->invisible;
+            break;
+        case SDL_SCANCODE_G:
+            spawn_a_monster(SpeciesId_COUNT);
+            break;
+
+        default:
+            break;
+    }
+    return {Action::UNDECIDED, {0, 0}};
+}
+
+static Action peek_input_command() {
     SDL_Event event;
-    Coord requested_move = {0, 0};
-    bool do_nothing = false;
+    Action action = {Action::UNDECIDED, {0, 0}};
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_KEYDOWN:
-                switch (event.key.keysym.scancode) {
-                    case SDL_SCANCODE_ESCAPE:
-                        request_shutdown = true;
-                        break;
-
-                    case SDL_SCANCODE_KP_1:
-                        requested_move = {-1, 1};
-                        break;
-                    case SDL_SCANCODE_DOWN:
-                    case SDL_SCANCODE_KP_2:
-                        requested_move = {0, 1};
-                        break;
-                    case SDL_SCANCODE_KP_3:
-                        requested_move = {1, 1};
-                        break;
-                    case SDL_SCANCODE_LEFT:
-                    case SDL_SCANCODE_KP_4:
-                        requested_move = {-1, 0};
-                        break;
-                    case SDL_SCANCODE_RIGHT:
-                    case SDL_SCANCODE_KP_6:
-                        requested_move = {1, 0};
-                        break;
-                    case SDL_SCANCODE_KP_7:
-                        requested_move = {-1, -1};
-                        break;
-                    case SDL_SCANCODE_UP:
-                    case SDL_SCANCODE_KP_8:
-                        requested_move = {0, -1};
-                        break;
-                    case SDL_SCANCODE_KP_9:
-                        requested_move = {1, -1};
-                        break;
-
-                    case SDL_SCANCODE_SPACE:
-                        do_nothing = true;
-                        break;
-
-                    case SDL_SCANCODE_V:
-                        cheatcode_full_visibility = !cheatcode_full_visibility;
-                        break;
-                    case SDL_SCANCODE_H:
-                        you->hitpoints += 100;
-                        break;
-                    case SDL_SCANCODE_K:
-                        cheatcode_kill_everybody_in_the_world();
-                        break;
-                    case SDL_SCANCODE_P:
-                        cheatcode_polymorph();
-                        break;
-                    case SDL_SCANCODE_S:
-                        cheatcode_spectate(get_mouse_tile());
-                        break;
-                    case SDL_SCANCODE_I:
-                        you->invisible = !you->invisible;
-                        break;
-                    case SDL_SCANCODE_G:
-                        spawn_a_monster(SpeciesId_COUNT);
-                        break;
-
-                    default:
-                        break;
-                }
+                action = on_key_down(event);
                 break;
             case SDL_QUIT:
                 request_shutdown = true;
                 break;
         }
     }
-
-    while (you->is_alive) {
-        if (you->movement_points >= you->species->movement_cost) {
-            // you can move. do you choose to?
-            if (take_action(do_nothing, requested_move)) {
-                // chose to move
-                you->movement_points = 0;
-                // resume time.
-            } else {
-                // stop time until the player moves
-                break;
-            }
-            requested_move = {0, 0};
-            do_nothing = false;
-        }
-
+    return action;
+}
+static void step_game() {
+    // run the game until it's our turn
+    while (you->is_alive && you->movement_points < you->species->movement_cost) {
         advance_time();
     }
+    // time to decide what to do
+    Action action = peek_input_command();
+    if (action.type == Action::UNDECIDED || !you->is_alive)
+        return; // this happens about 60 times per second
+    if (action.type == Action::MOVE) {
+        // convert moving into attacking if it's pointed at an observed monster.
+        if (find_perceived_individual_at(you, you->location + action.coord) != NULL)
+            action.type = Action::ATTACK;
+    }
+    take_action(you, action);
 }
 
 int main(int argc, char * argv[]) {

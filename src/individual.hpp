@@ -85,7 +85,6 @@ struct IndividualImpl : public ReferenceCounted {
     // once this reaches movement_cost, make a move
     int movement_points = 0;
     AiStrategy ai;
-    Coord bumble_destination = {-1, -1};
     Knowledge knowledge;
     bool invisible = false;
     IndividualImpl(SpeciesId species_id, Coord location);
@@ -93,9 +92,10 @@ struct IndividualImpl : public ReferenceCounted {
 };
 typedef Reference<IndividualImpl> Individual;
 
+PerceivedIndividual to_perceived_individual(Individual target);
 PerceivedIndividual observe_individual(Individual observer, Individual target);
 
 // TODO: this is in the wrong place
-void refresh_vision(Individual individual);
+void compute_vision(Individual individual);
 
 #endif

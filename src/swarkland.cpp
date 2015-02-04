@@ -20,6 +20,7 @@ static void init_specieses() {
 
 static const int no_spawn_radius = 10;
 
+// specify SpeciesId_COUNT for random
 Individual spawn_a_monster(SpeciesId species_id) {
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
@@ -47,6 +48,7 @@ Individual spawn_a_monster(SpeciesId species_id) {
     Coord location = available_spawn_locations[random_int(available_spawn_locations.size())];
     Individual individual = new IndividualImpl(species_id, location);
     individuals.put(individual->id, individual);
+    compute_vision(individual);
     return individual;
 }
 
@@ -90,6 +92,17 @@ static void heal_the_living() {
 static void kill_individual(Individual individual) {
     individual->hitpoints = 0;
     individual->is_alive = false;
+
+    // notify other individuals who could see the death
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual observer = iterator.next();
+        // seeing either the start or end point counts as seeing the movement
+        if (observer->knowledge.tile_is_visible[individual->location].any()) {
+            // i like the way you die, boy.
+            observer->knowledge.perceived_individuals.remove(individual->id);
+        }
+    }
+
     individuals.remove(individual->id);
 }
 
@@ -101,66 +114,14 @@ static void attack(Individual attacker, Individual target) {
     }
 }
 
-static void move_individual(Individual individual, Coord new_position) {
-    if (new_position.x == you->location.x && new_position.y == you->location.y) {
-        attack(individual, you);
-    } else {
-        individual->location = new_position;
+PerceivedIndividual find_perceived_individual_at(Individual observer, Coord location) {
+    for (auto iterator = observer->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+        PerceivedIndividual individual = iterator.next();
+        if (individual->location == location)
+            return individual;
     }
+    return NULL;
 }
-
-static void move_bumble_around(Individual individual) {
-    if (individual->knowledge.tile_is_visible[you->location].any() && !you->invisible) {
-        // there he is!
-        List<Coord> path;
-        find_path(individual->location, you->location, individual, path);
-        if (path.size() > 0) {
-            move_individual(individual, path[0]);
-        } else {
-            // we must be stuck in a crowd
-            return;
-        }
-
-        // if we lose him. reroll our new destination.
-        individual->bumble_destination = {-1, -1};
-    } else {
-        // idk where 2 go
-        if (individual->bumble_destination == Coord {-1, -1})
-            individual->bumble_destination = individual->location;
-        Coord next_space = individual->location + sign(individual->bumble_destination - individual->location);
-        if (individual->bumble_destination == individual->location || !do_i_think_i_can_move_here(individual, next_space)) {
-            // we've just arrived, or we need to pick a new target.
-            // head off in a random direction.
-            List<Coord> available_immediate_vectors;
-            for (int i = 0; i < 8; i++) {
-                Coord direction = directions[i];
-                Coord adjacent_space = {individual->location.x + direction.x, individual->location.y + direction.y};
-                if (do_i_think_i_can_move_here(individual, adjacent_space))
-                    available_immediate_vectors.add(direction);
-            }
-            if (available_immediate_vectors.size() == 0) {
-                // we're stuck. do nothing.
-                return;
-            }
-            Coord direction = available_immediate_vectors[random_int(available_immediate_vectors.size())];
-            // pick a random distance to travel, within reason.
-            int distance = random_int(1, 6);
-            Coord destination = individual->location;
-            for (int i = 0; i < distance; i++) {
-                // don't set a destination out of bounds
-                Coord next_space = destination + direction;
-                if (!is_in_bounds(next_space))
-                    break;
-                destination = next_space;
-            }
-            individual->bumble_destination = destination;
-            next_space = individual->location + sign(individual->bumble_destination - individual->location);
-        }
-        // we have somewhere to go
-        move_individual(individual, next_space);
-    }
-}
-
 Individual find_individual_at(Coord location) {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
@@ -172,37 +133,106 @@ Individual find_individual_at(Coord location) {
     return NULL;
 }
 
-static void move_with_ai(Individual individual) {
-    refresh_vision(individual);
+static Action run_ai(Individual individual) {
     if (individual->ai != AiStrategy_ATTACK_IF_VISIBLE)
         panic("unknown ai strategy");
-    move_bumble_around(individual);
+    PerceivedIndividual perceived_you = individual->knowledge.perceived_individuals.get(you->id, NULL);
+    if (perceived_you != NULL) {
+        // after him!
+        List<Coord> path;
+        find_path(individual->location, perceived_you->location, individual, path);
+        if (path.size() > 0) {
+            Coord direction = path[0] - individual->location;
+            if (path[0] == perceived_you->location)
+                return {Action::ATTACK, direction};
+            else
+                return {Action::MOVE, direction};
+        } else {
+            // we must be stuck in a crowd
+            return {Action::WAIT, {0, 0}};
+        }
+    } else {
+        // idk what to do
+        List<Action> actions;
+        get_available_actions(individual, actions);
+        List<Action> move_actions;
+        for (int i = 0; i < actions.size(); i++)
+            if (actions[i].type == Action::MOVE)
+                move_actions.add(actions[i]);
+        if (move_actions.size() > 0)
+            return move_actions[random_int(move_actions.size())];
+        // we must be stuck in a crowd
+        return {Action::WAIT, {0, 0}};
+    }
 }
-bool take_action(bool just_wait, Coord delta) {
-    refresh_vision(you);
-    if (cheatcode_spectator != NULL) {
-        // doing this early shouldn't affect anything
-        refresh_vision(cheatcode_spectator);
+
+static void do_move(Individual mover, Coord new_position) {
+    Coord old_position = mover->location;
+    mover->location = new_position;
+    compute_vision(mover);
+
+    // notify other individuals who could see that move
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual observer = iterator.next();
+        // seeing either the start or end point counts as seeing the movement
+        if (observer->knowledge.tile_is_visible[old_position].any() || observer->knowledge.tile_is_visible[new_position].any()) {
+            // i see what you did there
+            observer->knowledge.perceived_individuals.put_or_overwrite(mover->id, to_perceived_individual(mover));
+        }
+    }
+}
+
+static bool validate_action(Individual individual, Action action) {
+    List<Action> valid_actions;
+    get_available_actions(individual, valid_actions);
+    for (int i = 0; i < valid_actions.size(); i++)
+        if (valid_actions[i].type == action.type && valid_actions[i].coord == action.coord)
+            return true;
+    return false;
+}
+
+void take_action(Individual individual, Action action) {
+    bool is_valid = validate_action(individual, action);
+    if (!is_valid) {
+        if (individual == you) {
+            // forgive the player for trying to run into a wall or something
+            return;
+        }
+        panic("ai tried to make an illegal move");
     }
 
-    if (!you->is_alive)
-        return false;
-    if (just_wait)
-        return true;
-    if (delta.x == 0 && delta.y == 0)
-        return false; // not moving
-    Coord new_position = {you->location.x + delta.x, you->location.y + delta.y};
-    if (new_position.x < 0 || new_position.x >= map_size.x || new_position.y < 0 || new_position.y >= map_size.y)
-        return false;
-    if (you->knowledge.tiles[new_position].tile_type == TileType_WALL)
-        return false;
-    Individual target = find_individual_at(new_position);
-    if (target != NULL && target != you) {
-        attack(you, target);
-    } else {
-        you->location = new_position;
+    individual->movement_points = 0;
+
+    switch (action.type) {
+        case Action::WAIT:
+            return;
+        case Action::MOVE: {
+            // normally, we'd be sure that this was valid, but if you use cheatcodes,
+            // monsters can try to walk into you while you're invisible.
+            Coord new_position = individual->location + action.coord;
+            Individual unseen_obstacle = find_individual_at(new_position);
+            if (unseen_obstacle != NULL) {
+                // someday, this will cause you to notice that there's an invisible monster there,
+                // but for now, just lose a turn.
+                return;
+            }
+            // clear to move
+            do_move(individual, new_position);
+            return;
+        }
+        case Action::ATTACK: {
+            Coord new_position = individual->location + action.coord;
+            Individual target = find_individual_at(new_position);
+            if (target == NULL) {
+                // you attack thin air
+                return;
+            }
+            attack(individual, target);
+            return;
+        }
+        default:
+            panic("unimplemented action type");
     }
-    return true;
 }
 
 void advance_time() {
@@ -228,8 +258,8 @@ void advance_time() {
             continue;
         if (individual->movement_points >= individual->species->movement_cost) {
             // make a move
-            individual->movement_points = 0;
-            move_with_ai(individual);
+            Action action = run_ai(individual);
+            take_action(individual, action);
         }
     }
 }
@@ -258,4 +288,26 @@ void cheatcode_spectate(Coord individual_at) {
         }
     }
     cheatcode_spectator = NULL;
+}
+
+// wait will always be available
+void get_available_actions(Individual individual, List<Action> & output_actions) {
+    output_actions.add(Action{Action::WAIT, {0, 0}});
+    // move
+    for (int i = 0; i < 8; i++) {
+        Coord direction = directions[i];
+        if (do_i_think_i_can_move_here(individual, individual->location + direction))
+            output_actions.add(Action{Action::MOVE, direction});
+    }
+    // attack
+    for (auto iterator = individual->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+        PerceivedIndividual target = iterator.next();
+        if (target->id == individual->id)
+            continue; // you can't attack yourself, sorry.
+        Coord vector = target->location - individual->location;
+        if (vector == sign(vector)) {
+            // within melee range
+            output_actions.add(Action{Action::ATTACK, vector});
+        }
+    }
 }

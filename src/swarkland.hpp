@@ -6,6 +6,17 @@
 #include "list.hpp"
 #include "individual.hpp"
 
+struct Action {
+    enum Type {
+        MOVE,
+        WAIT,
+        ATTACK,
+        UNDECIDED, // TODO: smells bad
+    };
+    Type type;
+    Coord coord;
+};
+
 extern Species specieses[SpeciesId_COUNT];
 
 extern IdMap<Individual> individuals;
@@ -20,10 +31,12 @@ void cheatcode_spectate(Coord individual_at);
 
 void swarkland_init();
 
-// specify SpeciesId_COUNT for random
+void get_available_actions(Individual individual, List<Action> & output_actions);
+
 Individual spawn_a_monster(SpeciesId species_id);
 void advance_time();
-bool take_action(bool just_wait, Coord delta);
+void take_action(Individual individual, Action action);
+PerceivedIndividual find_perceived_individual_at(Individual observer, Coord location);
 Individual find_individual_at(Coord location);
 
 #endif
