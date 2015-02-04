@@ -87,11 +87,16 @@ static void heal_the_living() {
     }
 }
 
+static void kill_individual(Individual individual) {
+    individual->hitpoints = 0;
+    individual->is_alive = false;
+    individuals.remove(individual->id);
+}
+
 static void attack(Individual attacker, Individual target) {
     target->hitpoints -= attacker->species->attack_power;
     if (target->hitpoints <= 0) {
-        target->hitpoints = 0;
-        target->is_alive = false;
+        kill_individual(target);
         attacker->kill_counter++;
     }
 }
@@ -230,10 +235,11 @@ void advance_time() {
 }
 
 void cheatcode_kill_everybody_in_the_world() {
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();)
-        iterator.next()->is_alive = false;
-    // you're cool
-    you->is_alive = true;
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual individual = iterator.next();
+        if (individual != you)
+            kill_individual(individual);
+    }
 }
 void cheatcode_polymorph() {
     SpeciesId species_id = you->species->species_id;
