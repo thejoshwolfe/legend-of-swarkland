@@ -1,12 +1,16 @@
 #ifndef UTIL_HPP
 #define UTIL_HPP
 
+#include <stdint.h>
 #include <stddef.h>
 
 void panic(const char * str) __attribute__ ((noreturn));
 
 void init_random();
-int random_int(int less_than_this);
+uint32_t random_uint32();
+static inline int random_int(int less_than_this) {
+    return random_uint32() % less_than_this;
+}
 static inline int random_int(int at_least_this, int less_than_this) {
     return random_int(less_than_this - at_least_this) + at_least_this;
 }

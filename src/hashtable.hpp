@@ -33,12 +33,8 @@ static inline uint32_t hash_oversized(uint_oversized<Size64> a) {
 template<int Size64>
 static inline uint_oversized<Size64> random_oversized() {
     uint_oversized<Size64> result;
-    for (int i = 0; i < Size64; i++) {
-        result.values[i] = ((uint64_t)random_int(0x10000)) << 48 |
-                           ((uint64_t)random_int(0x10000)) << 32 |
-                           ((uint64_t)random_int(0x10000)) << 16 |
-                           ((uint64_t)random_int(0x10000)) << 0;
-    }
+    for (int i = 0; i < Size64; i++)
+        result.values[i] = ((uint64_t)random_uint32()) << 32 | (uint64_t)random_uint32();
     return result;
 }
 
