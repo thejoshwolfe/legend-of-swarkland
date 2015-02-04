@@ -39,7 +39,7 @@ static void refresh_normal_vision(Individual individual) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
             if (!is_open_line_of_sight(you_location, target))
                 continue;
-            individual->knowledge.is_visible[target].normal = true;
+            individual->knowledge.tile_is_visible[target].normal = true;
             individual->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
@@ -54,27 +54,44 @@ static void refresh_ethereal_vision(Individual individual) {
         for (target.x = 0; target.x < lower_right.x; target.x++) {
             if (distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
                 continue;
-            individual->knowledge.is_visible[target].ethereal = true;
+            individual->knowledge.tile_is_visible[target].ethereal = true;
             individual->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
 }
 
-void refresh_vision(Individual individual) {
-    if (individual->vision_last_calculated_time == time_counter)
+void refresh_vision(Individual spectator) {
+    if (spectator->vision_last_calculated_time == time_counter)
         return; // he already knows
-    individual->vision_last_calculated_time = time_counter;
+    spectator->vision_last_calculated_time = time_counter;
 
-    individual->knowledge.is_visible.set_all(no_vision);
+    spectator->knowledge.tile_is_visible.set_all(no_vision);
 
-    if (!individual->species->has_mind)
-        individual->knowledge.tiles.set_all(unknown_tile);
+    // forget things
+    if (!spectator->species->has_mind)
+        spectator->knowledge.tiles.set_all(unknown_tile);
 
-    if (individual->species->vision_types.normal) {
-        refresh_normal_vision(individual);
+    // see the terrain
+    if (spectator->species->vision_types.normal) {
+        refresh_normal_vision(spectator);
     }
-    if (individual->species->vision_types.ethereal) {
-        refresh_ethereal_vision(individual);
+    if (spectator->species->vision_types.ethereal) {
+        refresh_ethereal_vision(spectator);
+    }
+
+    // see individuals
+    // first clear out any monsters that we know are no longer where we thought
+    for (auto iterator = spectator->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+        PerceivedIndividual target = iterator.next();
+        if (spectator->knowledge.tile_is_visible[target->location].any())
+            spectator->knowledge.perceived_individuals.remove(target->id);
+    }
+    // now see any monsters that are in our line of vision
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        PerceivedIndividual target = observe_individual(spectator, iterator.next());
+        if (target == NULL)
+            continue;
+        spectator->knowledge.perceived_individuals.put_or_overwrite(target->id, target);
     }
 }
 

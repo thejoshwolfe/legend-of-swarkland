@@ -197,7 +197,7 @@ void render() {
             if (tile.tile_type == TileType_UNKNOWN)
                 continue;
             Uint8 alpha = 0;
-            if (spectate_from->knowledge.is_visible[cursor].any() || cheatcode_full_visibility)
+            if (spectate_from->knowledge.tile_is_visible[cursor].any())
                 alpha = 255;
             else
                 alpha = 128;
@@ -207,23 +207,35 @@ void render() {
         }
     }
 
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
+    // render the individuals
+    for (auto iterator = spectate_from->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+        PerceivedIndividual individual = iterator.next();
         if (!individual->is_alive)
             continue;
-        if (spectate_from->knowledge.is_visible[individual->location].any() || cheatcode_full_visibility) {
-            Uint8 alpha;
-            if (individual->invisible)
-                alpha = 128;
-            else
-                alpha = 255;
-            SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
+        Uint8 alpha;
+        if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
+            alpha = 128;
+        else
+            alpha = 255;
+        SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
+        render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
+    }
+    // second pass for cheatcode seeing individuals out of sight
+    if (cheatcode_full_visibility) {
+        // fade out the ones you can't see legit
+        SDL_SetTextureAlphaMod(sprite_sheet_texture, 128);
+        for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+            Individual individual = iterator.next();
+            if (!individual->is_alive)
+                continue;
+            if (spectate_from->knowledge.perceived_individuals.contains(individual->id))
+                continue; // already rendered above
             render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
         }
     }
 
     if (spectate_from->bumble_destination != Coord{-1, -1}) {
-        // you can see this in spectator mode
+        // you can see this with the spectator cheatcode
         RuckSackImage * image = crosshairs_image;
         render_tile(renderer, sprite_sheet_texture, image, spectate_from->bumble_destination);
     }

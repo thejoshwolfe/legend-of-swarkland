@@ -8,7 +8,7 @@
 
 extern Species specieses[SpeciesId_COUNT];
 
-extern LinkedHashtable<uint256, Individual, hash_uint256> individuals;
+extern IdMap<Individual> individuals;
 extern Individual you;
 extern long long time_counter;
 

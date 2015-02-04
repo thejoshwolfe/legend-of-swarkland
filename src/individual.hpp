@@ -47,22 +47,28 @@ struct Species {
     bool has_mind;
 };
 
-//class PerceivedIndividualImpl : public ReferenceCounted {
-//    uint256 id;
-//    bool is_alive = true;
-//    Species * species;
-//    Coord location;
-//};
-//typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
+struct PerceivedIndividualImpl : public ReferenceCounted {
+public:
+    uint256 id;
+    bool is_alive;
+    Species * species;
+    Coord location;
+    bool invisible;
+    PerceivedIndividualImpl(uint256 id, bool is_alive, Species * species, Coord location, bool invisible) :
+            id(id), is_alive(is_alive), species(species), location(location), invisible(invisible) {
+    }
+};
+typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
 
 class Knowledge {
 public:
     Matrix<Tile> tiles;
-    Matrix<VisionTypes> is_visible;
+    Matrix<VisionTypes> tile_is_visible;
+    IdMap<PerceivedIndividual> perceived_individuals;
     Knowledge() :
-            tiles(map_size), is_visible(map_size) {
+            tiles(map_size), tile_is_visible(map_size) {
         tiles.set_all(unknown_tile);
-        is_visible.set_all(no_vision);
+        tile_is_visible.set_all(no_vision);
     }
 };
 
@@ -84,6 +90,8 @@ struct IndividualImpl : public ReferenceCounted {
     IndividualImpl(IndividualImpl &) = delete;
 };
 typedef Reference<IndividualImpl> Individual;
+
+PerceivedIndividual observe_individual(Individual observer, Individual target);
 
 // TODO: this is in the wrong place
 void refresh_vision(Individual individual);

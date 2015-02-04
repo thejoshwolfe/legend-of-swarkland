@@ -3,7 +3,7 @@
 #include "path_finding.hpp"
 
 Species specieses[SpeciesId_COUNT];
-LinkedHashtable<uint256, Individual, hash_uint256> individuals;
+IdMap<Individual> individuals;
 
 Individual you;
 long long time_counter = 0;
@@ -110,7 +110,7 @@ static void move_individual(Individual individual, Coord new_position) {
 }
 
 static void move_bumble_around(Individual individual) {
-    if (individual->knowledge.is_visible[you->location].any() && !you->invisible) {
+    if (individual->knowledge.tile_is_visible[you->location].any() && !you->invisible) {
         // there he is!
         List<Coord> path;
         find_path(individual->location, you->location, individual, path);
