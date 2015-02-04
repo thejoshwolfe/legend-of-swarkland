@@ -19,9 +19,12 @@ public:
         ensure_capacity(_size + 1);
         _items[_size++] = item;
     }
-    T & at(int index) {
-        if (index < 0 || index >= _size)
-            panic("list index out of bounds");
+    T & operator[](int index) {
+        bounds_check(index);
+        return _items[index];
+    }
+    const T & operator[](int index) const {
+        bounds_check(index);
         return _items[index];
     }
     int size() const {
@@ -46,6 +49,10 @@ private:
             _items = realloc_new(_items, _capacity, better_capacity);
             _capacity = better_capacity;
         }
+    }
+    void bounds_check(int index) const {
+        if (index < 0 || index >= _size)
+            panic("list index out of bounds");
     }
 };
 

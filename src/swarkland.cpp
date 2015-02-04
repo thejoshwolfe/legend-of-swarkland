@@ -44,7 +44,7 @@ Individual spawn_a_monster(SpeciesId species_id) {
         // it must be pretty crowded in here
         return NULL;
     }
-    Coord location = available_spawn_locations.at(random_int(available_spawn_locations.size()));
+    Coord location = available_spawn_locations[random_int(available_spawn_locations.size())];
     Individual individual = new IndividualImpl(species_id, location);
     individuals.put(individual->id, individual);
     return individual;
@@ -115,7 +115,7 @@ static void move_bumble_around(Individual individual) {
         List<Coord> path;
         find_path(individual->location, you->location, individual, path);
         if (path.size() > 0) {
-            move_individual(individual, path.at(0));
+            move_individual(individual, path[0]);
         } else {
             // we must be stuck in a crowd
             return;
@@ -142,7 +142,7 @@ static void move_bumble_around(Individual individual) {
                 // we're stuck. do nothing.
                 return;
             }
-            Coord direction = available_immediate_vectors.at(random_int(available_immediate_vectors.size()));
+            Coord direction = available_immediate_vectors[random_int(available_immediate_vectors.size())];
             // pick a random distance to travel, within reason.
             int distance = random_int(1, 6);
             Coord destination = individual->location;

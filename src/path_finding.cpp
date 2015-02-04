@@ -44,14 +44,14 @@ static int compare_nodes(Node *a, Node *b) {
 }
 
 bool find_path(Coord start, Coord end, Individual according_to_whom, List<Coord> & output_path) {
-    Matrix<bool> closed_set(map_size.y, map_size.x);
+    Matrix<bool> closed_set(map_size);
     closed_set.set_all(false);
 
     Heap<Node*, compare_nodes> open_heap;
-    Matrix<bool> open_set(map_size.y, map_size.x);
+    Matrix<bool> open_set(map_size);
     open_set.set_all(false);
 
-    Matrix<Node> nodes(map_size.y, map_size.x);
+    Matrix<Node> nodes(map_size);
     Node *start_node = &nodes[start];
     start_node->coord = start;
     start_node->h = heuristic(start, end);
@@ -110,7 +110,7 @@ bool find_path(Coord start, Coord end, Individual according_to_whom, List<Coord>
         it = it->parent;
     }
     for (int i = backwards_path.size() - 2; i >= 0; i--) {
-        output_path.add(backwards_path.at(i));
+        output_path.add(backwards_path[i]);
     }
     return found_goal;
 }

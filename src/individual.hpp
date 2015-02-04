@@ -60,7 +60,7 @@ public:
     Matrix<Tile> tiles;
     Matrix<VisionTypes> is_visible;
     Knowledge() :
-            tiles(map_size.y, map_size.x), is_visible(map_size.y, map_size.x) {
+            tiles(map_size), is_visible(map_size) {
         tiles.set_all(unknown_tile);
         is_visible.set_all(no_vision);
     }

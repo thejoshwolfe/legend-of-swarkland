@@ -15,11 +15,11 @@ public:
 
         while (index > 0) {
             int parent_index = (index - 1) / 2;
-            T parent_element = _data.at(parent_index);
+            T parent_element = _data[parent_index];
             if (HeapComparator(parent_element, element) < 0)
                 break;
-            _data.at(index) = parent_element;
-            _data.at(parent_index) = element;
+            _data[index] = parent_element;
+            _data[parent_index] = element;
             index = parent_index;
         }
     }
@@ -29,8 +29,8 @@ public:
             // last element
             return _data.pop();
         }
-        T result = _data.at(0);
-        _data.at(0) = _data.pop();
+        T result = _data[0];
+        _data[0] = _data.pop();
 
         int parent_index = 0;
         for (;;) {
@@ -46,14 +46,14 @@ public:
                 child_index = left_index;
             } else {
                 // two children
-                child_index = HeapComparator(_data.at(left_index), _data.at(right_index)) < 0 ? left_index : right_index;
+                child_index = HeapComparator(_data[left_index], _data[right_index]) < 0 ? left_index : right_index;
             }
-            T parent_element = _data.at(parent_index);
-            T child_element = _data.at(child_index);
+            T parent_element = _data[parent_index];
+            T child_element = _data[child_index];
             if (HeapComparator(parent_element, child_element) < 0)
                 break;
-            _data.at(parent_index) = child_element;
-            _data.at(child_index) = parent_element;
+            _data[parent_index] = child_element;
+            _data[child_index] = parent_element;
             parent_index = child_index;
         }
 
