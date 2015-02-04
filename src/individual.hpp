@@ -62,8 +62,11 @@ typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
 
 class Knowledge {
 public:
+    // terrain knowledge
+    Coord map_last_observed_from = {-1, -1};
     Matrix<Tile> tiles;
     Matrix<VisionTypes> tile_is_visible;
+
     IdMap<PerceivedIndividual> perceived_individuals;
     Knowledge() :
             tiles(map_size), tile_is_visible(map_size) {
@@ -84,7 +87,6 @@ struct IndividualImpl : public ReferenceCounted {
     AiStrategy ai;
     Coord bumble_destination = {-1, -1};
     Knowledge knowledge;
-    long long vision_last_calculated_time = -1;
     bool invisible = false;
     IndividualImpl(SpeciesId species_id, Coord location);
     IndividualImpl(IndividualImpl &) = delete;

@@ -61,29 +61,26 @@ static void refresh_ethereal_vision(Individual individual) {
 }
 
 void refresh_vision(Individual spectator) {
-    if (spectator->vision_last_calculated_time == time_counter)
-        return; // he already knows
-    spectator->vision_last_calculated_time = time_counter;
+    if (spectator->knowledge.map_last_observed_from != spectator->location) {
+        // take a look at the terrain
+        spectator->knowledge.map_last_observed_from = spectator->location;
 
-    spectator->knowledge.tile_is_visible.set_all(no_vision);
+        // mindless monsters can't remember the terrain
+        if (!spectator->species->has_mind)
+            spectator->knowledge.tiles.set_all(unknown_tile);
+        spectator->knowledge.tile_is_visible.set_all(no_vision);
 
-    // forget things
-    if (!spectator->species->has_mind)
-        spectator->knowledge.tiles.set_all(unknown_tile);
-
-    // see the terrain
-    if (spectator->species->vision_types.normal) {
-        refresh_normal_vision(spectator);
-    }
-    if (spectator->species->vision_types.ethereal) {
-        refresh_ethereal_vision(spectator);
+        if (spectator->species->vision_types.normal)
+            refresh_normal_vision(spectator);
+        if (spectator->species->vision_types.ethereal)
+            refresh_ethereal_vision(spectator);
     }
 
     // see individuals
     // first clear out any monsters that we know are no longer where we thought
     for (auto iterator = spectator->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
         PerceivedIndividual target = iterator.next();
-        if (spectator->knowledge.tile_is_visible[target->location].any())
+        if (!spectator->species->has_mind || spectator->knowledge.tile_is_visible[target->location].any())
             spectator->knowledge.perceived_individuals.remove(target->id);
     }
     // now see any monsters that are in our line of vision
