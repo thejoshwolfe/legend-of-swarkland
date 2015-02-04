@@ -18,11 +18,16 @@ enum SpeciesId {
     SpeciesId_COUNT,
 };
 
-enum AiStrategy {
-    // this is you
-    AiStrategy_PLAYER,
-    // if you can see the player, move and attack
-    AiStrategy_ATTACK_IF_VISIBLE,
+enum Team {
+    Team_GOOD_GUYS,
+    Team_BAD_GUYS,
+};
+
+enum DecisionMakerType {
+    DecisionMakerType_PLAYER,
+    DecisionMakerType_AI,
+
+    DecisionMakerType_COUNT,
 };
 
 struct VisionTypes {
@@ -42,7 +47,6 @@ struct Species {
     int movement_cost;
     int starting_hitpoints;
     int attack_power;
-    AiStrategy default_ai;
     VisionTypes vision_types;
     bool has_mind;
 };
@@ -52,9 +56,10 @@ public:
     uint256 id;
     Species * species;
     Coord location;
+    Team team;
     bool invisible;
-    PerceivedIndividualImpl(uint256 id, Species * species, Coord location, bool invisible) :
-            id(id), species(species), location(location), invisible(invisible) {
+    PerceivedIndividualImpl(uint256 id, Species * species, Coord location, Team team, bool invisible) :
+            id(id), species(species), location(location), team(team), invisible(invisible) {
     }
 };
 typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
@@ -82,10 +87,11 @@ struct IndividualImpl : public ReferenceCounted {
     Coord location;
     // once this reaches movement_cost, make a move
     int movement_points = 0;
-    AiStrategy ai;
+    Team team;
+    DecisionMakerType decision_maker;
     Knowledge knowledge;
     bool invisible = false;
-    IndividualImpl(SpeciesId species_id, Coord location);
+    IndividualImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
     IndividualImpl(IndividualImpl &) = delete;
 };
 typedef Reference<IndividualImpl> Individual;

@@ -35,6 +35,9 @@ public:
             panic("pop empty list");
         return _items[--_size];
     }
+    void clear() {
+        _size = 0;
+    }
 
 private:
     T * _items;

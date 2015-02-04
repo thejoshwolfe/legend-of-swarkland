@@ -1,6 +1,7 @@
 #include "swarkland.hpp"
 
 #include "path_finding.hpp"
+#include "decision.hpp"
 
 Species specieses[SpeciesId_COUNT];
 IdMap<Individual> individuals;
@@ -12,17 +13,17 @@ long long time_counter = 0;
 bool cheatcode_full_visibility;
 
 static void init_specieses() {
-    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}, true};
-    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}, true};
-    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, AiStrategy_ATTACK_IF_VISIBLE, {1, 0}, true};
-    specieses[SpeciesId_GELATINOUS_CUBE] = {SpeciesId_GELATINOUS_CUBE, 48, 12, 4, AiStrategy_ATTACK_IF_VISIBLE, {0, 1}, false};
-    specieses[SpeciesId_DUST_VORTEX] = {SpeciesId_DUST_VORTEX, 6, 6, 1, AiStrategy_ATTACK_IF_VISIBLE, {0, 1}, false};
+    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true};
+    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, {1, 0}, true};
+    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true};
+    specieses[SpeciesId_GELATINOUS_CUBE] = {SpeciesId_GELATINOUS_CUBE, 48, 12, 4, {0, 1}, false};
+    specieses[SpeciesId_DUST_VORTEX] = {SpeciesId_DUST_VORTEX, 6, 6, 1, {0, 1}, false};
 }
 
 static const int no_spawn_radius = 10;
 
 // specify SpeciesId_COUNT for random
-Individual spawn_a_monster(SpeciesId species_id) {
+Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker) {
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
         if (species_id == SpeciesId_HUMAN) {
@@ -47,21 +48,22 @@ Individual spawn_a_monster(SpeciesId species_id) {
         return NULL;
     }
     Coord location = available_spawn_locations[random_int(available_spawn_locations.size())];
-    Individual individual = new IndividualImpl(species_id, location);
+    Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
     individuals.put(individual->id, individual);
     compute_vision(individual);
     return individual;
 }
 
 static void init_individuals() {
-    you = spawn_a_monster(SpeciesId_HUMAN);
+    you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER);
     if (you == NULL)
         panic("can't spawn you");
-    you->ai = AiStrategy_PLAYER;
+    // have a friend
+    spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI);
 
     // generate a few warm-up monsters
     for (int i = 0; i < 6; i++) {
-        spawn_a_monster(SpeciesId_COUNT);
+        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
     }
 }
 
@@ -74,16 +76,20 @@ void swarkland_init() {
 }
 
 static void spawn_monsters() {
-    if (random_int(120) == 0)
-        spawn_a_monster(SpeciesId_COUNT);
+    if (random_int(120) == 0) {
+        // spawn a monster
+        if (random_int(20) == 0) {
+            // a friend has arrived!
+            spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI);
+        } else {
+            spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
+        }
+    }
 }
-static void heal_the_living() {
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
-        if (individual->hitpoints < individual->species->starting_hitpoints) {
-            if (random_int(60) == 0) {
-                individual->hitpoints++;
-            }
+static void regen_hp(Individual individual) {
+    if (individual->hitpoints < individual->species->starting_hitpoints) {
+        if (random_int(60) == 0) {
+            individual->hitpoints++;
         }
     }
 }
@@ -129,39 +135,6 @@ Individual find_individual_at(Coord location) {
     return NULL;
 }
 
-static Action run_ai(Individual individual) {
-    if (individual->ai != AiStrategy_ATTACK_IF_VISIBLE)
-        panic("unknown ai strategy");
-    PerceivedIndividual perceived_you = individual->knowledge.perceived_individuals.get(you->id, NULL);
-    if (perceived_you != NULL) {
-        // after him!
-        List<Coord> path;
-        find_path(individual->location, perceived_you->location, individual, path);
-        if (path.size() > 0) {
-            Coord direction = path[0] - individual->location;
-            if (path[0] == perceived_you->location)
-                return {Action::ATTACK, direction};
-            else
-                return {Action::MOVE, direction};
-        } else {
-            // we must be stuck in a crowd
-            return {Action::WAIT, {0, 0}};
-        }
-    } else {
-        // idk what to do
-        List<Action> actions;
-        get_available_actions(individual, actions);
-        List<Action> move_actions;
-        for (int i = 0; i < actions.size(); i++)
-            if (actions[i].type == Action::MOVE)
-                move_actions.add(actions[i]);
-        if (move_actions.size() > 0)
-            return move_actions[random_int(move_actions.size())];
-        // we must be stuck in a crowd
-        return {Action::WAIT, {0, 0}};
-    }
-}
-
 static void do_move(Individual mover, Coord new_position) {
     Coord old_position = mover->location;
     mover->location = new_position;
@@ -182,12 +155,12 @@ static bool validate_action(Individual individual, Action action) {
     List<Action> valid_actions;
     get_available_actions(individual, valid_actions);
     for (int i = 0; i < valid_actions.size(); i++)
-        if (valid_actions[i].type == action.type && valid_actions[i].coord == action.coord)
+        if (valid_actions[i] == action)
             return true;
     return false;
 }
 
-void take_action(Individual individual, Action action) {
+static void take_action(Individual individual, Action action) {
     bool is_valid = validate_action(individual, action);
     if (!is_valid) {
         if (individual == you) {
@@ -231,28 +204,42 @@ void take_action(Individual individual, Action action) {
     }
 }
 
-void advance_time() {
-    time_counter++;
+List<Individual> poised_individuals;
+int poised_individuals_index = 0;
+// this function will return only when we're expecting player input
+void run_the_game() {
+    if (!youre_still_alive)
+        return;
+    while (true) {
+        if (poised_individuals.size() == 0) {
+            time_counter++;
 
-    spawn_monsters();
-    heal_the_living();
+            spawn_monsters();
 
-    // award movement points to the living
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
-        individual->movement_points++;
-    }
+            // who's ready to make a move?
+            for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+                Individual individual = iterator.next();
+                // advance time for this individual
+                regen_hp(individual);
+                individual->movement_points++;
+                if (individual->movement_points >= individual->species->movement_cost)
+                    poised_individuals.add(individual);
+            }
+        }
 
-    // move monsters
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
-        if (individual->ai == AiStrategy_PLAYER)
-            continue;
-        if (individual->movement_points >= individual->species->movement_cost) {
-            // make a move
-            Action action = run_ai(individual);
+        // move individuals
+        for (; poised_individuals_index < poised_individuals.size(); poised_individuals_index++) {
+            Individual individual = poised_individuals[poised_individuals_index];
+            Action action = decision_makers[individual->decision_maker](individual);
+            if (action == Action::undecided()) {
+                // give the player some time to think.
+                // we'll resume right back where we left off.
+                return;
+            }
             take_action(individual, action);
         }
+        poised_individuals.clear();
+        poised_individuals_index = 0;
     }
 }
 
@@ -282,7 +269,7 @@ void cheatcode_spectate(Coord individual_at) {
 
 // wait will always be available
 void get_available_actions(Individual individual, List<Action> & output_actions) {
-    output_actions.add(Action{Action::WAIT, {0, 0}});
+    output_actions.add(Action::wait());
     // move
     for (int i = 0; i < 8; i++) {
         Coord direction = directions[i];

@@ -4,6 +4,7 @@
 #include "individual.hpp"
 #include "util.hpp"
 #include "geometry.hpp"
+#include "decision.hpp"
 
 #include <stdbool.h>
 
@@ -11,6 +12,15 @@
 
 static bool request_shutdown = false;
 
+static Action move_or_attack(Coord direction) {
+    Action action = {Action::MOVE, direction};
+    if (action.type == Action::MOVE) {
+        // convert moving into attacking if it's pointed at an observed monster.
+        if (find_perceived_individual_at(you, you->location + action.coord) != NULL)
+            action.type = Action::ATTACK;
+    }
+    return action;
+}
 static Action on_key_down(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {
         case SDL_SCANCODE_ESCAPE:
@@ -18,28 +28,28 @@ static Action on_key_down(const SDL_Event & event) {
             break;
 
         case SDL_SCANCODE_KP_1:
-            return {Action::MOVE, {-1, 1}};
+            return move_or_attack(Coord{-1, 1});
         case SDL_SCANCODE_DOWN:
         case SDL_SCANCODE_KP_2:
-            return {Action::MOVE, {0, 1}};
+            return move_or_attack(Coord{0, 1});
         case SDL_SCANCODE_KP_3:
-            return {Action::MOVE, {1, 1}};
+            return move_or_attack(Coord{1, 1});
         case SDL_SCANCODE_LEFT:
         case SDL_SCANCODE_KP_4:
-            return {Action::MOVE, {-1, 0}};
+            return move_or_attack(Coord{-1, 0});
         case SDL_SCANCODE_RIGHT:
         case SDL_SCANCODE_KP_6:
-            return {Action::MOVE, {1, 0}};
+            return move_or_attack(Coord{1, 0});
         case SDL_SCANCODE_KP_7:
-            return {Action::MOVE, {-1, -1}};
+            return move_or_attack(Coord{-1, -1});
         case SDL_SCANCODE_UP:
         case SDL_SCANCODE_KP_8:
-            return {Action::MOVE, {0, -1}};
+            return move_or_attack(Coord{0, -1});
         case SDL_SCANCODE_KP_9:
-            return {Action::MOVE, {1, -1}};
+            return move_or_attack(Coord{1, -1});
 
         case SDL_SCANCODE_SPACE:
-            return {Action::WAIT, {0, 0}};
+            return Action::wait();
 
         case SDL_SCANCODE_V:
             cheatcode_full_visibility = !cheatcode_full_visibility;
@@ -60,18 +70,18 @@ static Action on_key_down(const SDL_Event & event) {
             you->invisible = !you->invisible;
             break;
         case SDL_SCANCODE_G:
-            spawn_a_monster(SpeciesId_COUNT);
+            spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
             break;
 
         default:
             break;
     }
-    return {Action::UNDECIDED, {0, 0}};
+    return Action::undecided();
 }
 
-static Action peek_input_command() {
+static void read_input() {
     SDL_Event event;
-    Action action = {Action::UNDECIDED, {0, 0}};
+    Action action = Action::undecided();
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_KEYDOWN:
@@ -82,32 +92,19 @@ static Action peek_input_command() {
                 break;
         }
     }
-    return action;
-}
-static void step_game() {
-    // run the game until it's our turn
-    while (youre_still_alive && you->movement_points < you->species->movement_cost) {
-        advance_time();
-    }
-    // time to decide what to do
-    Action action = peek_input_command();
-    if (action.type == Action::UNDECIDED || !youre_still_alive)
-        return; // this happens about 60 times per second
-    if (action.type == Action::MOVE) {
-        // convert moving into attacking if it's pointed at an observed monster.
-        if (find_perceived_individual_at(you, you->location + action.coord) != NULL)
-            action.type = Action::ATTACK;
-    }
-    take_action(you, action);
+    current_player_decision = action;
 }
 
 int main(int argc, char * argv[]) {
     init_random();
     display_init();
     swarkland_init();
+    init_decisions();
 
     while (!request_shutdown) {
-        step_game();
+        read_input();
+
+        run_the_game();
 
         render();
 

@@ -11,11 +11,26 @@ struct Action {
         MOVE,
         WAIT,
         ATTACK,
-        UNDECIDED, // TODO: smells bad
+        // only a player can be undecided
+        UNDECIDED,
     };
     Type type;
     Coord coord;
+
+    // canonical singletons, appropriate for == comparison
+    static inline Action wait() {
+        return {WAIT, {0, 0}};
+    }
+    static inline Action undecided() {
+        return {UNDECIDED, {0, 0}};
+    }
 };
+static inline bool operator==(Action a, Action b) {
+    return a.type == b.type && a.coord == b.coord;
+}
+static inline bool operator!=(Action a, Action b) {
+    return !(a == b);
+}
 
 extern Species specieses[SpeciesId_COUNT];
 
@@ -34,9 +49,8 @@ void swarkland_init();
 
 void get_available_actions(Individual individual, List<Action> & output_actions);
 
-Individual spawn_a_monster(SpeciesId species_id);
-void advance_time();
-void take_action(Individual individual, Action action);
+Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker);
+void run_the_game();
 PerceivedIndividual find_perceived_individual_at(Individual observer, Coord location);
 Individual find_individual_at(Coord location);
 
