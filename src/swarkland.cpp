@@ -6,6 +6,7 @@ Species specieses[SpeciesId_COUNT];
 IdMap<Individual> individuals;
 
 Individual you;
+bool youre_still_alive = true;
 long long time_counter = 0;
 
 bool cheatcode_full_visibility;
@@ -79,8 +80,6 @@ static void spawn_monsters() {
 static void heal_the_living() {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
-        if (!individual->is_alive)
-            continue;
         if (individual->hitpoints < individual->species->starting_hitpoints) {
             if (random_int(60) == 0) {
                 individual->hitpoints++;
@@ -91,7 +90,6 @@ static void heal_the_living() {
 
 static void kill_individual(Individual individual) {
     individual->hitpoints = 0;
-    individual->is_alive = false;
 
     // notify other individuals who could see the death
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
@@ -125,8 +123,6 @@ PerceivedIndividual find_perceived_individual_at(Individual observer, Coord loca
 Individual find_individual_at(Coord location) {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
-        if (!individual->is_alive)
-            continue;
         if (individual->location.x == location.x && individual->location.y == location.y)
             return individual;
     }
@@ -244,16 +240,12 @@ void advance_time() {
     // award movement points to the living
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
-        if (!individual->is_alive)
-            continue;
         individual->movement_points++;
     }
 
     // move monsters
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
-        if (!individual->is_alive)
-            continue;
         if (individual->ai == AiStrategy_PLAYER)
             continue;
         if (individual->movement_points >= individual->species->movement_cost) {
@@ -280,8 +272,6 @@ Individual cheatcode_spectator;
 void cheatcode_spectate(Coord individual_at) {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
-        if (!individual->is_alive)
-            continue;
         if (individual->location == individual_at) {
             cheatcode_spectator = individual;
             return;

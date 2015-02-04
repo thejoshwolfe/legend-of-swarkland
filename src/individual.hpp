@@ -50,12 +50,11 @@ struct Species {
 struct PerceivedIndividualImpl : public ReferenceCounted {
 public:
     uint256 id;
-    bool is_alive;
     Species * species;
     Coord location;
     bool invisible;
-    PerceivedIndividualImpl(uint256 id, bool is_alive, Species * species, Coord location, bool invisible) :
-            id(id), is_alive(is_alive), species(species), location(location), invisible(invisible) {
+    PerceivedIndividualImpl(uint256 id, Species * species, Coord location, bool invisible) :
+            id(id), species(species), location(location), invisible(invisible) {
     }
 };
 typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
@@ -77,7 +76,6 @@ public:
 
 struct IndividualImpl : public ReferenceCounted {
     uint256 id;
-    bool is_alive = true;
     Species * species;
     int hitpoints;
     int kill_counter = 0;

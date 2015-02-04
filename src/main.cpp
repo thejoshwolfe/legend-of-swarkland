@@ -86,12 +86,12 @@ static Action peek_input_command() {
 }
 static void step_game() {
     // run the game until it's our turn
-    while (you->is_alive && you->movement_points < you->species->movement_cost) {
+    while (youre_still_alive && you->movement_points < you->species->movement_cost) {
         advance_time();
     }
     // time to decide what to do
     Action action = peek_input_command();
-    if (action.type == Action::UNDECIDED || !you->is_alive)
+    if (action.type == Action::UNDECIDED || !youre_still_alive)
         return; // this happens about 60 times per second
     if (action.type == Action::MOVE) {
         // convert moving into attacking if it's pointed at an observed monster.

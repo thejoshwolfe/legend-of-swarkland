@@ -209,8 +209,6 @@ void render() {
         // not cheating
         for (auto iterator = spectate_from->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
             PerceivedIndividual individual = iterator.next();
-            if (!individual->is_alive)
-                continue;
             Uint8 alpha;
             if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
                 alpha = 128;
@@ -225,8 +223,6 @@ void render() {
         SDL_SetTextureAlphaMod(sprite_sheet_texture, 128);
         for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
             Individual individual = iterator.next();
-            if (!individual->is_alive)
-                continue;
             Uint8 alpha;
             if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
                 alpha = 128;

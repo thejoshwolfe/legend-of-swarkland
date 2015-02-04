@@ -12,7 +12,7 @@ IndividualImpl::IndividualImpl(SpeciesId species_id, Coord location) :
 }
 
 PerceivedIndividual to_perceived_individual(Individual target) {
-    return new PerceivedIndividualImpl(target->id, target->is_alive, target->species, target->location, target->invisible);
+    return new PerceivedIndividualImpl(target->id, target->species, target->location, target->invisible);
 }
 
 PerceivedIndividual observe_individual(Individual observer, Individual target) {

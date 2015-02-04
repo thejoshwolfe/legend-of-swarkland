@@ -21,6 +21,7 @@ extern Species specieses[SpeciesId_COUNT];
 
 extern IdMap<Individual> individuals;
 extern Individual you;
+extern bool youre_still_alive;
 extern long long time_counter;
 
 extern bool cheatcode_full_visibility;
