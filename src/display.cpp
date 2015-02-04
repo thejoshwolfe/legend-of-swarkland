@@ -208,28 +208,34 @@ void render() {
     }
 
     // render the individuals
-    for (auto iterator = spectate_from->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedIndividual individual = iterator.next();
-        if (!individual->is_alive)
-            continue;
-        Uint8 alpha;
-        if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
-            alpha = 128;
-        else
-            alpha = 255;
-        SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-        render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
-    }
-    // second pass for cheatcode seeing individuals out of sight
-    if (cheatcode_full_visibility) {
+    if (!cheatcode_full_visibility) {
+        // not cheating
+        for (auto iterator = spectate_from->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+            PerceivedIndividual individual = iterator.next();
+            if (!individual->is_alive)
+                continue;
+            Uint8 alpha;
+            if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
+                alpha = 128;
+            else
+                alpha = 255;
+            SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
+        }
+    } else {
+        // full visibility
         // fade out the ones you can't see legit
         SDL_SetTextureAlphaMod(sprite_sheet_texture, 128);
         for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
             Individual individual = iterator.next();
             if (!individual->is_alive)
                 continue;
-            if (spectate_from->knowledge.perceived_individuals.contains(individual->id))
-                continue; // already rendered above
+            Uint8 alpha;
+            if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
+                alpha = 128;
+            else
+                alpha = 255;
+            SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
             render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
         }
     }
