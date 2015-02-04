@@ -17,14 +17,14 @@ bool do_i_think_i_can_move_here(Individual individual, Coord location) {
 
 // start with the cardinal directions, because these are more "direct"
 const Coord directions[] = {
-    Coord(-1,  0),
-    Coord( 0, -1),
-    Coord( 1,  0),
-    Coord( 0,  1),
-    Coord(-1, -1),
-    Coord( 1, -1),
-    Coord( 1,  1),
-    Coord(-1,  1),
+    {-1,  0},
+    { 0, -1},
+    { 1,  0},
+    { 0,  1},
+    {-1, -1},
+    { 1, -1},
+    { 1,  1},
+    {-1,  1},
 };
 
 struct Node {
@@ -76,7 +76,7 @@ bool find_path(Coord start, Coord end, Individual according_to_whom, List<Coord>
         closed_set[node->coord] = true;
         for (int i = 0; i < 8; i++) {
             Coord direction = directions[i];
-            Coord neighbor_coord(node->coord.x + direction.x, node->coord.y + direction.y);
+            Coord neighbor_coord = {node->coord.x + direction.x, node->coord.y + direction.y};
             if (!is_in_bounds(neighbor_coord))
                 continue;
 

@@ -29,7 +29,7 @@ Individual spawn_a_monster(SpeciesId species_id) {
         }
     }
     List<Coord> available_spawn_locations;
-    for (Coord location(0, 0); location.y < map_size.y; location.y++) {
+    for (Coord location = {0, 0}; location.y < map_size.y; location.y++) {
         for (location.x = 0; location.x < map_size.x; location.x++) {
             if (actual_map_tiles[location].tile_type == TileType_WALL)
                 continue;
@@ -122,10 +122,10 @@ static void move_bumble_around(Individual individual) {
         }
 
         // if we lose him. reroll our new destination.
-        individual->bumble_destination = Coord(-1, -1);
+        individual->bumble_destination = {-1, -1};
     } else {
         // idk where 2 go
-        if (individual->bumble_destination == Coord(-1, -1))
+        if (individual->bumble_destination == Coord {-1, -1})
             individual->bumble_destination = individual->location;
         Coord next_space = individual->location + sign(individual->bumble_destination - individual->location);
         if (individual->bumble_destination == individual->location || !do_i_think_i_can_move_here(individual, next_space)) {
@@ -134,7 +134,7 @@ static void move_bumble_around(Individual individual) {
             List<Coord> available_immediate_vectors;
             for (int i = 0; i < 8; i++) {
                 Coord direction = directions[i];
-                Coord adjacent_space(individual->location.x + direction.x, individual->location.y + direction.y);
+                Coord adjacent_space = {individual->location.x + direction.x, individual->location.y + direction.y};
                 if (do_i_think_i_can_move_here(individual, adjacent_space))
                     available_immediate_vectors.add(direction);
             }
@@ -191,7 +191,7 @@ bool take_action(bool just_wait, Coord delta) {
         return true;
     if (delta.x == 0 && delta.y == 0)
         return false; // not moving
-    Coord new_position(you->location.x + delta.x, you->location.y + delta.y);
+    Coord new_position = {you->location.x + delta.x, you->location.y + delta.y};
     if (new_position.x < 0 || new_position.x >= map_size.x || new_position.y < 0 || new_position.y >= map_size.y)
         return false;
     if (you->knowledge.tiles[new_position].tile_type == TileType_WALL)

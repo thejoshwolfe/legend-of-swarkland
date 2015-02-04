@@ -13,7 +13,7 @@ static bool request_shutdown = false;
 
 static void step_game() {
     SDL_Event event;
-    Coord requested_move(0, 0);
+    Coord requested_move = {0, 0};
     bool do_nothing = false;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
@@ -24,32 +24,32 @@ static void step_game() {
                         break;
 
                     case SDL_SCANCODE_KP_1:
-                        requested_move = Coord(-1, 1);
+                        requested_move = {-1, 1};
                         break;
                     case SDL_SCANCODE_DOWN:
                     case SDL_SCANCODE_KP_2:
-                        requested_move = Coord(0, 1);
+                        requested_move = {0, 1};
                         break;
                     case SDL_SCANCODE_KP_3:
-                        requested_move = Coord(1, 1);
+                        requested_move = {1, 1};
                         break;
                     case SDL_SCANCODE_LEFT:
                     case SDL_SCANCODE_KP_4:
-                        requested_move = Coord(-1, 0);
+                        requested_move = {-1, 0};
                         break;
                     case SDL_SCANCODE_RIGHT:
                     case SDL_SCANCODE_KP_6:
-                        requested_move = Coord(1, 0);
+                        requested_move = {1, 0};
                         break;
                     case SDL_SCANCODE_KP_7:
-                        requested_move = Coord(-1, -1);
+                        requested_move = {-1, -1};
                         break;
                     case SDL_SCANCODE_UP:
                     case SDL_SCANCODE_KP_8:
-                        requested_move = Coord(0, -1);
+                        requested_move = {0, -1};
                         break;
                     case SDL_SCANCODE_KP_9:
-                        requested_move = Coord(1, -1);
+                        requested_move = {1, -1};
                         break;
 
                     case SDL_SCANCODE_SPACE:
@@ -99,7 +99,7 @@ static void step_game() {
                 // stop time until the player moves
                 break;
             }
-            requested_move = Coord(0, 0);
+            requested_move = {0, 0};
             do_nothing = false;
         }
 

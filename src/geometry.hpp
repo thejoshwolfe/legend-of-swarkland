@@ -6,12 +6,6 @@
 struct Coord {
     int x;
     int y;
-    Coord() :
-            x(0), y(0) {
-    }
-    Coord(int x, int y) :
-            x(x), y(y) {
-    }
 };
 static inline bool operator==(Coord a, Coord b) {
     return a.x == b.x && a.y == b.y;
@@ -20,10 +14,10 @@ static inline bool operator!=(Coord a, Coord b) {
     return !(a == b);
 }
 static inline Coord operator+(Coord a, Coord b) {
-    return Coord(b.x + a.x, b.y + a.y);
+    return {b.x + a.x, b.y + a.y};
 }
 static inline Coord operator-(Coord a, Coord b) {
-    return Coord(a.x - b.x, a.y - b.y);
+    return {a.x - b.x, a.y - b.y};
 }
 
 template<typename T>
@@ -61,11 +55,11 @@ static inline int distance_squared(Coord a, Coord b) {
 
 // each of x and y will be -1, 0, 1
 static inline Coord sign(Coord value) {
-    return Coord(sign(value.x), sign(value.y));
+    return {sign(value.x), sign(value.y)};
 }
 
 static inline Coord clamp(Coord value, Coord min, Coord max) {
-    return Coord(clamp(value.x, min.x, max.x), clamp(value.y, min.y, max.y));
+    return {clamp(value.x, min.x, max.x), clamp(value.y, min.y, max.y)};
 }
 
 #endif

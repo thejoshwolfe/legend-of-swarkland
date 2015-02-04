@@ -177,7 +177,7 @@ Coord get_mouse_tile() {
     int x;
     int y;
     SDL_GetMouseState(&x, &y);
-    Coord tile_coord(x / tile_size, y / tile_size);
+    Coord tile_coord = {x / tile_size, y / tile_size};
     return tile_coord;
 }
 
@@ -189,7 +189,7 @@ void render() {
     Individual spectate_from = you;
     if (cheatcode_spectator != NULL)
         spectate_from = cheatcode_spectator;
-    for (Coord cursor(0, 0); cursor.y < map_size.y; cursor.y++) {
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             Tile tile = spectate_from->knowledge.tiles[cursor];
             if (cheatcode_full_visibility)
@@ -222,7 +222,7 @@ void render() {
         }
     }
 
-    if (spectate_from->bumble_destination != Coord(-1, -1)) {
+    if (spectate_from->bumble_destination != Coord{-1, -1}) {
         // you can see this in spectator mode
         RuckSackImage * image = crosshairs_image;
         render_tile(renderer, sprite_sheet_texture, image, spectate_from->bumble_destination);

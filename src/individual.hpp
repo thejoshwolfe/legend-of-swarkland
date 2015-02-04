@@ -47,6 +47,14 @@ struct Species {
     bool has_mind;
 };
 
+//class PerceivedIndividualImpl : public ReferenceCounted {
+//    uint256 id;
+//    bool is_alive = true;
+//    Species * species;
+//    Coord location;
+//};
+//typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
+
 class Knowledge {
 public:
     Matrix<Tile> tiles;
@@ -68,7 +76,7 @@ struct IndividualImpl : public ReferenceCounted {
     // once this reaches movement_cost, make a move
     int movement_points = 0;
     AiStrategy ai;
-    Coord bumble_destination = Coord(-1, -1);
+    Coord bumble_destination = {-1, -1};
     Knowledge knowledge;
     long long vision_last_calculated_time = -1;
     bool invisible = false;
