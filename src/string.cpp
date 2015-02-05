@@ -52,7 +52,7 @@ String String::operator+(String other) {
     return String(new CharBuffer(new_chars, new_size), 0, new_size);
 }
 
-String toString(int n) {
+String to_string(int n) {
     char buffer[256];
     sprintf(buffer, "%d", n);
     return String(buffer);

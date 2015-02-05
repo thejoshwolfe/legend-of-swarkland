@@ -1,9 +1,9 @@
 #include "util.hpp"
 
 #include "random.hpp"
+#include "tas.hpp"
 
 #include <stdio.h>
-#include <time.h>
 #include <stdlib.h>
 
 static RandomState the_random_state;
@@ -14,7 +14,7 @@ void panic(const char * str) {
 }
 
 void init_random() {
-    uint32_t seed = time(NULL);
+    uint32_t seed = tas_get_seed();
     init_random_state(&the_random_state, seed);
 }
 

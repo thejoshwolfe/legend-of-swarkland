@@ -28,6 +28,6 @@ private:
     int _end;
 };
 
-String toString(int n);
+String to_string(int n);
 
 #endif

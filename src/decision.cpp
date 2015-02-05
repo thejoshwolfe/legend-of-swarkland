@@ -1,13 +1,20 @@
 #include "decision.hpp"
 
 #include "path_finding.hpp"
+#include "tas.hpp"
 
 Action (*decision_makers[DecisionMakerType_COUNT])(Individual);
 Action current_player_decision;
 
 static Action get_player_decision(Individual) {
-    Action result = current_player_decision;
-    current_player_decision = Action::undecided();
+    Action result = tas_get_decision();
+    if (result == Action::undecided()) {
+        // ok, ask the real player
+        result = current_player_decision;
+        current_player_decision = Action::undecided();
+    }
+    if (result != Action::undecided())
+        tas_record_decision(result);
     return result;
 }
 
