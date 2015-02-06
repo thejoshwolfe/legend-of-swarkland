@@ -32,6 +32,46 @@ static inline bool operator!=(Action a, Action b) {
     return !(a == b);
 }
 
+struct Event {
+    enum Type {
+        MOVE,
+        ATTACK,
+        DIE,
+    };
+    Type type;
+    Individual individual1;
+    Individual individual2;
+    Coord coord1;
+    Coord coord2;
+    static inline Event move(Individual mover, Coord from, Coord to) {
+        return {
+            MOVE,
+            mover,
+            NULL,
+            from,
+            to,
+        };
+    }
+    static inline Event attack(Individual attacker, Individual target) {
+        return {
+            ATTACK,
+            attacker,
+            target,
+            attacker->location,
+            target->location,
+        };
+    }
+    static inline Event die(Individual deceased) {
+        return {
+            DIE,
+            deceased,
+            NULL,
+            deceased->location,
+            Coord::nowhere(),
+        };
+    }
+};
+
 extern Species specieses[SpeciesId_COUNT];
 
 extern IdMap<Individual> individuals;

@@ -86,6 +86,34 @@ static void spawn_monsters() {
         }
     }
 }
+
+static void publish_event(Event event) {
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual observer = iterator.next();
+        if (!observer->is_alive)
+            continue;
+        bool can_see1 = observer->knowledge.tile_is_visible[event.coord1].any();
+        bool can_see2 = event.coord2 != Coord::nowhere() && observer->knowledge.tile_is_visible[event.coord2].any();
+        if (!(can_see1 || can_see2))
+            continue; // out of view
+        // i see what happened
+        if (event.individual1 != NULL) {
+            // TODO: too much special logic
+            if (event.type == Event::DIE)
+                observer->knowledge.perceived_individuals.remove(event.individual1->id);
+            else
+                observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
+        }
+        if (event.individual2 != NULL)
+            observer->knowledge.perceived_individuals.put(event.individual2->id, to_perceived_individual(event.individual2));
+    }
+    // TODO: too much special logic
+    if (event.type == Event::DIE) {
+        // we skipped ourselves noticing that we died in the above loop
+        event.individual1->knowledge.perceived_individuals.remove(event.individual1->id);
+    }
+}
+
 static void regen_hp(Individual individual) {
     if (individual->hitpoints < individual->species->starting_hitpoints) {
         if (random_int(60) == 0) {
@@ -96,18 +124,10 @@ static void regen_hp(Individual individual) {
 
 static void kill_individual(Individual individual) {
     individual->hitpoints = 0;
+    individual->is_alive = false;
 
-    // notify other individuals who could see the death
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual observer = iterator.next();
-        // seeing either the start or end point counts as seeing the movement
-        if (observer->knowledge.tile_is_visible[individual->location].any()) {
-            // i like the way you die, boy.
-            observer->knowledge.perceived_individuals.remove(individual->id);
-        }
-    }
+    publish_event(Event::die(individual));
 
-    individuals.remove(individual->id);
     if (individual == you)
         youre_still_alive = false;
     if (individual == cheatcode_spectator) {
@@ -118,6 +138,7 @@ static void kill_individual(Individual individual) {
 
 static void attack(Individual attacker, Individual target) {
     target->hitpoints -= attacker->species->attack_power;
+    publish_event(Event::attack(attacker, target));
     if (target->hitpoints <= 0) {
         kill_individual(target);
         attacker->kill_counter++;
@@ -135,6 +156,8 @@ PerceivedIndividual find_perceived_individual_at(Individual observer, Coord loca
 Individual find_individual_at(Coord location) {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
+        if (!individual->is_alive)
+            continue;
         if (individual->location.x == location.x && individual->location.y == location.y)
             return individual;
     }
@@ -147,14 +170,7 @@ static void do_move(Individual mover, Coord new_position) {
     compute_vision(mover);
 
     // notify other individuals who could see that move
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual observer = iterator.next();
-        // seeing either the start or end point counts as seeing the movement
-        if (observer->knowledge.tile_is_visible[old_position].any() || observer->knowledge.tile_is_visible[new_position].any()) {
-            // i see what you did there
-            observer->knowledge.perceived_individuals.put(mover->id, to_perceived_individual(mover));
-        }
-    }
+    publish_event(Event::move(mover, old_position, new_position));
 }
 
 static bool validate_action(Individual individual, Action action) {
@@ -220,14 +236,23 @@ void run_the_game() {
 
             spawn_monsters();
 
+            List<Individual> dead_individuals;
             // who's ready to make a move?
             for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
                 Individual individual = iterator.next();
+                if (!individual->is_alive) {
+                    dead_individuals.add(individual);
+                    continue;
+                }
                 // advance time for this individual
                 regen_hp(individual);
                 individual->movement_points++;
                 if (individual->movement_points >= individual->species->movement_cost)
                     poised_individuals.add(individual);
+            }
+            // delete the dead
+            for (int i = 0; i < dead_individuals.size(); i++) {
+                individuals.remove(dead_individuals[i]->id);
             }
 
             // break ties with randomly assigned initiative
@@ -257,6 +282,8 @@ void run_the_game() {
 void cheatcode_kill_everybody_in_the_world() {
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
+        if (!individual->is_alive)
+            continue;
         if (individual != you)
             kill_individual(individual);
     }

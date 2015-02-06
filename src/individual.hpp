@@ -38,8 +38,8 @@ struct VisionTypes {
         return normal || ethereal;
     }
 };
-
 static const VisionTypes no_vision = {0, 0};
+
 
 struct Species {
     SpeciesId species_id;
@@ -67,7 +67,7 @@ typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
 class Knowledge {
 public:
     // terrain knowledge
-    Coord map_last_observed_from = {-1, -1};
+    Coord map_last_observed_from = Coord::nowhere();
     Matrix<Tile> tiles;
     Matrix<VisionTypes> tile_is_visible;
 
@@ -82,6 +82,7 @@ public:
 struct IndividualImpl : public ReferenceCounted {
     uint256 id;
     Species * species;
+    bool is_alive = true;
     int hitpoints;
     int kill_counter = 0;
     Coord location;

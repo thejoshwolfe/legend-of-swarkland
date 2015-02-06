@@ -219,10 +219,10 @@ void render() {
         }
     } else {
         // full visibility
-        // fade out the ones you can't see legit
-        SDL_SetTextureAlphaMod(sprite_sheet_texture, 128);
         for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
             Individual individual = iterator.next();
+            if (!individual->is_alive)
+                continue;
             Uint8 alpha;
             if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
                 alpha = 128;

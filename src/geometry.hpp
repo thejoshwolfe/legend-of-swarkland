@@ -6,6 +6,9 @@
 struct Coord {
     int x;
     int y;
+    static inline Coord nowhere() {
+        return {-1, -1};
+    }
 };
 static inline bool operator==(Coord a, Coord b) {
     return a.x == b.x && a.y == b.y;

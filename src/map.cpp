@@ -63,7 +63,6 @@ static void refresh_ethereal_vision(Individual individual) {
 void compute_vision(Individual spectator) {
     if (spectator->knowledge.map_last_observed_from == spectator->location)
         return;
-    // if monsters move since we started standing here, we've got special logic for that.
 
     // take a look at the terrain
     spectator->knowledge.map_last_observed_from = spectator->location;
@@ -92,10 +91,13 @@ void compute_vision(Individual spectator) {
 
     // now see any monsters that are in our line of vision
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        PerceivedIndividual target = observe_individual(spectator, iterator.next());
-        if (target == NULL)
+        Individual actual_target = iterator.next();
+        if (!actual_target->is_alive)
             continue;
-        spectator->knowledge.perceived_individuals.put(target->id, target);
+        PerceivedIndividual perceived_target = observe_individual(spectator, actual_target);
+        if (perceived_target == NULL)
+            continue;
+        spectator->knowledge.perceived_individuals.put(perceived_target->id, perceived_target);
     }
 }
 

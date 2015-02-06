@@ -29,25 +29,25 @@ static Action on_key_down(const SDL_Event & event) {
             break;
 
         case SDL_SCANCODE_KP_1:
-            return move_or_attack(Coord{-1, 1});
+            return move_or_attack({-1, 1});
         case SDL_SCANCODE_DOWN:
         case SDL_SCANCODE_KP_2:
-            return move_or_attack(Coord{0, 1});
+            return move_or_attack({0, 1});
         case SDL_SCANCODE_KP_3:
-            return move_or_attack(Coord{1, 1});
+            return move_or_attack({1, 1});
         case SDL_SCANCODE_LEFT:
         case SDL_SCANCODE_KP_4:
-            return move_or_attack(Coord{-1, 0});
+            return move_or_attack({-1, 0});
         case SDL_SCANCODE_RIGHT:
         case SDL_SCANCODE_KP_6:
-            return move_or_attack(Coord{1, 0});
+            return move_or_attack({1, 0});
         case SDL_SCANCODE_KP_7:
-            return move_or_attack(Coord{-1, -1});
+            return move_or_attack({-1, -1});
         case SDL_SCANCODE_UP:
         case SDL_SCANCODE_KP_8:
-            return move_or_attack(Coord{0, -1});
+            return move_or_attack({0, -1});
         case SDL_SCANCODE_KP_9:
-            return move_or_attack(Coord{1, -1});
+            return move_or_attack({1, -1});
 
         case SDL_SCANCODE_SPACE:
             return Action::wait();
