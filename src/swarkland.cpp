@@ -110,6 +110,10 @@ static void kill_individual(Individual individual) {
     individuals.remove(individual->id);
     if (individual == you)
         youre_still_alive = false;
+    if (individual == cheatcode_spectator) {
+        // our fun looking through the eyes of a dying man has ended. back to normal.
+        cheatcode_spectator = NULL;
+    }
 }
 
 static void attack(Individual attacker, Individual target) {
