@@ -15,11 +15,9 @@ static bool request_shutdown = false;
 
 static Action move_or_attack(Coord direction) {
     Action action = {Action::MOVE, direction};
-    if (action.type == Action::MOVE) {
-        // convert moving into attacking if it's pointed at an observed monster.
-        if (find_perceived_individual_at(you, you->location + action.coord) != NULL)
-            action.type = Action::ATTACK;
-    }
+    // convert moving into attacking if it's pointed at an observed monster.
+    if (find_perceived_individual_at(you, you->location + action.coord) != NULL)
+        action.type = Action::ATTACK;
     return action;
 }
 static Action on_key_down(const SDL_Event & event) {

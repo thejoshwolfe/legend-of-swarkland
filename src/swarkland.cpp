@@ -311,6 +311,8 @@ void run_the_game() {
         // move individuals
         for (; poised_individuals_index < poised_individuals.size(); poised_individuals_index++) {
             Individual individual = poised_individuals[poised_individuals_index];
+            if (!individual->is_alive)
+                continue; // sorry, buddy. you were that close to making another move.
             Action action = decision_makers[individual->decision_maker](individual);
             if (action == Action::undecided()) {
                 // give the player some time to think.
