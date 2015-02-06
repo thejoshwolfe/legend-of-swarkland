@@ -178,7 +178,7 @@ static void spawn_monsters(bool force_do_it) {
 }
 
 static void regen_hp(Individual individual) {
-    if (individual->hitpoints < individual->species->starting_hitpoints) {
+    if (individual->hitpoints < individual->species()->starting_hitpoints) {
         if (random_int(60) == 0) {
             individual->hitpoints++;
         }
@@ -200,7 +200,7 @@ static void kill_individual(Individual individual) {
 }
 
 static void attack(Individual attacker, Individual target) {
-    target->hitpoints -= attacker->species->attack_power;
+    target->hitpoints -= attacker->species()->attack_power;
     publish_event(Event::attack(attacker, target));
     if (target->hitpoints <= 0) {
         kill_individual(target);
@@ -246,9 +246,7 @@ static void cheatcode_kill_everybody_in_the_world() {
     }
 }
 static void cheatcode_polymorph() {
-    SpeciesId species_id = you->species->species_id;
-    species_id = (SpeciesId)((species_id + 1) % SpeciesId_COUNT);
-    you->species = &specieses[species_id];
+    you->species_id = (SpeciesId)((you->species_id + 1) % SpeciesId_COUNT);
     compute_vision(you);
     publish_event(Event::polymorph(you));
 }
@@ -354,7 +352,7 @@ void run_the_game() {
                 // advance time for this individual
                 regen_hp(individual);
                 individual->movement_points++;
-                if (individual->movement_points >= individual->species->movement_cost)
+                if (individual->movement_points >= individual->species()->movement_cost)
                     poised_individuals.add(individual);
             }
             // delete the dead

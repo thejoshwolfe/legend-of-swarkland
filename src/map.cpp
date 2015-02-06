@@ -61,21 +61,21 @@ static void refresh_ethereal_vision(Individual individual) {
 }
 
 void compute_vision(Individual spectator) {
-    if (spectator->knowledge.map_last_observed_from == spectator->location && spectator->knowledge.map_last_observed_with == spectator->species->vision_types)
+    if (spectator->knowledge.map_last_observed_from == spectator->location && spectator->knowledge.map_last_observed_with == spectator->species()->vision_types)
         return;
 
     // take a look at the terrain
     spectator->knowledge.map_last_observed_from = spectator->location;
-    spectator->knowledge.map_last_observed_with = spectator->species->vision_types;
+    spectator->knowledge.map_last_observed_with = spectator->species()->vision_types;
 
     // mindless monsters can't remember the terrain
-    if (!spectator->species->has_mind)
+    if (!spectator->species()->has_mind)
         spectator->knowledge.tiles.set_all(unknown_tile);
 
     spectator->knowledge.tile_is_visible.set_all(VisionTypes::none());
-    if (spectator->species->vision_types.normal)
+    if (spectator->species()->vision_types.normal)
         refresh_normal_vision(spectator);
-    if (spectator->species->vision_types.ethereal)
+    if (spectator->species()->vision_types.ethereal)
         refresh_ethereal_vision(spectator);
 
     // see individuals
@@ -83,7 +83,7 @@ void compute_vision(Individual spectator) {
     List<PerceivedIndividual> remove_these;
     for (auto iterator = spectator->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
         PerceivedIndividual target = iterator.next();
-        if (!spectator->species->has_mind || spectator->knowledge.tile_is_visible[target->location].any())
+        if (!spectator->species()->has_mind || spectator->knowledge.tile_is_visible[target->location].any())
             remove_these.add(target);
     }
     // do this as a second pass, because modifying in the middle of iteration doesn't work properly.
@@ -113,7 +113,7 @@ void generate_map() {
     }
     // generate some obstructions.
     // they're all rectangles for now
-    int rock_count = random_int(20, 50);
+    int rock_count = random_int(20, 40);
     for (int i = 0; i < rock_count; i++) {
         int width = random_int(2, 8);
         int height = random_int(2, 8);

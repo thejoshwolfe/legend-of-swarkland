@@ -89,7 +89,7 @@ public:
 
 struct IndividualImpl : public ReferenceCounted {
     uint256 id;
-    Species * species;
+    SpeciesId species_id;
     bool is_alive = true;
     int hitpoints;
     int kill_counter = 0;
@@ -103,6 +103,7 @@ struct IndividualImpl : public ReferenceCounted {
     bool invisible = false;
     IndividualImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
     IndividualImpl(IndividualImpl &) = delete;
+    Species * species() const;
 };
 typedef Reference<IndividualImpl> Individual;
 

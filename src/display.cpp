@@ -229,7 +229,7 @@ void render() {
             else
                 alpha = 255;
             SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->species_id], individual->location);
         }
     }
 
@@ -239,4 +239,3 @@ void render() {
 
     SDL_RenderPresent(renderer);
 }
-
