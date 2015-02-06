@@ -61,17 +61,18 @@ static void refresh_ethereal_vision(Individual individual) {
 }
 
 void compute_vision(Individual spectator) {
-    if (spectator->knowledge.map_last_observed_from == spectator->location)
+    if (spectator->knowledge.map_last_observed_from == spectator->location && spectator->knowledge.map_last_observed_with == spectator->species->vision_types)
         return;
 
     // take a look at the terrain
     spectator->knowledge.map_last_observed_from = spectator->location;
+    spectator->knowledge.map_last_observed_with = spectator->species->vision_types;
 
     // mindless monsters can't remember the terrain
     if (!spectator->species->has_mind)
         spectator->knowledge.tiles.set_all(unknown_tile);
 
-    spectator->knowledge.tile_is_visible.set_all(no_vision);
+    spectator->knowledge.tile_is_visible.set_all(VisionTypes::none());
     if (spectator->species->vision_types.normal)
         refresh_normal_vision(spectator);
     if (spectator->species->vision_types.ethereal)

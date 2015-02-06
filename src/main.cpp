@@ -56,23 +56,18 @@ static Action on_key_down(const SDL_Event & event) {
             cheatcode_full_visibility = !cheatcode_full_visibility;
             break;
         case SDL_SCANCODE_H:
-            you->hitpoints += 100;
-            break;
+            return Action::cheatcode_health_boost();
         case SDL_SCANCODE_K:
-            cheatcode_kill_everybody_in_the_world();
-            break;
+            return Action::cheatcode_kill_everybody_in_the_world();
         case SDL_SCANCODE_P:
-            cheatcode_polymorph();
-            break;
+            return Action::cheatcode_polymorph();
         case SDL_SCANCODE_S:
             cheatcode_spectate(get_mouse_tile());
             break;
         case SDL_SCANCODE_I:
-            you->invisible = !you->invisible;
-            break;
+            return Action::cheatcode_invisibility();
         case SDL_SCANCODE_G:
-            spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
-            break;
+            return Action::cheatcode_generate_monster();
 
         default:
             break;

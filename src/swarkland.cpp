@@ -20,6 +20,37 @@ static void init_specieses() {
     specieses[SpeciesId_DUST_VORTEX] = {SpeciesId_DUST_VORTEX, 6, 6, 1, {0, 1}, false};
 }
 
+static void publish_event(Event event) {
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual observer = iterator.next();
+        if (!observer->is_alive)
+            continue;
+        bool can_see1 = observer->knowledge.tile_is_visible[event.coord1].any();
+        bool can_see2 = event.coord2 != Coord::nowhere() && observer->knowledge.tile_is_visible[event.coord2].any();
+        if (!(can_see1 || can_see2))
+            continue; // out of view
+        // i see what happened
+        if (event.individual1 != NULL) {
+            if (event.type == Event::DIE) {
+                observer->knowledge.perceived_individuals.remove(event.individual1->id);
+            } else if (event.type == Event::DISAPPEAR) {
+                // you can see see yourself
+                if (observer != event.individual1)
+                    observer->knowledge.perceived_individuals.remove(event.individual1->id);
+            } else {
+                observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
+            }
+        }
+        if (event.individual2 != NULL)
+            observer->knowledge.perceived_individuals.put(event.individual2->id, to_perceived_individual(event.individual2));
+    }
+
+    if (event.type == Event::DIE) {
+        // we didn't notice ourselves dying in the above loop
+        event.individual1->knowledge.perceived_individuals.remove(event.individual1->id);
+    }
+}
+
 static const int no_spawn_radius = 10;
 
 // specify SpeciesId_COUNT for random
@@ -51,6 +82,7 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
     Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
     individuals.put(individual->id, individual);
     compute_vision(individual);
+    publish_event(Event::appear(individual));
     return individual;
 }
 
@@ -75,8 +107,8 @@ void swarkland_init() {
     init_individuals();
 }
 
-static void spawn_monsters() {
-    if (random_int(120) == 0) {
+static void spawn_monsters(bool force_do_it) {
+    if (force_do_it || random_int(120) == 0) {
         // spawn a monster
         if (random_int(20) == 0) {
             // a friend has arrived!
@@ -84,33 +116,6 @@ static void spawn_monsters() {
         } else {
             spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
         }
-    }
-}
-
-static void publish_event(Event event) {
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual observer = iterator.next();
-        if (!observer->is_alive)
-            continue;
-        bool can_see1 = observer->knowledge.tile_is_visible[event.coord1].any();
-        bool can_see2 = event.coord2 != Coord::nowhere() && observer->knowledge.tile_is_visible[event.coord2].any();
-        if (!(can_see1 || can_see2))
-            continue; // out of view
-        // i see what happened
-        if (event.individual1 != NULL) {
-            // TODO: too much special logic
-            if (event.type == Event::DIE)
-                observer->knowledge.perceived_individuals.remove(event.individual1->id);
-            else
-                observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
-        }
-        if (event.individual2 != NULL)
-            observer->knowledge.perceived_individuals.put(event.individual2->id, to_perceived_individual(event.individual2));
-    }
-    // TODO: too much special logic
-    if (event.type == Event::DIE) {
-        // we skipped ourselves noticing that we died in the above loop
-        event.individual1->knowledge.perceived_individuals.remove(event.individual1->id);
     }
 }
 
@@ -173,6 +178,27 @@ static void do_move(Individual mover, Coord new_position) {
     publish_event(Event::move(mover, old_position, new_position));
 }
 
+static void cheatcode_kill_everybody_in_the_world() {
+    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        Individual individual = iterator.next();
+        if (!individual->is_alive)
+            continue;
+        if (individual != you)
+            kill_individual(individual);
+    }
+}
+static void cheatcode_polymorph() {
+    SpeciesId species_id = you->species->species_id;
+    species_id = (SpeciesId)((species_id + 1) % SpeciesId_COUNT);
+    you->species = &specieses[species_id];
+    compute_vision(you);
+    publish_event(Event::polymorph(you));
+}
+Individual cheatcode_spectator;
+void cheatcode_spectate(Coord individual_at) {
+    cheatcode_spectator = find_individual_at(individual_at);
+}
+
 static bool validate_action(Individual individual, Action action) {
     List<Action> valid_actions;
     get_available_actions(individual, valid_actions);
@@ -182,6 +208,7 @@ static bool validate_action(Individual individual, Action action) {
     return false;
 }
 
+// return whether we did anything. also, cheatcodes take no time
 static bool take_action(Individual individual, Action action) {
     bool is_valid = validate_action(individual, action);
     if (!is_valid) {
@@ -221,6 +248,28 @@ static bool take_action(Individual individual, Action action) {
             attack(individual, target);
             return true;
         }
+        case Action::CHEATCODE_HEALTH_BOOST:
+            individual->hitpoints += 100;
+            return false;
+        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+            cheatcode_kill_everybody_in_the_world();
+            return false;
+        case Action::CHEATCODE_POLYMORPH:
+            cheatcode_polymorph();
+            // this one does take time, because your movement cost may have changed
+            return true;
+        case Action::CHEATCODE_INVISIBILITY:
+            if (individual->invisible) {
+                individual->invisible = false;
+                publish_event(Event::disappear(you));
+            } else {
+                individual->invisible = true;
+                publish_event(Event::appear(you));
+            }
+            return false;
+        case Action::CHEATCODE_GENERATE_MONSTER:
+            spawn_monsters(true);
+            return false;
         default:
             panic("unimplemented action type");
     }
@@ -234,7 +283,7 @@ void run_the_game() {
         if (poised_individuals.size() == 0) {
             time_counter++;
 
-            spawn_monsters();
+            spawn_monsters(false);
 
             List<Individual> dead_individuals;
             // who's ready to make a move?
@@ -279,25 +328,6 @@ void run_the_game() {
     }
 }
 
-void cheatcode_kill_everybody_in_the_world() {
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
-        if (!individual->is_alive)
-            continue;
-        if (individual != you)
-            kill_individual(individual);
-    }
-}
-void cheatcode_polymorph() {
-    SpeciesId species_id = you->species->species_id;
-    species_id = (SpeciesId)((species_id + 1) % SpeciesId_COUNT);
-    you->species = &specieses[species_id];
-}
-Individual cheatcode_spectator;
-void cheatcode_spectate(Coord individual_at) {
-    cheatcode_spectator = find_individual_at(individual_at);
-}
-
 // wait will always be available
 void get_available_actions(Individual individual, List<Action> & output_actions) {
     output_actions.add(Action::wait());
@@ -317,5 +347,13 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
             // within melee range
             output_actions.add(Action{Action::ATTACK, vector});
         }
+    }
+    // alright, we'll let you use cheatcodes
+    if (individual == you) {
+        output_actions.add(Action::cheatcode_health_boost());
+        output_actions.add(Action::cheatcode_kill_everybody_in_the_world());
+        output_actions.add(Action::cheatcode_polymorph());
+        output_actions.add(Action::cheatcode_invisibility());
+        output_actions.add(Action::cheatcode_generate_monster());
     }
 }

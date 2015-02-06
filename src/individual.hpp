@@ -37,9 +37,16 @@ struct VisionTypes {
     bool any() const {
         return normal || ethereal;
     }
+    static inline VisionTypes none() {
+        return {0, 0};
+    }
 };
-static const VisionTypes no_vision = {0, 0};
-
+static inline bool operator==(VisionTypes a, VisionTypes b) {
+    return a.normal == b.normal && a.ethereal == b.ethereal;
+}
+static inline bool operator!=(VisionTypes a, VisionTypes b) {
+    return !(a == b);
+}
 
 struct Species {
     SpeciesId species_id;
@@ -68,6 +75,7 @@ class Knowledge {
 public:
     // terrain knowledge
     Coord map_last_observed_from = Coord::nowhere();
+    VisionTypes map_last_observed_with;
     Matrix<Tile> tiles;
     Matrix<VisionTypes> tile_is_visible;
 
@@ -75,7 +83,7 @@ public:
     Knowledge() :
             tiles(map_size), tile_is_visible(map_size) {
         tiles.set_all(unknown_tile);
-        tile_is_visible.set_all(no_vision);
+        tile_is_visible.set_all(VisionTypes::none());
     }
 };
 
