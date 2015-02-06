@@ -162,12 +162,12 @@ static bool validate_action(Individual individual, Action action) {
     return false;
 }
 
-static void take_action(Individual individual, Action action) {
+static bool take_action(Individual individual, Action action) {
     bool is_valid = validate_action(individual, action);
     if (!is_valid) {
         if (individual == you) {
             // forgive the player for trying to run into a wall or something
-            return;
+            return false;
         }
         panic("ai tried to make an illegal move");
     }
@@ -176,7 +176,7 @@ static void take_action(Individual individual, Action action) {
 
     switch (action.type) {
         case Action::WAIT:
-            return;
+            return true;
         case Action::MOVE: {
             // normally, we'd be sure that this was valid, but if you use cheatcodes,
             // monsters can try to walk into you while you're invisible.
@@ -185,21 +185,21 @@ static void take_action(Individual individual, Action action) {
             if (unseen_obstacle != NULL) {
                 // someday, this will cause you to notice that there's an invisible monster there,
                 // but for now, just lose a turn.
-                return;
+                return true;
             }
             // clear to move
             do_move(individual, new_position);
-            return;
+            return true;
         }
         case Action::ATTACK: {
             Coord new_position = individual->location + action.coord;
             Individual target = find_individual_at(new_position);
             if (target == NULL) {
                 // you attack thin air
-                return;
+                return true;
             }
             attack(individual, target);
-            return;
+            return true;
         }
         default:
             panic("unimplemented action type");
@@ -239,7 +239,11 @@ void run_the_game() {
                 // we'll resume right back where we left off.
                 return;
             }
-            take_action(individual, action);
+            bool actually_did_anything = take_action(individual, action);
+            if (!actually_did_anything) {
+                // sigh... the player is derping around
+                return;
+            }
         }
         poised_individuals.clear();
         poised_individuals_index = 0;
