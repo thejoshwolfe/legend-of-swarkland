@@ -55,67 +55,9 @@ static inline bool operator!=(Action a, Action b) {
     return !(a == b);
 }
 
-struct Event {
-    enum Type {
-        MOVE,
-        ATTACK,
-        DIE,
-        // spawn or become visible
-        APPEAR,
-        // these are possible with cheatcodes
-        DISAPPEAR,
-        POLYMORPH,
-    };
-    Type type;
-    Individual individual1;
-    Individual individual2;
-    Coord coord1;
-    Coord coord2;
-    static inline Event move(Individual mover, Coord from, Coord to) {
-        return {
-            MOVE,
-            mover,
-            NULL,
-            from,
-            to,
-        };
-    }
-    static inline Event attack(Individual attacker, Individual target) {
-        return {
-            ATTACK,
-            attacker,
-            target,
-            attacker->location,
-            target->location,
-        };
-    }
-    static inline Event die(Individual deceased) {
-        return single_individual_event(DIE, deceased);
-    }
-    static inline Event appear(Individual new_guy) {
-        return single_individual_event(APPEAR, new_guy);
-    }
-    static inline Event disappear(Individual cant_see_me) {
-        return single_individual_event(DISAPPEAR, cant_see_me);
-    }
-    static inline Event polymorph(Individual shapeshifter) {
-        return single_individual_event(POLYMORPH, shapeshifter);
-    }
-private:
-    static inline Event single_individual_event(Type type, Individual individual) {
-        return {
-            type,
-            individual,
-            NULL,
-            individual->location,
-            Coord::nowhere(),
-        };
-    }
-};
-
 extern Species specieses[SpeciesId_COUNT];
 
-extern IdMap<Individual> individuals;
+extern IdMap<Individual> actual_individuals;
 extern Individual you;
 extern bool youre_still_alive;
 extern long long time_counter;

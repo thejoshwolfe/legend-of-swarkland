@@ -91,7 +91,7 @@ void compute_vision(Individual spectator) {
         spectator->knowledge.perceived_individuals.remove(remove_these[i]->id);
 
     // now see any monsters that are in our line of vision
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         Individual actual_target = iterator.next();
         if (!actual_target->is_alive)
             continue;

@@ -4,13 +4,71 @@
 #include "decision.hpp"
 
 Species specieses[SpeciesId_COUNT];
-IdMap<Individual> individuals;
+IdMap<Individual> actual_individuals;
 
 Individual you;
 bool youre_still_alive = true;
 long long time_counter = 0;
 
 bool cheatcode_full_visibility;
+
+struct Event {
+    enum Type {
+        MOVE,
+        ATTACK,
+        DIE,
+        // spawn or become visible
+        APPEAR,
+        // these are possible with cheatcodes
+        DISAPPEAR,
+        POLYMORPH,
+    };
+    Type type;
+    Individual individual1;
+    Individual individual2;
+    Coord coord1;
+    Coord coord2;
+    static inline Event move(Individual mover, Coord from, Coord to) {
+        return {
+            MOVE,
+            mover,
+            NULL,
+            from,
+            to,
+        };
+    }
+    static inline Event attack(Individual attacker, Individual target) {
+        return {
+            ATTACK,
+            attacker,
+            target,
+            attacker->location,
+            target->location,
+        };
+    }
+    static inline Event die(Individual deceased) {
+        return single_individual_event(DIE, deceased);
+    }
+    static inline Event appear(Individual new_guy) {
+        return single_individual_event(APPEAR, new_guy);
+    }
+    static inline Event disappear(Individual cant_see_me) {
+        return single_individual_event(DISAPPEAR, cant_see_me);
+    }
+    static inline Event polymorph(Individual shapeshifter) {
+        return single_individual_event(POLYMORPH, shapeshifter);
+    }
+private:
+    static inline Event single_individual_event(Type type, Individual individual) {
+        return {
+            type,
+            individual,
+            NULL,
+            individual->location,
+            Coord::nowhere(),
+        };
+    }
+};
 
 static void init_specieses() {
     specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true};
@@ -21,7 +79,7 @@ static void init_specieses() {
 }
 
 static void publish_event(Event event) {
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         Individual observer = iterator.next();
         if (!observer->is_alive)
             continue;
@@ -80,7 +138,7 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
     }
     Coord location = available_spawn_locations[random_int(available_spawn_locations.size())];
     Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
-    individuals.put(individual->id, individual);
+    actual_individuals.put(individual->id, individual);
     compute_vision(individual);
     publish_event(Event::appear(individual));
     return individual;
@@ -159,7 +217,7 @@ PerceivedIndividual find_perceived_individual_at(Individual observer, Coord loca
     return NULL;
 }
 Individual find_individual_at(Coord location) {
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
         if (!individual->is_alive)
             continue;
@@ -179,7 +237,7 @@ static void do_move(Individual mover, Coord new_position) {
 }
 
 static void cheatcode_kill_everybody_in_the_world() {
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         Individual individual = iterator.next();
         if (!individual->is_alive)
             continue;
@@ -287,7 +345,7 @@ void run_the_game() {
 
             List<Individual> dead_individuals;
             // who's ready to make a move?
-            for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+            for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
                 Individual individual = iterator.next();
                 if (!individual->is_alive) {
                     dead_individuals.add(individual);
@@ -301,7 +359,7 @@ void run_the_game() {
             }
             // delete the dead
             for (int i = 0; i < dead_individuals.size(); i++) {
-                individuals.remove(dead_individuals[i]->id);
+                actual_individuals.remove(dead_individuals[i]->id);
             }
 
             // break ties with randomly assigned initiative

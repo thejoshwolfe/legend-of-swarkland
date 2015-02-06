@@ -219,7 +219,7 @@ void render() {
         }
     } else {
         // full visibility
-        for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
+        for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
             Individual individual = iterator.next();
             if (!individual->is_alive)
                 continue;
