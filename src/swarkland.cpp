@@ -110,7 +110,7 @@ void swarkland_init() {
 static void spawn_monsters(bool force_do_it) {
     if (force_do_it || random_int(120) == 0) {
         // spawn a monster
-        if (random_int(20) == 0) {
+        if (random_int(50) == 0) {
             // a friend has arrived!
             spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI);
         } else {
