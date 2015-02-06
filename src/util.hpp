@@ -48,4 +48,23 @@ static inline int signf(float val) {
     }
 }
 
+template<typename T, int(*Comparator)(T, T)>
+void sort(T * in_place_list, int size) {
+    // insertion sort, cuz whatever.
+    for (int top = 1; top < size; top++) {
+        T where_do_i_go = in_place_list[top];
+        for (int falling_index = top - 1; falling_index >= 0; falling_index--){
+            T do_you_want_my_spot = in_place_list[falling_index];
+            if (Comparator(do_you_want_my_spot, where_do_i_go) <= 0) {
+                // no one out of order here, officer
+                break;
+            }
+            // these two are in the wrong order.
+            // switch spots
+            in_place_list[falling_index + 1] = do_you_want_my_spot;
+            in_place_list[falling_index] = where_do_i_go;
+        }
+    }
+}
+
 #endif

@@ -38,180 +38,223 @@ static inline uint_oversized<Size64> random_oversized() {
     return result;
 }
 
+template<int Size64>
+static inline int compare(uint_oversized<Size64> a, uint_oversized<Size64> b) {
+    for (int i = 0; i < Size64; i++) {
+        if (a.values[i] == b.values[i])
+            continue;
+        return a.values[i] < b.values[i] ? -1 : 1;
+    }
+    return 0;
+}
+
+
 typedef uint_oversized<4> uint256;
 uint32_t hash_uint256(uint256 a);
 static inline uint256 random_uint256() {
     return random_oversized<4>();
 }
 
-// sorry. this isn't supposed to be visible.
-template <typename K, typename V>
-struct LinkedHashtableEntry {
-    enum State {
-        UNUSED = 0,
-        VALID = 1,
-        DELETED = 2,
-    };
-    K key;
-    V value;
-    State state;
-    LinkedHashtableEntry * previous;
-    LinkedHashtableEntry * next;
-};
-
-// A LinkedList and a Hashtable at the same time.
-// iteration preserves insertion order.
 template<typename K, typename V, uint32_t (*HashFunction)(K)>
-class LinkedHashtable {
+class Hashtable {
+private:
+    struct Entry;
 public:
-    LinkedHashtable() {
+    Hashtable() {
         init_capacity(16);
     }
-    ~LinkedHashtable() {
-        delete[] _table;
+    ~Hashtable() {
+        delete[] _entries;
     }
     int size() const {
         return _size;
     }
-    // the key must not already be present
+
     void put(K key, V value) {
-        internal_put(key, value, false);
-    }
-    // if the key was already present, the value is updated to the specified value
-    void put_or_overwrite(K key, V value) {
-        internal_put(key, value, true);
-    }
-    // the key must be present.
-    // it is safe to call this method to remove the item returned by an iterator, and then keep using the iterator.
-    void remove(K key) {
-        LinkedHashtableEntry<K, V> * entry = find_entry(key, false);
-        entry->state = LinkedHashtableEntry<K, V>::DELETED;
-        _size--;
-        // join the two neighbors
-        if (entry->previous != NULL) {
-            entry->previous->next = entry->next;
-        } else {
-            _head = entry->next;
+        _modification_count++;
+        internal_put(key, value);
+
+        // if we get too full (80%), double the capacity
+        if (_size * 5 >= _capacity * 4) {
+            Entry * old_entries = _entries;
+            int old_capacity = _capacity;
+            init_capacity(_capacity * 2);
+            // dump all of the old elements into the new table
+            for (int i = 0; i < old_capacity; i += 1) {
+                Entry * old_entry = &old_entries[i];
+                if (old_entry->used)
+                    internal_put(old_entry->key, old_entry->value);
+            }
+            delete[] old_entries;
         }
-        if (entry->next != NULL) {
-            entry->next->previous = entry->previous;
-        } else {
-            _tail = entry->previous;
-        }
-        // leave the deleted entry's next pointer intact so that iterators can use it
     }
-    // the key must be present
+
     V get(K key) const {
-        return find_entry(key, false)->value;
+        Entry * entry = internal_get(key);
+        if (!entry)
+            panic("key not found");
+        return entry->value;
     }
-    // returns the default value if the key isn't found
+
     V get(K key, V default_value) const {
-        LinkedHashtableEntry<K, V> * entry = find_entry(key, true);
-        return entry != NULL ? entry->value : default_value;
+        Entry * entry = internal_get(key);
+        return entry ? entry->value : default_value;
     }
-    bool contains(K key) const {
-        return find_entry(key, true) != NULL;
+
+    void remove(K key) {
+        _modification_count++;
+        int start_index = HashFunction(key) % _capacity;
+        for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
+            int index = (start_index + roll_over) % _capacity;
+            Entry * entry = &_entries[index];
+
+            if (!entry->used)
+                panic("key not found");
+
+            if (entry->key != key)
+                continue;
+
+            for (; roll_over < _capacity; roll_over += 1) {
+                int next_index = (start_index + roll_over + 1) % _capacity;
+                Entry * next_entry = &_entries[next_index];
+                if (!next_entry->used || next_entry->distance_from_start_index == 0) {
+                    entry->used = false;
+                    _size -= 1;
+                    return;
+                }
+                *entry = *next_entry;
+                entry->distance_from_start_index -= 1;
+                entry = next_entry;
+            }
+            panic("shifting everything in the table");
+        }
+        panic("key not found");
     }
+
     class Iterator {
     public:
-        bool has_next() {
-            return cursor != NULL;
+        bool has_next() const {
+            if (_inital_modification_count != _table->_modification_count)
+                panic("concurrent modification");
+            return _count < _table->size();
         }
-        // you can remove this item from the underlying hashtable,
-        // and this iterator will still work properly as long as you don't mutate the hashtable in any other way.
         V next() {
-            V result = cursor->value;
-            cursor = cursor->next;
-            return result;
+            if (_inital_modification_count != _table->_modification_count)
+                panic("concurrent modification");
+            for (; _index < _table->_capacity; _index++) {
+                Entry * entry = &_table->_entries[_index];
+                if (entry->used) {
+                    _index++;
+                    _count++;
+                    return entry->value;
+                }
+            }
+            panic("no next item");
         }
     private:
-        LinkedHashtableEntry<K, V> * cursor;
-        Iterator(LinkedHashtableEntry<K, V> * cursor) :
-                cursor(cursor) {
+        Hashtable * _table;
+        // how many items have we returned
+        int _count = 0;
+        // iterator through the entry array
+        int _index = 0;
+        // used to detect concurrent modification
+        uint32_t _inital_modification_count;
+        Iterator(Hashtable * table) :
+                _table(table), _inital_modification_count(table->_modification_count) {
         }
-        friend LinkedHashtable;
+        friend Hashtable;
     };
+    // you must not modify the underlying hashtable while this iterator is still in use
     Iterator value_iterator() {
-        return Iterator(_head);
+        return Iterator(this);
     }
+
 private:
-    uint32_t _size;
-    uint32_t _capacity;
-    LinkedHashtableEntry<K, V> * _table;
-    LinkedHashtableEntry<K, V> * _head;
-    LinkedHashtableEntry<K, V> * _tail;
-    void init_capacity(uint32_t new_capacity) {
+    struct Entry {
+        bool used;
+        int distance_from_start_index;
+        K key;
+        V value;
+    };
+
+    Entry * _entries;
+    int _capacity;
+    int _size;
+    int _max_distance_from_start_index;
+    // this is used to detect bugs where a hashtable is edited while an iterator is running.
+    uint32_t _modification_count = 0;
+
+    void init_capacity(int capacity) {
+        _capacity = capacity;
+        _entries = new Entry[_capacity];
         _size = 0;
-        _capacity = new_capacity;
-        _table = new LinkedHashtableEntry<K, V>[_capacity];
-        for (uint32_t i = 0; i < _capacity; i++)
-            _table[i].state = LinkedHashtableEntry<K, V>::UNUSED;
-        _head = NULL;
-        _tail = NULL;
-    }
-    LinkedHashtableEntry<K, V> * find_entry(K key, bool tolerate_not_found) const {
-        uint32_t start_index = HashFunction(key) % _capacity;
-        for (uint32_t roll_over = 0; roll_over < _capacity; roll_over++) {
-            uint32_t index = (start_index + roll_over) % _capacity;
-            if (_table[index].state == LinkedHashtableEntry<K, V>::UNUSED)
-                break; // no one has been here
-            if (_table[index].state == LinkedHashtableEntry<K, V>::VALID && _table[index].key == key)
-                return &_table[index];
-        }
-        if (!tolerate_not_found)
-            panic("hashtable key not found");
-        return NULL;
-    }
-    void internal_put(K key, V value, bool tolerate_collision) {
-        just_put_one_thing(key, value, tolerate_collision);
-        // if we get too full (75%), double the capacity
-        if (_size * 4 >= _capacity * 3) {
-            LinkedHashtableEntry<K, V> * old_table = _table;
-            LinkedHashtableEntry<K, V> * old_head = _head;
-            init_capacity(_capacity * 2);
-            // load all the old elements into the new table in the proper order
-            for (LinkedHashtableEntry<K, V> * cursor = old_head; cursor != NULL; cursor = cursor->next)
-                just_put_one_thing(cursor->key, cursor->value, false);
-            delete[] old_table;
+        _max_distance_from_start_index = 0;
+        for (int i = 0; i < _capacity; i += 1) {
+            _entries[i].used = false;
         }
     }
-    void just_put_one_thing(K key, V value, bool tolerate_collision) {
-        uint32_t start_index = HashFunction(key) % _capacity;
-        // resolve hash collisions with linear probing.
-        for (uint32_t roll_over = 0; roll_over < _capacity; roll_over++) {
-            uint32_t index = (start_index + roll_over) % _capacity;
-            if (_table[index].state == LinkedHashtableEntry<K, V>::VALID && _table[index].key != key)
-                continue; // overflow to the next slot
-            // found where to put it
-            if (_table[index].state == LinkedHashtableEntry<K, V>::VALID) {
-                if (!tolerate_collision)
-                    panic("hashtable put overwrites existing value");
-                // overwrite existing entry
-                _table[index].value = value;
-            } else {
-                // new addition
-                _table[index].key = key;
-                _table[index].value = value;
-                _table[index].state = LinkedHashtableEntry<K, V>::VALID;
-                _size++;
-                if (_tail == NULL) {
-                    _head = &_table[index];
-                    _table[index].previous = NULL;
-                } else {
-                    _tail->next = &_table[index];
-                    _table[index].previous = _tail;
+
+    void internal_put(K key, V value) {
+        int start_index = HashFunction(key) % _capacity;
+        for (int roll_over = 0, distance_from_start_index = 0; roll_over < _capacity; roll_over += 1, distance_from_start_index += 1) {
+            int index = (start_index + roll_over) % _capacity;
+            Entry * entry = &_entries[index];
+
+            if (entry->used && entry->key != key) {
+                if (entry->distance_from_start_index < distance_from_start_index) {
+                    // robin hood to the rescue
+                    Entry tmp = *entry;
+                    if (distance_from_start_index > _max_distance_from_start_index)
+                        _max_distance_from_start_index = distance_from_start_index;
+                    *entry = {
+                        true,
+                        distance_from_start_index,
+                        key,
+                        value,
+                    };
+                    key = tmp.key;
+                    value = tmp.value;
+                    distance_from_start_index = tmp.distance_from_start_index;
                 }
-                _table[index].next = NULL;
-                _tail = &_table[index];
+                continue;
             }
+
+            if (!entry->used) {
+                // adding an entry. otherwise overwriting old value with
+                // same key
+                _size += 1;
+            }
+
+            if (distance_from_start_index > _max_distance_from_start_index)
+                _max_distance_from_start_index = distance_from_start_index;
+            *entry = {
+                true,
+                distance_from_start_index,
+                key,
+                value,
+            };
             return;
         }
-        // we're always supposed to maintain some space.
-        panic("put into a full hashtable");
+        panic("put into a full HashMap");
+    }
+
+    Entry * internal_get(K key) const {
+        int start_index = HashFunction(key) % _capacity;
+        for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
+            int index = (start_index + roll_over) % _capacity;
+            Entry * entry = &_entries[index];
+
+            if (!entry->used)
+                return NULL;
+
+            if (entry->key == key)
+                return entry;
+        }
+        return NULL;
     }
 };
 
 template<typename T>
-using IdMap = LinkedHashtable<uint256, T, hash_uint256>;
+using IdMap = Hashtable<uint256, T, hash_uint256>;
 
 #endif

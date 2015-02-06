@@ -8,6 +8,7 @@ IndividualImpl::IndividualImpl(SpeciesId species_id, Coord location, Team team, 
     id = random_uint256();
     species = &specieses[species_id];
     hitpoints = species->starting_hitpoints;
+    initiative = random_uint256();
 }
 
 PerceivedIndividual to_perceived_individual(Individual target) {
@@ -21,4 +22,8 @@ PerceivedIndividual observe_individual(Individual observer, Individual target) {
     if (target->invisible && observer != target)
         return NULL;
     return to_perceived_individual(target);
+}
+
+int compare_individuals_by_initiative(Individual a, Individual b) {
+    return compare(a->initiative, b->initiative);
 }

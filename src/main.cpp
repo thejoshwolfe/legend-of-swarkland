@@ -116,6 +116,10 @@ static void process_argv(int argc, char * argv[]) {
     }
 }
 
+int compare_int(int a, int b) {
+    return a - b;
+}
+
 int main(int argc, char * argv[]) {
     process_argv(argc, argv);
     init_random();

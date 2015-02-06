@@ -108,6 +108,8 @@ static void kill_individual(Individual individual) {
     }
 
     individuals.remove(individual->id);
+    if (individual == you)
+        youre_still_alive = false;
 }
 
 static void attack(Individual attacker, Individual target) {
@@ -146,7 +148,7 @@ static void do_move(Individual mover, Coord new_position) {
         // seeing either the start or end point counts as seeing the movement
         if (observer->knowledge.tile_is_visible[old_position].any() || observer->knowledge.tile_is_visible[new_position].any()) {
             // i see what you did there
-            observer->knowledge.perceived_individuals.put_or_overwrite(mover->id, to_perceived_individual(mover));
+            observer->knowledge.perceived_individuals.put(mover->id, to_perceived_individual(mover));
         }
     }
 }
@@ -208,9 +210,7 @@ List<Individual> poised_individuals;
 int poised_individuals_index = 0;
 // this function will return only when we're expecting player input
 void run_the_game() {
-    if (!youre_still_alive)
-        return;
-    while (true) {
+    while (youre_still_alive) {
         if (poised_individuals.size() == 0) {
             time_counter++;
 
@@ -225,6 +225,9 @@ void run_the_game() {
                 if (individual->movement_points >= individual->species->movement_cost)
                     poised_individuals.add(individual);
             }
+
+            // break ties with randomly assigned initiative
+            sort<Individual, compare_individuals_by_initiative>(poised_individuals.raw(), poised_individuals.size());
         }
 
         // move individuals
@@ -257,14 +260,7 @@ void cheatcode_polymorph() {
 }
 Individual cheatcode_spectator;
 void cheatcode_spectate(Coord individual_at) {
-    for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
-        if (individual->location == individual_at) {
-            cheatcode_spectator = individual;
-            return;
-        }
-    }
-    cheatcode_spectator = NULL;
+    cheatcode_spectator = find_individual_at(individual_at);
 }
 
 // wait will always be available

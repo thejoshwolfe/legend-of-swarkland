@@ -87,6 +87,7 @@ struct IndividualImpl : public ReferenceCounted {
     Coord location;
     // once this reaches movement_cost, make a move
     int movement_points = 0;
+    uint256 initiative;
     Team team;
     DecisionMakerType decision_maker;
     Knowledge knowledge;
@@ -101,5 +102,7 @@ PerceivedIndividual observe_individual(Individual observer, Individual target);
 
 // TODO: this is in the wrong place
 void compute_vision(Individual individual);
+
+int compare_individuals_by_initiative(Individual a, Individual b);
 
 #endif

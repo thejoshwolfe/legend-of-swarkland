@@ -80,17 +80,22 @@ void compute_vision(Individual spectator) {
 
     // see individuals
     // first clear out any monsters that we know are no longer where we thought
+    List<PerceivedIndividual> remove_these;
     for (auto iterator = spectator->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
         PerceivedIndividual target = iterator.next();
         if (!spectator->species->has_mind || spectator->knowledge.tile_is_visible[target->location].any())
-            spectator->knowledge.perceived_individuals.remove(target->id);
+            remove_these.add(target);
     }
+    // do this as a second pass, because modifying in the middle of iteration doesn't work properly.
+    for (int i = 0; i < remove_these.size(); i++)
+        spectator->knowledge.perceived_individuals.remove(remove_these[i]->id);
+
     // now see any monsters that are in our line of vision
     for (auto iterator = individuals.value_iterator(); iterator.has_next();) {
         PerceivedIndividual target = observe_individual(spectator, iterator.next());
         if (target == NULL)
             continue;
-        spectator->knowledge.perceived_individuals.put_or_overwrite(target->id, target);
+        spectator->knowledge.perceived_individuals.put(target->id, target);
     }
 }
 

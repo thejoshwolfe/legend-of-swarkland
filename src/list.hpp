@@ -38,6 +38,9 @@ public:
     void clear() {
         _size = 0;
     }
+    T * raw() {
+        return _items;
+    }
 
 private:
     T * _items;
