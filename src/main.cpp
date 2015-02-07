@@ -81,6 +81,9 @@ static void read_input() {
             case SDL_KEYDOWN:
                 action = on_key_down(event);
                 break;
+            case SDL_MOUSEMOTION:
+                on_mouse_motion();
+                break;
             case SDL_QUIT:
                 request_shutdown = true;
                 break;

@@ -9,6 +9,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
+bool expand_message_box;
+
 // screen layout
 static const SDL_Rect message_area = { 0, 0, map_size.x * tile_size, 2 * tile_size };
 static const SDL_Rect main_map_area = { 0, message_area.y + message_area.h, map_size.x * tile_size, map_size.y * tile_size };
@@ -102,8 +104,7 @@ void display_init() {
 
     TTF_Init();
 
-    struct RuckSackFileEntry *font_entry = rucksack_bundle_find_file(bundle,
-            "font/OpenSans-Regular.ttf", -1);
+    struct RuckSackFileEntry * font_entry = rucksack_bundle_find_file(bundle, "font/OpenSans-Regular.ttf", -1);
     if (!font_entry) {
         panic("font not found in bundle");
     }
@@ -153,39 +154,61 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
+static const SDL_Color white = {0xff, 0xff, 0xff};
 // the text will be aligned to the bottom of the area
 static void render_text(const char * str, SDL_Rect area) {
-    SDL_Color color = { 0xff, 0xff, 0xff };
-
-    SDL_Surface * surface = TTF_RenderText_Blended_Wrapped(status_box_font, str, color, area.w);
+    SDL_Surface * surface = TTF_RenderText_Blended_Wrapped(status_box_font, str, white, area.w);
     SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    // holy shit. the goddamn box is too tall.
+    // each new line added during the wrap adds some extra blank space at the bottom.
+    // this forumla here was determined through experimentation.
+    // piece of shit.
+    int real_surface_h = 1 + (int)(surface->h - (float)surface->h / 12.5f);
 
     SDL_Rect source_rect;
     source_rect.w = min(surface->w, area.w);
-    source_rect.h = min(surface->h, area.h);
+    source_rect.h = min(real_surface_h, area.h);
     // align the bottom
     source_rect.x = 0;
-    source_rect.y = surface->h - source_rect.h;
+    source_rect.y = real_surface_h - source_rect.h;
 
     SDL_Rect dest_rect;
     dest_rect.x = area.x;
     dest_rect.y = area.y;
     dest_rect.w = source_rect.w;
     dest_rect.h = source_rect.h;
+    SDL_RenderFillRect(renderer, &dest_rect);
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
 
     SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
 }
 
+static Coord get_mouse_pixels() {
+    Coord result;
+    SDL_GetMouseState(&result.x, &result.y);
+    return result;
+}
 Coord get_mouse_tile() {
-    int x;
-    int y;
-    SDL_GetMouseState(&x, &y);
-    x -= main_map_area.x;
-    y -= main_map_area.y;
-    Coord tile_coord = {x / tile_size, y / tile_size};
+    Coord pixels = get_mouse_pixels();
+    pixels.x -= main_map_area.x;
+    pixels.y -= main_map_area.y;
+    Coord tile_coord = {pixels.x / tile_size, pixels.y / tile_size};
     return tile_coord;
+}
+static bool rect_contains(SDL_Rect rect, Coord point) {
+    return rect.x <= point.x && point.x < rect.x + rect.w &&
+           rect.y <= point.y && point.y < rect.y + rect.h;
+}
+void on_mouse_motion() {
+    Coord pixels = get_mouse_pixels();
+    if (rect_contains(message_area, pixels)) {
+        // the mouse is in the message box
+        expand_message_box = true;
+    } else {
+        expand_message_box = false;
+    }
 }
 
 void render() {
@@ -194,27 +217,6 @@ void render() {
         spectate_from = cheatcode_spectator;
 
     SDL_RenderClear(renderer);
-
-    // message area
-    {
-        ByteBuffer all_the_text;
-        List<RememberedEvent> & events = spectate_from->knowledge.remembered_events;
-        for (int i = 0; i < events.length(); i++) {
-            RememberedEvent event = events[i];
-            if (event != NULL) {
-                // append something
-                if (i > 0) {
-                    // maybe sneak in a delimiter
-                    if (events[i - 1] == NULL)
-                        all_the_text.append("\n");
-                    else
-                        all_the_text.append("  ");
-                }
-                all_the_text.append(event->bytes);
-            }
-        }
-        render_text(all_the_text.raw(), message_area);
-    }
 
     // main map
     // render the terrain
@@ -273,6 +275,35 @@ void render() {
     status_text.resize(0);
     status_text.format("Kills: %d", spectate_from->kill_counter);
     render_text(status_text.raw(), kills_area);
+
+    // message area
+    {
+        ByteBuffer all_the_text;
+        List<RememberedEvent> & events = spectate_from->knowledge.remembered_events;
+        for (int i = 0; i < events.length(); i++) {
+            RememberedEvent event = events[i];
+            if (event != NULL) {
+                // append something
+                if (i > 0) {
+                    // maybe sneak in a delimiter
+                    if (events[i - 1] == NULL)
+                        all_the_text.append("\n");
+                    else
+                        all_the_text.append("  ");
+                }
+                all_the_text.append(event->bytes);
+            }
+        }
+        SDL_Rect current_message_area;
+        if (expand_message_box) {
+            current_message_area = entire_window_area;
+        } else {
+            current_message_area = message_area;
+        }
+        if (all_the_text.length() > 0) {
+            render_text(all_the_text.raw(), current_message_area);
+        }
+    }
 
     SDL_RenderPresent(renderer);
 }
