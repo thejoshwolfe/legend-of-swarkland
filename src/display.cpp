@@ -4,6 +4,7 @@
 #include "swarkland.hpp"
 #include "load_image.hpp"
 #include "byte_buffer.hpp"
+#include "item.hpp"
 
 #include <rucksack.h>
 #include <SDL2/SDL.h>
@@ -17,7 +18,8 @@ static const SDL_Rect main_map_area = { 0, message_area.y + message_area.h, map_
 static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, main_map_area.w, 32 };
 static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect kills_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
-static const SDL_Rect entire_window_area = { 0, 0, status_box_area.w, status_box_area.y + status_box_area.h };
+static const SDL_Rect right_pane = { main_map_area.x + main_map_area.w, 0, 5 * tile_size, status_box_area.y + status_box_area.h };
+static const SDL_Rect entire_window_area = { 0, 0, right_pane.x + right_pane.w, status_box_area.y + status_box_area.h };
 
 
 static SDL_Window * window;
@@ -31,6 +33,7 @@ static struct RuckSackImage ** spritesheet_images;
 static struct RuckSackImage * species_images[SpeciesId_COUNT];
 static struct RuckSackImage * floor_images[8];
 static struct RuckSackImage * wall_images[8];
+static struct RuckSackImage * wand_images[WandDescriptionId_COUNT];
 
 static TTF_Font * status_box_font;
 static unsigned char *font_buffer;
@@ -66,6 +69,10 @@ static void load_images(struct RuckSackImage ** spritesheet_images, long image_c
     wall_images[5] = find_image(spritesheet_images, image_count, "img/brick_brown5.png");
     wall_images[6] = find_image(spritesheet_images, image_count, "img/brick_brown6.png");
     wall_images[7] = find_image(spritesheet_images, image_count, "img/brick_brown7.png");
+
+    wand_images[WandDescriptionId_BONE_WAND] = find_image(spritesheet_images, image_count, "img/bone_wand.png");
+    wand_images[WandDescriptionId_GOLD_WAND] = find_image(spritesheet_images, image_count, "img/gold_wand.png");
+    wand_images[WandDescriptionId_PLASTIC_WAND] = find_image(spritesheet_images, image_count, "img/plastic_wand.png");
 }
 
 void display_init() {
@@ -214,9 +221,16 @@ void on_mouse_motion() {
     } else {
         expand_message_box = false;
     }
-    mouse_hover_tile = get_mouse_tile();
-    if (!is_in_bounds(mouse_hover_tile))
+    Coord tile = get_mouse_tile();
+    if (is_in_bounds(tile)) {
+        // map
         mouse_hover_tile = Coord::nowhere();
+    } else if (tile.x == map_size.x) {
+        // inventory area
+        mouse_hover_tile = tile;
+    } else {
+        mouse_hover_tile = Coord::nowhere();
+    }
 }
 
 void get_individual_description(Individual observer, uint256 target_id, ByteBuffer * output) {
@@ -248,6 +262,16 @@ void get_individual_description(Individual observer, uint256 target_id, ByteBuff
         default:
             panic("individual description");
     }
+}
+
+// uses mouse location
+static void popup_help(const char * str) {
+    SDL_Rect rect;
+    rect.x = main_map_area.x + (mouse_hover_tile.x + 1) * tile_size;
+    rect.y = main_map_area.y + (mouse_hover_tile.y + 1) * tile_size;
+    rect.w = entire_window_area.w - rect.x;
+    rect.h = entire_window_area.h - rect.y;
+    render_text(str, rect);
 }
 
 void render() {
@@ -342,18 +366,31 @@ void render() {
         }
     }
 
+    // inventory pane
+    {
+        List<Item> & inventory = spectate_from->inventory;
+        Coord location = {map_size.x, 0};
+        for (int i = 0; i < inventory.length(); i++) {
+            Item & item = inventory[i];
+            render_tile(renderer, sprite_sheet_texture, wand_images[item.description_id], location);
+            location.y += 1;
+        }
+    }
+
     // popup help for hovering over things
-    if (mouse_hover_tile != Coord::nowhere()) {
+    if (is_in_bounds(mouse_hover_tile)) {
         PerceivedIndividual target = find_perceived_individual_at(spectate_from, mouse_hover_tile);
         if (target != NULL) {
             ByteBuffer description;
             get_individual_description(spectate_from, target->id, &description);
-            SDL_Rect rect;
-            rect.x = main_map_area.x + (target->location.x + 1) * tile_size;
-            rect.y = main_map_area.y + (target->location.y + 1) * tile_size;
-            rect.w = entire_window_area.w - rect.x;
-            rect.h = entire_window_area.h - rect.y;
-            render_text(description.raw(), rect);
+            popup_help(description.raw());
+        }
+    } else if (mouse_hover_tile.x == map_size.x) {
+        int inventory_index = mouse_hover_tile.y;
+        if (0 <= inventory_index && inventory_index < spectate_from->inventory.length()) {
+            ByteBuffer description;
+            get_item_description(spectate_from, spectate_from->inventory[inventory_index], &description);
+            popup_help(description.raw());
         }
     }
 

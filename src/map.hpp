@@ -27,7 +27,7 @@ extern Matrix<Tile> actual_map_tiles;
 void generate_map();
 
 static inline bool is_in_bounds(Coord point) {
-    return point.y >= 0 && point.y < map_size.y && point.x >= 0 && point.x < map_size.x;
+    return point.x >= 0 && point.x < map_size.x && point.y >= 0 && point.y < map_size.y;
 }
 
 #endif

@@ -177,6 +177,7 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
             species_id = SpeciesId_COUNT;
         }
     }
+
     List<Coord> available_spawn_locations;
     for (Coord location = {0, 0}; location.y < map_size.y; location.y++) {
         for (location.x = 0; location.x < map_size.x; location.x++) {
@@ -194,7 +195,15 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
         return NULL;
     }
     Coord location = available_spawn_locations[random_int(available_spawn_locations.length())];
+
     Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
+
+    if (random_int(20) == 0) {
+        // have an item
+        Item item = random_item();
+        individual->inventory.append(item);
+    }
+
     actual_individuals.put(individual->id, individual);
     compute_vision(individual);
     publish_event(Event::appear(individual));
@@ -216,6 +225,7 @@ static void init_individuals() {
 
 void swarkland_init() {
     init_specieses();
+    init_items();
 
     generate_map();
 

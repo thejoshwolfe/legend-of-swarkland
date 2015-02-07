@@ -7,6 +7,7 @@
 #include "hashtable.hpp"
 #include "list.hpp"
 #include "byte_buffer.hpp"
+#include "item.hpp"
 
 #include <stdbool.h>
 
@@ -86,12 +87,15 @@ public:
     Matrix<Tile> tiles;
     Matrix<VisionTypes> tile_is_visible;
     List<RememberedEvent> remembered_events;
+    WandId wand_identities[WandId_COUNT];
 
     IdMap<PerceivedIndividual> perceived_individuals;
     Knowledge() :
             tiles(map_size), tile_is_visible(map_size) {
         tiles.set_all(unknown_tile);
         tile_is_visible.set_all(VisionTypes::none());
+        for (int i = 0; i < WandId_COUNT; i++)
+            wand_identities[i] = WandId_UNKNOWN;
     }
 };
 
@@ -109,6 +113,7 @@ struct IndividualImpl : public ReferenceCounted {
     DecisionMakerType decision_maker;
     Knowledge knowledge;
     bool invisible = false;
+    List<Item> inventory;
     IndividualImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
     IndividualImpl(IndividualImpl &) = delete;
     Species * species() const;
@@ -118,9 +123,10 @@ typedef Reference<IndividualImpl> Individual;
 PerceivedIndividual to_perceived_individual(Individual target);
 PerceivedIndividual observe_individual(Individual observer, Individual target);
 
-// TODO: this is in the wrong place
-void compute_vision(Individual individual);
-
 int compare_individuals_by_initiative(Individual a, Individual b);
+
+// TODO: these are in the wrong place
+void compute_vision(Individual individual);
+void get_item_description(Individual observer, Item item, ByteBuffer * output);
 
 #endif
