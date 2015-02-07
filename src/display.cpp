@@ -17,6 +17,7 @@ const SDL_Rect main_map_area = { 0, message_area.y + message_area.h, map_size.x 
 static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, main_map_area.w, 32 };
 static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect kills_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
+static const SDL_Rect status_area = { kills_area.x + kills_area.w, status_box_area.y, status_box_area.w - (kills_area.x + kills_area.w), status_box_area.h };
 static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, status_box_area.y + status_box_area.h };
 static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_area.w, status_box_area.y + status_box_area.h };
 
@@ -172,6 +173,8 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
 static const SDL_Color white = {0xff, 0xff, 0xff};
 // the text will be aligned to the bottom of the area
 static void render_text(const char * str, SDL_Rect area) {
+    if (*str == '\0')
+        return; // it's actually an error to try to render the empty string
     SDL_Surface * surface = TTF_RenderText_Blended_Wrapped(status_box_font, str, white, area.w);
     SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
 
@@ -309,13 +312,22 @@ void render() {
     }
 
     // status box
-    ByteBuffer status_text;
-    status_text.format("HP: %d", spectate_from->hitpoints);
-    render_text(status_text.raw(), hp_area);
+    {
+        ByteBuffer status_text;
+        status_text.format("HP: %d", spectate_from->hitpoints);
+        render_text(status_text.raw(), hp_area);
 
-    status_text.resize(0);
-    status_text.format("Kills: %d", spectate_from->kill_counter);
-    render_text(status_text.raw(), kills_area);
+        status_text.resize(0);
+        status_text.format("Kills: %d", spectate_from->kill_counter);
+        render_text(status_text.raw(), kills_area);
+
+        status_text.resize(0);
+        if (spectate_from->status_effects.invisible)
+            status_text.append("invisible ");
+        if (spectate_from->status_effects.confused_timeout > 0)
+            status_text.append("confused ");
+        render_text(status_text.raw(), status_area);
+    }
 
     // message area
     {
@@ -342,9 +354,7 @@ void render() {
         } else {
             current_message_area = message_area;
         }
-        if (all_the_text.length() > 0) {
-            render_text(all_the_text.raw(), current_message_area);
-        }
+        render_text(all_the_text.raw(), current_message_area);
     }
 
     // inventory pane
