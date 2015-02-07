@@ -9,14 +9,12 @@
 #include <SDL2/SDL.h>
 
 static const int tile_size = 32;
-
-extern bool expand_message_box;
+extern const SDL_Rect main_map_area;
 
 void display_init();
 void display_finish();
 
-void on_mouse_motion();
-Coord get_mouse_tile();
+Coord get_mouse_tile(SDL_Rect area);
 void get_individual_description(Individual observer, uint256 target_id, ByteBuffer * output);
 void render();
 

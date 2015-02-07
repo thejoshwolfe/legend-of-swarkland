@@ -270,7 +270,8 @@ static void cheatcode_polymorph() {
     publish_event(Event::polymorph(you));
 }
 Individual cheatcode_spectator;
-void cheatcode_spectate(Coord individual_at) {
+void cheatcode_spectate() {
+    Coord individual_at = get_mouse_tile(main_map_area);
     cheatcode_spectator = find_individual_at(individual_at);
 }
 

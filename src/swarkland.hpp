@@ -152,7 +152,7 @@ extern long long time_counter;
 
 extern bool cheatcode_full_visibility;
 extern Individual cheatcode_spectator;
-void cheatcode_spectate(Coord individual_at);
+void cheatcode_spectate();
 
 void swarkland_init();
 

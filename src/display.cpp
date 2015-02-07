@@ -5,21 +5,20 @@
 #include "load_image.hpp"
 #include "byte_buffer.hpp"
 #include "item.hpp"
+#include "input.hpp"
 
 #include <rucksack.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-bool expand_message_box;
-
 // screen layout
 static const SDL_Rect message_area = { 0, 0, map_size.x * tile_size, 2 * tile_size };
-static const SDL_Rect main_map_area = { 0, message_area.y + message_area.h, map_size.x * tile_size, map_size.y * tile_size };
+const SDL_Rect main_map_area = { 0, message_area.y + message_area.h, map_size.x * tile_size, map_size.y * tile_size };
 static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, main_map_area.w, 32 };
 static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect kills_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
-static const SDL_Rect right_pane = { main_map_area.x + main_map_area.w, 0, 5 * tile_size, status_box_area.y + status_box_area.h };
-static const SDL_Rect entire_window_area = { 0, 0, right_pane.x + right_pane.w, status_box_area.y + status_box_area.h };
+static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, status_box_area.y + status_box_area.h };
+static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_area.w, status_box_area.y + status_box_area.h };
 
 
 static SDL_Window * window;
@@ -145,6 +144,11 @@ void display_finish() {
     SDL_Quit();
 }
 
+static inline bool rect_contains(SDL_Rect rect, Coord point) {
+    return rect.x <= point.x && point.x < rect.x + rect.w &&
+           rect.y <= point.y && point.y < rect.y + rect.h;
+}
+
 static Individual get_spectate_individual() {
     return cheatcode_spectator != NULL ? cheatcode_spectator : you;
 }
@@ -196,43 +200,16 @@ static void render_text(const char * str, SDL_Rect area) {
     SDL_DestroyTexture(texture);
 }
 
-static Coord get_mouse_pixels() {
-    Coord result;
-    SDL_GetMouseState(&result.x, &result.y);
-    return result;
-}
-Coord get_mouse_tile() {
+Coord get_mouse_tile(SDL_Rect area) {
     Coord pixels = get_mouse_pixels();
-    pixels.x -= main_map_area.x;
-    pixels.y -= main_map_area.y;
+    if (!rect_contains(area, pixels))
+        return Coord::nowhere();
+    pixels.x -= area.x;
+    pixels.y -= area.y;
     Coord tile_coord = {pixels.x / tile_size, pixels.y / tile_size};
     return tile_coord;
 }
-static bool rect_contains(SDL_Rect rect, Coord point) {
-    return rect.x <= point.x && point.x < rect.x + rect.w &&
-           rect.y <= point.y && point.y < rect.y + rect.h;
-}
-static Coord mouse_hover_tile = Coord::nowhere();
-void on_mouse_motion() {
-    Coord pixels = get_mouse_pixels();
-    if (rect_contains(message_area, pixels)) {
-        // the mouse is in the message box
-        expand_message_box = true;
-    } else {
-        expand_message_box = false;
-    }
-    Coord tile = get_mouse_tile();
-    if (is_in_bounds(tile)) {
-        // map
-        mouse_hover_tile = Coord::nowhere();
-    } else if (tile.x == map_size.x) {
-        // inventory area
-        mouse_hover_tile = tile;
-    } else {
-        mouse_hover_tile = Coord::nowhere();
-    }
-}
-
+static Coord mouse_pixels = Coord::nowhere();
 void get_individual_description(Individual observer, uint256 target_id, ByteBuffer * output) {
     if (observer->id == target_id) {
         output->append("you");
@@ -264,11 +241,14 @@ void get_individual_description(Individual observer, uint256 target_id, ByteBuff
     }
 }
 
-// uses mouse location
-static void popup_help(const char * str) {
+static void popup_help(Coord upper_left_corner, const char * str) {
+    // eh... we're going to round this to tile boundaries.
+    // we need a better solution for this or something
+    upper_left_corner.x = tile_size * (upper_left_corner.x / tile_size);
+    upper_left_corner.y = tile_size * (upper_left_corner.y / tile_size);
     SDL_Rect rect;
-    rect.x = main_map_area.x + (mouse_hover_tile.x + 1) * tile_size;
-    rect.y = main_map_area.y + (mouse_hover_tile.y + 1) * tile_size;
+    rect.x = upper_left_corner.x;
+    rect.y = upper_left_corner.y;
     rect.w = entire_window_area.w - rect.x;
     rect.h = entire_window_area.h - rect.y;
     render_text(str, rect);
@@ -339,6 +319,7 @@ void render() {
 
     // message area
     {
+        bool expand_message_box = rect_contains(message_area, get_mouse_pixels());
         ByteBuffer all_the_text;
         List<RememberedEvent> & events = spectate_from->knowledge.remembered_events;
         for (int i = 0; i < events.length(); i++) {
@@ -378,19 +359,22 @@ void render() {
     }
 
     // popup help for hovering over things
-    if (is_in_bounds(mouse_hover_tile)) {
-        PerceivedIndividual target = find_perceived_individual_at(spectate_from, mouse_hover_tile);
+    Coord mouse_hover_map_tile = get_mouse_tile(main_map_area);
+    if (mouse_hover_map_tile != Coord::nowhere()) {
+        PerceivedIndividual target = find_perceived_individual_at(spectate_from, mouse_hover_map_tile);
         if (target != NULL) {
             ByteBuffer description;
             get_individual_description(spectate_from, target->id, &description);
-            popup_help(description.raw());
+            popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, description.raw());
         }
-    } else if (mouse_hover_tile.x == map_size.x) {
-        int inventory_index = mouse_hover_tile.y;
+    }
+    Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
+    if (mouse_hover_inventory_tile.x == 0) {
+        int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < spectate_from->inventory.length()) {
             ByteBuffer description;
             get_item_description(spectate_from, spectate_from, spectate_from->inventory[inventory_index], &description);
-            popup_help(description.raw());
+            popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, description.raw());
         }
     }
 

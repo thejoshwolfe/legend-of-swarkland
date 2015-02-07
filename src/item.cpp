@@ -71,7 +71,7 @@ static void confuse_individual_from_wand(Individual wand_wielder, Item wand, Ind
 
 void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
     Coord cursor = wand_wielder->location;
-    int beam_length = random_int(4, 6);
+    int beam_length = random_int(6, 13);
     for (int i = 0; i < beam_length; i++) {
         cursor = cursor + direction;
         if (!is_in_bounds(cursor))
@@ -83,6 +83,7 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
                 Individual target = find_individual_at(cursor);
                 if (target != NULL)
                     confuse_individual_from_wand(wand_wielder, wand, target);
+                beam_length -= 3;
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL)
                     beam_length = i;
                 break;
