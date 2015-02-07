@@ -2,6 +2,7 @@
 
 #include "path_finding.hpp"
 #include "decision.hpp"
+#include "display.hpp"
 
 Species specieses[SpeciesId_COUNT];
 IdMap<Individual> actual_individuals;
@@ -78,32 +79,6 @@ static void init_specieses() {
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
 }
 
-void get_individual_description(Individual observer, Individual target, ByteBuffer * output) {
-    if (observer == target) {
-        output->append("you");
-        return;
-    }
-    switch (target->species_id) {
-        case SpeciesId_HUMAN:
-            output->append("a human");
-            return;
-        case SpeciesId_OGRE:
-            output->append("an ogre");
-            return;
-        case SpeciesId_DOG:
-            output->append("a dog");
-            return;
-        case SpeciesId_PINK_BLOB:
-            output->append("a pink blob");
-            return;
-        case SpeciesId_AIR_ELEMENTAL:
-            output->append("an air elemental");
-            return;
-        default:
-            panic("individual description");
-    }
-}
-
 RememberedEvent to_remembered_event(Individual observer, Event event) {
     ByteBuffer buffer1;
     ByteBuffer buffer2;
@@ -113,24 +88,24 @@ RememberedEvent to_remembered_event(Individual observer, Event event) {
             // unremarkable
             return NULL;
         case Event::ATTACK:
-            get_individual_description(observer, event.individual1, &buffer1);
-            get_individual_description(observer, event.individual2, &buffer2);
+            get_individual_description(observer, event.individual1->id, &buffer1);
+            get_individual_description(observer, event.individual2->id, &buffer2);
             result->bytes.format("%s hits %s!", buffer1.raw(), buffer2.raw());
             return result;
         case Event::DIE:
-            get_individual_description(observer, event.individual1, &buffer1);
+            get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s dies.", buffer1.raw());
             return result;
         case Event::APPEAR:
-            get_individual_description(observer, event.individual1, &buffer1);
+            get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s appears out of nowhere!", buffer1.raw());
             return result;
         case Event::DISAPPEAR:
-            get_individual_description(observer, event.individual1, &buffer1);
+            get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s vanishes out of sight!", buffer1.raw());
             return result;
         case Event::POLYMORPH:
-            get_individual_description(observer, event.individual1, &buffer1);
+            get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s transforms into %s!", "TODO: pre-transform description", buffer1.raw());
             return result;
         default:

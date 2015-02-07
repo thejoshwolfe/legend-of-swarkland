@@ -63,12 +63,12 @@ struct Species {
 struct PerceivedIndividualImpl : public ReferenceCounted {
 public:
     uint256 id;
-    Species * species;
+    SpeciesId species_id;
     Coord location;
     Team team;
     bool invisible;
-    PerceivedIndividualImpl(uint256 id, Species * species, Coord location, Team team, bool invisible) :
-            id(id), species(species), location(location), team(team), invisible(invisible) {
+    PerceivedIndividualImpl(uint256 id, SpeciesId species_id, Coord location, Team team, bool invisible) :
+            id(id), species_id(species_id), location(location), team(team), invisible(invisible) {
     }
 };
 typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;

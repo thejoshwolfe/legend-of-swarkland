@@ -15,7 +15,7 @@ Species * IndividualImpl::species() const {
 }
 
 PerceivedIndividual to_perceived_individual(Individual target) {
-    return new PerceivedIndividualImpl(target->id, target->species(), target->location, target->team, target->invisible);
+    return new PerceivedIndividualImpl(target->id, target->species_id, target->location, target->team, target->invisible);
 }
 
 PerceivedIndividual observe_individual(Individual observer, Individual target) {

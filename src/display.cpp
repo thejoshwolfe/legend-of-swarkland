@@ -138,6 +138,10 @@ void display_finish() {
     SDL_Quit();
 }
 
+static Individual get_spectate_individual() {
+    return cheatcode_spectator != NULL ? cheatcode_spectator : you;
+}
+
 static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct RuckSackImage * guy_image, Coord coord) {
     SDL_Rect source_rect;
     source_rect.x = guy_image->x;
@@ -201,6 +205,7 @@ static bool rect_contains(SDL_Rect rect, Coord point) {
     return rect.x <= point.x && point.x < rect.x + rect.w &&
            rect.y <= point.y && point.y < rect.y + rect.h;
 }
+static Coord mouse_hover_tile = Coord::nowhere();
 void on_mouse_motion() {
     Coord pixels = get_mouse_pixels();
     if (rect_contains(message_area, pixels)) {
@@ -209,12 +214,44 @@ void on_mouse_motion() {
     } else {
         expand_message_box = false;
     }
+    mouse_hover_tile = get_mouse_tile();
+    if (!is_in_bounds(mouse_hover_tile))
+        mouse_hover_tile = Coord::nowhere();
+}
+
+void get_individual_description(Individual observer, uint256 target_id, ByteBuffer * output) {
+    if (observer->id == target_id) {
+        output->append("you");
+        return;
+    }
+    PerceivedIndividual target = observer->knowledge.perceived_individuals.get(target_id, NULL);
+    if (target == NULL) {
+        output->append("it");
+        return;
+    }
+    switch (target->species_id) {
+        case SpeciesId_HUMAN:
+            output->append("a human");
+            return;
+        case SpeciesId_OGRE:
+            output->append("an ogre");
+            return;
+        case SpeciesId_DOG:
+            output->append("a dog");
+            return;
+        case SpeciesId_PINK_BLOB:
+            output->append("a pink blob");
+            return;
+        case SpeciesId_AIR_ELEMENTAL:
+            output->append("an air elemental");
+            return;
+        default:
+            panic("individual description");
+    }
 }
 
 void render() {
-    Individual spectate_from = you;
-    if (cheatcode_spectator != NULL)
-        spectate_from = cheatcode_spectator;
+    Individual spectate_from = get_spectate_individual();
 
     SDL_RenderClear(renderer);
 
@@ -249,7 +286,7 @@ void render() {
             else
                 alpha = 255;
             SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->species->species_id], individual->location);
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->species_id], individual->location);
         }
     } else {
         // full visibility
@@ -302,6 +339,21 @@ void render() {
         }
         if (all_the_text.length() > 0) {
             render_text(all_the_text.raw(), current_message_area);
+        }
+    }
+
+    // popup help for hovering over things
+    if (mouse_hover_tile != Coord::nowhere()) {
+        PerceivedIndividual target = find_perceived_individual_at(spectate_from, mouse_hover_tile);
+        if (target != NULL) {
+            ByteBuffer description;
+            get_individual_description(spectate_from, target->id, &description);
+            SDL_Rect rect;
+            rect.x = main_map_area.x + (target->location.x + 1) * tile_size;
+            rect.y = main_map_area.y + (target->location.y + 1) * tile_size;
+            rect.w = entire_window_area.w - rect.x;
+            rect.h = entire_window_area.h - rect.y;
+            render_text(description.raw(), rect);
         }
     }
 
