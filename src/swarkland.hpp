@@ -66,6 +66,7 @@ struct Event {
         DIE,
         WAND_HIT_NO_EFFECT,
         WAND_OF_CONFUSION_HIT,
+        NO_LONGER_CONFUSED,
         // spawn or become visible
         APPEAR,
         // these are possible with cheatcodes
@@ -120,6 +121,9 @@ struct Event {
             target->location,
             item,
         };
+    }
+    static inline Event no_longer_confused(Individual individual) {
+        return single_individual_event(NO_LONGER_CONFUSED, individual);
     }
     static inline Event appear(Individual new_guy) {
         return single_individual_event(APPEAR, new_guy);

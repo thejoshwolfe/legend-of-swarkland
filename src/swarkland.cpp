@@ -48,6 +48,10 @@ RememberedEvent to_remembered_event(Individual observer, Event event) {
             get_individual_description(observer, event.individual2->id, &buffer2);
             result->bytes.format("%s hits %s; %s is confused!", buffer1.raw(), buffer2.raw(), buffer2.raw());
             return result;
+        case Event::NO_LONGER_CONFUSED:
+            get_individual_description(observer, event.individual1->id, &buffer1);
+            result->bytes.format("%s is no longer confused.", buffer1.raw());
+            return result;
         case Event::APPEAR:
             get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s appears out of nowhere!", buffer1.raw());
@@ -368,6 +372,7 @@ void run_the_game() {
             spawn_monsters(false);
 
             List<Individual> dead_individuals;
+            List<Event> deferred_events;
             // who's ready to make a move?
             for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
                 Individual individual = iterator.next();
@@ -377,6 +382,12 @@ void run_the_game() {
                 }
                 // advance time for this individual
                 regen_hp(individual);
+                if (individual->status_effects.confused_timeout > 0) {
+                    individual->status_effects.confused_timeout--;
+                    if (individual->status_effects.confused_timeout == 0) {
+                        deferred_events.append(Event::no_longer_confused(individual));
+                    }
+                }
                 individual->movement_points++;
                 if (individual->movement_points >= individual->species()->movement_cost) {
                     poised_individuals.append(individual);
@@ -389,12 +400,17 @@ void run_the_game() {
                     }
                 }
             }
-            // delete the dead
-            for (int i = 0; i < dead_individuals.length(); i++) {
-                actual_individuals.remove(dead_individuals[i]->id);
-            }
 
-            // break ties with randomly assigned initiative
+            // publish deferred events.
+            // TODO: this exposes hashtable order
+            for (int i = 0; i < deferred_events.length(); i++)
+                publish_event(deferred_events[i]);
+
+            // delete the dead
+            for (int i = 0; i < dead_individuals.length(); i++)
+                actual_individuals.remove(dead_individuals[i]->id);
+
+            // who really gets to go first is determined by initiative
             sort<Individual, compare_individuals_by_initiative>(poised_individuals.raw(), poised_individuals.length());
         }
 
