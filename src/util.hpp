@@ -33,6 +33,12 @@ static inline int sign(int value) {
         return 0;
     return value < 0 ? -1 : 1;
 }
+static inline int euclidean_mod(int a, int base) {
+    if (a < 0)
+        return (a % base + base) % base;
+    else
+        return a % base;
+}
 
 template<typename T>
 T * realloc_new(T * old_guy, size_t old_count, size_t new_count) {

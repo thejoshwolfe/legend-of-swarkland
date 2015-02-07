@@ -3,6 +3,7 @@
 #include "path_finding.hpp"
 #include "decision.hpp"
 #include "display.hpp"
+#include "event.hpp"
 
 Species specieses[SpeciesId_COUNT];
 IdMap<Individual> actual_individuals;
@@ -19,107 +20,6 @@ static void init_specieses() {
     specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true};
     specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false};
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
-}
-
-RememberedEvent to_remembered_event(Individual observer, Event event) {
-    ByteBuffer buffer1;
-    ByteBuffer buffer2;
-    RememberedEvent result = new RememberedEventImpl;
-    switch (event.type) {
-        case Event::MOVE:
-            // unremarkable
-            return NULL;
-        case Event::ATTACK:
-            get_individual_description(observer, event.individual1->id, &buffer1);
-            get_individual_description(observer, event.individual2->id, &buffer2);
-            result->bytes.format("%s hits %s!", buffer1.raw(), buffer2.raw());
-            return result;
-        case Event::DIE:
-            get_individual_description(observer, event.individual1->id, &buffer1);
-            result->bytes.format("%s dies.", buffer1.raw());
-            return result;
-        case Event::WAND_HIT_NO_EFFECT:
-            get_item_description(observer, event.individual1, event.item1, &buffer1);
-            get_individual_description(observer, event.individual2->id, &buffer2);
-            result->bytes.format("%s hits %s, but nothing happens.", buffer1.raw(), buffer2.raw());
-            return result;
-        case Event::WAND_OF_CONFUSION_HIT:
-            get_item_description(observer, event.individual1, event.item1, &buffer1);
-            get_individual_description(observer, event.individual2->id, &buffer2);
-            result->bytes.format("%s hits %s; %s is confused!", buffer1.raw(), buffer2.raw(), buffer2.raw());
-            return result;
-        case Event::NO_LONGER_CONFUSED:
-            get_individual_description(observer, event.individual1->id, &buffer1);
-            result->bytes.format("%s is no longer confused.", buffer1.raw());
-            return result;
-        case Event::APPEAR:
-            get_individual_description(observer, event.individual1->id, &buffer1);
-            result->bytes.format("%s appears out of nowhere!", buffer1.raw());
-            return result;
-        case Event::DISAPPEAR:
-            get_individual_description(observer, event.individual1->id, &buffer1);
-            result->bytes.format("%s vanishes out of sight!", buffer1.raw());
-            return result;
-        case Event::POLYMORPH:
-            get_individual_description(observer, event.individual1->id, &buffer1);
-            result->bytes.format("%s transforms into %s!", "TODO: pre-transform description", buffer1.raw());
-            return result;
-        default:
-            panic("remembered_event");
-    }
-}
-
-void publish_event(Event event) {
-    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Individual observer = iterator.next();
-        if (!observer->is_alive)
-            continue;
-        bool can_see1 = observer->knowledge.tile_is_visible[event.coord1].any();
-        bool can_see2 = event.coord2 != Coord::nowhere() && observer->knowledge.tile_is_visible[event.coord2].any();
-        if (!(can_see1 || can_see2))
-            continue; // out of view
-        if (event.individual1 != NULL) {
-            // we typically can't see invisible individuals doing things
-            if (observer != event.individual1 && event.individual1->status_effects.invisible) {
-                // we can only see this event if it's the event made the individual invisible
-                if (event.type != Event::DISAPPEAR)
-                    continue;
-            }
-        }
-        // i see what happened
-        List<uint256> delete_ids;
-        if (event.individual1 != NULL) {
-            if (event.type == Event::DIE) {
-                delete_ids.append(event.individual1->id);
-            } else if (event.type == Event::DISAPPEAR) {
-                // you can always see yourself
-                if (observer == event.individual1) {
-                    // notice yourself vanish
-                    observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
-                } else {
-                    delete_ids.append(event.individual1->id);
-                }
-            } else {
-                observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
-            }
-        }
-        if (event.individual2 != NULL)
-            observer->knowledge.perceived_individuals.put(event.individual2->id, to_perceived_individual(event.individual2));
-        if (observer->species()->has_mind) {
-            // we need to log the event before the monster disappears from our knowledge
-            RememberedEvent remembered_event = to_remembered_event(observer, event);
-            if (remembered_event != NULL)
-                observer->knowledge.remembered_events.append(remembered_event);
-        }
-        // now that we've had a chance to talk about it, delete it if we should
-        for (int i = 0; i < delete_ids.length(); i++)
-            observer->knowledge.perceived_individuals.remove(delete_ids[i]);
-    }
-
-    if (event.type == Event::DIE) {
-        // we didn't notice ourselves dying in the above loop
-        event.individual1->knowledge.perceived_individuals.remove(event.individual1->id);
-    }
 }
 
 static const int no_spawn_radius = 10;
@@ -287,19 +187,45 @@ static bool validate_action(Individual individual, Action action) {
             return true;
     return false;
 }
+static const Coord directions_by_rotation[] = {
+    {+1,  0},
+    {+1, +1},
+    { 0, +1},
+    {-1, +1},
+    {-1,  0},
+    {-1, -1},
+    { 0, -1},
+    {+1, -1},
+};
+Coord confuse_direction(Individual individual, Coord direction) {
+    if (individual->status_effects.confused_timeout == 0)
+        return direction; // not confused
+    if (random_int(2) > 0)
+        return direction; // you're ok this time
+    // which direction are we attempting
+    for (int i = 0; i < 8; i++) {
+        if (directions_by_rotation[i] != direction)
+            continue;
+        // turn left or right 45 degrees
+        i = euclidean_mod(i + 2 * random_int(2) - 1, 8);
+        return directions_by_rotation[i];
+    }
+    panic("direection not found");
+}
 
 // return whether we did anything. also, cheatcodes take no time
-static bool take_action(Individual individual, Action action) {
-    bool is_valid = validate_action(individual, action);
+static bool take_action(Individual actor, Action action) {
+    bool is_valid = validate_action(actor, action);
     if (!is_valid) {
-        if (individual == you) {
+        if (actor == you) {
             // forgive the player for trying to run into a wall or something
             return false;
         }
         panic("ai tried to make an illegal move");
     }
 
-    individual->movement_points = 0;
+    // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
+    actor->movement_points = 0;
 
     switch (action.type) {
         case Action::WAIT:
@@ -307,35 +233,40 @@ static bool take_action(Individual individual, Action action) {
         case Action::MOVE: {
             // normally, we'd be sure that this was valid, but if you use cheatcodes,
             // monsters can try to walk into you while you're invisible.
-            Coord new_position = individual->location + action.coord;
-            Individual unseen_obstacle = find_individual_at(new_position);
-            if (unseen_obstacle != NULL) {
-                // someday, this will cause you to notice that there's an invisible monster there,
-                // but for now, just lose a turn.
+            Coord new_position = actor->location + confuse_direction(actor, action.coord);
+            if (!is_in_bounds(new_position) || actual_map_tiles[new_position].tile_type == TileType_WALL) {
+                // this can only happen if your direction was changed, since attempting to move into a wall is invalid.
+                publish_event(Event::bump_into_wall(actor));
+                return true;
+            }
+            Individual target = find_individual_at(new_position);
+            if (target != NULL) {
+                // this is not attacking
+                publish_event(Event::bump_into_individual(actor, target));
                 return true;
             }
             // clear to move
-            do_move(individual, new_position);
+            do_move(actor, new_position);
             return true;
         }
         case Action::ATTACK: {
-            Coord new_position = individual->location + action.coord;
+            Coord new_position = actor->location + confuse_direction(actor, action.coord);
             Individual target = find_individual_at(new_position);
             if (target == NULL) {
-                // you attack thin air
+                publish_event(Event::attack_thin_air(actor));
                 return true;
             }
-            attack(individual, target);
+            attack(actor, target);
             return true;
         }
         case Action::ZAP: {
-            Item wand = individual->inventory[0];
-            zap_wand(individual, wand, Coord{1, 0});
+            Item wand = actor->inventory[0];
+            zap_wand(actor, wand, Coord{1, 0});
             return true;
         }
 
         case Action::CHEATCODE_HEALTH_BOOST:
-            individual->hitpoints += 100;
+            actor->hitpoints += 100;
             return false;
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
             cheatcode_kill_everybody_in_the_world();
@@ -345,11 +276,11 @@ static bool take_action(Individual individual, Action action) {
             // this one does take time, because your movement cost may have changed
             return true;
         case Action::CHEATCODE_INVISIBILITY:
-            if (individual->status_effects.invisible) {
-                individual->status_effects.invisible = false;
+            if (actor->status_effects.invisible) {
+                actor->status_effects.invisible = false;
                 publish_event(Event::appear(you));
             } else {
-                individual->status_effects.invisible = true;
+                actor->status_effects.invisible = true;
                 publish_event(Event::disappear(you));
             }
             return false;

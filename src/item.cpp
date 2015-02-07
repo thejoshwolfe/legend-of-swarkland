@@ -3,6 +3,7 @@
 #include "individual.hpp"
 #include "util.hpp"
 #include "swarkland.hpp"
+#include "event.hpp"
 
 WandId actual_wand_identities[WandId_COUNT];
 
