@@ -147,14 +147,26 @@ static void publish_event(Event event) {
         bool can_see2 = event.coord2 != Coord::nowhere() && observer->knowledge.tile_is_visible[event.coord2].any();
         if (!(can_see1 || can_see2))
             continue; // out of view
+        if (event.individual1 != NULL) {
+            // we typically can't see invisible individuals doing things
+            if (observer != event.individual1 && event.individual1->invisible) {
+                // we can only see this event if it's the event made the individual invisible
+                if (event.type != Event::DISAPPEAR)
+                    continue;
+            }
+        }
         // i see what happened
         if (event.individual1 != NULL) {
             if (event.type == Event::DIE) {
                 observer->knowledge.perceived_individuals.remove(event.individual1->id);
             } else if (event.type == Event::DISAPPEAR) {
-                // you can see see yourself
-                if (observer != event.individual1)
+                // you can always see yourself
+                if (observer == event.individual1) {
+                    // notice yourself vanish
+                    observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
+                } else {
                     observer->knowledge.perceived_individuals.remove(event.individual1->id);
+                }
             } else {
                 observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
             }
