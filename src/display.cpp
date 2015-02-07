@@ -3,6 +3,7 @@
 #include "util.hpp"
 #include "swarkland.hpp"
 #include "load_image.hpp"
+#include "byte_buffer.hpp"
 
 #include <rucksack.h>
 #include <SDL2/SDL.h>
