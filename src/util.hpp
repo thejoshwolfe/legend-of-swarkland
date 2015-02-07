@@ -15,6 +15,11 @@ static inline int random_int(int at_least_this, int less_than_this) {
     return random_int(less_than_this - at_least_this) + at_least_this;
 }
 
+template <typename T>
+static inline T min(T a, T b) {
+    return a < b ? a : b;
+}
+
 static inline int clamp(int value, int min, int max) {
     if (value < min)
         return min;

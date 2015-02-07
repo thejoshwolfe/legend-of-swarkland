@@ -109,7 +109,7 @@ public:
             Entry * entry = &_entries[index];
 
             if (!entry->used)
-                panic("key not found");
+                return; // not found
 
             if (entry->key != key)
                 continue;
@@ -128,7 +128,7 @@ public:
             }
             panic("shifting everything in the table");
         }
-        panic("key not found");
+        return; // not found
     }
 
     class Iterator {

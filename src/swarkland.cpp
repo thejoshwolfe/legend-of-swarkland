@@ -382,10 +382,10 @@ static bool take_action(Individual individual, Action action) {
         case Action::CHEATCODE_INVISIBILITY:
             if (individual->invisible) {
                 individual->invisible = false;
-                publish_event(Event::disappear(you));
+                publish_event(Event::appear(you));
             } else {
                 individual->invisible = true;
-                publish_event(Event::appear(you));
+                publish_event(Event::disappear(you));
             }
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER:
@@ -417,13 +417,16 @@ void run_the_game() {
                 // advance time for this individual
                 regen_hp(individual);
                 individual->movement_points++;
-                if (individual->species()->has_mind) {
-                    List<RememberedEvent> & events = individual->knowledge.remembered_events;
-                    if (events.length() > 0 && events[events.length() - 1] != NULL)
-                        events.append(NULL);
-                }
-                if (individual->movement_points >= individual->species()->movement_cost)
+                if (individual->movement_points >= individual->species()->movement_cost) {
                     poised_individuals.append(individual);
+                    // log the passage of time in the message window.
+                    // this actually only observers time in increments of your movement cost
+                    if (individual->species()->has_mind) {
+                        List<RememberedEvent> & events = individual->knowledge.remembered_events;
+                        if (events.length() > 0 && events[events.length() - 1] != NULL)
+                            events.append(NULL);
+                    }
+                }
             }
             // delete the dead
             for (int i = 0; i < dead_individuals.length(); i++) {

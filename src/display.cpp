@@ -153,20 +153,26 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
-// the height doesn't matter
+// the text will be aligned to the bottom of the area
 static void render_text(const char * str, SDL_Rect area) {
-    // this seems like an awful lot of setup and tear down for every little string
     SDL_Color color = { 0xff, 0xff, 0xff };
 
     SDL_Surface * surface = TTF_RenderText_Blended_Wrapped(status_box_font, str, color, area.w);
     SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
 
+    SDL_Rect source_rect;
+    source_rect.w = min(surface->w, area.w);
+    source_rect.h = min(surface->h, area.h);
+    // align the bottom
+    source_rect.x = 0;
+    source_rect.y = surface->h - source_rect.h;
+
     SDL_Rect dest_rect;
     dest_rect.x = area.x;
     dest_rect.y = area.y;
-    dest_rect.w = surface->w;
-    dest_rect.h = surface->h;
-    SDL_RenderCopy(renderer, texture, NULL, &dest_rect);
+    dest_rect.w = source_rect.w;
+    dest_rect.h = source_rect.h;
+    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
 
     SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
