@@ -44,8 +44,8 @@ static void load_images(struct RuckSackImage ** spritesheet_images, long image_c
     species_images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/human.png");
     species_images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/ogre.png");
     species_images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/dog.png");
-    species_images[SpeciesId_GELATINOUS_CUBE] = find_image(spritesheet_images, image_count, "img/gelatinous_cube.png");
-    species_images[SpeciesId_DUST_VORTEX] = find_image(spritesheet_images, image_count, "img/dust_vortex.png");
+    species_images[SpeciesId_PINK_BLOB] = find_image(spritesheet_images, image_count, "img/pink_blob.png");
+    species_images[SpeciesId_AIR_ELEMENTAL] = find_image(spritesheet_images, image_count, "img/air_elemental.png");
 
     floor_images[0] = find_image(spritesheet_images, image_count, "img/grey_dirt0.png");
     floor_images[1] = find_image(spritesheet_images, image_count, "img/grey_dirt1.png");
@@ -181,16 +181,35 @@ Coord get_mouse_tile() {
 }
 
 void render() {
-    SDL_RenderClear(renderer);
-
-    // message area
-    render_text("the very fast fox jumps over the sleeping dog!", message_area);
-
-    // main map
-    // render the terrain
     Individual spectate_from = you;
     if (cheatcode_spectator != NULL)
         spectate_from = cheatcode_spectator;
+
+    SDL_RenderClear(renderer);
+
+    // message area
+    {
+        ByteBuffer all_the_text;
+        List<RememberedEvent> & events = spectate_from->knowledge.remembered_events;
+        for (int i = 0; i < events.length(); i++) {
+            RememberedEvent event = events[i];
+            if (event != NULL) {
+                // append something
+                if (i > 0) {
+                    // maybe sneak in a delimiter
+                    if (events[i - 1] == NULL)
+                        all_the_text.append("\n");
+                    else
+                        all_the_text.append("  ");
+                }
+                all_the_text.append(event->bytes);
+            }
+        }
+        render_text(all_the_text.raw(), message_area);
+    }
+
+    // main map
+    // render the terrain
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             Tile tile = spectate_from->knowledge.tiles[cursor];
@@ -240,11 +259,11 @@ void render() {
 
     // status box
     ByteBuffer status_text;
-    status_text.format("HP: %d", you->hitpoints);
+    status_text.format("HP: %d", spectate_from->hitpoints);
     render_text(status_text.raw(), hp_area);
 
     status_text.resize(0);
-    status_text.format("Kills: %d", you->kill_counter);
+    status_text.format("Kills: %d", spectate_from->kill_counter);
     render_text(status_text.raw(), kills_area);
 
     SDL_RenderPresent(renderer);

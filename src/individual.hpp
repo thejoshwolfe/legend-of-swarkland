@@ -5,6 +5,8 @@
 #include "geometry.hpp"
 #include "map.hpp"
 #include "hashtable.hpp"
+#include "list.hpp"
+#include "byte_buffer.hpp"
 
 #include <stdbool.h>
 
@@ -12,8 +14,8 @@ enum SpeciesId {
     SpeciesId_HUMAN,
     SpeciesId_OGRE,
     SpeciesId_DOG,
-    SpeciesId_GELATINOUS_CUBE,
-    SpeciesId_DUST_VORTEX,
+    SpeciesId_PINK_BLOB,
+    SpeciesId_AIR_ELEMENTAL,
 
     SpeciesId_COUNT,
 };
@@ -71,6 +73,11 @@ public:
 };
 typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
 
+struct RememberedEventImpl : public ReferenceCounted {
+    ByteBuffer bytes;
+};
+typedef Reference<RememberedEventImpl> RememberedEvent;
+
 class Knowledge {
 public:
     // terrain knowledge
@@ -78,6 +85,7 @@ public:
     VisionTypes map_last_observed_with;
     Matrix<Tile> tiles;
     Matrix<VisionTypes> tile_is_visible;
+    List<RememberedEvent> remembered_events;
 
     IdMap<PerceivedIndividual> perceived_individuals;
     Knowledge() :

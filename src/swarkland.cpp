@@ -74,8 +74,68 @@ static void init_specieses() {
     specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true};
     specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, {1, 0}, true};
     specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true};
-    specieses[SpeciesId_GELATINOUS_CUBE] = {SpeciesId_GELATINOUS_CUBE, 48, 12, 4, {0, 1}, false};
-    specieses[SpeciesId_DUST_VORTEX] = {SpeciesId_DUST_VORTEX, 6, 6, 1, {0, 1}, false};
+    specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false};
+    specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
+}
+
+void get_individual_description(Individual observer, Individual target, ByteBuffer * output) {
+    if (observer == target) {
+        output->append("you");
+        return;
+    }
+    switch (target->species_id) {
+        case SpeciesId_HUMAN:
+            output->append("a human");
+            return;
+        case SpeciesId_OGRE:
+            output->append("an ogre");
+            return;
+        case SpeciesId_DOG:
+            output->append("a dog");
+            return;
+        case SpeciesId_PINK_BLOB:
+            output->append("a pink blob");
+            return;
+        case SpeciesId_AIR_ELEMENTAL:
+            output->append("an air elemental");
+            return;
+        default:
+            panic("individual description");
+    }
+}
+
+RememberedEvent to_remembered_event(Individual observer, Event event) {
+    ByteBuffer buffer1;
+    ByteBuffer buffer2;
+    RememberedEvent result = new RememberedEventImpl;
+    switch (event.type) {
+        case Event::MOVE:
+            // unremarkable
+            return NULL;
+        case Event::ATTACK:
+            get_individual_description(observer, event.individual1, &buffer1);
+            get_individual_description(observer, event.individual2, &buffer2);
+            result->bytes.format("%s hits %s!", buffer1.raw(), buffer2.raw());
+            return result;
+        case Event::DIE:
+            get_individual_description(observer, event.individual1, &buffer1);
+            result->bytes.format("%s dies.", buffer1.raw());
+            return result;
+        case Event::APPEAR:
+            get_individual_description(observer, event.individual1, &buffer1);
+            result->bytes.format("%s appears out of nowhere!", buffer1.raw());
+            return result;
+        case Event::DISAPPEAR:
+            get_individual_description(observer, event.individual1, &buffer1);
+            result->bytes.format("%s vanishes out of sight!", buffer1.raw());
+            return result;
+        case Event::POLYMORPH:
+            get_individual_description(observer, event.individual1, &buffer1);
+            result->bytes.format("%s transforms into %s!", "TODO: pre-transform description", buffer1.raw());
+            return result;
+        default:
+            panic("remembered_event");
+    }
 }
 
 static void publish_event(Event event) {
@@ -101,6 +161,11 @@ static void publish_event(Event event) {
         }
         if (event.individual2 != NULL)
             observer->knowledge.perceived_individuals.put(event.individual2->id, to_perceived_individual(event.individual2));
+        if (observer->species()->has_mind) {
+            RememberedEvent remembered_event = to_remembered_event(observer, event);
+            if (remembered_event != NULL)
+                observer->knowledge.remembered_events.append(remembered_event);
+        }
     }
 
     if (event.type == Event::DIE) {
@@ -352,6 +417,11 @@ void run_the_game() {
                 // advance time for this individual
                 regen_hp(individual);
                 individual->movement_points++;
+                if (individual->species()->has_mind) {
+                    List<RememberedEvent> & events = individual->knowledge.remembered_events;
+                    if (events.length() > 0 && events[events.length() - 1] != NULL)
+                        events.append(NULL);
+                }
                 if (individual->movement_points >= individual->species()->movement_cost)
                     poised_individuals.append(individual);
             }
