@@ -176,6 +176,8 @@ Coord get_mouse_tile() {
     int x;
     int y;
     SDL_GetMouseState(&x, &y);
+    x -= main_map_area.x;
+    y -= main_map_area.y;
     Coord tile_coord = {x / tile_size, y / tile_size};
     return tile_coord;
 }
