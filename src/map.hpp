@@ -5,7 +5,7 @@
 
 #include <stdlib.h>
 
-static const Coord map_size = { 55, 30 };
+static const Coord map_size = { 50, 25 };
 
 enum TileType {
     TileType_UNKNOWN,

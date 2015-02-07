@@ -129,14 +129,14 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
                 continue;
             if (find_individual_at(location) != NULL)
                 continue;
-            available_spawn_locations.add(location);
+            available_spawn_locations.append(location);
         }
     }
-    if (available_spawn_locations.size() == 0) {
+    if (available_spawn_locations.length() == 0) {
         // it must be pretty crowded in here
         return NULL;
     }
-    Coord location = available_spawn_locations[random_int(available_spawn_locations.size())];
+    Coord location = available_spawn_locations[random_int(available_spawn_locations.length())];
     Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
     actual_individuals.put(individual->id, individual);
     compute_vision(individual);
@@ -258,7 +258,7 @@ void cheatcode_spectate(Coord individual_at) {
 static bool validate_action(Individual individual, Action action) {
     List<Action> valid_actions;
     get_available_actions(individual, valid_actions);
-    for (int i = 0; i < valid_actions.size(); i++)
+    for (int i = 0; i < valid_actions.length(); i++)
         if (valid_actions[i] == action)
             return true;
     return false;
@@ -336,7 +336,7 @@ int poised_individuals_index = 0;
 // this function will return only when we're expecting player input
 void run_the_game() {
     while (youre_still_alive) {
-        if (poised_individuals.size() == 0) {
+        if (poised_individuals.length() == 0) {
             time_counter++;
 
             spawn_monsters(false);
@@ -346,26 +346,26 @@ void run_the_game() {
             for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
                 Individual individual = iterator.next();
                 if (!individual->is_alive) {
-                    dead_individuals.add(individual);
+                    dead_individuals.append(individual);
                     continue;
                 }
                 // advance time for this individual
                 regen_hp(individual);
                 individual->movement_points++;
                 if (individual->movement_points >= individual->species()->movement_cost)
-                    poised_individuals.add(individual);
+                    poised_individuals.append(individual);
             }
             // delete the dead
-            for (int i = 0; i < dead_individuals.size(); i++) {
+            for (int i = 0; i < dead_individuals.length(); i++) {
                 actual_individuals.remove(dead_individuals[i]->id);
             }
 
             // break ties with randomly assigned initiative
-            sort<Individual, compare_individuals_by_initiative>(poised_individuals.raw(), poised_individuals.size());
+            sort<Individual, compare_individuals_by_initiative>(poised_individuals.raw(), poised_individuals.length());
         }
 
         // move individuals
-        for (; poised_individuals_index < poised_individuals.size(); poised_individuals_index++) {
+        for (; poised_individuals_index < poised_individuals.length(); poised_individuals_index++) {
             Individual individual = poised_individuals[poised_individuals_index];
             if (!individual->is_alive)
                 continue; // sorry, buddy. you were that close to making another move.
@@ -388,12 +388,12 @@ void run_the_game() {
 
 // wait will always be available
 void get_available_actions(Individual individual, List<Action> & output_actions) {
-    output_actions.add(Action::wait());
+    output_actions.append(Action::wait());
     // move
     for (int i = 0; i < 8; i++) {
         Coord direction = directions[i];
         if (do_i_think_i_can_move_here(individual, individual->location + direction))
-            output_actions.add(Action{Action::MOVE, direction});
+            output_actions.append(Action{Action::MOVE, direction});
     }
     // attack
     for (auto iterator = individual->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
@@ -403,15 +403,15 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
         Coord vector = target->location - individual->location;
         if (vector == sign(vector)) {
             // within melee range
-            output_actions.add(Action{Action::ATTACK, vector});
+            output_actions.append(Action{Action::ATTACK, vector});
         }
     }
     // alright, we'll let you use cheatcodes
     if (individual == you) {
-        output_actions.add(Action::cheatcode_health_boost());
-        output_actions.add(Action::cheatcode_kill_everybody_in_the_world());
-        output_actions.add(Action::cheatcode_polymorph());
-        output_actions.add(Action::cheatcode_invisibility());
-        output_actions.add(Action::cheatcode_generate_monster());
+        output_actions.append(Action::cheatcode_health_boost());
+        output_actions.append(Action::cheatcode_kill_everybody_in_the_world());
+        output_actions.append(Action::cheatcode_polymorph());
+        output_actions.append(Action::cheatcode_invisibility());
+        output_actions.append(Action::cheatcode_generate_monster());
     }
 }

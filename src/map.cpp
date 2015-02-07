@@ -84,10 +84,10 @@ void compute_vision(Individual spectator) {
     for (auto iterator = spectator->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
         PerceivedIndividual target = iterator.next();
         if (!spectator->species()->has_mind || spectator->knowledge.tile_is_visible[target->location].any())
-            remove_these.add(target);
+            remove_these.append(target);
     }
     // do this as a second pass, because modifying in the middle of iteration doesn't work properly.
-    for (int i = 0; i < remove_these.size(); i++)
+    for (int i = 0; i < remove_these.length(); i++)
         spectator->knowledge.perceived_individuals.remove(remove_these[i]->id);
 
     // now see any monsters that are in our line of vision

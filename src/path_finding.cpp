@@ -106,11 +106,11 @@ bool find_path(Coord start, Coord end, Individual according_to_whom, List<Coord>
     List<Coord> backwards_path;
     Node *it = best_node;
     while (it != NULL) {
-        backwards_path.add(it->coord);
+        backwards_path.append(it->coord);
         it = it->parent;
     }
-    for (int i = backwards_path.size() - 2; i >= 0; i--) {
-        output_path.add(backwards_path[i]);
+    for (int i = backwards_path.length() - 2; i >= 0; i--) {
+        output_path.append(backwards_path[i]);
     }
     return found_goal;
 }

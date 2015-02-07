@@ -24,31 +24,31 @@ static Action get_ai_decision(Individual individual) {
         PerceivedIndividual target = iterator.next();
         if (target->team == individual->team)
             continue; // you're cool
-        if (closest_hostiles.size() == 0) {
+        if (closest_hostiles.length() == 0) {
             // found somebody to punch
-            closest_hostiles.add(target);
+            closest_hostiles.append(target);
         } else {
             int beat_this_distance = distance_squared(individual->location, closest_hostiles[0]->location);
             int how_about_this = distance_squared(individual->location, target->location);
             if (how_about_this < beat_this_distance) {
                 // this target is better
                 closest_hostiles.clear();
-                closest_hostiles.add(target);
+                closest_hostiles.append(target);
             } else if (how_about_this == beat_this_distance) {
                 // you're both so tempting. i'll decide randomly.
-                closest_hostiles.add(target);
+                closest_hostiles.append(target);
             } else {
                 // too far away
                 continue;
             }
         }
     }
-    if (closest_hostiles.size() > 0) {
+    if (closest_hostiles.length() > 0) {
         // let's go attack somebody!
-        PerceivedIndividual target = closest_hostiles[random_int(closest_hostiles.size())];
+        PerceivedIndividual target = closest_hostiles[random_int(closest_hostiles.length())];
         List<Coord> path;
         find_path(individual->location, target->location, individual, path);
-        if (path.size() > 0) {
+        if (path.length() > 0) {
             Coord direction = path[0] - individual->location;
             if (path[0] == target->location)
                 return {Action::ATTACK, direction};
@@ -63,11 +63,11 @@ static Action get_ai_decision(Individual individual) {
         List<Action> actions;
         get_available_actions(individual, actions);
         List<Action> move_actions;
-        for (int i = 0; i < actions.size(); i++)
+        for (int i = 0; i < actions.length(); i++)
             if (actions[i].type == Action::MOVE)
-                move_actions.add(actions[i]);
-        if (move_actions.size() > 0)
-            return move_actions[random_int(move_actions.size())];
+                move_actions.append(actions[i]);
+        if (move_actions.length() > 0)
+            return move_actions[random_int(move_actions.length())];
         // we must be stuck in a crowd
         return Action::wait();
     }

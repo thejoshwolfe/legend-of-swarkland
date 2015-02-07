@@ -10,8 +10,8 @@ template<typename T, int (*HeapComparator)(T, T)>
 class Heap {
 public:
     void insert(T element) {
-        int index = _data.size();
-        _data.add(element);
+        int index = _data.length();
+        _data.append(element);
 
         while (index > 0) {
             int parent_index = (index - 1) / 2;
@@ -61,7 +61,7 @@ public:
     }
 
     int size() const {
-        return _data.size();
+        return _data.length();
     }
 
 private:

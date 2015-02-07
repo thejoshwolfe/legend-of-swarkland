@@ -3,15 +3,19 @@
 #include "util.hpp"
 #include "swarkland.hpp"
 #include "load_image.hpp"
-#include "string.hpp"
 
 #include <rucksack.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-static const SDL_Rect main_map_area = { 0, 0, map_size.x * tile_size, map_size.y * tile_size };
+// screen layout
+static const SDL_Rect message_area = { 0, 0, map_size.x * tile_size, 2 * tile_size };
+static const SDL_Rect main_map_area = { 0, message_area.y + message_area.h, map_size.x * tile_size, map_size.y * tile_size };
 static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, main_map_area.w, 32 };
+static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
+static const SDL_Rect kills_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect entire_window_area = { 0, 0, status_box_area.w, status_box_area.y + status_box_area.h };
+
 
 static SDL_Window * window;
 static SDL_Texture * sprite_sheet_texture;
@@ -140,34 +144,31 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
     source_rect.h = guy_image->height;
 
     SDL_Rect dest_rect;
-    dest_rect.x = coord.x * tile_size;
-    dest_rect.y = coord.y * tile_size;
+    dest_rect.x = main_map_area.x + coord.x * tile_size;
+    dest_rect.y = main_map_area.y + coord.y * tile_size;
     dest_rect.w = tile_size;
     dest_rect.h = tile_size;
 
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
-static void render_text(String text, int x, int y) {
+// the height doesn't matter
+static void render_text(const char * str, SDL_Rect area) {
     // this seems like an awful lot of setup and tear down for every little string
     SDL_Color color = { 0xff, 0xff, 0xff };
-    char * str = new char[text.size() + 1];
-    text.copy(str, 0, text.size());
-    str[text.size()] = '\0';
 
-    SDL_Surface * surface = TTF_RenderText_Solid(status_box_font, str, color);
+    SDL_Surface * surface = TTF_RenderText_Blended_Wrapped(status_box_font, str, color, area.w);
     SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
 
     SDL_Rect dest_rect;
-    dest_rect.x = x;
-    dest_rect.y = y;
+    dest_rect.x = area.x;
+    dest_rect.y = area.y;
     dest_rect.w = surface->w;
     dest_rect.h = surface->h;
     SDL_RenderCopy(renderer, texture, NULL, &dest_rect);
 
     SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
-    delete[] str;
 }
 
 Coord get_mouse_tile() {
@@ -180,6 +181,9 @@ Coord get_mouse_tile() {
 
 void render() {
     SDL_RenderClear(renderer);
+
+    // message area
+    render_text("the very fast fox jumps over the sleeping dog!", message_area);
 
     // main map
     // render the terrain
@@ -234,8 +238,13 @@ void render() {
     }
 
     // status box
-    render_text(String("HP: ") + to_string(you->hitpoints), status_box_area.x, status_box_area.y);
-    render_text(String("Kills: ") + to_string(you->kill_counter), status_box_area.x + 200, status_box_area.y);
+    ByteBuffer status_text;
+    status_text.format("HP: %d", you->hitpoints);
+    render_text(status_text.raw(), hp_area);
+
+    status_text.resize(0);
+    status_text.format("Kills: %d", you->kill_counter);
+    render_text(status_text.raw(), kills_area);
 
     SDL_RenderPresent(renderer);
 }
