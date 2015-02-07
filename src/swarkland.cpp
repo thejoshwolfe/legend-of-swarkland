@@ -131,16 +131,17 @@ static void publish_event(Event event) {
             }
         }
         // i see what happened
+        List<uint256> delete_ids;
         if (event.individual1 != NULL) {
             if (event.type == Event::DIE) {
-                observer->knowledge.perceived_individuals.remove(event.individual1->id);
+                delete_ids.append(event.individual1->id);
             } else if (event.type == Event::DISAPPEAR) {
                 // you can always see yourself
                 if (observer == event.individual1) {
                     // notice yourself vanish
                     observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
                 } else {
-                    observer->knowledge.perceived_individuals.remove(event.individual1->id);
+                    delete_ids.append(event.individual1->id);
                 }
             } else {
                 observer->knowledge.perceived_individuals.put(event.individual1->id, to_perceived_individual(event.individual1));
@@ -149,10 +150,14 @@ static void publish_event(Event event) {
         if (event.individual2 != NULL)
             observer->knowledge.perceived_individuals.put(event.individual2->id, to_perceived_individual(event.individual2));
         if (observer->species()->has_mind) {
+            // we need to log the event before the monster disappears from our knowledge
             RememberedEvent remembered_event = to_remembered_event(observer, event);
             if (remembered_event != NULL)
                 observer->knowledge.remembered_events.append(remembered_event);
         }
+        // now that we've had a chance to talk about it, delete it if we should
+        for (int i = 0; i < delete_ids.length(); i++)
+            observer->knowledge.perceived_individuals.remove(delete_ids[i]);
     }
 
     if (event.type == Event::DIE) {
