@@ -212,7 +212,23 @@ Coord get_mouse_tile(SDL_Rect area) {
     Coord tile_coord = {pixels.x / tile_size, pixels.y / tile_size};
     return tile_coord;
 }
-static Coord mouse_pixels = Coord::nowhere();
+
+static const char * get_species_name(SpeciesId species_id) {
+    switch (species_id) {
+        case SpeciesId_HUMAN:
+            return "human";
+        case SpeciesId_OGRE:
+            return "ogre";
+        case SpeciesId_DOG:
+            return "dog";
+        case SpeciesId_PINK_BLOB:
+            return "pink blob";
+        case SpeciesId_AIR_ELEMENTAL:
+            return "air elemental";
+        default:
+            panic("individual description");
+    }
+}
 void get_individual_description(Individual observer, uint256 target_id, ByteBuffer * output) {
     if (observer->id == target_id) {
         output->append("you");
@@ -223,25 +239,12 @@ void get_individual_description(Individual observer, uint256 target_id, ByteBuff
         output->append("it");
         return;
     }
-    switch (target->species_id) {
-        case SpeciesId_HUMAN:
-            output->append("a human");
-            return;
-        case SpeciesId_OGRE:
-            output->append("an ogre");
-            return;
-        case SpeciesId_DOG:
-            output->append("a dog");
-            return;
-        case SpeciesId_PINK_BLOB:
-            output->append("a pink blob");
-            return;
-        case SpeciesId_AIR_ELEMENTAL:
-            output->append("an air elemental");
-            return;
-        default:
-            panic("individual description");
-    }
+    output->append("a ");
+    if (target->status_effects.invisible)
+        output->append("invisible ");
+    if (target->status_effects.confused_timeout > 0)
+        output->append("confused ");
+    output->append(get_species_name(target->species_id));
 }
 
 static void popup_help(Coord upper_left_corner, const char * str) {
