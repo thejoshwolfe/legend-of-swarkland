@@ -61,15 +61,20 @@ struct Species {
     bool has_mind;
 };
 
+struct StatusEffects {
+    bool invisible = false;
+    int confused_timeout = 0;
+};
+
 struct PerceivedIndividualImpl : public ReferenceCounted {
 public:
     uint256 id;
     SpeciesId species_id;
     Coord location;
     Team team;
-    bool invisible;
-    PerceivedIndividualImpl(uint256 id, SpeciesId species_id, Coord location, Team team, bool invisible) :
-            id(id), species_id(species_id), location(location), team(team), invisible(invisible) {
+    StatusEffects status_effects;
+    PerceivedIndividualImpl(uint256 id, SpeciesId species_id, Coord location, Team team, StatusEffects status_effects) :
+            id(id), species_id(species_id), location(location), team(team), status_effects(status_effects) {
     }
 };
 typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
@@ -112,7 +117,7 @@ struct IndividualImpl : public ReferenceCounted {
     Team team;
     DecisionMakerType decision_maker;
     Knowledge knowledge;
-    bool invisible = false;
+    StatusEffects status_effects;
     List<Item> inventory;
     IndividualImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
     IndividualImpl(IndividualImpl &) = delete;
@@ -127,6 +132,7 @@ int compare_individuals_by_initiative(Individual a, Individual b);
 
 // TODO: these are in the wrong place
 void compute_vision(Individual individual);
-void get_item_description(Individual observer, Item item, ByteBuffer * output);
+void get_item_description(Individual observer, Individual wielder, Item item, ByteBuffer * output);
+void zap_wand(Individual individual, Item wand, Coord direction);
 
 #endif

@@ -2,6 +2,7 @@
 
 #include "individual.hpp"
 #include "util.hpp"
+#include "swarkland.hpp"
 
 WandId actual_wand_identities[WandId_COUNT];
 
@@ -21,7 +22,12 @@ Item random_item() {
     return {(WandDescriptionId)random_int(WandDescriptionId_COUNT)};
 }
 
-void get_item_description(Individual observer, Item item, ByteBuffer * output) {
+void get_item_description(Individual observer, Individual wielder, Item item, ByteBuffer * output) {
+    if (!observer->knowledge.tile_is_visible[wielder->location].any()) {
+        // can't see the wand
+        output->append("a wand");
+        return;
+    }
     WandId true_id = observer->knowledge.wand_identities[item.description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
@@ -54,3 +60,35 @@ void get_item_description(Individual observer, Item item, ByteBuffer * output) {
     }
 }
 
+static void confuse_individual_from_wand(Individual wand_wielder, Item wand, Individual target) {
+    bool did_it_work = confuse_individual(target);
+    if (did_it_work) {
+        publish_event(Event::wand_of_confusion_hit(wand_wielder, wand, target));
+    } else {
+        publish_event(Event::wand_hit_no_effect(wand_wielder, wand, target));
+    }
+}
+
+void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
+    Coord cursor = wand_wielder->location;
+    int beam_length = random_int(4, 6);
+    for (int i = 0; i < beam_length; i++) {
+        cursor = cursor + direction;
+        if (!is_in_bounds(cursor))
+            break;
+        switch (actual_wand_identities[wand.description_id]) {
+            case WandId_WAND_OF_CONFUSION:
+            case WandId_WAND_OF_DIGGING:
+            case WandId_WAND_OF_STRIKING: {
+                Individual target = find_individual_at(cursor);
+                if (target != NULL)
+                    confuse_individual_from_wand(wand_wielder, wand, target);
+                if (actual_map_tiles[cursor].tile_type == TileType_WALL)
+                    beam_length = i;
+                break;
+            }
+            default:
+                panic("wand id");
+        }
+    }
+}

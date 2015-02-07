@@ -305,7 +305,7 @@ void render() {
         for (auto iterator = spectate_from->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
             PerceivedIndividual individual = iterator.next();
             Uint8 alpha;
-            if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
+            if (individual->status_effects.invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
                 alpha = 128;
             else
                 alpha = 255;
@@ -319,7 +319,7 @@ void render() {
             if (!individual->is_alive)
                 continue;
             Uint8 alpha;
-            if (individual->invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
+            if (individual->status_effects.invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
                 alpha = 128;
             else
                 alpha = 255;
@@ -389,7 +389,7 @@ void render() {
         int inventory_index = mouse_hover_tile.y;
         if (0 <= inventory_index && inventory_index < spectate_from->inventory.length()) {
             ByteBuffer description;
-            get_item_description(spectate_from, spectate_from->inventory[inventory_index], &description);
+            get_item_description(spectate_from, spectate_from, spectate_from->inventory[inventory_index], &description);
             popup_help(description.raw());
         }
     }

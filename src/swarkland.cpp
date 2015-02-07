@@ -13,64 +13,6 @@ long long time_counter = 0;
 
 bool cheatcode_full_visibility;
 
-struct Event {
-    enum Type {
-        MOVE,
-        ATTACK,
-        DIE,
-        // spawn or become visible
-        APPEAR,
-        // these are possible with cheatcodes
-        DISAPPEAR,
-        POLYMORPH,
-    };
-    Type type;
-    Individual individual1;
-    Individual individual2;
-    Coord coord1;
-    Coord coord2;
-    static inline Event move(Individual mover, Coord from, Coord to) {
-        return {
-            MOVE,
-            mover,
-            NULL,
-            from,
-            to,
-        };
-    }
-    static inline Event attack(Individual attacker, Individual target) {
-        return {
-            ATTACK,
-            attacker,
-            target,
-            attacker->location,
-            target->location,
-        };
-    }
-    static inline Event die(Individual deceased) {
-        return single_individual_event(DIE, deceased);
-    }
-    static inline Event appear(Individual new_guy) {
-        return single_individual_event(APPEAR, new_guy);
-    }
-    static inline Event disappear(Individual cant_see_me) {
-        return single_individual_event(DISAPPEAR, cant_see_me);
-    }
-    static inline Event polymorph(Individual shapeshifter) {
-        return single_individual_event(POLYMORPH, shapeshifter);
-    }
-private:
-    static inline Event single_individual_event(Type type, Individual individual) {
-        return {
-            type,
-            individual,
-            NULL,
-            individual->location,
-            Coord::nowhere(),
-        };
-    }
-};
-
 static void init_specieses() {
     specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true};
     specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, {1, 0}, true};
@@ -96,6 +38,16 @@ RememberedEvent to_remembered_event(Individual observer, Event event) {
             get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s dies.", buffer1.raw());
             return result;
+        case Event::WAND_HIT_NO_EFFECT:
+            get_item_description(observer, event.individual1, event.item1, &buffer1);
+            get_individual_description(observer, event.individual2->id, &buffer2);
+            result->bytes.format("%s hits %s, but nothing happens.", buffer1.raw(), buffer2.raw());
+            return result;
+        case Event::WAND_OF_CONFUSION_HIT:
+            get_item_description(observer, event.individual1, event.item1, &buffer1);
+            get_individual_description(observer, event.individual2->id, &buffer2);
+            result->bytes.format("%s hits %s; %s is confused!", buffer1.raw(), buffer2.raw(), buffer2.raw());
+            return result;
         case Event::APPEAR:
             get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s appears out of nowhere!", buffer1.raw());
@@ -113,7 +65,7 @@ RememberedEvent to_remembered_event(Individual observer, Event event) {
     }
 }
 
-static void publish_event(Event event) {
+void publish_event(Event event) {
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         Individual observer = iterator.next();
         if (!observer->is_alive)
@@ -124,7 +76,7 @@ static void publish_event(Event event) {
             continue; // out of view
         if (event.individual1 != NULL) {
             // we typically can't see invisible individuals doing things
-            if (observer != event.individual1 && event.individual1->invisible) {
+            if (observer != event.individual1 && event.individual1->status_effects.invisible) {
                 // we can only see this event if it's the event made the individual invisible
                 if (event.type != Event::DISAPPEAR)
                     continue;
@@ -198,7 +150,7 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
 
     Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
 
-    if (random_int(20) == 0) {
+    if (random_int(1) == 0) {
         // have an item
         Item item = random_item();
         individual->inventory.append(item);
@@ -371,6 +323,12 @@ static bool take_action(Individual individual, Action action) {
             attack(individual, target);
             return true;
         }
+        case Action::ZAP: {
+            Item wand = individual->inventory[0];
+            zap_wand(individual, wand, Coord{1, 0});
+            return true;
+        }
+
         case Action::CHEATCODE_HEALTH_BOOST:
             individual->hitpoints += 100;
             return false;
@@ -382,11 +340,11 @@ static bool take_action(Individual individual, Action action) {
             // this one does take time, because your movement cost may have changed
             return true;
         case Action::CHEATCODE_INVISIBILITY:
-            if (individual->invisible) {
-                individual->invisible = false;
+            if (individual->status_effects.invisible) {
+                individual->status_effects.invisible = false;
                 publish_event(Event::appear(you));
             } else {
-                individual->invisible = true;
+                individual->status_effects.invisible = true;
                 publish_event(Event::disappear(you));
             }
             return false;
@@ -481,6 +439,10 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
             output_actions.append(Action{Action::ATTACK, vector});
         }
     }
+    // use items
+    if (individual->inventory.length() > 0)
+        output_actions.append(Action::zap());
+
     // alright, we'll let you use cheatcodes
     if (individual == you) {
         output_actions.append(Action::cheatcode_health_boost());
@@ -489,4 +451,14 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
         output_actions.append(Action::cheatcode_invisibility());
         output_actions.append(Action::cheatcode_generate_monster());
     }
+}
+
+// you need to emit events yourself
+bool confuse_individual(Individual target) {
+    if (!target->species()->has_mind) {
+        // can't confuse something with no mind
+        return false;
+    }
+    target->status_effects.confused_timeout = random_int(100, 200);
+    return true;
 }

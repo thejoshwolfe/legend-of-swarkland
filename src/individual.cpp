@@ -15,14 +15,17 @@ Species * IndividualImpl::species() const {
 }
 
 PerceivedIndividual to_perceived_individual(Individual target) {
-    return new PerceivedIndividualImpl(target->id, target->species_id, target->location, target->team, target->invisible);
+    StatusEffects status_effects = target->status_effects;
+    // nerf some information
+    status_effects.confused_timeout = !!status_effects.confused_timeout;
+    return new PerceivedIndividualImpl(target->id, target->species_id, target->location, target->team, status_effects);
 }
 
 PerceivedIndividual observe_individual(Individual observer, Individual target) {
     if (!observer->knowledge.tile_is_visible[target->location].any())
         return NULL;
     // invisible creates can only be seen by themselves
-    if (target->invisible && observer != target)
+    if (target->status_effects.invisible && observer != target)
         return NULL;
     return to_perceived_individual(target);
 }

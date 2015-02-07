@@ -50,6 +50,9 @@ static Action on_key_down(const SDL_Event & event) {
         case SDL_SCANCODE_SPACE:
             return Action::wait();
 
+        case SDL_SCANCODE_Z:
+            return Action::zap();
+
         case SDL_SCANCODE_V:
             cheatcode_full_visibility = !cheatcode_full_visibility;
             break;
