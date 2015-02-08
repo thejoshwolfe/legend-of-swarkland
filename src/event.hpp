@@ -8,6 +8,7 @@ struct Event {
         MOVE,
         ATTACK,
         DIE,
+        ZAP_WAND,
         WAND_HIT_NO_EFFECT,
         WAND_OF_CONFUSION_HIT,
         NO_LONGER_CONFUSED,
@@ -48,6 +49,16 @@ struct Event {
     }
     static inline Event die(Individual deceased) {
         return single_individual_event(DIE, deceased);
+    }
+    static inline Event zap_wand(Individual wand_wielder, Item item) {
+        return {
+            ZAP_WAND,
+            wand_wielder,
+            NULL,
+            wand_wielder->location,
+            Coord::nowhere(),
+            item,
+        };
     }
     static inline Event wand_hit_no_effect(Individual wand_wielder, Item item, Individual target) {
         return {

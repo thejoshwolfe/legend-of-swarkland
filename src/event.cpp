@@ -20,6 +20,11 @@ RememberedEvent to_remembered_event(Individual observer, Event event) {
             get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s dies.", buffer1.raw());
             return result;
+        case Event::ZAP_WAND:
+            get_individual_description(observer, event.individual1->id, &buffer1);
+            get_item_description(observer, event.individual1, event.item1, &buffer2);
+            result->bytes.format("%s zaps %s.", buffer1.raw(), buffer2.raw());
+            return result;
         case Event::WAND_HIT_NO_EFFECT:
             get_item_description(observer, event.individual1, event.item1, &buffer1);
             get_individual_description(observer, event.individual2->id, &buffer2);

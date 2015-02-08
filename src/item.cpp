@@ -71,6 +71,7 @@ static void confuse_individual_from_wand(Individual wand_wielder, Item wand, Ind
 }
 
 void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
+    publish_event(Event::zap_wand(wand_wielder, wand));
     Coord cursor = wand_wielder->location;
     int beam_length = random_int(6, 13);
     for (int i = 0; i < beam_length; i++) {
