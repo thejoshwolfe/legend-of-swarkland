@@ -21,6 +21,10 @@ extern WandId actual_wand_identities[WandId_COUNT];
 
 struct Item {
     WandDescriptionId description_id;
+
+    static inline Item none() {
+        return {WandDescriptionId_COUNT};
+    }
 };
 
 

@@ -51,9 +51,9 @@ static Action get_ai_decision(Individual individual) {
         if (path.length() > 0) {
             Coord direction = path[0] - individual->location;
             if (path[0] == target->location)
-                return {Action::ATTACK, direction};
+                return Action::attack(direction);
             else
-                return {Action::MOVE, direction};
+                return Action::move(direction);
         } else {
             // we must be stuck in a crowd
             return Action::wait();

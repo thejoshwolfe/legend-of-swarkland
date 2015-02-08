@@ -260,8 +260,7 @@ static bool take_action(Individual actor, Action action) {
             return true;
         }
         case Action::ZAP: {
-            Item wand = actor->inventory[0];
-            zap_wand(actor, wand, Coord{1, 0});
+            zap_wand(actor, action.item, action.coord);
             return true;
         }
 
@@ -374,7 +373,7 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
     for (int i = 0; i < 8; i++) {
         Coord direction = directions[i];
         if (do_i_think_i_can_move_here(individual, individual->location + direction))
-            output_actions.append(Action{Action::MOVE, direction});
+            output_actions.append(Action::move(direction));
     }
     // attack
     for (auto iterator = individual->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
@@ -384,12 +383,13 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
         Coord vector = target->location - individual->location;
         if (vector == sign(vector)) {
             // within melee range
-            output_actions.append(Action{Action::ATTACK, vector});
+            output_actions.append(Action::attack(vector));
         }
     }
     // use items
-    if (individual->inventory.length() > 0)
-        output_actions.append(Action::zap());
+    for (int i = 0; i < individual->inventory.length(); i++)
+        for (int j = 0; j < 8; j++)
+            output_actions.append(Action::zap(individual->inventory[i], directions[j]));
 
     // alright, we'll let you use cheatcodes
     if (individual == you) {

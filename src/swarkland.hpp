@@ -5,59 +5,7 @@
 #include "geometry.hpp"
 #include "list.hpp"
 #include "individual.hpp"
-
-struct Action {
-    enum Type {
-        MOVE,
-        WAIT,
-        ATTACK,
-        ZAP,
-
-        CHEATCODE_HEALTH_BOOST,
-        CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD,
-        CHEATCODE_POLYMORPH,
-        CHEATCODE_INVISIBILITY,
-        CHEATCODE_GENERATE_MONSTER,
-
-        // only a player can be undecided
-        UNDECIDED,
-    };
-    Type type;
-    Coord coord;
-
-    // canonical singletons, appropriate for == comparison
-    static inline Action wait() {
-        return {WAIT, {0, 0}};
-    }
-    static inline Action undecided() {
-        return {UNDECIDED, {0, 0}};
-    }
-    static inline Action zap() {
-        return {ZAP, {0, 0}};
-    }
-
-    static inline Action cheatcode_health_boost() {
-        return {CHEATCODE_HEALTH_BOOST, {0, 0}};
-    }
-    static inline Action cheatcode_kill_everybody_in_the_world() {
-        return {CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD, {0, 0}};
-    }
-    static inline Action cheatcode_polymorph() {
-        return {CHEATCODE_POLYMORPH, {0, 0}};
-    }
-    static inline Action cheatcode_invisibility() {
-        return {CHEATCODE_INVISIBILITY, {0, 0}};
-    }
-    static inline Action cheatcode_generate_monster() {
-        return {CHEATCODE_GENERATE_MONSTER, {0, 0}};
-    }
-};
-static inline bool operator==(Action a, Action b) {
-    return a.type == b.type && a.coord == b.coord;
-}
-static inline bool operator!=(Action a, Action b) {
-    return !(a == b);
-}
+#include "action.hpp"
 
 extern Species specieses[SpeciesId_COUNT];
 

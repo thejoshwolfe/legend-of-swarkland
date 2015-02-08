@@ -12,45 +12,71 @@ Coord get_mouse_pixels() {
     return result;
 }
 
+enum InputMode {
+    InputMode_MAIN,
+    InputMode_ZAP_CHOOSE_DIRECTION,
+};
+static InputMode input_mode = InputMode_MAIN;
+
 static Action move_or_attack(Coord direction) {
-    Action action = {Action::MOVE, direction};
+    Action action = Action::move(direction);
     // convert moving into attacking if it's pointed at an observed monster.
     if (find_perceived_individual_at(you, you->location + action.coord) != NULL)
         action.type = Action::ATTACK;
     return action;
 }
-static Action on_key_down(const SDL_Event & event) {
+static Coord get_direction_from_event(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_KP_1:
+            return {-1, 1};
+        case SDL_SCANCODE_DOWN:
+        case SDL_SCANCODE_KP_2:
+            return {0, 1};
+        case SDL_SCANCODE_KP_3:
+            return {1, 1};
+        case SDL_SCANCODE_LEFT:
+        case SDL_SCANCODE_KP_4:
+            return {-1, 0};
+        case SDL_SCANCODE_RIGHT:
+        case SDL_SCANCODE_KP_6:
+            return {1, 0};
+        case SDL_SCANCODE_KP_7:
+            return {-1, -1};
+        case SDL_SCANCODE_UP:
+        case SDL_SCANCODE_KP_8:
+            return {0, -1};
+        case SDL_SCANCODE_KP_9:
+            return {1, -1};
+        default:
+            panic("invalid direcetion");
+    }
+}
+static Action on_key_down_main(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {
         case SDL_SCANCODE_ESCAPE:
             request_shutdown = true;
             break;
 
         case SDL_SCANCODE_KP_1:
-            return move_or_attack({-1, 1});
-        case SDL_SCANCODE_DOWN:
         case SDL_SCANCODE_KP_2:
-            return move_or_attack({0, 1});
         case SDL_SCANCODE_KP_3:
-            return move_or_attack({1, 1});
-        case SDL_SCANCODE_LEFT:
         case SDL_SCANCODE_KP_4:
-            return move_or_attack({-1, 0});
-        case SDL_SCANCODE_RIGHT:
         case SDL_SCANCODE_KP_6:
-            return move_or_attack({1, 0});
         case SDL_SCANCODE_KP_7:
-            return move_or_attack({-1, -1});
-        case SDL_SCANCODE_UP:
         case SDL_SCANCODE_KP_8:
-            return move_or_attack({0, -1});
         case SDL_SCANCODE_KP_9:
-            return move_or_attack({1, -1});
+        case SDL_SCANCODE_DOWN:
+        case SDL_SCANCODE_LEFT:
+        case SDL_SCANCODE_RIGHT:
+        case SDL_SCANCODE_UP:
+            return move_or_attack(get_direction_from_event(event));
 
         case SDL_SCANCODE_SPACE:
             return Action::wait();
 
         case SDL_SCANCODE_Z:
-            return Action::zap();
+            input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
+            return Action::undecided();
 
         case SDL_SCANCODE_V:
             cheatcode_full_visibility = !cheatcode_full_visibility;
@@ -71,6 +97,41 @@ static Action on_key_down(const SDL_Event & event) {
 
         default:
             break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down_choose_direction(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_MAIN;
+            break;
+
+        case SDL_SCANCODE_KP_1:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_KP_3:
+        case SDL_SCANCODE_KP_4:
+        case SDL_SCANCODE_KP_6:
+        case SDL_SCANCODE_KP_7:
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_KP_9:
+        case SDL_SCANCODE_DOWN:
+        case SDL_SCANCODE_LEFT:
+        case SDL_SCANCODE_RIGHT:
+        case SDL_SCANCODE_UP:
+            input_mode = InputMode_MAIN;
+            return Action::zap(you->inventory[0], get_direction_from_event(event));
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down(const SDL_Event & event) {
+    switch (input_mode) {
+        case InputMode_MAIN:
+            return on_key_down_main(event);
+        case InputMode_ZAP_CHOOSE_DIRECTION:
+            return on_key_down_choose_direction(event);
     }
     return Action::undecided();
 }

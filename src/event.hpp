@@ -33,7 +33,7 @@ struct Event {
             NULL,
             from,
             to,
-            {WandDescriptionId_COUNT},
+            Item::none(),
         };
     }
     static inline Event attack(Individual attacker, Individual target) {
@@ -43,7 +43,7 @@ struct Event {
             target,
             attacker->location,
             target->location,
-            {WandDescriptionId_COUNT},
+            Item::none(),
         };
     }
     static inline Event die(Individual deceased) {
@@ -80,7 +80,7 @@ struct Event {
             target,
             actor->location,
             target->location,
-            {WandDescriptionId_COUNT},
+            Item::none(),
         };
     }
     static Event attack_thin_air(Individual actor) {
@@ -107,7 +107,7 @@ private:
             NULL,
             individual->location,
             Coord::nowhere(),
-            {WandDescriptionId_COUNT},
+            Item::none(),
         };
     }
 };
