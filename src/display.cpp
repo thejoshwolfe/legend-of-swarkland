@@ -274,11 +274,27 @@ void render() {
                 tile = actual_map_tiles[cursor];
             if (tile.tile_type == TileType_UNKNOWN)
                 continue;
-            Uint8 alpha = 0;
-            if (spectate_from->knowledge.tile_is_visible[cursor].any())
-                alpha = 255;
-            else
+            Uint8 alpha;
+            if (spectate_from->knowledge.tile_is_visible[cursor].any()) {
+                // it's in our direct line of sight
+                if (input_mode == InputMode_ZAP_CHOOSE_DIRECTION) {
+                    // actually, let's only show the cardinal directions
+                    Coord vector = spectate_from->location - cursor;
+                    if (vector.x * vector.y == 0) {
+                        // cardinal direction
+                        alpha = 255;
+                    } else if (abs(vector.x) == abs(vector.y)) {
+                        // diagnoal
+                        alpha = 255;
+                    } else {
+                        alpha = 128;
+                    }
+                } else {
+                    alpha = 255;
+                }
+            } else {
                 alpha = 128;
+            }
             SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
             RuckSackImage * image = (tile.tile_type == TileType_FLOOR ? floor_images : wall_images)[tile.aesthetic_index];
             render_tile(renderer, sprite_sheet_texture, image, cursor);

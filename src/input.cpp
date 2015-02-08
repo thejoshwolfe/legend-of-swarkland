@@ -12,11 +12,7 @@ Coord get_mouse_pixels() {
     return result;
 }
 
-enum InputMode {
-    InputMode_MAIN,
-    InputMode_ZAP_CHOOSE_DIRECTION,
-};
-static InputMode input_mode = InputMode_MAIN;
+InputMode input_mode = InputMode_MAIN;
 
 static Action move_or_attack(Coord direction) {
     Action action = Action::move(direction);
