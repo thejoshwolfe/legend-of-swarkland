@@ -6,9 +6,18 @@
 
 bool request_shutdown = false;
 
+static bool seen_the_mouse_for_realz = false;
+
 Coord get_mouse_pixels() {
     Coord result;
     SDL_GetMouseState(&result.x, &result.y);
+    if (!seen_the_mouse_for_realz) {
+        // the mouse is reported at {0, 0} until we see it for realz,
+        // so don't believe it until we're sure.
+        if (result == Coord{0, 0})
+            return Coord::nowhere();
+        seen_the_mouse_for_realz = true;
+    }
     return result;
 }
 
