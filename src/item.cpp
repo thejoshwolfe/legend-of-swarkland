@@ -82,9 +82,10 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
             case WandId_WAND_OF_DIGGING:
             case WandId_WAND_OF_STRIKING: {
                 Individual target = find_individual_at(cursor);
-                if (target != NULL)
+                if (target != NULL) {
                     confuse_individual_from_wand(wand_wielder, wand, target);
-                beam_length -= 3;
+                    beam_length -= 3;
+                }
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL)
                     beam_length = i;
                 break;
