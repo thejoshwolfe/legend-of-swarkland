@@ -40,6 +40,10 @@ static RememberedEvent to_remembered_event(Individual observer, Event event) {
             get_individual_description(observer, event.individual2->id, &buffer2);
             result->bytes.format("%s strikes %s!", buffer1.raw(), buffer2.raw());
             return result;
+        case Event::WAND_OF_DIGGING_HIT_WALL:
+            get_item_description(observer, event.individual1, event.item1, &buffer1);
+            result->bytes.format("%s digs through the wall!", buffer1.raw());
+            return result;
         case Event::NO_LONGER_CONFUSED:
             get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s is no longer confused.", buffer1.raw());
@@ -69,9 +73,8 @@ static RememberedEvent to_remembered_event(Individual observer, Event event) {
             get_individual_description(observer, event.individual1->id, &buffer1);
             result->bytes.format("%s transforms into %s!", "TODO: pre-transform description", buffer1.raw());
             return result;
-        default:
-            panic("remembered_event");
     }
+    panic("remembered_event");
 }
 
 void publish_event(Event event) {

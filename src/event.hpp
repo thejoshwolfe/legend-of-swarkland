@@ -12,6 +12,7 @@ struct Event {
         WAND_HIT_NO_EFFECT,
         WAND_OF_CONFUSION_HIT,
         WAND_OF_STRIKING_HIT,
+        WAND_OF_DIGGING_HIT_WALL,
         NO_LONGER_CONFUSED,
         BUMP_INTO_WALL,
         BUMP_INTO_INDIVIDUAL,
@@ -64,6 +65,16 @@ struct Event {
     }
     static inline Event wand_of_striking_hit(Individual wand_wielder, Item item, Individual target) {
         return event_individual_individual_item(WAND_OF_STRIKING_HIT, wand_wielder, target, item);
+    }
+    static inline Event wand_of_digging_hit_wall(Individual wand_wielder, Item item, Coord wall_location) {
+        return {
+            WAND_OF_DIGGING_HIT_WALL,
+            wand_wielder,
+            NULL,
+            wand_wielder->location,
+            wall_location,
+            item,
+        };
     }
 
     static Event bump_into_wall(Individual actor) {
