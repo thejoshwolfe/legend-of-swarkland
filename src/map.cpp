@@ -3,7 +3,7 @@
 #include "individual.hpp"
 #include "swarkland.hpp"
 
-Matrix<Tile> actual_map_tiles(map_size);
+MapMatrix<Tile> actual_map_tiles;
 
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     if (from_location == to_location)

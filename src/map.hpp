@@ -5,7 +5,14 @@
 
 #include <stdlib.h>
 
-static const Coord map_size = { 50, 25 };
+enum {
+    MAP_SIZE_X = 50,
+    MAP_SIZE_Y = 25,
+};
+static const Coord map_size = { MAP_SIZE_X, MAP_SIZE_Y };
+
+template <typename T>
+using MapMatrix = Matrix<T, MAP_SIZE_X, MAP_SIZE_Y>;
 
 enum TileType {
     TileType_UNKNOWN,
@@ -22,7 +29,7 @@ struct Tile {
 
 static const Tile unknown_tile = {TileType_UNKNOWN, 0};
 
-extern Matrix<Tile> actual_map_tiles;
+extern MapMatrix<Tile> actual_map_tiles;
 
 void generate_map();
 

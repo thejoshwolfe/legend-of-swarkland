@@ -89,14 +89,13 @@ public:
     // terrain knowledge
     Coord map_last_observed_from = Coord::nowhere();
     VisionTypes map_last_observed_with;
-    Matrix<Tile> tiles;
-    Matrix<VisionTypes> tile_is_visible;
+    MapMatrix<Tile> tiles;
+    MapMatrix<VisionTypes> tile_is_visible;
     List<RememberedEvent> remembered_events;
     WandId wand_identities[WandId_COUNT];
 
     IdMap<PerceivedIndividual> perceived_individuals;
-    Knowledge() :
-            tiles(map_size), tile_is_visible(map_size) {
+    Knowledge() {
         tiles.set_all(unknown_tile);
         tile_is_visible.set_all(VisionTypes::none());
         for (int i = 0; i < WandId_COUNT; i++)

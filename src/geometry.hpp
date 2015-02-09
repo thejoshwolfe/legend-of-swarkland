@@ -23,30 +23,21 @@ static inline Coord operator-(Coord a, Coord b) {
     return {a.x - b.x, a.y - b.y};
 }
 
-template<typename T>
+template<typename T, int SizeX, int SizeY>
 class Matrix {
 public:
-    Matrix(Coord size) :
-            _size(size) {
-        items = new T[size.x * size.y];
-    }
-    Matrix(Matrix &) = delete;
-    ~Matrix() {
-        delete[] items;
-    }
     T & operator[](Coord index) {
-        if (index.x < 0 || index.x >= _size.x || index.y < 0 || index.y >= _size.y)
+        if (index.x < 0 || index.x >= SizeX || index.y < 0 || index.y >= SizeY)
             panic("matrix bounds check");
-        return items[index.y * _size.x + index.x];
+        return items[index.y * SizeX + index.x];
     }
     void set_all(T value) {
-        for (int i = 0; i < _size.x * _size.y; i++) {
+        for (int i = 0; i < SizeX * SizeY; i++) {
             items[i] = value;
         }
     }
 private:
-    Coord _size;
-    T * items;
+    T items[SizeX * SizeY];
 };
 
 static inline int distance_squared(Coord a, Coord b) {
