@@ -80,11 +80,18 @@ static RememberedEvent to_remembered_event(Individual observer, Event event) {
 void publish_event(Event event) {
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         Individual observer = iterator.next();
-        if (!observer->is_alive)
-            continue;
-        bool can_see1 = observer->knowledge.tile_is_visible[event.coord1].any();
-        bool can_see2 = event.coord2 != Coord::nowhere() && observer->knowledge.tile_is_visible[event.coord2].any();
-        if (!(can_see1 || can_see2))
+        if (!observer->is_alive) {
+            // we've already died. we're probably not going to notice this
+            if (event.type == Event::DIE && observer == event.individual1) {
+                // we can see ourselves die.
+            } else {
+                // we're out of the game at this point.
+                continue;
+            }
+        }
+        bool can_see_coord1 = observer->knowledge.tile_is_visible[event.coord1].any();
+        bool can_see_coord2 = event.coord2 != Coord::nowhere() && observer->knowledge.tile_is_visible[event.coord2].any();
+        if (!(can_see_coord1 || can_see_coord2))
             continue; // out of view
         if (event.individual1 != NULL) {
             // we typically can't see invisible individuals doing things
@@ -122,10 +129,5 @@ void publish_event(Event event) {
         // now that we've had a chance to talk about it, delete it if we should
         for (int i = 0; i < delete_ids.length(); i++)
             observer->knowledge.perceived_individuals.remove(delete_ids[i]);
-    }
-
-    if (event.type == Event::DIE) {
-        // we didn't notice ourselves dying in the above loop
-        event.individual1->knowledge.perceived_individuals.remove(event.individual1->id);
     }
 }

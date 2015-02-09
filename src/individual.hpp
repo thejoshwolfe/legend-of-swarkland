@@ -93,7 +93,6 @@ public:
     MapMatrix<VisionTypes> tile_is_visible;
     List<RememberedEvent> remembered_events;
     WandId wand_identities[WandId_COUNT];
-
     IdMap<PerceivedIndividual> perceived_individuals;
     Knowledge() {
         tiles.set_all(unknown_tile);
