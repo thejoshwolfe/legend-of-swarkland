@@ -130,7 +130,7 @@ PerceivedIndividual observe_individual(Individual observer, Individual target);
 int compare_individuals_by_initiative(Individual a, Individual b);
 
 // TODO: these are in the wrong place
-void compute_vision(Individual individual);
+void compute_vision(Individual individual, bool force);
 void get_item_description(Individual observer, Individual wielder, Item item, ByteBuffer * output);
 void zap_wand(Individual individual, Item wand, Coord direction);
 

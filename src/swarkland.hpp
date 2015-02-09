@@ -30,4 +30,6 @@ Individual find_individual_at(Coord location);
 bool confuse_individual(Individual target);
 void strike_individual(Individual attacker, Individual target);
 
+void change_map(Coord location, TileType new_tile_type);
+
 #endif

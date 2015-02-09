@@ -60,9 +60,11 @@ static void refresh_ethereal_vision(Individual individual) {
     }
 }
 
-void compute_vision(Individual spectator) {
-    if (spectator->knowledge.map_last_observed_from == spectator->location && spectator->knowledge.map_last_observed_with == spectator->species()->vision_types)
-        return;
+void compute_vision(Individual spectator, bool force) {
+    if (!force) {
+        if (spectator->knowledge.map_last_observed_from == spectator->location && spectator->knowledge.map_last_observed_with == spectator->species()->vision_types)
+            return;
+    }
 
     // take a look at the terrain
     spectator->knowledge.map_last_observed_from = spectator->location;

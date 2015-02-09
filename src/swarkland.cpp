@@ -61,7 +61,7 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
     }
 
     actual_individuals.put(individual->id, individual);
-    compute_vision(individual);
+    compute_vision(individual, true);
     publish_event(Event::appear(individual));
     return individual;
 }
@@ -160,7 +160,7 @@ Individual find_individual_at(Coord location) {
 static void do_move(Individual mover, Coord new_position) {
     Coord old_position = mover->location;
     mover->location = new_position;
-    compute_vision(mover);
+    compute_vision(mover, false);
 
     // notify other individuals who could see that move
     publish_event(Event::move(mover, old_position, new_position));
@@ -177,7 +177,7 @@ static void cheatcode_kill_everybody_in_the_world() {
 }
 static void cheatcode_polymorph() {
     you->species_id = (SpeciesId)((you->species_id + 1) % SpeciesId_COUNT);
-    compute_vision(you);
+    compute_vision(you, false);
     publish_event(Event::polymorph(you));
 }
 Individual cheatcode_spectator;
@@ -422,4 +422,12 @@ void strike_individual(Individual attacker, Individual target) {
     // it's just some damage
     int damage = random_int(4, 8);
     damage_individual(attacker, target, damage);
+}
+void change_map(Coord location, TileType new_tile_type) {
+    actual_map_tiles[location].tile_type = new_tile_type;
+    // recompute everyone's vision
+    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
+        Individual individual = iterator.next();
+        compute_vision(individual, true);
+    }
 }

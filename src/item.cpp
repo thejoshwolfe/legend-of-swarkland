@@ -86,7 +86,7 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
         switch (actual_wand_identities[wand.description_id]) {
             case WandId_WAND_OF_DIGGING: {
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL) {
-                    actual_map_tiles[cursor].tile_type = TileType_FLOOR;
+                    change_map(cursor, TileType_FLOOR);
                     publish_event(Event::wand_of_digging_hit_wall(wand_wielder, wand, cursor));
                 } else {
                     // the digging beam doesn't travel well through air
