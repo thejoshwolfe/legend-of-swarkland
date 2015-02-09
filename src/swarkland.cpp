@@ -122,13 +122,20 @@ static void kill_individual(Individual individual) {
     }
 }
 
-static void attack(Individual attacker, Individual target) {
-    target->hitpoints -= attacker->species()->attack_power;
-    publish_event(Event::attack(attacker, target));
+static void damage_individual(Individual attacker, Individual target, int damage) {
+    if (damage <= 0)
+        panic("no damage");
+    target->hitpoints -= damage;
     if (target->hitpoints <= 0) {
         kill_individual(target);
         attacker->kill_counter++;
     }
+}
+
+// normal melee attack
+static void attack(Individual attacker, Individual target) {
+    publish_event(Event::attack(attacker, target));
+    damage_individual(attacker, target, attacker->species()->attack_power);
 }
 
 PerceivedIndividual find_perceived_individual_at(Individual observer, Coord location) {
@@ -409,4 +416,10 @@ bool confuse_individual(Individual target) {
     }
     target->status_effects.confused_timeout = random_int(100, 200);
     return true;
+}
+
+void strike_individual(Individual attacker, Individual target) {
+    // it's just some damage
+    int damage = random_int(4, 8);
+    damage_individual(attacker, target, damage);
 }

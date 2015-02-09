@@ -22,10 +22,12 @@ void swarkland_init();
 
 void get_available_actions(Individual individual, List<Action> & output_actions);
 
-bool confuse_individual(Individual target);
 Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker);
 void run_the_game();
 PerceivedIndividual find_perceived_individual_at(Individual observer, Coord location);
 Individual find_individual_at(Coord location);
+
+bool confuse_individual(Individual target);
+void strike_individual(Individual attacker, Individual target);
 
 #endif

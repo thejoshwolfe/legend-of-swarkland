@@ -70,6 +70,11 @@ static void confuse_individual_from_wand(Individual wand_wielder, Item wand, Ind
     }
 }
 
+static void strike_individual_from_wand(Individual wand_wielder, Item wand, Individual target) {
+    publish_event(Event::wand_of_striking_hit(wand_wielder, wand, target));
+    strike_individual(wand_wielder, target);
+}
+
 void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
     publish_event(Event::zap_wand(wand_wielder, wand));
     Coord cursor = wand_wielder->location;
@@ -79,9 +84,18 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
         if (!is_in_bounds(cursor))
             break;
         switch (actual_wand_identities[wand.description_id]) {
-            case WandId_WAND_OF_CONFUSION:
             case WandId_WAND_OF_DIGGING:
             case WandId_WAND_OF_STRIKING: {
+                Individual target = find_individual_at(cursor);
+                if (target != NULL) {
+                    strike_individual_from_wand(wand_wielder, wand, target);
+                    beam_length -= 3;
+                }
+                if (actual_map_tiles[cursor].tile_type == TileType_WALL)
+                    beam_length = i;
+                break;
+            }
+            case WandId_WAND_OF_CONFUSION: {
                 Individual target = find_individual_at(cursor);
                 if (target != NULL) {
                     confuse_individual_from_wand(wand_wielder, wand, target);

@@ -3,7 +3,7 @@
 #include "display.hpp"
 #include "swarkland.hpp"
 
-RememberedEvent to_remembered_event(Individual observer, Event event) {
+static RememberedEvent to_remembered_event(Individual observer, Event event) {
     ByteBuffer buffer1;
     ByteBuffer buffer2;
     RememberedEvent result = new RememberedEventImpl;
@@ -34,6 +34,11 @@ RememberedEvent to_remembered_event(Individual observer, Event event) {
             get_item_description(observer, event.individual1, event.item1, &buffer1);
             get_individual_description(observer, event.individual2->id, &buffer2);
             result->bytes.format("%s hits %s; %s is confused!", buffer1.raw(), buffer2.raw(), buffer2.raw());
+            return result;
+        case Event::WAND_OF_STRIKING_HIT:
+            get_item_description(observer, event.individual1, event.item1, &buffer1);
+            get_individual_description(observer, event.individual2->id, &buffer2);
+            result->bytes.format("%s strikes %s!", buffer1.raw(), buffer2.raw());
             return result;
         case Event::NO_LONGER_CONFUSED:
             get_individual_description(observer, event.individual1->id, &buffer1);
