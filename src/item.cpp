@@ -23,8 +23,8 @@ Item random_item() {
     return {(WandDescriptionId)random_int(WandDescriptionId_COUNT)};
 }
 
-void get_item_description(Individual observer, Individual wielder, Item item, ByteBuffer * output) {
-    if (!observer->knowledge.tile_is_visible[wielder->location].any()) {
+void get_item_description(Individual observer, uint256 wielder_id, Item item, ByteBuffer * output) {
+    if (can_see_individual(observer, wielder_id)) {
         // can't see the wand
         output->append("a wand");
         return;

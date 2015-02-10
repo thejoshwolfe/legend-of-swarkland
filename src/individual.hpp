@@ -123,14 +123,14 @@ struct IndividualImpl : public ReferenceCounted {
 };
 typedef Reference<IndividualImpl> Individual;
 
-PerceivedIndividual to_perceived_individual(Individual target);
+PerceivedIndividual to_perceived_individual(uint256 target_id);
 PerceivedIndividual observe_individual(Individual observer, Individual target);
 
 int compare_individuals_by_initiative(Individual a, Individual b);
 
 // TODO: these are in the wrong place
 void compute_vision(Individual individual, bool force);
-void get_item_description(Individual observer, Individual wielder, Item item, ByteBuffer * output);
+void get_item_description(Individual observer, uint256 wielder_id, Item item, ByteBuffer * output);
 void zap_wand(Individual individual, Item wand, Coord direction);
 
 #endif

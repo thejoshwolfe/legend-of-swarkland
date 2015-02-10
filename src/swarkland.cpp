@@ -243,7 +243,7 @@ static bool take_action(Individual actor, Action action) {
             Coord new_position = actor->location + confuse_direction(actor, action.coord);
             if (!is_in_bounds(new_position) || actual_map_tiles[new_position].tile_type == TileType_WALL) {
                 // this can only happen if your direction was changed, since attempting to move into a wall is invalid.
-                publish_event(Event::bump_into_wall(actor));
+                publish_event(Event::bump_into_wall(actor, new_position));
                 return true;
             }
             Individual target = find_individual_at(new_position);
@@ -259,12 +259,17 @@ static bool take_action(Individual actor, Action action) {
         case Action::ATTACK: {
             Coord new_position = actor->location + confuse_direction(actor, action.coord);
             Individual target = find_individual_at(new_position);
-            if (target == NULL) {
-                publish_event(Event::attack_thin_air(actor));
+            if (target != NULL) {
+                attack(actor, target);
+                return true;
+            } else {
+                bool is_air = is_in_bounds(new_position) && actual_map_tiles[new_position].tile_type == TileType_FLOOR;
+                if (is_air)
+                    publish_event(Event::attack_thin_air(actor, new_position));
+                else
+                    publish_event(Event::attack_wall(actor, new_position));
                 return true;
             }
-            attack(actor, target);
-            return true;
         }
         case Action::ZAP: {
             zap_wand(actor, action.item, action.coord);
@@ -287,7 +292,7 @@ static bool take_action(Individual actor, Action action) {
                 publish_event(Event::appear(you));
             } else {
                 actor->status_effects.invisible = true;
-                publish_event(Event::disappear(you));
+                publish_event(Event::turn_invisible(you));
             }
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER:
