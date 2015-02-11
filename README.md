@@ -4,7 +4,13 @@
 
 Basic turn-based, hack-n-slash survival game.
 
-## How Do I Shot Game? (Ubuntu)
+## How Do I Shot Game?
+
+### Windows
+
+[Latest Windows Build](http://superjoe.s3.amazonaws.com/temp/legend-of-swarkland.html)
+
+### Ubuntu
 
 add ppa for rucksack:
 
@@ -39,6 +45,9 @@ cd build/native && ./legend-of-swarkland
  0. In legend-of-swarkland directory: `make MXE_HOME=/path/to/mxe windows`
 
 (You can build for both Windows and native Linux at the same time by appending `native` to the above.)
+
+See [this project](https://github.com/andrewrk/www.legend-of-swarkland) for
+source code to the website.
 
 ## Version History
 
