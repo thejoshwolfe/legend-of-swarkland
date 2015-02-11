@@ -28,7 +28,7 @@ make
 run:
 
 ```
-./build/legend-of-swarkland
+cd build/native && ./legend-of-swarkland
 ```
 
 ## Build for Windows on Linux

@@ -90,7 +90,7 @@ void display_init() {
         panic("renderer create failed");
     }
 
-    if (rucksack_bundle_open("build/resources.bundle", &bundle) != RuckSackErrorNone) {
+    if (rucksack_bundle_open("resources.bundle", &bundle) != RuckSackErrorNone) {
         panic("error opening resource bundle");
     }
     struct RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
