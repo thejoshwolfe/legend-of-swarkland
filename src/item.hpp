@@ -26,6 +26,12 @@ struct Item {
         return {WandDescriptionId_COUNT};
     }
 };
+static inline bool operator==(Item a, Item b) {
+    return a.description_id == b.description_id;
+}
+static inline bool operator!=(Item a, Item b) {
+    return !(a == b);
+}
 
 
 void init_items();

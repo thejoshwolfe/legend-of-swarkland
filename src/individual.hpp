@@ -96,7 +96,7 @@ public:
     struct {
         Item wand;
         PerceivedIndividual wielder;
-    } wand_being_zapped;
+    } wand_being_zapped = { Item::none(), NULL };
     IdMap<PerceivedIndividual> perceived_individuals;
     Knowledge() {
         tiles.set_all(unknown_tile);

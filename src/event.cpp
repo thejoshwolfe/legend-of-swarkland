@@ -255,6 +255,12 @@ static void perceive_individual(Individual observer, uint256 target_id) {
     observer->knowledge.perceived_individuals.put(target_id, to_perceived_individual(target_id));
 }
 
+static void id_item(Individual observer, Item item, WandId id) {
+    if (item == Item::none())
+        return; // can't see it
+    observer->knowledge.wand_identities[item.description_id] = id;
+}
+
 void publish_event(Event event) {
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         Individual observer = iterator.next();
@@ -304,11 +310,13 @@ void publish_event(Event event) {
                 break;
             case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
                 perceive_individual(observer, event.the_individual_data());
-                // TODO: id the wand if you can see it
+                id_item(observer, observer->knowledge.wand_being_zapped.wand, WandId_WAND_OF_CONFUSION);
                 break;
             case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
+                id_item(observer, observer->knowledge.wand_being_zapped.wand, WandId_WAND_OF_STRIKING);
+                break;
             case Event::BEAM_OF_DIGGING_HIT_WALL:
-                // TODO: id the wand if you can see it
+                id_item(observer, observer->knowledge.wand_being_zapped.wand, WandId_WAND_OF_DIGGING);
                 break;
 
             case Event::NO_LONGER_CONFUSED:
