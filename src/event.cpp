@@ -56,29 +56,30 @@ static RememberedEvent to_remembered_event(Individual observer, Event event) {
             result->bytes.format("%s dies.", buffer1.raw());
             return result;
 
-        case Event::ZAP_WAND:
-            get_individual_description(observer, event.zap_data().wielder, &buffer1);
-            get_item_description(observer, event.zap_data().wielder, event.zap_data().wand, &buffer2);
+        case Event::ZAP_WAND: {
+            Event::ZapWandData & data = event.zap_wand_data();
+            get_individual_description(observer, data.wielder, &buffer1);
+            get_item_description(observer, data.wielder, data.wand, &buffer2);
             result->bytes.format("%s zaps %s.", buffer1.raw(), buffer2.raw());
             return result;
-        case Event::WAND_HIT_NO_EFFECT:
-            get_item_description(observer, event.zap_hit_individual_data().wielder, event.zap_hit_individual_data().wand, &buffer1);
-            get_individual_description(observer, event.zap_hit_individual_data().target, &buffer2);
-            result->bytes.format("%s hits %s, but nothing happens.", buffer1.raw(), buffer2.raw());
+        }
+        case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
+            get_individual_description(observer, event.the_individual_data(), &buffer1);
+            result->bytes.format("a magic beam hits %s, but nothing happens.", buffer1.raw());
             return result;
-        case Event::WAND_OF_CONFUSION_HIT:
-            get_item_description(observer, event.zap_hit_individual_data().wielder, event.zap_hit_individual_data().wand, &buffer1);
-            get_individual_description(observer, event.zap_hit_individual_data().target, &buffer2);
-            result->bytes.format("%s hits %s; %s is confused!", buffer1.raw(), buffer2.raw(), buffer2.raw());
+        case Event::BEAM_HIT_WALL_NO_EFFECT:
+            result->bytes.format("a magic beam hits the wall, but nothing happens.");
             return result;
-        case Event::WAND_OF_STRIKING_HIT:
-            get_item_description(observer, event.zap_hit_individual_data().wielder, event.zap_hit_individual_data().wand, &buffer1);
-            get_individual_description(observer, event.zap_hit_individual_data().target, &buffer2);
-            result->bytes.format("%s strikes %s!", buffer1.raw(), buffer2.raw());
+        case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
+            get_individual_description(observer, event.the_individual_data(), &buffer1);
+            result->bytes.format("a magic beam hits %s; %s is confused!", buffer1.raw(), buffer1.raw());
             return result;
-        case Event::WAND_OF_DIGGING_HIT_WALL:
-            get_item_description(observer, event.zap_hit_location_data().wielder, event.zap_hit_location_data().wand, &buffer1);
-            result->bytes.format("%s digs through the wall!", buffer1.raw());
+        case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
+            get_individual_description(observer, event.the_individual_data(), &buffer1);
+            result->bytes.format("a magic beam strikes %s!", buffer1.raw());
+            return result;
+        case Event::BEAM_OF_DIGGING_HIT_WALL:
+            result->bytes.format("the wall magically crumbles away!");
             return result;
 
         case Event::NO_LONGER_CONFUSED:
@@ -203,23 +204,22 @@ static bool see_event(Individual observer, Event event, Event * output_event) {
             return true;
 
         case Event::ZAP_WAND:
-            if (!can_see_individual(observer, event.zap_data().wielder))
+            if (!can_see_individual(observer, event.zap_wand_data().wielder))
                 return false;
             *output_event = event;
             return true;
-        case Event::WAND_HIT_NO_EFFECT:
-        case Event::WAND_OF_CONFUSION_HIT:
-        case Event::WAND_OF_STRIKING_HIT: {
-            if (!can_see_individual(observer, event.zap_hit_individual_data().target))
+        case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
+        case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
+        case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL: {
+            if (!can_see_individual(observer, event.the_individual_data()))
                 return false;
-            // TODO: if you don't see the wielder, you shouldn't know what the wand looks like
             *output_event = event;
             return true;
         }
-        case Event::WAND_OF_DIGGING_HIT_WALL: {
-            if (!can_see_location(observer, event.zap_hit_location_data().target_location))
+        case Event::BEAM_HIT_WALL_NO_EFFECT:
+        case Event::BEAM_OF_DIGGING_HIT_WALL: {
+            if (!can_see_location(observer, event.the_location_data()))
                 return false;
-            // TODO: if you don't see the wielder, you shouldn't know what the wand looks like
             *output_event = event;
             return true;
         }
@@ -293,17 +293,21 @@ void publish_event(Event event) {
                 break;
 
             case Event::ZAP_WAND:
+                observer->knowledge.wand_being_zapped = {
+                    event.zap_wand_data().wand,
+                    observer->knowledge.perceived_individuals.get(event.zap_wand_data().wielder),
+                };
+                break;
+            case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
+            case Event::BEAM_HIT_WALL_NO_EFFECT:
                 // no state change
                 break;
-            case Event::WAND_HIT_NO_EFFECT:
+            case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
+                perceive_individual(observer, event.the_individual_data());
                 // TODO: id the wand if you can see it
                 break;
-            case Event::WAND_OF_CONFUSION_HIT:
-                perceive_individual(observer, event.zap_hit_individual_data().target);
-                // TODO: id the wand if you can see it
-                break;
-            case Event::WAND_OF_STRIKING_HIT:
-            case Event::WAND_OF_DIGGING_HIT_WALL:
+            case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
+            case Event::BEAM_OF_DIGGING_HIT_WALL:
                 // TODO: id the wand if you can see it
                 break;
 

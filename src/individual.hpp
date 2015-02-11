@@ -93,6 +93,10 @@ public:
     MapMatrix<VisionTypes> tile_is_visible;
     List<RememberedEvent> remembered_events;
     WandId wand_identities[WandId_COUNT];
+    struct {
+        Item wand;
+        PerceivedIndividual wielder;
+    } wand_being_zapped;
     IdMap<PerceivedIndividual> perceived_individuals;
     Knowledge() {
         tiles.set_all(unknown_tile);

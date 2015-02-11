@@ -20,10 +20,11 @@ struct Event {
         DIE,
 
         ZAP_WAND,
-        WAND_HIT_NO_EFFECT,
-        WAND_OF_CONFUSION_HIT,
-        WAND_OF_STRIKING_HIT,
-        WAND_OF_DIGGING_HIT_WALL,
+        BEAM_HIT_INDIVIDUAL_NO_EFFECT,
+        BEAM_HIT_WALL_NO_EFFECT,
+        BEAM_OF_CONFUSION_HIT_INDIVIDUAL,
+        BEAM_OF_STRIKING_HIT_INDIVIDUAL,
+        BEAM_OF_DIGGING_HIT_WALL,
 
         NO_LONGER_CONFUSED,
 
@@ -37,6 +38,10 @@ struct Event {
     uint256 & the_individual_data() {
         check_data_type(DataType_THE_INDIVIDUAL);
         return _data._the_individual;
+    }
+    Coord & the_location_data() {
+        check_data_type(DataType_THE_LOCATION);
+        return _data._the_location;
     }
     struct MoveData {
         uint256 individual;
@@ -55,31 +60,13 @@ struct Event {
         check_data_type(DataType_ATTACK);
         return _data._attack;
     }
-    struct ZapData {
+    struct ZapWandData {
         uint256 wielder;
         Item wand;
     };
-    ZapData & zap_data() {
-        check_data_type(DataType_ZAP);
-        return _data._zap;
-    }
-    struct ZapHitIndividualData {
-        uint256 wielder;
-        Item wand;
-        uint256 target;
-    };
-    ZapHitIndividualData & zap_hit_individual_data() {
-        check_data_type(DataType_ZAP_HIT_INDIVIDUAL);
-        return _data._zap_hit_individual;
-    }
-    struct ZapHitLocationData {
-        uint256 wielder;
-        Item wand;
-        Coord target_location;
-    };
-    ZapHitLocationData & zap_hit_location_data() {
-        check_data_type(DataType_ZAP_HIT_LOCATION);
-        return _data._zap_hit_location;
+    ZapWandData & zap_wand_data() {
+        check_data_type(DataType_ZAP_WAND);
+        return _data._zap_wand;
     }
     struct PolymorphData {
         uint256 individual;
@@ -117,29 +104,25 @@ struct Event {
     static inline Event zap_wand(Individual wand_wielder, Item item) {
         Event result;
         result.type = ZAP_WAND;
-        result.zap_data() = {
+        result.zap_wand_data() = {
             wand_wielder->id,
             item,
         };
         return result;
     }
-    static inline Event wand_hit_no_effect(Individual wand_wielder, Item item, Individual target) {
-        return zap_hit_individual(WAND_HIT_NO_EFFECT, wand_wielder, target, item);
+    static inline Event beam_hit_individual_no_effect(Individual target) {
+        return event_individual(BEAM_HIT_INDIVIDUAL_NO_EFFECT, target->id);
     }
-    static inline Event wand_of_confusion_hit(Individual wand_wielder, Item item, Individual target) {
-        return zap_hit_individual(WAND_OF_CONFUSION_HIT, wand_wielder, target, item);
+    static inline Event beam_of_confusion_hit_individual(Individual target) {
+        return event_individual(BEAM_OF_CONFUSION_HIT_INDIVIDUAL, target->id);
     }
-    static inline Event wand_of_striking_hit(Individual wand_wielder, Item item, Individual target) {
-        return zap_hit_individual(WAND_OF_STRIKING_HIT, wand_wielder, target, item);
+    static inline Event beam_of_striking_hit_individual(Individual target) {
+        return event_individual(BEAM_OF_STRIKING_HIT_INDIVIDUAL, target->id);
     }
-    static inline Event wand_of_digging_hit_wall(Individual wand_wielder, Item item, Coord wall_location) {
+    static inline Event beam_of_digging_hit_wall(Coord wall_location) {
         Event result;
-        result.type = WAND_OF_DIGGING_HIT_WALL;
-        result.zap_hit_location_data() = {
-            wand_wielder->id,
-            item,
-            wall_location,
-        };
+        result.type = BEAM_OF_DIGGING_HIT_WALL;
+        result.the_location_data() = wall_location;
         return result;
     }
 
@@ -203,33 +186,21 @@ private:
         };
         return result;
     }
-    static inline Event zap_hit_individual(Type type, Individual individual1, Individual individual2, Item item) {
-        Event result;
-        result.type = type;
-        result.zap_hit_individual_data() = {
-            individual1->id,
-            item,
-            individual2->id,
-        };
-        return result;
-    }
 
     union {
         uint256 _the_individual;
+        Coord _the_location;
         MoveData _move;
         AttackData _attack;
-        ZapData _zap;
-        ZapHitIndividualData _zap_hit_individual;
-        ZapHitLocationData _zap_hit_location;
+        ZapWandData _zap_wand;
         PolymorphData _polymorph;
     } _data;
     enum DataType {
         DataType_THE_INDIVIDUAL,
+        DataType_THE_LOCATION,
         DataType_MOVE,
         DataType_ATTACK,
-        DataType_ZAP,
-        DataType_ZAP_HIT_INDIVIDUAL,
-        DataType_ZAP_HIT_LOCATION,
+        DataType_ZAP_WAND,
         DataType_POLYMORPH,
     };
 
@@ -266,15 +237,18 @@ private:
                 return DataType_THE_INDIVIDUAL;
 
             case ZAP_WAND:
-                return DataType_ZAP;
-            case WAND_HIT_NO_EFFECT:
-                return DataType_ZAP_HIT_INDIVIDUAL;
-            case WAND_OF_CONFUSION_HIT:
-                return DataType_ZAP_HIT_INDIVIDUAL;
-            case WAND_OF_STRIKING_HIT:
-                return DataType_ZAP_HIT_INDIVIDUAL;
-            case WAND_OF_DIGGING_HIT_WALL:
-                return DataType_ZAP_HIT_LOCATION;
+                return DataType_ZAP_WAND;
+
+            case BEAM_HIT_INDIVIDUAL_NO_EFFECT:
+                return DataType_THE_INDIVIDUAL;
+            case BEAM_HIT_WALL_NO_EFFECT:
+                return DataType_THE_LOCATION;
+            case BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
+                return DataType_THE_INDIVIDUAL;
+            case BEAM_OF_STRIKING_HIT_INDIVIDUAL:
+                return DataType_THE_INDIVIDUAL;
+            case BEAM_OF_DIGGING_HIT_WALL:
+                return DataType_THE_LOCATION;
 
             case NO_LONGER_CONFUSED:
                 return DataType_THE_INDIVIDUAL;

@@ -61,17 +61,17 @@ void get_item_description(Individual observer, uint256 wielder_id, Item item, By
     }
 }
 
-static void confuse_individual_from_wand(Individual wand_wielder, Item wand, Individual target) {
+static void confuse_individual_from_wand(Individual target) {
     bool did_it_work = confuse_individual(target);
     if (did_it_work) {
-        publish_event(Event::wand_of_confusion_hit(wand_wielder, wand, target));
+        publish_event(Event::beam_of_confusion_hit_individual(target));
     } else {
-        publish_event(Event::wand_hit_no_effect(wand_wielder, wand, target));
+        publish_event(Event::beam_hit_individual_no_effect(target));
     }
 }
 
-static void strike_individual_from_wand(Individual wand_wielder, Item wand, Individual target) {
-    publish_event(Event::wand_of_striking_hit(wand_wielder, wand, target));
+static void strike_individual_from_wand(Individual wand_wielder, Individual target) {
+    publish_event(Event::beam_of_striking_hit_individual(target));
     strike_individual(wand_wielder, target);
 }
 
@@ -87,7 +87,7 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
             case WandId_WAND_OF_DIGGING: {
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL) {
                     change_map(cursor, TileType_FLOOR);
-                    publish_event(Event::wand_of_digging_hit_wall(wand_wielder, wand, cursor));
+                    publish_event(Event::beam_of_digging_hit_wall(cursor));
                 } else {
                     // the digging beam doesn't travel well through air
                     beam_length -= 3;
@@ -97,7 +97,7 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
             case WandId_WAND_OF_STRIKING: {
                 Individual target = find_individual_at(cursor);
                 if (target != NULL) {
-                    strike_individual_from_wand(wand_wielder, wand, target);
+                    strike_individual_from_wand(wand_wielder, target);
                     beam_length -= 3;
                 }
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL)
@@ -107,7 +107,7 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
             case WandId_WAND_OF_CONFUSION: {
                 Individual target = find_individual_at(cursor);
                 if (target != NULL) {
-                    confuse_individual_from_wand(wand_wielder, wand, target);
+                    confuse_individual_from_wand(target);
                     beam_length -= 3;
                 }
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL)
@@ -117,5 +117,13 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
             default:
                 panic("wand id");
         }
+    }
+
+    // the zap has stopped
+    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
+        iterator.next()->knowledge.wand_being_zapped = {
+            Item::none(),
+            NULL,
+        };
     }
 }
