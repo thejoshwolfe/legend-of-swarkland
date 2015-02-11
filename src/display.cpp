@@ -75,7 +75,7 @@ static void load_images(struct RuckSackImage ** spritesheet_images, long image_c
     wand_images[WandDescriptionId_PLASTIC_WAND] = find_image(spritesheet_images, image_count, "img/plastic_wand.png");
 }
 
-void display_init() {
+void display_init(const char * resource_bundle_path) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         panic("unable to init SDL");
     }
@@ -90,7 +90,7 @@ void display_init() {
         panic("renderer create failed");
     }
 
-    if (rucksack_bundle_open("resources.bundle", &bundle) != RuckSackErrorNone) {
+    if (rucksack_bundle_open_read(resource_bundle_path, &bundle) != RuckSackErrorNone) {
         panic("error opening resource bundle");
     }
     struct RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);

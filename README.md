@@ -35,6 +35,8 @@ run:
 
 ```
 cd build/native && ./legend-of-swarkland
+# or
+./build/native/legend-of-swarkland --resource-bundle build/native/resources.bundle
 ```
 
 ## Build for Windows on Linux
