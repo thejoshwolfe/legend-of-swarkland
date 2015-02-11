@@ -43,7 +43,7 @@ static inline int euclidean_mod(int a, int base) {
 template<typename T>
 T * realloc_new(T * old_guy, size_t old_count, size_t new_count) {
     T * new_guy = new T[new_count];
-    for (int i = 0; i < old_count; i++)
+    for (size_t i = 0; i < old_count; i++)
         new_guy[i] = old_guy[i];
     delete[] old_guy;
     return new_guy;
