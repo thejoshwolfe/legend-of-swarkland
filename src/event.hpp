@@ -166,7 +166,7 @@ struct Event {
         return event_individual(TURN_INVISIBLE, individual->id);
     }
     static inline Event disappear(uint256 individual_id) {
-        return event_individual(TURN_INVISIBLE, individual_id);
+        return event_individual(DISAPPEAR, individual_id);
     }
     static inline Event polymorph(Individual shapeshifter, SpeciesId old_species) {
         Event result;
