@@ -213,7 +213,7 @@ Coord get_mouse_tile(SDL_Rect area) {
     return tile_coord;
 }
 
-static const char * get_species_name(SpeciesId species_id) {
+const char * get_species_name(SpeciesId species_id) {
     switch (species_id) {
         case SpeciesId_HUMAN:
             return "human";

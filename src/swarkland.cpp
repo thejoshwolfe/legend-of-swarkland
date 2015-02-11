@@ -176,9 +176,10 @@ static void cheatcode_kill_everybody_in_the_world() {
     }
 }
 static void cheatcode_polymorph() {
-    you->species_id = (SpeciesId)((you->species_id + 1) % SpeciesId_COUNT);
+    SpeciesId old_species = you->species_id;
+    you->species_id = (SpeciesId)((old_species + 1) % SpeciesId_COUNT);
     compute_vision(you, false);
-    publish_event(Event::polymorph(you));
+    publish_event(Event::polymorph(you, old_species));
 }
 Individual cheatcode_spectator;
 void cheatcode_spectate() {

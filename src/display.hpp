@@ -15,6 +15,7 @@ void display_init(const char * resource_bundle_path);
 void display_finish();
 
 Coord get_mouse_tile(SDL_Rect area);
+const char * get_species_name(SpeciesId species_id);
 void get_individual_description(Individual observer, uint256 target_id, ByteBuffer * output);
 void render();
 
