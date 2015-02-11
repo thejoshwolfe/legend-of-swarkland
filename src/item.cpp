@@ -24,7 +24,7 @@ Item random_item() {
 }
 
 void get_item_description(Individual observer, uint256 wielder_id, Item item, ByteBuffer * output) {
-    if (can_see_individual(observer, wielder_id)) {
+    if (!can_see_individual(observer, wielder_id)) {
         // can't see the wand
         output->append("a wand");
         return;
