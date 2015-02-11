@@ -263,6 +263,7 @@ private:
             case POLYMORPH:
                 return DataType_POLYMORPH;
         }
+        panic("event type");
     }
 };
 
