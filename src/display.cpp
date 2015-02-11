@@ -170,7 +170,7 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
-static const SDL_Color white = {0xff, 0xff, 0xff};
+static const SDL_Color white = {0xff, 0xff, 0xff, 0xff};
 // the text will be aligned to the bottom of the area
 static void render_text(const char * str, SDL_Rect area) {
     if (*str == '\0')

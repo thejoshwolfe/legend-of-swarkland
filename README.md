@@ -1,4 +1,4 @@
-# legend-of-swarkland
+# Legend of Swarkland
 
 ## Status
 
