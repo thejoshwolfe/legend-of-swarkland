@@ -128,6 +128,9 @@ static void damage_individual(Individual attacker, Individual target, int damage
         panic("no damage");
     target->hitpoints -= damage;
     if (target->hitpoints <= 0) {
+        // take his items!!!
+        for (int i = 0; i < target->inventory.length(); i++)
+            attacker->inventory.append(target->inventory[i]);
         kill_individual(target);
         attacker->kill_counter++;
     }
