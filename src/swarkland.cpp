@@ -23,6 +23,25 @@ static void init_specieses() {
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
 }
 
+static void pickup_item(Individual individual, Item item) {
+    if (item->owner_id != uint256::zero())
+        panic("pickup item in someone's inventory");
+
+    List<Item> inventory;
+    find_items_in_inventory(individual, &inventory);
+
+    item->floor_location = Coord::nowhere();
+    item->owner_id = individual->id;
+    item->z_order = inventory.length();
+}
+static void drop_item_to_the_floor(Item item, Coord location) {
+    List<Item> items_on_floor;
+    find_items_on_floor(location, &items_on_floor);
+    item->floor_location = location;
+    item->owner_id = uint256::zero();
+    item->z_order = items_on_floor.length();
+}
+
 static const int no_spawn_radius = 10;
 
 // specify SpeciesId_COUNT for random
@@ -55,10 +74,10 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
 
     Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
 
-    if (random_int(15) == 0) {
+    if (random_int(1) == 0) {
         // have an item
         Item item = random_item();
-        individual->inventory.append(item);
+        pickup_item(individual, item);
     }
 
     actual_individuals.put(individual->id, individual);
@@ -110,6 +129,12 @@ static void regen_hp(Individual individual) {
 }
 
 static void kill_individual(Individual individual) {
+    // drop your stuff
+    List<Item> inventory;
+    find_items_in_inventory(individual, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        drop_item_to_the_floor(inventory[i], individual->location);
+
     individual->hitpoints = 0;
     individual->is_alive = false;
 
@@ -128,9 +153,6 @@ static void damage_individual(Individual attacker, Individual target, int damage
         panic("no damage");
     target->hitpoints -= damage;
     if (target->hitpoints <= 0) {
-        // take his items!!!
-        for (int i = 0; i < target->inventory.length(); i++)
-            attacker->inventory.append(target->inventory[i]);
         kill_individual(target);
         attacker->kill_counter++;
     }
@@ -159,6 +181,26 @@ Individual find_individual_at(Coord location) {
             return individual;
     }
     return NULL;
+}
+
+static int compare_items_by_z_order(Item a, Item b) {
+    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
+}
+void find_items_in_inventory(Individual owner, List<Item> * output_sorted_list) {
+    for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
+        Item item = iterator.next();
+        if (item->owner_id == owner->id)
+            output_sorted_list->append(item);
+    }
+    sort<Item, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+}
+void find_items_on_floor(Coord location, List<Item> * output_sorted_list) {
+    for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
+        Item item = iterator.next();
+        if (item->floor_location == location)
+            output_sorted_list->append(item);
+    }
+    sort<Item, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 
 static void do_move(Individual mover, Coord new_position) {
@@ -404,9 +446,11 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
         }
     }
     // use items
-    for (int i = 0; i < individual->inventory.length(); i++)
+    List<Item> inventory;
+    find_items_in_inventory(individual, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
         for (int j = 0; j < 8; j++)
-            output_actions.append(Action::zap(individual->inventory[i], directions[j]));
+            output_actions.append(Action::zap(inventory[i], directions[j]));
 
     // alright, we'll let you use cheatcodes
     if (individual == you) {

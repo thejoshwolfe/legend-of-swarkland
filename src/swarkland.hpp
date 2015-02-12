@@ -27,6 +27,8 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
 void run_the_game();
 PerceivedIndividual find_perceived_individual_at(Individual observer, Coord location);
 Individual find_individual_at(Coord location);
+void find_items_in_inventory(Individual owner, List<Item> * output_sorted_list);
+void find_items_on_floor(Coord location, List<Item> * output_sorted_list);
 
 bool confuse_individual(Individual target);
 void strike_individual(Individual attacker, Individual target);

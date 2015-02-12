@@ -3,6 +3,7 @@
 
 #include "hashtable.hpp"
 #include "reference_counter.hpp"
+#include "geometry.hpp"
 
 enum WandDescriptionId {
     WandDescriptionId_BONE_WAND,
@@ -25,6 +26,9 @@ extern WandId actual_wand_identities[WandId_COUNT];
 struct ItemImpl : public ReferenceCounted {
     uint256 id;
     WandDescriptionId description_id;
+    Coord floor_location = Coord::nowhere();
+    uint256 owner_id = uint256::zero();
+    int z_order = 0;
     int charges;
     ItemImpl(uint256 id, WandDescriptionId description_id, int charges) :
             id(id), description_id(description_id), charges(charges) {

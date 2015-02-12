@@ -308,6 +308,13 @@ void render() {
         }
     }
 
+    for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
+        Item item = iterator.next();
+        if (item->floor_location == Coord::nowhere())
+            continue;
+        render_tile(renderer, sprite_sheet_texture, wand_images[item->description_id], 0xff, item->floor_location);
+    }
+
     // render the individuals
     if (!cheatcode_full_visibility) {
         // not cheating
@@ -382,6 +389,8 @@ void render() {
     }
 
     // inventory pane
+    List<Item> inventory;
+    find_items_in_inventory(spectate_from, &inventory);
     {
         if (input_mode == InputMode_ZAP_CHOOSE_ITEM) {
             // render the cursor
@@ -393,7 +402,6 @@ void render() {
             set_color(yellow);
             SDL_RenderFillRect(renderer, &cursor_rect);
         }
-        List<Item> & inventory = spectate_from->inventory;
         Coord location = {map_size.x, 0};
         for (int i = 0; i < inventory.length(); i++) {
             Item & item = inventory[i];
@@ -415,9 +423,9 @@ void render() {
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
     if (mouse_hover_inventory_tile.x == 0) {
         int inventory_index = mouse_hover_inventory_tile.y;
-        if (0 <= inventory_index && inventory_index < spectate_from->inventory.length()) {
+        if (0 <= inventory_index && inventory_index < inventory.length()) {
             ByteBuffer description;
-            get_item_description(spectate_from, spectate_from->id, spectate_from->inventory[inventory_index]->id, &description);
+            get_item_description(spectate_from, spectate_from->id, inventory[inventory_index]->id, &description);
             popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, description.raw());
         }
     }

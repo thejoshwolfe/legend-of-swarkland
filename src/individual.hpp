@@ -120,7 +120,6 @@ struct IndividualImpl : public ReferenceCounted {
     DecisionMakerType decision_maker;
     Knowledge knowledge;
     StatusEffects status_effects;
-    List<Item> inventory;
     IndividualImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
     IndividualImpl(IndividualImpl &) = delete;
     Species * species() const;
