@@ -87,8 +87,6 @@ typedef Reference<RememberedEventImpl> RememberedEvent;
 class Knowledge {
 public:
     // terrain knowledge
-    Coord map_last_observed_from = Coord::nowhere();
-    VisionTypes map_last_observed_with;
     MapMatrix<Tile> tiles;
     MapMatrix<VisionTypes> tile_is_visible;
     List<RememberedEvent> remembered_events;
@@ -132,7 +130,7 @@ PerceivedIndividual observe_individual(Individual observer, Individual target);
 int compare_individuals_by_initiative(Individual a, Individual b);
 
 // TODO: these are in the wrong place
-void compute_vision(Individual individual, bool force);
+void compute_vision(Individual individual);
 void get_item_description(Individual observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output);
 void zap_wand(Individual individual, uint256 item_id, Coord direction);
 

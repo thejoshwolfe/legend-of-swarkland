@@ -48,10 +48,11 @@ static void refresh_normal_vision(Individual individual) {
 static const int ethereal_radius = 5;
 static void refresh_ethereal_vision(Individual individual) {
     Coord you_location = individual->location;
-    Coord upper_left = clamp(Coord{you_location.x - ethereal_radius, you_location.y - ethereal_radius}, Coord{0, 0}, map_size);
-    Coord lower_right= clamp(Coord{you_location.x + ethereal_radius + 1, you_location.y + ethereal_radius + 1}, Coord{0, 0}, map_size);
-    for (Coord target = upper_left; target.y < lower_right.y; target.y++) {
-        for (target.x = 0; target.x < lower_right.x; target.x++) {
+    Coord etheral_radius_diagonal = {ethereal_radius, ethereal_radius};
+    Coord upper_left = clamp(you_location - etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
+    Coord lower_right= clamp(you_location + etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
+    for (Coord target = upper_left; target.y <= lower_right.y; target.y++) {
+        for (target.x = 0; target.x <= lower_right.x; target.x++) {
             if (distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
                 continue;
             individual->knowledge.tile_is_visible[target].ethereal = true;
@@ -60,16 +61,7 @@ static void refresh_ethereal_vision(Individual individual) {
     }
 }
 
-void compute_vision(Individual spectator, bool force) {
-    if (!force) {
-        if (spectator->knowledge.map_last_observed_from == spectator->location && spectator->knowledge.map_last_observed_with == spectator->species()->vision_types)
-            return;
-    }
-
-    // take a look at the terrain
-    spectator->knowledge.map_last_observed_from = spectator->location;
-    spectator->knowledge.map_last_observed_with = spectator->species()->vision_types;
-
+void compute_vision(Individual spectator) {
     // mindless monsters can't remember the terrain
     if (!spectator->species()->has_mind)
         spectator->knowledge.tiles.set_all(unknown_tile);
