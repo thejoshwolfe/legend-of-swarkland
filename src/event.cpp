@@ -256,9 +256,9 @@ static void perceive_individual(Individual observer, uint256 target_id) {
 }
 
 static void id_item(Individual observer, Item item, WandId id) {
-    if (item == Item::none())
+    if (item == NULL)
         return; // can't see it
-    observer->knowledge.wand_identities[item.description_id] = id;
+    observer->knowledge.wand_identities[item->description_id] = id;
 }
 
 void publish_event(Event event) {
@@ -300,7 +300,7 @@ void publish_event(Event event) {
 
             case Event::ZAP_WAND:
                 observer->knowledge.wand_being_zapped = {
-                    event.zap_wand_data().wand,
+                    actual_items.get(event.zap_wand_data().wand),
                     observer->knowledge.perceived_individuals.get(event.zap_wand_data().wielder),
                 };
                 break;

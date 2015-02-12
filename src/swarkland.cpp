@@ -7,6 +7,7 @@
 
 Species specieses[SpeciesId_COUNT];
 IdMap<Individual> actual_individuals;
+IdMap<Item> actual_items;
 
 Individual you;
 bool youre_still_alive = true;

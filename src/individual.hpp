@@ -96,7 +96,7 @@ public:
     struct {
         Item wand;
         PerceivedIndividual wielder;
-    } wand_being_zapped = { Item::none(), NULL };
+    } wand_being_zapped = { NULL, NULL };
     IdMap<PerceivedIndividual> perceived_individuals;
     Knowledge() {
         tiles.set_all(unknown_tile);
@@ -134,7 +134,7 @@ int compare_individuals_by_initiative(Individual a, Individual b);
 
 // TODO: these are in the wrong place
 void compute_vision(Individual individual, bool force);
-void get_item_description(Individual observer, uint256 wielder_id, Item item, ByteBuffer * output);
-void zap_wand(Individual individual, Item wand, Coord direction);
+void get_item_description(Individual observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output);
+void zap_wand(Individual individual, uint256 item_id, Coord direction);
 
 #endif

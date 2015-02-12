@@ -1,6 +1,9 @@
 #ifndef ITEM_HPP
 #define ITEM_HPP
 
+#include "hashtable.hpp"
+#include "reference_counter.hpp"
+
 enum WandDescriptionId {
     WandDescriptionId_BONE_WAND,
     WandDescriptionId_GOLD_WAND,
@@ -19,19 +22,14 @@ enum WandId {
 
 extern WandId actual_wand_identities[WandId_COUNT];
 
-struct Item {
+struct ItemImpl : public ReferenceCounted {
+    uint256 id;
     WandDescriptionId description_id;
-
-    static inline Item none() {
-        return {WandDescriptionId_COUNT};
+    ItemImpl(uint256 id, WandDescriptionId description_id) :
+            id(id), description_id(description_id) {
     }
 };
-static inline bool operator==(Item a, Item b) {
-    return a.description_id == b.description_id;
-}
-static inline bool operator!=(Item a, Item b) {
-    return !(a == b);
-}
+typedef Reference<ItemImpl> Item;
 
 
 void init_items();

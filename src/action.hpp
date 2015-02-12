@@ -18,39 +18,39 @@ struct Action {
         UNDECIDED,
     };
     Type type;
-    Item item;
+    uint256 item;
     Coord coord;
 
     static inline Action move(Coord direction) {
-        return {MOVE, Item::none(), direction};
+        return {MOVE, uint256::zero(), direction};
     }
     static inline Action wait() {
-        return {WAIT, Item::none(), {0, 0}};
+        return {WAIT, uint256::zero(), {0, 0}};
     }
     static inline Action attack(Coord direction) {
-        return {ATTACK, Item::none(), direction};
+        return {ATTACK, uint256::zero(), direction};
     }
     static inline Action undecided() {
-        return {UNDECIDED, Item::none(), {0, 0}};
+        return {UNDECIDED, uint256::zero(), {0, 0}};
     }
     static inline Action zap(Item item, Coord direction) {
-        return {ZAP, item, direction};
+        return {ZAP, item->id, direction};
     }
 
     static inline Action cheatcode_health_boost() {
-        return {CHEATCODE_HEALTH_BOOST, Item::none(), {0, 0}};
+        return {CHEATCODE_HEALTH_BOOST, uint256::zero(), {0, 0}};
     }
     static inline Action cheatcode_kill_everybody_in_the_world() {
-        return {CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD, Item::none(), {0, 0}};
+        return {CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD, uint256::zero(), {0, 0}};
     }
     static inline Action cheatcode_polymorph() {
-        return {CHEATCODE_POLYMORPH, Item::none(), {0, 0}};
+        return {CHEATCODE_POLYMORPH, uint256::zero(), {0, 0}};
     }
     static inline Action cheatcode_invisibility() {
-        return {CHEATCODE_INVISIBILITY, Item::none(), {0, 0}};
+        return {CHEATCODE_INVISIBILITY, uint256::zero(), {0, 0}};
     }
     static inline Action cheatcode_generate_monster() {
-        return {CHEATCODE_GENERATE_MONSTER, Item::none(), {0, 0}};
+        return {CHEATCODE_GENERATE_MONSTER, uint256::zero(), {0, 0}};
     }
 };
 static inline bool operator==(Action a, Action b) {

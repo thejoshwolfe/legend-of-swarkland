@@ -20,16 +20,20 @@ void init_items() {
 }
 
 Item random_item() {
-    return {(WandDescriptionId)random_int(WandDescriptionId_COUNT)};
+    uint256 id = random_uint256();
+    Item item = new ItemImpl(id, (WandDescriptionId)random_int(WandDescriptionId_COUNT));
+    actual_items.put(id, item);
+    return item;
 }
 
-void get_item_description(Individual observer, uint256 wielder_id, Item item, ByteBuffer * output) {
+void get_item_description(Individual observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output) {
+    Item item = actual_items.get(item_id);
     if (!can_see_individual(observer, wielder_id)) {
         // can't see the wand
         output->append("a wand");
         return;
     }
-    WandId true_id = observer->knowledge.wand_identities[item.description_id];
+    WandId true_id = observer->knowledge.wand_identities[item->description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
@@ -45,7 +49,7 @@ void get_item_description(Individual observer, uint256 wielder_id, Item item, By
                 panic("wand id");
         }
     } else {
-        switch (item.description_id) {
+        switch (item->description_id) {
             case WandDescriptionId_BONE_WAND:
                 output->append("a bone wand");
                 return;
@@ -75,7 +79,8 @@ static void strike_individual_from_wand(Individual wand_wielder, Individual targ
     strike_individual(wand_wielder, target);
 }
 
-void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
+void zap_wand(Individual wand_wielder, uint256 item_id, Coord direction) {
+    Item wand = actual_items.get(item_id);
     publish_event(Event::zap_wand(wand_wielder, wand));
     Coord cursor = wand_wielder->location;
     int beam_length = random_int(6, 13);
@@ -83,7 +88,7 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
         cursor = cursor + direction;
         if (!is_in_bounds(cursor))
             break;
-        switch (actual_wand_identities[wand.description_id]) {
+        switch (actual_wand_identities[wand->description_id]) {
             case WandId_WAND_OF_DIGGING: {
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL) {
                     change_map(cursor, TileType_FLOOR);
@@ -122,7 +127,7 @@ void zap_wand(Individual wand_wielder, Item wand, Coord direction) {
     // the zap has stopped
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         iterator.next()->knowledge.wand_being_zapped = {
-            Item::none(),
+            NULL,
             NULL,
         };
     }

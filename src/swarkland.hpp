@@ -10,6 +10,7 @@
 extern Species specieses[SpeciesId_COUNT];
 
 extern IdMap<Individual> actual_individuals;
+extern IdMap<Item> actual_items;
 extern Individual you;
 extern bool youre_still_alive;
 extern long long time_counter;

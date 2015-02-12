@@ -382,7 +382,7 @@ void render() {
         Coord location = {map_size.x, 0};
         for (int i = 0; i < inventory.length(); i++) {
             Item & item = inventory[i];
-            render_tile(renderer, sprite_sheet_texture, wand_images[item.description_id], location);
+            render_tile(renderer, sprite_sheet_texture, wand_images[item->description_id], location);
             location.y += 1;
         }
     }
@@ -402,7 +402,7 @@ void render() {
         int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < spectate_from->inventory.length()) {
             ByteBuffer description;
-            get_item_description(spectate_from, spectate_from->id, spectate_from->inventory[inventory_index], &description);
+            get_item_description(spectate_from, spectate_from->id, spectate_from->inventory[inventory_index]->id, &description);
             popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, description.raw());
         }
     }

@@ -8,6 +8,13 @@
 template<int Size64>
 struct uint_oversized {
     uint64_t values[Size64];
+
+    static inline uint_oversized<Size64> zero() {
+        uint_oversized<Size64> result;
+        for (int i = 0; i < Size64; i++)
+            result.values[i] = 0;
+        return result;
+    }
 };
 
 template<int Size64>

@@ -62,7 +62,7 @@ struct Event {
     }
     struct ZapWandData {
         uint256 wielder;
-        Item wand;
+        uint256 wand;
     };
     ZapWandData & zap_wand_data() {
         check_data_type(DataType_ZAP_WAND);
@@ -106,7 +106,7 @@ struct Event {
         result.type = ZAP_WAND;
         result.zap_wand_data() = {
             wand_wielder->id,
-            item,
+            item->id,
         };
         return result;
     }
