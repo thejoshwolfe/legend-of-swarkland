@@ -55,7 +55,7 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
 
     Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
 
-    if (random_int(1) == 0) {
+    if (random_int(15) == 0) {
         // have an item
         Item item = random_item();
         individual->inventory.append(item);
