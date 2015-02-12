@@ -154,7 +154,7 @@ static Individual get_spectate_individual() {
     return cheatcode_spectator != NULL ? cheatcode_spectator : you;
 }
 
-static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct RuckSackImage * guy_image, Coord coord) {
+static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct RuckSackImage * guy_image, int alpha, Coord coord) {
     SDL_Rect source_rect;
     source_rect.x = guy_image->x;
     source_rect.y = guy_image->y;
@@ -167,10 +167,16 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct R
     dest_rect.w = tile_size;
     dest_rect.h = tile_size;
 
+    SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
-static const SDL_Color white = {0xff, 0xff, 0xff, 0xff};
+static const SDL_Color white  = {0xff, 0xff, 0xff, 0xff};
+static const SDL_Color yellow = {0xff, 0xff, 0x00, 0xff};
+static const SDL_Color black  = {0x00, 0x00, 0x00, 0xff};
+static void set_color(SDL_Color color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+}
 // the text will be aligned to the bottom of the area
 static void render_text(const char * str, SDL_Rect area) {
     if (*str == '\0')
@@ -196,6 +202,7 @@ static void render_text(const char * str, SDL_Rect area) {
     dest_rect.y = area.y;
     dest_rect.w = source_rect.w;
     dest_rect.h = source_rect.h;
+    set_color(black);
     SDL_RenderFillRect(renderer, &dest_rect);
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
 
@@ -263,6 +270,7 @@ static void popup_help(Coord upper_left_corner, const char * str) {
 void render() {
     Individual spectate_from = get_spectate_individual();
 
+    set_color(black);
     SDL_RenderClear(renderer);
 
     // main map
@@ -282,22 +290,21 @@ void render() {
                     Coord vector = spectate_from->location - cursor;
                     if (vector.x * vector.y == 0) {
                         // cardinal direction
-                        alpha = 255;
+                        alpha = 0xff;
                     } else if (abs(vector.x) == abs(vector.y)) {
                         // diagnoal
-                        alpha = 255;
+                        alpha = 0xff;
                     } else {
-                        alpha = 128;
+                        alpha = 0x7f;
                     }
                 } else {
-                    alpha = 255;
+                    alpha = 0xff;
                 }
             } else {
-                alpha = 128;
+                alpha = 0x7f;
             }
-            SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
             RuckSackImage * image = (tile.tile_type == TileType_FLOOR ? floor_images : wall_images)[tile.aesthetic_index];
-            render_tile(renderer, sprite_sheet_texture, image, cursor);
+            render_tile(renderer, sprite_sheet_texture, image, alpha, cursor);
         }
     }
 
@@ -308,11 +315,10 @@ void render() {
             PerceivedIndividual individual = iterator.next();
             Uint8 alpha;
             if (individual->status_effects.invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
-                alpha = 128;
+                alpha = 0x7f;
             else
-                alpha = 255;
-            SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->species_id], individual->location);
+                alpha = 0xff;
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->species_id], alpha, individual->location);
         }
     } else {
         // full visibility
@@ -322,11 +328,10 @@ void render() {
                 continue;
             Uint8 alpha;
             if (individual->status_effects.invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
-                alpha = 128;
+                alpha = 0x7f;
             else
-                alpha = 255;
-            SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->species_id], individual->location);
+                alpha = 0xff;
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->species_id], alpha, individual->location);
         }
     }
 
@@ -378,11 +383,21 @@ void render() {
 
     // inventory pane
     {
+        if (input_mode == InputMode_ZAP_CHOOSE_ITEM) {
+            // render the cursor
+            SDL_Rect cursor_rect;
+            cursor_rect.x = inventory_area.x;
+            cursor_rect.y = inventory_area.y + tile_size * inventory_cursor;
+            cursor_rect.w = tile_size;
+            cursor_rect.h = tile_size;
+            set_color(yellow);
+            SDL_RenderFillRect(renderer, &cursor_rect);
+        }
         List<Item> & inventory = spectate_from->inventory;
         Coord location = {map_size.x, 0};
         for (int i = 0; i < inventory.length(); i++) {
             Item & item = inventory[i];
-            render_tile(renderer, sprite_sheet_texture, wand_images[item->description_id], location);
+            render_tile(renderer, sprite_sheet_texture, wand_images[item->description_id], 0xff, location);
             location.y += 1;
         }
     }

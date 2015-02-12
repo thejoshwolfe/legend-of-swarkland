@@ -22,6 +22,8 @@ Coord get_mouse_pixels() {
 }
 
 InputMode input_mode = InputMode_MAIN;
+uint256 chosen_item;
+int inventory_cursor;
 
 static Action move_or_attack(Coord direction) {
     Action action = Action::move(direction);
@@ -80,8 +82,10 @@ static Action on_key_down_main(const SDL_Event & event) {
             return Action::wait();
 
         case SDL_SCANCODE_Z:
-            if (you->inventory.length() > 0)
-                input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
+            if (you->inventory.length() > 0) {
+                inventory_cursor = clamp(inventory_cursor, 0, you->inventory.length() - 1);
+                input_mode = InputMode_ZAP_CHOOSE_ITEM;
+            }
             return Action::undecided();
 
         case SDL_SCANCODE_V:
@@ -100,6 +104,32 @@ static Action on_key_down_main(const SDL_Event & event) {
             return Action::cheatcode_invisibility();
         case SDL_SCANCODE_G:
             return Action::cheatcode_generate_monster();
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down_choose_item(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_MAIN;
+            break;
+
+        case SDL_SCANCODE_Z:
+        case SDL_SCANCODE_RETURN:
+            // doit
+            chosen_item = you->inventory[inventory_cursor]->id;
+            input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
+            return Action::undecided();
+
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_DOWN:
+        case SDL_SCANCODE_UP:
+            // move the cursor
+            inventory_cursor = clamp(inventory_cursor + get_direction_from_event(event).y, 0, you->inventory.length() - 1);
+            return Action::undecided();
 
         default:
             break;
@@ -125,7 +155,7 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
         case SDL_SCANCODE_RIGHT:
         case SDL_SCANCODE_UP:
             input_mode = InputMode_MAIN;
-            return Action::zap(you->inventory[0], get_direction_from_event(event));
+            return Action::zap(you->inventory[inventory_cursor], get_direction_from_event(event));
 
         default:
             break;
@@ -136,6 +166,8 @@ static Action on_key_down(const SDL_Event & event) {
     switch (input_mode) {
         case InputMode_MAIN:
             return on_key_down_main(event);
+        case InputMode_ZAP_CHOOSE_ITEM:
+            return on_key_down_choose_item(event);
         case InputMode_ZAP_CHOOSE_DIRECTION:
             return on_key_down_choose_direction(event);
     }

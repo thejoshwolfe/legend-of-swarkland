@@ -86,9 +86,15 @@ void zap_wand(Individual wand_wielder, uint256 item_id, Coord direction) {
     wand->charges--;
     if (wand->charges <= -1) {
         publish_event(Event::wand_disintegrates(wand_wielder, wand));
-        // uh... shift everything down 1, and resize out 1 item.
-        for (int i = 0; i < wand_wielder->inventory.length() - 1; i++)
-            wand_wielder->inventory[i] = wand_wielder->inventory[i + 1];
+
+        // shift it out
+        bool found_it = false;
+        for (int i = 0; i < wand_wielder->inventory.length(); i++) {
+            if (found_it)
+                wand_wielder->inventory[i - 1] = wand_wielder->inventory[i];
+            else
+                found_it = wand_wielder->inventory[i]->id == item_id;
+        }
         wand_wielder->inventory.resize(wand_wielder->inventory.length() - 1);
 
         actual_items.remove(item_id);
