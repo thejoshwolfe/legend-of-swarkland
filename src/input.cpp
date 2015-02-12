@@ -80,7 +80,8 @@ static Action on_key_down_main(const SDL_Event & event) {
             return Action::wait();
 
         case SDL_SCANCODE_Z:
-            input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
+            if (you->inventory.length() > 0)
+                input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
             return Action::undecided();
 
         case SDL_SCANCODE_V:

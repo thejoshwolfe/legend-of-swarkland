@@ -70,6 +70,13 @@ static RememberedEvent to_remembered_event(Individual observer, Event event) {
             result->bytes.format("%s zaps %s, but %s just sputters.", buffer1.raw(), buffer2.raw(), buffer2.raw());
             return result;
         }
+        case Event::WAND_DISINTEGRATES: {
+            Event::ZapWandData & data = event.zap_wand_data();
+            get_individual_description(observer, data.wielder, &buffer1);
+            get_item_description(observer, data.wielder, data.wand, &buffer2);
+            result->bytes.format("%s tries to zap %s, but %s disintegrates.", buffer1.raw(), buffer2.raw(), buffer2.raw());
+            return result;
+        }
 
         case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
             get_individual_description(observer, event.the_individual_data(), &buffer1);
@@ -213,6 +220,7 @@ static bool see_event(Individual observer, Event event, Event * output_event) {
 
         case Event::ZAP_WAND:
         case Event::ZAP_WAND_NO_CHARGES:
+        case Event::WAND_DISINTEGRATES:
             if (!can_see_individual(observer, event.zap_wand_data().wielder))
                 return false;
             *output_event = event;
@@ -316,6 +324,9 @@ void publish_event(Event event) {
                 break;
             case Event::ZAP_WAND_NO_CHARGES:
                 // boring
+                break;
+            case Event::WAND_DISINTEGRATES:
+                perceive_individual(observer, event.zap_wand_data().wielder);
                 break;
 
             case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:

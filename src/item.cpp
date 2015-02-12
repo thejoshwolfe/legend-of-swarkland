@@ -83,11 +83,18 @@ static void strike_individual_from_wand(Individual wand_wielder, Individual targ
 
 void zap_wand(Individual wand_wielder, uint256 item_id, Coord direction) {
     Item wand = actual_items.get(item_id);
-    if (wand->charges == 0) {
+    wand->charges--;
+    if (wand->charges <= -1) {
+        publish_event(Event::wand_disintegrates(wand_wielder, wand));
+        // TODO: just delete the one item
+        wand_wielder->inventory.clear();
+        actual_items.remove(item_id);
+        return;
+    }
+    if (wand->charges <= 0) {
         publish_event(Event::wand_zap_no_charges(wand_wielder, wand));
         return;
     }
-    wand->charges--;
 
     publish_event(Event::zap_wand(wand_wielder, wand));
     Coord cursor = wand_wielder->location;

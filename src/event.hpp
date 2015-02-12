@@ -21,6 +21,7 @@ struct Event {
 
         ZAP_WAND,
         ZAP_WAND_NO_CHARGES,
+        WAND_DISINTEGRATES,
         BEAM_HIT_INDIVIDUAL_NO_EFFECT,
         BEAM_HIT_WALL_NO_EFFECT,
         BEAM_OF_CONFUSION_HIT_INDIVIDUAL,
@@ -107,6 +108,9 @@ struct Event {
     }
     static inline Event wand_zap_no_charges(Individual wand_wielder, Item item) {
         return zap_wand_type_event(ZAP_WAND_NO_CHARGES, wand_wielder, item);
+    }
+    static inline Event wand_disintegrates(Individual wand_wielder, Item item) {
+        return zap_wand_type_event(WAND_DISINTEGRATES, wand_wielder, item);
     }
 
     static inline Event beam_hit_individual_no_effect(Individual target) {
@@ -247,6 +251,8 @@ private:
             case ZAP_WAND:
                 return DataType_ZAP_WAND;
             case ZAP_WAND_NO_CHARGES:
+                return DataType_ZAP_WAND;
+            case WAND_DISINTEGRATES:
                 return DataType_ZAP_WAND;
 
             case BEAM_HIT_INDIVIDUAL_NO_EFFECT:
