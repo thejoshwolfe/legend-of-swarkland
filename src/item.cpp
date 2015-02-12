@@ -21,7 +21,9 @@ void init_items() {
 
 Item random_item() {
     uint256 id = random_uint256();
-    Item item = new ItemImpl(id, (WandDescriptionId)random_int(WandDescriptionId_COUNT));
+    WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
+    int charges = random_int(4, 8);
+    Item item = new ItemImpl(id, description_id, charges);
     actual_items.put(id, item);
     return item;
 }
@@ -81,6 +83,12 @@ static void strike_individual_from_wand(Individual wand_wielder, Individual targ
 
 void zap_wand(Individual wand_wielder, uint256 item_id, Coord direction) {
     Item wand = actual_items.get(item_id);
+    if (wand->charges == 0) {
+        publish_event(Event::wand_zap_no_charges(wand_wielder, wand));
+        return;
+    }
+    wand->charges--;
+
     publish_event(Event::zap_wand(wand_wielder, wand));
     Coord cursor = wand_wielder->location;
     int beam_length = random_int(6, 13);

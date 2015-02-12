@@ -63,6 +63,14 @@ static RememberedEvent to_remembered_event(Individual observer, Event event) {
             result->bytes.format("%s zaps %s.", buffer1.raw(), buffer2.raw());
             return result;
         }
+        case Event::ZAP_WAND_NO_CHARGES: {
+            Event::ZapWandData & data = event.zap_wand_data();
+            get_individual_description(observer, data.wielder, &buffer1);
+            get_item_description(observer, data.wielder, data.wand, &buffer2);
+            result->bytes.format("%s zaps %s, but %s just sputters.", buffer1.raw(), buffer2.raw(), buffer2.raw());
+            return result;
+        }
+
         case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
             get_individual_description(observer, event.the_individual_data(), &buffer1);
             result->bytes.format("a magic beam hits %s, but nothing happens.", buffer1.raw());
@@ -204,10 +212,12 @@ static bool see_event(Individual observer, Event event, Event * output_event) {
             return true;
 
         case Event::ZAP_WAND:
+        case Event::ZAP_WAND_NO_CHARGES:
             if (!can_see_individual(observer, event.zap_wand_data().wielder))
                 return false;
             *output_event = event;
             return true;
+
         case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
         case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
         case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL: {
@@ -304,6 +314,10 @@ void publish_event(Event event) {
                     observer->knowledge.perceived_individuals.get(event.zap_wand_data().wielder),
                 };
                 break;
+            case Event::ZAP_WAND_NO_CHARGES:
+                // boring
+                break;
+
             case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
             case Event::BEAM_HIT_WALL_NO_EFFECT:
                 // no state change
