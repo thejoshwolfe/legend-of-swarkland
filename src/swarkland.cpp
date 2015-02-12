@@ -206,6 +206,12 @@ void find_items_on_floor(Coord location, List<Item> * output_sorted_list) {
 static void do_move(Individual mover, Coord new_position) {
     Coord old_position = mover->location;
     mover->location = new_position;
+    // gimme that
+    List<Item> floor_items;
+    find_items_on_floor(new_position, &floor_items);
+    for (int i = 0; i < floor_items.length(); i++)
+        pickup_item(mover, floor_items[i]);
+
     compute_vision(mover, false);
 
     // notify other individuals who could see that move
