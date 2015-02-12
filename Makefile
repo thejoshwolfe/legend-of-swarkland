@@ -1,8 +1,6 @@
 .PHONY: all
 all:
 
--include $(wildcard build/native/*.d)
-
 OBJECT_NAMES = main.o swarkland.o display.o load_image.o util.o individual.o path_finding.o map.o hashtable.o random.o decision.o tas.o byte_buffer.o item.o input.o event.o
 
 CPP_FLAGS += -Ibuild/native -Isrc -g -Wall -Wextra -Werror $(MORE_CFLAGS)
@@ -17,6 +15,7 @@ LINK = $(LINKER) -o $@ $^ $(LINK_FLAGS)
 
 .PHONY: native
 all: native
+-include $(wildcard build/native/*.d)
 OBJECTS_native = $(foreach f,$(OBJECT_NAMES),build/native/$f)
 $(OBJECTS_native): CPP_COMPILER = clang
 $(OBJECTS_native): MORE_CFLAGS =
@@ -38,6 +37,7 @@ build/native:
 # cross compiling for windows.
 # See README.md for instructions.
 .PHONY: windows
+-include $(wildcard build/windows/*.d)
 CROSS_windows = $(MXE_HOME)/usr/bin/i686-w64-mingw32.static-
 OBJECTS_windows = $(foreach f,$(OBJECT_NAMES),build/windows/$f)
 $(OBJECTS_windows): CPP_COMPILER = $(CROSS_windows)g++
