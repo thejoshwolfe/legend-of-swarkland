@@ -52,7 +52,7 @@ static void refresh_ethereal_vision(Individual individual) {
     Coord upper_left = clamp(you_location - etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
     Coord lower_right= clamp(you_location + etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
     for (Coord target = upper_left; target.y <= lower_right.y; target.y++) {
-        for (target.x = 0; target.x <= lower_right.x; target.x++) {
+        for (target.x = upper_left.x; target.x <= lower_right.x; target.x++) {
             if (distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
                 continue;
             individual->knowledge.tile_is_visible[target].ethereal = true;
