@@ -7,7 +7,6 @@
 #include "item.hpp"
 #include "input.hpp"
 
-#include <rucksack.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
@@ -79,7 +78,6 @@ void display_init(const char * resource_bundle_path) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         panic("unable to init SDL");
     }
-    rucksack_init();
 
     window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, entire_window_area.w, entire_window_area.h, 0);
     if (!window) {
@@ -132,7 +130,7 @@ void display_finish() {
     delete[] font_buffer;
 
     delete[] spritesheet_images;
-    rucksack_texture_destroy(rs_texture);
+    rucksack_texture_close(rs_texture);
 
     SDL_DestroyTexture(sprite_sheet_texture);
     SDL_DestroyRenderer(renderer);
@@ -141,7 +139,6 @@ void display_finish() {
     if (rucksack_bundle_close(bundle) != RuckSackErrorNone) {
         panic("error closing resource bundle");
     }
-    rucksack_finish();
     SDL_Quit();
 }
 

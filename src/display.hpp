@@ -5,7 +5,7 @@
 #include "byte_buffer.hpp"
 #include "individual.hpp"
 
-#include <rucksack.h>
+#include <rucksack/rucksack.h>
 #include <SDL2/SDL.h>
 
 static const int tile_size = 32;
