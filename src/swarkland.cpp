@@ -72,7 +72,7 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
     }
     Coord location = available_spawn_locations[random_int(available_spawn_locations.length())];
 
-    Individual individual = new IndividualImpl(species_id, location, team, decision_maker);
+    Individual individual = create<IndividualImpl>(species_id, location, team, decision_maker);
 
     if (random_int(1) == 0) {
         // have an item

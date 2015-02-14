@@ -21,7 +21,7 @@ void read_png_data(png_structp png_ptr, png_bytep data, png_size_t length) {
 
 SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture) {
     size_t size = rucksack_texture_size(rs_texture);
-    unsigned char * image_buffer = new unsigned char[size];
+    unsigned char * image_buffer = allocate<unsigned char>(size);
     if (rucksack_texture_read(rs_texture, image_buffer) != RuckSackErrorNone)
         panic("read texture failed");
 
@@ -74,9 +74,9 @@ SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_
 
     uint32_t pitch = spritesheet_width * bits_per_channel * channel_count / 8;
 
-    char *decoded_image = new char[spritesheet_width * pitch];
+    char *decoded_image = allocate<char>(spritesheet_width * pitch);
 
-    png_bytep *row_ptrs = new png_bytep[spritesheet_height];
+    png_bytep *row_ptrs = allocate<png_bytep>(spritesheet_height);
 
     for (size_t i = 0; i < spritesheet_height; i++) {
         png_uint_32 q = (spritesheet_height - i - 1) * pitch;
@@ -88,9 +88,9 @@ SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_
     SDL_UpdateTexture(texture, NULL, decoded_image, pitch);
 
     png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-    delete[] row_ptrs;
-    delete[] decoded_image;
-    delete[] image_buffer;
+    destroy(row_ptrs, 0);
+    destroy(decoded_image, 0);
+    destroy(image_buffer, 0);
 
     return texture;
 }

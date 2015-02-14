@@ -23,7 +23,7 @@ Item random_item() {
     uint256 id = random_uint256();
     WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
     int charges = random_int(4, 8);
-    Item item = new ItemImpl(id, description_id, charges);
+    Item item = create<ItemImpl>(id, description_id, charges);
     actual_items.put(id, item);
     return item;
 }

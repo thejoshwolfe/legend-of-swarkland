@@ -9,13 +9,13 @@ public:
     List() {
         _length = 0;
         _capacity = 16;
-        _items = new T[_capacity];
+        _items = allocate<T>(_capacity);
     }
     List(const List<T> & other) = delete;
     List<T>& operator= (const List<T> &other) = delete;
 
     ~List() {
-        delete[] _items;
+        destroy(_items, _capacity);
     }
 
     void append(T item) {
@@ -68,7 +68,7 @@ private:
         while (better_capacity < new_capacity)
             better_capacity *= 2;
         if (better_capacity != _capacity) {
-            _items = realloc_new(_items, _capacity, better_capacity);
+            _items = reallocate(_items, _capacity, better_capacity);
             _capacity = better_capacity;
         }
     }

@@ -74,7 +74,7 @@ private:
             return;
         _target->_reference_count--;
         if (_target->_reference_count == 0)
-            delete _target;
+            destroy(_target, 1);
     }
 };
 

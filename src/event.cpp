@@ -6,7 +6,7 @@
 static RememberedEvent to_remembered_event(Individual observer, Event event) {
     ByteBuffer buffer1;
     ByteBuffer buffer2;
-    RememberedEvent result = new RememberedEventImpl;
+    RememberedEvent result = create<RememberedEventImpl>();
     switch (event.type) {
         case Event::MOVE:
             // unremarkable

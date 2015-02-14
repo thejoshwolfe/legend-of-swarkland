@@ -103,7 +103,7 @@ void display_init(const char * resource_bundle_path) {
     sprite_sheet_texture = load_texture(renderer, rs_texture);
 
     long image_count = rucksack_texture_image_count(rs_texture);
-    spritesheet_images = new struct RuckSackImage*[image_count];
+    spritesheet_images = allocate<struct RuckSackImage*>(image_count);
     rucksack_texture_get_images(rs_texture, spritesheet_images);
     load_images(spritesheet_images, image_count);
 
@@ -114,7 +114,7 @@ void display_init(const char * resource_bundle_path) {
         panic("font not found in bundle");
     }
     long font_file_size = rucksack_file_size(font_entry);
-    font_buffer = new unsigned char[font_file_size];
+    font_buffer = allocate<unsigned char>(font_file_size);
     rucksack_file_read(font_entry, font_buffer);
     font_rw_ops = SDL_RWFromMem(font_buffer, font_file_size);
     if (!font_rw_ops) {
@@ -127,9 +127,9 @@ void display_finish() {
     TTF_Quit();
 
     SDL_RWclose(font_rw_ops);
-    delete[] font_buffer;
+    destroy(font_buffer, 0);
 
-    delete[] spritesheet_images;
+    destroy(spritesheet_images, 0);
     rucksack_texture_close(rs_texture);
 
     SDL_DestroyTexture(sprite_sheet_texture);
