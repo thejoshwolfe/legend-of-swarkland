@@ -22,7 +22,7 @@ sudo apt-get update
 install dependencies:
 
 ```
-sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev clang libfreeimage-dev
+sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev clang libpng12-dev
 ```
 
 build:
@@ -43,7 +43,7 @@ cd build/native && ./legend-of-swarkland
 
  0. `git clone https://github.com/andrewrk/mxe`
  0. Follow these instructions: http://mxe.cc/#requirements-debian
- 0. In the mxe directory: `make gcc sdl2 sdl2_ttf freeimage rucksack`
+ 0. In the mxe directory: `make gcc sdl2 sdl2_ttf libpng rucksack`
  0. In legend-of-swarkland directory: `make MXE_HOME=/path/to/mxe windows`
 
 (You can build for both Windows and native Linux at the same time by appending `native` to the above.)

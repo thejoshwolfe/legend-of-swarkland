@@ -22,7 +22,7 @@ $(OBJECTS_native): MORE_CFLAGS =
 build/native/%.o: src/%.cpp
 	$(COMPILE_CPP)
 
-build/native/legend-of-swarkland: MORE_LIBS = -lSDL2 -lSDL2_ttf -lfreeimage
+build/native/legend-of-swarkland: MORE_LIBS = -lSDL2 -lSDL2_ttf -lpng
 build/native/legend-of-swarkland: LINKER = clang
 build/native/legend-of-swarkland: $(OBJECTS_native)
 	$(LINK)
@@ -41,12 +41,12 @@ build/native:
 CROSS_windows = $(MXE_HOME)/usr/bin/i686-w64-mingw32.static-
 OBJECTS_windows = $(foreach f,$(OBJECT_NAMES),build/windows/$f)
 $(OBJECTS_windows): CPP_COMPILER = $(CROSS_windows)g++
-$(OBJECTS_windows): MORE_CFLAGS = $(shell $(CROSS_windows)pkg-config --cflags SDL2_ttf sdl2 freeimage)
+$(OBJECTS_windows): MORE_CFLAGS = $(shell $(CROSS_windows)pkg-config --cflags SDL2_ttf sdl2 libpng)
 build/windows/%.o: src/%.cpp
 	$(if $(MXE_HOME),,$(error MXE_HOME is not defined))
 	$(COMPILE_CPP)
 
-build/windows/legend-of-swarkland.exe: MORE_LIBS = -mconsole $(shell $(CROSS_windows)pkg-config --libs SDL2_ttf sdl2 freeimage)
+build/windows/legend-of-swarkland.exe: MORE_LIBS = -mconsole $(shell $(CROSS_windows)pkg-config --libs SDL2_ttf sdl2 libpng)
 build/windows/legend-of-swarkland.exe: LINKER = $(CROSS_windows)g++
 build/windows/legend-of-swarkland.exe: $(OBJECTS_windows)
 	$(LINK)
