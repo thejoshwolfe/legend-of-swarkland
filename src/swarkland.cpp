@@ -4,6 +4,7 @@
 #include "decision.hpp"
 #include "display.hpp"
 #include "event.hpp"
+#include "item.hpp"
 
 Species specieses[SpeciesId_COUNT];
 IdMap<Thing> actual_individuals;

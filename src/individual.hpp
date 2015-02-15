@@ -7,9 +7,41 @@
 #include "hashtable.hpp"
 #include "list.hpp"
 #include "byte_buffer.hpp"
-#include "item.hpp"
 
 #include <stdbool.h>
+
+
+enum WandDescriptionId {
+    WandDescriptionId_BONE_WAND,
+    WandDescriptionId_GOLD_WAND,
+    WandDescriptionId_PLASTIC_WAND,
+
+    WandDescriptionId_COUNT,
+};
+enum WandId {
+    WandId_WAND_OF_CONFUSION,
+    WandId_WAND_OF_DIGGING,
+    WandId_WAND_OF_STRIKING,
+
+    WandId_COUNT,
+    WandId_UNKNOWN,
+};
+
+extern WandId actual_wand_identities[WandId_COUNT];
+
+struct ItemImpl : public ReferenceCounted {
+    uint256 id;
+    WandDescriptionId description_id;
+    Coord floor_location = Coord::nowhere();
+    uint256 owner_id = uint256::zero();
+    int z_order = 0;
+    int charges;
+    ItemImpl(uint256 id, WandDescriptionId description_id, int charges) :
+            id(id), description_id(description_id), charges(charges) {
+    }
+};
+typedef Reference<ItemImpl> Item;
+
 
 enum SpeciesId {
     SpeciesId_HUMAN,
@@ -91,10 +123,6 @@ struct Knowledge {
     List<RememberedEvent> remembered_events;
     // this is never wrong
     WandId wand_identities[WandId_COUNT];
-    struct {
-        Item wand;
-        PerceivedThing wielder;
-    } wand_being_zapped = { NULL, NULL };
     IdMap<PerceivedThing> perceived_individuals;
     Knowledge() {
         tiles.set_all(unknown_tile);
@@ -135,6 +163,7 @@ private:
     Life * _life;
 };
 typedef Reference<ThingImpl> Thing;
+
 
 PerceivedThing to_perceived_individual(uint256 target_id);
 PerceivedThing observe_individual(Thing observer, Thing target);

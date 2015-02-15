@@ -273,13 +273,16 @@ static void perceive_individual(Thing observer, uint256 target_id) {
     observer->life()->knowledge.perceived_individuals.put(target_id, to_perceived_individual(target_id));
 }
 
-static void id_item(Thing observer, Item item, WandId id) {
-    if (item == NULL)
+static void id_item(Thing observer, WandDescriptionId description_id, WandId id) {
+    if (description_id == WandDescriptionId_COUNT)
         return; // can't see it
-    observer->life()->knowledge.wand_identities[item->description_id] = id;
+    observer->life()->knowledge.wand_identities[description_id] = id;
 }
 
 void publish_event(Event event) {
+    publish_event(event, NULL);
+}
+void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
         Thing observer = iterator.next();
         Event apparent_event;
@@ -317,10 +320,7 @@ void publish_event(Event event) {
                 break;
 
             case Event::ZAP_WAND:
-                observer->life()->knowledge.wand_being_zapped = {
-                    actual_items.get(event.zap_wand_data().wand),
-                    observer->life()->knowledge.perceived_individuals.get(event.zap_wand_data().wielder),
-                };
+                perceived_current_zapper->put(observer->id, actual_items.get(event.zap_wand_data().wand)->description_id);
                 break;
             case Event::ZAP_WAND_NO_CHARGES:
                 // boring
@@ -335,13 +335,13 @@ void publish_event(Event event) {
                 break;
             case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
                 perceive_individual(observer, event.the_individual_data());
-                id_item(observer, observer->life()->knowledge.wand_being_zapped.wand, WandId_WAND_OF_CONFUSION);
+                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_CONFUSION);
                 break;
             case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
-                id_item(observer, observer->life()->knowledge.wand_being_zapped.wand, WandId_WAND_OF_STRIKING);
+                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_STRIKING);
                 break;
             case Event::BEAM_OF_DIGGING_HIT_WALL:
-                id_item(observer, observer->life()->knowledge.wand_being_zapped.wand, WandId_WAND_OF_DIGGING);
+                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_DIGGING);
                 break;
 
             case Event::NO_LONGER_CONFUSED:
