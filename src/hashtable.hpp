@@ -140,20 +140,18 @@ public:
 
     class Iterator {
     public:
-        bool has_next() const {
+        bool next(V * output) {
             if (_inital_modification_count != _table->_modification_count)
                 panic("concurrent modification");
-            return _count < _table->size();
-        }
-        V next() {
-            if (_inital_modification_count != _table->_modification_count)
-                panic("concurrent modification");
+            if (_count >= _table->size())
+                return false;
             for (; _index < _table->_capacity; _index++) {
                 Entry * entry = &_table->_entries[_index];
                 if (entry->used) {
                     _index++;
                     _count++;
-                    return entry->value;
+                    *output = entry->value;
+                    return true;
                 }
             }
             panic("no next item");

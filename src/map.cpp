@@ -75,18 +75,17 @@ void compute_vision(Thing spectator) {
     // see individuals
     // first clear out any monsters that we know are no longer where we thought
     List<PerceivedThing> remove_these;
-    for (auto iterator = spectator->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedThing target = iterator.next();
+    PerceivedThing target;
+    for (auto iterator = spectator->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&target);)
         if (!spectator->life()->species()->has_mind || spectator->life()->knowledge.tile_is_visible[target->location].any())
             remove_these.append(target);
-    }
     // do this as a second pass, because modifying in the middle of iteration doesn't work properly.
     for (int i = 0; i < remove_these.length(); i++)
         spectator->life()->knowledge.perceived_individuals.remove(remove_these[i]->id);
 
     // now see any monsters that are in our line of vision
-    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Thing actual_target = iterator.next();
+    Thing actual_target;
+    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&actual_target);) {
         if (!actual_target->still_exists)
             continue;
         PerceivedThing perceived_target = observe_individual(spectator, actual_target);

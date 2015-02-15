@@ -166,16 +166,15 @@ static void attack(Thing attacker, Thing target) {
 }
 
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
-    for (auto iterator = observer->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedThing individual = iterator.next();
+    PerceivedThing individual;
+    for (auto iterator = observer->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&individual);)
         if (individual->location == location)
             return individual;
-    }
     return NULL;
 }
 Thing find_individual_at(Coord location) {
-    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Thing individual = iterator.next();
+    Thing individual;
+    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);) {
         if (!individual->still_exists)
             continue;
         if (individual->location.x == location.x && individual->location.y == location.y)
@@ -188,19 +187,17 @@ static int compare_items_by_z_order(Thing a, Thing b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
 void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list) {
-    for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
-        Thing item = iterator.next();
+    Thing item;
+    for (auto iterator = actual_items.value_iterator(); iterator.next(&item);)
         if (item->container_id == owner->id)
             output_sorted_list->append(item);
-    }
     sort<Thing, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
-    for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
-        Thing item = iterator.next();
+    Thing item;
+    for (auto iterator = actual_items.value_iterator(); iterator.next(&item);)
         if (item->location == location)
             output_sorted_list->append(item);
-    }
     sort<Thing, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 
@@ -220,8 +217,8 @@ static void do_move(Thing mover, Coord new_position) {
 }
 
 static void cheatcode_kill_everybody_in_the_world() {
-    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Thing individual = iterator.next();
+    Thing individual;
+    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);) {
         if (!individual->still_exists)
             continue;
         if (individual != you)
@@ -370,8 +367,8 @@ void run_the_game() {
             List<Thing> dead_individuals;
             List<Event> deferred_events;
             // who's ready to make a move?
-            for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-                Thing individual = iterator.next();
+            Thing individual;
+            for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);) {
                 if (!individual->still_exists) {
                     dead_individuals.append(individual);
                     continue;
@@ -442,8 +439,8 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
             output_actions.append(Action::move(direction));
     }
     // attack
-    for (auto iterator = individual->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedThing target = iterator.next();
+    PerceivedThing target;
+    for (auto iterator = individual->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&target);) {
         if (target->id == individual->id)
             continue; // you can't attack yourself, sorry.
         Coord vector = target->location - individual->location;
@@ -487,8 +484,7 @@ void strike_individual(Thing attacker, Thing target) {
 void change_map(Coord location, TileType new_tile_type) {
     actual_map_tiles[location].tile_type = new_tile_type;
     // recompute everyone's vision
-    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Thing individual = iterator.next();
+    Thing individual;
+    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);)
         compute_vision(individual);
-    }
 }

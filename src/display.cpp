@@ -305,8 +305,8 @@ void render() {
         }
     }
 
-    for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
-        Thing item = iterator.next();
+    Thing item;
+    for (auto iterator = actual_items.value_iterator(); iterator.next(&item);) {
         if (item->location == Coord::nowhere())
             continue;
         render_tile(renderer, sprite_sheet_texture, wand_images[item->wand_info()->description_id], 0xff, item->location);
@@ -315,8 +315,8 @@ void render() {
     // render the individuals
     if (!cheatcode_full_visibility) {
         // not cheating
-        for (auto iterator = spectate_from->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-            PerceivedThing individual = iterator.next();
+        PerceivedThing individual;
+        for (auto iterator = spectate_from->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&individual);) {
             Uint8 alpha;
             if (individual->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[individual->location].any())
                 alpha = 0x7f;
@@ -326,8 +326,8 @@ void render() {
         }
     } else {
         // full visibility
-        for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-            Thing individual = iterator.next();
+        Thing individual;
+        for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);) {
             if (!individual->still_exists)
                 continue;
             Uint8 alpha;

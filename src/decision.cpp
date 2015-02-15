@@ -20,8 +20,8 @@ static Action get_player_decision(Thing) {
 
 static Action get_ai_decision(Thing individual) {
     List<PerceivedThing> closest_hostiles;
-    for (auto iterator = individual->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedThing target = iterator.next();
+    PerceivedThing target;
+    for (auto iterator = individual->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&target);) {
         if (target->team == individual->life()->team)
             continue; // you're cool
         if (closest_hostiles.length() == 0) {

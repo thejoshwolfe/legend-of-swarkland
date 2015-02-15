@@ -283,8 +283,8 @@ void publish_event(Event event) {
     publish_event(event, NULL);
 }
 void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Thing observer = iterator.next();
+    Thing observer;
+    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&observer);) {
         Event apparent_event;
         if (!see_event(observer, event, &apparent_event))
             continue;
