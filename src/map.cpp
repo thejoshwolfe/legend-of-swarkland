@@ -33,20 +33,20 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     return true;
 }
 
-static void refresh_normal_vision(Individual individual) {
+static void refresh_normal_vision(Thing individual) {
     Coord you_location = individual->location;
     for (Coord target = {0, 0}; target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
             if (!is_open_line_of_sight(you_location, target))
                 continue;
-            individual->knowledge.tile_is_visible[target].normal = true;
-            individual->knowledge.tiles[target] = actual_map_tiles[target];
+            individual->life()->knowledge.tile_is_visible[target].normal = true;
+            individual->life()->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
 }
 
 static const int ethereal_radius = 5;
-static void refresh_ethereal_vision(Individual individual) {
+static void refresh_ethereal_vision(Thing individual) {
     Coord you_location = individual->location;
     Coord etheral_radius_diagonal = {ethereal_radius, ethereal_radius};
     Coord upper_left = clamp(you_location - etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
@@ -55,18 +55,18 @@ static void refresh_ethereal_vision(Individual individual) {
         for (target.x = upper_left.x; target.x <= lower_right.x; target.x++) {
             if (distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
                 continue;
-            individual->knowledge.tile_is_visible[target].ethereal = true;
-            individual->knowledge.tiles[target] = actual_map_tiles[target];
+            individual->life()->knowledge.tile_is_visible[target].ethereal = true;
+            individual->life()->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
 }
 
-void compute_vision(Individual spectator) {
+void compute_vision(Thing spectator) {
     // mindless monsters can't remember the terrain
     if (!spectator->species()->has_mind)
-        spectator->knowledge.tiles.set_all(unknown_tile);
+        spectator->life()->knowledge.tiles.set_all(unknown_tile);
 
-    spectator->knowledge.tile_is_visible.set_all(VisionTypes::none());
+    spectator->life()->knowledge.tile_is_visible.set_all(VisionTypes::none());
     if (spectator->species()->vision_types.normal)
         refresh_normal_vision(spectator);
     if (spectator->species()->vision_types.ethereal)
@@ -74,25 +74,25 @@ void compute_vision(Individual spectator) {
 
     // see individuals
     // first clear out any monsters that we know are no longer where we thought
-    List<PerceivedIndividual> remove_these;
-    for (auto iterator = spectator->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedIndividual target = iterator.next();
-        if (!spectator->species()->has_mind || spectator->knowledge.tile_is_visible[target->location].any())
+    List<PerceivedThing> remove_these;
+    for (auto iterator = spectator->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+        PerceivedThing target = iterator.next();
+        if (!spectator->species()->has_mind || spectator->life()->knowledge.tile_is_visible[target->location].any())
             remove_these.append(target);
     }
     // do this as a second pass, because modifying in the middle of iteration doesn't work properly.
     for (int i = 0; i < remove_these.length(); i++)
-        spectator->knowledge.perceived_individuals.remove(remove_these[i]->id);
+        spectator->life()->knowledge.perceived_individuals.remove(remove_these[i]->id);
 
     // now see any monsters that are in our line of vision
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Individual actual_target = iterator.next();
-        if (!actual_target->is_alive)
+        Thing actual_target = iterator.next();
+        if (!actual_target->still_exists)
             continue;
-        PerceivedIndividual perceived_target = observe_individual(spectator, actual_target);
+        PerceivedThing perceived_target = observe_individual(spectator, actual_target);
         if (perceived_target == NULL)
             continue;
-        spectator->knowledge.perceived_individuals.put(perceived_target->id, perceived_target);
+        spectator->life()->knowledge.perceived_individuals.put(perceived_target->id, perceived_target);
     }
 }
 

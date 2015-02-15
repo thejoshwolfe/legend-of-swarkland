@@ -10,13 +10,7 @@ WandId actual_wand_identities[WandId_COUNT];
 void init_items() {
     for (int i = 0; i < WandId_COUNT; i++)
         actual_wand_identities[i] = (WandId)i;
-    // shuffle
-    for (int i = 0; i < WandId_COUNT - 1; i++) {
-        int swap_with = random_int(i, WandId_COUNT);
-        WandId tmp = actual_wand_identities[swap_with];
-        actual_wand_identities[swap_with] = actual_wand_identities[i];
-        actual_wand_identities[i] = tmp;
-    }
+    shuffle(actual_wand_identities, WandId_COUNT);
 }
 
 Item random_item() {
@@ -28,14 +22,14 @@ Item random_item() {
     return item;
 }
 
-void get_item_description(Individual observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output) {
+void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output) {
     Item item = actual_items.get(item_id);
     if (!can_see_individual(observer, wielder_id)) {
         // can't see the wand
         output->append("a wand");
         return;
     }
-    WandId true_id = observer->knowledge.wand_identities[item->description_id];
+    WandId true_id = observer->life()->knowledge.wand_identities[item->description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
@@ -67,7 +61,7 @@ void get_item_description(Individual observer, uint256 wielder_id, uint256 item_
     }
 }
 
-static void confuse_individual_from_wand(Individual target) {
+static void confuse_individual_from_wand(Thing target) {
     bool did_it_work = confuse_individual(target);
     if (did_it_work) {
         publish_event(Event::beam_of_confusion_hit_individual(target));
@@ -76,12 +70,12 @@ static void confuse_individual_from_wand(Individual target) {
     }
 }
 
-static void strike_individual_from_wand(Individual wand_wielder, Individual target) {
+static void strike_individual_from_wand(Thing wand_wielder, Thing target) {
     publish_event(Event::beam_of_striking_hit_individual(target));
     strike_individual(wand_wielder, target);
 }
 
-void zap_wand(Individual wand_wielder, uint256 item_id, Coord direction) {
+void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     Item wand = actual_items.get(item_id);
     wand->charges--;
     if (wand->charges <= -1) {
@@ -120,7 +114,7 @@ void zap_wand(Individual wand_wielder, uint256 item_id, Coord direction) {
                 break;
             }
             case WandId_WAND_OF_STRIKING: {
-                Individual target = find_individual_at(cursor);
+                Thing target = find_individual_at(cursor);
                 if (target != NULL) {
                     strike_individual_from_wand(wand_wielder, target);
                     beam_length -= 3;
@@ -130,7 +124,7 @@ void zap_wand(Individual wand_wielder, uint256 item_id, Coord direction) {
                 break;
             }
             case WandId_WAND_OF_CONFUSION: {
-                Individual target = find_individual_at(cursor);
+                Thing target = find_individual_at(cursor);
                 if (target != NULL) {
                     confuse_individual_from_wand(target);
                     beam_length -= 3;
@@ -146,7 +140,7 @@ void zap_wand(Individual wand_wielder, uint256 item_id, Coord direction) {
 
     // the zap has stopped
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        iterator.next()->knowledge.wand_being_zapped = {
+        iterator.next()->life()->knowledge.wand_being_zapped = {
             NULL,
             NULL,
         };

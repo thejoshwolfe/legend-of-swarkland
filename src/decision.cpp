@@ -3,10 +3,10 @@
 #include "path_finding.hpp"
 #include "tas.hpp"
 
-Action (*decision_makers[DecisionMakerType_COUNT])(Individual);
+Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
 Action current_player_decision;
 
-static Action get_player_decision(Individual) {
+static Action get_player_decision(Thing) {
     Action result = tas_get_decision();
     if (result == Action::undecided()) {
         // ok, ask the real player
@@ -18,11 +18,11 @@ static Action get_player_decision(Individual) {
     return result;
 }
 
-static Action get_ai_decision(Individual individual) {
-    List<PerceivedIndividual> closest_hostiles;
-    for (auto iterator = individual->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedIndividual target = iterator.next();
-        if (target->team == individual->team)
+static Action get_ai_decision(Thing individual) {
+    List<PerceivedThing> closest_hostiles;
+    for (auto iterator = individual->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+        PerceivedThing target = iterator.next();
+        if (target->team == individual->life()->team)
             continue; // you're cool
         if (closest_hostiles.length() == 0) {
             // found somebody to punch
@@ -45,7 +45,7 @@ static Action get_ai_decision(Individual individual) {
     }
     if (closest_hostiles.length() > 0) {
         // let's go attack somebody!
-        PerceivedIndividual target = closest_hostiles[random_int(closest_hostiles.length())];
+        PerceivedThing target = closest_hostiles[random_int(closest_hostiles.length())];
         List<Coord> path;
         find_path(individual->location, target->location, individual, path);
         if (path.length() > 0) {

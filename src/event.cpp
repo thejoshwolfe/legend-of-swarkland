@@ -3,7 +3,7 @@
 #include "display.hpp"
 #include "swarkland.hpp"
 
-static RememberedEvent to_remembered_event(Individual observer, Event event) {
+static RememberedEvent to_remembered_event(Thing observer, Event event) {
     ByteBuffer buffer1;
     ByteBuffer buffer2;
     RememberedEvent result = create<RememberedEventImpl>();
@@ -122,37 +122,37 @@ static RememberedEvent to_remembered_event(Individual observer, Event event) {
     panic("remembered_event");
 }
 
-static bool can_see_location(Individual observer, Coord location) {
-    if (!observer->is_alive)
+static bool can_see_location(Thing observer, Coord location) {
+    if (!observer->still_exists)
         return false;
     if (!is_in_bounds(location))
         return false;
-    return observer->knowledge.tile_is_visible[location].any();
+    return observer->life()->knowledge.tile_is_visible[location].any();
 }
-bool can_see_individual(Individual observer, uint256 target_id, Coord target_location) {
+bool can_see_individual(Thing observer, uint256 target_id, Coord target_location) {
     // you can always see yourself
     if (observer->id == target_id)
         return true;
     // you can't see anything else while dead
-    if (!observer->is_alive)
+    if (!observer->still_exists)
         return false;
-    Individual actual_target = actual_individuals.get(target_id);
+    Thing actual_target = actual_individuals.get(target_id);
     // nobody can see invisible people
     if (actual_target->status_effects.invisible)
         return false;
     // we can see someone if they're in our line of sight
-    if (!observer->knowledge.tile_is_visible[target_location].any())
+    if (!observer->life()->knowledge.tile_is_visible[target_location].any())
         return false;
     return true;
 }
-bool can_see_individual(Individual observer, uint256 target_id) {
+bool can_see_individual(Thing observer, uint256 target_id) {
     return can_see_individual(observer, target_id, actual_individuals.get(target_id)->location);
 }
 static Coord location_of(uint256 individual_id) {
     return actual_individuals.get(individual_id)->location;
 }
 
-static bool see_event(Individual observer, Event event, Event * output_event) {
+static bool see_event(Thing observer, Event event, Event * output_event) {
     switch (event.type) {
         case Event::MOVE:
             if (!(can_see_individual(observer, event.move_data().individual, event.move_data().from) || can_see_individual(observer, event.move_data().individual, event.move_data().to)))
@@ -269,19 +269,19 @@ static bool see_event(Individual observer, Event event, Event * output_event) {
     panic("see event");
 }
 
-static void perceive_individual(Individual observer, uint256 target_id) {
-    observer->knowledge.perceived_individuals.put(target_id, to_perceived_individual(target_id));
+static void perceive_individual(Thing observer, uint256 target_id) {
+    observer->life()->knowledge.perceived_individuals.put(target_id, to_perceived_individual(target_id));
 }
 
-static void id_item(Individual observer, Item item, WandId id) {
+static void id_item(Thing observer, Item item, WandId id) {
     if (item == NULL)
         return; // can't see it
-    observer->knowledge.wand_identities[item->description_id] = id;
+    observer->life()->knowledge.wand_identities[item->description_id] = id;
 }
 
 void publish_event(Event event) {
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Individual observer = iterator.next();
+        Thing observer = iterator.next();
         Event apparent_event;
         if (!see_event(observer, event, &apparent_event))
             continue;
@@ -317,9 +317,9 @@ void publish_event(Event event) {
                 break;
 
             case Event::ZAP_WAND:
-                observer->knowledge.wand_being_zapped = {
+                observer->life()->knowledge.wand_being_zapped = {
                     actual_items.get(event.zap_wand_data().wand),
-                    observer->knowledge.perceived_individuals.get(event.zap_wand_data().wielder),
+                    observer->life()->knowledge.perceived_individuals.get(event.zap_wand_data().wielder),
                 };
                 break;
             case Event::ZAP_WAND_NO_CHARGES:
@@ -335,13 +335,13 @@ void publish_event(Event event) {
                 break;
             case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
                 perceive_individual(observer, event.the_individual_data());
-                id_item(observer, observer->knowledge.wand_being_zapped.wand, WandId_WAND_OF_CONFUSION);
+                id_item(observer, observer->life()->knowledge.wand_being_zapped.wand, WandId_WAND_OF_CONFUSION);
                 break;
             case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
-                id_item(observer, observer->knowledge.wand_being_zapped.wand, WandId_WAND_OF_STRIKING);
+                id_item(observer, observer->life()->knowledge.wand_being_zapped.wand, WandId_WAND_OF_STRIKING);
                 break;
             case Event::BEAM_OF_DIGGING_HIT_WALL:
-                id_item(observer, observer->knowledge.wand_being_zapped.wand, WandId_WAND_OF_DIGGING);
+                id_item(observer, observer->life()->knowledge.wand_being_zapped.wand, WandId_WAND_OF_DIGGING);
                 break;
 
             case Event::NO_LONGER_CONFUSED:
@@ -366,10 +366,10 @@ void publish_event(Event event) {
             // we need to log the event before the monster disappears from our knowledge
             RememberedEvent remembered_event = to_remembered_event(observer, apparent_event);
             if (remembered_event != NULL)
-                observer->knowledge.remembered_events.append(remembered_event);
+                observer->life()->knowledge.remembered_events.append(remembered_event);
         }
         // now that we've had a chance to talk about it, delete it if we should
         for (int i = 0; i < delete_ids.length(); i++)
-            observer->knowledge.perceived_individuals.remove(delete_ids[i]);
+            observer->life()->knowledge.perceived_individuals.remove(delete_ids[i]);
     }
 }

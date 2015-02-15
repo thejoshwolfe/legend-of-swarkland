@@ -77,25 +77,25 @@ public:
             id(id), species_id(species_id), location(location), team(team), status_effects(status_effects) {
     }
 };
-typedef Reference<PerceivedIndividualImpl> PerceivedIndividual;
+typedef Reference<PerceivedIndividualImpl> PerceivedThing;
 
 struct RememberedEventImpl : public ReferenceCounted {
     ByteBuffer bytes;
 };
 typedef Reference<RememberedEventImpl> RememberedEvent;
 
-class Knowledge {
-public:
+struct Knowledge {
     // terrain knowledge
     MapMatrix<Tile> tiles;
     MapMatrix<VisionTypes> tile_is_visible;
     List<RememberedEvent> remembered_events;
+    // this is never wrong
     WandId wand_identities[WandId_COUNT];
     struct {
         Item wand;
-        PerceivedIndividual wielder;
+        PerceivedThing wielder;
     } wand_being_zapped = { NULL, NULL };
-    IdMap<PerceivedIndividual> perceived_individuals;
+    IdMap<PerceivedThing> perceived_individuals;
     Knowledge() {
         tiles.set_all(unknown_tile);
         tile_is_visible.set_all(VisionTypes::none());
@@ -104,34 +104,46 @@ public:
     }
 };
 
-struct IndividualImpl : public ReferenceCounted {
-    uint256 id;
-    SpeciesId species_id;
-    bool is_alive = true;
+struct Life {
     int hitpoints;
     int kill_counter = 0;
-    Coord location;
     // once this reaches movement_cost, make a move
     int movement_points = 0;
     uint256 initiative;
     Team team;
     DecisionMakerType decision_maker;
     Knowledge knowledge;
-    StatusEffects status_effects;
-    IndividualImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
-    IndividualImpl(IndividualImpl &) = delete;
-    Species * species() const;
 };
-typedef Reference<IndividualImpl> Individual;
 
-PerceivedIndividual to_perceived_individual(uint256 target_id);
-PerceivedIndividual observe_individual(Individual observer, Individual target);
+class ThingImpl : public ReferenceCounted {
+public:
+    uint256 id;
+    SpeciesId species_id;
+    // this is set to false in the time between actually being destroyed and being removed from the master list
+    bool still_exists = true;
+    Coord location;
+    StatusEffects status_effects;
+    ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
+    ThingImpl(ThingImpl &) = delete;
+    ~ThingImpl();
+    Species * species() const;
 
-int compare_individuals_by_initiative(Individual a, Individual b);
+    Life * life() {
+        return _life;
+    }
+private:
+    Life * _life;
+};
+typedef Reference<ThingImpl> Thing;
+
+PerceivedThing to_perceived_individual(uint256 target_id);
+PerceivedThing observe_individual(Thing observer, Thing target);
+
+int compare_individuals_by_initiative(Thing a, Thing b);
 
 // TODO: these are in the wrong place
-void compute_vision(Individual individual);
-void get_item_description(Individual observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output);
-void zap_wand(Individual individual, uint256 item_id, Coord direction);
+void compute_vision(Thing individual);
+void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output);
+void zap_wand(Thing individual, uint256 item_id, Coord direction);
 
 #endif

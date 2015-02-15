@@ -147,7 +147,7 @@ static inline bool rect_contains(SDL_Rect rect, Coord point) {
            rect.y <= point.y && point.y < rect.y + rect.h;
 }
 
-static Individual get_spectate_individual() {
+static Thing get_spectate_individual() {
     return cheatcode_spectator != NULL ? cheatcode_spectator : you;
 }
 
@@ -233,12 +233,12 @@ const char * get_species_name(SpeciesId species_id) {
             panic("individual description");
     }
 }
-void get_individual_description(Individual observer, uint256 target_id, ByteBuffer * output) {
+void get_individual_description(Thing observer, uint256 target_id, ByteBuffer * output) {
     if (observer->id == target_id) {
         output->append("you");
         return;
     }
-    PerceivedIndividual target = observer->knowledge.perceived_individuals.get(target_id, NULL);
+    PerceivedThing target = observer->life()->knowledge.perceived_individuals.get(target_id, NULL);
     if (target == NULL) {
         output->append("it");
         return;
@@ -265,7 +265,7 @@ static void popup_help(Coord upper_left_corner, const char * str) {
 }
 
 void render() {
-    Individual spectate_from = get_spectate_individual();
+    Thing spectate_from = get_spectate_individual();
 
     set_color(black);
     SDL_RenderClear(renderer);
@@ -274,13 +274,13 @@ void render() {
     // render the terrain
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            Tile tile = spectate_from->knowledge.tiles[cursor];
+            Tile tile = spectate_from->life()->knowledge.tiles[cursor];
             if (cheatcode_full_visibility)
                 tile = actual_map_tiles[cursor];
             if (tile.tile_type == TileType_UNKNOWN)
                 continue;
             Uint8 alpha;
-            if (spectate_from->knowledge.tile_is_visible[cursor].any()) {
+            if (spectate_from->life()->knowledge.tile_is_visible[cursor].any()) {
                 // it's in our direct line of sight
                 if (input_mode == InputMode_ZAP_CHOOSE_DIRECTION) {
                     // actually, let's only show the cardinal directions
@@ -315,10 +315,10 @@ void render() {
     // render the individuals
     if (!cheatcode_full_visibility) {
         // not cheating
-        for (auto iterator = spectate_from->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-            PerceivedIndividual individual = iterator.next();
+        for (auto iterator = spectate_from->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+            PerceivedThing individual = iterator.next();
             Uint8 alpha;
-            if (individual->status_effects.invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
+            if (individual->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[individual->location].any())
                 alpha = 0x7f;
             else
                 alpha = 0xff;
@@ -327,11 +327,11 @@ void render() {
     } else {
         // full visibility
         for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-            Individual individual = iterator.next();
-            if (!individual->is_alive)
+            Thing individual = iterator.next();
+            if (!individual->still_exists)
                 continue;
             Uint8 alpha;
-            if (individual->status_effects.invisible || !spectate_from->knowledge.tile_is_visible[individual->location].any())
+            if (individual->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[individual->location].any())
                 alpha = 0x7f;
             else
                 alpha = 0xff;
@@ -342,11 +342,11 @@ void render() {
     // status box
     {
         ByteBuffer status_text;
-        status_text.format("HP: %d", spectate_from->hitpoints);
+        status_text.format("HP: %d", spectate_from->life()->hitpoints);
         render_text(status_text.raw(), hp_area);
 
         status_text.resize(0);
-        status_text.format("Kills: %d", spectate_from->kill_counter);
+        status_text.format("Kills: %d", spectate_from->life()->kill_counter);
         render_text(status_text.raw(), kills_area);
 
         status_text.resize(0);
@@ -361,7 +361,7 @@ void render() {
     {
         bool expand_message_box = rect_contains(message_area, get_mouse_pixels());
         ByteBuffer all_the_text;
-        List<RememberedEvent> & events = spectate_from->knowledge.remembered_events;
+        List<RememberedEvent> & events = spectate_from->life()->knowledge.remembered_events;
         for (int i = 0; i < events.length(); i++) {
             RememberedEvent event = events[i];
             if (event != NULL) {
@@ -410,7 +410,7 @@ void render() {
     // popup help for hovering over things
     Coord mouse_hover_map_tile = get_mouse_tile(main_map_area);
     if (mouse_hover_map_tile != Coord::nowhere()) {
-        PerceivedIndividual target = find_perceived_individual_at(spectate_from, mouse_hover_map_tile);
+        PerceivedThing target = find_perceived_individual_at(spectate_from, mouse_hover_map_tile);
         if (target != NULL) {
             ByteBuffer description;
             get_individual_description(spectate_from, target->id, &description);

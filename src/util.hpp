@@ -123,4 +123,14 @@ void sort(T * in_place_list, int size) {
     }
 }
 
+template<typename T>
+void shuffle(T * in_place_list, int size) {
+    for (int i = 0; i < size; i++) {
+        int swap_with = random_int(i, size);
+        T tmp = in_place_list[swap_with];
+        in_place_list[swap_with] = in_place_list[i];
+        in_place_list[i] = tmp;
+    }
+}
+
 #endif

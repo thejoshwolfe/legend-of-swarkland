@@ -79,11 +79,11 @@ struct Event {
         return _data._polymorph;
     };
 
-    static inline Event move(Individual mover, Coord from, Coord to) {
+    static inline Event move(Thing mover, Coord from, Coord to) {
         return move_type_event(MOVE, mover->id, from, to);
     }
 
-    static inline Event attack(Individual attacker, Individual target) {
+    static inline Event attack(Thing attacker, Thing target) {
         return attack_type_event(ATTACK, attacker, target);
     }
     static inline Event attack_something(uint256 attacker_id, Coord attacker_location, Coord target_location) {
@@ -92,34 +92,34 @@ struct Event {
     static inline Event something_attack_individual(uint256 target_id, Coord attacker_location, Coord target_location) {
         return move_type_event(SOMETHING_ATTACK_INDIVIDUAL, target_id, attacker_location, target_location);
     }
-    static Event attack_thin_air(Individual actor, Coord target_location) {
+    static Event attack_thin_air(Thing actor, Coord target_location) {
         return move_type_event(ATTACK_THIN_AIR, actor->id, actor->location, target_location);
     }
-    static Event attack_wall(Individual actor, Coord target_location) {
+    static Event attack_wall(Thing actor, Coord target_location) {
         return move_type_event(ATTACK_WALL, actor->id, actor->location, target_location);
     }
 
-    static inline Event die(Individual deceased) {
+    static inline Event die(Thing deceased) {
         return event_individual(DIE, deceased->id);
     }
 
-    static inline Event zap_wand(Individual wand_wielder, Item item) {
+    static inline Event zap_wand(Thing wand_wielder, Item item) {
         return zap_wand_type_event(ZAP_WAND, wand_wielder, item);
     }
-    static inline Event wand_zap_no_charges(Individual wand_wielder, Item item) {
+    static inline Event wand_zap_no_charges(Thing wand_wielder, Item item) {
         return zap_wand_type_event(ZAP_WAND_NO_CHARGES, wand_wielder, item);
     }
-    static inline Event wand_disintegrates(Individual wand_wielder, Item item) {
+    static inline Event wand_disintegrates(Thing wand_wielder, Item item) {
         return zap_wand_type_event(WAND_DISINTEGRATES, wand_wielder, item);
     }
 
-    static inline Event beam_hit_individual_no_effect(Individual target) {
+    static inline Event beam_hit_individual_no_effect(Thing target) {
         return event_individual(BEAM_HIT_INDIVIDUAL_NO_EFFECT, target->id);
     }
-    static inline Event beam_of_confusion_hit_individual(Individual target) {
+    static inline Event beam_of_confusion_hit_individual(Thing target) {
         return event_individual(BEAM_OF_CONFUSION_HIT_INDIVIDUAL, target->id);
     }
-    static inline Event beam_of_striking_hit_individual(Individual target) {
+    static inline Event beam_of_striking_hit_individual(Thing target) {
         return event_individual(BEAM_OF_STRIKING_HIT_INDIVIDUAL, target->id);
     }
     static inline Event beam_of_digging_hit_wall(Coord wall_location) {
@@ -129,10 +129,10 @@ struct Event {
         return result;
     }
 
-    static Event bump_into_wall(Individual actor, Coord wall_location) {
+    static Event bump_into_wall(Thing actor, Coord wall_location) {
         return move_type_event(BUMP_INTO_WALL, actor->id, actor->location, wall_location);
     }
-    static Event bump_into_individual(Individual actor, Individual target) {
+    static Event bump_into_individual(Thing actor, Thing target) {
         return attack_type_event(BUMP_INTO_INDIVIDUAL, actor, target);
     }
     static Event bump_into_something(uint256 actor_id, Coord from_location, Coord something_location) {
@@ -142,19 +142,19 @@ struct Event {
         return move_type_event(SOMETHING_BUMP_INTO_INDIVIDUAL, target, from_location, target_location);
     }
 
-    static inline Event no_longer_confused(Individual individual) {
+    static inline Event no_longer_confused(Thing individual) {
         return event_individual(NO_LONGER_CONFUSED, individual->id);
     }
-    static inline Event appear(Individual new_guy) {
+    static inline Event appear(Thing new_guy) {
         return event_individual(APPEAR, new_guy->id);
     }
-    static inline Event turn_invisible(Individual individual) {
+    static inline Event turn_invisible(Thing individual) {
         return event_individual(TURN_INVISIBLE, individual->id);
     }
     static inline Event disappear(uint256 individual_id) {
         return event_individual(DISAPPEAR, individual_id);
     }
-    static inline Event polymorph(Individual shapeshifter, SpeciesId old_species) {
+    static inline Event polymorph(Thing shapeshifter, SpeciesId old_species) {
         Event result;
         result.type = POLYMORPH;
         PolymorphData & data = result.polymorph_data();
@@ -180,7 +180,7 @@ private:
         };
         return result;
     }
-    static Event attack_type_event(Type type, Individual individual1, Individual individual2) {
+    static Event attack_type_event(Type type, Thing individual1, Thing individual2) {
         Event result;
         result.type = type;
         result.attack_data() = {
@@ -189,7 +189,7 @@ private:
         };
         return result;
     }
-    static inline Event zap_wand_type_event(Type type, Individual wand_wielder, Item item) {
+    static inline Event zap_wand_type_event(Type type, Thing wand_wielder, Item item) {
         Event result;
         result.type = type;
         result.zap_wand_data() = {
@@ -283,8 +283,8 @@ private:
     }
 };
 
-bool can_see_individual(Individual observer, uint256 target_id, Coord target_location);
-bool can_see_individual(Individual observer, uint256 target_id);
+bool can_see_individual(Thing observer, uint256 target_id, Coord target_location);
+bool can_see_individual(Thing observer, uint256 target_id);
 void publish_event(Event event);
 
 #endif

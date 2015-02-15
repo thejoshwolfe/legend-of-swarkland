@@ -6,10 +6,10 @@
 #include "event.hpp"
 
 Species specieses[SpeciesId_COUNT];
-IdMap<Individual> actual_individuals;
+IdMap<Thing> actual_individuals;
 IdMap<Item> actual_items;
 
-Individual you;
+Thing you;
 bool youre_still_alive = true;
 long long time_counter = 0;
 
@@ -23,7 +23,7 @@ static void init_specieses() {
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
 }
 
-static void pickup_item(Individual individual, Item item) {
+static void pickup_item(Thing individual, Item item) {
     if (item->owner_id != uint256::zero())
         panic("pickup item in someone's inventory");
 
@@ -45,7 +45,7 @@ static void drop_item_to_the_floor(Item item, Coord location) {
 static const int no_spawn_radius = 10;
 
 // specify SpeciesId_COUNT for random
-Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker) {
+Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker) {
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
         if (species_id == SpeciesId_HUMAN) {
@@ -72,7 +72,7 @@ Individual spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType de
     }
     Coord location = available_spawn_locations[random_int(available_spawn_locations.length())];
 
-    Individual individual = create<IndividualImpl>(species_id, location, team, decision_maker);
+    Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
 
     if (random_int(1) == 0) {
         // have an item
@@ -120,23 +120,23 @@ static void spawn_monsters(bool force_do_it) {
     }
 }
 
-static void regen_hp(Individual individual) {
-    if (individual->hitpoints < individual->species()->starting_hitpoints) {
+static void regen_hp(Thing individual) {
+    if (individual->life()->hitpoints < individual->species()->starting_hitpoints) {
         if (random_int(60) == 0) {
-            individual->hitpoints++;
+            individual->life()->hitpoints++;
         }
     }
 }
 
-static void kill_individual(Individual individual) {
+static void kill_individual(Thing individual) {
     // drop your stuff
     List<Item> inventory;
     find_items_in_inventory(individual, &inventory);
     for (int i = 0; i < inventory.length(); i++)
         drop_item_to_the_floor(inventory[i], individual->location);
 
-    individual->hitpoints = 0;
-    individual->is_alive = false;
+    individual->life()->hitpoints = 0;
+    individual->still_exists = false;
 
     publish_event(Event::die(individual));
 
@@ -148,34 +148,34 @@ static void kill_individual(Individual individual) {
     }
 }
 
-static void damage_individual(Individual attacker, Individual target, int damage) {
+static void damage_individual(Thing attacker, Thing target, int damage) {
     if (damage <= 0)
         panic("no damage");
-    target->hitpoints -= damage;
-    if (target->hitpoints <= 0) {
+    target->life()->hitpoints -= damage;
+    if (target->life()->hitpoints <= 0) {
         kill_individual(target);
-        attacker->kill_counter++;
+        attacker->life()->kill_counter++;
     }
 }
 
 // normal melee attack
-static void attack(Individual attacker, Individual target) {
+static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack(attacker, target));
     damage_individual(attacker, target, attacker->species()->attack_power);
 }
 
-PerceivedIndividual find_perceived_individual_at(Individual observer, Coord location) {
-    for (auto iterator = observer->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedIndividual individual = iterator.next();
+PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
+    for (auto iterator = observer->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+        PerceivedThing individual = iterator.next();
         if (individual->location == location)
             return individual;
     }
     return NULL;
 }
-Individual find_individual_at(Coord location) {
+Thing find_individual_at(Coord location) {
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
-        if (!individual->is_alive)
+        Thing individual = iterator.next();
+        if (!individual->still_exists)
             continue;
         if (individual->location.x == location.x && individual->location.y == location.y)
             return individual;
@@ -186,7 +186,7 @@ Individual find_individual_at(Coord location) {
 static int compare_items_by_z_order(Item a, Item b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
-void find_items_in_inventory(Individual owner, List<Item> * output_sorted_list) {
+void find_items_in_inventory(Thing owner, List<Item> * output_sorted_list) {
     for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
         Item item = iterator.next();
         if (item->owner_id == owner->id)
@@ -203,7 +203,7 @@ void find_items_on_floor(Coord location, List<Item> * output_sorted_list) {
     sort<Item, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 
-static void do_move(Individual mover, Coord new_position) {
+static void do_move(Thing mover, Coord new_position) {
     Coord old_position = mover->location;
     mover->location = new_position;
     // gimme that
@@ -220,8 +220,8 @@ static void do_move(Individual mover, Coord new_position) {
 
 static void cheatcode_kill_everybody_in_the_world() {
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
-        if (!individual->is_alive)
+        Thing individual = iterator.next();
+        if (!individual->still_exists)
             continue;
         if (individual != you)
             kill_individual(individual);
@@ -233,13 +233,13 @@ static void cheatcode_polymorph() {
     compute_vision(you);
     publish_event(Event::polymorph(you, old_species));
 }
-Individual cheatcode_spectator;
+Thing cheatcode_spectator;
 void cheatcode_spectate() {
     Coord individual_at = get_mouse_tile(main_map_area);
     cheatcode_spectator = find_individual_at(individual_at);
 }
 
-static bool validate_action(Individual individual, Action action) {
+static bool validate_action(Thing individual, Action action) {
     List<Action> valid_actions;
     get_available_actions(individual, valid_actions);
     for (int i = 0; i < valid_actions.length(); i++)
@@ -257,7 +257,7 @@ static const Coord directions_by_rotation[] = {
     { 0, -1},
     {+1, -1},
 };
-Coord confuse_direction(Individual individual, Coord direction) {
+Coord confuse_direction(Thing individual, Coord direction) {
     if (individual->status_effects.confused_timeout == 0)
         return direction; // not confused
     if (random_int(2) > 0)
@@ -274,7 +274,7 @@ Coord confuse_direction(Individual individual, Coord direction) {
 }
 
 // return whether we did anything. also, cheatcodes take no time
-static bool take_action(Individual actor, Action action) {
+static bool take_action(Thing actor, Action action) {
     bool is_valid = validate_action(actor, action);
     if (!is_valid) {
         if (actor == you) {
@@ -285,7 +285,7 @@ static bool take_action(Individual actor, Action action) {
     }
 
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
-    actor->movement_points = 0;
+    actor->life()->movement_points = 0;
 
     switch (action.type) {
         case Action::WAIT:
@@ -299,7 +299,7 @@ static bool take_action(Individual actor, Action action) {
                 publish_event(Event::bump_into_wall(actor, new_position));
                 return true;
             }
-            Individual target = find_individual_at(new_position);
+            Thing target = find_individual_at(new_position);
             if (target != NULL) {
                 // this is not attacking
                 publish_event(Event::bump_into_individual(actor, target));
@@ -311,7 +311,7 @@ static bool take_action(Individual actor, Action action) {
         }
         case Action::ATTACK: {
             Coord new_position = actor->location + confuse_direction(actor, action.coord);
-            Individual target = find_individual_at(new_position);
+            Thing target = find_individual_at(new_position);
             if (target != NULL) {
                 attack(actor, target);
                 return true;
@@ -330,7 +330,7 @@ static bool take_action(Individual actor, Action action) {
         }
 
         case Action::CHEATCODE_HEALTH_BOOST:
-            actor->hitpoints += 100;
+            actor->life()->hitpoints += 100;
             return false;
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
             cheatcode_kill_everybody_in_the_world();
@@ -356,7 +356,7 @@ static bool take_action(Individual actor, Action action) {
     }
 }
 
-List<Individual> poised_individuals;
+List<Thing> poised_individuals;
 int poised_individuals_index = 0;
 // this function will return only when we're expecting player input
 void run_the_game() {
@@ -366,12 +366,12 @@ void run_the_game() {
 
             spawn_monsters(false);
 
-            List<Individual> dead_individuals;
+            List<Thing> dead_individuals;
             List<Event> deferred_events;
             // who's ready to make a move?
             for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-                Individual individual = iterator.next();
-                if (!individual->is_alive) {
+                Thing individual = iterator.next();
+                if (!individual->still_exists) {
                     dead_individuals.append(individual);
                     continue;
                 }
@@ -383,13 +383,13 @@ void run_the_game() {
                         deferred_events.append(Event::no_longer_confused(individual));
                     }
                 }
-                individual->movement_points++;
-                if (individual->movement_points >= individual->species()->movement_cost) {
+                individual->life()->movement_points++;
+                if (individual->life()->movement_points >= individual->species()->movement_cost) {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
                     if (individual->species()->has_mind) {
-                        List<RememberedEvent> & events = individual->knowledge.remembered_events;
+                        List<RememberedEvent> & events = individual->life()->knowledge.remembered_events;
                         if (events.length() > 0 && events[events.length() - 1] != NULL)
                             events.append(NULL);
                     }
@@ -406,15 +406,15 @@ void run_the_game() {
                 actual_individuals.remove(dead_individuals[i]->id);
 
             // who really gets to go first is determined by initiative
-            sort<Individual, compare_individuals_by_initiative>(poised_individuals.raw(), poised_individuals.length());
+            sort<Thing, compare_individuals_by_initiative>(poised_individuals.raw(), poised_individuals.length());
         }
 
         // move individuals
         for (; poised_individuals_index < poised_individuals.length(); poised_individuals_index++) {
-            Individual individual = poised_individuals[poised_individuals_index];
-            if (!individual->is_alive)
+            Thing individual = poised_individuals[poised_individuals_index];
+            if (!individual->still_exists)
                 continue; // sorry, buddy. you were that close to making another move.
-            Action action = decision_makers[individual->decision_maker](individual);
+            Action action = decision_makers[individual->life()->decision_maker](individual);
             if (action == Action::undecided()) {
                 // give the player some time to think.
                 // we'll resume right back where we left off.
@@ -432,7 +432,7 @@ void run_the_game() {
 }
 
 // wait will always be available
-void get_available_actions(Individual individual, List<Action> & output_actions) {
+void get_available_actions(Thing individual, List<Action> & output_actions) {
     output_actions.append(Action::wait());
     // move
     for (int i = 0; i < 8; i++) {
@@ -441,8 +441,8 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
             output_actions.append(Action::move(direction));
     }
     // attack
-    for (auto iterator = individual->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
-        PerceivedIndividual target = iterator.next();
+    for (auto iterator = individual->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
+        PerceivedThing target = iterator.next();
         if (target->id == individual->id)
             continue; // you can't attack yourself, sorry.
         Coord vector = target->location - individual->location;
@@ -469,7 +469,7 @@ void get_available_actions(Individual individual, List<Action> & output_actions)
 }
 
 // you need to emit events yourself
-bool confuse_individual(Individual target) {
+bool confuse_individual(Thing target) {
     if (!target->species()->has_mind) {
         // can't confuse something with no mind
         return false;
@@ -478,7 +478,7 @@ bool confuse_individual(Individual target) {
     return true;
 }
 
-void strike_individual(Individual attacker, Individual target) {
+void strike_individual(Thing attacker, Thing target) {
     // it's just some damage
     int damage = random_int(4, 8);
     damage_individual(attacker, target, damage);
@@ -487,7 +487,7 @@ void change_map(Coord location, TileType new_tile_type) {
     actual_map_tiles[location].tile_type = new_tile_type;
     // recompute everyone's vision
     for (auto iterator = actual_individuals.value_iterator(); iterator.has_next();) {
-        Individual individual = iterator.next();
+        Thing individual = iterator.next();
         compute_vision(individual);
     }
 }
