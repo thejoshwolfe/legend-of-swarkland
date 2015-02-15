@@ -82,7 +82,7 @@ static Action on_key_down_main(const SDL_Event & event) {
             return Action::wait();
 
         case SDL_SCANCODE_Z: {
-            List<Item> inventory;
+            List<Thing> inventory;
             find_items_in_inventory(you, &inventory);
             if (inventory.length() > 0) {
                 inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
@@ -122,7 +122,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_Z:
         case SDL_SCANCODE_RETURN: {
             // doit
-            List<Item> inventory;
+            List<Thing> inventory;
             find_items_in_inventory(you, &inventory);
             chosen_item = inventory[inventory_cursor]->id;
             input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
@@ -134,7 +134,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_DOWN:
         case SDL_SCANCODE_UP: {
             // move the cursor
-            List<Item> inventory;
+            List<Thing> inventory;
             find_items_in_inventory(you, &inventory);
             inventory_cursor = clamp(inventory_cursor + get_direction_from_event(event).y, 0, inventory.length() - 1);
             return Action::undecided();
@@ -163,7 +163,7 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
         case SDL_SCANCODE_LEFT:
         case SDL_SCANCODE_RIGHT:
         case SDL_SCANCODE_UP: {
-            List<Item> inventory;
+            List<Thing> inventory;
             find_items_in_inventory(you, &inventory);
             input_mode = InputMode_MAIN;
             return Action::zap(inventory[inventory_cursor], get_direction_from_event(event));

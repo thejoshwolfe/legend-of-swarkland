@@ -29,19 +29,10 @@ enum WandId {
 
 extern WandId actual_wand_identities[WandId_COUNT];
 
-struct ItemImpl : public ReferenceCounted {
-    uint256 id;
+struct WandInfo {
     WandDescriptionId description_id;
-    Coord floor_location = Coord::nowhere();
-    uint256 container_id = uint256::zero();
-    int z_order = 0;
     int charges;
-    ItemImpl(uint256 id, WandDescriptionId description_id, int charges) :
-            id(id), description_id(description_id), charges(charges) {
-    }
 };
-typedef Reference<ItemImpl> Item;
-
 
 enum SpeciesId {
     SpeciesId_HUMAN,
@@ -146,22 +137,49 @@ struct Life {
     Species * species() const;
 };
 
+enum ThingType {
+    ThingType_WAND,
+    ThingType_INDIVIDUAL,
+};
+
 class ThingImpl : public ReferenceCounted {
 public:
     uint256 id;
+    ThingType thing_type;
     // this is set to false in the time between actually being destroyed and being removed from the master list
     bool still_exists = true;
-    Coord location;
+
+    Coord location = Coord::nowhere();
+    uint256 container_id = uint256::zero();
+    int z_order = 0;
+
     StatusEffects status_effects;
+
+    // individual
     ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
+
+    // wand
+    ThingImpl(WandDescriptionId description_id, int charges);
+
+
     ThingImpl(ThingImpl &) = delete;
     ~ThingImpl();
 
     Life * life() {
+        if (thing_type != ThingType_INDIVIDUAL)
+            panic("wrong type");
         return _life;
     }
+    WandInfo * wand_info() {
+        if (thing_type != ThingType_WAND)
+            panic("wrong type");
+        return _wand_info;
+    }
 private:
-    Life * _life;
+    union {
+        Life * _life;
+        WandInfo * _wand_info;
+    };
 };
 typedef Reference<ThingImpl> Thing;
 

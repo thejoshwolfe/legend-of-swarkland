@@ -33,7 +33,7 @@ struct Action {
     static inline Action undecided() {
         return {UNDECIDED, uint256::zero(), {0, 0}};
     }
-    static inline Action zap(Item item, Coord direction) {
+    static inline Action zap(Thing item, Coord direction) {
         return {ZAP, item->id, direction};
     }
 

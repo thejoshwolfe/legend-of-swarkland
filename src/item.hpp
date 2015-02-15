@@ -4,6 +4,6 @@
 #include "individual.hpp"
 
 void init_items();
-Item random_item();
+Thing random_item();
 
 #endif

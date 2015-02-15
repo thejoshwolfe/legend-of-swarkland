@@ -320,7 +320,7 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 break;
 
             case Event::ZAP_WAND:
-                perceived_current_zapper->put(observer->id, actual_items.get(event.zap_wand_data().wand)->description_id);
+                perceived_current_zapper->put(observer->id, actual_items.get(event.zap_wand_data().wand)->wand_info()->description_id);
                 break;
             case Event::ZAP_WAND_NO_CHARGES:
                 // boring

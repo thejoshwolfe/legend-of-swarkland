@@ -13,23 +13,22 @@ void init_items() {
     shuffle(actual_wand_identities, WandId_COUNT);
 }
 
-Item random_item() {
-    uint256 id = random_uint256();
+Thing random_item() {
     WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
     int charges = random_int(4, 8);
-    Item item = create<ItemImpl>(id, description_id, charges);
-    actual_items.put(id, item);
+    Thing item = create<ThingImpl>(description_id, charges);
+    actual_items.put(item->id, item);
     return item;
 }
 
 void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output) {
-    Item item = actual_items.get(item_id);
+    Thing item = actual_items.get(item_id);
     if (!can_see_individual(observer, wielder_id)) {
         // can't see the wand
         output->append("a wand");
         return;
     }
-    WandId true_id = observer->life()->knowledge.wand_identities[item->description_id];
+    WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info()->description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
@@ -45,7 +44,7 @@ void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, B
                 panic("wand id");
         }
     } else {
-        switch (item->description_id) {
+        switch (item->wand_info()->description_id) {
             case WandDescriptionId_BONE_WAND:
                 output->append("a bone wand");
                 return;
@@ -78,21 +77,21 @@ static void strike_individual_from_wand(Thing wand_wielder, Thing target, IdMap<
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     IdMap<WandDescriptionId> perceived_current_zapper;
 
-    Item wand = actual_items.get(item_id);
-    wand->charges--;
-    if (wand->charges <= -1) {
+    Thing wand = actual_items.get(item_id);
+    wand->wand_info()->charges--;
+    if (wand->wand_info()->charges <= -1) {
         publish_event(Event::wand_disintegrates(wand_wielder, wand), &perceived_current_zapper);
 
         actual_items.remove(item_id);
         // reassign z orders
-        List<Item> inventory;
+        List<Thing> inventory;
         find_items_in_inventory(wand_wielder, &inventory);
         for (int i = 0; i < inventory.length(); i++)
             inventory[i]->z_order = i;
 
         return;
     }
-    if (wand->charges <= 0) {
+    if (wand->wand_info()->charges <= 0) {
         publish_event(Event::wand_zap_no_charges(wand_wielder, wand), &perceived_current_zapper);
         return;
     }
@@ -104,7 +103,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
         cursor = cursor + direction;
         if (!is_in_bounds(cursor))
             break;
-        switch (actual_wand_identities[wand->description_id]) {
+        switch (actual_wand_identities[wand->wand_info()->description_id]) {
             case WandId_WAND_OF_DIGGING: {
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL) {
                     change_map(cursor, TileType_FLOOR);

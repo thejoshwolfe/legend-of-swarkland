@@ -103,13 +103,13 @@ struct Event {
         return event_individual(DIE, deceased->id);
     }
 
-    static inline Event zap_wand(Thing wand_wielder, Item item) {
+    static inline Event zap_wand(Thing wand_wielder, Thing item) {
         return zap_wand_type_event(ZAP_WAND, wand_wielder, item);
     }
-    static inline Event wand_zap_no_charges(Thing wand_wielder, Item item) {
+    static inline Event wand_zap_no_charges(Thing wand_wielder, Thing item) {
         return zap_wand_type_event(ZAP_WAND_NO_CHARGES, wand_wielder, item);
     }
-    static inline Event wand_disintegrates(Thing wand_wielder, Item item) {
+    static inline Event wand_disintegrates(Thing wand_wielder, Thing item) {
         return zap_wand_type_event(WAND_DISINTEGRATES, wand_wielder, item);
     }
 
@@ -189,7 +189,7 @@ private:
         };
         return result;
     }
-    static inline Event zap_wand_type_event(Type type, Thing wand_wielder, Item item) {
+    static inline Event zap_wand_type_event(Type type, Thing wand_wielder, Thing item) {
         Event result;
         result.type = type;
         result.zap_wand_data() = {

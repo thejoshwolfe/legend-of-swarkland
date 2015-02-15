@@ -8,7 +8,7 @@
 
 Species specieses[SpeciesId_COUNT];
 IdMap<Thing> actual_individuals;
-IdMap<Item> actual_items;
+IdMap<Thing> actual_items;
 
 Thing you;
 bool youre_still_alive = true;
@@ -24,21 +24,21 @@ static void init_specieses() {
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
 }
 
-static void pickup_item(Thing individual, Item item) {
+static void pickup_item(Thing individual, Thing item) {
     if (item->container_id != uint256::zero())
         panic("pickup item in someone's inventory");
 
-    List<Item> inventory;
+    List<Thing> inventory;
     find_items_in_inventory(individual, &inventory);
 
-    item->floor_location = Coord::nowhere();
+    item->location = Coord::nowhere();
     item->container_id = individual->id;
     item->z_order = inventory.length();
 }
-static void drop_item_to_the_floor(Item item, Coord location) {
-    List<Item> items_on_floor;
+static void drop_item_to_the_floor(Thing item, Coord location) {
+    List<Thing> items_on_floor;
     find_items_on_floor(location, &items_on_floor);
-    item->floor_location = location;
+    item->location = location;
     item->container_id = uint256::zero();
     item->z_order = items_on_floor.length();
 }
@@ -77,7 +77,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
 
     if (random_int(1) == 0) {
         // have an item
-        Item item = random_item();
+        Thing item = random_item();
         pickup_item(individual, item);
     }
 
@@ -131,7 +131,7 @@ static void regen_hp(Thing individual) {
 
 static void kill_individual(Thing individual) {
     // drop your stuff
-    List<Item> inventory;
+    List<Thing> inventory;
     find_items_in_inventory(individual, &inventory);
     for (int i = 0; i < inventory.length(); i++)
         drop_item_to_the_floor(inventory[i], individual->location);
@@ -184,31 +184,31 @@ Thing find_individual_at(Coord location) {
     return NULL;
 }
 
-static int compare_items_by_z_order(Item a, Item b) {
+static int compare_items_by_z_order(Thing a, Thing b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
-void find_items_in_inventory(Thing owner, List<Item> * output_sorted_list) {
+void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list) {
     for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
-        Item item = iterator.next();
+        Thing item = iterator.next();
         if (item->container_id == owner->id)
             output_sorted_list->append(item);
     }
-    sort<Item, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<Thing, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
-void find_items_on_floor(Coord location, List<Item> * output_sorted_list) {
+void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
-        Item item = iterator.next();
-        if (item->floor_location == location)
+        Thing item = iterator.next();
+        if (item->location == location)
             output_sorted_list->append(item);
     }
-    sort<Item, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<Thing, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 
 static void do_move(Thing mover, Coord new_position) {
     Coord old_position = mover->location;
     mover->location = new_position;
     // gimme that
-    List<Item> floor_items;
+    List<Thing> floor_items;
     find_items_on_floor(new_position, &floor_items);
     for (int i = 0; i < floor_items.length(); i++)
         pickup_item(mover, floor_items[i]);
@@ -453,7 +453,7 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
         }
     }
     // use items
-    List<Item> inventory;
+    List<Thing> inventory;
     find_items_in_inventory(individual, &inventory);
     for (int i = 0; i < inventory.length(); i++)
         for (int j = 0; j < 8; j++)

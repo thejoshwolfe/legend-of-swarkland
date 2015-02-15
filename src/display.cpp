@@ -306,10 +306,10 @@ void render() {
     }
 
     for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
-        Item item = iterator.next();
-        if (item->floor_location == Coord::nowhere())
+        Thing item = iterator.next();
+        if (item->location == Coord::nowhere())
             continue;
-        render_tile(renderer, sprite_sheet_texture, wand_images[item->description_id], 0xff, item->floor_location);
+        render_tile(renderer, sprite_sheet_texture, wand_images[item->wand_info()->description_id], 0xff, item->location);
     }
 
     // render the individuals
@@ -386,7 +386,7 @@ void render() {
     }
 
     // inventory pane
-    List<Item> inventory;
+    List<Thing> inventory;
     find_items_in_inventory(spectate_from, &inventory);
     {
         if (input_mode == InputMode_ZAP_CHOOSE_ITEM) {
@@ -401,8 +401,8 @@ void render() {
         }
         Coord location = {map_size.x, 0};
         for (int i = 0; i < inventory.length(); i++) {
-            Item & item = inventory[i];
-            render_tile(renderer, sprite_sheet_texture, wand_images[item->description_id], 0xff, location);
+            Thing & item = inventory[i];
+            render_tile(renderer, sprite_sheet_texture, wand_images[item->wand_info()->description_id], 0xff, location);
             location.y += 1;
         }
     }

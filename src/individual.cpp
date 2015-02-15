@@ -3,7 +3,7 @@
 #include "swarkland.hpp"
 
 ThingImpl::ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker) :
-        location(location)
+        thing_type(ThingType_INDIVIDUAL), location(location)
 {
     id = random_uint256();
     _life = create<Life>();
@@ -14,8 +14,25 @@ ThingImpl::ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMa
     _life->initiative = random_uint256();
 }
 ThingImpl::~ThingImpl() {
-    destroy(_life, 1);
+    switch (thing_type) {
+        case ThingType_INDIVIDUAL:
+            destroy(_life, 1);
+            break;
+        case ThingType_WAND:
+            destroy(_wand_info, 1);
+            break;
+    }
 }
+
+ThingImpl::ThingImpl(WandDescriptionId description_id, int charges) :
+        thing_type(ThingType_WAND)
+{
+    id = random_uint256();
+    _wand_info = create<WandInfo>();
+    _wand_info->description_id = description_id;
+    _wand_info->charges = charges;
+}
+
 
 Species * Life::species() const {
     return &specieses[species_id];
