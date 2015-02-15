@@ -85,7 +85,7 @@ void compute_vision(Thing spectator) {
 
     // now see any monsters that are in our line of vision
     Thing actual_target;
-    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&actual_target);) {
+    for (auto iterator = actual_individuals(); iterator.next(&actual_target);) {
         if (!actual_target->still_exists)
             continue;
         PerceivedThing perceived_target = observe_individual(spectator, actual_target);

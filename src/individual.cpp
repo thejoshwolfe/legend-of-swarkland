@@ -39,7 +39,7 @@ Species * Life::species() const {
 }
 
 PerceivedThing to_perceived_individual(uint256 target_id) {
-    Thing target = actual_individuals.get(target_id);
+    Thing target = actual_things.get(target_id);
     StatusEffects status_effects = target->status_effects;
     // nerf some information
     status_effects.confused_timeout = !!status_effects.confused_timeout;

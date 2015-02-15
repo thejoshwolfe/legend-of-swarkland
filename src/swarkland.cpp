@@ -7,8 +7,7 @@
 #include "item.hpp"
 
 Species specieses[SpeciesId_COUNT];
-IdMap<Thing> actual_individuals;
-IdMap<Thing> actual_items;
+IdMap<Thing> actual_things;
 
 Thing you;
 bool youre_still_alive = true;
@@ -22,6 +21,19 @@ static void init_specieses() {
     specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true};
     specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false};
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
+}
+
+static bool is_individual(Thing thing) {
+    return thing->thing_type == ThingType_INDIVIDUAL;
+}
+FilteredIterator actual_individuals() {
+    return FilteredIterator(actual_things, is_individual);
+}
+static bool is_item(Thing thing) {
+    return thing->thing_type == ThingType_WAND;
+}
+FilteredIterator actual_items() {
+    return FilteredIterator(actual_things, is_item);
 }
 
 static void pickup_item(Thing individual, Thing item) {
@@ -81,7 +93,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
         pickup_item(individual, item);
     }
 
-    actual_individuals.put(individual->id, individual);
+    actual_things.put(individual->id, individual);
     compute_vision(individual);
     publish_event(Event::appear(individual));
     return individual;
@@ -174,7 +186,7 @@ PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
 }
 Thing find_individual_at(Coord location) {
     Thing individual;
-    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);) {
+    for (auto iterator = actual_individuals(); iterator.next(&individual);) {
         if (!individual->still_exists)
             continue;
         if (individual->location.x == location.x && individual->location.y == location.y)
@@ -188,14 +200,14 @@ static int compare_items_by_z_order(Thing a, Thing b) {
 }
 void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list) {
     Thing item;
-    for (auto iterator = actual_items.value_iterator(); iterator.next(&item);)
+    for (auto iterator = actual_items(); iterator.next(&item);)
         if (item->container_id == owner->id)
             output_sorted_list->append(item);
     sort<Thing, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     Thing item;
-    for (auto iterator = actual_items.value_iterator(); iterator.next(&item);)
+    for (auto iterator = actual_items(); iterator.next(&item);)
         if (item->location == location)
             output_sorted_list->append(item);
     sort<Thing, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
@@ -218,7 +230,7 @@ static void do_move(Thing mover, Coord new_position) {
 
 static void cheatcode_kill_everybody_in_the_world() {
     Thing individual;
-    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);) {
+    for (auto iterator = actual_individuals(); iterator.next(&individual);) {
         if (!individual->still_exists)
             continue;
         if (individual != you)
@@ -368,7 +380,7 @@ void run_the_game() {
             List<Event> deferred_events;
             // who's ready to make a move?
             Thing individual;
-            for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);) {
+            for (auto iterator = actual_individuals(); iterator.next(&individual);) {
                 if (!individual->still_exists) {
                     dead_individuals.append(individual);
                     continue;
@@ -401,7 +413,7 @@ void run_the_game() {
 
             // delete the dead
             for (int i = 0; i < dead_individuals.length(); i++)
-                actual_individuals.remove(dead_individuals[i]->id);
+                actual_things.remove(dead_individuals[i]->id);
 
             // who really gets to go first is determined by initiative
             sort<Thing, compare_individuals_by_initiative>(poised_individuals.raw(), poised_individuals.length());
@@ -485,6 +497,6 @@ void change_map(Coord location, TileType new_tile_type) {
     actual_map_tiles[location].tile_type = new_tile_type;
     // recompute everyone's vision
     Thing individual;
-    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);)
+    for (auto iterator = actual_individuals(); iterator.next(&individual);)
         compute_vision(individual);
 }

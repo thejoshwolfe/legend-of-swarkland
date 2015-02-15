@@ -136,7 +136,7 @@ bool can_see_individual(Thing observer, uint256 target_id, Coord target_location
     // you can't see anything else while dead
     if (!observer->still_exists)
         return false;
-    Thing actual_target = actual_individuals.get(target_id);
+    Thing actual_target = actual_things.get(target_id);
     // nobody can see invisible people
     if (actual_target->status_effects.invisible)
         return false;
@@ -146,10 +146,10 @@ bool can_see_individual(Thing observer, uint256 target_id, Coord target_location
     return true;
 }
 bool can_see_individual(Thing observer, uint256 target_id) {
-    return can_see_individual(observer, target_id, actual_individuals.get(target_id)->location);
+    return can_see_individual(observer, target_id, actual_things.get(target_id)->location);
 }
 static Coord location_of(uint256 individual_id) {
-    return actual_individuals.get(individual_id)->location;
+    return actual_things.get(individual_id)->location;
 }
 
 static bool see_event(Thing observer, Event event, Event * output_event) {
@@ -284,7 +284,7 @@ void publish_event(Event event) {
 }
 void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
     Thing observer;
-    for (auto iterator = actual_individuals.value_iterator(); iterator.next(&observer);) {
+    for (auto iterator = actual_individuals(); iterator.next(&observer);) {
         Event apparent_event;
         if (!see_event(observer, event, &apparent_event))
             continue;
@@ -320,7 +320,7 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 break;
 
             case Event::ZAP_WAND:
-                perceived_current_zapper->put(observer->id, actual_items.get(event.zap_wand_data().wand)->wand_info()->description_id);
+                perceived_current_zapper->put(observer->id, actual_things.get(event.zap_wand_data().wand)->wand_info()->description_id);
                 break;
             case Event::ZAP_WAND_NO_CHARGES:
                 // boring

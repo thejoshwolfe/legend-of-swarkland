@@ -157,20 +157,20 @@ public:
             panic("no next item");
         }
     private:
-        Hashtable * _table;
+        const Hashtable * _table;
         // how many items have we returned
         int _count = 0;
         // iterator through the entry array
         int _index = 0;
         // used to detect concurrent modification
         uint32_t _inital_modification_count;
-        Iterator(Hashtable * table) :
+        Iterator(const Hashtable * table) :
                 _table(table), _inital_modification_count(table->_modification_count) {
         }
         friend Hashtable;
     };
     // you must not modify the underlying hashtable while this iterator is still in use
-    Iterator value_iterator() {
+    Iterator value_iterator() const {
         return Iterator(this);
     }
 

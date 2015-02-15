@@ -9,8 +9,7 @@
 
 extern Species specieses[SpeciesId_COUNT];
 
-extern IdMap<Thing> actual_individuals;
-extern IdMap<Thing> actual_items;
+extern IdMap<Thing> actual_things;
 extern Thing you;
 extern bool youre_still_alive;
 extern long long time_counter;
@@ -18,6 +17,9 @@ extern long long time_counter;
 extern bool cheatcode_full_visibility;
 extern Thing cheatcode_spectator;
 void cheatcode_spectate();
+
+FilteredIterator actual_individuals();
+FilteredIterator actual_items();
 
 void swarkland_init();
 

@@ -306,7 +306,7 @@ void render() {
     }
 
     Thing item;
-    for (auto iterator = actual_items.value_iterator(); iterator.next(&item);) {
+    for (auto iterator = actual_items(); iterator.next(&item);) {
         if (item->location == Coord::nowhere())
             continue;
         render_tile(renderer, sprite_sheet_texture, wand_images[item->wand_info()->description_id], 0xff, item->location);
@@ -327,7 +327,7 @@ void render() {
     } else {
         // full visibility
         Thing individual;
-        for (auto iterator = actual_individuals.value_iterator(); iterator.next(&individual);) {
+        for (auto iterator = actual_individuals(); iterator.next(&individual);) {
             if (!individual->still_exists)
                 continue;
             Uint8 alpha;

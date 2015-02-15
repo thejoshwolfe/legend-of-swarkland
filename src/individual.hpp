@@ -183,6 +183,21 @@ private:
 };
 typedef Reference<ThingImpl> Thing;
 
+class FilteredIterator {
+public:
+    bool next(Thing * output) {
+        while (iterator.next(output))
+            if (filter(*output))
+                return true;
+        return false;
+    }
+    FilteredIterator(const IdMap<Thing> & hashtable, bool (*filter)(Thing)) :
+            iterator(hashtable.value_iterator()), filter(filter) {
+    }
+private:
+    IdMap<Thing>::Iterator iterator;
+    bool (*filter)(Thing);
+};
 
 PerceivedThing to_perceived_individual(uint256 target_id);
 PerceivedThing observe_individual(Thing observer, Thing target);

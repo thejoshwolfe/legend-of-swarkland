@@ -17,12 +17,12 @@ Thing random_item() {
     WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
     int charges = random_int(4, 8);
     Thing item = create<ThingImpl>(description_id, charges);
-    actual_items.put(item->id, item);
+    actual_things.put(item->id, item);
     return item;
 }
 
 void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output) {
-    Thing item = actual_items.get(item_id);
+    Thing item = actual_things.get(item_id);
     if (!can_see_individual(observer, wielder_id)) {
         // can't see the wand
         output->append("a wand");
@@ -77,12 +77,12 @@ static void strike_individual_from_wand(Thing wand_wielder, Thing target, IdMap<
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     IdMap<WandDescriptionId> perceived_current_zapper;
 
-    Thing wand = actual_items.get(item_id);
+    Thing wand = actual_things.get(item_id);
     wand->wand_info()->charges--;
     if (wand->wand_info()->charges <= -1) {
         publish_event(Event::wand_disintegrates(wand_wielder, wand), &perceived_current_zapper);
 
-        actual_items.remove(item_id);
+        actual_things.remove(item_id);
         // reassign z orders
         List<Thing> inventory;
         find_items_in_inventory(wand_wielder, &inventory);
