@@ -33,7 +33,7 @@ struct ItemImpl : public ReferenceCounted {
     uint256 id;
     WandDescriptionId description_id;
     Coord floor_location = Coord::nowhere();
-    uint256 owner_id = uint256::zero();
+    uint256 container_id = uint256::zero();
     int z_order = 0;
     int charges;
     ItemImpl(uint256 id, WandDescriptionId description_id, int charges) :
@@ -133,6 +133,7 @@ struct Knowledge {
 };
 
 struct Life {
+    SpeciesId species_id;
     int hitpoints;
     int kill_counter = 0;
     // once this reaches movement_cost, make a move
@@ -141,12 +142,13 @@ struct Life {
     Team team;
     DecisionMakerType decision_maker;
     Knowledge knowledge;
+
+    Species * species() const;
 };
 
 class ThingImpl : public ReferenceCounted {
 public:
     uint256 id;
-    SpeciesId species_id;
     // this is set to false in the time between actually being destroyed and being removed from the master list
     bool still_exists = true;
     Coord location;
@@ -154,7 +156,6 @@ public:
     ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
     ThingImpl(ThingImpl &) = delete;
     ~ThingImpl();
-    Species * species() const;
 
     Life * life() {
         return _life;

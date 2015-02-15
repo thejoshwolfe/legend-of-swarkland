@@ -63,13 +63,13 @@ static void refresh_ethereal_vision(Thing individual) {
 
 void compute_vision(Thing spectator) {
     // mindless monsters can't remember the terrain
-    if (!spectator->species()->has_mind)
+    if (!spectator->life()->species()->has_mind)
         spectator->life()->knowledge.tiles.set_all(unknown_tile);
 
     spectator->life()->knowledge.tile_is_visible.set_all(VisionTypes::none());
-    if (spectator->species()->vision_types.normal)
+    if (spectator->life()->species()->vision_types.normal)
         refresh_normal_vision(spectator);
-    if (spectator->species()->vision_types.ethereal)
+    if (spectator->life()->species()->vision_types.ethereal)
         refresh_ethereal_vision(spectator);
 
     // see individuals
@@ -77,7 +77,7 @@ void compute_vision(Thing spectator) {
     List<PerceivedThing> remove_these;
     for (auto iterator = spectator->life()->knowledge.perceived_individuals.value_iterator(); iterator.has_next();) {
         PerceivedThing target = iterator.next();
-        if (!spectator->species()->has_mind || spectator->life()->knowledge.tile_is_visible[target->location].any())
+        if (!spectator->life()->species()->has_mind || spectator->life()->knowledge.tile_is_visible[target->location].any())
             remove_these.append(target);
     }
     // do this as a second pass, because modifying in the middle of iteration doesn't work properly.

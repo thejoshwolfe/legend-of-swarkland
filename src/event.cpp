@@ -362,7 +362,7 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 perceive_individual(observer, event.polymorph_data().individual);
                 break;
         }
-        if (observer->species()->has_mind) {
+        if (observer->life()->species()->has_mind) {
             // we need to log the event before the monster disappears from our knowledge
             RememberedEvent remembered_event = to_remembered_event(observer, apparent_event);
             if (remembered_event != NULL)

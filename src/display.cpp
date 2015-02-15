@@ -335,7 +335,7 @@ void render() {
                 alpha = 0x7f;
             else
                 alpha = 0xff;
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->species_id], alpha, individual->location);
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->life()->species_id], alpha, individual->location);
         }
     }
 

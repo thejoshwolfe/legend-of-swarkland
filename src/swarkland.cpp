@@ -25,21 +25,21 @@ static void init_specieses() {
 }
 
 static void pickup_item(Thing individual, Item item) {
-    if (item->owner_id != uint256::zero())
+    if (item->container_id != uint256::zero())
         panic("pickup item in someone's inventory");
 
     List<Item> inventory;
     find_items_in_inventory(individual, &inventory);
 
     item->floor_location = Coord::nowhere();
-    item->owner_id = individual->id;
+    item->container_id = individual->id;
     item->z_order = inventory.length();
 }
 static void drop_item_to_the_floor(Item item, Coord location) {
     List<Item> items_on_floor;
     find_items_on_floor(location, &items_on_floor);
     item->floor_location = location;
-    item->owner_id = uint256::zero();
+    item->container_id = uint256::zero();
     item->z_order = items_on_floor.length();
 }
 
@@ -122,7 +122,7 @@ static void spawn_monsters(bool force_do_it) {
 }
 
 static void regen_hp(Thing individual) {
-    if (individual->life()->hitpoints < individual->species()->starting_hitpoints) {
+    if (individual->life()->hitpoints < individual->life()->species()->starting_hitpoints) {
         if (random_int(60) == 0) {
             individual->life()->hitpoints++;
         }
@@ -162,7 +162,7 @@ static void damage_individual(Thing attacker, Thing target, int damage) {
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack(attacker, target));
-    damage_individual(attacker, target, attacker->species()->attack_power);
+    damage_individual(attacker, target, attacker->life()->species()->attack_power);
 }
 
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
@@ -190,7 +190,7 @@ static int compare_items_by_z_order(Item a, Item b) {
 void find_items_in_inventory(Thing owner, List<Item> * output_sorted_list) {
     for (auto iterator = actual_items.value_iterator(); iterator.has_next();) {
         Item item = iterator.next();
-        if (item->owner_id == owner->id)
+        if (item->container_id == owner->id)
             output_sorted_list->append(item);
     }
     sort<Item, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
@@ -229,8 +229,8 @@ static void cheatcode_kill_everybody_in_the_world() {
     }
 }
 static void cheatcode_polymorph() {
-    SpeciesId old_species = you->species_id;
-    you->species_id = (SpeciesId)((old_species + 1) % SpeciesId_COUNT);
+    SpeciesId old_species = you->life()->species_id;
+    you->life()->species_id = (SpeciesId)((old_species + 1) % SpeciesId_COUNT);
     compute_vision(you);
     publish_event(Event::polymorph(you, old_species));
 }
@@ -385,11 +385,11 @@ void run_the_game() {
                     }
                 }
                 individual->life()->movement_points++;
-                if (individual->life()->movement_points >= individual->species()->movement_cost) {
+                if (individual->life()->movement_points >= individual->life()->species()->movement_cost) {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
-                    if (individual->species()->has_mind) {
+                    if (individual->life()->species()->has_mind) {
                         List<RememberedEvent> & events = individual->life()->knowledge.remembered_events;
                         if (events.length() > 0 && events[events.length() - 1] != NULL)
                             events.append(NULL);
@@ -471,7 +471,7 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
 
 // you need to emit events yourself
 bool confuse_individual(Thing target) {
-    if (!target->species()->has_mind) {
+    if (!target->life()->species()->has_mind) {
         // can't confuse something with no mind
         return false;
     }
