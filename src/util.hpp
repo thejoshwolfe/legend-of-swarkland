@@ -133,4 +133,21 @@ void shuffle(T * in_place_list, int size) {
     }
 }
 
+template<typename InnerIterator, typename ValueType>
+class FilteredIterator {
+public:
+    bool next(ValueType * output) {
+        while (iterator.next(output))
+            if (filter(*output))
+                return true;
+        return false;
+    }
+    FilteredIterator(const InnerIterator & hashtable, bool (*filter)(ValueType)) :
+            iterator(hashtable), filter(filter) {
+    }
+private:
+    InnerIterator iterator;
+    bool (*filter)(ValueType);
+};
+
 #endif

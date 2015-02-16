@@ -10,6 +10,10 @@
 
 #include <stdbool.h>
 
+enum ThingType {
+    ThingType_WAND,
+    ThingType_INDIVIDUAL,
+};
 
 enum WandDescriptionId {
     WandDescriptionId_BONE_WAND,
@@ -89,18 +93,52 @@ struct StatusEffects {
     int confused_timeout = 0;
 };
 
-struct PerceivedIndividualImpl : public ReferenceCounted {
+struct PerceivedWandInfo {
+    WandDescriptionId description_id;
+};
+struct PerceivedLife {
+    SpeciesId species_id;
+    Team team;
+};
+
+class PerceivedThingImpl : public ReferenceCounted {
 public:
     uint256 id;
-    SpeciesId species_id;
+    ThingType thing_type;
     Coord location;
-    Team team;
     StatusEffects status_effects;
-    PerceivedIndividualImpl(uint256 id, SpeciesId species_id, Coord location, Team team, StatusEffects status_effects) :
-            id(id), species_id(species_id), location(location), team(team), status_effects(status_effects) {
+    // individual
+    PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team, StatusEffects status_effects) :
+            id(id), thing_type(ThingType_INDIVIDUAL), location(location), status_effects(status_effects) {
+        life() = {
+            species_id,
+            team,
+        };
     }
+    // item
+    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, StatusEffects status_effects) :
+            id(id), thing_type(ThingType_INDIVIDUAL), location(location), status_effects(status_effects) {
+        wand_info() = {
+            description_id,
+        };
+    }
+    PerceivedLife & life() {
+        if (thing_type != ThingType_INDIVIDUAL)
+            panic("wrong type");
+        return _life;
+    }
+    PerceivedWandInfo & wand_info() {
+        if (thing_type != ThingType_WAND)
+            panic("wrong type");
+        return _wand_info;
+    }
+private:
+    union {
+        PerceivedLife _life;
+        PerceivedWandInfo _wand_info;
+    };
 };
-typedef Reference<PerceivedIndividualImpl> PerceivedThing;
+typedef Reference<PerceivedThingImpl> PerceivedThing;
 
 struct RememberedEventImpl : public ReferenceCounted {
     ByteBuffer bytes;
@@ -135,11 +173,6 @@ struct Life {
     Knowledge knowledge;
 
     Species * species() const;
-};
-
-enum ThingType {
-    ThingType_WAND,
-    ThingType_INDIVIDUAL,
 };
 
 class ThingImpl : public ReferenceCounted {
@@ -183,21 +216,22 @@ private:
 };
 typedef Reference<ThingImpl> Thing;
 
-class FilteredIterator {
-public:
-    bool next(Thing * output) {
-        while (iterator.next(output))
-            if (filter(*output))
-                return true;
-        return false;
-    }
-    FilteredIterator(const IdMap<Thing> & hashtable, bool (*filter)(Thing)) :
-            iterator(hashtable.value_iterator()), filter(filter) {
-    }
-private:
-    IdMap<Thing>::Iterator iterator;
-    bool (*filter)(Thing);
-};
+
+template<typename T>
+static inline bool is_individual(T thing) {
+    return thing->thing_type == ThingType_INDIVIDUAL;
+}
+template<typename T>
+static inline bool is_item(T thing) {
+    return thing->thing_type == ThingType_WAND;
+}
+
+static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> get_perceived_individuals(Thing individual) {
+    return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_individuals.value_iterator(), is_individual);
+}
+static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> get_perceived_items(Thing individual) {
+    return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_individuals.value_iterator(), is_item);
+}
 
 PerceivedThing to_perceived_individual(uint256 target_id);
 PerceivedThing observe_individual(Thing observer, Thing target);

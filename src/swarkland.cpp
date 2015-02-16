@@ -23,19 +23,6 @@ static void init_specieses() {
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
 }
 
-static bool is_individual(Thing thing) {
-    return thing->thing_type == ThingType_INDIVIDUAL;
-}
-FilteredIterator actual_individuals() {
-    return FilteredIterator(actual_things, is_individual);
-}
-static bool is_item(Thing thing) {
-    return thing->thing_type == ThingType_WAND;
-}
-FilteredIterator actual_items() {
-    return FilteredIterator(actual_things, is_item);
-}
-
 static void pickup_item(Thing individual, Thing item) {
     if (item->container_id != uint256::zero())
         panic("pickup item in someone's inventory");

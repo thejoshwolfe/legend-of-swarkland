@@ -248,7 +248,7 @@ void get_individual_description(Thing observer, uint256 target_id, ByteBuffer * 
         output->append("invisible ");
     if (target->status_effects.confused_timeout > 0)
         output->append("confused ");
-    output->append(get_species_name(target->species_id));
+    output->append(get_species_name(target->life().species_id));
 }
 
 static void popup_help(Coord upper_left_corner, const char * str) {
@@ -322,7 +322,7 @@ void render() {
                 alpha = 0x7f;
             else
                 alpha = 0xff;
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->species_id], alpha, individual->location);
+            render_tile(renderer, sprite_sheet_texture, species_images[individual->life().species_id], alpha, individual->location);
         }
     } else {
         // full visibility

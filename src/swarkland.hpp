@@ -18,8 +18,12 @@ extern bool cheatcode_full_visibility;
 extern Thing cheatcode_spectator;
 void cheatcode_spectate();
 
-FilteredIterator actual_individuals();
-FilteredIterator actual_items();
+static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals() {
+    return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_individual);
+}
+static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_items() {
+    return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_item);
+}
 
 void swarkland_init();
 

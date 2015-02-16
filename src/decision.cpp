@@ -22,7 +22,7 @@ static Action get_ai_decision(Thing individual) {
     List<PerceivedThing> closest_hostiles;
     PerceivedThing target;
     for (auto iterator = individual->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&target);) {
-        if (target->team == individual->life()->team)
+        if (target->life().team == individual->life()->team)
             continue; // you're cool
         if (closest_hostiles.length() == 0) {
             // found somebody to punch

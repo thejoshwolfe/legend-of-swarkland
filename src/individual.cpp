@@ -43,7 +43,7 @@ PerceivedThing to_perceived_individual(uint256 target_id) {
     StatusEffects status_effects = target->status_effects;
     // nerf some information
     status_effects.confused_timeout = !!status_effects.confused_timeout;
-    return create<PerceivedIndividualImpl>(target->id, target->life()->species_id, target->location, target->life()->team, status_effects);
+    return create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, status_effects);
 }
 
 PerceivedThing observe_individual(Thing observer, Thing target) {
