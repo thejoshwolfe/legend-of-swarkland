@@ -93,7 +93,7 @@ void compute_vision(Thing observer) {
     for (auto iterator = actual_things.value_iterator(); iterator.next(&actual_target);) {
         if (!actual_target->still_exists)
             continue;
-        PerceivedThing perceived_target = observe_individual(observer, actual_target);
+        PerceivedThing perceived_target = perceive_thing(observer, actual_target);
         if (perceived_target == NULL)
             continue;
         observer->life()->knowledge.perceived_things.put(perceived_target->id, perceived_target);

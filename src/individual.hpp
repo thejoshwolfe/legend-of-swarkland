@@ -242,13 +242,13 @@ static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> 
 }
 
 PerceivedThing to_perceived_thing(uint256 target_id);
-PerceivedThing observe_individual(Thing observer, Thing target);
+PerceivedThing perceive_thing(Thing observer, Thing target);
 
 int compare_individuals_by_initiative(Thing a, Thing b);
 
 // TODO: these are in the wrong place
 void compute_vision(Thing observer);
-void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output);
+void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output);
 void zap_wand(Thing individual, uint256 item_id, Coord direction);
 
 #endif

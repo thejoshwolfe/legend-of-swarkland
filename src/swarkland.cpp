@@ -23,7 +23,7 @@ static void init_specieses() {
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
 }
 
-static void pickup_item(Thing individual, Thing item) {
+static void pickup_item(Thing individual, Thing item, bool publish) {
     if (item->container_id != uint256::zero())
         panic("pickup item in someone's inventory");
 
@@ -33,6 +33,8 @@ static void pickup_item(Thing individual, Thing item) {
     item->location = Coord::nowhere();
     item->container_id = individual->id;
     item->z_order = inventory.length();
+    if (publish)
+        publish_event(Event::individual_picks_up_item(individual, item));
 }
 static void drop_item_to_the_floor(Thing item, Coord location) {
     List<Thing> items_on_floor;
@@ -40,6 +42,7 @@ static void drop_item_to_the_floor(Thing item, Coord location) {
     item->location = location;
     item->container_id = uint256::zero();
     item->z_order = items_on_floor.length();
+    publish_event(Event::item_drops_to_the_floor(item));
 }
 
 static const int no_spawn_radius = 10;
@@ -77,7 +80,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
     if (random_int(1) == 0) {
         // have an item
         Thing item = random_item();
-        pickup_item(individual, item);
+        pickup_item(individual, item, false);
     }
 
     actual_things.put(individual->id, individual);
@@ -217,7 +220,7 @@ static void do_move(Thing mover, Coord new_position) {
     List<Thing> floor_items;
     find_items_on_floor(new_position, &floor_items);
     for (int i = 0; i < floor_items.length(); i++)
-        pickup_item(mover, floor_items[i]);
+        pickup_item(mover, floor_items[i], true);
 
     compute_vision(mover);
 

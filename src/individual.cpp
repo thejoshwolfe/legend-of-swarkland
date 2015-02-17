@@ -55,9 +55,15 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
     panic("thing type");
 }
 
-PerceivedThing observe_individual(Thing observer, Thing target) {
-    if (!observer->life()->knowledge.tile_is_visible[get_thing_location(target)].any())
-        return NULL;
+PerceivedThing perceive_thing(Thing observer, Thing target) {
+    if (target->location != Coord::nowhere()) {
+        if (!observer->life()->knowledge.tile_is_visible[target->location].any())
+            return NULL; // standing out of view
+    } else {
+        PerceivedThing container = perceive_thing(observer, actual_things.get(target->container_id));
+        if (container == NULL)
+            return NULL; // held by something we can't see
+    }
     // invisible creates can only be seen by themselves
     if (target->status_effects.invisible && observer != target)
         return NULL;

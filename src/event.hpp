@@ -35,6 +35,10 @@ struct Event {
         DISAPPEAR,
 
         POLYMORPH,
+
+        ITEM_DROPS_TO_THE_FLOOR,
+        INDIVIDUAL_PICKS_UP_ITEM,
+        SOMETHING_PICKS_UP_ITEM,
     };
     Type type;
     uint256 & the_individual_data() {
@@ -78,6 +82,14 @@ struct Event {
         check_data_type(DataType_POLYMORPH);
         return _data._polymorph;
     };
+    struct ItemAndLocationData {
+        uint256 item;
+        Coord location;
+    };
+    ItemAndLocationData & item_and_location_data() {
+        check_data_type(DataType_ITEM_AND_LOCATION);
+        return _data._item_and_location;
+    }
 
     static inline Event move(Thing mover, Coord from, Coord to) {
         return move_type_event(MOVE, mover->id, from, to);
@@ -163,6 +175,17 @@ struct Event {
         return result;
     }
 
+
+    static inline Event item_drops_to_the_floor(Thing item) {
+        return item_and_location_type_event(ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
+    }
+    static inline Event individual_picks_up_item(Thing individual, Thing item) {
+        return zap_wand_type_event(INDIVIDUAL_PICKS_UP_ITEM, individual, item);
+    }
+    static inline Event something_picks_up_item(uint256 item, Coord location) {
+        return item_and_location_type_event(ITEM_DROPS_TO_THE_FLOOR, item, location);
+    }
+
 private:
     static inline Event event_individual(Type type, uint256 individual_id) {
         Event result;
@@ -198,6 +221,14 @@ private:
         };
         return result;
     }
+    static inline Event item_and_location_type_event(Type type, uint256 item, Coord location) {
+        Event result;
+        result.type = type;
+        ItemAndLocationData & data = result.item_and_location_data();
+        data.item = item;
+        data.location = location;
+        return result;
+    }
 
     union {
         uint256 _the_individual;
@@ -206,6 +237,7 @@ private:
         AttackData _attack;
         ZapWandData _zap_wand;
         PolymorphData _polymorph;
+        ItemAndLocationData _item_and_location;
     } _data;
     enum DataType {
         DataType_THE_INDIVIDUAL,
@@ -214,6 +246,7 @@ private:
         DataType_ATTACK,
         DataType_ZAP_WAND,
         DataType_POLYMORPH,
+        DataType_ITEM_AND_LOCATION,
     };
 
     void check_data_type(DataType supposed_data_type) {
@@ -278,6 +311,13 @@ private:
 
             case POLYMORPH:
                 return DataType_POLYMORPH;
+
+            case ITEM_DROPS_TO_THE_FLOOR:
+                return DataType_ITEM_AND_LOCATION;
+            case INDIVIDUAL_PICKS_UP_ITEM:
+                return DataType_ZAP_WAND;
+            case SOMETHING_PICKS_UP_ITEM:
+                return DataType_ITEM_AND_LOCATION;
         }
         panic("event type");
     }

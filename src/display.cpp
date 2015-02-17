@@ -441,7 +441,7 @@ void render() {
         int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < inventory.length()) {
             ByteBuffer description;
-            get_item_description(spectate_from, spectate_from->id, inventory[inventory_index]->id, &description);
+            get_item_description(spectate_from, inventory[inventory_index]->id, &description);
             popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, description.raw());
         }
     }

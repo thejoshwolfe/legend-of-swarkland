@@ -24,12 +24,7 @@ static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals
 static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_items() {
     return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_item);
 }
-static inline Coord get_thing_location(Thing target) {
-    if (target->location != Coord::nowhere())
-        return target->location;
-    return get_thing_location(actual_things.get(target->container_id));
-}
-static inline Coord get_thing_location(Thing observer, PerceivedThing target) {
+static inline Coord get_thing_location(Thing observer, const PerceivedThing & target) {
     if (target->location != Coord::nowhere())
         return target->location;
     return get_thing_location(observer, observer->life()->knowledge.perceived_things.get(target->container_id));

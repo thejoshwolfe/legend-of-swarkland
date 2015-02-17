@@ -21,14 +21,14 @@ Thing random_item() {
     return item;
 }
 
-void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output) {
-    Thing item = actual_things.get(item_id);
-    if (!can_see_individual(observer, wielder_id)) {
+void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output) {
+    PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, NULL);
+    if (item == NULL) {
         // can't see the wand
         output->append("a wand");
         return;
     }
-    WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info()->description_id];
+    WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info().description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
@@ -44,7 +44,7 @@ void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, B
                 panic("wand id");
         }
     } else {
-        switch (item->wand_info()->description_id) {
+        switch (item->wand_info().description_id) {
             case WandDescriptionId_BONE_WAND:
                 output->append("a bone wand");
                 return;
