@@ -166,7 +166,7 @@ static void attack(Thing attacker, Thing target) {
 
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
     PerceivedThing individual;
-    for (auto iterator = observer->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&individual);)
+    for (auto iterator = get_perceived_individuals(observer); iterator.next(&individual);)
         if (individual->location == location)
             return individual;
     return NULL;
@@ -182,7 +182,10 @@ Thing find_individual_at(Coord location) {
     return NULL;
 }
 
-static int compare_items_by_z_order(Thing a, Thing b) {
+static int compare_things_by_z_order(Thing a, Thing b) {
+    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
+}
+static int compare_perceived_things_by_z_order(PerceivedThing a, PerceivedThing b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
 void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list) {
@@ -190,14 +193,21 @@ void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list) {
     for (auto iterator = actual_items(); iterator.next(&item);)
         if (item->container_id == owner->id)
             output_sorted_list->append(item);
-    sort<Thing, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+}
+void find_items_in_inventory(Thing observer, PerceivedThing perceived_owner, List<PerceivedThing> * output_sorted_list) {
+    PerceivedThing item;
+    for (auto iterator = get_perceived_items(observer); iterator.next(&item);)
+        if (item->container_id == perceived_owner->id)
+            output_sorted_list->append(item);
+    sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     Thing item;
     for (auto iterator = actual_items(); iterator.next(&item);)
         if (item->location == location)
             output_sorted_list->append(item);
-    sort<Thing, compare_items_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 
 static void do_move(Thing mover, Coord new_position) {
@@ -439,7 +449,7 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
     }
     // attack
     PerceivedThing target;
-    for (auto iterator = individual->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&target);) {
+    for (auto iterator = get_perceived_individuals(individual); iterator.next(&target);) {
         if (target->id == individual->id)
             continue; // you can't attack yourself, sorry.
         Coord vector = target->location - individual->location;

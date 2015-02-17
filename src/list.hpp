@@ -22,6 +22,14 @@ public:
         ensure_capacity(_length + 1);
         _items[_length++] = item;
     }
+    void append_all(const List<T> & items) {
+        int other_length = items.length();
+        ensure_capacity(_length + other_length);
+        const T * other_raw = items.raw();
+        for (int i = 0; i < other_length; i++)
+            _items[_length + i] = other_raw[i];
+        _length += other_length;
+    }
     T & operator[](int index) {
         bounds_check(index);
         return _items[index];

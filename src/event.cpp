@@ -270,7 +270,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
 }
 
 static void perceive_individual(Thing observer, uint256 target_id) {
-    observer->life()->knowledge.perceived_individuals.put(target_id, to_perceived_individual(target_id));
+    observer->life()->knowledge.perceived_things.put(target_id, to_perceived_thing(target_id));
 }
 
 static void id_item(Thing observer, WandDescriptionId description_id, WandId id) {
@@ -370,6 +370,6 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
         }
         // now that we've had a chance to talk about it, delete it if we should
         for (int i = 0; i < delete_ids.length(); i++)
-            observer->life()->knowledge.perceived_individuals.remove(delete_ids[i]);
+            observer->life()->knowledge.perceived_things.remove(delete_ids[i]);
     }
 }

@@ -61,37 +61,42 @@ static void refresh_ethereal_vision(Thing individual) {
     }
 }
 
-void compute_vision(Thing spectator) {
+void compute_vision(Thing observer) {
     // mindless monsters can't remember the terrain
-    if (!spectator->life()->species()->has_mind)
-        spectator->life()->knowledge.tiles.set_all(unknown_tile);
+    if (!observer->life()->species()->has_mind)
+        observer->life()->knowledge.tiles.set_all(unknown_tile);
 
-    spectator->life()->knowledge.tile_is_visible.set_all(VisionTypes::none());
-    if (spectator->life()->species()->vision_types.normal)
-        refresh_normal_vision(spectator);
-    if (spectator->life()->species()->vision_types.ethereal)
-        refresh_ethereal_vision(spectator);
+    observer->life()->knowledge.tile_is_visible.set_all(VisionTypes::none());
+    if (observer->life()->species()->vision_types.normal)
+        refresh_normal_vision(observer);
+    if (observer->life()->species()->vision_types.ethereal)
+        refresh_ethereal_vision(observer);
 
     // see individuals
-    // first clear out any monsters that we know are no longer where we thought
+    // first clear out anything that we know are no longer where we thought
     List<PerceivedThing> remove_these;
     PerceivedThing target;
-    for (auto iterator = spectator->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&target);)
-        if (!spectator->life()->species()->has_mind || spectator->life()->knowledge.tile_is_visible[target->location].any())
-            remove_these.append(target);
+    for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
+        if (observer->life()->species()->has_mind && !observer->life()->knowledge.tile_is_visible[get_thing_location(observer, target)].any())
+            continue;
+        remove_these.append(target);
+        List<PerceivedThing> inventory;
+        find_items_in_inventory(observer, target, &inventory);
+        remove_these.append_all(inventory);
+    }
     // do this as a second pass, because modifying in the middle of iteration doesn't work properly.
     for (int i = 0; i < remove_these.length(); i++)
-        spectator->life()->knowledge.perceived_individuals.remove(remove_these[i]->id);
+        observer->life()->knowledge.perceived_things.remove(remove_these[i]->id);
 
-    // now see any monsters that are in our line of vision
+    // now see anything that's in our line of vision
     Thing actual_target;
-    for (auto iterator = actual_individuals(); iterator.next(&actual_target);) {
+    for (auto iterator = actual_things.value_iterator(); iterator.next(&actual_target);) {
         if (!actual_target->still_exists)
             continue;
-        PerceivedThing perceived_target = observe_individual(spectator, actual_target);
+        PerceivedThing perceived_target = observe_individual(observer, actual_target);
         if (perceived_target == NULL)
             continue;
-        spectator->life()->knowledge.perceived_individuals.put(perceived_target->id, perceived_target);
+        observer->life()->knowledge.perceived_things.put(perceived_target->id, perceived_target);
     }
 }
 

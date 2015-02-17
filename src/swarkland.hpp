@@ -24,6 +24,16 @@ static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals
 static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_items() {
     return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_item);
 }
+static inline Coord get_thing_location(Thing target) {
+    if (target->location != Coord::nowhere())
+        return target->location;
+    return get_thing_location(actual_things.get(target->container_id));
+}
+static inline Coord get_thing_location(Thing observer, PerceivedThing target) {
+    if (target->location != Coord::nowhere())
+        return target->location;
+    return get_thing_location(observer, observer->life()->knowledge.perceived_things.get(target->container_id));
+}
 
 void swarkland_init();
 
@@ -34,6 +44,7 @@ void run_the_game();
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location);
 Thing find_individual_at(Coord location);
 void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list);
+void find_items_in_inventory(Thing observer, PerceivedThing perceived_owner, List<PerceivedThing> * output_sorted_list);
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 
 bool confuse_individual(Thing target);

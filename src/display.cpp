@@ -25,26 +25,26 @@ static SDL_Window * window;
 static SDL_Texture * sprite_sheet_texture;
 static SDL_Renderer * renderer;
 
-static struct RuckSackBundle * bundle;
-static struct RuckSackTexture * rs_texture;
-static struct RuckSackImage ** spritesheet_images;
+static RuckSackBundle * bundle;
+static RuckSackTexture * rs_texture;
+static RuckSackImage ** spritesheet_images;
 
-static struct RuckSackImage * species_images[SpeciesId_COUNT];
-static struct RuckSackImage * floor_images[8];
-static struct RuckSackImage * wall_images[8];
-static struct RuckSackImage * wand_images[WandDescriptionId_COUNT];
+static RuckSackImage * species_images[SpeciesId_COUNT];
+static RuckSackImage * floor_images[8];
+static RuckSackImage * wall_images[8];
+static RuckSackImage * wand_images[WandDescriptionId_COUNT];
 
 static TTF_Font * status_box_font;
 static unsigned char *font_buffer;
 static SDL_RWops *font_rw_ops;
 
-static struct RuckSackImage * find_image(struct RuckSackImage ** spritesheet_images, long image_count, const char * name) {
+static RuckSackImage * find_image(RuckSackImage ** spritesheet_images, long image_count, const char * name) {
     for (int i = 0; i < image_count; i++)
         if (strcmp(spritesheet_images[i]->key, name) == 0)
             return spritesheet_images[i];
     panic("sprite not found");
 }
-static void load_images(struct RuckSackImage ** spritesheet_images, long image_count) {
+static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     species_images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/human.png");
     species_images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/ogre.png");
     species_images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/dog.png");
@@ -91,7 +91,7 @@ void display_init(const char * resource_bundle_path) {
     if (rucksack_bundle_open_read(resource_bundle_path, &bundle) != RuckSackErrorNone) {
         panic("error opening resource bundle");
     }
-    struct RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
+    RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
     if (!entry) {
         panic("spritesheet not found in bundle");
     }
@@ -103,13 +103,13 @@ void display_init(const char * resource_bundle_path) {
     sprite_sheet_texture = load_texture(renderer, rs_texture);
 
     long image_count = rucksack_texture_image_count(rs_texture);
-    spritesheet_images = allocate<struct RuckSackImage*>(image_count);
+    spritesheet_images = allocate<RuckSackImage*>(image_count);
     rucksack_texture_get_images(rs_texture, spritesheet_images);
     load_images(spritesheet_images, image_count);
 
     TTF_Init();
 
-    struct RuckSackFileEntry * font_entry = rucksack_bundle_find_file(bundle, "font/OpenSans-Regular.ttf", -1);
+    RuckSackFileEntry * font_entry = rucksack_bundle_find_file(bundle, "font/OpenSans-Regular.ttf", -1);
     if (!font_entry) {
         panic("font not found in bundle");
     }
@@ -151,7 +151,7 @@ static Thing get_spectate_individual() {
     return cheatcode_spectator != NULL ? cheatcode_spectator : you;
 }
 
-static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, struct RuckSackImage * guy_image, int alpha, Coord coord) {
+static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, RuckSackImage * guy_image, int alpha, Coord coord) {
     SDL_Rect source_rect;
     source_rect.x = guy_image->x;
     source_rect.y = guy_image->y;
@@ -238,7 +238,7 @@ void get_individual_description(Thing observer, uint256 target_id, ByteBuffer * 
         output->append("you");
         return;
     }
-    PerceivedThing target = observer->life()->knowledge.perceived_individuals.get(target_id, NULL);
+    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, NULL);
     if (target == NULL) {
         output->append("it");
         return;
@@ -262,6 +262,26 @@ static void popup_help(Coord upper_left_corner, const char * str) {
     rect.w = entire_window_area.w - rect.x;
     rect.h = entire_window_area.h - rect.y;
     render_text(str, rect);
+}
+
+// TODO: this duplication looks silly
+static RuckSackImage * get_image_for_perceived_thing(PerceivedThing thing) {
+    switch (thing->thing_type) {
+        case ThingType_INDIVIDUAL:
+            return species_images[thing->life().species_id];
+        case ThingType_WAND:
+            return wand_images[thing->wand_info().description_id];
+    }
+    panic("thing type");
+}
+static RuckSackImage * get_image_for_thing(Thing thing) {
+    switch (thing->thing_type) {
+        case ThingType_INDIVIDUAL:
+            return species_images[thing->life()->species_id];
+        case ThingType_WAND:
+            return wand_images[thing->wand_info()->description_id];
+    }
+    panic("thing type");
 }
 
 void render() {
@@ -305,29 +325,26 @@ void render() {
         }
     }
 
-    Thing item;
-    for (auto iterator = actual_items(); iterator.next(&item);) {
-        if (item->location == Coord::nowhere())
-            continue;
-        render_tile(renderer, sprite_sheet_texture, wand_images[item->wand_info()->description_id], 0xff, item->location);
-    }
-
-    // render the individuals
+    // render the things
     if (!cheatcode_full_visibility) {
         // not cheating
-        PerceivedThing individual;
-        for (auto iterator = spectate_from->life()->knowledge.perceived_individuals.value_iterator(); iterator.next(&individual);) {
+        PerceivedThing thing;
+        for (auto iterator = spectate_from->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
+            // TODO: this exposes hashtable iteration order
+            if (thing->location == Coord::nowhere())
+                continue;
             Uint8 alpha;
-            if (individual->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[individual->location].any())
+            if (thing->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[thing->location].any())
                 alpha = 0x7f;
             else
                 alpha = 0xff;
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->life().species_id], alpha, individual->location);
+            render_tile(renderer, sprite_sheet_texture, get_image_for_perceived_thing(thing), alpha, thing->location);
         }
     } else {
         // full visibility
         Thing individual;
-        for (auto iterator = actual_individuals(); iterator.next(&individual);) {
+        for (auto iterator = actual_things.value_iterator(); iterator.next(&individual);) {
+            // TODO: this exposes hashtable iteration order
             if (!individual->still_exists)
                 continue;
             Uint8 alpha;
@@ -335,7 +352,7 @@ void render() {
                 alpha = 0x7f;
             else
                 alpha = 0xff;
-            render_tile(renderer, sprite_sheet_texture, species_images[individual->life()->species_id], alpha, individual->location);
+            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(individual), alpha, individual->location);
         }
     }
 

@@ -38,21 +38,30 @@ Species * Life::species() const {
     return &specieses[species_id];
 }
 
-PerceivedThing to_perceived_individual(uint256 target_id) {
+PerceivedThing to_perceived_thing(uint256 target_id) {
     Thing target = actual_things.get(target_id);
     StatusEffects status_effects = target->status_effects;
     // nerf some information
     status_effects.confused_timeout = !!status_effects.confused_timeout;
-    return create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, status_effects);
+    switch (target->thing_type) {
+        case ThingType_INDIVIDUAL:
+            return create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, status_effects);
+        case ThingType_WAND:
+            if (target->location != Coord::nowhere())
+                return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, target->location, status_effects);
+            else
+                return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, target->container_id, target->z_order, status_effects);
+    }
+    panic("thing type");
 }
 
 PerceivedThing observe_individual(Thing observer, Thing target) {
-    if (!observer->life()->knowledge.tile_is_visible[target->location].any())
+    if (!observer->life()->knowledge.tile_is_visible[get_thing_location(target)].any())
         return NULL;
     // invisible creates can only be seen by themselves
     if (target->status_effects.invisible && observer != target)
         return NULL;
-    return to_perceived_individual(target->id);
+    return to_perceived_thing(target->id);
 }
 
 int compare_individuals_by_initiative(Thing a, Thing b) {

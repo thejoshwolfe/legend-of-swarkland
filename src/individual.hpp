@@ -105,7 +105,9 @@ class PerceivedThingImpl : public ReferenceCounted {
 public:
     uint256 id;
     ThingType thing_type;
-    Coord location;
+    Coord location = Coord::nowhere();
+    uint256 container_id = uint256::zero();
+    int z_order = 0;
     StatusEffects status_effects;
     // individual
     PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team, StatusEffects status_effects) :
@@ -117,7 +119,13 @@ public:
     }
     // item
     PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, StatusEffects status_effects) :
-            id(id), thing_type(ThingType_INDIVIDUAL), location(location), status_effects(status_effects) {
+            id(id), thing_type(ThingType_WAND), location(location), status_effects(status_effects) {
+        wand_info() = {
+            description_id,
+        };
+    }
+    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, uint256 container_id, int z_order, StatusEffects status_effects) :
+            id(id), thing_type(ThingType_WAND), container_id(container_id), z_order(z_order), status_effects(status_effects) {
         wand_info() = {
             description_id,
         };
@@ -152,7 +160,7 @@ struct Knowledge {
     List<RememberedEvent> remembered_events;
     // this is never wrong
     WandId wand_identities[WandId_COUNT];
-    IdMap<PerceivedThing> perceived_individuals;
+    IdMap<PerceivedThing> perceived_things;
     Knowledge() {
         tiles.set_all(unknown_tile);
         tile_is_visible.set_all(VisionTypes::none());
@@ -227,19 +235,19 @@ static inline bool is_item(T thing) {
 }
 
 static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> get_perceived_individuals(Thing individual) {
-    return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_individuals.value_iterator(), is_individual);
+    return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_things.value_iterator(), is_individual);
 }
 static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> get_perceived_items(Thing individual) {
-    return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_individuals.value_iterator(), is_item);
+    return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_things.value_iterator(), is_item);
 }
 
-PerceivedThing to_perceived_individual(uint256 target_id);
+PerceivedThing to_perceived_thing(uint256 target_id);
 PerceivedThing observe_individual(Thing observer, Thing target);
 
 int compare_individuals_by_initiative(Thing a, Thing b);
 
 // TODO: these are in the wrong place
-void compute_vision(Thing individual);
+void compute_vision(Thing observer);
 void get_item_description(Thing observer, uint256 wielder_id, uint256 item_id, ByteBuffer * output);
 void zap_wand(Thing individual, uint256 item_id, Coord direction);
 
