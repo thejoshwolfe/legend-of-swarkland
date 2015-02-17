@@ -16,7 +16,9 @@ void display_finish();
 
 Coord get_mouse_tile(SDL_Rect area);
 const char * get_species_name(SpeciesId species_id);
+void get_thing_description(Thing observer, uint256 target_id, ByteBuffer * output);
 void get_individual_description(Thing observer, uint256 target_id, ByteBuffer * output);
+void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output);
 void render();
 
 #endif

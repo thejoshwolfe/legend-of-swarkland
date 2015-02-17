@@ -233,6 +233,16 @@ const char * get_species_name(SpeciesId species_id) {
             panic("individual description");
     }
 }
+void get_thing_description(Thing observer, uint256 target_id, ByteBuffer * output) {
+    PerceivedThing actual_thing = observer->life()->knowledge.perceived_things.get(target_id);
+    switch (actual_thing->thing_type) {
+        case ThingType_INDIVIDUAL:
+            return get_individual_description(observer, target_id, output);
+        case ThingType_WAND:
+            return get_item_description(observer, target_id, output);
+    }
+    panic("thing type");
+}
 void get_individual_description(Thing observer, uint256 target_id, ByteBuffer * output) {
     if (observer->id == target_id) {
         output->append("you");
@@ -249,6 +259,44 @@ void get_individual_description(Thing observer, uint256 target_id, ByteBuffer * 
     if (target->status_effects.confused_timeout > 0)
         output->append("confused ");
     output->append(get_species_name(target->life().species_id));
+}
+void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output) {
+    PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, NULL);
+    if (item == NULL) {
+        // can't see the wand
+        output->append("a wand");
+        return;
+    }
+    WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info().description_id];
+    if (true_id != WandId_UNKNOWN) {
+        switch (true_id) {
+            case WandId_WAND_OF_CONFUSION:
+                output->append("a wand of confusion");
+                return;
+            case WandId_WAND_OF_DIGGING:
+                output->append("a wand of digging");
+                return;
+            case WandId_WAND_OF_STRIKING:
+                output->append("a wand of striking");
+                return;
+            default:
+                panic("wand id");
+        }
+    } else {
+        switch (item->wand_info().description_id) {
+            case WandDescriptionId_BONE_WAND:
+                output->append("a bone wand");
+                return;
+            case WandDescriptionId_GOLD_WAND:
+                output->append("a gold wand");
+                return;
+            case WandDescriptionId_PLASTIC_WAND:
+                output->append("a plastic wand");
+                return;
+            default:
+                panic("wand id");
+        }
+    }
 }
 
 static void popup_help(Coord upper_left_corner, const char * str) {
@@ -429,11 +477,16 @@ void render() {
     // popup help for hovering over things
     Coord mouse_hover_map_tile = get_mouse_tile(main_map_area);
     if (mouse_hover_map_tile != Coord::nowhere()) {
-        PerceivedThing target = find_perceived_individual_at(spectate_from, mouse_hover_map_tile);
-        if (target != NULL) {
-            ByteBuffer description;
-            get_individual_description(spectate_from, target->id, &description);
-            popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, description.raw());
+        List<PerceivedThing> things;
+        find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
+        if (things.length() != 0) {
+            ByteBuffer text;
+            for (int i = 0; i < things.length(); i++) {
+                if (i > 0 )
+                    text.append("\n");
+                get_thing_description(spectate_from, things[i]->id, &text);
+            }
+            popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, text.raw());
         }
     }
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);

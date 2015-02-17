@@ -248,7 +248,6 @@ int compare_individuals_by_initiative(Thing a, Thing b);
 
 // TODO: these are in the wrong place
 void compute_vision(Thing observer);
-void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output);
 void zap_wand(Thing individual, uint256 item_id, Coord direction);
 
 #endif

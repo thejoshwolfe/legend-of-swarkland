@@ -21,45 +21,6 @@ Thing random_item() {
     return item;
 }
 
-void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output) {
-    PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, NULL);
-    if (item == NULL) {
-        // can't see the wand
-        output->append("a wand");
-        return;
-    }
-    WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info().description_id];
-    if (true_id != WandId_UNKNOWN) {
-        switch (true_id) {
-            case WandId_WAND_OF_CONFUSION:
-                output->append("a wand of confusion");
-                return;
-            case WandId_WAND_OF_DIGGING:
-                output->append("a wand of digging");
-                return;
-            case WandId_WAND_OF_STRIKING:
-                output->append("a wand of striking");
-                return;
-            default:
-                panic("wand id");
-        }
-    } else {
-        switch (item->wand_info().description_id) {
-            case WandDescriptionId_BONE_WAND:
-                output->append("a bone wand");
-                return;
-            case WandDescriptionId_GOLD_WAND:
-                output->append("a gold wand");
-                return;
-            case WandDescriptionId_PLASTIC_WAND:
-                output->append("a plastic wand");
-                return;
-            default:
-                panic("wand id");
-        }
-    }
-}
-
 static void confuse_individual_from_wand(Thing target, IdMap<WandDescriptionId> * perceived_current_zapper) {
     bool did_it_work = confuse_individual(target);
     if (did_it_work) {

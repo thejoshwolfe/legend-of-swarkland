@@ -167,12 +167,32 @@ static void attack(Thing attacker, Thing target) {
     damage_individual(attacker, target, attacker->life()->species()->attack_power);
 }
 
+static int compare_things_by_z_order(Thing a, Thing b) {
+    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
+}
+static int compare_perceived_things_by_z_order(PerceivedThing a, PerceivedThing b) {
+    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
+}
+static int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b) {
+    int result = a->thing_type - b->thing_type;
+    if (result != 0)
+        return result;
+    return compare_perceived_things_by_z_order(a, b);
+}
+
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
     PerceivedThing individual;
     for (auto iterator = get_perceived_individuals(observer); iterator.next(&individual);)
         if (individual->location == location)
             return individual;
     return NULL;
+}
+void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list) {
+    PerceivedThing thing;
+    for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);)
+        if (thing->location == location)
+            output_sorted_list->append(thing);
+    sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 Thing find_individual_at(Coord location) {
     Thing individual;
@@ -185,12 +205,6 @@ Thing find_individual_at(Coord location) {
     return NULL;
 }
 
-static int compare_things_by_z_order(Thing a, Thing b) {
-    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
-}
-static int compare_perceived_things_by_z_order(PerceivedThing a, PerceivedThing b) {
-    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
-}
 void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list) {
     Thing item;
     for (auto iterator = actual_items(); iterator.next(&item);)
