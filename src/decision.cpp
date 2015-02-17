@@ -47,7 +47,7 @@ static Action get_ai_decision(Thing individual) {
         // let's go attack somebody!
         PerceivedThing target = closest_hostiles[random_int(closest_hostiles.length())];
         List<Coord> path;
-        find_path(individual->location, target->location, individual, path);
+        find_path(individual->location, target->location, individual, &path);
         if (path.length() > 0) {
             Coord direction = path[0] - individual->location;
             if (path[0] == target->location)

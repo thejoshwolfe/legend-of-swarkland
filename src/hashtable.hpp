@@ -18,18 +18,18 @@ struct uint_oversized {
 };
 
 template<int Size64>
-static inline bool operator==(uint_oversized<Size64> a, uint_oversized<Size64> b) {
+static inline bool operator==(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
     for (int i = 0; i < Size64; i++)
         if (a.values[i] != b.values[i])
             return false;
     return true;
 }
 template<int Size64>
-static inline bool operator!=(uint_oversized<Size64> a, uint_oversized<Size64> b) {
+static inline bool operator!=(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
     return !(a == b);
 }
 template<int Size64>
-static inline uint32_t hash_oversized(uint_oversized<Size64> a) {
+static inline uint32_t hash_oversized(const uint_oversized<Size64> & a) {
     // it's just a bunch of xor
     uint64_t result = 0;
     for (int i = 0; i < Size64; i++)
@@ -46,7 +46,7 @@ static inline uint_oversized<Size64> random_oversized() {
 }
 
 template<int Size64>
-static inline int compare(uint_oversized<Size64> a, uint_oversized<Size64> b) {
+static inline int compare(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
     for (int i = 0; i < Size64; i++) {
         if (a.values[i] == b.values[i])
             continue;
@@ -57,12 +57,12 @@ static inline int compare(uint_oversized<Size64> a, uint_oversized<Size64> b) {
 
 
 typedef uint_oversized<4> uint256;
-uint32_t hash_uint256(uint256 a);
+uint32_t hash_uint256(const uint256 & a);
 static inline uint256 random_uint256() {
     return random_oversized<4>();
 }
 
-template<typename K, typename V, uint32_t (*HashFunction)(K)>
+template<typename K, typename V, uint32_t (*HashFunction)(const K&)>
 class Hashtable {
 private:
     struct Entry;
@@ -77,7 +77,7 @@ public:
         return _size;
     }
 
-    void put(K key, V value) {
+    void put(const K & key, const V & value) {
         _modification_count++;
         internal_put(key, value);
 
@@ -96,19 +96,19 @@ public:
         }
     }
 
-    V get(K key) const {
+    V get(const K & key) const {
         Entry * entry = internal_get(key);
         if (!entry)
             panic("key not found");
         return entry->value;
     }
 
-    V get(K key, V default_value) const {
+    V get(const K & key, const V & default_value) const {
         Entry * entry = internal_get(key);
         return entry ? entry->value : default_value;
     }
 
-    void remove(K key) {
+    void remove(const K & key) {
         _modification_count++;
         int start_index = HashFunction(key) % _capacity;
         for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
@@ -243,7 +243,7 @@ private:
         panic("put into a full HashMap");
     }
 
-    Entry * internal_get(K key) const {
+    Entry * internal_get(const K & key) const {
         int start_index = HashFunction(key) % _capacity;
         for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
             int index = (start_index + roll_over) % _capacity;

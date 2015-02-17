@@ -43,7 +43,7 @@ static int compare_nodes(Node *a, Node *b) {
     return signf(a->f - b->f);
 }
 
-bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> & output_path) {
+bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * output_path) {
     MapMatrix<bool> closed_set;
     closed_set.set_all(false);
 
@@ -110,7 +110,7 @@ bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> & ou
         it = it->parent;
     }
     for (int i = backwards_path.length() - 2; i >= 0; i--) {
-        output_path.append(backwards_path[i]);
+        output_path->append(backwards_path[i]);
     }
     return found_goal;
 }

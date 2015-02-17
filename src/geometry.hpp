@@ -31,10 +31,9 @@ public:
             panic("matrix bounds check");
         return items[index.y * SizeX + index.x];
     }
-    void set_all(T value) {
-        for (int i = 0; i < SizeX * SizeY; i++) {
+    void set_all(const T & value) {
+        for (int i = 0; i < SizeX * SizeY; i++)
             items[i] = value;
-        }
     }
 private:
     T items[SizeX * SizeY];

@@ -342,17 +342,19 @@ void render() {
         }
     } else {
         // full visibility
-        Thing individual;
-        for (auto iterator = actual_things.value_iterator(); iterator.next(&individual);) {
+        Thing thing;
+        for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);) {
             // TODO: this exposes hashtable iteration order
-            if (!individual->still_exists)
+            if (!thing->still_exists)
+                continue;
+            if (thing->location == Coord::nowhere())
                 continue;
             Uint8 alpha;
-            if (individual->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[individual->location].any())
+            if (thing->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[thing->location].any())
                 alpha = 0x7f;
             else
                 alpha = 0xff;
-            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(individual), alpha, individual->location);
+            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(thing), alpha, thing->location);
         }
     }
 

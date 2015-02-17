@@ -18,7 +18,7 @@ public:
         destroy(_items, _capacity);
     }
 
-    void append(T item) {
+    void append(const T & item) {
         ensure_capacity(_length + 1);
         _items[_length++] = item;
     }
