@@ -350,7 +350,7 @@ void render() {
             Uint8 alpha;
             if (spectate_from->life()->knowledge.tile_is_visible[cursor].any()) {
                 // it's in our direct line of sight
-                if (input_mode == InputMode_ZAP_CHOOSE_DIRECTION) {
+                if (input_mode == InputMode_ZAP_CHOOSE_DIRECTION || input_mode == InputMode_THROW_CHOOSE_DIRECTION) {
                     // actually, let's only show the cardinal directions
                     Coord vector = spectate_from->location - cursor;
                     if (vector.x * vector.y == 0) {
@@ -456,7 +456,7 @@ void render() {
     List<Thing> inventory;
     find_items_in_inventory(spectate_from, &inventory);
     {
-        bool render_cursor = input_mode == InputMode_ZAP_CHOOSE_ITEM || input_mode == InputMode_DROP_CHOOSE_ITEM;
+        bool render_cursor = input_mode == InputMode_ZAP_CHOOSE_ITEM || input_mode == InputMode_DROP_CHOOSE_ITEM || input_mode == InputMode_THROW_CHOOSE_ITEM;
         if (render_cursor) {
             // render the cursor
             SDL_Rect cursor_rect;

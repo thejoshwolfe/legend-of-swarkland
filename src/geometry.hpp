@@ -22,6 +22,12 @@ static inline Coord operator+(Coord a, Coord b) {
 static inline Coord operator-(Coord a, Coord b) {
     return {a.x - b.x, a.y - b.y};
 }
+static inline void operator+=(Coord & a, Coord b) {
+    a = a + b;
+}
+static inline void operator-=(Coord & a, Coord b) {
+    a = a - b;
+}
 
 template<typename T, int SizeX, int SizeY>
 class Matrix {

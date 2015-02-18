@@ -9,6 +9,7 @@ struct Action {
         ZAP,
         PICKUP,
         DROP,
+        THROW,
 
         CHEATCODE_HEALTH_BOOST,
         CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD,
@@ -43,6 +44,9 @@ struct Action {
     }
     static inline Action drop(uint256 item_id) {
         return {DROP, item_id, {0, 0}};
+    }
+    static inline Action throw_(uint256 item_id, Coord direction) {
+        return {THROW, item_id, direction};
     }
 
     static inline Action cheatcode_health_boost() {

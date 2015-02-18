@@ -97,6 +97,25 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             result->bytes.format("the wall magically crumbles away!");
             return result;
 
+        case Event::THROW_ITEM:
+            get_individual_description(observer, event.zap_wand_data().wielder, &buffer1);
+            get_item_description(observer, event.zap_wand_data().wand, &buffer2);
+            result->bytes.format("%s throws %s.", buffer1.raw(), buffer2.raw());
+            return result;
+        case Event::ITEM_HITS_INDIVIDUAL:
+            get_item_description(observer, event.zap_wand_data().wand, &buffer1);
+            get_individual_description(observer, event.zap_wand_data().wielder, &buffer2);
+            result->bytes.format("%s hits %s!", buffer1.raw(), buffer2.raw());
+            return result;
+        case Event::ITEM_HITS_WALL:
+            get_item_description(observer, event.item_and_location_data().item, &buffer1);
+            result->bytes.format("%s hits a wall.", buffer1.raw());
+            return result;
+        case Event::ITEM_HITS_SOMETHING:
+            get_item_description(observer, event.item_and_location_data().item, &buffer1);
+            result->bytes.format("%s hits something.", buffer1.raw());
+            return result;
+
         case Event::NO_LONGER_CONFUSED:
             get_individual_description(observer, event.the_individual_data(), &buffer1);
             result->bytes.format("%s is no longer confused.", buffer1.raw());
@@ -242,19 +261,30 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
 
         case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
         case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
-        case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL: {
+        case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
             if (!can_see_individual(observer, event.the_individual_data()))
                 return false;
             *output_event = event;
             return true;
-        }
         case Event::BEAM_HIT_WALL_NO_EFFECT:
-        case Event::BEAM_OF_DIGGING_HIT_WALL: {
+        case Event::BEAM_OF_DIGGING_HIT_WALL:
             if (!can_see_location(observer, event.the_location_data()))
                 return false;
             *output_event = event;
             return true;
-        }
+
+        case Event::THROW_ITEM:
+        case Event::ITEM_HITS_INDIVIDUAL:
+            if (!can_see_individual(observer, event.zap_wand_data().wielder))
+                return false;
+            *output_event = event;
+            return true;
+        case Event::ITEM_HITS_SOMETHING:
+        case Event::ITEM_HITS_WALL:
+            if (!can_see_location(observer, event.item_and_location_data().location))
+                return false;
+            *output_event = event;
+            return true;
 
         case Event::NO_LONGER_CONFUSED:
         case Event::APPEAR:
@@ -377,6 +407,15 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 break;
             case Event::BEAM_OF_DIGGING_HIT_WALL:
                 id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_DIGGING);
+                break;
+
+            case Event::THROW_ITEM:
+                // item is now in the air, i guess
+                break;
+            case Event::ITEM_HITS_INDIVIDUAL:
+            case Event::ITEM_HITS_SOMETHING:
+            case Event::ITEM_HITS_WALL:
+                // no state change
                 break;
 
             case Event::NO_LONGER_CONFUSED:

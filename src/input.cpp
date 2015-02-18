@@ -25,6 +25,20 @@ InputMode input_mode = InputMode_MAIN;
 uint256 chosen_item;
 int inventory_cursor;
 
+static InputMode get_item_choosing_action_mode(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_D:
+            return InputMode_DROP_CHOOSE_ITEM;
+        case SDL_SCANCODE_T:
+            return InputMode_THROW_CHOOSE_ITEM;
+        case SDL_SCANCODE_Z:
+            return InputMode_ZAP_CHOOSE_ITEM;
+        default:
+            break;
+    }
+    panic("input mode key");
+}
+
 static Action move_or_attack(Coord direction) {
     Action action = Action::move(direction);
     // convert moving into attacking if it's pointed at an observed monster.
@@ -82,12 +96,13 @@ static Action on_key_down_main(const SDL_Event & event) {
             return Action::wait();
 
         case SDL_SCANCODE_D:
+        case SDL_SCANCODE_T:
         case SDL_SCANCODE_Z: {
             List<Thing> inventory;
             find_items_in_inventory(you, &inventory);
             if (inventory.length() > 0) {
                 inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
-                input_mode = event.key.keysym.scancode == SDL_SCANCODE_D ? InputMode_DROP_CHOOSE_ITEM : InputMode_ZAP_CHOOSE_ITEM;
+                input_mode = get_item_choosing_action_mode(event);
             }
             return Action::undecided();
         }
@@ -129,23 +144,31 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
             break;
 
         case SDL_SCANCODE_D:
+        case SDL_SCANCODE_T:
         case SDL_SCANCODE_Z:
         case SDL_SCANCODE_RETURN: {
-            if (input_mode != (event.key.keysym.scancode == SDL_SCANCODE_D ? InputMode_DROP_CHOOSE_ITEM : InputMode_ZAP_CHOOSE_ITEM))
+            if (input_mode != get_item_choosing_action_mode(event))
                 break;
             // doit
             List<Thing> inventory;
             find_items_in_inventory(you, &inventory);
-            if (input_mode == InputMode_DROP_CHOOSE_ITEM) {
-                // drop the bass
-                input_mode = InputMode_MAIN;
-                return Action::drop(inventory[inventory_cursor]->id);
-            } else {
-                // zap
-                chosen_item = inventory[inventory_cursor]->id;
-                input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
-                return Action::undecided();
+            uint256 item_id = inventory[inventory_cursor]->id;
+            switch (input_mode) {
+                case InputMode_DROP_CHOOSE_ITEM:
+                    input_mode = InputMode_MAIN;
+                    return Action::drop(item_id);
+                case InputMode_THROW_CHOOSE_ITEM:
+                    chosen_item = item_id;
+                    input_mode = InputMode_THROW_CHOOSE_DIRECTION;
+                    return Action::undecided();
+                case InputMode_ZAP_CHOOSE_ITEM:
+                    chosen_item = item_id;
+                    input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
+                    return Action::undecided();
+                default:
+                    break;
             }
+            panic("input mode");
         }
 
         case SDL_SCANCODE_KP_2:
@@ -184,8 +207,18 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
         case SDL_SCANCODE_UP: {
             List<Thing> inventory;
             find_items_in_inventory(you, &inventory);
-            input_mode = InputMode_MAIN;
-            return Action::zap(inventory[inventory_cursor]->id, get_direction_from_event(event));
+            uint256 item_id = inventory[inventory_cursor]->id;
+            switch (input_mode) {
+                case InputMode_THROW_CHOOSE_DIRECTION:
+                    input_mode = InputMode_MAIN;
+                    return Action::throw_(item_id, get_direction_from_event(event));
+                case InputMode_ZAP_CHOOSE_DIRECTION:
+                    input_mode = InputMode_MAIN;
+                    return Action::zap(item_id, get_direction_from_event(event));
+                default:
+                    break;
+            }
+            panic("input mode");
         }
 
         default:
@@ -198,8 +231,10 @@ static Action on_key_down(const SDL_Event & event) {
         case InputMode_MAIN:
             return on_key_down_main(event);
         case InputMode_DROP_CHOOSE_ITEM:
+        case InputMode_THROW_CHOOSE_ITEM:
         case InputMode_ZAP_CHOOSE_ITEM:
             return on_key_down_choose_item(event);
+        case InputMode_THROW_CHOOSE_DIRECTION:
         case InputMode_ZAP_CHOOSE_DIRECTION:
             return on_key_down_choose_direction(event);
     }

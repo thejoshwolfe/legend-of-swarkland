@@ -28,6 +28,11 @@ struct Event {
         BEAM_OF_STRIKING_HIT_INDIVIDUAL,
         BEAM_OF_DIGGING_HIT_WALL,
 
+        THROW_ITEM,
+        ITEM_HITS_INDIVIDUAL,
+        ITEM_HITS_WALL,
+        ITEM_HITS_SOMETHING,
+
         NO_LONGER_CONFUSED,
 
         APPEAR,
@@ -116,13 +121,13 @@ struct Event {
     }
 
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(ZAP_WAND, wand_wielder, item);
+        return zap_wand_type_event(ZAP_WAND, wand_wielder->id, item->id);
     }
     static inline Event wand_zap_no_charges(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(ZAP_WAND_NO_CHARGES, wand_wielder, item);
+        return zap_wand_type_event(ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id);
     }
     static inline Event wand_disintegrates(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(WAND_DISINTEGRATES, wand_wielder, item);
+        return zap_wand_type_event(WAND_DISINTEGRATES, wand_wielder->id, item->id);
     }
 
     static inline Event beam_hit_individual_no_effect(Thing target) {
@@ -154,6 +159,20 @@ struct Event {
         return move_type_event(SOMETHING_BUMP_INTO_INDIVIDUAL, target, from_location, target_location);
     }
 
+    static Event throw_item(uint256 thrower_id, uint256 item_id) {
+        return zap_wand_type_event(THROW_ITEM, thrower_id, item_id);
+    }
+    static Event item_hits_individual(uint256 item_id, uint256 target_id) {
+        return zap_wand_type_event(ITEM_HITS_INDIVIDUAL, target_id, item_id);
+    }
+    static Event item_hits_wall(uint256 item_id, Coord location) {
+        return item_and_location_type_event(ITEM_HITS_WALL, item_id, location);
+    }
+    static Event item_hits_something(uint256 item_id, Coord location) {
+        return item_and_location_type_event(ITEM_HITS_SOMETHING, item_id, location);
+    }
+
+
     static inline Event no_longer_confused(Thing individual) {
         return event_individual(NO_LONGER_CONFUSED, individual->id);
     }
@@ -180,7 +199,7 @@ struct Event {
         return item_and_location_type_event(ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
     }
     static inline Event individual_picks_up_item(Thing individual, Thing item) {
-        return zap_wand_type_event(INDIVIDUAL_PICKS_UP_ITEM, individual, item);
+        return zap_wand_type_event(INDIVIDUAL_PICKS_UP_ITEM, individual->id, item->id);
     }
     static inline Event something_picks_up_item(uint256 item, Coord location) {
         return item_and_location_type_event(ITEM_DROPS_TO_THE_FLOOR, item, location);
@@ -218,12 +237,12 @@ private:
         };
         return result;
     }
-    static inline Event zap_wand_type_event(Type type, Thing wand_wielder, Thing item) {
+    static inline Event zap_wand_type_event(Type type, uint256 wielder_id, uint256 item_id) {
         Event result;
         result.type = type;
         result.zap_wand_data() = {
-            wand_wielder->id,
-            item->id,
+            wielder_id,
+            item_id,
         };
         return result;
     }
@@ -304,6 +323,15 @@ private:
                 return DataType_THE_INDIVIDUAL;
             case BEAM_OF_DIGGING_HIT_WALL:
                 return DataType_THE_LOCATION;
+
+            case THROW_ITEM:
+                return DataType_ZAP_WAND;
+            case ITEM_HITS_INDIVIDUAL:
+                return DataType_ZAP_WAND;
+            case ITEM_HITS_WALL:
+                return DataType_ITEM_AND_LOCATION;
+            case ITEM_HITS_SOMETHING:
+                return DataType_ITEM_AND_LOCATION;
 
             case NO_LONGER_CONFUSED:
                 return DataType_THE_INDIVIDUAL;

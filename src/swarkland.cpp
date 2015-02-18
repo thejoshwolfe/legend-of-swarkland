@@ -44,6 +44,34 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     item->z_order = items_on_floor.length();
     publish_event(Event::item_drops_to_the_floor(item));
 }
+static void throw_item(Thing actor, Thing item, Coord direction) {
+    publish_event(Event::throw_item(actor->id, item->id));
+    // find the hit target
+    int range = random_int(3, 5);
+    Coord cursor = actor->location;
+    for (int i = 0; i < range; i++) {
+        cursor += direction;
+        if (is_in_bounds(cursor)) {
+            Thing target = find_individual_at(cursor);
+            if (target != NULL) {
+                publish_event(Event::item_hits_individual(item->id, target->id));
+                // TODO: do something here
+                break;
+            }
+        }
+        if (!is_in_bounds(cursor) || actual_map_tiles[cursor].tile_type == TileType_WALL) {
+            // TODO: remove this hack once the edge of the world is less reachable.
+            Coord wall_location = clamp(cursor, {0, 0}, map_size);
+            publish_event(Event::item_hits_wall(item->id, wall_location));
+            // back up one and drop it
+            cursor -= direction;
+            break;
+        }
+    }
+    drop_item_to_the_floor(item, cursor);
+}
+
+
 
 static const int no_spawn_radius = 10;
 
@@ -362,6 +390,9 @@ static bool take_action(Thing actor, Action action) {
         case Action::DROP:
             drop_item_to_the_floor(actual_things.get(action.item), actor->location);
             return true;
+        case Action::THROW:
+            throw_item(actor, actual_things.get(action.item), action.coord);
+            return true;
 
         case Action::CHEATCODE_HEALTH_BOOST:
             actor->life()->hitpoints += 100;
@@ -493,9 +524,13 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
     List<Thing> inventory;
     find_items_in_inventory(individual, &inventory);
     for (int i = 0; i < inventory.length(); i++) {
-        for (int j = 0; j < 8; j++)
-            output_actions.append(Action::zap(inventory[i]->id, directions[j]));
-        output_actions.append(Action::drop(inventory[i]->id));
+        uint256 item_id = inventory[i]->id;
+        for (int j = 0; j < 8; j++) {
+            Coord direction = directions[j];
+            output_actions.append(Action::zap(item_id, direction));
+            output_actions.append(Action::throw_(item_id, direction));
+        }
+        output_actions.append(Action::drop(item_id));
     }
 
     // alright, we'll let you use cheatcodes

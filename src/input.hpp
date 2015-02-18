@@ -9,6 +9,8 @@ extern bool request_shutdown;
 enum InputMode {
     InputMode_MAIN,
     InputMode_DROP_CHOOSE_ITEM,
+    InputMode_THROW_CHOOSE_ITEM,
+    InputMode_THROW_CHOOSE_DIRECTION,
     InputMode_ZAP_CHOOSE_ITEM,
     InputMode_ZAP_CHOOSE_DIRECTION,
 };
