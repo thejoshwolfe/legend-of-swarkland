@@ -151,6 +151,15 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             get_item_description(observer, event.item_and_location_data().item, &buffer1);
             result->bytes.format("something unseen picks up %s.", buffer1.raw());
             return result;
+        case Event::INDIVIDUAL_SUCKS_UP_ITEM:
+            get_individual_description(observer, event.zap_wand_data().wielder, &buffer1);
+            get_item_description(observer, event.zap_wand_data().wand, &buffer2);
+            result->bytes.format("%s sucks up %s.", buffer1.raw(), buffer2.raw());
+            return result;
+        case Event::SOMETHING_SUCKS_UP_ITEM:
+            get_item_description(observer, event.item_and_location_data().item, &buffer1);
+            result->bytes.format("something unseen sucks up %s.", buffer1.raw());
+            return result;
     }
     panic("remembered_event");
 }
@@ -316,15 +325,20 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             *output_event = event;
             return true;
         case Event::INDIVIDUAL_PICKS_UP_ITEM:
+        case Event::INDIVIDUAL_SUCKS_UP_ITEM:
             if (!can_see_location(observer, location_of(event.zap_wand_data().wielder)))
                 return false;
             if (!can_see_individual(observer, event.zap_wand_data().wielder)) {
-                *output_event = Event::something_picks_up_item(event.zap_wand_data().wand, location_of(event.zap_wand_data().wielder));
+                if (event.type == Event::INDIVIDUAL_PICKS_UP_ITEM)
+                    *output_event = Event::something_picks_up_item(event.zap_wand_data().wand, location_of(event.zap_wand_data().wielder));
+                else
+                    *output_event = Event::something_sucks_up_item(event.zap_wand_data().wand, location_of(event.zap_wand_data().wielder));
                 return true;
             }
             *output_event = event;
             return true;
         case Event::SOMETHING_PICKS_UP_ITEM:
+        case Event::SOMETHING_SUCKS_UP_ITEM:
             panic("not a real event");
     }
     panic("see event");
@@ -438,9 +452,11 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
 
             case Event::ITEM_DROPS_TO_THE_FLOOR:
             case Event::SOMETHING_PICKS_UP_ITEM:
+            case Event::SOMETHING_SUCKS_UP_ITEM:
                 record_perception_of_thing(observer, event.item_and_location_data().item);
                 break;
             case Event::INDIVIDUAL_PICKS_UP_ITEM:
+            case Event::INDIVIDUAL_SUCKS_UP_ITEM:
                 record_perception_of_thing(observer, event.zap_wand_data().wand);
                 break;
         }

@@ -44,6 +44,8 @@ struct Event {
         ITEM_DROPS_TO_THE_FLOOR,
         INDIVIDUAL_PICKS_UP_ITEM,
         SOMETHING_PICKS_UP_ITEM,
+        INDIVIDUAL_SUCKS_UP_ITEM,
+        SOMETHING_SUCKS_UP_ITEM,
     };
     Type type;
     uint256 & the_individual_data() {
@@ -202,7 +204,13 @@ struct Event {
         return zap_wand_type_event(INDIVIDUAL_PICKS_UP_ITEM, individual->id, item->id);
     }
     static inline Event something_picks_up_item(uint256 item, Coord location) {
-        return item_and_location_type_event(ITEM_DROPS_TO_THE_FLOOR, item, location);
+        return item_and_location_type_event(SOMETHING_PICKS_UP_ITEM, item, location);
+    }
+    static inline Event individual_sucks_up_item(Thing individual, Thing item) {
+        return zap_wand_type_event(INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id);
+    }
+    static inline Event something_sucks_up_item(uint256 item, Coord location) {
+        return item_and_location_type_event(SOMETHING_SUCKS_UP_ITEM, item, location);
     }
 
 private:
@@ -351,6 +359,10 @@ private:
             case INDIVIDUAL_PICKS_UP_ITEM:
                 return DataType_ZAP_WAND;
             case SOMETHING_PICKS_UP_ITEM:
+                return DataType_ITEM_AND_LOCATION;
+            case INDIVIDUAL_SUCKS_UP_ITEM:
+                return DataType_ZAP_WAND;
+            case SOMETHING_SUCKS_UP_ITEM:
                 return DataType_ITEM_AND_LOCATION;
         }
         panic("event type");

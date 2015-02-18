@@ -53,7 +53,8 @@ static void damage_individual(Thing attacker, Thing target, int damage) {
     }
 }
 
-static void pickup_item(Thing individual, Thing item, bool publish) {
+// publish the event yourself
+static void pickup_item(Thing individual, Thing item) {
     if (item->container_id != uint256::zero())
         panic("pickup item in someone's inventory");
 
@@ -63,8 +64,6 @@ static void pickup_item(Thing individual, Thing item, bool publish) {
     item->location = Coord::nowhere();
     item->container_id = individual->id;
     item->z_order = inventory.length();
-    if (publish)
-        publish_event(Event::individual_picks_up_item(individual, item));
 }
 void drop_item_to_the_floor(Thing item, Coord location) {
     List<Thing> items_on_floor;
@@ -140,7 +139,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
     if (random_int(1) == 0) {
         // have an item
         Thing item = random_item();
-        pickup_item(individual, item, false);
+        pickup_item(individual, item);
     }
 
     actual_things.put(individual->id, individual);
@@ -270,8 +269,10 @@ static void do_move(Thing mover, Coord new_position) {
         // pick up items for free
         List<Thing> floor_items;
         find_items_on_floor(new_position, &floor_items);
-        for (int i = 0; i < floor_items.length(); i++)
-            pickup_item(mover, floor_items[i], true);
+        for (int i = 0; i < floor_items.length(); i++) {
+            pickup_item(mover, floor_items[i]);
+            publish_event(Event::individual_sucks_up_item(mover, floor_items[i]));
+        }
     }
 }
 
@@ -387,7 +388,8 @@ static bool take_action(Thing actor, Action action) {
             zap_wand(actor, action.item, action.coord);
             return true;
         case Action::PICKUP:
-            pickup_item(actor, actual_things.get(action.item), true);
+            pickup_item(actor, actual_things.get(action.item));
+            publish_event(Event::individual_picks_up_item(actor, actual_things.get(action.item)));
             return true;
         case Action::DROP:
             drop_item_to_the_floor(actual_things.get(action.item), actor->location);
