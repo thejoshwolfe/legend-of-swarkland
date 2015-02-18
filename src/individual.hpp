@@ -86,6 +86,7 @@ struct Species {
     int attack_power;
     VisionTypes vision_types;
     bool has_mind;
+    bool sucks_up_items;
 };
 
 struct StatusEffects {

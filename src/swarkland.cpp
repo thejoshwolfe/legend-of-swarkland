@@ -16,11 +16,11 @@ long long time_counter = 0;
 bool cheatcode_full_visibility;
 
 static void init_specieses() {
-    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true};
-    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, {1, 0}, true};
-    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true};
-    specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false};
-    specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false};
+    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true, false};
+    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, {1, 0}, true, false};
+    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true, false};
+    specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false, true};
+    specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false, true};
 }
 
 static void pickup_item(Thing individual, Thing item, bool publish) {
@@ -230,16 +230,19 @@ void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
 static void do_move(Thing mover, Coord new_position) {
     Coord old_position = mover->location;
     mover->location = new_position;
-    // gimme that
-    List<Thing> floor_items;
-    find_items_on_floor(new_position, &floor_items);
-    for (int i = 0; i < floor_items.length(); i++)
-        pickup_item(mover, floor_items[i], true);
 
     compute_vision(mover);
 
     // notify other individuals who could see that move
     publish_event(Event::move(mover, old_position, new_position));
+
+    if (mover->life()->species()->sucks_up_items) {
+        // pick up items for free
+        List<Thing> floor_items;
+        find_items_on_floor(new_position, &floor_items);
+        for (int i = 0; i < floor_items.length(); i++)
+            pickup_item(mover, floor_items[i], true);
+    }
 }
 
 static void cheatcode_kill_everybody_in_the_world() {

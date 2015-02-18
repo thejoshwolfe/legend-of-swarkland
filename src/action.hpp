@@ -57,10 +57,10 @@ struct Action {
         return {CHEATCODE_GENERATE_MONSTER, uint256::zero(), {0, 0}};
     }
 };
-static inline bool operator==(Action a, Action b) {
+static inline bool operator==(const Action & a, const Action &  b) {
     return a.type == b.type && a.coord == b.coord;
 }
-static inline bool operator!=(Action a, Action b) {
+static inline bool operator!=(const Action &  a, const Action &  b) {
     return !(a == b);
 }
 
