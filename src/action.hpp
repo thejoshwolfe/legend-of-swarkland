@@ -7,6 +7,7 @@ struct Action {
         WAIT,
         ATTACK,
         ZAP,
+        PICKUP,
         DROP,
 
         CHEATCODE_HEALTH_BOOST,
@@ -37,7 +38,10 @@ struct Action {
     static inline Action zap(uint256 item_id, Coord direction) {
         return {ZAP, item_id, direction};
     }
-    static inline Action drop_item(uint256 item_id) {
+    static inline Action pickup(uint256 item_id) {
+        return {PICKUP, item_id, {0, 0}};
+    }
+    static inline Action drop(uint256 item_id) {
         return {DROP, item_id, {0, 0}};
     }
 

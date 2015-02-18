@@ -91,6 +91,14 @@ static Action on_key_down_main(const SDL_Event & event) {
             }
             return Action::undecided();
         }
+        case SDL_SCANCODE_COMMA: {
+            List<PerceivedThing> items;
+            find_perceived_things_at(you, you->location, &items);
+            if (items.length() == 0)
+                break;
+            // grab the top one (or something)
+            return Action::pickup(items[0]->id);
+        }
 
         case SDL_SCANCODE_V:
             cheatcode_full_visibility = !cheatcode_full_visibility;
@@ -131,7 +139,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
             if (input_mode == InputMode_DROP_CHOOSE_ITEM) {
                 // drop the bass
                 input_mode = InputMode_MAIN;
-                return Action::drop_item(inventory[inventory_cursor]->id);
+                return Action::drop(inventory[inventory_cursor]->id);
             } else {
                 // zap
                 chosen_item = inventory[inventory_cursor]->id;

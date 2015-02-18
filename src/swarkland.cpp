@@ -353,14 +353,15 @@ static bool take_action(Thing actor, Action action) {
                 return true;
             }
         }
-        case Action::ZAP: {
+        case Action::ZAP:
             zap_wand(actor, action.item, action.coord);
             return true;
-        }
-        case Action::DROP: {
+        case Action::PICKUP:
+            pickup_item(actor, actual_things.get(action.item), true);
+            return true;
+        case Action::DROP:
             drop_item_to_the_floor(actual_things.get(action.item), actor->location);
             return true;
-        }
 
         case Action::CHEATCODE_HEALTH_BOOST:
             actor->life()->hitpoints += 100;
@@ -483,13 +484,18 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
             output_actions.append(Action::attack(vector));
         }
     }
+    // pickup items
+    PerceivedThing item;
+    for (auto iterator = get_perceived_items(individual); iterator.next(&item);)
+        if (item->location == individual->location)
+            output_actions.append(Action::pickup(item->id));
     // use items
     List<Thing> inventory;
     find_items_in_inventory(individual, &inventory);
     for (int i = 0; i < inventory.length(); i++) {
         for (int j = 0; j < 8; j++)
             output_actions.append(Action::zap(inventory[i]->id, directions[j]));
-        output_actions.append(Action::drop_item(inventory[i]->id));
+        output_actions.append(Action::drop(inventory[i]->id));
     }
 
     // alright, we'll let you use cheatcodes
