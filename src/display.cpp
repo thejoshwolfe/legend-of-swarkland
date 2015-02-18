@@ -456,7 +456,8 @@ void render() {
     List<Thing> inventory;
     find_items_in_inventory(spectate_from, &inventory);
     {
-        if (input_mode == InputMode_ZAP_CHOOSE_ITEM || input_mode == InputMode_DROP_CHOOSE_ITEM) {
+        bool render_cursor = input_mode == InputMode_ZAP_CHOOSE_ITEM || input_mode == InputMode_DROP_CHOOSE_ITEM;
+        if (render_cursor) {
             // render the cursor
             SDL_Rect cursor_rect;
             cursor_rect.x = inventory_area.x;
@@ -471,6 +472,13 @@ void render() {
             Thing & item = inventory[i];
             render_tile(renderer, sprite_sheet_texture, wand_images[item->wand_info()->description_id], 0xff, location);
             location.y += 1;
+        }
+        if (render_cursor) {
+            // also show popup help
+            ByteBuffer description;
+            get_item_description(spectate_from, inventory[inventory_cursor]->id, &description);
+            Coord popup_location = {inventory_area.x, inventory_area.y + tile_size * inventory_cursor};
+            popup_help(popup_location + Coord{tile_size, tile_size}, description.raw());
         }
     }
 
