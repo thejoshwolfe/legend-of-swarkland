@@ -128,6 +128,9 @@ struct Event {
     static inline Event beam_hit_individual_no_effect(Thing target) {
         return event_individual(BEAM_HIT_INDIVIDUAL_NO_EFFECT, target->id);
     }
+    static inline Event beam_hit_wall_no_effect(Coord location) {
+        return location_type_event(BEAM_HIT_WALL_NO_EFFECT, location);
+    }
     static inline Event beam_of_confusion_hit_individual(Thing target) {
         return event_individual(BEAM_OF_CONFUSION_HIT_INDIVIDUAL, target->id);
     }
@@ -135,10 +138,7 @@ struct Event {
         return event_individual(BEAM_OF_STRIKING_HIT_INDIVIDUAL, target->id);
     }
     static inline Event beam_of_digging_hit_wall(Coord wall_location) {
-        Event result;
-        result.type = BEAM_OF_DIGGING_HIT_WALL;
-        result.the_location_data() = wall_location;
-        return result;
+        return location_type_event(BEAM_OF_DIGGING_HIT_WALL, wall_location);
     }
 
     static Event bump_into_wall(Thing actor, Coord wall_location) {
@@ -191,6 +191,12 @@ private:
         Event result;
         result.type = type;
         result.the_individual_data() = individual_id;
+        return result;
+    }
+    static inline Event location_type_event(Type type, Coord location) {
+        Event result;
+        result.type = type;
+        result.the_location_data() = location;
         return result;
     }
     static inline Event move_type_event(Type type, uint256 mover_id, Coord from, Coord to) {
