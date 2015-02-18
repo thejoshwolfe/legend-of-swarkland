@@ -17,13 +17,13 @@ LINK = $(LINKER) -o $@ $^ $(LINK_FLAGS)
 all: native
 -include $(wildcard build/native/*.d)
 OBJECTS_native = $(foreach f,$(OBJECT_NAMES),build/native/$f)
-$(OBJECTS_native): CPP_COMPILER = clang
+$(OBJECTS_native): CPP_COMPILER = g++
 $(OBJECTS_native): MORE_CFLAGS =
 build/native/%.o: src/%.cpp
 	$(COMPILE_CPP)
 
 build/native/legend-of-swarkland: MORE_LIBS = -lSDL2 -lSDL2_ttf -lpng
-build/native/legend-of-swarkland: LINKER = clang
+build/native/legend-of-swarkland: LINKER = gcc
 build/native/legend-of-swarkland: $(OBJECTS_native)
 	$(LINK)
 native: build/native/legend-of-swarkland
@@ -47,7 +47,7 @@ build/windows/%.o: src/%.cpp
 	$(COMPILE_CPP)
 
 build/windows/legend-of-swarkland.exe: MORE_LIBS = -mconsole $(shell $(CROSS_windows)pkg-config --libs SDL2_ttf sdl2 libpng)
-build/windows/legend-of-swarkland.exe: LINKER = $(CROSS_windows)g++
+build/windows/legend-of-swarkland.exe: LINKER = $(CROSS_windows)gcc
 build/windows/legend-of-swarkland.exe: $(OBJECTS_windows)
 	$(LINK)
 windows: build/windows/legend-of-swarkland.exe
