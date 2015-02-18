@@ -87,6 +87,7 @@ struct Species {
     VisionTypes vision_types;
     bool has_mind;
     bool sucks_up_items;
+    bool auto_throws_items;
 };
 
 struct StatusEffects {

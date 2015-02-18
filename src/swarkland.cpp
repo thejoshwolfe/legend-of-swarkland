@@ -16,11 +16,11 @@ long long time_counter = 0;
 bool cheatcode_full_visibility;
 
 static void init_specieses() {
-    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true, false};
-    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, {1, 0}, true, false};
-    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true, false};
-    specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false, true};
-    specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false, true};
+    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true, false, false};
+    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, {1, 0}, true, false, false};
+    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true, false, false};
+    specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false, true, false};
+    specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false, true, true};
 }
 
 static void kill_individual(Thing individual) {
@@ -431,6 +431,23 @@ static bool take_action(Thing actor, Action action) {
     panic("unimplemented action type");
 }
 
+// advance time for an individual
+static void age_individual(Thing individual) {
+    regen_hp(individual);
+
+    if (individual->life()->species()->auto_throws_items) {
+        // there's a chance per item they're carrying
+        List<Thing> inventory;
+        find_items_in_inventory(individual, &inventory);
+        for (int i = 0; i < inventory.length(); i++) {
+            if (random_int(20) == 0) {
+                // throw item in random direction
+                throw_item(individual, inventory[i], directions[random_int(8)]);
+            }
+        }
+    }
+}
+
 List<Thing> poised_individuals;
 int poised_individuals_index = 0;
 // this function will return only when we're expecting player input
@@ -450,8 +467,7 @@ void run_the_game() {
                     dead_individuals.append(individual);
                     continue;
                 }
-                // advance time for this individual
-                regen_hp(individual);
+                age_individual(individual);
                 if (individual->status_effects.confused_timeout > 0) {
                     individual->status_effects.confused_timeout--;
                     if (individual->status_effects.confused_timeout == 0) {
