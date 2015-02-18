@@ -23,6 +23,36 @@ static void init_specieses() {
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false, true};
 }
 
+static void kill_individual(Thing individual) {
+    // drop your stuff
+    List<Thing> inventory;
+    find_items_in_inventory(individual, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        drop_item_to_the_floor(inventory[i], individual->location);
+
+    individual->life()->hitpoints = 0;
+    individual->still_exists = false;
+
+    publish_event(Event::die(individual));
+
+    if (individual == you)
+        youre_still_alive = false;
+    if (individual == cheatcode_spectator) {
+        // our fun looking through the eyes of a dying man has ended. back to normal.
+        cheatcode_spectator = NULL;
+    }
+}
+
+static void damage_individual(Thing attacker, Thing target, int damage) {
+    if (damage <= 0)
+        panic("no damage");
+    target->life()->hitpoints -= damage;
+    if (target->life()->hitpoints <= 0) {
+        kill_individual(target);
+        attacker->life()->kill_counter++;
+    }
+}
+
 static void pickup_item(Thing individual, Thing item, bool publish) {
     if (item->container_id != uint256::zero())
         panic("pickup item in someone's inventory");
@@ -47,7 +77,7 @@ void drop_item_to_the_floor(Thing item, Coord location) {
 static void throw_item(Thing actor, Thing item, Coord direction) {
     publish_event(Event::throw_item(actor->id, item->id));
     // find the hit target
-    int range = random_int(3, 5);
+    int range = random_int(3, 6);
     Coord cursor = actor->location;
     for (int i = 0; i < range; i++) {
         cursor += direction;
@@ -55,7 +85,9 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             Thing target = find_individual_at(cursor);
             if (target != NULL) {
                 publish_event(Event::item_hits_individual(item->id, target->id));
-                // TODO: do something here
+                // hurt a little
+                int damage = random_int(1, 3);
+                damage_individual(actor, target, damage);
                 break;
             }
         }
@@ -156,36 +188,6 @@ static void regen_hp(Thing individual) {
         if (random_int(60) == 0) {
             individual->life()->hitpoints++;
         }
-    }
-}
-
-static void kill_individual(Thing individual) {
-    // drop your stuff
-    List<Thing> inventory;
-    find_items_in_inventory(individual, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
-        drop_item_to_the_floor(inventory[i], individual->location);
-
-    individual->life()->hitpoints = 0;
-    individual->still_exists = false;
-
-    publish_event(Event::die(individual));
-
-    if (individual == you)
-        youre_still_alive = false;
-    if (individual == cheatcode_spectator) {
-        // our fun looking through the eyes of a dying man has ended. back to normal.
-        cheatcode_spectator = NULL;
-    }
-}
-
-static void damage_individual(Thing attacker, Thing target, int damage) {
-    if (damage <= 0)
-        panic("no damage");
-    target->life()->hitpoints -= damage;
-    if (target->life()->hitpoints <= 0) {
-        kill_individual(target);
-        attacker->life()->kill_counter++;
     }
 }
 
