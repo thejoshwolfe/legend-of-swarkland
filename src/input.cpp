@@ -74,10 +74,6 @@ static Coord get_direction_from_event(const SDL_Event & event) {
 }
 static Action on_key_down_main(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {
-        case SDL_SCANCODE_ESCAPE:
-            request_shutdown = true;
-            break;
-
         case SDL_SCANCODE_KP_1:
         case SDL_SCANCODE_KP_2:
         case SDL_SCANCODE_KP_3:
