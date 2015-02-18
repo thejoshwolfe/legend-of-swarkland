@@ -27,7 +27,14 @@ static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_items() {
 static inline Coord get_thing_location(Thing observer, const PerceivedThing & target) {
     if (target->location != Coord::nowhere())
         return target->location;
-    return get_thing_location(observer, observer->life()->knowledge.perceived_things.get(target->container_id));
+    PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id, NULL);
+    if (container == NULL) {
+        // don't know where the owner went.
+        // TODO: this is always a bug. this hack just puts off finding the true cause.
+        fprintf(stderr, "warning: phantom item bug\n");
+        return Coord::nowhere();
+    }
+    return get_thing_location(observer, container);
 }
 
 void swarkland_init();

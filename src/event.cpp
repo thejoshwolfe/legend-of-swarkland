@@ -371,7 +371,7 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
         List<uint256> delete_ids;
         switch (apparent_event.type) {
             case Event::MOVE:
-                record_perception_of_thing(observer, event.move_data().individual);
+                record_perception_of_thing(observer, apparent_event.move_data().individual);
                 break;
             case Event::BUMP_INTO_WALL:
             case Event::BUMP_INTO_INDIVIDUAL:
@@ -395,17 +395,17 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 break;
 
             case Event::DIE:
-                delete_ids.append(event.the_individual_data());
+                delete_ids.append(apparent_event.the_individual_data());
                 break;
 
             case Event::ZAP_WAND:
-                perceived_current_zapper->put(observer->id, actual_things.get(event.zap_wand_data().wand)->wand_info()->description_id);
+                perceived_current_zapper->put(observer->id, actual_things.get(apparent_event.zap_wand_data().wand)->wand_info()->description_id);
                 break;
             case Event::ZAP_WAND_NO_CHARGES:
                 // boring
                 break;
             case Event::WAND_DISINTEGRATES:
-                record_perception_of_thing(observer, event.zap_wand_data().wielder);
+                record_perception_of_thing(observer, apparent_event.zap_wand_data().wielder);
                 break;
 
             case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
@@ -413,7 +413,7 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 // no state change
                 break;
             case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
-                record_perception_of_thing(observer, event.the_individual_data());
+                record_perception_of_thing(observer, apparent_event.the_individual_data());
                 id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_CONFUSION);
                 break;
             case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
@@ -433,31 +433,31 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 break;
 
             case Event::NO_LONGER_CONFUSED:
-                record_perception_of_thing(observer, event.the_individual_data());
+                record_perception_of_thing(observer, apparent_event.the_individual_data());
                 break;
 
             case Event::APPEAR:
-                record_perception_of_thing(observer, event.the_individual_data());
+                record_perception_of_thing(observer, apparent_event.the_individual_data());
                 break;
             case Event::TURN_INVISIBLE:
-                record_perception_of_thing(observer, event.the_individual_data());
+                record_perception_of_thing(observer, apparent_event.the_individual_data());
                 break;
             case Event::DISAPPEAR:
-                delete_ids.append(event.the_individual_data());
+                delete_ids.append(apparent_event.the_individual_data());
                 break;
 
             case Event::POLYMORPH:
-                record_perception_of_thing(observer, event.polymorph_data().individual);
+                record_perception_of_thing(observer, apparent_event.polymorph_data().individual);
                 break;
 
             case Event::ITEM_DROPS_TO_THE_FLOOR:
             case Event::SOMETHING_PICKS_UP_ITEM:
             case Event::SOMETHING_SUCKS_UP_ITEM:
-                record_perception_of_thing(observer, event.item_and_location_data().item);
+                record_perception_of_thing(observer, apparent_event.item_and_location_data().item);
                 break;
             case Event::INDIVIDUAL_PICKS_UP_ITEM:
             case Event::INDIVIDUAL_SUCKS_UP_ITEM:
-                record_perception_of_thing(observer, event.zap_wand_data().wand);
+                record_perception_of_thing(observer, apparent_event.zap_wand_data().wand);
                 break;
         }
         if (observer->life()->species()->has_mind) {

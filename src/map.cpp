@@ -77,7 +77,10 @@ void compute_vision(Thing observer) {
     List<PerceivedThing> remove_these;
     PerceivedThing target;
     for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
-        if (observer->life()->species()->has_mind && !observer->life()->knowledge.tile_is_visible[get_thing_location(observer, target)].any())
+        Coord target_location = get_thing_location(observer, target);
+        if (target_location == Coord::nowhere())
+            continue;
+        if (observer->life()->species()->has_mind && !observer->life()->knowledge.tile_is_visible[target_location].any())
             continue;
         remove_these.append(target);
         List<PerceivedThing> inventory;
