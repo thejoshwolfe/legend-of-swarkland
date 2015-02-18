@@ -358,10 +358,10 @@ static void id_item(Thing observer, WandDescriptionId description_id, WandId id)
     observer->life()->knowledge.wand_identities[description_id] = id;
 }
 
-void publish_event(Event event) {
+void publish_event(const Event & event) {
     publish_event(event, NULL);
 }
-void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
+void publish_event(const Event & event, IdMap<WandDescriptionId> * perceived_current_zapper) {
     Thing observer;
     for (auto iterator = actual_individuals(); iterator.next(&observer);) {
         Event apparent_event;

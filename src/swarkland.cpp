@@ -24,16 +24,16 @@ static void init_specieses() {
 }
 
 static void kill_individual(Thing individual) {
+    individual->life()->hitpoints = 0;
+    individual->still_exists = false;
+
+    publish_event(Event::die(individual));
+
     // drop your stuff
     List<Thing> inventory;
     find_items_in_inventory(individual, &inventory);
     for (int i = 0; i < inventory.length(); i++)
         drop_item_to_the_floor(inventory[i], individual->location);
-
-    individual->life()->hitpoints = 0;
-    individual->still_exists = false;
-
-    publish_event(Event::die(individual));
 
     if (individual == you)
         youre_still_alive = false;
@@ -72,6 +72,13 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     item->container_id = uint256::zero();
     item->z_order = items_on_floor.length();
     publish_event(Event::item_drops_to_the_floor(item));
+
+    Thing individual = find_individual_at(location);
+    if (individual != NULL && individual->life()->species()->sucks_up_items) {
+        // suck it
+        pickup_item(individual, item);
+        publish_event(Event::individual_sucks_up_item(individual, item));
+    }
 }
 static void throw_item(Thing actor, Thing item, Coord direction) {
     publish_event(Event::throw_item(actor->id, item->id));

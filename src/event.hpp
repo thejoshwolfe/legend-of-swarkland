@@ -48,14 +48,25 @@ struct Event {
         SOMETHING_SUCKS_UP_ITEM,
     };
     Type type;
+
     uint256 & the_individual_data() {
         check_data_type(DataType_THE_INDIVIDUAL);
         return _data._the_individual;
     }
+    const uint256 & the_individual_data() const {
+        check_data_type(DataType_THE_INDIVIDUAL);
+        return _data._the_individual;
+    }
+
     Coord & the_location_data() {
         check_data_type(DataType_THE_LOCATION);
         return _data._the_location;
     }
+    const Coord & the_location_data() const {
+        check_data_type(DataType_THE_LOCATION);
+        return _data._the_location;
+    }
+
     struct MoveData {
         uint256 individual;
         Coord from;
@@ -65,6 +76,11 @@ struct Event {
         check_data_type(DataType_MOVE);
         return _data._move;
     }
+    const MoveData & move_data() const {
+        check_data_type(DataType_MOVE);
+        return _data._move;
+    }
+
     struct AttackData {
         uint256 attacker;
         uint256 target;
@@ -73,6 +89,7 @@ struct Event {
         check_data_type(DataType_ATTACK);
         return _data._attack;
     }
+
     struct ZapWandData {
         uint256 wielder;
         uint256 wand;
@@ -81,6 +98,11 @@ struct Event {
         check_data_type(DataType_ZAP_WAND);
         return _data._zap_wand;
     }
+    const ZapWandData & zap_wand_data() const {
+        check_data_type(DataType_ZAP_WAND);
+        return _data._zap_wand;
+    }
+
     struct PolymorphData {
         uint256 individual;
         SpeciesId old_species;
@@ -89,11 +111,20 @@ struct Event {
         check_data_type(DataType_POLYMORPH);
         return _data._polymorph;
     };
+    const PolymorphData & polymorph_data() const {
+        check_data_type(DataType_POLYMORPH);
+        return _data._polymorph;
+    };
+
     struct ItemAndLocationData {
         uint256 item;
         Coord location;
     };
     ItemAndLocationData & item_and_location_data() {
+        check_data_type(DataType_ITEM_AND_LOCATION);
+        return _data._item_and_location;
+    }
+    const ItemAndLocationData & item_and_location_data() const {
         check_data_type(DataType_ITEM_AND_LOCATION);
         return _data._item_and_location;
     }
@@ -282,12 +313,12 @@ private:
         DataType_ITEM_AND_LOCATION,
     };
 
-    void check_data_type(DataType supposed_data_type) {
+    void check_data_type(DataType supposed_data_type) const {
         DataType correct_data_type = get_correct_data_type();
         if (supposed_data_type != correct_data_type)
             panic("wrong data type");
     }
-    DataType get_correct_data_type() {
+    DataType get_correct_data_type() const {
         switch (type) {
             case MOVE:
                 return DataType_MOVE;
@@ -371,7 +402,7 @@ private:
 
 bool can_see_individual(Thing observer, uint256 target_id, Coord target_location);
 bool can_see_individual(Thing observer, uint256 target_id);
-void publish_event(Event event);
-void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper);
+void publish_event(const Event & event);
+void publish_event(const Event & event, IdMap<WandDescriptionId> * perceived_current_zapper);
 
 #endif
