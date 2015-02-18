@@ -74,7 +74,7 @@ SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_
 
     uint32_t pitch = spritesheet_width * bits_per_channel * channel_count / 8;
 
-    char *decoded_image = allocate<char>(spritesheet_width * pitch);
+    char *decoded_image = allocate<char>(spritesheet_height * pitch);
 
     png_bytep *row_ptrs = allocate<png_bytep>(spritesheet_height);
 
