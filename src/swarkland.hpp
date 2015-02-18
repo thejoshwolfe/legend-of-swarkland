@@ -42,6 +42,7 @@ Thing find_individual_at(Coord location);
 void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list);
 void find_items_in_inventory(Thing observer, PerceivedThing perceived_owner, List<PerceivedThing> * output_sorted_list);
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
+void drop_item_to_the_floor(Thing item, Coord location);
 
 bool confuse_individual(Thing target);
 void strike_individual(Thing attacker, Thing target);

@@ -7,6 +7,7 @@ struct Action {
         WAIT,
         ATTACK,
         ZAP,
+        DROP,
 
         CHEATCODE_HEALTH_BOOST,
         CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD,
@@ -33,8 +34,11 @@ struct Action {
     static inline Action undecided() {
         return {UNDECIDED, uint256::zero(), {0, 0}};
     }
-    static inline Action zap(Thing item, Coord direction) {
-        return {ZAP, item->id, direction};
+    static inline Action zap(uint256 item_id, Coord direction) {
+        return {ZAP, item_id, direction};
+    }
+    static inline Action drop_item(uint256 item_id) {
+        return {DROP, item_id, {0, 0}};
     }
 
     static inline Action cheatcode_health_boost() {

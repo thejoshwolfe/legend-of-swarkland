@@ -36,7 +36,7 @@ static void pickup_item(Thing individual, Thing item, bool publish) {
     if (publish)
         publish_event(Event::individual_picks_up_item(individual, item));
 }
-static void drop_item_to_the_floor(Thing item, Coord location) {
+void drop_item_to_the_floor(Thing item, Coord location) {
     List<Thing> items_on_floor;
     find_items_on_floor(location, &items_on_floor);
     item->location = location;
@@ -314,6 +314,8 @@ static bool take_action(Thing actor, Action action) {
     switch (action.type) {
         case Action::WAIT:
             return true;
+        case Action::UNDECIDED:
+            panic("not a real action");
         case Action::MOVE: {
             // normally, we'd be sure that this was valid, but if you use cheatcodes,
             // monsters can try to walk into you while you're invisible.
@@ -352,6 +354,10 @@ static bool take_action(Thing actor, Action action) {
             zap_wand(actor, action.item, action.coord);
             return true;
         }
+        case Action::DROP: {
+            drop_item_to_the_floor(actual_things.get(action.item), actor->location);
+            return true;
+        }
 
         case Action::CHEATCODE_HEALTH_BOOST:
             actor->life()->hitpoints += 100;
@@ -375,9 +381,8 @@ static bool take_action(Thing actor, Action action) {
         case Action::CHEATCODE_GENERATE_MONSTER:
             spawn_monsters(true);
             return false;
-        default:
-            panic("unimplemented action type");
     }
+    panic("unimplemented action type");
 }
 
 List<Thing> poised_individuals;
@@ -478,9 +483,11 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
     // use items
     List<Thing> inventory;
     find_items_in_inventory(individual, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
+    for (int i = 0; i < inventory.length(); i++) {
         for (int j = 0; j < 8; j++)
-            output_actions.append(Action::zap(inventory[i], directions[j]));
+            output_actions.append(Action::zap(inventory[i]->id, directions[j]));
+        output_actions.append(Action::drop_item(inventory[i]->id));
+    }
 
     // alright, we'll let you use cheatcodes
     if (individual == you) {

@@ -456,7 +456,7 @@ void render() {
     List<Thing> inventory;
     find_items_in_inventory(spectate_from, &inventory);
     {
-        if (input_mode == InputMode_ZAP_CHOOSE_ITEM) {
+        if (input_mode == InputMode_ZAP_CHOOSE_ITEM || input_mode == InputMode_DROP_CHOOSE_ITEM) {
             // render the cursor
             SDL_Rect cursor_rect;
             cursor_rect.x = inventory_area.x;
