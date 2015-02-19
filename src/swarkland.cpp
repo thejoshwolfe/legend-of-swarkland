@@ -223,7 +223,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
 
-    if (random_int(1) == 0) {
+    if (random_int(10) == 0) {
         // have an item
         Thing item = random_item();
         pickup_item(individual, item);
@@ -520,7 +520,7 @@ static void age_individual(Thing individual) {
         List<Thing> inventory;
         find_items_in_inventory(individual, &inventory);
         for (int i = 0; i < inventory.length(); i++) {
-            if (random_int(20) == 0) {
+            if (random_int(100) == 0) {
                 // throw item in random direction
                 throw_item(individual, inventory[i], directions[random_int(8)]);
             }
