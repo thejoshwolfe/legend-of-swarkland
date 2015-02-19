@@ -2,6 +2,7 @@
 
 #include "path_finding.hpp"
 #include "tas.hpp"
+#include "item.hpp"
 
 Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
 Action current_player_decision;
@@ -48,24 +49,26 @@ static Action get_ai_decision(Thing individual) {
         PerceivedThing target = closest_hostiles[random_int(closest_hostiles.length())];
 
         if (individual->life()->species()->uses_wands) {
-            List<Thing> inventory;
-            find_items_in_inventory(individual, &inventory);
-            List<Thing> useful_inventory;
-            for (int i = 0; i < inventory.length(); i++) {
-                Thing item = inventory[i];
-                WandId wand_id = individual->life()->knowledge.wand_identities[item->wand_info()->description_id];
-                if (wand_id == WandId_WAND_OF_DIGGING)
-                    continue; // don't dig the person.
-                if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_timeout > 0)
-                    continue; // already confused.
-                // worth a try
-                useful_inventory.append(item);
-            }
-            if (useful_inventory.length() > 0) {
-                // should we zap it?
-                Coord vector = target->location - individual->location;
-                if (vector.x * vector.y == 0 || abs(vector.x) == abs(vector.y)) {
-                    // you're in sight.
+            Coord vector = target->location - individual->location;
+            Coord abs_vector = abs(vector);
+            int distnace = max(abs_vector.x, abs_vector.y);
+            if ((vector.x * vector.y == 0 || abs_vector.x == abs_vector.y) && distnace <= beam_length_average) {
+                // you're in sight.
+                List<Thing> inventory;
+                find_items_in_inventory(individual, &inventory);
+                List<Thing> useful_inventory;
+                for (int i = 0; i < inventory.length(); i++) {
+                    Thing item = inventory[i];
+                    WandId wand_id = individual->life()->knowledge.wand_identities[item->wand_info()->description_id];
+                    if (wand_id == WandId_WAND_OF_DIGGING)
+                        continue; // don't dig the person.
+                    if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_timeout > 0)
+                        continue; // already confused.
+                    // worth a try
+                    useful_inventory.append(item);
+                }
+                if (useful_inventory.length() > 0) {
+                    // should we zap it?
                     if (random_int(3) == 0) {
                         // get him!!
                         Coord direction = sign(vector);

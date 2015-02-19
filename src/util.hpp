@@ -68,6 +68,9 @@ static inline int random_int(int less_than_this) {
 static inline int random_int(int at_least_this, int less_than_this) {
     return random_int(less_than_this - at_least_this) + at_least_this;
 }
+static inline int random_inclusive(int min, int max) {
+    return random_int(min, max + 1);
+}
 
 template <typename T>
 static inline T min(T a, T b) {

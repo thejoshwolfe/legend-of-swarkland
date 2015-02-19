@@ -60,7 +60,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
 
     publish_event(Event::zap_wand(wand_wielder, wand), &perceived_current_zapper);
     Coord cursor = wand_wielder->location;
-    int beam_length = random_int(6, 13);
+    int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin);
     for (int i = 0; i < beam_length; i++) {
         cursor = cursor + direction;
         if (!is_in_bounds(cursor))
