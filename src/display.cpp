@@ -490,9 +490,19 @@ void render() {
         if (things.length() != 0) {
             ByteBuffer text;
             for (int i = 0; i < things.length(); i++) {
+                PerceivedThing target = things[i];
                 if (i > 0 )
                     text.append("\n");
-                get_thing_description(spectate_from, things[i]->id, &text);
+                get_thing_description(spectate_from, target->id, &text);
+                List<PerceivedThing> inventory;
+                find_items_in_inventory(spectate_from, target, &inventory);
+                if (inventory.length() > 0) {
+                    text.append(" carrying:");
+                    for (int j = 0; j < inventory.length(); j++) {
+                        text.append("\n    ");
+                        get_thing_description(spectate_from, inventory[j]->id, &text);
+                    }
+                }
             }
             popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, text.raw());
         }
