@@ -440,6 +440,7 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 record_perception_of_thing(observer, apparent_event.zap_wand_data().wielder);
                 break;
             case Event::WAND_EXPLODES:
+                perceived_current_zapper->put(observer->id, actual_things.get(apparent_event.item_and_location_data().item)->wand_info()->description_id);
                 delete_ids.append(apparent_event.item_and_location_data().item);
                 break;
 

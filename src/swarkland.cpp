@@ -41,7 +41,6 @@ static void kill_individual(Thing individual) {
         // our fun looking through the eyes of a dying man has ended. back to normal.
         cheatcode_spectator = NULL;
     }
-    actual_things.remove(individual->id);
 }
 
 static void damage_individual(Thing attacker, Thing target, int damage) {
@@ -142,8 +141,8 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
         sort<Thing, compare_things_by_id>(affected_individuals.raw(), affected_individuals.length());
 
         List<Coord> affected_walls;
-        Coord upper_left  = clamp(center - Coord{apothem, apothem}, {0, 0}, map_size - Coord{-1, -1});
-        Coord lower_right = clamp(center + Coord{apothem, apothem}, {0, 0}, map_size - Coord{-1, -1});
+        Coord upper_left  = clamp(center - Coord{apothem, apothem}, {0, 0}, map_size - Coord{1, 1});
+        Coord lower_right = clamp(center + Coord{apothem, apothem}, {0, 0}, map_size - Coord{1, 1});
         for (Coord wall_cursor = upper_left; wall_cursor.y <= lower_right.y; wall_cursor.y++)
             for (wall_cursor.x = upper_left.x; wall_cursor.x <= lower_right.x; wall_cursor.x++)
                 if (actual_map_tiles[wall_cursor].tile_type == TileType_WALL)
@@ -550,8 +549,10 @@ void run_the_game() {
 
             for (int i = 0; i < turn_order.length(); i++) {
                 Thing individual = turn_order[i];
-                if (!individual->still_exists)
+                if (!individual->still_exists) {
+                    actual_things.remove(individual->id);
                     continue;
+                }
                 age_individual(individual);
                 if (individual->status_effects.confused_timeout > 0) {
                     individual->status_effects.confused_timeout--;
