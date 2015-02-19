@@ -88,6 +88,7 @@ struct Species {
     bool has_mind;
     bool sucks_up_items;
     bool auto_throws_items;
+    bool uses_wands;
 };
 
 struct StatusEffects {
