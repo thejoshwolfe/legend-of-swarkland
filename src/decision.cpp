@@ -46,10 +46,22 @@ static Action get_ai_decision(Thing individual) {
     if (closest_hostiles.length() > 0) {
         // you want a piece a me?
         PerceivedThing target = closest_hostiles[random_int(closest_hostiles.length())];
+
         if (individual->life()->species()->uses_wands) {
             List<Thing> inventory;
             find_items_in_inventory(individual, &inventory);
-            if (inventory.length() > 0) {
+            List<Thing> useful_inventory;
+            for (int i = 0; i < inventory.length(); i++) {
+                Thing item = inventory[i];
+                WandId wand_id = individual->life()->knowledge.wand_identities[item->wand_info()->description_id];
+                if (wand_id == WandId_WAND_OF_DIGGING)
+                    continue; // don't dig the person.
+                if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_timeout > 0)
+                    continue; // already confused.
+                // worth a try
+                useful_inventory.append(item);
+            }
+            if (useful_inventory.length() > 0) {
                 // should we zap it?
                 Coord vector = target->location - individual->location;
                 if (vector.x * vector.y == 0 || abs(vector.x) == abs(vector.y)) {
@@ -57,12 +69,13 @@ static Action get_ai_decision(Thing individual) {
                     if (random_int(3) == 0) {
                         // get him!!
                         Coord direction = sign(vector);
-                        return Action::zap(inventory[random_int(inventory.length())]->id, direction);
+                        return Action::zap(useful_inventory[random_int(useful_inventory.length())]->id, direction);
                     }
                     // nah. let's save the charges.
                 }
             }
         }
+
         List<Coord> path;
         find_path(individual->location, target->location, individual, &path);
         if (path.length() > 0) {
