@@ -29,11 +29,6 @@ static inline void operator-=(Coord & a, Coord b) {
     a = a - b;
 }
 
-static inline int distance_squared(Coord a, Coord b) {
-    int dx = b.x - a.x;
-    int dy = b.y - a.y;
-    return dx * dx + dy * dy;
-}
 // each of x and y will be -1, 0, 1
 static inline Coord sign(Coord value) {
     return {sign(value.x), sign(value.y)};
@@ -43,6 +38,17 @@ static inline Coord clamp(Coord value, Coord min, Coord max) {
 }
 static inline Coord abs(Coord value) {
     return {abs(value.x), abs(value.y)};
+}
+// r^2 = dx^2 + dy^2
+static inline int euclidean_distance_squared(Coord a, Coord b) {
+    int dx = b.x - a.x;
+    int dy = b.y - a.y;
+    return dx * dx + dy * dy;
+}
+// how many moves does it take, assuming you can move diagonally
+static inline int ordinal_distance(Coord a, Coord b) {
+    Coord abs_vector = abs(b - a);
+    return max(abs_vector.x, abs_vector.y);
 }
 
 template<typename T, int SizeX, int SizeY>

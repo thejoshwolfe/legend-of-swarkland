@@ -53,7 +53,7 @@ static void refresh_ethereal_vision(Thing individual) {
     Coord lower_right= clamp(you_location + etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
     for (Coord target = upper_left; target.y <= lower_right.y; target.y++) {
         for (target.x = upper_left.x; target.x <= lower_right.x; target.x++) {
-            if (distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
+            if (euclidean_distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
                 continue;
             individual->life()->knowledge.tile_is_visible[target].ethereal = true;
             individual->life()->knowledge.tiles[target] = actual_map_tiles[target];

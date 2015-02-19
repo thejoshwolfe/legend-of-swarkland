@@ -208,7 +208,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
         for (location.x = 0; location.x < map_size.x; location.x++) {
             if (actual_map_tiles[location].tile_type == TileType_WALL)
                 continue;
-            if (you != NULL && distance_squared(location, you->location) < no_spawn_radius * no_spawn_radius)
+            if (you != NULL && euclidean_distance_squared(location, you->location) < no_spawn_radius * no_spawn_radius)
                 continue;
             if (find_individual_at(location) != NULL)
                 continue;

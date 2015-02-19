@@ -63,9 +63,9 @@ source code to the website.
 
  * Items: wand of confusion, wand of striking, wand of digging.
    * Pick up, drop, throw, zap wands.
- * Some species try using wands. Air elementals suck up wands and fling them around randomly.
- * Wands can explode when they are thrown.
- * Windows support and a website.
+   * Some species try using wands. Air elementals suck up wands and fling them around randomly.
+   * Wands can explode when they are thrown.
+ * Building for Windows.
 
 ## Version History
 
