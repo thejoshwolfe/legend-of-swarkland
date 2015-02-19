@@ -51,6 +51,22 @@ cd build/native && ./legend-of-swarkland
 See [this project](https://github.com/andrewrk/www.legend-of-swarkland) for
 source code to the website.
 
+## Roadmap
+
+### 4.0.0
+
+ * Animations for moving, attacking, wand zapping, etc.
+ * Client/server architecture
+ * Main menu?
+
+### 3.0.0
+
+ * Items: wand of confusion, wand of striking, wand of digging.
+   * Pick up, drop, throw, zap wands.
+ * Some species try using wands. Air elementals suck up wands and fling them around randomly.
+ * Wands can explode when they are thrown.
+ * Windows support and a website.
+
 ## Version History
 
 ### 2.0.0
@@ -60,6 +76,7 @@ source code to the website.
  * You and the other individuals in the game follow all the same rules, including limited knowledge.
  * Friendly humans spawn.
  * New art.
+ * Some TAS support via `--script` and `--dump-script`
 
 ### 1.0.0
 
