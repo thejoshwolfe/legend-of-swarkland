@@ -44,8 +44,23 @@ static Action get_ai_decision(Thing individual) {
         }
     }
     if (closest_hostiles.length() > 0) {
-        // let's go attack somebody!
+        // you want a piece a me?
         PerceivedThing target = closest_hostiles[random_int(closest_hostiles.length())];
+        List<Thing> inventory;
+        find_items_in_inventory(individual, &inventory);
+        if (inventory.length() > 0) {
+            // should we zap it?
+            Coord vector = target->location - individual->location;
+            if (vector.x * vector.y == 0 || abs(vector.x) == abs(vector.y)) {
+                // you're in sight.
+                if (random_int(3) == 0) {
+                    // get him!!
+                    Coord direction = sign(vector);
+                    return Action::zap(inventory[random_int(inventory.length())]->id, direction);
+                }
+                // nah. let's save the charges.
+            }
+        }
         List<Coord> path;
         find_path(individual->location, target->location, individual, &path);
         if (path.length() > 0) {
