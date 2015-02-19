@@ -46,7 +46,7 @@ build/windows/%.o: src/%.cpp
 	$(if $(MXE_HOME),,$(error MXE_HOME is not defined))
 	$(COMPILE_CPP)
 
-build/windows/legend-of-swarkland.exe: MORE_LIBS = -mconsole $(shell $(CROSS_windows)pkg-config --libs SDL2_ttf sdl2 libpng)
+build/windows/legend-of-swarkland.exe: MORE_LIBS = -static -mconsole $(shell $(CROSS_windows)pkg-config --libs SDL2_ttf sdl2 libpng)
 build/windows/legend-of-swarkland.exe: LINKER = $(CROSS_windows)gcc
 build/windows/legend-of-swarkland.exe: $(OBJECTS_windows)
 	$(LINK)
