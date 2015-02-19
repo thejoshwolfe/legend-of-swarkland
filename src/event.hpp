@@ -22,11 +22,17 @@ struct Event {
         ZAP_WAND,
         ZAP_WAND_NO_CHARGES,
         WAND_DISINTEGRATES,
+        WAND_EXPLODES,
         BEAM_HIT_INDIVIDUAL_NO_EFFECT,
         BEAM_HIT_WALL_NO_EFFECT,
         BEAM_OF_CONFUSION_HIT_INDIVIDUAL,
         BEAM_OF_STRIKING_HIT_INDIVIDUAL,
         BEAM_OF_DIGGING_HIT_WALL,
+        EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT,
+        EXPLOSION_HIT_WALL_NO_EFFECT,
+        EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL,
+        EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL,
+        EXPLOSION_OF_DIGGING_HIT_WALL,
 
         THROW_ITEM,
         ITEM_HITS_INDIVIDUAL,
@@ -138,6 +144,9 @@ struct Event {
     static inline Event wand_disintegrates(Thing wand_wielder, Thing item) {
         return zap_wand_type_event(WAND_DISINTEGRATES, wand_wielder->id, item->id);
     }
+    static inline Event wand_explodes(uint256 item_id, Coord location) {
+        return item_and_location_type_event(WAND_EXPLODES, item_id, location);
+    }
 
     static inline Event beam_hit_individual_no_effect(Thing target) {
         return event_individual(BEAM_HIT_INDIVIDUAL_NO_EFFECT, target->id);
@@ -153,6 +162,21 @@ struct Event {
     }
     static inline Event beam_of_digging_hit_wall(Coord wall_location) {
         return location_type_event(BEAM_OF_DIGGING_HIT_WALL, wall_location);
+    }
+    static inline Event explosion_hit_individual_no_effect(Thing target) {
+        return event_individual(EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT, target->id);
+    }
+    static inline Event explosion_hit_wall_no_effect(Coord location) {
+        return location_type_event(EXPLOSION_HIT_WALL_NO_EFFECT, location);
+    }
+    static inline Event explosion_of_confusion_hit_individual(Thing target) {
+        return event_individual(EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL, target->id);
+    }
+    static inline Event explosion_of_striking_hit_individual(Thing target) {
+        return event_individual(EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL, target->id);
+    }
+    static inline Event explosion_of_digging_hit_wall(Coord wall_location) {
+        return location_type_event(EXPLOSION_OF_DIGGING_HIT_WALL, wall_location);
     }
 
     static Event bump_into_wall(Thing actor, Coord wall_location) {
@@ -327,6 +351,8 @@ private:
                 return DataType_ZAP_WAND;
             case WAND_DISINTEGRATES:
                 return DataType_ZAP_WAND;
+            case WAND_EXPLODES:
+                return DataType_ITEM_AND_LOCATION;
 
             case BEAM_HIT_INDIVIDUAL_NO_EFFECT:
                 return DataType_THE_INDIVIDUAL;
@@ -337,6 +363,16 @@ private:
             case BEAM_OF_STRIKING_HIT_INDIVIDUAL:
                 return DataType_THE_INDIVIDUAL;
             case BEAM_OF_DIGGING_HIT_WALL:
+                return DataType_THE_LOCATION;
+            case EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
+                return DataType_THE_INDIVIDUAL;
+            case EXPLOSION_HIT_WALL_NO_EFFECT:
+                return DataType_THE_LOCATION;
+            case EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
+                return DataType_THE_INDIVIDUAL;
+            case EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
+                return DataType_THE_INDIVIDUAL;
+            case EXPLOSION_OF_DIGGING_HIT_WALL:
                 return DataType_THE_LOCATION;
 
             case THROW_ITEM:

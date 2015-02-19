@@ -77,6 +77,10 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             result->bytes.format("%s tries to zap %s, but %s disintegrates.", buffer1.raw(), buffer2.raw(), buffer2.raw());
             return result;
         }
+        case Event::WAND_EXPLODES:
+            get_item_description(observer, event.item_and_location_data().item, &buffer1);
+            result->bytes.format("%s explodes!", buffer1.raw());
+            return result;
 
         case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
             get_individual_description(observer, event.the_individual_data(), &buffer1);
@@ -94,6 +98,24 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             result->bytes.format("a magic beam strikes %s!", buffer1.raw());
             return result;
         case Event::BEAM_OF_DIGGING_HIT_WALL:
+            result->bytes.format("the wall magically crumbles away!");
+            return result;
+        case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
+            get_individual_description(observer, event.the_individual_data(), &buffer1);
+            result->bytes.format("an explosion hits %s, but nothing happens.", buffer1.raw());
+            return result;
+        case Event::EXPLOSION_HIT_WALL_NO_EFFECT:
+            result->bytes.format("an explosion hits the wall, but nothing happens.");
+            return result;
+        case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
+            get_individual_description(observer, event.the_individual_data(), &buffer1);
+            result->bytes.format("an explosion hits %s; %s is confused!", buffer1.raw(), buffer1.raw());
+            return result;
+        case Event::EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
+            get_individual_description(observer, event.the_individual_data(), &buffer1);
+            result->bytes.format("an explosion strikes %s!", buffer1.raw());
+            return result;
+        case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
             result->bytes.format("the wall magically crumbles away!");
             return result;
 
@@ -267,16 +289,26 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                 return false;
             *output_event = event;
             return true;
+        case Event::WAND_EXPLODES:
+            if (!can_see_location(observer, event.item_and_location_data().location))
+                return false;
+            *output_event = event;
+            return true;
 
         case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
         case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
         case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
+        case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
+        case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
+        case Event::EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
             if (!can_see_individual(observer, event.the_individual_data()))
                 return false;
             *output_event = event;
             return true;
         case Event::BEAM_HIT_WALL_NO_EFFECT:
         case Event::BEAM_OF_DIGGING_HIT_WALL:
+        case Event::EXPLOSION_HIT_WALL_NO_EFFECT:
+        case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
             if (!can_see_location(observer, event.the_location_data()))
                 return false;
             *output_event = event;
@@ -407,19 +439,27 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
             case Event::WAND_DISINTEGRATES:
                 record_perception_of_thing(observer, apparent_event.zap_wand_data().wielder);
                 break;
+            case Event::WAND_EXPLODES:
+                delete_ids.append(apparent_event.item_and_location_data().item);
+                break;
 
             case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
             case Event::BEAM_HIT_WALL_NO_EFFECT:
+            case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
+            case Event::EXPLOSION_HIT_WALL_NO_EFFECT:
                 // no state change
                 break;
             case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
+            case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
                 record_perception_of_thing(observer, apparent_event.the_individual_data());
                 id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_CONFUSION);
                 break;
             case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
+            case Event::EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
                 id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_STRIKING);
                 break;
             case Event::BEAM_OF_DIGGING_HIT_WALL:
+            case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
                 id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_DIGGING);
                 break;
 

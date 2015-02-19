@@ -29,6 +29,22 @@ static inline void operator-=(Coord & a, Coord b) {
     a = a - b;
 }
 
+static inline int distance_squared(Coord a, Coord b) {
+    int dx = b.x - a.x;
+    int dy = b.y - a.y;
+    return dx * dx + dy * dy;
+}
+// each of x and y will be -1, 0, 1
+static inline Coord sign(Coord value) {
+    return {sign(value.x), sign(value.y)};
+}
+static inline Coord clamp(Coord value, Coord min, Coord max) {
+    return {clamp(value.x, min.x, max.x), clamp(value.y, min.y, max.y)};
+}
+static inline Coord abs(Coord value) {
+    return {abs(value.x), abs(value.y)};
+}
+
 template<typename T, int SizeX, int SizeY>
 class Matrix {
 public:
@@ -44,20 +60,5 @@ public:
 private:
     T items[SizeX * SizeY];
 };
-
-static inline int distance_squared(Coord a, Coord b) {
-    int dx = b.x - a.x;
-    int dy = b.y - a.y;
-    return dx * dx + dy * dy;
-}
-
-// each of x and y will be -1, 0, 1
-static inline Coord sign(Coord value) {
-    return {sign(value.x), sign(value.y)};
-}
-
-static inline Coord clamp(Coord value, Coord min, Coord max) {
-    return {clamp(value.x, min.x, max.x), clamp(value.y, min.y, max.y)};
-}
 
 #endif

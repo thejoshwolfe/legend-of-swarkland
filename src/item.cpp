@@ -49,6 +49,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
         find_items_in_inventory(wand_wielder, &inventory);
         for (int i = 0; i < inventory.length(); i++)
             inventory[i]->z_order = i;
+        // TODO z orders are a mess elsewhere
 
         return;
     }

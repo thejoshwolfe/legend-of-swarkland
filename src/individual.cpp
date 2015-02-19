@@ -69,7 +69,3 @@ PerceivedThing perceive_thing(Thing observer, Thing target) {
         return NULL;
     return to_perceived_thing(target->id);
 }
-
-int compare_individuals_by_initiative(Thing a, Thing b) {
-    return compare(a->life()->initiative, b->life()->initiative);
-}
