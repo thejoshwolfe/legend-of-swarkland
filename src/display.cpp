@@ -33,6 +33,7 @@ static RuckSackImage * species_images[SpeciesId_COUNT];
 static RuckSackImage * floor_images[8];
 static RuckSackImage * wall_images[8];
 static RuckSackImage * wand_images[WandDescriptionId_COUNT];
+static RuckSackImage * equipment_image;
 
 static TTF_Font * status_box_font;
 static unsigned char *font_buffer;
@@ -72,6 +73,8 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     wand_images[WandDescriptionId_BONE_WAND] = find_image(spritesheet_images, image_count, "img/bone_wand.png");
     wand_images[WandDescriptionId_GOLD_WAND] = find_image(spritesheet_images, image_count, "img/gold_wand.png");
     wand_images[WandDescriptionId_PLASTIC_WAND] = find_image(spritesheet_images, image_count, "img/plastic_wand.png");
+
+    equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
 
 void display_init(const char * resource_bundle_path) {
@@ -387,6 +390,11 @@ void render() {
             else
                 alpha = 0xff;
             render_tile(renderer, sprite_sheet_texture, get_image_for_perceived_thing(thing), alpha, thing->location);
+
+            List<PerceivedThing> inventory;
+            find_items_in_inventory(spectate_from, thing, &inventory);
+            if (inventory.length() > 0)
+                render_tile(renderer, sprite_sheet_texture, equipment_image, alpha, thing->location);
         }
     } else {
         // full visibility
