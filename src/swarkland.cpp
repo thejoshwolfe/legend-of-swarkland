@@ -536,6 +536,14 @@ static void age_individual(Thing individual) {
             }
         }
     }
+
+    if (individual->status_effects.confused_timeout > 0) {
+        individual->status_effects.confused_timeout--;
+        if (individual->status_effects.confused_timeout == 0)
+            publish_event(Event::no_longer_confused(individual));
+    }
+
+    individual->life()->movement_points++;
 }
 
 List<Thing> poised_individuals;
@@ -564,12 +572,6 @@ void run_the_game() {
                     continue;
                 }
                 age_individual(individual);
-                if (individual->status_effects.confused_timeout > 0) {
-                    individual->status_effects.confused_timeout--;
-                    if (individual->status_effects.confused_timeout == 0)
-                        publish_event(Event::no_longer_confused(individual));
-                }
-                individual->life()->movement_points++;
                 if (individual->life()->movement_points >= individual->life()->species()->movement_cost) {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
@@ -581,9 +583,6 @@ void run_the_game() {
                     }
                 }
             }
-
-            // who really gets to go first is determined by initiative
-            sort<Thing, compare_individuals_by_initiative>(poised_individuals.raw(), poised_individuals.length());
         }
 
         // move individuals

@@ -78,30 +78,24 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
 }
 
 void display_init(const char * resource_bundle_path) {
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO) != 0)
         panic("unable to init SDL");
-    }
 
     window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, entire_window_area.w, entire_window_area.h, 0);
-    if (!window) {
+    if (window == NULL)
         panic("window create failed");
-    }
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    if (!renderer) {
+    if (renderer == NULL)
         panic("renderer create failed");
-    }
 
-    if (rucksack_bundle_open_read(resource_bundle_path, &bundle) != RuckSackErrorNone) {
+    if (rucksack_bundle_open_read(resource_bundle_path, &bundle) != RuckSackErrorNone)
         panic("error opening resource bundle");
-    }
     RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
-    if (!entry) {
+    if (entry == NULL)
         panic("spritesheet not found in bundle");
-    }
 
-    if (rucksack_file_open_texture(entry, &rs_texture) != RuckSackErrorNone) {
+    if (rucksack_file_open_texture(entry, &rs_texture) != RuckSackErrorNone)
         panic("open texture failed");
-    }
 
     sprite_sheet_texture = load_texture(renderer, rs_texture);
 
@@ -112,18 +106,17 @@ void display_init(const char * resource_bundle_path) {
 
     TTF_Init();
 
-    RuckSackFileEntry * font_entry = rucksack_bundle_find_file(bundle, "font/OpenSans-Regular.ttf", -1);
-    if (!font_entry) {
+    RuckSackFileEntry * font_entry = rucksack_bundle_find_file(bundle, "font/DejaVuSansMono.ttf", -1);
+    if (font_entry == NULL)
         panic("font not found in bundle");
-    }
     long font_file_size = rucksack_file_size(font_entry);
     font_buffer = allocate<unsigned char>(font_file_size);
     rucksack_file_read(font_entry, font_buffer);
     font_rw_ops = SDL_RWFromMem(font_buffer, font_file_size);
-    if (!font_rw_ops) {
+    if (font_rw_ops == NULL)
         panic("sdl rwops fail");
-    }
     status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 16);
+    TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
 }
 
 void display_finish() {
