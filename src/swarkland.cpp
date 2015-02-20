@@ -31,7 +31,7 @@ static void kill_individual(Thing individual) {
 
     // drop your stuff
     List<Thing> inventory;
-    find_items_in_inventory(individual, &inventory);
+    find_items_in_inventory(individual->id, &inventory);
     for (int i = 0; i < inventory.length(); i++)
         drop_item_to_the_floor(inventory[i], individual->location);
 
@@ -58,19 +58,28 @@ static void pickup_item(Thing individual, Thing item) {
     if (item->container_id != uint256::zero())
         panic("pickup item in someone's inventory");
 
-    List<Thing> inventory;
-    find_items_in_inventory(individual, &inventory);
-
+    Coord old_location = item->location;
     item->location = Coord::nowhere();
+    fix_z_orders(old_location);
+
+    // put it at the end of the inventory
     item->container_id = individual->id;
-    item->z_order = inventory.length();
+    item->z_order = 0x7fffffff;
+    fix_z_orders(individual->id);
 }
 void drop_item_to_the_floor(Thing item, Coord location) {
+    uint256 old_container_id = item->container_id;
+
     List<Thing> items_on_floor;
     find_items_on_floor(location, &items_on_floor);
-    item->location = location;
     item->container_id = uint256::zero();
-    item->z_order = items_on_floor.length();
+    fix_z_orders(old_container_id);
+
+    // put it on the top of pile
+    item->location = location;
+    item->z_order = -0x80000000;
+    fix_z_orders(location);
+
     publish_event(Event::item_drops_to_the_floor(item));
 
     Thing individual = find_individual_at(location);
@@ -130,6 +139,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
         IdMap<WandDescriptionId> perceived_current_zapper;
         publish_event(Event::wand_explodes(item->id, center), &perceived_current_zapper);
         actual_things.remove(item->id);
+        fix_z_orders(actor->id);
 
         List<Thing> affected_individuals;
         Thing individual;
@@ -321,10 +331,10 @@ Thing find_individual_at(Coord location) {
     return NULL;
 }
 
-void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list) {
+void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list) {
     Thing item;
     for (auto iterator = actual_items(); iterator.next(&item);)
-        if (item->container_id == owner->id)
+        if (item->container_id == container_id)
             output_sorted_list->append(item);
     sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
@@ -518,7 +528,7 @@ static void age_individual(Thing individual) {
     if (individual->life()->species()->auto_throws_items) {
         // there's a chance per item they're carrying
         List<Thing> inventory;
-        find_items_in_inventory(individual, &inventory);
+        find_items_in_inventory(individual->id, &inventory);
         for (int i = 0; i < inventory.length(); i++) {
             if (random_int(100) == 0) {
                 // throw item in random direction
@@ -625,7 +635,7 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
             output_actions.append(Action::pickup(item->id));
     // use items
     List<Thing> inventory;
-    find_items_in_inventory(individual, &inventory);
+    find_items_in_inventory(individual->id, &inventory);
     for (int i = 0; i < inventory.length(); i++) {
         uint256 item_id = inventory[i]->id;
         for (int j = 0; j < 8; j++) {
@@ -667,4 +677,17 @@ void change_map(Coord location, TileType new_tile_type) {
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);)
         compute_vision(individual);
+}
+
+void fix_z_orders(uint256 container_id) {
+    List<Thing> inventory;
+    find_items_in_inventory(container_id, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        inventory[i]->z_order = i;
+}
+void fix_z_orders(Coord location) {
+    List<Thing> inventory;
+    find_items_on_floor(location, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        inventory[i]->z_order = i;
 }

@@ -44,13 +44,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
         publish_event(Event::wand_disintegrates(wand_wielder, wand), &perceived_current_zapper);
 
         actual_things.remove(item_id);
-        // reassign z orders
-        List<Thing> inventory;
-        find_items_in_inventory(wand_wielder, &inventory);
-        for (int i = 0; i < inventory.length(); i++)
-            inventory[i]->z_order = i;
-        // TODO z orders are a mess elsewhere
-
+        fix_z_orders(wand_wielder->id);
         return;
     }
     if (wand->wand_info()->charges <= 0) {

@@ -95,7 +95,7 @@ static Action on_key_down_main(const SDL_Event & event) {
         case SDL_SCANCODE_T:
         case SDL_SCANCODE_Z: {
             List<Thing> inventory;
-            find_items_in_inventory(you, &inventory);
+            find_items_in_inventory(you->id, &inventory);
             if (inventory.length() > 0) {
                 inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
                 input_mode = get_item_choosing_action_mode(event);
@@ -147,7 +147,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
                 break;
             // doit
             List<Thing> inventory;
-            find_items_in_inventory(you, &inventory);
+            find_items_in_inventory(you->id, &inventory);
             uint256 item_id = inventory[inventory_cursor]->id;
             switch (input_mode) {
                 case InputMode_DROP_CHOOSE_ITEM:
@@ -173,7 +173,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_UP: {
             // move the cursor
             List<Thing> inventory;
-            find_items_in_inventory(you, &inventory);
+            find_items_in_inventory(you->id, &inventory);
             inventory_cursor = clamp(inventory_cursor + get_direction_from_event(event).y, 0, inventory.length() - 1);
             return Action::undecided();
         }
@@ -202,7 +202,7 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
         case SDL_SCANCODE_RIGHT:
         case SDL_SCANCODE_UP: {
             List<Thing> inventory;
-            find_items_in_inventory(you, &inventory);
+            find_items_in_inventory(you->id, &inventory);
             uint256 item_id = inventory[inventory_cursor]->id;
             switch (input_mode) {
                 case InputMode_THROW_CHOOSE_DIRECTION:

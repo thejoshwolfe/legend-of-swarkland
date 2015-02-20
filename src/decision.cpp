@@ -75,7 +75,7 @@ static Action get_ai_decision(Thing actor) {
                 if ((vector.x * vector.y == 0 || abs_vector.x == abs_vector.y) && distnace <= beam_length_average) {
                     // you're in sight.
                     List<Thing> inventory;
-                    find_items_in_inventory(actor, &inventory);
+                    find_items_in_inventory(actor->id, &inventory);
                     List<Thing> useful_inventory;
                     for (int i = 0; i < inventory.length(); i++) {
                         Thing item = inventory[i];

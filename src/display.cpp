@@ -475,7 +475,7 @@ void render() {
 
     // inventory pane
     List<Thing> inventory;
-    find_items_in_inventory(spectate_from, &inventory);
+    find_items_in_inventory(spectate_from->id, &inventory);
     {
         bool render_cursor = input_mode == InputMode_ZAP_CHOOSE_ITEM || input_mode == InputMode_DROP_CHOOSE_ITEM || input_mode == InputMode_THROW_CHOOSE_ITEM;
         if (render_cursor) {

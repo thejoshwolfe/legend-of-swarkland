@@ -47,7 +47,7 @@ int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThin
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location);
 void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
 Thing find_individual_at(Coord location);
-void find_items_in_inventory(Thing owner, List<Thing> * output_sorted_list);
+void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list);
 void find_items_in_inventory(Thing observer, PerceivedThing perceived_owner, List<PerceivedThing> * output_sorted_list);
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 void drop_item_to_the_floor(Thing item, Coord location);
@@ -56,5 +56,8 @@ bool confuse_individual(Thing target);
 void strike_individual(Thing attacker, Thing target);
 
 void change_map(Coord location, TileType new_tile_type);
+
+void fix_z_orders(uint256 container_id);
+void fix_z_orders(Coord location);
 
 #endif
