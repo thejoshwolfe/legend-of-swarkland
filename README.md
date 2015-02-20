@@ -59,6 +59,8 @@ source code to the website.
  * Client/server architecture
  * Main menu?
 
+## Version History
+
 ### 3.0.0
 
  * Items: wand of confusion, wand of striking, wand of digging.
@@ -66,8 +68,6 @@ source code to the website.
    * Some species try using wands. Air elementals suck up wands and fling them around randomly.
    * Wands can explode when they are thrown.
  * Building for Windows.
-
-## Version History
 
 ### 2.0.0
 
