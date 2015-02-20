@@ -424,6 +424,11 @@ void render() {
             else
                 alpha = 0xff;
             render_tile(renderer, sprite_sheet_texture, get_image_for_thing(thing), alpha, thing->location);
+
+            List<Thing> inventory;
+            find_items_in_inventory(thing->id, &inventory);
+            if (inventory.length() > 0)
+                render_tile(renderer, sprite_sheet_texture, equipment_image, alpha, thing->location);
         }
     }
 
