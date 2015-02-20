@@ -379,11 +379,24 @@ void render() {
     // render the things
     if (!cheatcode_full_visibility) {
         // not cheating
+        List<PerceivedThing> things;
         PerceivedThing thing;
         for (auto iterator = spectate_from->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
-            // TODO: this exposes hashtable iteration order
             if (thing->location == Coord::nowhere())
                 continue;
+            things.append(thing);
+        }
+        sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(things.raw(), things.length());
+        // only render 1 of each type of thing in each location on the map
+        MapMatrix<bool> item_pile_rendered;
+        item_pile_rendered.set_all(false);
+        for (int i = 0; i < things.length(); i++) {
+            PerceivedThing thing = things[i];
+            if (thing->thing_type == ThingType_WAND) {
+                if (item_pile_rendered[thing->location])
+                    continue;
+                item_pile_rendered[thing->location] = true;
+            }
             Uint8 alpha;
             if (thing->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[thing->location].any())
                 alpha = 0x7f;

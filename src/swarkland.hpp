@@ -43,6 +43,7 @@ void get_available_actions(Thing individual, List<Action> & output_actions);
 
 Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker);
 void run_the_game();
+int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b);
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location);
 void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
 Thing find_individual_at(Coord location);

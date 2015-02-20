@@ -289,7 +289,7 @@ static int compare_things_by_z_order(Thing a, Thing b) {
 static int compare_perceived_things_by_z_order(PerceivedThing a, PerceivedThing b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
-static int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b) {
+int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b) {
     int result = a->thing_type - b->thing_type;
     if (result != 0)
         return result;
