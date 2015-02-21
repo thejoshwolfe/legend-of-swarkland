@@ -115,8 +115,13 @@ void display_init(const char * resource_bundle_path) {
     font_rw_ops = SDL_RWFromMem(font_buffer, font_file_size);
     if (font_rw_ops == NULL)
         panic("sdl rwops fail");
-    status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 16);
+    status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
     TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
+    Coord status_box_font_size;
+    TTF_SizeUTF8(status_box_font, "j", &status_box_font_size.x, &status_box_font_size.y);
+    // never mind the actual height. crop it off at the line skip height.
+    status_box_font_size.y = TTF_FontLineSkip(status_box_font);
+    fprintf(stderr, "%dx%d\n", status_box_font_size.x, status_box_font_size.y);
 }
 
 void display_finish() {
@@ -171,10 +176,10 @@ static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
 // the text will be aligned to the bottom of the area
-static void render_text(const char * str, SDL_Rect area) {
+static void render_text(const char * str, SDL_Rect area, int horizontal_align, int vertical_align) {
     if (*str == '\0')
         return; // it's actually an error to try to render the empty string
-    SDL_Surface * surface = TTF_RenderText_Blended_Wrapped(status_box_font, str, white, area.w);
+    SDL_Surface * surface = TTF_RenderUTF8_Blended_Wrapped(status_box_font, str, white, area.w);
     SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
 
     // holy shit. the goddamn box is too tall.
@@ -191,8 +196,16 @@ static void render_text(const char * str, SDL_Rect area) {
     source_rect.y = real_surface_h - source_rect.h;
 
     SDL_Rect dest_rect;
-    dest_rect.x = area.x;
-    dest_rect.y = area.y;
+    if (horizontal_align < 0) {
+        dest_rect.x = area.x + area.w - source_rect.w;
+    } else {
+        dest_rect.x = area.x;
+    }
+    if (vertical_align < 0) {
+        dest_rect.y = area.y + area.h - source_rect.h;
+    } else {
+        dest_rect.y = area.y;
+    }
     dest_rect.w = source_rect.w;
     dest_rect.h = source_rect.h;
     set_color(black);
@@ -295,17 +308,27 @@ void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output) 
     }
 }
 
-static void popup_help(Coord upper_left_corner, const char * str) {
-    // eh... we're going to round this to tile boundaries.
-    // we need a better solution for this or something
-    upper_left_corner.x = tile_size * (upper_left_corner.x / tile_size);
-    upper_left_corner.y = tile_size * (upper_left_corner.y / tile_size);
+static void popup_help(SDL_Rect area, Coord tile_in_area, const char * str) {
+    Coord upper_left_corner = Coord{area.x, area.y} + Coord{tile_in_area.x * tile_size, tile_in_area.y * tile_size};
+    Coord lower_right_corner = upper_left_corner + Coord{tile_size, tile_size};
+    int horizontal_align = upper_left_corner.x < entire_window_area.w/2 ? 1 : -1;
+    int vertical_align = upper_left_corner.y < entire_window_area.h/2 ? 1 : -1;
     SDL_Rect rect;
-    rect.x = upper_left_corner.x;
-    rect.y = upper_left_corner.y;
-    rect.w = entire_window_area.w - rect.x;
-    rect.h = entire_window_area.h - rect.y;
-    render_text(str, rect);
+    if (horizontal_align < 0) {
+        rect.x = 0;
+        rect.w = upper_left_corner.x;
+    } else {
+        rect.x = lower_right_corner.x;
+        rect.w = entire_window_area.w - lower_right_corner.x;
+    }
+    if (vertical_align < 0) {
+        rect.y = 0;
+        rect.h = upper_left_corner.y;
+    } else {
+        rect.y = lower_right_corner.y;
+        rect.h = entire_window_area.h - lower_right_corner.y;
+    }
+    render_text(str, rect, horizontal_align, vertical_align);
 }
 
 // TODO: this duplication looks silly
@@ -429,18 +452,18 @@ void render() {
     {
         ByteBuffer status_text;
         status_text.format("HP: %d", spectate_from->life()->hitpoints);
-        render_text(status_text.raw(), hp_area);
+        render_text(status_text.raw(), hp_area, 1, 1);
 
         status_text.resize(0);
         status_text.format("Kills: %d", spectate_from->life()->kill_counter);
-        render_text(status_text.raw(), kills_area);
+        render_text(status_text.raw(), kills_area, 1, 1);
 
         status_text.resize(0);
         if (spectate_from->status_effects.invisible)
             status_text.append("invisible ");
         if (spectate_from->status_effects.confused_timeout > 0)
             status_text.append("confused ");
-        render_text(status_text.raw(), status_area);
+        render_text(status_text.raw(), status_area, 1, 1);
     }
 
     // message area
@@ -468,7 +491,7 @@ void render() {
         } else {
             current_message_area = message_area;
         }
-        render_text(all_the_text.raw(), current_message_area);
+        render_text(all_the_text.raw(), current_message_area, 1, -1);
     }
 
     // inventory pane
@@ -496,8 +519,7 @@ void render() {
             // also show popup help
             ByteBuffer description;
             get_item_description(spectate_from, inventory[inventory_cursor]->id, &description);
-            Coord popup_location = {inventory_area.x, inventory_area.y + tile_size * inventory_cursor};
-            popup_help(popup_location + Coord{tile_size, tile_size}, description.raw());
+            popup_help(inventory_area, Coord{0, inventory_cursor}, description.raw());
         }
     }
 
@@ -523,7 +545,7 @@ void render() {
                     }
                 }
             }
-            popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, text.raw());
+            popup_help(main_map_area, mouse_hover_map_tile, text.raw());
         }
     }
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
@@ -532,7 +554,7 @@ void render() {
         if (0 <= inventory_index && inventory_index < inventory.length()) {
             ByteBuffer description;
             get_item_description(spectate_from, inventory[inventory_index]->id, &description);
-            popup_help(get_mouse_pixels() + Coord{tile_size, tile_size}, description.raw());
+            popup_help(inventory_area, Coord{0, inventory_index}, description.raw());
         }
     }
 
