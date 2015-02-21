@@ -1,7 +1,7 @@
 .PHONY: all
 all:
 
-OBJECT_NAMES = main.o swarkland.o display.o load_image.o util.o individual.o path_finding.o map.o hashtable.o random.o decision.o tas.o byte_buffer.o item.o input.o event.o
+OBJECT_NAMES = main.o swarkland.o display.o load_image.o util.o individual.o path_finding.o map.o hashtable.o random.o decision.o tas.o byte_buffer.o item.o input.o event.o string.o
 
 CPP_FLAGS += -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror $(MORE_CFLAGS)
 COMPILE_CPP = $(CPP_COMPILER) -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
