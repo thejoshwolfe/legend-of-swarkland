@@ -229,26 +229,21 @@ Coord get_mouse_tile(SDL_Rect area) {
     return tile_coord;
 }
 
-static const char * get_species_name_utf8(SpeciesId species_id) {
+String get_species_name(SpeciesId species_id) {
     switch (species_id) {
         case SpeciesId_HUMAN:
-            return "human";
+            return new_string("human");
         case SpeciesId_OGRE:
-            return "ogre";
+            return new_string("ogre");
         case SpeciesId_DOG:
-            return "dog";
+            return new_string("dog");
         case SpeciesId_PINK_BLOB:
-            return "pink blob";
+            return new_string("pink blob");
         case SpeciesId_AIR_ELEMENTAL:
-            return "air elemental";
+            return new_string("air elemental");
         default:
             panic("individual description");
     }
-}
-String get_species_name(SpeciesId species_id) {
-    String result = create<StringImpl>();
-    result->append(get_species_name_utf8(species_id));
-    return result;
 }
 void get_thing_description(Thing observer, uint256 target_id, String output) {
     PerceivedThing actual_thing = observer->life()->knowledge.perceived_things.get(target_id);
@@ -458,7 +453,7 @@ void render() {
 
     // status box
     {
-        String status_text = create<StringImpl>();
+        String status_text = new_string();
         status_text->format("HP: %d", spectate_from->life()->hitpoints);
         render_text(status_text, hp_area, 1, 1);
 
@@ -477,7 +472,7 @@ void render() {
     // message area
     {
         bool expand_message_box = rect_contains(message_area, get_mouse_pixels());
-        String all_the_text = create<StringImpl>();
+        String all_the_text = new_string();
         List<RememberedEvent> & events = spectate_from->life()->knowledge.remembered_events;
         for (int i = 0; i < events.length(); i++) {
             RememberedEvent event = events[i];
@@ -525,7 +520,7 @@ void render() {
         }
         if (render_cursor) {
             // also show popup help
-            String description = create<StringImpl>();
+            String description = new_string();
             get_item_description(spectate_from, inventory[inventory_cursor]->id, description);
             popup_help(inventory_area, Coord{0, inventory_cursor}, description);
         }
@@ -537,7 +532,7 @@ void render() {
         List<PerceivedThing> things;
         find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
         if (things.length() != 0) {
-            String text = create<StringImpl>();
+            String text = new_string();
             for (int i = 0; i < things.length(); i++) {
                 PerceivedThing target = things[i];
                 if (i > 0 )
@@ -560,7 +555,7 @@ void render() {
     if (mouse_hover_inventory_tile.x == 0) {
         int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < inventory.length()) {
-            String description = create<StringImpl>();
+            String description = new_string();
             get_item_description(spectate_from, inventory[inventory_index]->id, description);
             popup_help(inventory_area, Coord{0, inventory_index}, description);
         }

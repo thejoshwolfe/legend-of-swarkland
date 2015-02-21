@@ -4,8 +4,8 @@
 #include "swarkland.hpp"
 
 static RememberedEvent to_remembered_event(Thing observer, Event event) {
-    String buffer1 = create<StringImpl>();
-    String buffer2 = create<StringImpl>();
+    String buffer1 = new_string();
+    String buffer2 = new_string();
     RememberedEvent result = create<RememberedEventImpl>();
     switch (event.type) {
         case Event::MOVE:

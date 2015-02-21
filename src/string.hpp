@@ -38,7 +38,8 @@ public:
 
     // any char * is decoded as UTF-8
     void format(const char * fmt) {
-        // TODO: check for too many %s
+        // check for too many %s
+        find_percent_something(fmt, '%');
         append(fmt);
     }
     template<typename... T>
@@ -85,6 +86,13 @@ public:
 
     static bool is_whitespace(uint32_t c);
 
+    bool operator==(const StringImpl & other) {
+        return _chars == other._chars;
+    }
+    bool operator!=(const StringImpl & other) {
+        return !(*this == other);
+    }
+
 private:
     List<uint32_t> _chars;
     int find_percent_something(const char * fmt, char expected_code) {
@@ -99,27 +107,27 @@ private:
             i++;
             return i;
         }
-        return -1;
+        if (expected_code == '%')
+            return -1;
+        panic("too few function parameters");
     }
 };
 
 template<typename... T>
 void StringImpl::format(const char * fmt, String s1, T... args) {
     int i = find_percent_something(fmt, 's');
-    if (i == -1)
-        panic("missing parameter for %s");
     ByteBuffer prefix;
     prefix.append(fmt, i - 2);
     decode(prefix);
+
     append(s1);
+
     format(fmt + i, args...);
 }
 
 template<typename... T>
 void StringImpl::format(const char * fmt, int d, T... args) {
     int i = find_percent_something(fmt, 'd');
-    if (i == -1)
-        panic("missing parameter for %d");
     ByteBuffer prefix;
     prefix.append(fmt, i - 2);
     decode(prefix);
@@ -133,5 +141,21 @@ void StringImpl::format(const char * fmt, int d, T... args) {
     format(fmt + i, args...);
 }
 
+static inline String new_string() {
+    return create<StringImpl>();
+}
+static inline String new_string(const char * str) {
+    ByteBuffer buffer;
+    buffer.append(str);
+    String result = new_string();
+    result->decode(buffer);
+    return result;
+}
+
+static inline void fprintf_string(FILE * stream, String string) {
+    ByteBuffer buffer;
+    string->encode(&buffer);
+    fprintf(stream, "%s", buffer.raw());
+}
 
 #endif

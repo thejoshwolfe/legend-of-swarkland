@@ -29,8 +29,8 @@ void tas_set_output_script(char * filename) {
 void tas_set_input_script(char * filename) {
     input_script_file = fopen(filename, "rb");
     TasHeader header;
-    fread(&header, sizeof(TasHeader), 1, input_script_file);
-    if (header.magic != magic_number)
+    int elements_read = fread(&header, sizeof(TasHeader), 1, input_script_file);
+    if (elements_read != 1 || header.magic != magic_number)
         panic("tas input script magic number mismatch");
     tas_seed = header.seed;
 }

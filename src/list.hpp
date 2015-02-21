@@ -62,6 +62,20 @@ public:
         _length = length;
     }
 
+    bool operator==(const List<T> & other) {
+        if (this == &other)
+            return true; // literally exactly the same thing
+        if (_length != other._length)
+            return false;
+        for (int i = 0; i < _length; i++)
+            if (_items[i] != other._items[i])
+                return false;
+        return true;
+    }
+    bool operator!=(const List<T> & other) {
+        return !(*this == other);
+    }
+
 private:
     T * _items;
     int _length;

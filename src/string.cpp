@@ -155,7 +155,7 @@ void StringImpl::encode(ByteBuffer * output_bytes) const {
 }
 
 String StringImpl::substring(int start, int end) const {
-    String result = create<StringImpl>();
+    String result = new_string();
     for (int i = start; i < end; i += 1)
         result->append(_chars[i]);
     return result;
