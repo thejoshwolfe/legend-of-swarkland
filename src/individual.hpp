@@ -7,6 +7,7 @@
 #include "hashtable.hpp"
 #include "list.hpp"
 #include "byte_buffer.hpp"
+#include "string.hpp"
 
 #include <stdbool.h>
 
@@ -152,7 +153,7 @@ private:
 typedef Reference<PerceivedThingImpl> PerceivedThing;
 
 struct RememberedEventImpl : public ReferenceCounted {
-    ByteBuffer bytes;
+    String bytes = create<StringImpl>();
 };
 typedef Reference<RememberedEventImpl> RememberedEvent;
 

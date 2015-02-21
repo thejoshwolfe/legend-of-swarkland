@@ -36,6 +36,16 @@ public:
         return _chars[index];
     }
 
+    // any char * is decoded as UTF-8
+    void format(const char * fmt) {
+        // TODO: check for too many %s
+        append(fmt);
+    }
+    template<typename... T>
+    void format(const char * fmt, String s1, T... args);
+    template<typename... T>
+    void format(const char * fmt, int d, T... args);
+
     void make_lower_case();
     void make_upper_case();
 
@@ -44,6 +54,19 @@ public:
         if (c > max_codepoint)
             panic("codepoint out of range");
         _chars.append(c);
+    }
+    // decoded as UTF-8
+    void append(const char * str) {
+        ByteBuffer buffer;
+        buffer.append(str);
+        decode(buffer);
+    }
+    void append(String s) {
+        _chars.append_all(s->_chars);
+    }
+
+    void clear() {
+        _chars.clear();
     }
 
     String substring(int start, int end) const;
@@ -64,6 +87,51 @@ public:
 
 private:
     List<uint32_t> _chars;
+    int find_percent_something(const char * fmt, char expected_code) {
+        for (int i = 0; fmt[i] != '\0'; i++) {
+            if (fmt[i] != '%')
+                continue;
+            i++;
+            if (fmt[i] == '%')
+                continue; // escaped %%
+            if (fmt[i] != expected_code)
+                panic("wrong format");
+            i++;
+            return i;
+        }
+        return -1;
+    }
 };
+
+template<typename... T>
+void StringImpl::format(const char * fmt, String s1, T... args) {
+    int i = find_percent_something(fmt, 's');
+    if (i == -1)
+        panic("missing parameter for %s");
+    ByteBuffer prefix;
+    prefix.append(fmt, i - 2);
+    decode(prefix);
+    append(s1);
+    format(fmt + i, args...);
+}
+
+template<typename... T>
+void StringImpl::format(const char * fmt, int d, T... args) {
+    int i = find_percent_something(fmt, 'd');
+    if (i == -1)
+        panic("missing parameter for %d");
+    ByteBuffer prefix;
+    prefix.append(fmt, i - 2);
+    decode(prefix);
+
+    char buffer[64];
+    sprintf(buffer, "%d", d);
+    ByteBuffer bytes;
+    bytes.append(buffer);
+    decode(bytes);
+
+    format(fmt + i, args...);
+}
+
 
 #endif

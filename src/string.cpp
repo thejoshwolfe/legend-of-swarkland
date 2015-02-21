@@ -1,5 +1,7 @@
 #include "string.hpp"
 
+#include <stdarg.h>
+
 void StringImpl::decode(const ByteBuffer &bytes) {
     bool ok;
     decode(bytes, &ok);

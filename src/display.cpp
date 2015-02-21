@@ -6,6 +6,7 @@
 #include "byte_buffer.hpp"
 #include "item.hpp"
 #include "input.hpp"
+#include "string.hpp"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -176,10 +177,12 @@ static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
 // the text will be aligned to the bottom of the area
-static void render_text(const char * str, SDL_Rect area, int horizontal_align, int vertical_align) {
-    if (*str == '\0')
+static void render_text(String str, SDL_Rect area, int horizontal_align, int vertical_align) {
+    if (str->length() == 0)
         return; // it's actually an error to try to render the empty string
-    SDL_Surface * surface = TTF_RenderUTF8_Blended_Wrapped(status_box_font, str, white, area.w);
+    ByteBuffer utf8;
+    str->encode(&utf8);
+    SDL_Surface * surface = TTF_RenderUTF8_Blended_Wrapped(status_box_font, utf8.raw(), white, area.w);
     SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
 
     // holy shit. the goddamn box is too tall.
@@ -226,7 +229,7 @@ Coord get_mouse_tile(SDL_Rect area) {
     return tile_coord;
 }
 
-const char * get_species_name(SpeciesId species_id) {
+static const char * get_species_name_utf8(SpeciesId species_id) {
     switch (species_id) {
         case SpeciesId_HUMAN:
             return "human";
@@ -242,7 +245,12 @@ const char * get_species_name(SpeciesId species_id) {
             panic("individual description");
     }
 }
-void get_thing_description(Thing observer, uint256 target_id, ByteBuffer * output) {
+String get_species_name(SpeciesId species_id) {
+    String result = create<StringImpl>();
+    result->append(get_species_name_utf8(species_id));
+    return result;
+}
+void get_thing_description(Thing observer, uint256 target_id, String output) {
     PerceivedThing actual_thing = observer->life()->knowledge.perceived_things.get(target_id);
     switch (actual_thing->thing_type) {
         case ThingType_INDIVIDUAL:
@@ -252,7 +260,7 @@ void get_thing_description(Thing observer, uint256 target_id, ByteBuffer * outpu
     }
     panic("thing type");
 }
-void get_individual_description(Thing observer, uint256 target_id, ByteBuffer * output) {
+void get_individual_description(Thing observer, uint256 target_id, String output) {
     if (observer->id == target_id) {
         output->append("you");
         return;
@@ -269,7 +277,7 @@ void get_individual_description(Thing observer, uint256 target_id, ByteBuffer * 
         output->append("confused ");
     output->append(get_species_name(target->life().species_id));
 }
-void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output) {
+void get_item_description(Thing observer, uint256 item_id, String output) {
     PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, NULL);
     if (item == NULL) {
         // can't see the wand
@@ -308,7 +316,7 @@ void get_item_description(Thing observer, uint256 item_id, ByteBuffer * output) 
     }
 }
 
-static void popup_help(SDL_Rect area, Coord tile_in_area, const char * str) {
+static void popup_help(SDL_Rect area, Coord tile_in_area, String str) {
     Coord upper_left_corner = Coord{area.x, area.y} + Coord{tile_in_area.x * tile_size, tile_in_area.y * tile_size};
     Coord lower_right_corner = upper_left_corner + Coord{tile_size, tile_size};
     int horizontal_align = upper_left_corner.x < entire_window_area.w/2 ? 1 : -1;
@@ -450,26 +458,26 @@ void render() {
 
     // status box
     {
-        ByteBuffer status_text;
-        status_text.format("HP: %d", spectate_from->life()->hitpoints);
-        render_text(status_text.raw(), hp_area, 1, 1);
+        String status_text = create<StringImpl>();
+        status_text->format("HP: %d", spectate_from->life()->hitpoints);
+        render_text(status_text, hp_area, 1, 1);
 
-        status_text.resize(0);
-        status_text.format("Kills: %d", spectate_from->life()->kill_counter);
-        render_text(status_text.raw(), kills_area, 1, 1);
+        status_text->clear();
+        status_text->format("Kills: %d", spectate_from->life()->kill_counter);
+        render_text(status_text, kills_area, 1, 1);
 
-        status_text.resize(0);
+        status_text->clear();
         if (spectate_from->status_effects.invisible)
-            status_text.append("invisible ");
+            status_text->append("invisible ");
         if (spectate_from->status_effects.confused_timeout > 0)
-            status_text.append("confused ");
-        render_text(status_text.raw(), status_area, 1, 1);
+            status_text->append("confused ");
+        render_text(status_text, status_area, 1, 1);
     }
 
     // message area
     {
         bool expand_message_box = rect_contains(message_area, get_mouse_pixels());
-        ByteBuffer all_the_text;
+        String all_the_text = create<StringImpl>();
         List<RememberedEvent> & events = spectate_from->life()->knowledge.remembered_events;
         for (int i = 0; i < events.length(); i++) {
             RememberedEvent event = events[i];
@@ -478,11 +486,11 @@ void render() {
                 if (i > 0) {
                     // maybe sneak in a delimiter
                     if (events[i - 1] == NULL)
-                        all_the_text.append("\n");
+                        all_the_text->append("\n");
                     else
-                        all_the_text.append("  ");
+                        all_the_text->append("  ");
                 }
-                all_the_text.append(event->bytes);
+                all_the_text->append(event->bytes);
             }
         }
         SDL_Rect current_message_area;
@@ -491,7 +499,7 @@ void render() {
         } else {
             current_message_area = message_area;
         }
-        render_text(all_the_text.raw(), current_message_area, 1, -1);
+        render_text(all_the_text, current_message_area, 1, -1);
     }
 
     // inventory pane
@@ -517,9 +525,9 @@ void render() {
         }
         if (render_cursor) {
             // also show popup help
-            ByteBuffer description;
-            get_item_description(spectate_from, inventory[inventory_cursor]->id, &description);
-            popup_help(inventory_area, Coord{0, inventory_cursor}, description.raw());
+            String description = create<StringImpl>();
+            get_item_description(spectate_from, inventory[inventory_cursor]->id, description);
+            popup_help(inventory_area, Coord{0, inventory_cursor}, description);
         }
     }
 
@@ -529,32 +537,32 @@ void render() {
         List<PerceivedThing> things;
         find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
         if (things.length() != 0) {
-            ByteBuffer text;
+            String text = create<StringImpl>();
             for (int i = 0; i < things.length(); i++) {
                 PerceivedThing target = things[i];
                 if (i > 0 )
-                    text.append("\n");
-                get_thing_description(spectate_from, target->id, &text);
+                    text->append("\n");
+                get_thing_description(spectate_from, target->id, text);
                 List<PerceivedThing> inventory;
                 find_items_in_inventory(spectate_from, target, &inventory);
                 if (inventory.length() > 0) {
-                    text.append(" carrying:");
+                    text->append(" carrying:");
                     for (int j = 0; j < inventory.length(); j++) {
-                        text.append("\n    ");
-                        get_thing_description(spectate_from, inventory[j]->id, &text);
+                        text->append("\n    ");
+                        get_thing_description(spectate_from, inventory[j]->id, text);
                     }
                 }
             }
-            popup_help(main_map_area, mouse_hover_map_tile, text.raw());
+            popup_help(main_map_area, mouse_hover_map_tile, text);
         }
     }
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
     if (mouse_hover_inventory_tile.x == 0) {
         int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < inventory.length()) {
-            ByteBuffer description;
-            get_item_description(spectate_from, inventory[inventory_index]->id, &description);
-            popup_help(inventory_area, Coord{0, inventory_index}, description.raw());
+            String description = create<StringImpl>();
+            get_item_description(spectate_from, inventory[inventory_index]->id, description);
+            popup_help(inventory_area, Coord{0, inventory_index}, description);
         }
     }
 
