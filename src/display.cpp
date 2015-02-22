@@ -39,6 +39,7 @@ static RuckSackImage * equipment_image;
 static TTF_Font * status_box_font;
 static unsigned char *font_buffer;
 static SDL_RWops *font_rw_ops;
+static Coord status_box_font_size;
 
 static RuckSackImage * find_image(RuckSackImage ** spritesheet_images, long image_count, const char * name) {
     for (int i = 0; i < image_count; i++)
@@ -118,11 +119,9 @@ void display_init(const char * resource_bundle_path) {
         panic("sdl rwops fail");
     status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
     TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
-    Coord status_box_font_size;
     TTF_SizeUTF8(status_box_font, "j", &status_box_font_size.x, &status_box_font_size.y);
     // never mind the actual height. crop it off at the line skip height.
     status_box_font_size.y = TTF_FontLineSkip(status_box_font);
-    fprintf(stderr, "%dx%d\n", status_box_font_size.x, status_box_font_size.y);
 }
 
 void display_finish() {
