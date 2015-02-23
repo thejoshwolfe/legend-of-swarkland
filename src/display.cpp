@@ -7,6 +7,7 @@
 #include "item.hpp"
 #include "input.hpp"
 #include "string.hpp"
+#include "text.hpp"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -36,7 +37,7 @@ static RuckSackImage * wall_images[8];
 static RuckSackImage * wand_images[WandDescriptionId_COUNT];
 static RuckSackImage * equipment_image;
 
-static TTF_Font * status_box_font;
+TTF_Font * status_box_font;
 static unsigned char *font_buffer;
 static SDL_RWops *font_rw_ops;
 static Coord status_box_font_size;
@@ -175,7 +176,30 @@ static const SDL_Color black  = {0x00, 0x00, 0x00, 0xff};
 static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
-// the text will be aligned to the bottom of the area
+static void render_text(TextureArea texture_area, SDL_Rect output_area, int horizontal_align, int vertical_align) {
+    if (texture_area.texture == NULL)
+        return;
+    SDL_Rect dest_rect;
+    if (horizontal_align < 0) {
+        dest_rect.x = output_area.x + output_area.w - texture_area.rect.w;
+    } else {
+        dest_rect.x = output_area.x;
+    }
+    if (vertical_align < 0) {
+        dest_rect.y = output_area.y + output_area.h - texture_area.rect.h;
+    } else {
+        dest_rect.y = output_area.y;
+    }
+    dest_rect.w = texture_area.rect.w;
+    dest_rect.h = texture_area.rect.h;
+    set_color(black);
+    SDL_RenderFillRect(renderer, &dest_rect);
+    SDL_RenderCopyEx(renderer, texture_area.texture, &texture_area.rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
+}
+static void render_text(Span span, SDL_Rect area, int horizontal_align, int vertical_align) {
+    render_text(span->get_texture_area(renderer), area, horizontal_align, vertical_align);
+}
+// TODO: DON'T use this function.
 static void render_text(String str, SDL_Rect area, int horizontal_align, int vertical_align) {
     if (str->length() == 0)
         return; // it's actually an error to try to render the empty string
@@ -197,22 +221,7 @@ static void render_text(String str, SDL_Rect area, int horizontal_align, int ver
     source_rect.x = 0;
     source_rect.y = real_surface_h - source_rect.h;
 
-    SDL_Rect dest_rect;
-    if (horizontal_align < 0) {
-        dest_rect.x = area.x + area.w - source_rect.w;
-    } else {
-        dest_rect.x = area.x;
-    }
-    if (vertical_align < 0) {
-        dest_rect.y = area.y + area.h - source_rect.h;
-    } else {
-        dest_rect.y = area.y;
-    }
-    dest_rect.w = source_rect.w;
-    dest_rect.h = source_rect.h;
-    set_color(black);
-    SDL_RenderFillRect(renderer, &dest_rect);
-    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
+    render_text(TextureArea{texture, source_rect}, area, horizontal_align, vertical_align);
 
     SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
@@ -452,20 +461,23 @@ void render() {
 
     // status box
     {
-        String status_text = new_string();
-        status_text->format("HP: %d", spectate_from->life()->hitpoints);
-        render_text(status_text, hp_area, 1, 1);
-
-        status_text->clear();
-        status_text->format("Kills: %d", spectate_from->life()->kill_counter);
-        render_text(status_text, kills_area, 1, 1);
-
-        status_text->clear();
+        String status_string = new_string();
+        status_string->format("HP: %d", spectate_from->life()->hitpoints);
+        Span status_span = new_span(status_string, white, black);
+        render_text(status_span, hp_area, 1, 1);
+    }
+    {
+        String status_string = new_string();
+        status_string->format("Kills: %d", spectate_from->life()->kill_counter);
+        render_text(status_string, kills_area, 1, 1);
+    }
+    {
+        String status_string = new_string();
         if (spectate_from->status_effects.invisible)
-            status_text->append("invisible ");
+            status_string->append("invisible ");
         if (spectate_from->status_effects.confused_timeout > 0)
-            status_text->append("confused ");
-        render_text(status_text, status_area, 1, 1);
+            status_string->append("confused ");
+        render_text(status_string, status_area, 1, 1);
     }
 
     // message area
