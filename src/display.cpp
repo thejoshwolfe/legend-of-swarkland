@@ -179,9 +179,12 @@ static inline SDL_Rect get_texture_bounds(SDL_Texture * texture) {
     return result;
 }
 
-static const SDL_Color white  = {0xff, 0xff, 0xff, 0xff};
-static const SDL_Color yellow = {0xff, 0xff, 0x00, 0xff};
-static const SDL_Color black  = {0x00, 0x00, 0x00, 0xff};
+static const SDL_Color white       = {0xff, 0xff, 0xff, 0xff};
+static const SDL_Color black       = {0x00, 0x00, 0x00, 0xff};
+static const SDL_Color red         = {0xff, 0x00, 0x00, 0xff};
+static const SDL_Color dark_green  = {0x00, 0x88, 0x00, 0xff};
+static const SDL_Color amber       = {0xff, 0xbf, 0x00, 0xff};
+
 static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
@@ -479,8 +482,15 @@ void render() {
     // status box
     {
         String hp_string = new_string();
-        hp_string->format("HP: %d", spectate_from->life()->hitpoints);
+        int hp = spectate_from->life()->hitpoints;
+        hp_string->format("HP: %d", hp);
         hp_span->set_text(hp_string);
+        if (hp <= 3)
+            hp_span->set_color(white, red);
+        else if (hp < 10)
+            hp_span->set_color(black, amber);
+        else
+            hp_span->set_color(white, dark_green);
         render_span(hp_span, hp_area, 1, 1);
     }
     {
@@ -539,7 +549,7 @@ void render() {
             cursor_rect.y = inventory_area.y + tile_size * inventory_cursor;
             cursor_rect.w = tile_size;
             cursor_rect.h = tile_size;
-            set_color(yellow);
+            set_color(amber);
             SDL_RenderFillRect(renderer, &cursor_rect);
         }
         Coord location = {map_size.x, 0};

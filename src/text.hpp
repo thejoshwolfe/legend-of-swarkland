@@ -5,6 +5,13 @@
 
 #include <SDL2/SDL.h>
 
+static inline bool operator==(SDL_Color a, SDL_Color b) {
+    return a.r == b.r &&
+           a.b == b.b &&
+           a.g == b.g &&
+           a.a == b.a;
+}
+
 class SpanImpl;
 typedef Reference<SpanImpl> Span;
 class StringOrSpan {
@@ -16,15 +23,20 @@ public:
 class SpanImpl : public ReferenceCounted {
 public:
     List<StringOrSpan> items;
-    SDL_Color foreground;
-    SDL_Color background;
     SpanImpl(SDL_Color foreground, SDL_Color background) :
-            foreground(foreground), background(background) {
+            _foreground(foreground), _background(background) {
     }
     ~SpanImpl() {
         dispose_texture();
     }
 
+    void set_color(SDL_Color foreground, SDL_Color background) {
+        if (_foreground == foreground && _background == background)
+            return;
+        _foreground = foreground;
+        _background = background;
+        dispose_texture();
+    }
     void set_text(String new_text) {
         String old_text = get_plain_text();
         if (*old_text == *new_text)
@@ -50,6 +62,8 @@ public:
     }
 private:
     SDL_Texture * _texture = NULL;
+    SDL_Color _foreground;
+    SDL_Color _background;
     void render_texture(SDL_Renderer * renderer);
     void dispose_texture() {
         if (_texture != NULL)
