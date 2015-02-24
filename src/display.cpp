@@ -170,34 +170,44 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, RuckSack
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
 }
 
+// {0, 0, w, h}
+static inline SDL_Rect get_texture_bounds(SDL_Texture * texture) {
+    SDL_Rect result = {0, 0, 0, 0};
+    Uint32 format;
+    int access;
+    SDL_QueryTexture(texture, &format, &access, &result.w, &result.h);
+    return result;
+}
+
 static const SDL_Color white  = {0xff, 0xff, 0xff, 0xff};
 static const SDL_Color yellow = {0xff, 0xff, 0x00, 0xff};
 static const SDL_Color black  = {0x00, 0x00, 0x00, 0xff};
 static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
-static void render_text(TextureArea texture_area, SDL_Rect output_area, int horizontal_align, int vertical_align) {
-    if (texture_area.texture == NULL)
+static void render_text(SDL_Texture * texture, SDL_Rect output_area, int horizontal_align, int vertical_align) {
+    if (texture == NULL)
         return;
+    SDL_Rect source_rect = get_texture_bounds(texture);
     SDL_Rect dest_rect;
     if (horizontal_align < 0) {
-        dest_rect.x = output_area.x + output_area.w - texture_area.rect.w;
+        dest_rect.x = output_area.x + output_area.w - source_rect.w;
     } else {
         dest_rect.x = output_area.x;
     }
     if (vertical_align < 0) {
-        dest_rect.y = output_area.y + output_area.h - texture_area.rect.h;
+        dest_rect.y = output_area.y + output_area.h - source_rect.h;
     } else {
         dest_rect.y = output_area.y;
     }
-    dest_rect.w = texture_area.rect.w;
-    dest_rect.h = texture_area.rect.h;
+    dest_rect.w = source_rect.w;
+    dest_rect.h = source_rect.h;
     set_color(black);
     SDL_RenderFillRect(renderer, &dest_rect);
-    SDL_RenderCopyEx(renderer, texture_area.texture, &texture_area.rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
 }
 static void render_text(Span span, SDL_Rect area, int horizontal_align, int vertical_align) {
-    render_text(span->get_texture_area(renderer), area, horizontal_align, vertical_align);
+    render_text(span->get_texture(renderer), area, horizontal_align, vertical_align);
 }
 // TODO: DON'T use this function.
 static void render_text(String str, SDL_Rect area, int horizontal_align, int vertical_align) {
@@ -221,7 +231,7 @@ static void render_text(String str, SDL_Rect area, int horizontal_align, int ver
     source_rect.x = 0;
     source_rect.y = real_surface_h - source_rect.h;
 
-    render_text(TextureArea{texture, source_rect}, area, horizontal_align, vertical_align);
+    render_text(texture, area, horizontal_align, vertical_align);
 
     SDL_FreeSurface(surface);
     SDL_DestroyTexture(texture);
@@ -362,6 +372,8 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
     panic("thing type");
 }
 
+static Span status_span = new_span(new_string(), white, black);
+
 void render() {
     Thing spectate_from = get_spectate_individual();
 
@@ -463,7 +475,7 @@ void render() {
     {
         String status_string = new_string();
         status_string->format("HP: %d", spectate_from->life()->hitpoints);
-        Span status_span = new_span(status_string, white, black);
+        status_span->set_text(status_string);
         render_text(status_span, hp_area, 1, 1);
     }
     {

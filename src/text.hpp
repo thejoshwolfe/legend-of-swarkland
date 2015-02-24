@@ -5,11 +5,6 @@
 
 #include <SDL2/SDL.h>
 
-struct TextureArea {
-    SDL_Texture * texture;
-    SDL_Rect rect;
-};
-
 class SpanImpl;
 typedef Reference<SpanImpl> Span;
 class StringOrSpan {
@@ -27,18 +22,40 @@ public:
             foreground(foreground), background(background) {
     }
     ~SpanImpl() {
-        if (texture_area.texture != NULL)
-            SDL_DestroyTexture(texture_area.texture);
+        dispose_texture();
     }
 
-    TextureArea get_texture_area(SDL_Renderer * renderer) {
-        if (texture_area.texture == NULL)
+    void set_text(String new_text) {
+        String old_text = get_plain_text();
+        if (*old_text == *new_text)
+            return; // no change
+        items.clear();
+        items.append(StringOrSpan{new_text, NULL});
+        dispose_texture();
+    }
+    SDL_Texture * get_texture(SDL_Renderer * renderer) {
+        if (_texture == NULL)
             render_texture(renderer);
-        return texture_area;
+        return _texture;
+    }
+    // NULL if there are nested spans.
+    String get_plain_text() const {
+        String result = new_string();
+        for (int i = 0; i < items.length(); i++) {
+            if (items[i].span != NULL)
+                return NULL;
+            result->append(items[i].string);
+        }
+        return result;
     }
 private:
-    TextureArea texture_area = {NULL, {0, 0, 0, 0}};
+    SDL_Texture * _texture = NULL;
     void render_texture(SDL_Renderer * renderer);
+    void dispose_texture() {
+        if (_texture != NULL)
+            SDL_DestroyTexture(_texture);
+        _texture = NULL;
+    }
 };
 
 static inline Span new_span(String string, SDL_Color foreground, SDL_Color background) {

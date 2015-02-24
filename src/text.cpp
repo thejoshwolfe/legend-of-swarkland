@@ -15,7 +15,6 @@ void SpanImpl::render_texture(SDL_Renderer * renderer) {
         return;
 
     SDL_Surface * surface = TTF_RenderUTF8_Blended(status_box_font, utf8.raw(), foreground);
-    texture_area.rect = {0, 0, surface->w, surface->h};
-    texture_area.texture = SDL_CreateTextureFromSurface(renderer, surface);
+    _texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
 }
