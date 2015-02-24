@@ -206,11 +206,11 @@ static void render_text(SDL_Texture * texture, SDL_Rect output_area, int horizon
     SDL_RenderFillRect(renderer, &dest_rect);
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
 }
-static void render_text(Span span, SDL_Rect area, int horizontal_align, int vertical_align) {
+static void render_span(Span span, SDL_Rect area, int horizontal_align, int vertical_align) {
     render_text(span->get_texture(renderer), area, horizontal_align, vertical_align);
 }
 // TODO: DON'T use this function.
-static void render_text(String str, SDL_Rect area, int horizontal_align, int vertical_align) {
+static void render_text_bad(String str, SDL_Rect area, int horizontal_align, int vertical_align) {
     if (str->length() == 0)
         return; // it's actually an error to try to render the empty string
     ByteBuffer utf8;
@@ -329,7 +329,7 @@ void get_item_description(Thing observer, uint256 item_id, String output) {
     }
 }
 
-static void popup_help(SDL_Rect area, Coord tile_in_area, String str) {
+static void popup_help(SDL_Rect area, Coord tile_in_area, Span using_span, String str) {
     Coord upper_left_corner = Coord{area.x, area.y} + Coord{tile_in_area.x * tile_size, tile_in_area.y * tile_size};
     Coord lower_right_corner = upper_left_corner + Coord{tile_size, tile_size};
     int horizontal_align = upper_left_corner.x < entire_window_area.w/2 ? 1 : -1;
@@ -349,7 +349,8 @@ static void popup_help(SDL_Rect area, Coord tile_in_area, String str) {
         rect.y = lower_right_corner.y;
         rect.h = entire_window_area.h - lower_right_corner.y;
     }
-    render_text(str, rect, horizontal_align, vertical_align);
+    using_span->set_text(str);
+    render_span(using_span, rect, horizontal_align, vertical_align);
 }
 
 // TODO: this duplication looks silly
@@ -372,7 +373,11 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
     panic("thing type");
 }
 
+static Span hp_span = new_span(new_string(), white, black);
+static Span kills_span = new_span(new_string(), white, black);
 static Span status_span = new_span(new_string(), white, black);
+static Span mouse_hover_span = new_span(new_string(), white, black);
+static Span keyboard_hover_span = new_span(new_string(), white, black);
 
 void render() {
     Thing spectate_from = get_spectate_individual();
@@ -473,15 +478,16 @@ void render() {
 
     // status box
     {
-        String status_string = new_string();
-        status_string->format("HP: %d", spectate_from->life()->hitpoints);
-        status_span->set_text(status_string);
-        render_text(status_span, hp_area, 1, 1);
+        String hp_string = new_string();
+        hp_string->format("HP: %d", spectate_from->life()->hitpoints);
+        hp_span->set_text(hp_string);
+        render_span(hp_span, hp_area, 1, 1);
     }
     {
-        String status_string = new_string();
-        status_string->format("Kills: %d", spectate_from->life()->kill_counter);
-        render_text(status_string, kills_area, 1, 1);
+        String kills_string = new_string();
+        kills_string->format("Kills: %d", spectate_from->life()->kill_counter);
+        kills_span->set_text(kills_string);
+        render_span(kills_span, kills_area, 1, 1);
     }
     {
         String status_string = new_string();
@@ -489,7 +495,8 @@ void render() {
             status_string->append("invisible ");
         if (spectate_from->status_effects.confused_timeout > 0)
             status_string->append("confused ");
-        render_text(status_string, status_area, 1, 1);
+        status_span->set_text(status_string);
+        render_span(status_span, status_area, 1, 1);
     }
 
     // message area
@@ -517,7 +524,7 @@ void render() {
         } else {
             current_message_area = message_area;
         }
-        render_text(all_the_text, current_message_area, 1, -1);
+        render_text_bad(all_the_text, current_message_area, 1, -1);
     }
 
     // inventory pane
@@ -545,7 +552,7 @@ void render() {
             // also show popup help
             String description = new_string();
             get_item_description(spectate_from, inventory[inventory_cursor]->id, description);
-            popup_help(inventory_area, Coord{0, inventory_cursor}, description);
+            popup_help(inventory_area, Coord{0, inventory_cursor},mouse_hover_span, description);
         }
     }
 
@@ -571,7 +578,7 @@ void render() {
                     }
                 }
             }
-            popup_help(main_map_area, mouse_hover_map_tile, text);
+            popup_help(main_map_area, mouse_hover_map_tile, keyboard_hover_span, text);
         }
     }
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
@@ -580,7 +587,7 @@ void render() {
         if (0 <= inventory_index && inventory_index < inventory.length()) {
             String description = new_string();
             get_item_description(spectate_from, inventory[inventory_index]->id, description);
-            popup_help(inventory_area, Coord{0, inventory_index}, description);
+            popup_help(inventory_area, Coord{0, inventory_index}, keyboard_hover_span, description);
         }
     }
 
