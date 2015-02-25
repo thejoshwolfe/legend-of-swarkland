@@ -32,25 +32,55 @@ static inline Uint32 pack_color(SDL_Color color) {
            mask_color(color.a, amask);
 }
 
-
-void SpanImpl::render_texture(SDL_Renderer * renderer) {
-    ByteBuffer utf8;
-    for (int i = 0; i < items.length(); i++) {
-        if (items[i].span != NULL)
-            panic("TODO: support nested spans");
-        items[i].string->encode(&utf8);
+void SpanImpl::render_surface() {
+    if (_surface != NULL)
+        return;
+    List<SDL_Surface*> render_surfaces;
+    List<SDL_Surface*> delete_surfaces;
+    for (int i = 0; i < _items.length(); i++) {
+        if (_items[i].span != NULL) {
+            Span sub_span = _items[i].span;
+            sub_span->render_surface();
+            if (sub_span->_surface == NULL)
+                continue;
+            render_surfaces.append(sub_span->_surface);
+        } else {
+            ByteBuffer utf8;
+            _items[i].string->encode(&utf8);
+            if (utf8.length() == 0)
+                continue;
+            SDL_Surface * tmp_surface = TTF_RenderUTF8_Blended(status_box_font, utf8.raw(), _foreground);
+            render_surfaces.append(tmp_surface);
+            delete_surfaces.append(tmp_surface);
+        }
     }
-    if (utf8.length() == 0)
+    if (render_surfaces.length() == 0)
         return;
 
-    SDL_Surface * text_surface = TTF_RenderUTF8_Blended(status_box_font, utf8.raw(), _foreground);
-    SDL_Rect bounds = {0, 0, text_surface->w, text_surface->h};
-    SDL_Surface * surface = create_surface(bounds.w, bounds.h);
-    SDL_FillRect(surface, &bounds, pack_color(_background));
-    SDL_BlitSurface(text_surface, &bounds, surface, &bounds);
-
-    _texture = SDL_CreateTextureFromSurface(renderer, surface);
-
-    SDL_FreeSurface(surface);
-    SDL_FreeSurface(text_surface);
+    // measure dimensions
+    int width = 0;
+    for (int i = 0; i < render_surfaces.length(); i++)
+        width += render_surfaces[i]->w;
+    SDL_Rect bounds = {0, 0, width, render_surfaces[0]->h};
+    _surface = create_surface(bounds.w, bounds.h);
+    // copy all the sub surfaces
+    SDL_FillRect(_surface, &bounds, pack_color(_background));
+    int x_cursor = 0;
+    for (int i = 0; i < render_surfaces.length(); i++) {
+        SDL_Rect src_rect = {0, 0, render_surfaces[i]->w, render_surfaces[i]->h};
+        SDL_Rect dest_rect = src_rect;
+        dest_rect.x = x_cursor;
+        SDL_BlitSurface(render_surfaces[i], &src_rect, _surface, &dest_rect);
+        x_cursor += dest_rect.w;
+    }
+    // cleanup
+    for (int i = 0; i < delete_surfaces.length(); i++)
+        SDL_FreeSurface(delete_surfaces[i]);
+}
+void SpanImpl::render_texture(SDL_Renderer * renderer) {
+    if (_texture != NULL)
+        return;
+    render_surface();
+    if (_surface != NULL)
+        _texture = SDL_CreateTextureFromSurface(renderer, _surface);
 }

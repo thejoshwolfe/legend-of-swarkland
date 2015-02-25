@@ -179,12 +179,6 @@ static inline SDL_Rect get_texture_bounds(SDL_Texture * texture) {
     return result;
 }
 
-static const SDL_Color white       = {0xff, 0xff, 0xff, 0xff};
-static const SDL_Color black       = {0x00, 0x00, 0x00, 0xff};
-static const SDL_Color red         = {0xff, 0x00, 0x00, 0xff};
-static const SDL_Color dark_green  = {0x00, 0x88, 0x00, 0xff};
-static const SDL_Color amber       = {0xff, 0xbf, 0x00, 0xff};
-
 static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
@@ -211,33 +205,6 @@ static void render_text(SDL_Texture * texture, SDL_Rect output_area, int horizon
 }
 static void render_span(Span span, SDL_Rect area, int horizontal_align, int vertical_align) {
     render_text(span->get_texture(renderer), area, horizontal_align, vertical_align);
-}
-// TODO: DON'T use this function.
-static void render_text_bad(String str, SDL_Rect area, int horizontal_align, int vertical_align) {
-    if (str->length() == 0)
-        return; // it's actually an error to try to render the empty string
-    ByteBuffer utf8;
-    str->encode(&utf8);
-    SDL_Surface * surface = TTF_RenderUTF8_Blended_Wrapped(status_box_font, utf8.raw(), white, area.w);
-    SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surface);
-
-    // holy shit. the goddamn box is too tall.
-    // each new line added during the wrap adds some extra blank space at the bottom.
-    // this forumla here was determined through experimentation.
-    // piece of shit.
-    int real_surface_h = 1 + (int)(surface->h - (float)surface->h / 12.5f);
-
-    SDL_Rect source_rect;
-    source_rect.w = min(surface->w, area.w);
-    source_rect.h = min(real_surface_h, area.h);
-    // align the bottom
-    source_rect.x = 0;
-    source_rect.y = real_surface_h - source_rect.h;
-
-    render_text(texture, area, horizontal_align, vertical_align);
-
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(texture);
 }
 
 Coord get_mouse_tile(SDL_Rect area) {
@@ -276,6 +243,22 @@ void get_thing_description(Thing observer, uint256 target_id, String output) {
     }
     panic("thing type");
 }
+Span get_individual_description(Thing observer, uint256 target_id) {
+    if (observer->id == target_id)
+        return new_span("you");
+    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, NULL);
+    if (target == NULL)
+        return new_span("it");
+    Span result = new_span();
+    result->append("a ");
+    if (target->status_effects.invisible)
+        result->append("invisible ");
+    if (target->status_effects.confused_timeout > 0)
+        result->append("confused ");
+    result->append(get_species_name(target->life().species_id));
+    return result;
+}
+// TODO: don't call this
 void get_individual_description(Thing observer, uint256 target_id, String output) {
     if (observer->id == target_id) {
         output->append("you");
@@ -376,11 +359,11 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
     panic("thing type");
 }
 
-static Span hp_span = new_span(new_string(), white, black);
-static Span kills_span = new_span(new_string(), white, black);
-static Span status_span = new_span(new_string(), white, black);
-static Span mouse_hover_span = new_span(new_string(), white, black);
-static Span keyboard_hover_span = new_span(new_string(), white, black);
+static Span hp_span = new_span();
+static Span kills_span = new_span();
+static Span status_span = new_span();
+static Span mouse_hover_span = new_span();
+static Span keyboard_hover_span = new_span();
 
 void render() {
     Thing spectate_from = get_spectate_individual();
@@ -407,7 +390,7 @@ void render() {
                         // cardinal direction
                         alpha = 0xff;
                     } else if (abs(vector.x) == abs(vector.y)) {
-                        // diagnoal
+                        // diagonal
                         alpha = 0xff;
                     } else {
                         alpha = 0x7f;
@@ -512,7 +495,7 @@ void render() {
     // message area
     {
         bool expand_message_box = rect_contains(message_area, get_mouse_pixels());
-        String all_the_text = new_string();
+        Span all_the_text = new_span();
         List<RememberedEvent> & events = spectate_from->life()->knowledge.remembered_events;
         for (int i = 0; i < events.length(); i++) {
             RememberedEvent event = events[i];
@@ -525,7 +508,10 @@ void render() {
                     else
                         all_the_text->append("  ");
                 }
-                all_the_text->append(event->bytes);
+                if (event->bytes->length() != 0)
+                    all_the_text->append(event->bytes);
+                else
+                    all_the_text->append(event->span);
             }
         }
         SDL_Rect current_message_area;
@@ -534,7 +520,7 @@ void render() {
         } else {
             current_message_area = message_area;
         }
-        render_text_bad(all_the_text, current_message_area, 1, -1);
+        render_span(all_the_text, current_message_area, 1, -1);
     }
 
     // inventory pane

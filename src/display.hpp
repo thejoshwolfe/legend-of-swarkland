@@ -5,6 +5,7 @@
 #include "byte_buffer.hpp"
 #include "individual.hpp"
 #include "string.hpp"
+#include "text.hpp"
 
 #include <rucksack/rucksack.h>
 #include <SDL2/SDL.h>
@@ -21,6 +22,7 @@ void display_finish();
 Coord get_mouse_tile(SDL_Rect area);
 String get_species_name(SpeciesId species_id);
 void get_thing_description(Thing observer, uint256 target_id, String output);
+Span get_individual_description(Thing observer, uint256 target_id);
 void get_individual_description(Thing observer, uint256 target_id, String output);
 void get_item_description(Thing observer, uint256 item_id, String output);
 void render();

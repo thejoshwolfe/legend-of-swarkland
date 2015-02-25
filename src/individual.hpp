@@ -8,6 +8,7 @@
 #include "list.hpp"
 #include "byte_buffer.hpp"
 #include "string.hpp"
+#include "text.hpp"
 
 #include <stdbool.h>
 
@@ -154,6 +155,7 @@ typedef Reference<PerceivedThingImpl> PerceivedThing;
 
 struct RememberedEventImpl : public ReferenceCounted {
     String bytes = new_string();
+    Span span = new_span();
 };
 typedef Reference<RememberedEventImpl> RememberedEvent;
 

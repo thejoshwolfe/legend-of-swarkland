@@ -12,8 +12,7 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             // unremarkable
             return NULL;
         case Event::BUMP_INTO_WALL:
-            get_individual_description(observer, event.move_data().individual, buffer1);
-            result->bytes->format("%s bumps into a wall.", buffer1);
+            result->span->format("%s bumps into a wall.", get_individual_description(observer, event.move_data().individual));
             return result;
         case Event::BUMP_INTO_INDIVIDUAL:
             get_individual_description(observer, event.attack_data().attacker, buffer1);

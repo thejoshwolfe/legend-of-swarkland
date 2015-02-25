@@ -7,6 +7,23 @@
 
 #include <stdint.h>
 
+static inline int find_percent_something(const char * fmt, char expected_code) {
+    for (int i = 0; fmt[i] != '\0'; i++) {
+        if (fmt[i] != '%')
+            continue;
+        i++;
+        if (fmt[i] == '%')
+            continue; // escaped %%
+        if (fmt[i] != expected_code)
+            panic("wrong format");
+        i++;
+        return i;
+    }
+    if (expected_code == '%')
+        return -1;
+    panic("too few function parameters");
+}
+
 // mutable unicode string.
 // characters are effectively 21-bit integers.
 
@@ -95,22 +112,6 @@ public:
 
 private:
     List<uint32_t> _chars;
-    int find_percent_something(const char * fmt, char expected_code) {
-        for (int i = 0; fmt[i] != '\0'; i++) {
-            if (fmt[i] != '%')
-                continue;
-            i++;
-            if (fmt[i] == '%')
-                continue; // escaped %%
-            if (fmt[i] != expected_code)
-                panic("wrong format");
-            i++;
-            return i;
-        }
-        if (expected_code == '%')
-            return -1;
-        panic("too few function parameters");
-    }
 };
 
 template<typename... T>
@@ -144,12 +145,15 @@ void StringImpl::format(const char * fmt, int d, T... args) {
 static inline String new_string() {
     return create<StringImpl>();
 }
-static inline String new_string(const char * str) {
-    ByteBuffer buffer;
-    buffer.append(str);
+static inline String new_string(const ByteBuffer & buffer) {
     String result = new_string();
     result->decode(buffer);
     return result;
+}
+static inline String new_string(const char * str) {
+    ByteBuffer buffer;
+    buffer.append(str);
+    return new_string(buffer);
 }
 
 static inline void fprintf_string(FILE * stream, String string) {
