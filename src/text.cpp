@@ -19,13 +19,13 @@ static const Uint32 amask = 0xff000000;
 static SDL_Surface * create_surface(int w, int h) {
     return SDL_CreateRGBSurface(0, w, h, 32, rmask, gmask, bmask, amask);
 }
-static inline Uint32 mask_color(Uint8 value, Uint32 mask) {
+static constexpr Uint32 mask_color(Uint8 value, Uint32 mask) {
     return ((value << 0) |
             (value << 8) |
             (value << 16) |
             (value << 24)) & mask;
 }
-static inline Uint32 pack_color(SDL_Color color) {
+static constexpr Uint32 pack_color(SDL_Color color) {
     return mask_color(color.r, rmask) |
            mask_color(color.g, gmask) |
            mask_color(color.b, bmask) |
@@ -35,24 +35,26 @@ static inline Uint32 pack_color(SDL_Color color) {
 void SpanImpl::render_surface() {
     if (_surface != NULL)
         return;
+    if (is_plain_text()) {
+        if (_plain_text->length() == 0)
+            return;
+        ByteBuffer utf8;
+        _plain_text->encode(&utf8);
+        // TODO: provide an actual backcolor
+        _surface = TTF_RenderUTF8_Blended(status_box_font, utf8.raw(), _foreground);
+        return;
+    }
+
+    // rich text
+
+    // collect sub surfaces
     List<SDL_Surface*> render_surfaces;
-    List<SDL_Surface*> delete_surfaces;
     for (int i = 0; i < _items.length(); i++) {
-        if (_items[i].span != NULL) {
-            Span sub_span = _items[i].span;
-            sub_span->render_surface();
-            if (sub_span->_surface == NULL)
-                continue;
-            render_surfaces.append(sub_span->_surface);
-        } else {
-            ByteBuffer utf8;
-            _items[i].string->encode(&utf8);
-            if (utf8.length() == 0)
-                continue;
-            SDL_Surface * tmp_surface = TTF_RenderUTF8_Blended(status_box_font, utf8.raw(), _foreground);
-            render_surfaces.append(tmp_surface);
-            delete_surfaces.append(tmp_surface);
-        }
+        Span sub_span = _items[i];
+        sub_span->render_surface();
+        if (sub_span->_surface == NULL)
+            continue;
+        render_surfaces.append(sub_span->_surface);
     }
     if (render_surfaces.length() == 0)
         return;
@@ -73,9 +75,6 @@ void SpanImpl::render_surface() {
         SDL_BlitSurface(render_surfaces[i], &src_rect, _surface, &dest_rect);
         x_cursor += dest_rect.w;
     }
-    // cleanup
-    for (int i = 0; i < delete_surfaces.length(); i++)
-        SDL_FreeSurface(delete_surfaces[i]);
 }
 void SpanImpl::render_texture(SDL_Renderer * renderer) {
     if (_texture != NULL)

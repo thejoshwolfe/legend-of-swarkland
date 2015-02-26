@@ -359,6 +359,8 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
     panic("thing type");
 }
 
+static int previous_events_length = 0;
+static Span events_span = new_span();
 static Span hp_span = new_span();
 static Span kills_span = new_span();
 static Span status_span = new_span();
@@ -495,32 +497,32 @@ void render() {
     // message area
     {
         bool expand_message_box = rect_contains(message_area, get_mouse_pixels());
-        Span all_the_text = new_span();
         List<RememberedEvent> & events = spectate_from->life()->knowledge.remembered_events;
-        for (int i = 0; i < events.length(); i++) {
+        for (int i = previous_events_length; i < events.length(); i++) {
             RememberedEvent event = events[i];
             if (event != NULL) {
                 // append something
                 if (i > 0) {
                     // maybe sneak in a delimiter
                     if (events[i - 1] == NULL)
-                        all_the_text->append("\n");
+                        events_span->append("\n");
                     else
-                        all_the_text->append("  ");
+                        events_span->append("  ");
                 }
                 if (event->bytes->length() != 0)
-                    all_the_text->append(event->bytes);
+                    events_span->append(event->bytes);
                 else
-                    all_the_text->append(event->span);
+                    events_span->append(event->span);
             }
         }
+        previous_events_length = events.length();
         SDL_Rect current_message_area;
         if (expand_message_box) {
             current_message_area = entire_window_area;
         } else {
             current_message_area = message_area;
         }
-        render_span(all_the_text, current_message_area, 1, -1);
+        render_span(events_span, current_message_area, 1, -1);
     }
 
     // inventory pane

@@ -21,11 +21,6 @@ static inline bool operator==(SDL_Color a, SDL_Color b) {
 
 class SpanImpl;
 typedef Reference<SpanImpl> Span;
-class StringOrSpan {
-public:
-    String string;
-    Span span;
-};
 
 class SpanImpl : public ReferenceCounted {
 public:
@@ -43,47 +38,65 @@ public:
         dispose_resources();
     }
     void set_text(String new_text) {
-        String old_text = get_plain_text();
-        if (*old_text == *new_text)
-            return; // no change
+        if (is_plain_text()) {
+            if (*_plain_text == *new_text)
+                return; // no change
+        }
         _items.clear();
-        _items.append(StringOrSpan{new_text, NULL});
+        _plain_text->clear();
+        _plain_text->append(new_text);
         dispose_resources();
     }
     void append(const char * str) {
         append(new_string(str));
     }
     void append(String text) {
-        if (_items.length() == 0 || _items[_items.length() - 1].string == NULL)
-            _items.append(StringOrSpan{new_string(), NULL});
-        _items[_items.length() - 1].string->append(text);
+        if (text->length() == 0)
+            return; // fuck you.
+        if (is_plain_text()) {
+            _plain_text->append(text);
+        } else {
+            // need to use a plain text sub span
+            if (!_items[_items.length() - 1]->is_plain_text())
+                _items.append(create<SpanImpl>());
+            _items[_items.length() - 1]->append(text);
+        }
+        dispose_resources();
     }
     void append(Span span) {
-        _items.append(StringOrSpan{NULL, span});
+        if (is_plain_text()) {
+            // convert to rich text
+            if (_plain_text->length() > 0) {
+                // save the old plain text in a span
+                Span sub_span = create<SpanImpl>();
+                sub_span->append(_plain_text);
+                _items.append(sub_span);
+            }
+            _plain_text = NULL;
+        }
+        _items.append(span);
+        dispose_resources();
     }
+    template<typename ...Args>
+    void format(const char * fmt, Span span1, Args... args);
     void format(const char * fmt) {
         // check for too many %s
         find_percent_something(fmt, '%');
         append(fmt);
     }
-    template<typename ...Args>
-    void format(const char * fmt, Span span1, Args... args);
+
     SDL_Texture * get_texture(SDL_Renderer * renderer) {
         render_texture(renderer);
         return _texture;
     }
-    // NULL if there are nested spans.
-    String get_plain_text() const {
-        String result = new_string();
-        for (int i = 0; i < _items.length(); i++) {
-            if (_items[i].span != NULL)
-                return NULL;
-            result->append(_items[i].string);
-        }
-        return result;
+    bool is_plain_text() const {
+        return _items.length() == 0;
     }
 private:
-    List<StringOrSpan> _items;
+    // only 1 of plain_text or items can be non-empty
+    String _plain_text = new_string();
+    List<Span> _items;
+
     SDL_Color _foreground = white;
     SDL_Color _background = black;
     SDL_Texture * _texture = NULL;
