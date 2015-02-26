@@ -77,6 +77,11 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+
 void display_init(const char * resource_bundle_path) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
         panic("unable to init SDL");
@@ -88,7 +93,17 @@ void display_init(const char * resource_bundle_path) {
     if (renderer == NULL)
         panic("renderer create failed");
 
-    if (rucksack_bundle_open_read(resource_bundle_path, &bundle) != RuckSackErrorNone)
+    int fd = open(resource_bundle_path, O_RDONLY);
+    if (fd == -1)
+        panic("open failed");
+    struct stat st;
+    if (fstat(fd, &st))
+        panic("fstat failed");
+    unsigned char *bundle_buffer = allocate<unsigned char>(st.st_size);
+    size_t amt_read = read(fd, bundle_buffer, st.st_size);
+    if (amt_read != (size_t)st.st_size)
+        panic("read failed");
+    if (rucksack_bundle_open_read_mem(bundle_buffer, st.st_size, &bundle) != RuckSackErrorNone)
         panic("error opening resource bundle");
     RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
     if (entry == NULL)
