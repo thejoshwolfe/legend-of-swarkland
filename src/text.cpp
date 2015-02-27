@@ -58,51 +58,68 @@ SDL_Surface * SpanImpl::get_surface() {
 }
 
 
-void DivImpl::render_surface() {
+void DivImpl::render_surface(int max_width) {
     if (_surface != NULL)
         return;
-    int width = 0;
-    int height = 0;
+    int total_width = 0;
+    int total_height = text_height;
+    int line_width = 0;
+    List<SpanOrSpace> wrapped_items;
     for (int i = 0; i < _items.length(); i++) {
         if (_items[i].span != NULL) {
             SDL_Surface * sub_surface = _items[i].span->get_surface();
             if (sub_surface == NULL)
                 continue;
-            width += sub_surface->w;
-            // TODO: line wrapping
-            height = sub_surface->h;
+            if (line_width + sub_surface->w > max_width) {
+                // line break
+                wrapped_items.append(SpanOrSpace{NULL, -1});
+                line_width = 0;
+                total_height += text_height;
+            }
+            wrapped_items.append(_items[i]);
+            line_width += sub_surface->w;
+            if (line_width > total_width)
+                total_width = line_width;
         } else {
-            // TODO: line wrapping
-            width += _items[i].space_count * 8;
+            int space_count = _items[i].space_count;
+            if (space_count != -1) {
+                line_width += space_count * text_width;
+                if (line_width > total_width)
+                    total_width = line_width;
+            } else {
+                // newline
+                line_width = 0;
+                total_height += text_height;
+            }
+            wrapped_items.append(_items[i]);
         }
     }
-    if (width == 0 || height == 0)
+    if (total_width == 0)
         return;
-    SDL_Rect bounds = {0, 0, width, height};
+    SDL_Rect bounds = {0, 0, total_width, total_height};
     _surface = create_surface(bounds.w, bounds.h);
     // copy all the sub surfaces
     SDL_FillRect(_surface, &bounds, pack_color(_background));
     int x_cursor = 0;
-    for (int i = 0; i < _items.length(); i++) {
-        if (_items[i].span != NULL) {
-            SDL_Surface * sub_surface = _items[i].span->get_surface();
+    int y_cursor = 0;
+    for (int i = 0; i < wrapped_items.length(); i++) {
+        if (wrapped_items[i].span != NULL) {
+            SDL_Surface * sub_surface = wrapped_items[i].span->get_surface();
             if (sub_surface == NULL)
                 continue;
-            SDL_Rect src_rect = {0, 0, sub_surface->w, height};
-            SDL_Rect dest_rect = src_rect;
-            dest_rect.x = x_cursor;
+            SDL_Rect src_rect = {0, 0, sub_surface->w, sub_surface->h};
+            SDL_Rect dest_rect = {x_cursor, y_cursor, src_rect.w, src_rect.h};
             SDL_BlitSurface(sub_surface, &src_rect, _surface, &dest_rect);
             x_cursor += dest_rect.w;
         } else {
-            // TODO: line wrapping
-            x_cursor += _items[i].space_count * 8;
+            int space_count = wrapped_items[i].space_count;
+            if (space_count != -1) {
+                x_cursor += space_count * text_width;
+            } else {
+                // newline
+                x_cursor = 0;
+                y_cursor += text_height;
+            }
         }
     }
-}
-void DivImpl::render_texture(SDL_Renderer * renderer) {
-    if (_texture != NULL)
-        return;
-    render_surface();
-    if (_surface != NULL)
-        _texture = SDL_CreateTextureFromSurface(renderer, _surface);
 }

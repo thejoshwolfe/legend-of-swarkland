@@ -184,7 +184,7 @@ static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
 static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int vertical_align) {
-    SDL_Texture * texture = div->get_texture(renderer);
+    SDL_Texture * texture = div->get_texture(renderer, output_area.w);
     if (texture == NULL)
         return;
     SDL_Rect source_rect = get_texture_bounds(texture);

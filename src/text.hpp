@@ -191,17 +191,26 @@ public:
         dispose_resources();
     }
 
-    SDL_Texture * get_texture(SDL_Renderer * renderer) {
-        render_texture(renderer);
+    SDL_Texture * get_texture(SDL_Renderer * renderer, int max_width) {
+        if (previous_max_width != max_width)
+            dispose_resources();
+        previous_max_width = max_width;
+        if (_texture == NULL) {
+            render_surface(max_width);
+            if (_surface != NULL)
+                _texture = SDL_CreateTextureFromSurface(renderer, _surface);
+        }
         return _texture;
     }
 private:
+    static const int text_width = 8;
+    static const int text_height = 16;
     List<SpanOrSpace> _items;
     SDL_Color _background = black;
     SDL_Surface * _surface = NULL;
     SDL_Texture * _texture = NULL;
-    void render_surface();
-    void render_texture(SDL_Renderer * renderer);
+    int previous_max_width = 0;
+    void render_surface(int max_width);
     void dispose_resources() {
         if (_texture != NULL)
             SDL_DestroyTexture(_texture);
