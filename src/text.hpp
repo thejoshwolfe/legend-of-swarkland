@@ -12,22 +12,46 @@ static const SDL_Color pink        = {0xff, 0x88, 0x88, 0xff};
 static const SDL_Color dark_green  = {0x00, 0x88, 0x00, 0xff};
 static const SDL_Color amber       = {0xff, 0xbf, 0x00, 0xff};
 
-static inline bool operator==(SDL_Color a, SDL_Color b) {
-    return a.r == b.r &&
-           a.b == b.b &&
-           a.g == b.g &&
-           a.a == b.a;
+// i wonder if this difference even matters
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+static const Uint32 color_rmask = 0xff000000;
+static const Uint32 color_gmask = 0x00ff0000;
+static const Uint32 color_bmask = 0x0000ff00;
+static const Uint32 color_amask = 0x000000ff;
+#else
+static const Uint32 color_rmask = 0x000000ff;
+static const Uint32 color_gmask = 0x0000ff00;
+static const Uint32 color_bmask = 0x00ff0000;
+static const Uint32 color_amask = 0xff000000;
+#endif
+static constexpr Uint32 pack_color(SDL_Color color) {
+    struct LocalFunctionPlease {
+        static constexpr Uint32 mask_color(Uint8 value, Uint32 mask) {
+            return ((value << 0) |
+                    (value << 8) |
+                    (value << 16) |
+                    (value << 24)) & mask;
+        }
+    };
+    return LocalFunctionPlease::mask_color(color.r, color_rmask) |
+           LocalFunctionPlease::mask_color(color.g, color_gmask) |
+           LocalFunctionPlease::mask_color(color.b, color_bmask) |
+           LocalFunctionPlease::mask_color(color.a, color_amask);
+}
+static constexpr bool operator==(SDL_Color a, SDL_Color b) {
+    return pack_color(a) == pack_color(b);
 }
 
 class SpanImpl;
 typedef Reference<SpanImpl> Span;
-class StringOrSpan {
-public:
-    String string;
-    Span span;
-};
-
 class SpanImpl : public ReferenceCounted {
+private:
+    class StringOrSpan {
+    public:
+        String string;
+        Span span;
+    };
+
 public:
     SpanImpl() {
     }
@@ -52,14 +76,11 @@ public:
             return;
         }
         // set to non blank
-        if (_items.length() > 1 || (_items.length() == 1 && _items[0].string == NULL)) {
-            // too complicated. start over.
+        if (!(_items.length() == 1 &&_items[0].string != NULL)) {
+            // no, make it plain text.
             _items.clear();
-            dispose_resources();
-        }
-        if (_items.length() == 0) {
-            // starting from scratch
             _items.append(StringOrSpan{new_string(), NULL});
+            dispose_resources();
         } else {
             // there's already some plain text here.
             if (*_items[0].string == *new_text) {

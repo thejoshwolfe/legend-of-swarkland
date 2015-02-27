@@ -154,7 +154,6 @@ private:
 typedef Reference<PerceivedThingImpl> PerceivedThing;
 
 struct RememberedEventImpl : public ReferenceCounted {
-    String bytes = new_string();
     Span span = new_span();
 };
 typedef Reference<RememberedEventImpl> RememberedEvent;

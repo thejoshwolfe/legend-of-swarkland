@@ -4,32 +4,8 @@
 
 #include <SDL2/SDL_ttf.h>
 
-// apparently this is how you use SDL :/
-#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-static const Uint32 rmask = 0xff000000;
-static const Uint32 gmask = 0x00ff0000;
-static const Uint32 bmask = 0x0000ff00;
-static const Uint32 amask = 0x000000ff;
-#else
-static const Uint32 rmask = 0x000000ff;
-static const Uint32 gmask = 0x0000ff00;
-static const Uint32 bmask = 0x00ff0000;
-static const Uint32 amask = 0xff000000;
-#endif
 static SDL_Surface * create_surface(int w, int h) {
-    return SDL_CreateRGBSurface(0, w, h, 32, rmask, gmask, bmask, amask);
-}
-static inline Uint32 mask_color(Uint8 value, Uint32 mask) {
-    return ((value << 0) |
-            (value << 8) |
-            (value << 16) |
-            (value << 24)) & mask;
-}
-static inline Uint32 pack_color(SDL_Color color) {
-    return mask_color(color.r, rmask) |
-           mask_color(color.g, gmask) |
-           mask_color(color.b, bmask) |
-           mask_color(color.a, amask);
+    return SDL_CreateRGBSurface(0, w, h, 32, color_rmask, color_gmask, color_bmask, color_amask);
 }
 
 void SpanImpl::render_surface() {

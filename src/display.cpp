@@ -234,13 +234,13 @@ String get_species_name(SpeciesId species_id) {
             panic("individual description");
     }
 }
-void get_thing_description(Thing observer, uint256 target_id, String output) {
+Span get_thing_description(Thing observer, uint256 target_id) {
     PerceivedThing actual_thing = observer->life()->knowledge.perceived_things.get(target_id);
     switch (actual_thing->thing_type) {
         case ThingType_INDIVIDUAL:
-            return get_individual_description(observer, target_id, output);
+            return get_individual_description(observer, target_id);
         case ThingType_WAND:
-            return get_item_description(observer, target_id, output);
+            return get_item_description(observer, target_id);
     }
     panic("thing type");
 }
@@ -259,64 +259,39 @@ Span get_individual_description(Thing observer, uint256 target_id) {
     result->append(get_species_name(target->life().species_id));
     return result;
 }
-// TODO: don't call this
-void get_individual_description(Thing observer, uint256 target_id, String output) {
-    if (observer->id == target_id) {
-        output->append("you");
-        return;
-    }
-    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, NULL);
-    if (target == NULL) {
-        output->append("it");
-        return;
-    }
-    output->append("a ");
-    if (target->status_effects.invisible)
-        output->append("invisible ");
-    if (target->status_effects.confused_timeout > 0)
-        output->append("confused ");
-    output->append(get_species_name(target->life().species_id));
-}
-void get_item_description(Thing observer, uint256 item_id, String output) {
+Span get_item_description(Thing observer, uint256 item_id) {
     PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, NULL);
     if (item == NULL) {
         // can't see the wand
-        output->append("a wand");
-        return;
+        return new_span("a wand");
     }
     WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info().description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
-                output->append("a wand of confusion");
-                return;
+                return new_span("a wand of confusion");
             case WandId_WAND_OF_DIGGING:
-                output->append("a wand of digging");
-                return;
+                return new_span("a wand of digging");
             case WandId_WAND_OF_STRIKING:
-                output->append("a wand of striking");
-                return;
+                return new_span("a wand of striking");
             default:
                 panic("wand id");
         }
     } else {
         switch (item->wand_info().description_id) {
             case WandDescriptionId_BONE_WAND:
-                output->append("a bone wand");
-                return;
+                return new_span("a bone wand");
             case WandDescriptionId_GOLD_WAND:
-                output->append("a gold wand");
-                return;
+                return new_span("a gold wand");
             case WandDescriptionId_PLASTIC_WAND:
-                output->append("a plastic wand");
-                return;
+                return new_span("a plastic wand");
             default:
                 panic("wand id");
         }
     }
 }
 
-static void popup_help(SDL_Rect area, Coord tile_in_area, Span using_span, String str) {
+static void popup_help(SDL_Rect area, Coord tile_in_area, Span using_span, Span content) {
     Coord upper_left_corner = Coord{area.x, area.y} + Coord{tile_in_area.x * tile_size, tile_in_area.y * tile_size};
     Coord lower_right_corner = upper_left_corner + Coord{tile_size, tile_size};
     int horizontal_align = upper_left_corner.x < entire_window_area.w/2 ? 1 : -1;
@@ -336,7 +311,8 @@ static void popup_help(SDL_Rect area, Coord tile_in_area, Span using_span, Strin
         rect.y = lower_right_corner.y;
         rect.h = entire_window_area.h - lower_right_corner.y;
     }
-    using_span->set_text(str);
+    using_span->set_text(new_string(""));
+    using_span->append(content);
     render_span(using_span, rect, horizontal_align, vertical_align);
 }
 
@@ -510,10 +486,7 @@ void render() {
                     else
                         events_span->append("  ");
                 }
-                if (event->bytes->length() != 0)
-                    events_span->append(event->bytes);
-                else
-                    events_span->append(event->span);
+                events_span->append(event->span);
             }
         }
         previous_events_length = events.length();
@@ -549,8 +522,7 @@ void render() {
         }
         if (render_cursor) {
             // also show popup help
-            String description = new_string();
-            get_item_description(spectate_from, inventory[inventory_cursor]->id, description);
+            Span description = get_item_description(spectate_from, inventory[inventory_cursor]->id);
             popup_help(inventory_area, Coord{0, inventory_cursor},mouse_hover_span, description);
         }
     }
@@ -561,19 +533,19 @@ void render() {
         List<PerceivedThing> things;
         find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
         if (things.length() != 0) {
-            String text = new_string();
+            Span text = new_span();
             for (int i = 0; i < things.length(); i++) {
                 PerceivedThing target = things[i];
                 if (i > 0 )
                     text->append("\n");
-                get_thing_description(spectate_from, target->id, text);
+                text->append(get_thing_description(spectate_from, target->id));
                 List<PerceivedThing> inventory;
                 find_items_in_inventory(spectate_from, target, &inventory);
                 if (inventory.length() > 0) {
                     text->append(" carrying:");
                     for (int j = 0; j < inventory.length(); j++) {
                         text->append("\n    ");
-                        get_thing_description(spectate_from, inventory[j]->id, text);
+                        text->append(get_thing_description(spectate_from, inventory[j]->id));
                     }
                 }
             }
@@ -584,8 +556,7 @@ void render() {
     if (mouse_hover_inventory_tile.x == 0) {
         int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < inventory.length()) {
-            String description = new_string();
-            get_item_description(spectate_from, inventory[inventory_index]->id, description);
+            Span description = get_item_description(spectate_from, inventory[inventory_index]->id);
             popup_help(inventory_area, Coord{0, inventory_index}, keyboard_hover_span, description);
         }
     }

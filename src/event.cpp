@@ -4,8 +4,6 @@
 #include "swarkland.hpp"
 
 static RememberedEvent to_remembered_event(Thing observer, Event event) {
-    String buffer1 = new_string();
-    String buffer2 = new_string();
     RememberedEvent result = create<RememberedEventImpl>();
     switch (event.type) {
         case Event::MOVE:
@@ -15,171 +13,149 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             result->span->format("%s bumps into a wall.", get_individual_description(observer, event.move_data().individual));
             return result;
         case Event::BUMP_INTO_INDIVIDUAL:
-            get_individual_description(observer, event.attack_data().attacker, buffer1);
-            get_individual_description(observer, event.attack_data().target, buffer2);
-            result->bytes->format("%s bumps into %s.", buffer1, buffer2);
+            result->span->format("%s bumps into %s.",
+                    get_individual_description(observer, event.attack_data().attacker),
+                    get_individual_description(observer, event.attack_data().target));
             return result;
         case Event::BUMP_INTO_SOMETHING:
-            get_individual_description(observer, event.move_data().individual, buffer1);
-            result->bytes->format("%s bumps into something.", buffer1);
+            result->span->format("%s bumps into something.", get_individual_description(observer, event.move_data().individual));
             return result;
         case Event::SOMETHING_BUMP_INTO_INDIVIDUAL:
-            get_individual_description(observer, event.move_data().individual, buffer1);
-            result->bytes->format("something unseen bumps into %s.", buffer1);
+            result->span->format("something unseen bumps into %s.", get_individual_description(observer, event.move_data().individual));
             return result;
 
         case Event::ATTACK:
-            get_individual_description(observer, event.attack_data().attacker, buffer1);
-            get_individual_description(observer, event.attack_data().target, buffer2);
-            result->bytes->format("%s hits %s!", buffer1, buffer2);
+            result->span->format("%s hits %s!",
+                    get_individual_description(observer, event.attack_data().attacker),
+                    get_individual_description(observer, event.attack_data().target));
             return result;
         case Event::ATTACK_SOMETHING:
-            get_individual_description(observer, event.move_data().individual, buffer1);
-            result->bytes->format("%s attacks something.", buffer1);
+            result->span->format("%s attacks something.", get_individual_description(observer, event.move_data().individual));
             return result;
         case Event::SOMETHING_ATTACK_INDIVIDUAL:
-            get_individual_description(observer, event.move_data().individual, buffer1);
-            result->bytes->format("something unseen attacks %s!", buffer1);
+            result->span->format("something unseen attacks %s!", get_individual_description(observer, event.move_data().individual));
             return result;
         case Event::ATTACK_THIN_AIR:
-            get_individual_description(observer, event.move_data().individual, buffer1);
-            result->bytes->format("%s attacks thin air.", buffer1);
+            result->span->format("%s attacks thin air.", get_individual_description(observer, event.move_data().individual));
             return result;
         case Event::ATTACK_WALL:
-            get_individual_description(observer, event.move_data().individual, buffer1);
-            result->bytes->format("%s attacks a wall.", buffer1);
+            result->span->format("%s attacks a wall.", get_individual_description(observer, event.move_data().individual));
             return result;
 
         case Event::DIE:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("%s dies.", buffer1);
+            result->span->format("%s dies.", get_individual_description(observer, event.the_individual_data()));
             return result;
 
         case Event::ZAP_WAND: {
             Event::ZapWandData & data = event.zap_wand_data();
-            get_individual_description(observer, data.wielder, buffer1);
-            get_item_description(observer, data.wand, buffer2);
-            result->bytes->format("%s zaps %s.", buffer1, buffer2);
+            result->span->format("%s zaps %s.", get_individual_description(observer, data.wielder), get_item_description(observer, data.wand));
             return result;
         }
         case Event::ZAP_WAND_NO_CHARGES: {
             Event::ZapWandData & data = event.zap_wand_data();
-            get_individual_description(observer, data.wielder, buffer1);
-            get_item_description(observer, data.wand, buffer2);
-            result->bytes->format("%s zaps %s, but %s just sputters.", buffer1, buffer2, buffer2);
+            Span wand_description = get_item_description(observer, data.wand);
+            result->span->format("%s zaps %s, but %s just sputters.", get_individual_description(observer, data.wielder), wand_description, wand_description);
             return result;
         }
         case Event::WAND_DISINTEGRATES: {
             Event::ZapWandData & data = event.zap_wand_data();
-            get_individual_description(observer, data.wielder, buffer1);
-            get_item_description(observer, data.wand, buffer2);
-            result->bytes->format("%s tries to zap %s, but %s disintegrates.", buffer1, buffer2, buffer2);
+            Span wand_description = get_item_description(observer, data.wand);
+            result->span->format("%s tries to zap %s, but %s disintegrates.", get_individual_description(observer, data.wielder), wand_description, wand_description);
             return result;
         }
         case Event::WAND_EXPLODES:
-            get_item_description(observer, event.item_and_location_data().item, buffer1);
-            result->bytes->format("%s explodes!", buffer1);
+            result->span->format("%s explodes!", get_item_description(observer, event.item_and_location_data().item));
             return result;
 
         case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("a magic beam hits %s, but nothing happens.", buffer1);
+            result->span->format("a magic beam hits %s, but nothing happens.", get_individual_description(observer, event.the_individual_data()));
             return result;
         case Event::BEAM_HIT_WALL_NO_EFFECT:
-            result->bytes->format("a magic beam hits the wall, but nothing happens.");
+            result->span->format("a magic beam hits the wall, but nothing happens.");
             return result;
-        case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("a magic beam hits %s; %s is confused!", buffer1, buffer1);
+        case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL: {
+            Span individual_description = get_individual_description(observer, event.the_individual_data());
+            result->span->format("a magic beam hits %s; %s is confused!", individual_description, individual_description);
             return result;
+        }
         case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("a magic beam strikes %s!", buffer1);
+            result->span->format("a magic beam strikes %s!", get_individual_description(observer, event.the_individual_data()));
             return result;
         case Event::BEAM_OF_DIGGING_HIT_WALL:
-            result->bytes->format("the wall magically crumbles away!");
+            result->span->format("the wall magically crumbles away!");
             return result;
         case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("an explosion hits %s, but nothing happens.", buffer1);
+            result->span->format("an explosion hits %s, but nothing happens.", get_individual_description(observer, event.the_individual_data()));
             return result;
         case Event::EXPLOSION_HIT_WALL_NO_EFFECT:
-            result->bytes->format("an explosion hits the wall, but nothing happens.");
+            result->span->format("an explosion hits the wall, but nothing happens.");
             return result;
-        case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("an explosion hits %s; %s is confused!", buffer1, buffer1);
+        case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL: {
+            Span individual_description = get_individual_description(observer, event.the_individual_data());
+            result->span->format("an explosion hits %s; %s is confused!", individual_description, individual_description);
             return result;
+        }
         case Event::EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("an explosion strikes %s!", buffer1);
+            result->span->format("an explosion strikes %s!", get_individual_description(observer, event.the_individual_data()));
             return result;
         case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
-            result->bytes->format("the wall magically crumbles away!");
+            result->span->format("the wall magically crumbles away!");
             return result;
 
         case Event::THROW_ITEM:
-            get_individual_description(observer, event.zap_wand_data().wielder, buffer1);
-            get_item_description(observer, event.zap_wand_data().wand, buffer2);
-            result->bytes->format("%s throws %s.", buffer1, buffer2);
+            result->span->format("%s throws %s.",
+                    get_individual_description(observer, event.zap_wand_data().wielder),
+                    get_item_description(observer, event.zap_wand_data().wand));
             return result;
         case Event::ITEM_HITS_INDIVIDUAL:
-            get_item_description(observer, event.zap_wand_data().wand, buffer1);
-            get_individual_description(observer, event.zap_wand_data().wielder, buffer2);
-            result->bytes->format("%s hits %s!", buffer1, buffer2);
+            result->span->format("%s hits %s!",
+                    get_item_description(observer, event.zap_wand_data().wand),
+                    get_individual_description(observer, event.zap_wand_data().wielder));
             return result;
         case Event::ITEM_HITS_WALL:
-            get_item_description(observer, event.item_and_location_data().item, buffer1);
-            result->bytes->format("%s hits a wall.", buffer1);
+            result->span->format("%s hits a wall.", get_item_description(observer, event.item_and_location_data().item));
             return result;
         case Event::ITEM_HITS_SOMETHING:
-            get_item_description(observer, event.item_and_location_data().item, buffer1);
-            result->bytes->format("%s hits something.", buffer1);
+            result->span->format("%s hits something.", get_item_description(observer, event.item_and_location_data().item));
             return result;
 
         case Event::NO_LONGER_CONFUSED:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("%s is no longer confused.", buffer1);
+            result->span->format("%s is no longer confused.", get_individual_description(observer, event.the_individual_data()));
             return result;
 
         case Event::APPEAR:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("%s appears out of nowhere!", buffer1);
+            result->span->format("%s appears out of nowhere!", get_individual_description(observer, event.the_individual_data()));
             return result;
         case Event::TURN_INVISIBLE:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("%s turns invisible!", buffer1);
+            result->span->format("%s turns invisible!", get_individual_description(observer, event.the_individual_data()));
             return result;
         case Event::DISAPPEAR:
-            get_individual_description(observer, event.the_individual_data(), buffer1);
-            result->bytes->format("%s vanishes out of sight!", buffer1);
+            result->span->format("%s vanishes out of sight!", get_individual_description(observer, event.the_individual_data()));
             return result;
         case Event::POLYMORPH:
-            get_individual_description(observer, event.polymorph_data().individual, buffer1);
-            result->bytes->format("%s transforms into %s!", get_species_name(event.polymorph_data().old_species), buffer1);
+            result->span->format("%s transforms into %s!",
+                    new_span(get_species_name(event.polymorph_data().old_species)),
+                    get_individual_description(observer, event.polymorph_data().individual));
             return result;
 
         case Event::ITEM_DROPS_TO_THE_FLOOR:
-            get_item_description(observer, event.item_and_location_data().item, buffer1);
-            result->bytes->format("%s drops to the floor.", buffer1);
+            result->span->format("%s drops to the floor.", get_item_description(observer, event.item_and_location_data().item));
             return result;
         case Event::INDIVIDUAL_PICKS_UP_ITEM:
-            get_individual_description(observer, event.zap_wand_data().wielder, buffer1);
-            get_item_description(observer, event.zap_wand_data().wand, buffer2);
-            result->bytes->format("%s picks up %s.", buffer1, buffer2);
+            result->span->format("%s picks up %s.",
+                    get_individual_description(observer, event.zap_wand_data().wielder),
+                    get_item_description(observer, event.zap_wand_data().wand));
             return result;
         case Event::SOMETHING_PICKS_UP_ITEM:
-            get_item_description(observer, event.item_and_location_data().item, buffer1);
-            result->bytes->format("something unseen picks up %s.", buffer1);
+            result->span->format("something unseen picks up %s.", get_item_description(observer, event.item_and_location_data().item));
             return result;
         case Event::INDIVIDUAL_SUCKS_UP_ITEM:
-            get_individual_description(observer, event.zap_wand_data().wielder, buffer1);
-            get_item_description(observer, event.zap_wand_data().wand, buffer2);
-            result->bytes->format("%s sucks up %s.", buffer1, buffer2);
+            result->span->format("%s sucks up %s.",
+                    get_individual_description(observer, event.zap_wand_data().wielder),
+                    get_item_description(observer, event.zap_wand_data().wand));
             return result;
         case Event::SOMETHING_SUCKS_UP_ITEM:
-            get_item_description(observer, event.item_and_location_data().item, buffer1);
-            result->bytes->format("something unseen sucks up %s.", buffer1);
+            result->span->format("something unseen sucks up %s.", get_item_description(observer, event.item_and_location_data().item));
             return result;
     }
     panic("remembered_event");
