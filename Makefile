@@ -9,6 +9,11 @@ COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLA
 LINK_FLAGS += -lm -lrucksack $(MORE_LIBS)
 LINK = $(CROSS_PREFIX)gcc -o $@ $^ $(LINK_FLAGS)
 
+# ld is not allowed to omit functions and global variables defined in .o files,
+# but it can omit unused content from .a static libraries.
+# first make a static library with ar, then make our binary out of that.
+LINK_SPARSE = rm -f $@.a; $(foreach f,$^,$(CROSS_PREFIX)ar qcs $@.a $f;) $(CROSS_PREFIX)gcc -o $@ $@.a $(LINK_FLAGS)
+
 %/resources.o:
 	rucksack bundle assets.json $(dir $@)/resources --deps $@.d
 	rucksack strip $(dir $@)/resources
@@ -36,7 +41,7 @@ build/native/legend-of-swarkland build/native/test: CROSS_PREFIX =
 build/native/legend-of-swarkland: $(OBJECTS_native) build/native/main.o
 	$(LINK)
 build/native/test: $(OBJECTS_native) build/native/test.o
-	$(LINK)
+	$(LINK_SPARSE)
 native: build/native/legend-of-swarkland
 
 $(OBJECTS_native): | build/native
