@@ -48,10 +48,16 @@ class DivImpl;
 typedef Reference<SpanImpl> Span;
 class SpanImpl : public ReferenceCounted {
 private:
-    class StringOrSpan {
-    public:
+    struct StringOrSpan {
         String string;
         Span span;
+        bool operator==(const StringOrSpan & other) const {
+            return *string == *other.string &&
+                   *span == *span;
+        }
+        bool operator!=(const StringOrSpan & other) const {
+            return !(*this == other);
+        }
     };
 
 public:
@@ -117,6 +123,19 @@ public:
     }
     template<typename ...Args>
     void format(const char * fmt, Span span1, Args... args);
+
+    bool operator==(const SpanImpl & other) const {
+        if (this == &other)
+            return true;
+        if (this == NULL || &other == NULL)
+            return false;
+        return _items == other._items &&
+               _foreground == other._foreground &&
+               _background == other._background;
+    }
+    bool operator!=(const SpanImpl & other) const {
+        return !(*this == other);
+    }
 private:
     List<StringOrSpan> _items;
     SDL_Color _foreground = white;
@@ -174,6 +193,8 @@ public:
     }
 
     void set_content(Span span) {
+        if (_items.length() == 1 && *_items[0].span == *span)
+            return;
         _items.clear();
         _items.append(SpanOrSpace{span, 0});
         dispose_resources();

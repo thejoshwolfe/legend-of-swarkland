@@ -60,7 +60,7 @@ public:
         _length = length;
     }
 
-    bool operator==(const List<T> & other) {
+    bool operator==(const List<T> & other) const {
         if (this == &other)
             return true; // literally exactly the same thing
         if (_length != other._length)
@@ -70,7 +70,7 @@ public:
                 return false;
         return true;
     }
-    bool operator!=(const List<T> & other) {
+    bool operator!=(const List<T> & other) const {
         return !(*this == other);
     }
 

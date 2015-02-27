@@ -101,14 +101,14 @@ public:
     static bool is_whitespace(uint32_t c);
 
     // this or &other can be null
-    bool operator==(const StringImpl & other) {
+    bool operator==(const StringImpl & other) const {
         if (this == &other)
             return true;
         if (this == NULL || &other == NULL)
             return false;
         return _chars == other._chars;
     }
-    bool operator!=(const StringImpl & other) {
+    bool operator!=(const StringImpl & other) const {
         return !(*this == other);
     }
 
