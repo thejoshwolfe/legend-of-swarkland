@@ -8,6 +8,7 @@
 #include "input.hpp"
 #include "string.hpp"
 #include "text.hpp"
+#include "resources.hpp"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -80,7 +81,7 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
 
-void display_init(const char * resource_bundle_path) {
+void display_init() {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
         panic("unable to init SDL");
 
@@ -91,7 +92,7 @@ void display_init(const char * resource_bundle_path) {
     if (renderer == NULL)
         panic("renderer create failed");
 
-    if (rucksack_bundle_open_read(resource_bundle_path, &bundle) != RuckSackErrorNone)
+    if (rucksack_bundle_open_read_mem(get_binary_resources_start(), get_binary_resources_size(), &bundle) != RuckSackErrorNone)
         panic("error opening resource bundle");
     RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
     if (entry == NULL)

@@ -16,7 +16,7 @@ extern const SDL_Rect main_map_area;
 
 extern TTF_Font * status_box_font;
 
-void display_init(const char * resource_bundle_path);
+void display_init();
 void display_finish();
 
 Coord get_mouse_tile(SDL_Rect area);
