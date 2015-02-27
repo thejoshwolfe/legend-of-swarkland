@@ -10,9 +10,6 @@ public:
     ByteBuffer();
     ~ByteBuffer() {}
 
-    ByteBuffer(const ByteBuffer & copy) = delete;
-    ByteBuffer & operator=(const ByteBuffer & other) = delete;
-
     const char & operator[](int index) const {
         return _buffer[index];
     }
@@ -49,6 +46,9 @@ public:
     }
 private:
     List<char> _buffer;
+
+    ByteBuffer(const ByteBuffer & copy) = delete;
+    ByteBuffer & operator=(const ByteBuffer & other) = delete;
 };
 
 #endif

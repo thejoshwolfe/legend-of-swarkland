@@ -42,24 +42,48 @@ public:
         _background = background;
         dispose_resources();
     }
-    void set_text(String new_text) {
-        String old_text = get_plain_text();
-        if (*old_text == *new_text)
-            return; // no change
-        _items.clear();
-        _items.append(StringOrSpan{new_text, NULL});
+    void set_text(const String & new_text) {
+        if (new_text->length() == 0) {
+            // blank it out
+            if (_items.length() == 0)
+                return; // already blank
+            _items.clear();
+            dispose_resources();
+            return;
+        }
+        // set to non blank
+        if (_items.length() > 1 || (_items.length() == 1 && _items[0].string == NULL)) {
+            // too complicated. start over.
+            _items.clear();
+            dispose_resources();
+        }
+        if (_items.length() == 0) {
+            // starting from scratch
+            _items.append(StringOrSpan{new_string(), NULL});
+        } else {
+            // there's already some plain text here.
+            if (*_items[0].string == *new_text) {
+                // nothing to do
+                return;
+            }
+            // wrong.
+            _items[0].string->clear();
+        }
+        _items[0].string->append(new_text);
         dispose_resources();
     }
     void append(const char * str) {
         append(new_string(str));
     }
-    void append(String text) {
+    void append(const String & text) {
+        if (text->length() == 0)
+            return;
         if (_items.length() == 0 || _items[_items.length() - 1].string == NULL)
             _items.append(StringOrSpan{new_string(), NULL});
         _items[_items.length() - 1].string->append(text);
         dispose_resources();
     }
-    void append(Span span) {
+    void append(const Span & span) {
         _items.append(StringOrSpan{NULL, span});
         dispose_resources();
     }
@@ -73,16 +97,6 @@ public:
     SDL_Texture * get_texture(SDL_Renderer * renderer) {
         render_texture(renderer);
         return _texture;
-    }
-    // NULL if there are nested spans.
-    String get_plain_text() const {
-        String result = new_string();
-        for (int i = 0; i < _items.length(); i++) {
-            if (_items[i].span != NULL)
-                return NULL;
-            result->append(_items[i].string);
-        }
-        return result;
     }
 private:
     List<StringOrSpan> _items;
@@ -100,6 +114,9 @@ private:
             SDL_FreeSurface(_surface);
         _surface = NULL;
     }
+
+    SpanImpl(SpanImpl & copy) = delete;
+    SpanImpl & operator=(SpanImpl & other) = delete;
 };
 
 template<typename ...Args>

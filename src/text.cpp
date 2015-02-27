@@ -61,13 +61,15 @@ void SpanImpl::render_surface() {
     int width = 0;
     for (int i = 0; i < render_surfaces.length(); i++)
         width += render_surfaces[i]->w;
-    SDL_Rect bounds = {0, 0, width, render_surfaces[0]->h};
+    // height is the same for every span.
+    int height = render_surfaces[0]->h;
+    SDL_Rect bounds = {0, 0, width, height};
     _surface = create_surface(bounds.w, bounds.h);
     // copy all the sub surfaces
     SDL_FillRect(_surface, &bounds, pack_color(_background));
     int x_cursor = 0;
     for (int i = 0; i < render_surfaces.length(); i++) {
-        SDL_Rect src_rect = {0, 0, render_surfaces[i]->w, render_surfaces[i]->h};
+        SDL_Rect src_rect = {0, 0, render_surfaces[i]->w, height};
         SDL_Rect dest_rect = src_rect;
         dest_rect.x = x_cursor;
         SDL_BlitSurface(render_surfaces[i], &src_rect, _surface, &dest_rect);

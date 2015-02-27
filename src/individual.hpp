@@ -208,8 +208,6 @@ public:
     // wand
     ThingImpl(WandDescriptionId description_id, int charges);
 
-
-    ThingImpl(ThingImpl &) = delete;
     ~ThingImpl();
 
     Life * life() {
@@ -227,6 +225,9 @@ private:
         Life * _life;
         WandInfo * _wand_info;
     };
+
+    ThingImpl(ThingImpl &) = delete;
+    ThingImpl & operator=(ThingImpl &) = delete;
 };
 typedef Reference<ThingImpl> Thing;
 

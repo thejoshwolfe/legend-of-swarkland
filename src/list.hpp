@@ -11,8 +11,6 @@ public:
         _capacity = 16;
         _items = allocate<T>(_capacity);
     }
-    List(const List<T> & other) = delete;
-    List<T> & operator= (const List<T> & other) = delete;
 
     ~List() {
         destroy(_items, _capacity);
@@ -94,6 +92,9 @@ private:
             _capacity = better_capacity;
         }
     }
+
+    List(const List<T> & other) = delete;
+    List<T> & operator= (const List<T> & other) = delete;
 };
 
 #endif

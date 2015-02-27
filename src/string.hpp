@@ -34,9 +34,6 @@ class StringImpl : public ReferenceCounted {
 public:
     StringImpl() {}
 
-    StringImpl(const StringImpl &copy) = delete;
-    StringImpl& operator= (const StringImpl& other) = delete;
-
     // appends characters to this string
     void decode(const ByteBuffer &bytes, bool *ok);
     // this one panics if the string is invalid
@@ -117,6 +114,9 @@ public:
 
 private:
     List<uint32_t> _chars;
+
+    StringImpl(const StringImpl &copy) = delete;
+    StringImpl& operator= (const StringImpl& other) = delete;
 };
 
 template<typename... T>
