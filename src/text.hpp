@@ -43,6 +43,8 @@ static constexpr bool operator==(SDL_Color a, SDL_Color b) {
 }
 
 class SpanImpl;
+class DivImpl;
+
 typedef Reference<SpanImpl> Span;
 class SpanImpl : public ReferenceCounted {
 private:
@@ -115,27 +117,19 @@ public:
     }
     template<typename ...Args>
     void format(const char * fmt, Span span1, Args... args);
-    SDL_Texture * get_texture(SDL_Renderer * renderer) {
-        render_texture(renderer);
-        return _texture;
-    }
 private:
     List<StringOrSpan> _items;
     SDL_Color _foreground = white;
     SDL_Color _background = black;
-    SDL_Texture * _texture = NULL;
     SDL_Surface * _surface = NULL;
-    void render_texture(SDL_Renderer * renderer);
-    void render_surface();
+    SDL_Surface * get_surface();
     void dispose_resources() {
-        if (_texture != NULL)
-            SDL_DestroyTexture(_texture);
-        _texture = NULL;
         if (_surface != NULL)
             SDL_FreeSurface(_surface);
         _surface = NULL;
     }
 
+    friend class DivImpl;
     SpanImpl(SpanImpl & copy) = delete;
     SpanImpl & operator=(SpanImpl & other) = delete;
 };
@@ -162,6 +156,67 @@ static inline Span new_span(String text) {
 }
 static inline Span new_span(const char * str) {
     return new_span(new_string(str));
+}
+
+typedef Reference<DivImpl> Div;
+class DivImpl : public ReferenceCounted {
+private:
+    struct SpanOrSpace {
+        Span span;
+        // 0 means not space. -1 means newline. >0 means spaces.
+        int space_count;
+    };
+public:
+    DivImpl() {
+    }
+    ~DivImpl() {
+        dispose_resources();
+    }
+
+    void set_content(Span span) {
+        _items.clear();
+        _items.append(SpanOrSpace{span, 0});
+        dispose_resources();
+    }
+    void append(Span span) {
+        _items.append(SpanOrSpace{span, 0});
+        dispose_resources();
+    }
+    void append_newline() {
+        _items.append(SpanOrSpace{NULL, -1});
+        dispose_resources();
+    }
+    void append_spaces(int count) {
+        _items.append(SpanOrSpace{NULL, count});
+        dispose_resources();
+    }
+
+    SDL_Texture * get_texture(SDL_Renderer * renderer) {
+        render_texture(renderer);
+        return _texture;
+    }
+private:
+    List<SpanOrSpace> _items;
+    SDL_Color _background = black;
+    SDL_Surface * _surface = NULL;
+    SDL_Texture * _texture = NULL;
+    void render_surface();
+    void render_texture(SDL_Renderer * renderer);
+    void dispose_resources() {
+        if (_texture != NULL)
+            SDL_DestroyTexture(_texture);
+        _texture = NULL;
+        if (_surface != NULL)
+            SDL_FreeSurface(_surface);
+        _surface = NULL;
+    }
+
+    DivImpl(DivImpl & copy) = delete;
+    DivImpl & operator=(DivImpl & other) = delete;
+};
+
+static inline Div new_div() {
+    return create<DivImpl>();
 }
 
 #endif

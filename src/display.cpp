@@ -183,7 +183,8 @@ static inline SDL_Rect get_texture_bounds(SDL_Texture * texture) {
 static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
-static void render_text(SDL_Texture * texture, SDL_Rect output_area, int horizontal_align, int vertical_align) {
+static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int vertical_align) {
+    SDL_Texture * texture = div->get_texture(renderer);
     if (texture == NULL)
         return;
     SDL_Rect source_rect = get_texture_bounds(texture);
@@ -203,9 +204,6 @@ static void render_text(SDL_Texture * texture, SDL_Rect output_area, int horizon
     set_color(black);
     SDL_RenderFillRect(renderer, &dest_rect);
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
-}
-static void render_span(Span span, SDL_Rect area, int horizontal_align, int vertical_align) {
-    render_text(span->get_texture(renderer), area, horizontal_align, vertical_align);
 }
 
 Coord get_mouse_tile(SDL_Rect area) {
@@ -291,7 +289,7 @@ Span get_item_description(Thing observer, uint256 item_id) {
     }
 }
 
-static void popup_help(SDL_Rect area, Coord tile_in_area, Span using_span, Span content) {
+static void popup_help(SDL_Rect area, Coord tile_in_area, Div using_div, Span content) {
     Coord upper_left_corner = Coord{area.x, area.y} + Coord{tile_in_area.x * tile_size, tile_in_area.y * tile_size};
     Coord lower_right_corner = upper_left_corner + Coord{tile_size, tile_size};
     int horizontal_align = upper_left_corner.x < entire_window_area.w/2 ? 1 : -1;
@@ -311,9 +309,8 @@ static void popup_help(SDL_Rect area, Coord tile_in_area, Span using_span, Span 
         rect.y = lower_right_corner.y;
         rect.h = entire_window_area.h - lower_right_corner.y;
     }
-    using_span->set_text(new_string(""));
-    using_span->append(content);
-    render_span(using_span, rect, horizontal_align, vertical_align);
+    using_div->set_content(content);
+    render_div(using_div, rect, horizontal_align, vertical_align);
 }
 
 // TODO: this duplication looks silly
@@ -337,12 +334,12 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
 }
 
 static int previous_events_length = 0;
-static Span events_span = new_span();
-static Span hp_span = new_span();
-static Span kills_span = new_span();
-static Span status_span = new_span();
-static Span mouse_hover_span = new_span();
-static Span keyboard_hover_span = new_span();
+static Div events_div = new_div();
+static Div hp_div = new_div();
+static Div kills_div = new_div();
+static Div status_div = new_div();
+static Div mouse_hover_div = new_div();
+static Div keyboard_hover_div = new_div();
 
 void render() {
     Thing spectate_from = get_spectate_individual();
@@ -446,20 +443,21 @@ void render() {
         String hp_string = new_string();
         int hp = spectate_from->life()->hitpoints;
         hp_string->format("HP: %d", hp);
-        hp_span->set_text(hp_string);
+        Span hp_span = new_span(hp_string);
         if (hp <= 3)
             hp_span->set_color(white, red);
         else if (hp < 10)
             hp_span->set_color(black, amber);
         else
             hp_span->set_color(white, dark_green);
-        render_span(hp_span, hp_area, 1, 1);
+        hp_div->set_content(hp_span);
+        render_div(hp_div, hp_area, 1, 1);
     }
     {
         String kills_string = new_string();
         kills_string->format("Kills: %d", spectate_from->life()->kill_counter);
-        kills_span->set_text(kills_string);
-        render_span(kills_span, kills_area, 1, 1);
+        kills_div->set_content(new_span(kills_string));
+        render_div(kills_div, kills_area, 1, 1);
     }
     {
         String status_string = new_string();
@@ -467,8 +465,8 @@ void render() {
             status_string->append("invisible ");
         if (spectate_from->status_effects.confused_timeout > 0)
             status_string->append("confused ");
-        status_span->set_text(status_string);
-        render_span(status_span, status_area, 1, 1);
+        status_div->set_content(new_span(status_string));
+        render_div(status_div, status_area, 1, 1);
     }
 
     // message area
@@ -482,11 +480,11 @@ void render() {
                 if (i > 0) {
                     // maybe sneak in a delimiter
                     if (events[i - 1] == NULL)
-                        events_span->append("\n");
+                        events_div->append_newline();
                     else
-                        events_span->append("  ");
+                        events_div->append_spaces(2);
                 }
-                events_span->append(event->span);
+                events_div->append(event->span);
             }
         }
         previous_events_length = events.length();
@@ -496,7 +494,7 @@ void render() {
         } else {
             current_message_area = message_area;
         }
-        render_span(events_span, current_message_area, 1, -1);
+        render_div(events_div, current_message_area, 1, -1);
     }
 
     // inventory pane
@@ -523,7 +521,7 @@ void render() {
         if (render_cursor) {
             // also show popup help
             Span description = get_item_description(spectate_from, inventory[inventory_cursor]->id);
-            popup_help(inventory_area, Coord{0, inventory_cursor},mouse_hover_span, description);
+            popup_help(inventory_area, Coord{0, inventory_cursor}, mouse_hover_div, description);
         }
     }
 
@@ -549,7 +547,7 @@ void render() {
                     }
                 }
             }
-            popup_help(main_map_area, mouse_hover_map_tile, keyboard_hover_span, text);
+            popup_help(main_map_area, mouse_hover_map_tile, keyboard_hover_div, text);
         }
     }
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
@@ -557,7 +555,7 @@ void render() {
         int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < inventory.length()) {
             Span description = get_item_description(spectate_from, inventory[inventory_index]->id);
-            popup_help(inventory_area, Coord{0, inventory_index}, keyboard_hover_span, description);
+            popup_help(inventory_area, Coord{0, inventory_index}, keyboard_hover_div, description);
         }
     }
 

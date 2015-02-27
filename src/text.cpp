@@ -8,18 +8,18 @@ static SDL_Surface * create_surface(int w, int h) {
     return SDL_CreateRGBSurface(0, w, h, 32, color_rmask, color_gmask, color_bmask, color_amask);
 }
 
-void SpanImpl::render_surface() {
+SDL_Surface * SpanImpl::get_surface() {
     if (_surface != NULL)
-        return;
+        return _surface;
     List<SDL_Surface*> render_surfaces;
     List<SDL_Surface*> delete_surfaces;
     for (int i = 0; i < _items.length(); i++) {
         if (_items[i].span != NULL) {
             Span sub_span = _items[i].span;
-            sub_span->render_surface();
-            if (sub_span->_surface == NULL)
+            SDL_Surface * sub_surface = sub_span->get_surface();
+            if (sub_surface == NULL)
                 continue;
-            render_surfaces.append(sub_span->_surface);
+            render_surfaces.append(sub_surface);
         } else {
             ByteBuffer utf8;
             _items[i].string->encode(&utf8);
@@ -31,7 +31,7 @@ void SpanImpl::render_surface() {
         }
     }
     if (render_surfaces.length() == 0)
-        return;
+        return NULL;
 
     // measure dimensions
     int width = 0;
@@ -54,8 +54,52 @@ void SpanImpl::render_surface() {
     // cleanup
     for (int i = 0; i < delete_surfaces.length(); i++)
         SDL_FreeSurface(delete_surfaces[i]);
+    return _surface;
 }
-void SpanImpl::render_texture(SDL_Renderer * renderer) {
+
+
+void DivImpl::render_surface() {
+    if (_surface != NULL)
+        return;
+    int width = 0;
+    int height = 0;
+    for (int i = 0; i < _items.length(); i++) {
+        if (_items[i].span != NULL) {
+            SDL_Surface * sub_surface = _items[i].span->get_surface();
+            if (sub_surface == NULL)
+                continue;
+            width += sub_surface->w;
+            // TODO: line wrapping
+            height = sub_surface->h;
+        } else {
+            // TODO: line wrapping
+            width += _items[i].space_count * 8;
+        }
+    }
+    if (width == 0 || height == 0)
+        return;
+    SDL_Rect bounds = {0, 0, width, height};
+    _surface = create_surface(bounds.w, bounds.h);
+    // copy all the sub surfaces
+    SDL_FillRect(_surface, &bounds, pack_color(_background));
+    int x_cursor = 0;
+    for (int i = 0; i < _items.length(); i++) {
+        if (_items[i].span != NULL) {
+            SDL_Surface * sub_surface = _items[i].span->get_surface();
+            if (sub_surface == NULL)
+                continue;
+            SDL_Rect src_rect = {0, 0, sub_surface->w, height};
+            SDL_Rect dest_rect = src_rect;
+            dest_rect.x = x_cursor;
+            SDL_BlitSurface(sub_surface, &src_rect, _surface, &dest_rect);
+            x_cursor += dest_rect.w;
+        } else {
+            // TODO: line wrapping
+            x_cursor += _items[i].space_count * 8;
+        }
+    }
+}
+void DivImpl::render_texture(SDL_Renderer * renderer) {
     if (_texture != NULL)
         return;
     render_surface();
