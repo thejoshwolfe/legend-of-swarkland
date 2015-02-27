@@ -12,8 +12,6 @@
 
 #include <SDL2/SDL.h>
 
-static const char * resource_bundle_path = "resources.bundle";
-
 static void process_argv(int argc, char * argv[]) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--dump-script") == 0) {
@@ -28,11 +26,6 @@ static void process_argv(int argc, char * argv[]) {
             i++;
             char * filename = argv[i];
             tas_set_input_script(filename);
-        } else if (strcmp(argv[i], "--resource-bundle") == 0) {
-            if (i + 1 >= argc)
-                panic("expected argument");
-            i++;
-            resource_bundle_path = argv[i];
         } else {
             panic("unrecognized parameter");
         }
@@ -43,7 +36,7 @@ int main(int argc, char * argv[]) {
     process_argv(argc, argv);
     init_random();
 
-    display_init(resource_bundle_path);
+    display_init();
     swarkland_init();
     init_decisions();
 

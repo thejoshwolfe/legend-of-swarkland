@@ -11,7 +11,7 @@
 static const int tile_size = 32;
 extern const SDL_Rect main_map_area;
 
-void display_init(const char * resource_bundle_path);
+void display_init();
 void display_finish();
 
 Coord get_mouse_tile(SDL_Rect area);
