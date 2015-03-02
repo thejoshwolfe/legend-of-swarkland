@@ -212,12 +212,16 @@ public:
         dispose_resources();
     }
 
-    SDL_Texture * get_texture(SDL_Renderer * renderer, int max_width) {
-        if (previous_max_width != max_width)
-            dispose_resources();
-        previous_max_width = max_width;
+    void set_max_width(int max_width) {
+        if (_max_width == max_width)
+            return;
+        _max_width = max_width;
+        dispose_resources();
+    }
+
+    SDL_Texture * get_texture(SDL_Renderer * renderer) {
         if (_texture == NULL) {
-            render_surface(max_width);
+            render_surface();
             if (_surface != NULL)
                 _texture = SDL_CreateTextureFromSurface(renderer, _surface);
         }
@@ -230,8 +234,8 @@ private:
     SDL_Color _background = black;
     SDL_Surface * _surface = NULL;
     SDL_Texture * _texture = NULL;
-    int previous_max_width = 0;
-    void render_surface(int max_width);
+    int _max_width = 0;
+    void render_surface();
     void dispose_resources() {
         if (_texture != NULL)
             SDL_DestroyTexture(_texture);

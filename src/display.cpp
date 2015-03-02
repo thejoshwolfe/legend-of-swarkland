@@ -183,11 +183,7 @@ static inline SDL_Rect get_texture_bounds(SDL_Texture * texture) {
 static void set_color(SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
-static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int vertical_align) {
-    SDL_Texture * texture = div->get_texture(renderer, output_area.w);
-    if (texture == NULL)
-        return;
-    SDL_Rect source_rect = get_texture_bounds(texture);
+static void render_texture(SDL_Texture * texture, SDL_Rect source_rect, SDL_Rect output_area, int horizontal_align, int vertical_align) {
     SDL_Rect dest_rect;
     if (horizontal_align < 0) {
         dest_rect.x = output_area.x + output_area.w - source_rect.w;
@@ -204,6 +200,14 @@ static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int 
     set_color(black);
     SDL_RenderFillRect(renderer, &dest_rect);
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
+}
+static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int vertical_align) {
+    div->set_max_width(output_area.w);
+    SDL_Texture * texture = div->get_texture(renderer);
+    if (texture == NULL)
+        return;
+    SDL_Rect source_rect = get_texture_bounds(texture);
+    render_texture(texture, source_rect, output_area, horizontal_align, vertical_align);
 }
 
 Coord get_mouse_tile(SDL_Rect area) {
@@ -488,13 +492,21 @@ void render() {
             }
         }
         previous_events_length = events.length();
-        SDL_Rect current_message_area;
         if (expand_message_box) {
-            current_message_area = entire_window_area;
+            // truncate from the bottom
+            SDL_Texture * texture = events_div->get_texture(renderer);
+            if (texture != NULL) {
+                SDL_Rect source_rect = get_texture_bounds(texture);
+                int overflow = source_rect.h - entire_window_area.h;
+                if (overflow > 0) {
+                    source_rect.y += overflow;
+                    source_rect.h -= overflow;
+                }
+                render_texture(texture, source_rect, entire_window_area, 1, 1);
+            }
         } else {
-            current_message_area = message_area;
+            render_div(events_div, message_area, 1, -1);
         }
-        render_div(events_div, current_message_area, 1, -1);
     }
 
     // inventory pane

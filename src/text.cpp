@@ -58,7 +58,7 @@ SDL_Surface * SpanImpl::get_surface() {
 }
 
 
-void DivImpl::render_surface(int max_width) {
+void DivImpl::render_surface() {
     if (_surface != NULL)
         return;
     int total_width = 0;
@@ -70,7 +70,7 @@ void DivImpl::render_surface(int max_width) {
             SDL_Surface * sub_surface = _items[i].span->get_surface();
             if (sub_surface == NULL)
                 continue;
-            if (line_width + sub_surface->w > max_width) {
+            if (line_width + sub_surface->w > _max_width) {
                 // line break
                 wrapped_items.append(SpanOrSpace{NULL, -1});
                 line_width = 0;
