@@ -134,7 +134,7 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             return result;
         case Event::POLYMORPH:
             result->span->format("%s transforms into %s!",
-                    new_span(get_species_name(event.polymorph_data().old_species)),
+                    get_species_name(event.polymorph_data().old_species),
                     get_individual_description(observer, event.polymorph_data().individual));
             return result;
 

@@ -220,21 +220,24 @@ Coord get_mouse_tile(SDL_Rect area) {
     return tile_coord;
 }
 
-String get_species_name(SpeciesId species_id) {
+static const char * get_species_name_str(SpeciesId species_id) {
     switch (species_id) {
         case SpeciesId_HUMAN:
-            return new_string("human");
+            return "human";
         case SpeciesId_OGRE:
-            return new_string("ogre");
+            return "ogre";
         case SpeciesId_DOG:
-            return new_string("dog");
+            return "dog";
         case SpeciesId_PINK_BLOB:
-            return new_string("pink blob");
+            return "pink blob";
         case SpeciesId_AIR_ELEMENTAL:
-            return new_string("air elemental");
+            return "air elemental";
         default:
             panic("individual description");
     }
+}
+Span get_species_name(SpeciesId species_id) {
+    return new_span(get_species_name_str(species_id), light_brown, black);
 }
 Span get_thing_description(Thing observer, uint256 target_id) {
     PerceivedThing actual_thing = observer->life()->knowledge.perceived_things.get(target_id);
@@ -246,19 +249,23 @@ Span get_thing_description(Thing observer, uint256 target_id) {
     }
     panic("thing type");
 }
+static Span get_status_description(const StatusEffects & status_effects) {
+    Span result = new_span();
+    if (status_effects.invisible)
+        result->append("invisible ");
+    if (status_effects.confused_timeout > 0)
+        result->append("confused ");
+    result->set_color(pink, black);
+    return result;
+}
 Span get_individual_description(Thing observer, uint256 target_id) {
     if (observer->id == target_id)
-        return new_span("you");
+        return new_span("you", light_blue, black);
     PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, NULL);
     if (target == NULL)
-        return new_span("it");
+        return new_span("it", light_brown, black);
     Span result = new_span();
-    result->append("a ");
-    if (target->status_effects.invisible)
-        result->append("invisible ");
-    if (target->status_effects.confused_timeout > 0)
-        result->append("confused ");
-    result->append(get_species_name(target->life().species_id));
+    result->format("a %s%s", get_status_description(target->status_effects), get_species_name(target->life().species_id));
     return result;
 }
 Span get_item_description(Thing observer, uint256 item_id) {
@@ -463,12 +470,7 @@ void render() {
         render_div(kills_div, kills_area, 1, 1);
     }
     {
-        String status_string = new_string();
-        if (spectate_from->status_effects.invisible)
-            status_string->append("invisible ");
-        if (spectate_from->status_effects.confused_timeout > 0)
-            status_string->append("confused ");
-        status_div->set_content(new_span(status_string));
+        status_div->set_content(get_status_description(spectate_from->status_effects));
         render_div(status_div, status_area, 1, 1);
     }
 
@@ -547,16 +549,20 @@ void render() {
                 PerceivedThing target = things[i];
                 if (i > 0 )
                     content->append_newline();
-                content->append(get_thing_description(spectate_from, target->id));
+                Span thing_and_carrying = new_span();
+                thing_and_carrying->append(get_thing_description(spectate_from, target->id));
                 List<PerceivedThing> inventory;
                 find_items_in_inventory(spectate_from, target, &inventory);
                 if (inventory.length() > 0) {
-                    content->append(new_span(" carrying:"));
+                    thing_and_carrying->append(" carrying:");
+                    content->append(thing_and_carrying);
                     for (int j = 0; j < inventory.length(); j++) {
                         content->append_newline();
                         content->append_spaces(4);
                         content->append(get_thing_description(spectate_from, inventory[j]->id));
                     }
+                } else {
+                    content->append(thing_and_carrying);
                 }
             }
             mouse_hover_div->set_content(content);

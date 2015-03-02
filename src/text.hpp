@@ -8,9 +8,11 @@
 static const SDL_Color white       = {0xff, 0xff, 0xff, 0xff};
 static const SDL_Color black       = {0x00, 0x00, 0x00, 0xff};
 static const SDL_Color red         = {0xff, 0x00, 0x00, 0xff};
+static const SDL_Color light_blue  = {0x88, 0x88, 0xff, 0xff};
 static const SDL_Color pink        = {0xff, 0x88, 0x88, 0xff};
 static const SDL_Color dark_green  = {0x00, 0x88, 0x00, 0xff};
 static const SDL_Color amber       = {0xff, 0xbf, 0x00, 0xff};
+static const SDL_Color light_brown = {0xff, 0xa8, 0x00, 0xff};
 
 // i wonder if this difference even matters
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
@@ -56,7 +58,7 @@ private:
         Span span;
         bool operator==(const StringOrSpan & other) const {
             return *string == *other.string &&
-                   *span == *span;
+                   *span == *other.span;
         }
         bool operator!=(const StringOrSpan & other) const {
             return !(*this == other);
@@ -178,6 +180,11 @@ static inline Span new_span(String text) {
 }
 static inline Span new_span(const char * str) {
     return new_span(new_string(str));
+}
+static inline Span new_span(const char * str, SDL_Color foreground, SDL_Color background) {
+    Span result = new_span(new_string(str));
+    result->set_color(foreground, background);
+    return result;
 }
 
 typedef Reference<DivImpl> Div;
