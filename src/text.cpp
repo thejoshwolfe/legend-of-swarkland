@@ -62,7 +62,6 @@ void DivImpl::render_surface() {
     if (_surface != NULL)
         return;
     int total_width = 0;
-    int total_height = text_height;
     int line_width = 0;
     List<SpanOrSpace> wrapped_items;
     for (int i = 0; i < _items.length(); i++) {
@@ -74,7 +73,6 @@ void DivImpl::render_surface() {
                 // line break
                 wrapped_items.append(SpanOrSpace{NULL, -1});
                 line_width = 0;
-                total_height += text_height;
             }
             wrapped_items.append(_items[i]);
             line_width += sub_surface->w;
@@ -84,25 +82,48 @@ void DivImpl::render_surface() {
             int space_count = _items[i].space_count;
             if (space_count != -1) {
                 line_width += space_count * text_width;
-                if (line_width > total_width)
-                    total_width = line_width;
+                if (line_width > _max_width) {
+                    // nevermind these spaces. wrap instead
+                    wrapped_items.append(SpanOrSpace{NULL, -1});
+                    line_width = 0;
+                } else {
+                    if (line_width > total_width)
+                        total_width = line_width;
+                }
             } else {
                 // newline
                 line_width = 0;
-                total_height += text_height;
             }
             wrapped_items.append(_items[i]);
         }
     }
     if (total_width == 0)
         return;
-    SDL_Rect bounds = {0, 0, total_width, total_height};
+
+    // limit the height from the bottom
+    int first_visible_index = wrapped_items.length();
+    int visible_height = text_height;
+    while (true) {
+        if (first_visible_index == 0)
+            break;
+        first_visible_index--;
+        if (wrapped_items[first_visible_index].space_count != -1)
+            continue;
+        if (visible_height + text_height > _max_height) {
+            // this one is out of view.
+            first_visible_index++;
+            break;
+        }
+        visible_height += text_height;
+    }
+
+    // combine the sub surfaces
+    SDL_Rect bounds = {0, 0, total_width, visible_height};
     _surface = create_surface(bounds.w, bounds.h);
-    // copy all the sub surfaces
     SDL_FillRect(_surface, &bounds, pack_color(_background));
     int x_cursor = 0;
     int y_cursor = 0;
-    for (int i = 0; i < wrapped_items.length(); i++) {
+    for (int i = first_visible_index; i < wrapped_items.length(); i++) {
         if (wrapped_items[i].span != NULL) {
             SDL_Surface * sub_surface = wrapped_items[i].span->get_surface();
             if (sub_surface == NULL)

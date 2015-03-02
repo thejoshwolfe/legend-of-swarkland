@@ -202,7 +202,7 @@ static void render_texture(SDL_Texture * texture, SDL_Rect source_rect, SDL_Rect
     SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
 }
 static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int vertical_align) {
-    div->set_max_width(output_area.w);
+    div->set_max_size(output_area.w, output_area.h);
     SDL_Texture * texture = div->get_texture(renderer);
     if (texture == NULL)
         return;
@@ -501,6 +501,7 @@ void render() {
         previous_events_length = events.length();
         if (expand_message_box) {
             // truncate from the bottom
+            events_div->set_max_size(entire_window_area.w, entire_window_area.h);
             SDL_Texture * texture = events_div->get_texture(renderer);
             if (texture != NULL) {
                 SDL_Rect source_rect = get_texture_bounds(texture);

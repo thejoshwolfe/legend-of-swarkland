@@ -229,10 +229,11 @@ public:
         dispose_resources();
     }
 
-    void set_max_width(int max_width) {
-        if (_max_width == max_width)
+    void set_max_size(int max_width, int max_height) {
+        if (_max_width == max_width && _max_height == max_height)
             return;
         _max_width = max_width;
+        _max_height = max_height;
         dispose_resources();
     }
 
@@ -260,6 +261,7 @@ private:
     SDL_Surface * _surface = NULL;
     SDL_Texture * _texture = NULL;
     int _max_width = 0;
+    int _max_height = 0;
     void render_surface();
     void dispose_resources() {
         if (_texture != NULL)
