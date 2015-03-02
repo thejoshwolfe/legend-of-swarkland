@@ -268,37 +268,43 @@ Span get_individual_description(Thing observer, uint256 target_id) {
     result->format("a %s%s", get_status_description(target->status_effects), get_species_name(target->life().species_id));
     return result;
 }
-Span get_item_description(Thing observer, uint256 item_id) {
+static const char * get_item_description_str(Thing observer, uint256 item_id) {
     PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, NULL);
     if (item == NULL) {
         // can't see the wand
-        return new_span("a wand");
+        return "wand";
     }
     WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info().description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
-                return new_span("a wand of confusion");
+                return "wand of confusion";
             case WandId_WAND_OF_DIGGING:
-                return new_span("a wand of digging");
+                return "wand of digging";
             case WandId_WAND_OF_STRIKING:
-                return new_span("a wand of striking");
+                return "wand of striking";
             default:
                 panic("wand id");
         }
     } else {
         switch (item->wand_info().description_id) {
             case WandDescriptionId_BONE_WAND:
-                return new_span("a bone wand");
+                return "bone wand";
             case WandDescriptionId_GOLD_WAND:
-                return new_span("a gold wand");
+                return "gold wand";
             case WandDescriptionId_PLASTIC_WAND:
-                return new_span("a plastic wand");
+                return "plastic wand";
             default:
                 panic("wand id");
         }
     }
 }
+Span get_item_description(Thing observer, uint256 item_id) {
+    Span result = new_span("a ");
+    result->append(new_span(get_item_description_str(observer, item_id), light_green, black));
+    return result;
+}
+
 
 static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
     Coord upper_left_corner = Coord{area.x, area.y} + Coord{tile_in_area.x * tile_size, tile_in_area.y * tile_size};
