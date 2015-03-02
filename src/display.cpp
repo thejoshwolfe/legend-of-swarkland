@@ -293,7 +293,7 @@ Span get_item_description(Thing observer, uint256 item_id) {
     }
 }
 
-static void popup_help(SDL_Rect area, Coord tile_in_area, Div using_div, Span content) {
+static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
     Coord upper_left_corner = Coord{area.x, area.y} + Coord{tile_in_area.x * tile_size, tile_in_area.y * tile_size};
     Coord lower_right_corner = upper_left_corner + Coord{tile_size, tile_size};
     int horizontal_align = upper_left_corner.x < entire_window_area.w/2 ? 1 : -1;
@@ -313,8 +313,7 @@ static void popup_help(SDL_Rect area, Coord tile_in_area, Div using_div, Span co
         rect.y = lower_right_corner.y;
         rect.h = entire_window_area.h - lower_right_corner.y;
     }
-    using_div->set_content(content);
-    render_div(using_div, rect, horizontal_align, vertical_align);
+    render_div(div, rect, horizontal_align, vertical_align);
 }
 
 // TODO: this duplication looks silly
@@ -342,8 +341,8 @@ static Div events_div = new_div();
 static Div hp_div = new_div();
 static Div kills_div = new_div();
 static Div status_div = new_div();
-static Div mouse_hover_div = new_div();
 static Div keyboard_hover_div = new_div();
+static Div mouse_hover_div = new_div();
 
 void render() {
     Thing spectate_from = get_spectate_individual();
@@ -532,8 +531,8 @@ void render() {
         }
         if (render_cursor) {
             // also show popup help
-            Span description = get_item_description(spectate_from, inventory[inventory_cursor]->id);
-            popup_help(inventory_area, Coord{0, inventory_cursor}, mouse_hover_div, description);
+            keyboard_hover_div->set_content(get_item_description(spectate_from, inventory[inventory_cursor]->id));
+            popup_help(inventory_area, Coord{0, inventory_cursor}, keyboard_hover_div);
         }
     }
 
@@ -543,31 +542,33 @@ void render() {
         List<PerceivedThing> things;
         find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
         if (things.length() != 0) {
-            Span text = new_span();
+            Div content = new_div();
             for (int i = 0; i < things.length(); i++) {
                 PerceivedThing target = things[i];
                 if (i > 0 )
-                    text->append("\n");
-                text->append(get_thing_description(spectate_from, target->id));
+                    content->append_newline();
+                content->append(get_thing_description(spectate_from, target->id));
                 List<PerceivedThing> inventory;
                 find_items_in_inventory(spectate_from, target, &inventory);
                 if (inventory.length() > 0) {
-                    text->append(" carrying:");
+                    content->append(new_span(" carrying:"));
                     for (int j = 0; j < inventory.length(); j++) {
-                        text->append("\n    ");
-                        text->append(get_thing_description(spectate_from, inventory[j]->id));
+                        content->append_newline();
+                        content->append_spaces(4);
+                        content->append(get_thing_description(spectate_from, inventory[j]->id));
                     }
                 }
             }
-            popup_help(main_map_area, mouse_hover_map_tile, keyboard_hover_div, text);
+            mouse_hover_div->set_content(content);
+            popup_help(main_map_area, mouse_hover_map_tile, mouse_hover_div);
         }
     }
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
     if (mouse_hover_inventory_tile.x == 0) {
         int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < inventory.length()) {
-            Span description = get_item_description(spectate_from, inventory[inventory_index]->id);
-            popup_help(inventory_area, Coord{0, inventory_index}, keyboard_hover_div, description);
+            mouse_hover_div->set_content(get_item_description(spectate_from, inventory[inventory_index]->id));
+            popup_help(inventory_area, Coord{0, inventory_index}, mouse_hover_div);
         }
     }
 

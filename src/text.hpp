@@ -41,6 +41,9 @@ static constexpr Uint32 pack_color(SDL_Color color) {
 static constexpr bool operator==(SDL_Color a, SDL_Color b) {
     return pack_color(a) == pack_color(b);
 }
+static constexpr bool operator!=(SDL_Color a, SDL_Color b) {
+    return !(a == b);
+}
 
 class SpanImpl;
 class DivImpl;
@@ -184,6 +187,12 @@ private:
         Span span;
         // 0 means not space. -1 means newline. >0 means spaces.
         int space_count;
+        bool operator==(const SpanOrSpace & other) const {
+            return *span == *other.span && space_count == other.space_count;
+        }
+        bool operator!=(const SpanOrSpace & other) const {
+            return !(*this == other);
+        }
     };
 public:
     DivImpl() {
@@ -216,6 +225,14 @@ public:
         if (_max_width == max_width)
             return;
         _max_width = max_width;
+        dispose_resources();
+    }
+
+    void set_content(const Div & copy_this_guy) {
+        if (_items == copy_this_guy->_items)
+            return;
+        _items.clear();
+        _items.append_all(copy_this_guy->_items);
         dispose_resources();
     }
 
