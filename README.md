@@ -34,9 +34,7 @@ make
 run:
 
 ```
-cd build/native && ./legend-of-swarkland
-# or
-./build/native/legend-of-swarkland --resource-bundle build/native/resources.bundle
+./build/native/legend-of-swarkland
 ```
 
 ## Build for Windows on Linux
@@ -58,6 +56,11 @@ source code to the website.
  * Animations for moving, attacking, wand zapping, etc.
  * Client/server architecture
  * Main menu?
+
+### 3.1.0
+
+ * The game is now a self-contained executable. (no more resources.bundle)
+ * Color text.
 
 ## Version History
 
