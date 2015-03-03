@@ -51,11 +51,19 @@ source code to the website.
 
 ## Roadmap
 
+### 5.0.0
+
+ * Secret dungeon features:
+   * Secret passage ways.
+   * Acid traps.
+   * Polymorph traps.
+
 ### 4.0.0
 
- * Animations for moving, attacking, wand zapping, etc.
- * Client/server architecture
- * Main menu?
+ * Roguelike dungeon crawler.
+   * Rooms and corridors with stairs down to the next level (no stairs up).
+   * Experience levels.
+   * Monster difficulty depends on your experience level and dungeon depth.
 
 ## Version History
 
