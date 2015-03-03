@@ -114,7 +114,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
                 break;
             }
         }
-        if (!is_in_bounds(cursor) || actual_map_tiles[cursor].tile_type == TileType_WALL) {
+        if (!is_in_bounds(cursor) || !is_open_space(actual_map_tiles[cursor].tile_type)) {
             // TODO: remove this hack once the edge of the world is less reachable.
             Coord wall_location = clamp(cursor, {0, 0}, map_size);
             publish_event(Event::item_hits_wall(item->id, wall_location));
@@ -220,7 +220,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
     List<Coord> available_spawn_locations;
     for (Coord location = {0, 0}; location.y < map_size.y; location.y++) {
         for (location.x = 0; location.x < map_size.x; location.x++) {
-            if (actual_map_tiles[location].tile_type == TileType_WALL)
+            if (!is_open_space(actual_map_tiles[location].tile_type))
                 continue;
             if (you != NULL && euclidean_distance_squared(location, you->location) < no_spawn_radius * no_spawn_radius)
                 continue;
@@ -458,7 +458,7 @@ static bool take_action(Thing actor, Action action) {
             // normally, we'd be sure that this was valid, but if you use cheatcodes,
             // monsters can try to walk into you while you're invisible.
             Coord new_position = actor->location + confuse_direction(actor, action.coord);
-            if (!is_in_bounds(new_position) || actual_map_tiles[new_position].tile_type == TileType_WALL) {
+            if (!is_open_space(actual_map_tiles[new_position].tile_type)) {
                 // this can only happen if your direction was changed, since attempting to move into a wall is invalid.
                 publish_event(Event::bump_into_wall(actor, new_position));
                 return true;
@@ -480,7 +480,7 @@ static bool take_action(Thing actor, Action action) {
                 attack(actor, target);
                 return true;
             } else {
-                bool is_air = is_in_bounds(new_position) && actual_map_tiles[new_position].tile_type == TileType_FLOOR;
+                bool is_air = is_open_space(actual_map_tiles[new_position].tile_type);
                 if (is_air)
                     publish_event(Event::attack_thin_air(actor, new_position));
                 else

@@ -8,7 +8,7 @@
 bool do_i_think_i_can_move_here(Thing individual, Coord location) {
     if (!is_in_bounds(location))
         return false;
-    if (individual->life()->knowledge.tiles[location].tile_type == TileType_WALL)
+    if (!is_open_space(individual->life()->knowledge.tiles[location].tile_type))
         return false;
     if (find_individual_at(location) != NULL)
         return false;

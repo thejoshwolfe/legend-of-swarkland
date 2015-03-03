@@ -16,7 +16,7 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
             // x = y * m + b
             // m = run / rise
             int x = (y - from_location.y) * (to_location.x - from_location.x) / (to_location.y - from_location.y) + from_location.x;
-            if (actual_map_tiles[Coord{x, y}].tile_type == TileType_WALL)
+            if (!is_open_space(actual_map_tiles[Coord{x, y}].tile_type))
                 return false;
         }
     } else {
@@ -26,7 +26,7 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
             // y = x * m + b
             // m = rise / run
             int y = (x - from_location.x) * (to_location.y - from_location.y) / (to_location.x - from_location.x) + from_location.y;
-            if (actual_map_tiles[{x, y}].tile_type == TileType_WALL)
+            if (!is_open_space(actual_map_tiles[Coord{x, y}].tile_type))
                 return false;
         }
     }
@@ -112,6 +112,15 @@ void generate_map() {
             tile.aesthetic_index = random_int(8);
         }
     }
+    // line the border with special undiggable walls
+    for (int x = 0; x < map_size.x; x++) {
+        actual_map_tiles[Coord{x, 0}].tile_type = TileType_BORDER_WALL;
+        actual_map_tiles[Coord{x, map_size.y - 1}].tile_type = TileType_BORDER_WALL;
+    }
+    for (int y = 0; y < map_size.y; y++) {
+        actual_map_tiles[Coord{0, y}].tile_type = TileType_BORDER_WALL;
+        actual_map_tiles[Coord{map_size.x - 1, y}].tile_type = TileType_BORDER_WALL;
+    }
 
     // create rooms
     List<SDL_Rect> rooms;
@@ -132,11 +141,13 @@ void generate_map() {
         rooms.append(room);
         next_room:;
     }
+    List<Coord> room_floor_spaces;
     for (int i = 0; i < rooms.length(); i++) {
         Coord cursor;
         SDL_Rect room = rooms[i];
         for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
+                room_floor_spaces.append(cursor);
                 actual_map_tiles[cursor].tile_type = TileType_FLOOR;
             }
         }
@@ -195,4 +206,8 @@ void generate_map() {
         for (; cursor.y * delta.y < b.y * delta.y; cursor.y += delta.y)
             actual_map_tiles[cursor].tile_type = TileType_FLOOR;
     }
+
+    // place the stairs down
+    Coord stairs_location = room_floor_spaces[random_int(room_floor_spaces.length())];
+    actual_map_tiles[stairs_location].tile_type = TileType_STAIRS_DOWN;
 }

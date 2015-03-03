@@ -18,6 +18,8 @@ enum TileType {
     TileType_UNKNOWN,
     TileType_FLOOR,
     TileType_WALL,
+    TileType_BORDER_WALL,
+    TileType_STAIRS_DOWN,
 
     TileType_COUNT,
 };
@@ -35,6 +37,10 @@ void generate_map();
 
 static inline bool is_in_bounds(Coord point) {
     return point.x >= 0 && point.x < map_size.x && point.y >= 0 && point.y < map_size.y;
+}
+
+static inline bool is_open_space(TileType tile_type) {
+    return tile_type == TileType_FLOOR || tile_type == TileType_STAIRS_DOWN;
 }
 
 #endif

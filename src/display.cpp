@@ -37,6 +37,7 @@ static RuckSackImage ** spritesheet_images;
 static RuckSackImage * species_images[SpeciesId_COUNT];
 static RuckSackImage * floor_images[8];
 static RuckSackImage * wall_images[8];
+static RuckSackImage * stairs_down_image;
 static RuckSackImage * wand_images[WandDescriptionId_COUNT];
 static RuckSackImage * equipment_image;
 
@@ -75,6 +76,8 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     wall_images[5] = find_image(spritesheet_images, image_count, "img/brick_brown5.png");
     wall_images[6] = find_image(spritesheet_images, image_count, "img/brick_brown6.png");
     wall_images[7] = find_image(spritesheet_images, image_count, "img/brick_brown7.png");
+
+    stairs_down_image = find_image(spritesheet_images, image_count, "img/stairs_down.png");
 
     wand_images[WandDescriptionId_BONE_WAND] = find_image(spritesheet_images, image_count, "img/bone_wand.png");
     wand_images[WandDescriptionId_GOLD_WAND] = find_image(spritesheet_images, image_count, "img/gold_wand.png");
@@ -355,6 +358,22 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
     }
     panic("thing type");
 }
+static RuckSackImage * get_image_for_tile(Tile tile) {
+    switch (tile.tile_type) {
+        case TileType_UNKNOWN:
+            return NULL;
+        case TileType_FLOOR:
+            return floor_images[tile.aesthetic_index];
+        case TileType_WALL:
+        case TileType_BORDER_WALL:
+            return wall_images[tile.aesthetic_index];
+        case TileType_STAIRS_DOWN:
+            return stairs_down_image;
+        case TileType_COUNT:
+            panic("not a real tile type");
+    }
+    panic("tile type");
+}
 
 static int previous_events_length = 0;
 static int previous_event_forget_counter = 0;
@@ -435,7 +454,8 @@ void render() {
             Tile tile = spectate_from->life()->knowledge.tiles[cursor];
             if (cheatcode_full_visibility)
                 tile = actual_map_tiles[cursor];
-            if (tile.tile_type == TileType_UNKNOWN)
+            RuckSackImage * image = get_image_for_tile(tile);
+            if (image == NULL)
                 continue;
             Uint8 alpha;
             if (spectate_from->life()->knowledge.tile_is_visible[cursor].any()) {
@@ -458,7 +478,6 @@ void render() {
             } else {
                 alpha = 0x7f;
             }
-            RuckSackImage * image = (tile.tile_type == TileType_FLOOR ? floor_images : wall_images)[tile.aesthetic_index];
             render_tile(renderer, sprite_sheet_texture, image, alpha, cursor);
         }
     }

@@ -79,7 +79,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
                     strike_individual_from_wand(wand_wielder, target, &perceived_current_zapper);
                     beam_length -= 3;
                 }
-                if (actual_map_tiles[cursor].tile_type == TileType_WALL) {
+                if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
                     publish_event(Event::beam_hit_wall_no_effect(cursor));
                     beam_length = i;
                 }
@@ -91,7 +91,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
                     confuse_individual_from_wand(target, &perceived_current_zapper);
                     beam_length -= 3;
                 }
-                if (actual_map_tiles[cursor].tile_type == TileType_WALL) {
+                if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
                     publish_event(Event::beam_hit_wall_no_effect(cursor));
                     beam_length = i;
                 }
