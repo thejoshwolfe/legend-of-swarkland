@@ -1,4 +1,9 @@
 {
+  files: {
+    "version.txt": {
+      path: "version.txt",
+    },
+  },
   globFiles: [
     {
       path: "assets/font/",

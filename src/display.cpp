@@ -16,12 +16,13 @@
 // screen layout
 static const SDL_Rect message_area = { 0, 0, map_size.x * tile_size, 2 * tile_size };
 const SDL_Rect main_map_area = { 0, message_area.y + message_area.h, map_size.x * tile_size, map_size.y * tile_size };
-static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, main_map_area.w, 32 };
+static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, main_map_area.w, tile_size };
 static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect kills_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect status_area = { kills_area.x + kills_area.w, status_box_area.y, status_box_area.w - (kills_area.x + kills_area.w), status_box_area.h };
 static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, (map_size.y - 3) * tile_size };
 static const SDL_Rect tutorial_area = { inventory_area.x, inventory_area.y + inventory_area.h, 5 * tile_size, 3 * tile_size };
+static const SDL_Rect version_area = { status_box_area.x + status_box_area.w, status_box_area.y, 5 * tile_size, tile_size };
 static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_area.w, status_box_area.y + status_box_area.h };
 
 
@@ -42,7 +43,7 @@ static RuckSackImage * equipment_image;
 TTF_Font * status_box_font;
 static unsigned char *font_buffer;
 static SDL_RWops *font_rw_ops;
-static Coord status_box_font_size;
+static String version_string = new_string();
 
 static RuckSackImage * find_image(RuckSackImage ** spritesheet_images, long image_count, const char * name) {
     for (int i = 0; i < image_count; i++)
@@ -122,9 +123,14 @@ void display_init() {
         panic("sdl rwops fail");
     status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
     TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
-    TTF_SizeUTF8(status_box_font, "j", &status_box_font_size.x, &status_box_font_size.y);
-    // never mind the actual height. crop it off at the line skip height.
-    status_box_font_size.y = TTF_FontLineSkip(status_box_font);
+
+    RuckSackFileEntry * version_entry = rucksack_bundle_find_file(bundle, "version.txt", -1);
+    if (version_entry == NULL)
+        panic("version not found in bundle");
+    ByteBuffer buffer;
+    buffer.resize(rucksack_file_size(version_entry));
+    rucksack_file_read(version_entry, (unsigned char *)buffer.raw());
+    version_string->decode(buffer);
 }
 
 void display_finish() {
@@ -354,6 +360,7 @@ static int previous_events_length = 0;
 static int previous_event_forget_counter = 0;
 static uint256 previous_spectator_id = uint256::zero();
 static Div tutorial_div = new_div();
+static Div version_div = new_div();
 static Div events_div = new_div();
 static Div hp_div = new_div();
 static Div kills_div = new_div();
@@ -361,7 +368,7 @@ static Div status_div = new_div();
 static Div keyboard_hover_div = new_div();
 static Div mouse_hover_div = new_div();
 
-static Div get_tutorial_div(Thing spectate_from, const List<Thing> & my_inventory) {
+static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_inventory) {
     List<const char *> lines;
     if (input_mode_is_choose_item()) {
         lines.append("numpad: select item");
@@ -412,8 +419,14 @@ void render() {
     SDL_RenderClear(renderer);
 
     // tutorial
-    tutorial_div->set_content(get_tutorial_div(spectate_from, my_inventory));
+    tutorial_div->set_content(get_tutorial_div_content(spectate_from, my_inventory));
     render_div(tutorial_div, tutorial_area, 1, 1);
+    {
+        Span blurb_span = new_span("v", gray, black);
+        blurb_span->append(version_string);
+        version_div->set_content(blurb_span);
+        render_div(version_div, version_area, -1, -1);
+    }
 
     // main map
     // render the terrain
