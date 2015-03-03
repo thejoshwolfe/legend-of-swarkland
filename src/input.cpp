@@ -4,6 +4,10 @@
 #include "swarkland.hpp"
 #include "decision.hpp"
 
+InputMode input_mode = InputMode_MAIN;
+static uint256 chosen_item;
+int inventory_cursor;
+
 bool request_shutdown = false;
 
 static bool seen_the_mouse_for_realz = false;
@@ -20,10 +24,32 @@ Coord get_mouse_pixels() {
     }
     return result;
 }
-
-InputMode input_mode = InputMode_MAIN;
-uint256 chosen_item;
-int inventory_cursor;
+bool input_mode_is_choose_item() {
+    switch (input_mode) {
+        case InputMode_ZAP_CHOOSE_ITEM:
+        case InputMode_DROP_CHOOSE_ITEM:
+        case InputMode_THROW_CHOOSE_ITEM:
+            return true;
+        case InputMode_MAIN:
+        case InputMode_THROW_CHOOSE_DIRECTION:
+        case InputMode_ZAP_CHOOSE_DIRECTION:
+            return false;
+    }
+    panic("input mode");
+}
+bool input_mode_is_choose_direction() {
+    switch (input_mode) {
+        case InputMode_THROW_CHOOSE_DIRECTION:
+        case InputMode_ZAP_CHOOSE_DIRECTION:
+            return true;
+        case InputMode_MAIN:
+        case InputMode_ZAP_CHOOSE_ITEM:
+        case InputMode_DROP_CHOOSE_ITEM:
+        case InputMode_THROW_CHOOSE_ITEM:
+            return false;
+    }
+    panic("input mode");
+}
 
 static InputMode get_item_choosing_action_mode(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {

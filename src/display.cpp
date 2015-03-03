@@ -361,25 +361,58 @@ static Div status_div = new_div();
 static Div keyboard_hover_div = new_div();
 static Div mouse_hover_div = new_div();
 
-static void init_tutorial_div() {
+static Div get_tutorial_div(Thing spectate_from, const List<Thing> & my_inventory) {
+    List<const char *> lines;
+    if (input_mode_is_choose_item()) {
+        lines.append("numpad: select item");
+        if (input_mode == InputMode_ZAP_CHOOSE_ITEM)
+            lines.append("z: zap it...");
+        else if (input_mode == InputMode_THROW_CHOOSE_ITEM)
+            lines.append("t: throw it...");
+        else if (input_mode == InputMode_DROP_CHOOSE_ITEM)
+            lines.append("d: drop it");
+        else
+            panic("input_mode");
+        lines.append("Esc: cancel");
+        lines.append("mouse: what's this");
+    } else if (input_mode_is_choose_direction()) {
+        lines.append("numpad: direction");
+        lines.append("Esc: cancel");
+        lines.append("mouse: what's this");
+    } else {
+        List<Thing> items_on_floor;
+        find_items_on_floor(spectate_from->location, &items_on_floor);
+
+        lines.append("numpad: move/attack");
+        if (my_inventory.length() > 0) {
+            lines.append("z: zap...");
+            lines.append("t: throw...");
+            lines.append("d: drop...");
+        }
+        if (items_on_floor.length() > 0)
+            lines.append(",: pick up");
+        lines.append("mouse: what's this");
+    }
+
     Div div = new_div();
-    div->append(new_span("numpad: move/attack", white, black));
-    div->append(new_span("z: zap wand", white, black));
-    div->append(new_span("t: throw item", white, black));
-    div->append(new_span(",: pick up item", white, black));
-    div->append(new_span("d: drop item", white, black));
-    div->append(new_span("mouse: what's this", white, black));
-    tutorial_div->set_content(div);
+    for (int i = 0; i < lines.length(); i++) {
+        if (i > 0)
+            div->append_newline();
+        div->append(new_span(lines[i]));
+    }
+    return div;
 }
 
 void render() {
     Thing spectate_from = get_spectate_individual();
+    List<Thing> my_inventory;
+    find_items_in_inventory(spectate_from->id, &my_inventory);
 
     set_color(black);
     SDL_RenderClear(renderer);
 
     // tutorial
-    init_tutorial_div();
+    tutorial_div->set_content(get_tutorial_div(spectate_from, my_inventory));
     render_div(tutorial_div, tutorial_area, 1, 1);
 
     // main map
@@ -394,8 +427,8 @@ void render() {
             Uint8 alpha;
             if (spectate_from->life()->knowledge.tile_is_visible[cursor].any()) {
                 // it's in our direct line of sight
-                if (input_mode == InputMode_ZAP_CHOOSE_DIRECTION || input_mode == InputMode_THROW_CHOOSE_DIRECTION) {
-                    // actually, let's only show the cardinal directions
+                if (input_mode_is_choose_direction()) {
+                    // actually, let's only show the 8 directions
                     Coord vector = spectate_from->location - cursor;
                     if (vector.x * vector.y == 0) {
                         // cardinal direction
@@ -544,10 +577,8 @@ void render() {
     }
 
     // inventory pane
-    List<Thing> inventory;
-    find_items_in_inventory(spectate_from->id, &inventory);
     {
-        bool render_cursor = input_mode == InputMode_ZAP_CHOOSE_ITEM || input_mode == InputMode_DROP_CHOOSE_ITEM || input_mode == InputMode_THROW_CHOOSE_ITEM;
+        bool render_cursor = input_mode_is_choose_item();
         if (render_cursor) {
             // render the cursor
             SDL_Rect cursor_rect;
@@ -559,14 +590,14 @@ void render() {
             SDL_RenderFillRect(renderer, &cursor_rect);
         }
         Coord location = {map_size.x, 0};
-        for (int i = 0; i < inventory.length(); i++) {
-            Thing & item = inventory[i];
+        for (int i = 0; i < my_inventory.length(); i++) {
+            Thing & item = my_inventory[i];
             render_tile(renderer, sprite_sheet_texture, wand_images[item->wand_info()->description_id], 0xff, location);
             location.y += 1;
         }
         if (render_cursor) {
             // also show popup help
-            keyboard_hover_div->set_content(get_item_description(spectate_from, inventory[inventory_cursor]->id));
+            keyboard_hover_div->set_content(get_item_description(spectate_from, my_inventory[inventory_cursor]->id));
             popup_help(inventory_area, Coord{0, inventory_cursor}, keyboard_hover_div);
         }
     }
@@ -605,8 +636,8 @@ void render() {
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
     if (mouse_hover_inventory_tile.x == 0) {
         int inventory_index = mouse_hover_inventory_tile.y;
-        if (0 <= inventory_index && inventory_index < inventory.length()) {
-            mouse_hover_div->set_content(get_item_description(spectate_from, inventory[inventory_index]->id));
+        if (0 <= inventory_index && inventory_index < my_inventory.length()) {
+            mouse_hover_div->set_content(get_item_description(spectate_from, my_inventory[inventory_index]->id));
             popup_help(inventory_area, Coord{0, inventory_index}, mouse_hover_div);
         }
     }

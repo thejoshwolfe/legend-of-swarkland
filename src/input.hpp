@@ -4,8 +4,6 @@
 #include "geometry.hpp"
 #include "hashtable.hpp"
 
-extern bool request_shutdown;
-
 enum InputMode {
     InputMode_MAIN,
     InputMode_DROP_CHOOSE_ITEM,
@@ -14,9 +12,13 @@ enum InputMode {
     InputMode_ZAP_CHOOSE_ITEM,
     InputMode_ZAP_CHOOSE_DIRECTION,
 };
-extern InputMode input_mode;
-extern uint256 chosen_item;
+
+extern bool request_shutdown;
+
+bool input_mode_is_choose_item();
+bool input_mode_is_choose_direction();
 extern int inventory_cursor;
+extern InputMode input_mode;
 
 Coord get_mouse_pixels();
 void on_mouse_motion();
