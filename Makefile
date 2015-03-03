@@ -14,9 +14,10 @@ LINK = $(CROSS_PREFIX)gcc -o $@ $^ $(LINK_FLAGS)
 # first make a static library with ar, then make our binary out of that.
 LINK_SPARSE = rm -f $@.a; $(foreach f,$^,$(CROSS_PREFIX)ar qcs $@.a $f;) $(CROSS_PREFIX)gcc -o $@ $@.a $(LINK_FLAGS)
 
-%/resources.o:
-	rucksack bundle assets.json $(dir $@)/resources --deps $@.d
-	rucksack strip $(dir $@)/resources
+%/resources:
+	rucksack bundle assets.json $(dir $@)resources --deps $@.d
+	rucksack strip $(dir $@)resources
+%/resources.o: %/resources
 	@# the name "resources" is where these symbol names come from:
 	@#   _binary_resources_start _binary_resources_end _binary_resources_size
 	@# but wait, in windows, the leading underscore is not present, resulting in these names:
@@ -44,7 +45,7 @@ build/native/test: $(OBJECTS_native) build/native/test.o
 	$(LINK_SPARSE)
 native: build/native/legend-of-swarkland
 
-$(OBJECTS_native): | build/native
+$(OBJECTS_native) build/native/resources: | build/native
 build/native:
 	mkdir -p $@
 
@@ -67,7 +68,7 @@ build/windows/legend-of-swarkland.exe: $(OBJECTS_windows) build/windows/main.o
 	$(LINK)
 windows: build/windows/legend-of-swarkland.exe
 
-$(OBJECTS_windows): | build/windows
+$(OBJECTS_windows) build/windows/resources: | build/windows
 build/windows:
 	mkdir -p $@
 
