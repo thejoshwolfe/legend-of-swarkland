@@ -20,7 +20,8 @@ static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, 
 static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect kills_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect status_area = { kills_area.x + kills_area.w, status_box_area.y, status_box_area.w - (kills_area.x + kills_area.w), status_box_area.h };
-static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, status_box_area.y + status_box_area.h };
+static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, (map_size.y - 3) * tile_size };
+static const SDL_Rect tutorial_area = { inventory_area.x, inventory_area.y + inventory_area.h, 5 * tile_size, 3 * tile_size };
 static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_area.w, status_box_area.y + status_box_area.h };
 
 
@@ -352,6 +353,7 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
 static int previous_events_length = 0;
 static int previous_event_forget_counter = 0;
 static uint256 previous_spectator_id = uint256::zero();
+static Div tutorial_div = new_div();
 static Div events_div = new_div();
 static Div hp_div = new_div();
 static Div kills_div = new_div();
@@ -359,11 +361,26 @@ static Div status_div = new_div();
 static Div keyboard_hover_div = new_div();
 static Div mouse_hover_div = new_div();
 
+static void init_tutorial_div() {
+    Div div = new_div();
+    div->append(new_span("numpad: move/attack", white, black));
+    div->append(new_span("z: zap wand", white, black));
+    div->append(new_span("t: throw item", white, black));
+    div->append(new_span(",: pick up item", white, black));
+    div->append(new_span("d: drop item", white, black));
+    div->append(new_span("mouse: what's this", white, black));
+    tutorial_div->set_content(div);
+}
+
 void render() {
     Thing spectate_from = get_spectate_individual();
 
     set_color(black);
     SDL_RenderClear(renderer);
+
+    // tutorial
+    init_tutorial_div();
+    render_div(tutorial_div, tutorial_area, 1, 1);
 
     // main map
     // render the terrain
