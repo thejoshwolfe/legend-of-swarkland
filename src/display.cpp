@@ -351,6 +351,7 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
 
 static int previous_events_length = 0;
 static int previous_event_forget_counter = 0;
+static uint256 previous_spectator_id = uint256::zero();
 static Div events_div = new_div();
 static Div hp_div = new_div();
 static Div kills_div = new_div();
@@ -485,9 +486,11 @@ void render() {
     {
         bool expand_message_box = rect_contains(message_area, get_mouse_pixels());
         List<RememberedEvent> & events = spectate_from->life()->knowledge.remembered_events;
-        if (previous_event_forget_counter != spectate_from->life()->knowledge.event_forget_counter) {
-            previous_event_forget_counter = spectate_from->life()->knowledge.event_forget_counter;
+        bool refresh_events = previous_event_forget_counter != spectate_from->life()->knowledge.event_forget_counter || previous_spectator_id != spectate_from->id;
+        if (refresh_events) {
             previous_events_length = 0;
+            previous_event_forget_counter = spectate_from->life()->knowledge.event_forget_counter;
+            previous_spectator_id = spectate_from->id;
             events_div->clear();
         }
         for (int i = previous_events_length; i < events.length(); i++) {
