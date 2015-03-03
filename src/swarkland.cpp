@@ -43,10 +43,14 @@ static void kill_individual(Thing individual) {
     }
 }
 
+static void reset_hp_regen_timeout(Thing individual) {
+    individual->life()->hp_regen_deadline = time_counter + 12 * random_inclusive(5, 9);
+}
 static void damage_individual(Thing attacker, Thing target, int damage) {
     if (damage <= 0)
         panic("no damage");
     target->life()->hitpoints -= damage;
+    reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
         kill_individual(target);
         attacker->life()->kill_counter++;
@@ -280,10 +284,12 @@ static void spawn_monsters(bool force_do_it) {
 }
 
 static void regen_hp(Thing individual) {
-    if (individual->life()->hitpoints < individual->life()->species()->starting_hitpoints) {
-        if (random_int(60) == 0) {
-            individual->life()->hitpoints++;
-        }
+    Life * life = individual->life();
+    if (life->hp_regen_deadline == time_counter) {
+        int hp_heal = random_inclusive(1, 2);
+        life->hitpoints = min(life->hitpoints + hp_heal, life->species()->starting_hitpoints);
+        if (life->hitpoints < life->species()->starting_hitpoints)
+            reset_hp_regen_timeout(individual);
     }
 }
 
@@ -291,6 +297,7 @@ static void regen_hp(Thing individual) {
 static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack(attacker, target));
     damage_individual(attacker, target, attacker->life()->species()->attack_power);
+    reset_hp_regen_timeout(attacker);
 }
 
 static int compare_things_by_z_order(Thing a, Thing b) {
@@ -497,6 +504,7 @@ static bool take_action(Thing actor, Action action) {
 
         case Action::CHEATCODE_HEALTH_BOOST:
             actor->life()->hitpoints += 100;
+            actor->life()->hp_regen_deadline = time_counter - 1;
             return false;
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
             cheatcode_kill_everybody_in_the_world();

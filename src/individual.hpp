@@ -179,6 +179,7 @@ struct Knowledge {
 struct Life {
     SpeciesId species_id;
     int hitpoints;
+    long long hp_regen_deadline;
     int kill_counter = 0;
     // once this reaches movement_cost, make a move
     int movement_points = 0;
