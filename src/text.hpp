@@ -48,6 +48,12 @@ static constexpr bool operator!=(SDL_Color a, SDL_Color b) {
     return !(a == b);
 }
 
+static inline bool renderer_is_alive(SDL_Renderer * renderer) {
+    SDL_RendererInfo info;
+    int error_code = SDL_GetRendererInfo(renderer, &info);
+    return error_code == 0;
+}
+
 class SpanImpl;
 class DivImpl;
 
@@ -250,6 +256,7 @@ public:
     }
 
     SDL_Texture * get_texture(SDL_Renderer * renderer) {
+        _renderer = renderer;
         if (_texture == NULL) {
             render_surface();
             if (_surface != NULL)
@@ -264,16 +271,20 @@ private:
     SDL_Color _background = black;
     SDL_Surface * _surface = NULL;
     SDL_Texture * _texture = NULL;
+    SDL_Renderer * _renderer = NULL;
     int _max_width = 0;
     int _max_height = 0;
     void render_surface();
     void dispose_resources() {
-        if (_texture != NULL)
-            SDL_DestroyTexture(_texture);
-        _texture = NULL;
         if (_surface != NULL)
             SDL_FreeSurface(_surface);
         _surface = NULL;
+        if (_texture != NULL) {
+            // if the renderer has already been shutdown, then the texture has already been destroyed.
+            if (renderer_is_alive(_renderer))
+                SDL_DestroyTexture(_texture);
+        }
+        _texture = NULL;
     }
 
     DivImpl(DivImpl & copy) = delete;
