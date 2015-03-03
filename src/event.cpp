@@ -412,7 +412,7 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 // boring
                 break;
             case Event::WAND_DISINTEGRATES:
-                record_perception_of_thing(observer, apparent_event.zap_wand_data().wielder);
+                delete_ids.append(apparent_event.zap_wand_data().wand);
                 break;
             case Event::WAND_EXPLODES:
                 perceived_current_zapper->put(observer->id, actual_things.get(apparent_event.item_and_location_data().item)->wand_info()->description_id);
