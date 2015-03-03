@@ -353,10 +353,15 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
 
 static void record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = to_perceived_thing(target_id);
-    if (target != NULL)
-        observer->life()->knowledge.perceived_things.put(target_id, target);
-    else
+    if (target == NULL) {
         observer->life()->knowledge.perceived_things.remove(target_id);
+        return;
+    }
+    observer->life()->knowledge.perceived_things.put(target_id, target);
+    List<Thing> inventory;
+    find_items_in_inventory(target_id, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        record_perception_of_thing(observer, inventory[i]->id);
 }
 
 static void id_item(Thing observer, WandDescriptionId description_id, WandId id) {
