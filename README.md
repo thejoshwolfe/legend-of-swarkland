@@ -63,6 +63,7 @@ source code to the website.
  * The game is now a self-contained executable. (no more resources.bundle)
  * Fixed event history disappearing and causing lag.
  * Fixed not being able to see others' inventory sometimes.
+ * Builtin help.
 
 ## Version History
 
