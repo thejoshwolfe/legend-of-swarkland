@@ -61,6 +61,7 @@ source code to the website.
 
  * The game is now a self-contained executable. (no more resources.bundle)
  * Color text.
+ * Fixed event history disappearing and causing lag.
 
 ## Version History
 
