@@ -124,7 +124,7 @@ void display_init() {
     status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
     TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
 
-    RuckSackFileEntry * version_entry = rucksack_bundle_find_file(bundle, "version.txt", -1);
+    RuckSackFileEntry * version_entry = rucksack_bundle_find_file(bundle, "version", -1);
     if (version_entry == NULL)
         panic("version not found in bundle");
     ByteBuffer buffer;

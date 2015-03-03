@@ -1,7 +1,7 @@
 {
   files: {
-    "version.txt": {
-      path: "version.txt",
+    "version": {
+      path: "build/full_version.txt",
     },
   },
   globFiles: [

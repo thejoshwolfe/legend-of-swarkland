@@ -14,7 +14,15 @@ LINK = $(CROSS_PREFIX)gcc -o $@ $^ $(LINK_FLAGS)
 # first make a static library with ar, then make our binary out of that.
 LINK_SPARSE = rm -f $@.a; $(foreach f,$^,$(CROSS_PREFIX)ar qcs $@.a $f;) $(CROSS_PREFIX)gcc -o $@ $@.a $(LINK_FLAGS)
 
-%/resources:
+THE_VERSION := $(shell echo $$(echo -n $$(cat version.txt)).$$(echo -n $$(git rev-parse --short HEAD)))
+# this file has the full version number in its name.
+# depend on this whenever you depend on the exact full version number.
+VERSION_FILE = build/the_version_is.$(THE_VERSION)
+$(VERSION_FILE): version.txt
+	touch "$@"
+build/full_version.txt: $(VERSION_FILE)
+	echo -n "$(THE_VERSION)" > $@
+%/resources: build/full_version.txt
 	rucksack bundle assets.json $(dir $@)resources --deps $@.d
 	rucksack strip $(dir $@)resources
 %/resources.o: %/resources
