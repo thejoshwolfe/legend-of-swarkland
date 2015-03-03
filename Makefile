@@ -82,7 +82,7 @@ build/windows:
 
 
 .PHONY: publish-windows
-PUBLISH_EXE_NAME = legend-of-swarkland-$(THE_VERSION).zip
+PUBLISH_EXE_NAME = legend-of-swarkland-$(THE_VERSION).exe
 FULL_PUBLISH_EXE_NAME = build/publish-windows/$(PUBLISH_EXE_NAME)
 publish-windows: $(FULL_PUBLISH_EXE_NAME)
 
