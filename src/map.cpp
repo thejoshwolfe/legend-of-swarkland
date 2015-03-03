@@ -190,10 +190,9 @@ void generate_map() {
         Coord b = {closest_room.x + 1, closest_room.y + 1};
         Coord delta = sign(b - a);
         Coord cursor = a;
-        for (; cursor.x * delta.x <= b.x * delta.x; cursor.x += delta.x)
+        for (; cursor.x * delta.x < b.x * delta.x; cursor.x += delta.x)
             actual_map_tiles[cursor].tile_type = TileType_FLOOR;
-        cursor.x = b.x;
-        for (; cursor.y * delta.y <= b.y * delta.y; cursor.y += delta.y)
+        for (; cursor.y * delta.y < b.y * delta.y; cursor.y += delta.y)
             actual_map_tiles[cursor].tile_type = TileType_FLOOR;
     }
 }
