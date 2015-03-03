@@ -543,6 +543,12 @@ static void age_individual(Thing individual) {
             publish_event(Event::no_longer_confused(individual));
     }
 
+    List<RememberedEvent> & remembered_events = individual->life()->knowledge.remembered_events;
+    if (remembered_events.length() >= 1000) {
+        remembered_events.remove_range(0, 500);
+        individual->life()->knowledge.event_forget_counter++;
+    }
+
     individual->life()->movement_points++;
 }
 

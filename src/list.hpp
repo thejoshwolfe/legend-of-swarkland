@@ -11,9 +11,27 @@ public:
         _capacity = 16;
         _items = allocate<T>(_capacity);
     }
-
     ~List() {
         destroy(_items, _capacity);
+    }
+
+    T & operator[](int index) {
+        bounds_check(index);
+        return _items[index];
+    }
+    const T & operator[](int index) const {
+        bounds_check(index);
+        return _items[index];
+    }
+    int length() const {
+        return _length;
+    }
+
+    T * raw() {
+        return _items;
+    }
+    const T * raw() const {
+        return _items;
     }
 
     void append(const T & item) {
@@ -28,36 +46,29 @@ public:
             _items[_length + i] = other_raw[i];
         _length += other_length;
     }
-    T & operator[](int index) {
-        bounds_check(index);
-        return _items[index];
-    }
-    const T & operator[](int index) const {
-        bounds_check(index);
-        return _items[index];
-    }
-    int length() const {
-        return _length;
-    }
     T pop() {
         if (_length == 0)
             panic("pop empty list");
         return _items[--_length];
     }
+
     void clear() {
         _length = 0;
-    }
-    T * raw() {
-        return _items;
-    }
-    const T * raw() const {
-        return _items;
     }
     void resize(int length) {
         if (length < 0)
             panic("negative resize");
         ensure_capacity(length);
         _length = length;
+    }
+    void remove_range(int start, int end) {
+        if (!(0 <= start && start <= end && end <= _length))
+            panic("bounds check");
+        int delete_count = end - start;
+        int move_count = min(delete_count, _length - end);
+        for (int i = start; i < start + move_count; i++)
+            _items[i] = _items[i + delete_count];
+        _length -= delete_count;
     }
 
     bool operator==(const List<T> & other) const {

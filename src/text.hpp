@@ -228,6 +228,10 @@ public:
         _items.append(SpanOrSpace{NULL, count});
         dispose_resources();
     }
+    void clear() {
+        _items.clear();
+        dispose_resources();
+    }
 
     void set_max_size(int max_width, int max_height) {
         if (_max_width == max_width && _max_height == max_height)
