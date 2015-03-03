@@ -18,7 +18,7 @@ THE_VERSION := $(shell echo $$(echo -n $$(cat version.txt)).$$(echo -n $$(git re
 # this file has the full version number in its name.
 # depend on this whenever you depend on the exact full version number.
 VERSION_FILE = build/the_version_is.$(THE_VERSION)
-$(VERSION_FILE): version.txt
+$(VERSION_FILE): version.txt | build
 	touch "$@"
 build/full_version.txt: $(VERSION_FILE)
 	echo -n "$(THE_VERSION)" > $@
@@ -101,6 +101,9 @@ $(PUBLISH_FILES): | build/publish-windows
 build/publish-windows:
 	mkdir -p $@
 
+
+build:
+	mkdir -p $@
 
 .PHONY: clean
 clean:
