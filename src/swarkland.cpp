@@ -44,7 +44,9 @@ static void kill_individual(Thing individual) {
 }
 
 static void reset_hp_regen_timeout(Thing individual) {
-    individual->life()->hp_regen_deadline = time_counter + 12 * random_inclusive(5, 9);
+    Life * life = individual->life();
+    if (life->hitpoints < life->species()->starting_hitpoints)
+        life->hp_regen_deadline = time_counter + 12 * random_inclusive(5, 9);
 }
 static void damage_individual(Thing attacker, Thing target, int damage) {
     if (damage <= 0)
