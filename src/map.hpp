@@ -31,6 +31,7 @@ struct Tile {
 
 static const Tile unknown_tile = {TileType_UNKNOWN, 0};
 
+extern int dungeon_level;
 extern MapMatrix<Tile> actual_map_tiles;
 
 void generate_map();

@@ -3,6 +3,7 @@
 #include "individual.hpp"
 #include "swarkland.hpp"
 
+int dungeon_level = 0;
 MapMatrix<Tile> actual_map_tiles;
 
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
@@ -104,6 +105,8 @@ void compute_vision(Thing observer) {
 }
 
 void generate_map() {
+    dungeon_level++;
+
     // randomize the appearance of every tile, even if it doesn't matter.
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
