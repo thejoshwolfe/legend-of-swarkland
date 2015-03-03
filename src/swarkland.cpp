@@ -208,6 +208,23 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 
 
 static const int no_spawn_radius = 10;
+Coord find_random_location(Thing away_from_you) {
+    List<Coord> available_spawn_locations;
+    for (Coord location = {0, 0}; location.y < map_size.y; location.y++) {
+        for (location.x = 0; location.x < map_size.x; location.x++) {
+            if (!is_open_space(actual_map_tiles[location].tile_type))
+                continue;
+            if (away_from_you != NULL && euclidean_distance_squared(location, away_from_you->location) < no_spawn_radius * no_spawn_radius)
+                continue;
+            if (find_individual_at(location) != NULL)
+                continue;
+            available_spawn_locations.append(location);
+        }
+    }
+    if (available_spawn_locations.length() == 0)
+        return Coord::nowhere();
+    return available_spawn_locations[random_int(available_spawn_locations.length())];
+}
 
 // specify SpeciesId_COUNT for random
 Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker) {
@@ -219,23 +236,11 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
         }
     }
 
-    List<Coord> available_spawn_locations;
-    for (Coord location = {0, 0}; location.y < map_size.y; location.y++) {
-        for (location.x = 0; location.x < map_size.x; location.x++) {
-            if (!is_open_space(actual_map_tiles[location].tile_type))
-                continue;
-            if (you != NULL && euclidean_distance_squared(location, you->location) < no_spawn_radius * no_spawn_radius)
-                continue;
-            if (find_individual_at(location) != NULL)
-                continue;
-            available_spawn_locations.append(location);
-        }
-    }
-    if (available_spawn_locations.length() == 0) {
+    Coord location = find_random_location(you);
+    if (location == Coord::nowhere()) {
         // it must be pretty crowded in here
         return NULL;
     }
-    Coord location = available_spawn_locations[random_int(available_spawn_locations.length())];
 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
 
@@ -252,9 +257,15 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
 }
 
 static void init_individuals() {
-    you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER);
-    if (you == NULL)
-        panic("can't spawn you");
+    if (you == NULL) {
+        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER);
+        if (you == NULL)
+            panic("can't spawn you");
+    } else {
+        // you just landed from upstairs
+        you->location = find_random_location(NULL);
+        compute_vision(you);
+    }
     // have a friend
     spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI);
 
@@ -270,6 +281,25 @@ void swarkland_init() {
 
     generate_map();
 
+    init_individuals();
+}
+
+void go_down() {
+    // goodbye everyone
+    Thing thing;
+    for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);) {
+        if (thing == you)
+            continue; // you're cool
+        if (thing->thing_type == ThingType_WAND)
+            if (thing->container_id == you->id)
+                continue; // take it with you
+        // leave this behind us
+        thing->still_exists = false;
+    }
+
+    you->life()->knowledge.reset_map();
+    you->life()->knowledge.perceived_things.clear();
+    generate_map();
     init_individuals();
 }
 
@@ -290,8 +320,7 @@ static void regen_hp(Thing individual) {
     if (life->hp_regen_deadline == time_counter) {
         int hp_heal = random_inclusive(1, 2);
         life->hitpoints = min(life->hitpoints + hp_heal, life->species()->starting_hitpoints);
-        if (life->hitpoints < life->species()->starting_hitpoints)
-            reset_hp_regen_timeout(individual);
+        reset_hp_regen_timeout(individual);
     }
 }
 
@@ -504,6 +533,10 @@ static bool take_action(Thing actor, Action action) {
             throw_item(actor, actual_things.get(action.item), action.coord);
             return true;
 
+        case Action::GO_DOWN:
+            go_down();
+            return true;
+
         case Action::CHEATCODE_HEALTH_BOOST:
             actor->life()->hitpoints += 100;
             actor->life()->hp_regen_deadline = time_counter - 1;
@@ -660,6 +693,9 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
         }
         output_actions.append(Action::drop(item_id));
     }
+    // go down
+    if (actual_map_tiles[individual->location].tile_type == TileType_STAIRS_DOWN)
+        output_actions.append(Action::go_down());
 
     // alright, we'll let you use cheatcodes
     if (individual == you) {

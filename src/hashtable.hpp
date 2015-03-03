@@ -138,6 +138,14 @@ public:
         return; // not found
     }
 
+    void clear() {
+        for (int i = 0; i < _capacity; i++)
+            _entries[i].used = false;
+        _size = 0;
+        _max_distance_from_start_index = 0;
+        _modification_count++;
+    }
+
     class Iterator {
     public:
         bool next(V * output) {

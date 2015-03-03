@@ -10,6 +10,7 @@ struct Action {
         PICKUP,
         DROP,
         THROW,
+        GO_DOWN,
 
         CHEATCODE_HEALTH_BOOST,
         CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD,
@@ -47,6 +48,10 @@ struct Action {
     }
     static inline Action throw_(uint256 item_id, Coord direction) {
         return {THROW, item_id, direction};
+    }
+
+    static inline Action go_down() {
+        return {GO_DOWN, uint256::zero(), Coord::nowhere()};
     }
 
     static inline Action cheatcode_health_boost() {

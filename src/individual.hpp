@@ -169,10 +169,13 @@ struct Knowledge {
     WandId wand_identities[WandId_COUNT];
     IdMap<PerceivedThing> perceived_things;
     Knowledge() {
-        tiles.set_all(unknown_tile);
-        tile_is_visible.set_all(VisionTypes::none());
+        reset_map();
         for (int i = 0; i < WandId_COUNT; i++)
             wand_identities[i] = WandId_UNKNOWN;
+    }
+    void reset_map() {
+        tiles.set_all(unknown_tile);
+        tile_is_visible.set_all(VisionTypes::none());
     }
 };
 

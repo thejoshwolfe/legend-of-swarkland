@@ -20,8 +20,8 @@ static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, 
 static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect kills_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect status_area = { kills_area.x + kills_area.w, status_box_area.y, status_box_area.w - (kills_area.x + kills_area.w), status_box_area.h };
-static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, (map_size.y - 3) * tile_size };
-static const SDL_Rect tutorial_area = { inventory_area.x, inventory_area.y + inventory_area.h, 5 * tile_size, 3 * tile_size };
+static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, (map_size.y - 4) * tile_size };
+static const SDL_Rect tutorial_area = { inventory_area.x, inventory_area.y + inventory_area.h, 5 * tile_size, 4 * tile_size };
 static const SDL_Rect version_area = { status_box_area.x + status_box_area.w, status_box_area.y, 5 * tile_size, tile_size };
 static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_area.w, status_box_area.y + status_box_area.h };
 
@@ -417,6 +417,8 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
         }
         if (items_on_floor.length() > 0)
             lines.append(",: pick up");
+        if (actual_map_tiles[spectate_from->location].tile_type == TileType_STAIRS_DOWN)
+            lines.append(">: go down");
         lines.append("mouse: what's this");
     }
 
