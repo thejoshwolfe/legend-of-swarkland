@@ -82,22 +82,16 @@ build/windows:
 
 
 .PHONY: publish-windows
-PUBLISH_VERSION := $(shell git rev-parse --short --verify HEAD)
-PUBLISH_ZIP_NAME = legend-of-swarkland-$(PUBLISH_VERSION).zip
-FULL_PUBLISH_ZIP_NAME = build/publish-windows/$(PUBLISH_ZIP_NAME)
-publish-windows: $(FULL_PUBLISH_ZIP_NAME)
+PUBLISH_EXE_NAME = legend-of-swarkland-$(THE_VERSION).zip
+FULL_PUBLISH_EXE_NAME = build/publish-windows/$(PUBLISH_EXE_NAME)
+publish-windows: $(FULL_PUBLISH_EXE_NAME)
 
-PUBLISH_FILES = build/publish-windows/legend-of-swarkland.exe
-$(FULL_PUBLISH_ZIP_NAME): $(PUBLISH_FILES)
-	cd build/publish-windows && zip $(PUBLISH_ZIP_NAME) legend-of-swarkland.exe
-
-build/publish-windows/legend-of-swarkland.exe: build/windows/legend-of-swarkland.exe
+$(FULL_PUBLISH_EXE_NAME): build/windows/legend-of-swarkland.exe | build/publish-windows
 	cp $< $@.tmp.exe
 	upx $@.tmp.exe
 	mv $@.tmp.exe $@
 	touch $@
 
-$(PUBLISH_FILES): | build/publish-windows
 build/publish-windows:
 	mkdir -p $@
 
