@@ -108,23 +108,92 @@ void generate_map() {
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             Tile & tile = actual_map_tiles[cursor];
-            tile.tile_type = TileType_FLOOR;
+            tile.tile_type = TileType_WALL;
             tile.aesthetic_index = random_int(8);
         }
     }
-    // generate some obstructions.
-    // they're all rectangles for now
-    int rock_count = random_int(20, 40);
-    for (int i = 0; i < rock_count; i++) {
-        int width = random_int(2, 8);
-        int height = random_int(2, 8);
+
+    // create rooms
+    List<SDL_Rect> rooms;
+    for (int i = 0; i < 50; i++) {
+        int width = random_int(4, 10);
+        int height = random_int(4, 10);
         int x = random_int(0, map_size.x - width);
         int y = random_int(0, map_size.y - height);
-        Coord cursor;
-        for (cursor.y = y; cursor.y < y + height; cursor.y++) {
-            for (cursor.x = x; cursor.x < x + width; cursor.x++) {
-                actual_map_tiles[cursor].tile_type = TileType_WALL;
+        SDL_Rect room = SDL_Rect{x, y, width, height};
+        for (int j = 0; j < rooms.length(); j++) {
+            SDL_Rect intersection;
+            if (SDL_IntersectRect(&rooms[j], &room, &intersection)) {
+                // overlaps with another room.
+                // don't create this room at all.
+                goto next_room;
             }
         }
+        rooms.append(room);
+        next_room:;
+    }
+    for (int i = 0; i < rooms.length(); i++) {
+        Coord cursor;
+        SDL_Rect room = rooms[i];
+        for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
+            for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
+                actual_map_tiles[cursor].tile_type = TileType_FLOOR;
+            }
+        }
+    }
+
+    // connect rooms with prim's algorithm.
+    struct PrimUtil {
+        static inline int find_root_node(const List<int> & node_to_parent_node, int node) {
+            while (true) {
+                int parent_node = node_to_parent_node[node];
+                if (parent_node == node)
+                    return node;
+                node = parent_node;
+            }
+        }
+        static inline void merge(List<int> * node_to_parent_node, int a, int b) {
+            (*node_to_parent_node)[a] = b;
+        }
+    };
+    List<int> node_to_parent_node;
+    for (int i = 0; i < rooms.length(); i++)
+        node_to_parent_node.append(i);
+    for (int i = 0; i < rooms.length(); i++) {
+        SDL_Rect room = rooms[i];
+        int room_root = PrimUtil::find_root_node(node_to_parent_node, i);
+        // find nearest room
+        // TODO: this is not prim's algorithm. we're supposed to find the shortest edge in the graph.
+        int closest_neighbor = -1;
+        SDL_Rect closest_room = {-1, -1, -1, -1};
+        int closest_neighbor_root = -1;
+        int closest_distance = 0x7fffffff;
+        for (int j = 0; j < rooms.length(); j++) {
+            SDL_Rect other_room = rooms[j];
+            int other_root = PrimUtil::find_root_node(node_to_parent_node, j);
+            if (room_root == other_root)
+                continue; // already joined
+            int distance = ordinal_distance(Coord{room.x, room.y}, Coord{other_room.x, other_room.y});
+            if (distance < closest_distance) {
+                closest_neighbor = j;
+                closest_room = other_room;
+                closest_neighbor_root = other_root;
+                closest_distance = distance;
+            }
+        }
+        if (closest_neighbor == -1)
+            continue; // already connected to everyone
+        // connect to neighbor
+        PrimUtil::merge(&node_to_parent_node, room_root, closest_neighbor_root);
+        // derpizontal, and then derpicle
+        Coord a = {room.x + 1, room.y + 1};
+        Coord b = {closest_room.x + 1, closest_room.y + 1};
+        Coord delta = sign(b - a);
+        Coord cursor = a;
+        for (; cursor.x * delta.x <= b.x * delta.x; cursor.x += delta.x)
+            actual_map_tiles[cursor].tile_type = TileType_FLOOR;
+        cursor.x = b.x;
+        for (; cursor.y * delta.y <= b.y * delta.y; cursor.y += delta.y)
+            actual_map_tiles[cursor].tile_type = TileType_FLOOR;
     }
 }
