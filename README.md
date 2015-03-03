@@ -59,9 +59,10 @@ source code to the website.
 
 ### 3.1.0
 
- * The game is now a self-contained executable. (no more resources.bundle)
  * Color text.
+ * The game is now a self-contained executable. (no more resources.bundle)
  * Fixed event history disappearing and causing lag.
+ * Fixed not being able to see others' inventory sometimes.
 
 ## Version History
 
