@@ -9,14 +9,25 @@ static void puke(const char * filename, int line_number, const char * function_n
 }
 
 static void test_list() {
-    List<int> list;
-    for (int i = 0; i < 15; i++)
-        list.append(i);
-    list.remove_range(1, 14);
-    if (!(list[0] == 0 && list[1] == 14))
-        fail("shift indexes");
-    if (list.length() != 2)
-        fail("should have deleted everything");
+    {
+        List<int> list;
+        for (int i = 0; i < 15; i++)
+            list.append(i);
+        list.remove_range(1, 14);
+        if (!(list[0] == 0 && list[1] == 14))
+            fail("shift indexes");
+        if (list.length() != 2)
+            fail("should have deleted everything");
+    }
+    {
+        List<int> list;
+        list.remove_range(0, 0);
+        list.append(1234);
+        list.remove_range(0, 0);
+        list.remove_range(1, 1);
+        if (list[0] != 1234)
+            fail("remove_range should work for empty list");
+    }
 }
 
 static void test_string_format() {

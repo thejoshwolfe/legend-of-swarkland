@@ -39,6 +39,7 @@ static inline T * allocate(size_t count) {
 // (no default constructor, no assignment operator, and no destructor, as you would expect from a manual implementation).
 // This means you can't count on any pointers to these elements remaining valid after this call.
 // If new_count is less than old_count, i.e. this is a shrinking operation, behavior is undefined.
+// if old_count is 0, the old pointer may be NULL.
 template<typename T>
 static inline T * reallocate(T * old, size_t old_count, size_t new_count) {
     T * new_ptr = reinterpret_cast<T*>(realloc(old, new_count * sizeof(T)));
@@ -53,6 +54,7 @@ static inline T * reallocate(T * old, size_t old_count, size_t new_count) {
 // the count parameter is only used to call destructors of array elements.
 // provide a count of 1 if this is not an array,
 // or a count of 0 to skip the destructors.
+// if count is 0, ptr may be NULL.
 template<typename T>
 static inline void destroy(T * ptr, size_t count) {
     for (size_t i = 0; i < count; i++)

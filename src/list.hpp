@@ -7,9 +7,6 @@ template<typename T>
 class List {
 public:
     List() {
-        _length = 0;
-        _capacity = 16;
-        _items = allocate<T>(_capacity);
     }
     ~List() {
         destroy(_items, _capacity);
@@ -86,9 +83,9 @@ public:
     }
 
 private:
-    T * _items;
-    int _length;
-    int _capacity;
+    T * _items = NULL;
+    int _length = 0;
+    int _capacity = 0;
 
     void bounds_check(int index) const {
         if (index < 0 || index >= _length)
@@ -96,6 +93,8 @@ private:
     }
     void ensure_capacity(int new_capacity) {
         int better_capacity = _capacity;
+        if (better_capacity == 0)
+            better_capacity = 16;
         while (better_capacity < new_capacity)
             better_capacity *= 2;
         if (better_capacity != _capacity) {
