@@ -330,7 +330,7 @@ static void create_item(Coord floor_location) {
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
     if (life->hp_regen_deadline == time_counter) {
-        int hp_heal = random_inclusive(1, 2);
+        int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5));
         life->hitpoints = min(life->hitpoints + hp_heal, life->max_hitpoints());
         reset_hp_regen_timeout(individual);
     }
