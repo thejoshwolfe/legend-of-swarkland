@@ -391,7 +391,9 @@ static Div mouse_hover_div = new_div();
 
 static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_inventory) {
     List<const char *> lines;
-    if (input_mode_is_choose_item()) {
+    if (!youre_still_alive) {
+        lines.append("Alt+F4: quit");
+    } else if (input_mode_is_choose_item()) {
         lines.append("numpad: select item");
         if (input_mode == InputMode_ZAP_CHOOSE_ITEM)
             lines.append("z: zap it...");
@@ -402,11 +404,9 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
         else
             panic("input_mode");
         lines.append("Esc: cancel");
-        lines.append("mouse: what's this");
     } else if (input_mode_is_choose_direction()) {
         lines.append("numpad: direction");
         lines.append("Esc: cancel");
-        lines.append("mouse: what's this");
     } else {
         List<Thing> items_on_floor;
         find_items_on_floor(spectate_from->location, &items_on_floor);
@@ -421,8 +421,8 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
             lines.append(",: pick up");
         if (actual_map_tiles[spectate_from->location].tile_type == TileType_STAIRS_DOWN)
             lines.append(">: go down");
-        lines.append("mouse: what's this");
     }
+    lines.append("mouse: what's this");
 
     Div div = new_div();
     for (int i = 0; i < lines.length(); i++) {
