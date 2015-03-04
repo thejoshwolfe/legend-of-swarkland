@@ -17,6 +17,7 @@ struct Action {
         CHEATCODE_POLYMORPH,
         CHEATCODE_INVISIBILITY,
         CHEATCODE_GENERATE_MONSTER,
+        CHEATCODE_CREATE_ITEM,
 
         // only a player can be undecided
         UNDECIDED,
@@ -68,6 +69,9 @@ struct Action {
     }
     static inline Action cheatcode_generate_monster() {
         return {CHEATCODE_GENERATE_MONSTER, uint256::zero(), {0, 0}};
+    }
+    static inline Action cheatcode_create_item() {
+        return {CHEATCODE_CREATE_ITEM, uint256::zero(), {0, 0}};
     }
 };
 static inline bool operator==(const Action & a, const Action &  b) {

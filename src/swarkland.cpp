@@ -319,6 +319,11 @@ static void maybe_spawn_monsters() {
         spawn_random_individual();
 }
 
+static void create_item(Coord floor_location) {
+    Thing item = random_item();
+    drop_item_to_the_floor(item, floor_location);
+}
+
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
     if (life->hp_regen_deadline == time_counter) {
@@ -564,6 +569,9 @@ static bool take_action(Thing actor, Action action) {
         case Action::CHEATCODE_GENERATE_MONSTER:
             spawn_random_individual();
             return false;
+        case Action::CHEATCODE_CREATE_ITEM:
+            create_item(you->location);
+            return false;
     }
     panic("unimplemented action type");
 }
@@ -708,6 +716,7 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
         output_actions.append(Action::cheatcode_polymorph());
         output_actions.append(Action::cheatcode_invisibility());
         output_actions.append(Action::cheatcode_generate_monster());
+        output_actions.append(Action::cheatcode_create_item());
     }
 }
 
