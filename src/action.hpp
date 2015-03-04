@@ -18,6 +18,7 @@ struct Action {
         CHEATCODE_INVISIBILITY,
         CHEATCODE_GENERATE_MONSTER,
         CHEATCODE_CREATE_ITEM,
+        CHEATCODE_GO_DOWN,
 
         // only a player can be undecided
         UNDECIDED,
@@ -72,6 +73,9 @@ struct Action {
     }
     static inline Action cheatcode_create_item() {
         return {CHEATCODE_CREATE_ITEM, uint256::zero(), {0, 0}};
+    }
+    static inline Action cheatcode_go_down() {
+        return {CHEATCODE_GO_DOWN, uint256::zero(), {0, 0}};
     }
 };
 static inline bool operator==(const Action & a, const Action &  b) {
