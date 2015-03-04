@@ -547,7 +547,7 @@ void render() {
         String hp_string = new_string();
         int hp = spectate_from->life()->hitpoints;
         int max_hp = spectate_from->life()->max_hitpoints();
-        hp_string->format("HP: %d", hp);
+        hp_string->format("HP: %d/%d", hp, max_hp);
         Span hp_span = new_span(hp_string);
         if (hp <= max_hp / 3)
             hp_span->set_color(white, red);

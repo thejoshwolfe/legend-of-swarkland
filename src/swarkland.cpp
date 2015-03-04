@@ -43,6 +43,14 @@ static void kill_individual(Thing individual) {
     }
 }
 
+static void gain_experience(Thing individual, int delta) {
+    Life * life = individual->life();
+    int old_max_hitpoints = life->max_hitpoints();
+    life->experience += delta;
+    int new_max_hitpoints = life->max_hitpoints();
+    life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
+}
+
 static void reset_hp_regen_timeout(Thing individual) {
     Life * life = individual->life();
     if (life->hitpoints < life->max_hitpoints())
@@ -55,7 +63,7 @@ static void damage_individual(Thing attacker, Thing target, int damage) {
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
         kill_individual(target);
-        attacker->life()->experience++;
+        gain_experience(attacker, 1);
     }
 }
 
@@ -261,8 +269,8 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
 static void init_individuals() {
     if (you == NULL) {
         you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER);
-        if (you == NULL)
-            panic("can't spawn you");
+        // start you out better than everyone else
+        gain_experience(you, 50);
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far appart.
@@ -581,7 +589,7 @@ static bool take_action(Thing actor, Action action) {
             go_down();
             return true;
         case Action::CHEATCODE_GAIN_LEVEL:
-            actor->life()->experience += 10;
+            gain_experience(actor, 10);
             return false;
     }
     panic("unimplemented action type");
