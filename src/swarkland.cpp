@@ -236,8 +236,9 @@ Coord find_random_location(Coord away_from_location) {
     return available_spawn_locations[random_int(available_spawn_locations.length())];
 }
 
-// specify SpeciesId_COUNT for random
-Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker) {
+// SpeciesId_COUNT => random
+// experience = -1 => random
+static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker, int experience) {
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
         if (species_id == SpeciesId_HUMAN) {
@@ -254,6 +255,13 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
 
+    if (experience == -1) {
+        // monster experience scales around
+        int midpoint = (you->life()->experience + dungeon_level * 10) / 4;
+        experience = random_inclusive(midpoint / 2, midpoint * 3 / 2);
+    }
+    gain_experience(individual, experience);
+
     if (random_int(10) == 0) {
         // have an item
         Thing item = random_item();
@@ -268,9 +276,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
 
 static void init_individuals() {
     if (you == NULL) {
-        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER);
-        // start you out better than everyone else
-        gain_experience(you, 50);
+        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, 50);
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far appart.
@@ -278,12 +284,11 @@ static void init_individuals() {
         compute_vision(you);
     }
     // have a friend
-    spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI);
+    spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI, 50);
 
     // generate a few warm-up monsters
-    for (int i = 0; i < 6; i++) {
-        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
-    }
+    for (int i = 0; i < 6; i++)
+        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, -1);
 }
 
 void swarkland_init() {
@@ -317,9 +322,9 @@ void go_down() {
 static void spawn_random_individual() {
     if (random_int(50) == 0) {
         // a friend has arrived!
-        spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI);
+        spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI, you->life()->experience);
     } else {
-        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
+        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, -1);
     }
 }
 static void maybe_spawn_monsters() {
