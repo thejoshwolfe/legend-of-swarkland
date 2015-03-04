@@ -339,7 +339,9 @@ static void regen_hp(Thing individual) {
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack(attacker, target));
-    damage_individual(attacker, target, attacker->life()->attack_power());
+    int attack_power = attacker->life()->attack_power();
+    int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
+    damage_individual(attacker, target, damage);
     reset_hp_regen_timeout(attacker);
 }
 
