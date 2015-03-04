@@ -5,6 +5,7 @@
 
 int dungeon_level = 0;
 MapMatrix<Tile> actual_map_tiles;
+Coord stairs_down_location;
 
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     if (from_location == to_location)
@@ -211,6 +212,6 @@ void generate_map() {
     }
 
     // place the stairs down
-    Coord stairs_location = room_floor_spaces[random_int(room_floor_spaces.length())];
-    actual_map_tiles[stairs_location].tile_type = TileType_STAIRS_DOWN;
+    stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length())];
+    actual_map_tiles[stairs_down_location].tile_type = TileType_STAIRS_DOWN;
 }
