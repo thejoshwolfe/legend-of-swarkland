@@ -18,8 +18,8 @@ static const SDL_Rect message_area = { 0, 0, map_size.x * tile_size, 2 * tile_si
 const SDL_Rect main_map_area = { 0, message_area.y + message_area.h, map_size.x * tile_size, map_size.y * tile_size };
 static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, main_map_area.w, tile_size };
 static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
-static const SDL_Rect kills_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
-static const SDL_Rect dungeon_level_area = { kills_area.x + kills_area.w, status_box_area.y, 200, status_box_area.h };
+static const SDL_Rect xp_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
+static const SDL_Rect dungeon_level_area = { xp_area.x + xp_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect status_area = { dungeon_level_area.x + dungeon_level_area.w, status_box_area.y, status_box_area.w - (dungeon_level_area.x + dungeon_level_area.w), status_box_area.h };
 static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, (map_size.y - 4) * tile_size };
 static const SDL_Rect tutorial_area = { inventory_area.x, inventory_area.y + inventory_area.h, 5 * tile_size, 4 * tile_size };
@@ -383,7 +383,7 @@ static Div tutorial_div = new_div();
 static Div version_div = new_div();
 static Div events_div = new_div();
 static Div hp_div = new_div();
-static Div kills_div = new_div();
+static Div xp_div = new_div();
 static Div dungeon_level_div = new_div();
 static Div status_div = new_div();
 static Div keyboard_hover_div = new_div();
@@ -559,10 +559,16 @@ void render() {
         render_div(hp_div, hp_area, 1, 1);
     }
     {
+        Div div = new_div();
         String string = new_string();
-        string->format("XP: %d/%d", spectate_from->life()->experience_level(), spectate_from->life()->experience);
-        kills_div->set_content(new_span(string));
-        render_div(kills_div, kills_area, 1, 1);
+        string->format("XP Level: %d", spectate_from->life()->experience_level());
+        div->append(new_span(string));
+        div->append_newline();
+        string->clear();
+        string->format("XP:       %d/%d", spectate_from->life()->experience, spectate_from->life()->next_level_up());
+        div->append(new_span(string));
+        xp_div->set_content(div);
+        render_div(xp_div, xp_area, 1, 1);
     }
     {
         String string = new_string();

@@ -195,6 +195,9 @@ struct Life {
     int experience_level() const {
         return experience / 10;
     }
+    int next_level_up() const {
+        return 10 * (experience_level() + 1);
+    }
     int attack_power() const {
         return species()->base_attack_power + experience_level();
     }

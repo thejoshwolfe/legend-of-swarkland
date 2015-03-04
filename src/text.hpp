@@ -181,7 +181,7 @@ void SpanImpl::format(const char * fmt, Span span1, Args... args) {
 static inline Span new_span() {
     return create<SpanImpl>();
 }
-static inline Span new_span(String text) {
+static inline Span new_span(const String & text) {
     Span result = create<SpanImpl>();
     result->append(text);
     return result;
