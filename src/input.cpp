@@ -99,73 +99,80 @@ static Coord get_direction_from_event(const SDL_Event & event) {
     }
 }
 static Action on_key_down_main(const SDL_Event & event) {
-    if (event.key.keysym.scancode == SDL_SCANCODE_RSHIFT)
-        return Action::undecided();
-    switch (event.key.keysym.scancode) {
-        case SDL_SCANCODE_KP_1:
-        case SDL_SCANCODE_KP_2:
-        case SDL_SCANCODE_KP_3:
-        case SDL_SCANCODE_KP_4:
-        case SDL_SCANCODE_KP_6:
-        case SDL_SCANCODE_KP_7:
-        case SDL_SCANCODE_KP_8:
-        case SDL_SCANCODE_KP_9:
-        case SDL_SCANCODE_DOWN:
-        case SDL_SCANCODE_LEFT:
-        case SDL_SCANCODE_RIGHT:
-        case SDL_SCANCODE_UP:
-            return move_or_attack(get_direction_from_event(event));
-        case SDL_SCANCODE_SPACE:
-            return Action::wait();
-        default:
-            break;
-    }
-    switch (event.key.keysym.sym) {
-        case SDLK_d:
-        case SDLK_t:
-        case SDLK_z: {
-            List<Thing> inventory;
-            find_items_in_inventory(you->id, &inventory);
-            if (inventory.length() > 0) {
-                inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
-                input_mode = get_item_choosing_action_mode(event);
+    if (event.key.keysym.mod & KMOD_CTRL) {
+        // cheatcodes
+        switch (event.key.keysym.sym) {
+            case SDLK_v:
+                cheatcode_full_visibility = !cheatcode_full_visibility;
+                break;
+            case SDLK_h:
+                return Action::cheatcode_health_boost();
+            case SDLK_k:
+                return Action::cheatcode_kill_everybody_in_the_world();
+            case SDLK_p:
+                return Action::cheatcode_polymorph();
+            case SDLK_s:
+                cheatcode_spectate();
+                break;
+            case SDLK_i:
+                return Action::cheatcode_invisibility();
+            case SDLK_g:
+                return Action::cheatcode_generate_monster();
+
+            default:
+                break;
+        }
+    } else {
+        // normal
+        switch (event.key.keysym.scancode) {
+            case SDL_SCANCODE_KP_1:
+            case SDL_SCANCODE_KP_2:
+            case SDL_SCANCODE_KP_3:
+            case SDL_SCANCODE_KP_4:
+            case SDL_SCANCODE_KP_6:
+            case SDL_SCANCODE_KP_7:
+            case SDL_SCANCODE_KP_8:
+            case SDL_SCANCODE_KP_9:
+            case SDL_SCANCODE_DOWN:
+            case SDL_SCANCODE_LEFT:
+            case SDL_SCANCODE_RIGHT:
+            case SDL_SCANCODE_UP:
+                return move_or_attack(get_direction_from_event(event));
+            case SDL_SCANCODE_SPACE:
+                return Action::wait();
+            default:
+                break;
+        }
+        switch (event.key.keysym.sym) {
+            case SDLK_d:
+            case SDLK_t:
+            case SDLK_z: {
+                List<Thing> inventory;
+                find_items_in_inventory(you->id, &inventory);
+                if (inventory.length() > 0) {
+                    inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
+                    input_mode = get_item_choosing_action_mode(event);
+                }
+                return Action::undecided();
             }
-            return Action::undecided();
-        }
-        case SDLK_COMMA: {
-            List<PerceivedThing> items;
-            find_perceived_things_at(you, you->location, &items);
-            if (items.length() == 0)
+            case SDLK_COMMA: {
+                List<PerceivedThing> items;
+                find_perceived_things_at(you, you->location, &items);
+                if (items.length() == 0)
+                    break;
+                // grab the top one (or something)
+                return Action::pickup(items[0]->id);
+            }
+
+            case SDLK_GREATER:
+            case SDLK_PERIOD: // TODO: how do i check for > without looking at shift?
+                if (actual_map_tiles[you->location].tile_type != TileType_STAIRS_DOWN)
+                    break;
+                return Action::go_down();
+
+            default:
                 break;
-            // grab the top one (or something)
-            return Action::pickup(items[0]->id);
         }
-
-        case SDLK_GREATER:
-        case SDLK_PERIOD: // TODO: how do i check for > without looking at shift?
-            if (actual_map_tiles[you->location].tile_type != TileType_STAIRS_DOWN)
-                break;
-            return Action::go_down();
-
-        case SDLK_v:
-            cheatcode_full_visibility = !cheatcode_full_visibility;
-            break;
-        case SDLK_h:
-            return Action::cheatcode_health_boost();
-        case SDLK_k:
-            return Action::cheatcode_kill_everybody_in_the_world();
-        case SDLK_p:
-            return Action::cheatcode_polymorph();
-        case SDLK_s:
-            cheatcode_spectate();
-            break;
-        case SDLK_i:
-            return Action::cheatcode_invisibility();
-        case SDLK_g:
-            return Action::cheatcode_generate_monster();
-
-        default:
-            break;
     }
     return Action::undecided();
 }
