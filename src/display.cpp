@@ -546,7 +546,7 @@ void render() {
     {
         String hp_string = new_string();
         int hp = spectate_from->life()->hitpoints;
-        int max_hp = spectate_from->life()->species()->starting_hitpoints;
+        int max_hp = spectate_from->life()->max_hitpoints();
         hp_string->format("HP: %d", hp);
         Span hp_span = new_span(hp_string);
         if (hp <= max_hp / 3)
@@ -560,7 +560,7 @@ void render() {
     }
     {
         String string = new_string();
-        string->format("Kills: %d", spectate_from->life()->kill_counter);
+        string->format("XP: %d/%d", spectate_from->life()->experience_level(), spectate_from->life()->experience);
         kills_div->set_content(new_span(string));
         render_div(kills_div, kills_area, 1, 1);
     }

@@ -84,8 +84,8 @@ struct Species {
     SpeciesId species_id;
     // how many ticks does it cost to move one space? average human is 12.
     int movement_cost;
-    int starting_hitpoints;
-    int attack_power;
+    int base_hitpoints;
+    int base_attack_power;
     VisionTypes vision_types;
     bool has_mind;
     bool sucks_up_items;
@@ -183,7 +183,7 @@ struct Life {
     SpeciesId species_id;
     int hitpoints;
     long long hp_regen_deadline;
-    int kill_counter = 0;
+    int experience = 0;
     // once this reaches movement_cost, make a move
     int movement_points = 0;
     uint256 initiative;
@@ -192,6 +192,15 @@ struct Life {
     Knowledge knowledge;
 
     Species * species() const;
+    int experience_level() const {
+        return experience / 10;
+    }
+    int attack_power() const {
+        return species()->base_attack_power + experience_level();
+    }
+    int max_hitpoints() const {
+        return species()->base_hitpoints + 2 * experience_level();
+    }
 };
 
 class ThingImpl : public ReferenceCounted {

@@ -45,7 +45,7 @@ static void kill_individual(Thing individual) {
 
 static void reset_hp_regen_timeout(Thing individual) {
     Life * life = individual->life();
-    if (life->hitpoints < life->species()->starting_hitpoints)
+    if (life->hitpoints < life->max_hitpoints())
         life->hp_regen_deadline = time_counter + 12 * random_inclusive(5, 9);
 }
 static void damage_individual(Thing attacker, Thing target, int damage) {
@@ -55,7 +55,7 @@ static void damage_individual(Thing attacker, Thing target, int damage) {
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
         kill_individual(target);
-        attacker->life()->kill_counter++;
+        attacker->life()->experience++;
     }
 }
 
@@ -150,6 +150,8 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
         List<Thing> affected_individuals;
         Thing individual;
         for (auto iterator = actual_individuals(); iterator.next(&individual);) {
+            if (!individual->still_exists)
+                continue;
             Coord abs_vector = abs(individual->location - center);
             if (max(abs_vector.x, abs_vector.y) <= apothem)
                 affected_individuals.append(individual);
@@ -329,7 +331,7 @@ static void regen_hp(Thing individual) {
     Life * life = individual->life();
     if (life->hp_regen_deadline == time_counter) {
         int hp_heal = random_inclusive(1, 2);
-        life->hitpoints = min(life->hitpoints + hp_heal, life->species()->starting_hitpoints);
+        life->hitpoints = min(life->hitpoints + hp_heal, life->max_hitpoints());
         reset_hp_regen_timeout(individual);
     }
 }
@@ -337,7 +339,7 @@ static void regen_hp(Thing individual) {
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack(attacker, target));
-    damage_individual(attacker, target, attacker->life()->species()->attack_power);
+    damage_individual(attacker, target, attacker->life()->attack_power());
     reset_hp_regen_timeout(attacker);
 }
 

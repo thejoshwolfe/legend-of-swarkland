@@ -10,7 +10,7 @@ ThingImpl::ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMa
     _life->species_id = species_id;
     _life->team = team;
     _life->decision_maker = decision_maker;
-    _life->hitpoints = specieses[species_id].starting_hitpoints;
+    _life->hitpoints = _life->max_hitpoints();
     _life->initiative = random_uint256();
 }
 ThingImpl::~ThingImpl() {
