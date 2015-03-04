@@ -303,16 +303,20 @@ void go_down() {
     init_individuals();
 }
 
-static void spawn_monsters(bool force_do_it) {
-    if (force_do_it || random_int(120) == 0) {
-        // spawn a monster
-        if (random_int(50) == 0) {
-            // a friend has arrived!
-            spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI);
-        } else {
-            spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
-        }
+static void spawn_random_individual() {
+    if (random_int(50) == 0) {
+        // a friend has arrived!
+        spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI);
+    } else {
+        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI);
     }
+}
+static void maybe_spawn_monsters() {
+    // asymptotically approach 1 monster per human decision.
+    int numerator = dungeon_level;
+    int denominator = 12 * dungeon_level + 1200;
+    if (random_int(denominator) <= numerator)
+        spawn_random_individual();
 }
 
 static void regen_hp(Thing individual) {
@@ -558,7 +562,7 @@ static bool take_action(Thing actor, Action action) {
             }
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER:
-            spawn_monsters(true);
+            spawn_random_individual();
             return false;
     }
     panic("unimplemented action type");
@@ -603,7 +607,7 @@ void run_the_game() {
         if (poised_individuals.length() == 0) {
             time_counter++;
 
-            spawn_monsters(false);
+            maybe_spawn_monsters();
 
             // who's ready to make a move?
             List<Thing> turn_order;
