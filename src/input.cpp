@@ -122,6 +122,8 @@ static Action on_key_down_main(const SDL_Event & event) {
                 return Action::cheatcode_create_item();
             case SDLK_PERIOD:
                 return Action::cheatcode_go_down();
+            case SDLK_e:
+                return Action::cheatcode_gain_level();
 
             default:
                 break;

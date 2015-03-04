@@ -580,6 +580,9 @@ static bool take_action(Thing actor, Action action) {
         case Action::CHEATCODE_GO_DOWN:
             go_down();
             return true;
+        case Action::CHEATCODE_GAIN_LEVEL:
+            actor->life()->experience += 10;
+            return false;
     }
     panic("unimplemented action type");
 }
@@ -726,6 +729,7 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
         output_actions.append(Action::cheatcode_generate_monster());
         output_actions.append(Action::cheatcode_create_item());
         output_actions.append(Action::cheatcode_go_down());
+        output_actions.append(Action::cheatcode_gain_level());
     }
 }
 
