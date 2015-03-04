@@ -214,7 +214,7 @@ Coord find_random_location(Coord away_from_location) {
         for (location.x = 0; location.x < map_size.x; location.x++) {
             if (!is_open_space(actual_map_tiles[location].tile_type))
                 continue;
-            if (away_from_location != Coord::nowhere() && euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
+            if (euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
                 continue;
             if (find_individual_at(location) != NULL)
                 continue;
@@ -236,7 +236,7 @@ Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decisio
         }
     }
 
-    Coord location = find_random_location(you != NULL ? you->location : Coord::nowhere());
+    Coord location = find_random_location(you != NULL ? you->location : stairs_down_location);
     if (location == Coord::nowhere()) {
         // it must be pretty crowded in here
         return NULL;
@@ -315,7 +315,7 @@ static void spawn_random_individual() {
 static void maybe_spawn_monsters() {
     // asymptotically approach 1 monster per human decision.
     int numerator = dungeon_level;
-    int denominator = 12 * dungeon_level + 1200;
+    int denominator = 12 * dungeon_level + 600;
     if (random_int(denominator) <= numerator)
         spawn_random_individual();
 }
