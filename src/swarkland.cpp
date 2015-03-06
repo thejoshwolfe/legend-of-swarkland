@@ -286,15 +286,17 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
 
 static void init_individuals() {
     if (you == NULL) {
-        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, 50);
+        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, 0);
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far appart.
         you->location = find_random_location(stairs_down_location);
         compute_vision(you);
     }
-    // have a friend
-    spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI, 50);
+    if (random_int(dungeon_level) == 0) {
+        // have a friend
+        spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI, -1);
+    }
 
     // generate a few warm-up monsters
     for (int i = 0; i < 6; i++)

@@ -180,11 +180,11 @@ struct Knowledge {
 };
 
 static inline int experience_to_level(int experience) {
-    return log2(experience / 10);
+    return log2(experience);
 }
 // the lowest experience for this level
 static inline int level_to_experience(int level) {
-    return 10 * (1 << level);
+    return 1 << level;
 }
 
 struct Life {
