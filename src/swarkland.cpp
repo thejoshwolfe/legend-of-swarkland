@@ -43,12 +43,22 @@ static void kill_individual(Thing individual) {
     }
 }
 
-static void gain_experience(Thing individual, int delta) {
+static void level_up(Thing individual, bool publish) {
     Life * life = individual->life();
     int old_max_hitpoints = life->max_hitpoints();
-    life->experience += delta;
+    life->experience = life->next_level_up();
     int new_max_hitpoints = life->max_hitpoints();
     life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
+    if (publish)
+        publish_event(Event::level_up(individual->id));
+}
+
+static void gain_experience(Thing individual, int delta, bool publish) {
+    Life * life = individual->life();
+    int new_expderience = life->experience + delta;
+    while (new_expderience >= life->next_level_up())
+        level_up(individual, publish);
+    life->experience = new_expderience;
 }
 
 static void reset_hp_regen_timeout(Thing individual) {
@@ -63,7 +73,7 @@ static void damage_individual(Thing attacker, Thing target, int damage) {
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
         kill_individual(target);
-        gain_experience(attacker, 1);
+        gain_experience(attacker, 1, true);
     }
 }
 
@@ -260,7 +270,7 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
         int midpoint = (you->life()->experience + dungeon_level * 10) / 4;
         experience = random_inclusive(midpoint / 2, midpoint * 3 / 2);
     }
-    gain_experience(individual, experience);
+    gain_experience(individual, experience, false);
 
     if (random_int(10) == 0) {
         // have an item
@@ -594,7 +604,7 @@ static bool take_action(Thing actor, Action action) {
             go_down();
             return true;
         case Action::CHEATCODE_GAIN_LEVEL:
-            gain_experience(actor, 10);
+            gain_experience(actor, 10, true);
             return false;
     }
     panic("unimplemented action type");

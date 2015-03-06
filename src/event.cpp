@@ -42,10 +42,6 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             result->span->format("%s attacks a wall.", get_individual_description(observer, event.move_data().individual));
             return result;
 
-        case Event::DIE:
-            result->span->format("%s dies.", get_individual_description(observer, event.the_individual_data()));
-            return result;
-
         case Event::ZAP_WAND: {
             Event::ZapWandData & data = event.zap_wand_data();
             result->span->format("%s zaps %s.", get_individual_description(observer, data.wielder), get_item_description(observer, data.wand));
@@ -132,6 +128,13 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         case Event::DISAPPEAR:
             result->span->format("%s vanishes out of sight!", get_individual_description(observer, event.the_individual_data()));
             return result;
+        case Event::DIE:
+            result->span->format("%s dies.", get_individual_description(observer, event.the_individual_data()));
+            return result;
+        case Event::LEVEL_UP:
+            result->span->format("%s levels up.", get_individual_description(observer, event.the_individual_data()));
+            return result;
+
         case Event::POLYMORPH:
             result->span->format("%s transforms into %s!",
                     get_species_name(event.polymorph_data().old_species),
@@ -251,12 +254,6 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::SOMETHING_ATTACK_INDIVIDUAL:
             panic("not a real event");
 
-        case Event::DIE:
-            if (!can_see_individual(observer, event.the_individual_data()))
-                return false;
-            *output_event = event;
-            return true;
-
         case Event::ZAP_WAND:
         case Event::ZAP_WAND_NO_CHARGES:
         case Event::WAND_DISINTEGRATES:
@@ -319,6 +316,12 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             return true;
         case Event::DISAPPEAR:
             panic("not a real event");
+        case Event::LEVEL_UP:
+        case Event::DIE:
+            if (!can_see_individual(observer, event.the_individual_data()))
+                return false;
+            *output_event = event;
+            return true;
 
         case Event::POLYMORPH:
             if (!can_see_location(observer, location_of(event.polymorph_data().individual)))
@@ -406,10 +409,6 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 // no state change
                 break;
 
-            case Event::DIE:
-                delete_ids.append(apparent_event.the_individual_data());
-                break;
-
             case Event::ZAP_WAND:
                 perceived_current_zapper->put(observer->id, actual_things.get(apparent_event.zap_wand_data().wand)->wand_info()->description_id);
                 break;
@@ -464,6 +463,12 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 record_perception_of_thing(observer, apparent_event.the_individual_data());
                 break;
             case Event::DISAPPEAR:
+                delete_ids.append(apparent_event.the_individual_data());
+                break;
+            case Event::LEVEL_UP:
+                // no state change
+                break;
+            case Event::DIE:
                 delete_ids.append(apparent_event.the_individual_data());
                 break;
 

@@ -17,8 +17,6 @@ struct Event {
         ATTACK_THIN_AIR,
         ATTACK_WALL,
 
-        DIE,
-
         ZAP_WAND,
         ZAP_WAND_NO_CHARGES,
         WAND_DISINTEGRATES,
@@ -44,6 +42,8 @@ struct Event {
         APPEAR,
         TURN_INVISIBLE,
         DISAPPEAR,
+        LEVEL_UP,
+        DIE,
 
         POLYMORPH,
 
@@ -131,10 +131,6 @@ struct Event {
         return move_type_event(ATTACK_WALL, actor->id, actor->location, target_location);
     }
 
-    static inline Event die(Thing deceased) {
-        return event_individual(DIE, deceased->id);
-    }
-
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
         return zap_wand_type_event(ZAP_WAND, wand_wielder->id, item->id);
     }
@@ -218,6 +214,13 @@ struct Event {
     static inline Event disappear(uint256 individual_id) {
         return event_individual(DISAPPEAR, individual_id);
     }
+    static inline Event level_up(uint256 individual_id) {
+        return event_individual(LEVEL_UP, individual_id);
+    }
+    static inline Event die(Thing deceased) {
+        return event_individual(DIE, deceased->id);
+    }
+
     static inline Event polymorph(Thing shapeshifter, SpeciesId old_species) {
         Event result;
         result.type = POLYMORPH;
@@ -342,9 +345,6 @@ private:
             case ATTACK_WALL:
                 return DataType_MOVE;
 
-            case DIE:
-                return DataType_THE_INDIVIDUAL;
-
             case ZAP_WAND:
                 return DataType_ZAP_WAND;
             case ZAP_WAND_NO_CHARGES:
@@ -392,6 +392,10 @@ private:
             case TURN_INVISIBLE:
                 return DataType_THE_INDIVIDUAL;
             case DISAPPEAR:
+                return DataType_THE_INDIVIDUAL;
+            case LEVEL_UP:
+                return DataType_THE_INDIVIDUAL;
+            case DIE:
                 return DataType_THE_INDIVIDUAL;
 
             case POLYMORPH:
