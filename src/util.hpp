@@ -113,6 +113,9 @@ static inline int signf(float val) {
     }
 }
 
+// log2(x) == 0 if x <= 0
+int log2(int value) __attribute__((pure));
+
 template<typename T, int(*Comparator)(T, T)>
 void sort(T * in_place_list, int size) {
     // insertion sort, cuz whatever.

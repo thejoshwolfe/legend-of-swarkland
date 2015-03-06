@@ -21,3 +21,12 @@ void init_random() {
 uint32_t random_uint32() {
     return get_random(&the_random_state);
 }
+
+int log2(int value) {
+    if (value < 0)
+        return 0;
+    int result = 0;
+    while (value >> result > 1)
+        result++;
+    return result;
+}

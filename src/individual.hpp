@@ -179,6 +179,14 @@ struct Knowledge {
     }
 };
 
+static inline int experience_to_level(int experience) {
+    return log2(experience / 10);
+}
+// the lowest experience for this level
+static inline int level_to_experience(int level) {
+    return 10 * (1 << level);
+}
+
 struct Life {
     SpeciesId species_id;
     int hitpoints;
@@ -193,10 +201,10 @@ struct Life {
 
     Species * species() const;
     int experience_level() const {
-        return experience / 10;
+        return experience_to_level(experience);
     }
     int next_level_up() const {
-        return 10 * (experience_level() + 1);
+        return level_to_experience(experience_level() + 1);
     }
     int attack_power() const {
         return species()->base_attack_power + experience_level();
