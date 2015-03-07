@@ -267,7 +267,7 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
 
     if (experience == -1) {
         // monster experience scales around
-        int midpoint = (you->life()->experience + dungeon_level * 10) / 4;
+        int midpoint = (you->life()->experience + level_to_experience(dungeon_level)) / 2;
         experience = random_inclusive(midpoint / 2, midpoint * 3 / 2);
     }
     gain_experience(individual, experience, false);
