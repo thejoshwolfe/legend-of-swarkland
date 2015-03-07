@@ -257,7 +257,9 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
         }
     }
 
-    Coord location = find_random_location(you != NULL ? you->location : stairs_down_location);
+    // don't spawn monsters near you. don't spawn you near the stairs.
+    Coord away_from_location = you != NULL ? you->location : stairs_down_location;
+    Coord location = find_random_location(away_from_location);
     if (location == Coord::nowhere()) {
         // it must be pretty crowded in here
         return NULL;
