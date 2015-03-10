@@ -21,6 +21,11 @@ static void init_specieses() {
     specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true, false, false, false};
     specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false, true, false, false};
     specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false, true, true, false};
+    specieses[SpeciesId_ANT] = {SpeciesId_ANT, 12, 4, 1, {1, 0}, true, false, false, false};
+    specieses[SpeciesId_BEE] = {SpeciesId_BEE, 12, 4, 3, {1, 0}, true, false, false, false};
+    specieses[SpeciesId_BEETLE] = {SpeciesId_BEETLE, 24, 6, 1, {1, 0}, true, false, false, false};
+    specieses[SpeciesId_SCORPION] = {SpeciesId_SCORPION, 24, 5, 5, {1, 0}, true, false, false, false};
+    specieses[SpeciesId_SNAKE] = {SpeciesId_SNAKE, 18, 6, 2, {1, 0}, true, false, false, false};
 }
 
 static void kill_individual(Thing individual) {
@@ -252,7 +257,7 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
     while (species_id == SpeciesId_COUNT) {
         species_id = (SpeciesId)random_int(SpeciesId_COUNT);
         if (species_id == SpeciesId_HUMAN) {
-            // humans are too hard. without giving one side a powerup, they're evenly matched.
+            // humans are good guys.
             species_id = SpeciesId_COUNT;
         }
     }

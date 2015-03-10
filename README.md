@@ -64,6 +64,7 @@ source code to the website.
    * Rooms and corridors with stairs down to the next level (no stairs up).
    * Experience levels.
    * Monster difficulty depends on your experience level and dungeon depth.
+ * New monsters: ant, bee, beetle, scorpion, snake.
 
 ## Version History
 
@@ -93,7 +94,7 @@ source code to the website.
 
 ### 1.0.0
 
- * Run around a big open space hitting randomly generated monsters.
- * Different monsters have different behavior and movement speed.
+ * Run around a big open space as a human hitting randomly generated monsters.
+ * Different monsters have different behavior and movement speed: pink blob, ogre, dog, air elemental.
  * HP regenerates.
    The game counts your kills.

@@ -59,6 +59,11 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     species_images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/dog.png");
     species_images[SpeciesId_PINK_BLOB] = find_image(spritesheet_images, image_count, "img/pink_blob.png");
     species_images[SpeciesId_AIR_ELEMENTAL] = find_image(spritesheet_images, image_count, "img/air_elemental.png");
+    species_images[SpeciesId_ANT] = find_image(spritesheet_images, image_count, "img/ant.png");
+    species_images[SpeciesId_BEE] = find_image(spritesheet_images, image_count, "img/bee.png");
+    species_images[SpeciesId_BEETLE] = find_image(spritesheet_images, image_count, "img/beetle.png");
+    species_images[SpeciesId_SCORPION] = find_image(spritesheet_images, image_count, "img/scorpion.png");
+    species_images[SpeciesId_SNAKE] = find_image(spritesheet_images, image_count, "img/snake.png");
 
     floor_images[0] = find_image(spritesheet_images, image_count, "img/grey_dirt0.png");
     floor_images[1] = find_image(spritesheet_images, image_count, "img/grey_dirt1.png");
@@ -243,9 +248,21 @@ static const char * get_species_name_str(SpeciesId species_id) {
             return "pink blob";
         case SpeciesId_AIR_ELEMENTAL:
             return "air elemental";
-        default:
-            panic("individual description");
+        case SpeciesId_ANT:
+            return "ant";
+        case SpeciesId_BEE:
+            return "bee";
+        case SpeciesId_BEETLE:
+            return "beetle";
+        case SpeciesId_SCORPION:
+            return "scorpion";
+        case SpeciesId_SNAKE:
+            return "snake";
+
+        case SpeciesId_COUNT:
+            panic("not a real species");
     }
+    panic("individual description");
 }
 Span get_species_name(SpeciesId species_id) {
     return new_span(get_species_name_str(species_id), light_brown, black);

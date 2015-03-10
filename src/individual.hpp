@@ -46,6 +46,11 @@ enum SpeciesId {
     SpeciesId_DOG,
     SpeciesId_PINK_BLOB,
     SpeciesId_AIR_ELEMENTAL,
+    SpeciesId_ANT,
+    SpeciesId_BEE,
+    SpeciesId_BEETLE,
+    SpeciesId_SCORPION,
+    SpeciesId_SNAKE,
 
     SpeciesId_COUNT,
 };
