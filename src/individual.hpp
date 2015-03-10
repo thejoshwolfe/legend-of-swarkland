@@ -192,8 +192,7 @@ struct Life {
     int hitpoints;
     long long hp_regen_deadline;
     int experience = 0;
-    // once this reaches movement_cost, make a move
-    int movement_points = 0;
+    long long movement_ready_time = 0;
     uint256 initiative;
     Team team;
     DecisionMakerType decision_maker;

@@ -357,8 +357,12 @@ static void create_item(Coord floor_location) {
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
     if (life->hp_regen_deadline == time_counter) {
-        int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5));
-        life->hitpoints = min(life->hitpoints + hp_heal, life->max_hitpoints());
+        if (life->hitpoints < life->max_hitpoints()) {
+            int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5));
+            life->hitpoints = min(life->hitpoints + hp_heal, life->max_hitpoints());
+        } else {
+            // cheatcode gave you extra health. don't mess with it.
+        }
         reset_hp_regen_timeout(individual);
     }
 }
@@ -519,7 +523,7 @@ static bool take_action(Thing actor, Action action) {
     }
 
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
-    actor->life()->movement_points = 0;
+    actor->life()->movement_ready_time = time_counter + actor->life()->species()->movement_cost;
 
     switch (action.type) {
         case Action::WAIT:
@@ -580,7 +584,6 @@ static bool take_action(Thing actor, Action action) {
 
         case Action::CHEATCODE_HEALTH_BOOST:
             actor->life()->hitpoints += 100;
-            actor->life()->hp_regen_deadline = time_counter - 1;
             return false;
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
             cheatcode_kill_everybody_in_the_world();
@@ -641,8 +644,6 @@ static void age_individual(Thing individual) {
         remembered_events.remove_range(0, 500);
         individual->life()->knowledge.event_forget_counter++;
     }
-
-    individual->life()->movement_points++;
 }
 
 List<Thing> poised_individuals;
@@ -671,7 +672,7 @@ void run_the_game() {
                     continue;
                 }
                 age_individual(individual);
-                if (individual->life()->movement_points >= individual->life()->species()->movement_cost) {
+                if (individual->life()->movement_ready_time <= time_counter) {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
