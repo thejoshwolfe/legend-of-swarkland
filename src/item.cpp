@@ -7,12 +7,6 @@
 
 WandId actual_wand_identities[WandId_COUNT];
 
-void init_items() {
-    for (int i = 0; i < WandId_COUNT; i++)
-        actual_wand_identities[i] = (WandId)i;
-    shuffle(actual_wand_identities, WandId_COUNT);
-}
-
 Thing random_item() {
     WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
     int charges = random_int(4, 8);
@@ -21,13 +15,91 @@ Thing random_item() {
     return item;
 }
 
-static void confuse_individual_from_wand(Thing target, IdMap<WandDescriptionId> * perceived_current_zapper) {
+// return how much extra beam length this happening requires.
+// return -1 for stop the beam.
+struct WandHandler {
+    int (*hit_air)(Thing actor, Coord location, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper);
+    int (*hit_individual)(Thing actor, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper);
+    int (*hit_wall)(Thing actor, Coord location, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper);
+};
+
+static int pass_through_air_silently(Thing, Coord, bool, IdMap<WandDescriptionId> *) {
+    return 0;
+}
+static int hit_individual_no_effect(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
+    if (is_explosion)
+        publish_event(Event::explosion_hit_individual_no_effect(target), perceived_current_zapper);
+    else
+        publish_event(Event::beam_hit_individual_no_effect(target));
+    return 0;
+}
+static int hit_wall_no_effect(Thing, Coord location, bool is_explosion, IdMap<WandDescriptionId> *) {
+    if (is_explosion)
+        publish_event(Event::explosion_hit_wall_no_effect(location));
+    else
+        publish_event(Event::beam_hit_wall_no_effect(location));
+    // and stop
+    return -1;
+}
+
+static int confusion_hit_individual(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
     if (target->life()->species()->has_mind) {
-        publish_event(Event::beam_of_confusion_hit_individual(target), perceived_current_zapper);
+        if (is_explosion)
+            publish_event(Event::explosion_of_confusion_hit_individual(target), perceived_current_zapper);
+        else
+            publish_event(Event::beam_of_confusion_hit_individual(target), perceived_current_zapper);
         confuse_individual(target);
     } else {
-        publish_event(Event::beam_hit_individual_no_effect(target), perceived_current_zapper);
+        if (is_explosion)
+            publish_event(Event::explosion_hit_individual_no_effect(target), perceived_current_zapper);
+        else
+            publish_event(Event::beam_hit_individual_no_effect(target), perceived_current_zapper);
     }
+    return 2;
+}
+static int striking_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
+    if (is_explosion)
+        publish_event(Event::explosion_of_striking_hit_individual(target), perceived_current_zapper);
+    else
+        publish_event(Event::beam_of_striking_hit_individual(target), perceived_current_zapper);
+    strike_individual(actor, target);
+    return 2;
+}
+static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
+    if (is_explosion)
+        publish_event(Event::explosion_of_speed_hit_individual(target), perceived_current_zapper);
+    else
+        publish_event(Event::beam_of_speed_hit_individual(target), perceived_current_zapper);
+    speed_up_individual(target);
+    return 2;
+}
+
+static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
+    if (actual_map_tiles[location].tile_type != TileType_WALL)
+        return -1; // probably border walls
+    if (is_explosion)
+        publish_event(Event::explosion_of_digging_hit_wall(location), perceived_current_zapper);
+    else
+        publish_event(Event::beam_of_digging_hit_wall(location), perceived_current_zapper);
+    change_map(location, TileType_FLOOR);
+    return 0;
+}
+static int digging_pass_through_air(Thing, Coord, bool, IdMap<WandDescriptionId> *) {
+    // the digging beam doesn't travel well through air
+    return 2;
+}
+
+static WandHandler wand_handlers[WandId_COUNT];
+
+void init_items() {
+    for (int i = 0; i < WandId_COUNT; i++)
+        actual_wand_identities[i] = (WandId)i;
+    shuffle(actual_wand_identities, WandId_COUNT);
+
+    wand_handlers[WandId_WAND_OF_CONFUSION] = {pass_through_air_silently, confusion_hit_individual, hit_wall_no_effect};
+    wand_handlers[WandId_WAND_OF_DIGGING] = {digging_pass_through_air, hit_individual_no_effect, digging_hit_wall};
+    wand_handlers[WandId_WAND_OF_STRIKING] = {pass_through_air_silently, striking_hit_individual, hit_wall_no_effect};
+    wand_handlers[WandId_WAND_OF_SPEED] = {pass_through_air_silently, speed_hit_individual, hit_wall_no_effect};
 }
 
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
@@ -50,66 +122,27 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     publish_event(Event::zap_wand(wand_wielder, wand), &perceived_current_zapper);
     Coord cursor = wand_wielder->location;
     int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin);
+    WandHandler handler = wand_handlers[actual_wand_identities[wand->wand_info()->description_id]];
     for (int i = 0; i < beam_length; i++) {
         cursor = cursor + direction;
         if (!is_in_bounds(cursor))
             break;
-        switch (actual_wand_identities[wand->wand_info()->description_id]) {
-            case WandId_WAND_OF_DIGGING: {
-                if (actual_map_tiles[cursor].tile_type == TileType_WALL) {
-                    publish_event(Event::beam_of_digging_hit_wall(cursor), &perceived_current_zapper);
-                    change_map(cursor, TileType_FLOOR);
-                } else {
-                    // the digging beam doesn't travel well through air
-                    beam_length -= 3;
-                    Thing target = find_individual_at(cursor);
-                    if (target != NULL)
-                        publish_event(Event::beam_hit_individual_no_effect(target));
-                }
-                break;
-            }
-            case WandId_WAND_OF_STRIKING: {
-                Thing target = find_individual_at(cursor);
-                if (target != NULL) {
-                    publish_event(Event::beam_of_striking_hit_individual(target), &perceived_current_zapper);
-                    strike_individual(wand_wielder, target);
-                    beam_length -= 3;
-                }
-                if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
-                    publish_event(Event::beam_hit_wall_no_effect(cursor));
-                    beam_length = i;
-                }
-                break;
-            }
-            case WandId_WAND_OF_CONFUSION: {
-                Thing target = find_individual_at(cursor);
-                if (target != NULL) {
-                    confuse_individual_from_wand(target, &perceived_current_zapper);
-                    beam_length -= 3;
-                }
-                if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
-                    publish_event(Event::beam_hit_wall_no_effect(cursor));
-                    beam_length = i;
-                }
-                break;
-            }
-            case WandId_WAND_OF_SPEED: {
-                Thing target = find_individual_at(cursor);
-                if (target != NULL) {
-                    speed_up_individual(target);
-                    publish_event(Event::beam_of_speed_hit_individual(target), &perceived_current_zapper);
-                    beam_length -= 3;
-                }
-                if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
-                    publish_event(Event::beam_hit_wall_no_effect(cursor));
-                    beam_length = i;
-                }
-                break;
-            }
-            case WandId_COUNT:
-            case WandId_UNKNOWN:
-                panic("not a real wand id");
-        }
+
+        Thing target = find_individual_at(cursor);
+        int length_penalty = 0;
+        if (target != NULL)
+            length_penalty = handler.hit_individual(wand_wielder, target, false, &perceived_current_zapper);
+        if (length_penalty == -1)
+            break;
+        beam_length -= length_penalty;
+
+        if (!is_open_space(actual_map_tiles[cursor].tile_type))
+            length_penalty = handler.hit_wall(wand_wielder, cursor, false, &perceived_current_zapper);
+        else
+            length_penalty = handler.hit_air(wand_wielder, cursor, false, &perceived_current_zapper);
+        if (length_penalty == -1)
+            break;
+        beam_length -= length_penalty;
     }
 }
 
@@ -146,50 +179,9 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
             if (actual_map_tiles[wall_cursor].tile_type == TileType_WALL)
                 affected_walls.append(wall_cursor);
 
-    switch (wand_id) {
-        case WandId_WAND_OF_CONFUSION:
-            for (int i = 0; i < affected_individuals.length(); i++) {
-                Thing target = affected_individuals[i];
-                if (target->life()->species()->has_mind) {
-                    publish_event(Event::explosion_of_confusion_hit_individual(target), &perceived_current_zapper);
-                    confuse_individual(target);
-                } else {
-                    publish_event(Event::explosion_hit_individual_no_effect(target), &perceived_current_zapper);
-                }
-            }
-            for (int i = 0; i < affected_walls.length(); i++)
-                publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
-            break;
-        case WandId_WAND_OF_DIGGING:
-            for (int i = 0; i < affected_individuals.length(); i++)
-                publish_event(Event::explosion_hit_individual_no_effect(affected_individuals[i]), &perceived_current_zapper);
-            for (int i = 0; i < affected_walls.length(); i++) {
-                Coord wall_location = affected_walls[i];
-                publish_event(Event::beam_of_digging_hit_wall(wall_location), &perceived_current_zapper);
-                change_map(wall_location, TileType_FLOOR);
-            }
-            break;
-        case WandId_WAND_OF_STRIKING:
-            for (int i = 0; i < affected_individuals.length(); i++) {
-                Thing target = affected_individuals[i];
-                publish_event(Event::explosion_of_striking_hit_individual(target), &perceived_current_zapper);
-                strike_individual(actor, target);
-            }
-            for (int i = 0; i < affected_walls.length(); i++)
-                publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
-            break;
-        case WandId_WAND_OF_SPEED:
-            for (int i = 0; i < affected_individuals.length(); i++) {
-                Thing target = affected_individuals[i];
-                speed_up_individual(target);
-                publish_event(Event::explosion_of_speed_hit_individual(target), &perceived_current_zapper);
-            }
-            for (int i = 0; i < affected_walls.length(); i++)
-                publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
-            break;
-
-        case WandId_COUNT:
-        case WandId_UNKNOWN:
-            panic("not a real wand id");
-    }
+    WandHandler handler = wand_handlers[actual_wand_identities[item->wand_info()->description_id]];
+    for (int i = 0; i < affected_individuals.length(); i++)
+        handler.hit_individual(actor, affected_individuals[i], true, &perceived_current_zapper);
+    for (int i = 0; i < affected_walls.length(); i++)
+        handler.hit_wall(actor, affected_walls[i], true, &perceived_current_zapper);
 }
