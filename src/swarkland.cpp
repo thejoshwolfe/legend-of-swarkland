@@ -305,7 +305,7 @@ static void regen_hp(Thing individual) {
 
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
-    publish_event(Event::attack(attacker, target));
+    publish_event(Event::attack(attacker, target->id, target->location));
     int attack_power = attacker->life()->attack_power();
     int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
     damage_individual(attacker, target, damage);
@@ -478,14 +478,15 @@ static bool take_action(Thing actor, Action action) {
             // monsters can try to walk into you while you're invisible.
             Coord new_position = actor->location + confuse_direction(actor, action.coord);
             if (!is_open_space(actual_map_tiles[new_position].tile_type)) {
-                // this can only happen if your direction was changed, since attempting to move into a wall is invalid.
-                publish_event(Event::bump_into_wall(actor, new_position));
+                // this can only happen if your direction was changed.
+                // (attempting to move into a wall deliberately is an invalid move).
+                publish_event(Event::bump_into(actor->id, actor->location, uint256::zero(), new_position));
                 return true;
             }
             Thing target = find_individual_at(new_position);
             if (target != NULL) {
                 // this is not attacking
-                publish_event(Event::bump_into_individual(actor, target));
+                publish_event(Event::bump_into(actor->id, actor->location, target->id, target->location));
                 return true;
             }
             // clear to move
@@ -499,11 +500,7 @@ static bool take_action(Thing actor, Action action) {
                 attack(actor, target);
                 return true;
             } else {
-                bool is_air = is_open_space(actual_map_tiles[new_position].tile_type);
-                if (is_air)
-                    publish_event(Event::attack_thin_air(actor, new_position));
-                else
-                    publish_event(Event::attack_wall(actor, new_position));
+                publish_event(Event::attack(actor, uint256::zero(), new_position));
                 return true;
             }
         }

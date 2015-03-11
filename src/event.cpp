@@ -9,38 +9,27 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         case Event::MOVE:
             // unremarkable
             return NULL;
-        case Event::BUMP_INTO_WALL:
-            result->span->format("%s bumps into a wall.", get_individual_description(observer, event.move_data().individual));
+        case Event::BUMP_INTO:
+        case Event::ATTACK: {
+            Event::TwoIndividualData & data = event.two_individual_data();
+            Span actor_description = data.actor != uint256::zero() ? get_individual_description(observer, data.actor) : new_span("something unseen");
+            // what did it bump into? whatever we think is there
+            Span bumpee_description;
+            if (data.target != uint256::zero()) {
+                bumpee_description = get_individual_description(observer, data.target);
+            } else {
+                // can't see anybody there. what are we bumping into?
+                if (!is_open_space(observer->life()->knowledge.tiles[data.target_location].tile_type))
+                    bumpee_description = new_span("a wall");
+                else if (!observer->life()->knowledge.tile_is_visible[data.target_location].any())
+                    bumpee_description = new_span("something");
+                else
+                    bumpee_description = new_span("thin air");
+            }
+            const char * fmt = event.type == Event::BUMP_INTO ? "%s bumps into %s" : "%s hits %s";
+            result->span->format(fmt, actor_description, bumpee_description);
             return result;
-        case Event::BUMP_INTO_INDIVIDUAL:
-            result->span->format("%s bumps into %s.",
-                    get_individual_description(observer, event.attack_data().attacker),
-                    get_individual_description(observer, event.attack_data().target));
-            return result;
-        case Event::BUMP_INTO_SOMETHING:
-            result->span->format("%s bumps into something.", get_individual_description(observer, event.move_data().individual));
-            return result;
-        case Event::SOMETHING_BUMP_INTO_INDIVIDUAL:
-            result->span->format("something unseen bumps into %s.", get_individual_description(observer, event.move_data().individual));
-            return result;
-
-        case Event::ATTACK:
-            result->span->format("%s hits %s!",
-                    get_individual_description(observer, event.attack_data().attacker),
-                    get_individual_description(observer, event.attack_data().target));
-            return result;
-        case Event::ATTACK_SOMETHING:
-            result->span->format("%s attacks something.", get_individual_description(observer, event.move_data().individual));
-            return result;
-        case Event::SOMETHING_ATTACK_INDIVIDUAL:
-            result->span->format("something unseen attacks %s!", get_individual_description(observer, event.move_data().individual));
-            return result;
-        case Event::ATTACK_THIN_AIR:
-            result->span->format("%s attacks thin air.", get_individual_description(observer, event.move_data().individual));
-            return result;
-        case Event::ATTACK_WALL:
-            result->span->format("%s attacks a wall.", get_individual_description(observer, event.move_data().individual));
-            return result;
+        }
 
         case Event::ZAP_WAND: {
             Event::ZapWandData & data = event.zap_wand_data();
@@ -207,63 +196,32 @@ static Coord location_of(uint256 individual_id) {
 
 static bool see_event(Thing observer, Event event, Event * output_event) {
     switch (event.type) {
-        case Event::MOVE:
-            if (!(can_see_individual(observer, event.move_data().individual, event.move_data().from) || can_see_individual(observer, event.move_data().individual, event.move_data().to)))
+        case Event::MOVE: {
+            Event::TwoIndividualData & data = event.two_individual_data();
+            if (!(can_see_individual(observer, data.actor, data.actor_location) || can_see_individual(observer, data.actor, data.target_location)))
                 return false;
             *output_event = event;
             return true;
-        case Event::BUMP_INTO_WALL:
-            if (!can_see_individual(observer, event.move_data().individual))
-                return false;
-            if (can_see_location(observer, event.move_data().to)) {
-                *output_event = event;
-            } else {
-                *output_event = Event::bump_into_something(event.move_data().individual, event.move_data().from, event.move_data().to);
-            }
-            return true;
-        case Event::BUMP_INTO_INDIVIDUAL:
-            if (can_see_individual(observer, event.attack_data().attacker)) {
-                if (can_see_individual(observer, event.attack_data().target)) {
-                    *output_event = event;
-                } else {
-                    *output_event = Event::bump_into_something(event.attack_data().attacker, location_of(event.attack_data().attacker), location_of(event.attack_data().target));
-                }
-            } else {
-                if (can_see_individual(observer, event.attack_data().target)) {
-                    *output_event = Event::something_bump_into_individual(event.attack_data().target, location_of(event.attack_data().attacker), location_of(event.attack_data().target));
-                } else {
-                    return false;
-                }
-            }
-            return true;
-        case Event::BUMP_INTO_SOMETHING:
-        case Event::SOMETHING_BUMP_INTO_INDIVIDUAL:
-            panic("not a real event");
+        }
+        case Event::BUMP_INTO:
+        case Event::ATTACK: {
+            Event::TwoIndividualData & data = event.two_individual_data();
 
-        case Event::ATTACK:
-            if (can_see_individual(observer, event.attack_data().attacker)) {
-                if (can_see_individual(observer, event.attack_data().target)) {
-                    *output_event = event;
-                } else {
-                    *output_event = Event::attack_something(event.attack_data().attacker, location_of(event.attack_data().attacker), location_of(event.attack_data().target));
-                }
-            } else {
-                if (can_see_individual(observer, event.attack_data().target)) {
-                    *output_event = Event::something_attack_individual(event.attack_data().target, location_of(event.attack_data().attacker), location_of(event.attack_data().target));
-                } else {
-                    return false;
-                }
-            }
-            return true;
-        case Event::ATTACK_THIN_AIR:
-        case Event::ATTACK_WALL:
-            if (!can_see_individual(observer, event.move_data().individual))
+            uint256 actor = data.actor;
+            if (data.actor != uint256::zero() && !can_see_individual(observer, data.actor))
+                actor = uint256::zero();
+
+            uint256 target = data.target;
+            if (data.target != uint256::zero() && !can_see_individual(observer, data.target))
+                target = uint256::zero();
+
+            if (actor == uint256::zero() && target == uint256::zero())
                 return false;
             *output_event = event;
+            output_event->two_individual_data().actor = actor;
+            output_event->two_individual_data().target = target;
             return true;
-        case Event::ATTACK_SOMETHING:
-        case Event::SOMETHING_ATTACK_INDIVIDUAL:
-            panic("not a real event");
+        }
 
         case Event::ZAP_WAND:
         case Event::ZAP_WAND_NO_CHARGES:
@@ -400,26 +358,10 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
         List<uint256> delete_ids;
         switch (apparent_event.type) {
             case Event::MOVE:
-                record_perception_of_thing(observer, apparent_event.move_data().individual);
+                record_perception_of_thing(observer, apparent_event.two_individual_data().actor);
                 break;
-            case Event::BUMP_INTO_WALL:
-            case Event::BUMP_INTO_INDIVIDUAL:
-                // no state change
-                break;
-            case Event::BUMP_INTO_SOMETHING:
-            case Event::SOMETHING_BUMP_INTO_INDIVIDUAL:
-                // TODO: mark unseen things
-                break;
-
+            case Event::BUMP_INTO:
             case Event::ATTACK:
-                // no state change
-                break;
-            case Event::ATTACK_SOMETHING:
-            case Event::SOMETHING_ATTACK_INDIVIDUAL:
-                // TODO: mark unseen things
-                break;
-            case Event::ATTACK_THIN_AIR:
-            case Event::ATTACK_WALL:
                 // no state change
                 break;
 

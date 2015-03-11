@@ -6,16 +6,8 @@
 struct Event {
     enum Type {
         MOVE,
-        BUMP_INTO_WALL,
-        BUMP_INTO_INDIVIDUAL,
-        BUMP_INTO_SOMETHING,
-        SOMETHING_BUMP_INTO_INDIVIDUAL,
-
+        BUMP_INTO,
         ATTACK,
-        ATTACK_SOMETHING,
-        SOMETHING_ATTACK_INDIVIDUAL,
-        ATTACK_THIN_AIR,
-        ATTACK_WALL,
 
         ZAP_WAND,
         ZAP_WAND_NO_CHARGES,
@@ -68,23 +60,15 @@ struct Event {
         return _data._the_location;
     }
 
-    struct MoveData {
-        uint256 individual;
-        Coord from;
-        Coord to;
-    };
-    MoveData & move_data() {
-        check_data_type(DataType_MOVE);
-        return _data._move;
-    }
-
-    struct AttackData {
-        uint256 attacker;
+    struct TwoIndividualData {
+        uint256 actor;
+        Coord actor_location;
         uint256 target;
+        Coord target_location;
     };
-    AttackData & attack_data() {
-        check_data_type(DataType_ATTACK);
-        return _data._attack;
+    TwoIndividualData & two_individual_data() {
+        check_data_type(DataType_TWO_INDIVIDUAL);
+        return _data._two_individual;
     }
 
     struct ZapWandData {
@@ -115,23 +99,11 @@ struct Event {
     }
 
     static inline Event move(Thing mover, Coord from, Coord to) {
-        return move_type_event(MOVE, mover->id, from, to);
+        return two_individual_type_event(MOVE, mover->id, from, uint256::zero(), to);
     }
 
-    static inline Event attack(Thing attacker, Thing target) {
-        return attack_type_event(ATTACK, attacker, target);
-    }
-    static inline Event attack_something(uint256 attacker_id, Coord attacker_location, Coord target_location) {
-        return move_type_event(ATTACK_SOMETHING, attacker_id, attacker_location, target_location);
-    }
-    static inline Event something_attack_individual(uint256 target_id, Coord attacker_location, Coord target_location) {
-        return move_type_event(SOMETHING_ATTACK_INDIVIDUAL, target_id, attacker_location, target_location);
-    }
-    static Event attack_thin_air(Thing actor, Coord target_location) {
-        return move_type_event(ATTACK_THIN_AIR, actor->id, actor->location, target_location);
-    }
-    static Event attack_wall(Thing actor, Coord target_location) {
-        return move_type_event(ATTACK_WALL, actor->id, actor->location, target_location);
+    static inline Event attack(Thing attacker, uint256 target_id, Coord target_location) {
+        return two_individual_type_event(ATTACK, attacker->id, attacker->location, target_id, target_location);
     }
 
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
@@ -184,17 +156,8 @@ struct Event {
         return event_individual(EXPLOSION_OF_SPEED_HIT_INDIVIDUAL, target->id);
     }
 
-    static Event bump_into_wall(Thing actor, Coord wall_location) {
-        return move_type_event(BUMP_INTO_WALL, actor->id, actor->location, wall_location);
-    }
-    static Event bump_into_individual(Thing actor, Thing target) {
-        return attack_type_event(BUMP_INTO_INDIVIDUAL, actor, target);
-    }
-    static Event bump_into_something(uint256 actor_id, Coord from_location, Coord something_location) {
-        return move_type_event(BUMP_INTO_SOMETHING, actor_id, from_location, something_location);
-    }
-    static Event something_bump_into_individual(uint256 target, Coord from_location, Coord target_location) {
-        return move_type_event(SOMETHING_BUMP_INTO_INDIVIDUAL, target, from_location, target_location);
+    static Event bump_into(uint256 actor_id, Coord from_location, uint256 bumpee_id, Coord bumpee_location) {
+        return two_individual_type_event(BUMP_INTO, actor_id, from_location, bumpee_id, bumpee_location);
     }
 
     static Event throw_item(uint256 thrower_id, uint256 item_id) {
@@ -272,22 +235,14 @@ private:
         result.the_location_data() = location;
         return result;
     }
-    static inline Event move_type_event(Type type, uint256 mover_id, Coord from, Coord to) {
+    static inline Event two_individual_type_event(Type type, uint256 actor, Coord actor_location, uint256 target, Coord target_location) {
         Event result;
         result.type = type;
-        result.move_data() = {
-            mover_id,
-            from,
-            to,
-        };
-        return result;
-    }
-    static Event attack_type_event(Type type, Thing individual1, Thing individual2) {
-        Event result;
-        result.type = type;
-        result.attack_data() = {
-            individual1->id,
-            individual2->id,
+        result.two_individual_data() = {
+            actor,
+            actor_location,
+            target,
+            target_location,
         };
         return result;
     }
@@ -312,8 +267,7 @@ private:
     union {
         uint256 _the_individual;
         Coord _the_location;
-        MoveData _move;
-        AttackData _attack;
+        TwoIndividualData _two_individual;
         ZapWandData _zap_wand;
         PolymorphData _polymorph;
         ItemAndLocationData _item_and_location;
@@ -321,8 +275,7 @@ private:
     enum DataType {
         DataType_THE_INDIVIDUAL,
         DataType_THE_LOCATION,
-        DataType_MOVE,
-        DataType_ATTACK,
+        DataType_TWO_INDIVIDUAL,
         DataType_ZAP_WAND,
         DataType_POLYMORPH,
         DataType_ITEM_AND_LOCATION,
@@ -336,26 +289,11 @@ private:
     DataType get_correct_data_type() const {
         switch (type) {
             case MOVE:
-                return DataType_MOVE;
-            case BUMP_INTO_WALL:
-                return DataType_MOVE;
-            case BUMP_INTO_INDIVIDUAL:
-                return DataType_ATTACK;
-            case BUMP_INTO_SOMETHING:
-                return DataType_MOVE;
-            case SOMETHING_BUMP_INTO_INDIVIDUAL:
-                return DataType_MOVE;
-
+                return DataType_TWO_INDIVIDUAL;
+            case BUMP_INTO:
+                return DataType_TWO_INDIVIDUAL;
             case ATTACK:
-                return DataType_ATTACK;
-            case ATTACK_SOMETHING:
-                return DataType_MOVE;
-            case SOMETHING_ATTACK_INDIVIDUAL:
-                return DataType_MOVE;
-            case ATTACK_THIN_AIR:
-                return DataType_MOVE;
-            case ATTACK_WALL:
-                return DataType_MOVE;
+                return DataType_TWO_INDIVIDUAL;
 
             case ZAP_WAND:
                 return DataType_ZAP_WAND;
