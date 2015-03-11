@@ -513,6 +513,8 @@ static const Coord directions_by_rotation[] = {
 Coord confuse_direction(Thing individual, Coord direction) {
     if (individual->status_effects.confused_timeout == 0)
         return direction; // not confused
+    if (direction == Coord{0, 0})
+        return direction; // can't get that wrong
     if (random_int(2) > 0)
         return direction; // you're ok this time
     // which direction are we attempting
@@ -523,7 +525,7 @@ Coord confuse_direction(Thing individual, Coord direction) {
         i = euclidean_mod(i + 2 * random_int(2) - 1, 8);
         return directions_by_rotation[i];
     }
-    panic("direection not found");
+    panic("direction not found");
 }
 
 // return whether we did anything. also, cheatcodes take no time
@@ -585,7 +587,7 @@ static bool take_action(Thing actor, Action action) {
             }
         }
         case Action::ZAP:
-            zap_wand(actor, action.item, action.coord);
+            zap_wand(actor, action.item, confuse_direction(actor, action.coord));
             return true;
         case Action::PICKUP:
             pickup_item(actor, actual_things.get(action.item));
@@ -595,7 +597,7 @@ static bool take_action(Thing actor, Action action) {
             drop_item_to_the_floor(actual_things.get(action.item), actor->location);
             return true;
         case Action::THROW:
-            throw_item(actor, actual_things.get(action.item), action.coord);
+            throw_item(actor, actual_things.get(action.item), confuse_direction(actor, action.coord));
             return true;
 
         case Action::GO_DOWN:
