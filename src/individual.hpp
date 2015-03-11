@@ -211,7 +211,7 @@ struct Life {
         return level_to_experience(experience_level() + 1);
     }
     int attack_power() const {
-        return max(1, (species()->base_attack_power * (experience_level() + 1)) / 2);
+        return max(1, species()->base_attack_power + experience_level() / 2);
     }
     int max_hitpoints() const {
         return species()->base_hitpoints + 2 * experience_level();
