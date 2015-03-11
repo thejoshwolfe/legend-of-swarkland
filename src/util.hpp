@@ -83,7 +83,8 @@ static inline T max(T a, T b) {
     return a < b ? b : a;
 }
 
-static inline int clamp(int value, int min, int max) {
+template <typename T>
+static inline T clamp(T value, T min, T max) {
     if (value < min)
         return min;
     if (value > max)
@@ -91,26 +92,22 @@ static inline int clamp(int value, int min, int max) {
     return value;
 }
 
-static inline int sign(int value) {
-    if (value == 0)
+template <typename T>
+static inline int sign(T value) {
+    if (value > 0)
+        return 1;
+    else if (value < 0)
+        return -1;
+    else
         return 0;
-    return value < 0 ? -1 : 1;
 }
-static inline int euclidean_mod(int a, int base) {
+
+template <typename T>
+static inline T euclidean_mod(T a, T base) {
     if (a < 0)
         return (a % base + base) % base;
     else
         return a % base;
-}
-
-static inline int signf(float val) {
-    if (val > 0) {
-        return 1;
-    } else if (val < 0) {
-        return -1;
-    } else {
-        return 0;
-    }
 }
 
 // log2(x) == 0 if x <= 0

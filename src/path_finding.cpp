@@ -40,7 +40,7 @@ static float heuristic(Coord start, Coord end) {
 }
 
 static int compare_nodes(Node *a, Node *b) {
-    return signf(a->f - b->f);
+    return sign(a->f - b->f);
 }
 
 bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * output_path) {
