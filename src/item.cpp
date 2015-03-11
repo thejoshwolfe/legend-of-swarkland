@@ -22,9 +22,9 @@ Thing random_item() {
 }
 
 static void confuse_individual_from_wand(Thing target, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    bool did_it_work = confuse_individual(target);
-    if (did_it_work) {
+    if (target->life()->species()->has_mind) {
         publish_event(Event::beam_of_confusion_hit_individual(target), perceived_current_zapper);
+        confuse_individual(target);
     } else {
         publish_event(Event::beam_hit_individual_no_effect(target), perceived_current_zapper);
     }
@@ -97,8 +97,22 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
                 }
                 break;
             }
-            default:
-                panic("wand id");
+            case WandId_WAND_OF_SPEED: {
+                Thing target = find_individual_at(cursor);
+                if (target != NULL) {
+                    speed_up_individual(target);
+                    publish_event(Event::beam_of_speed_hit_individual(target), &perceived_current_zapper);
+                    beam_length -= 3;
+                }
+                if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
+                    publish_event(Event::beam_hit_wall_no_effect(cursor));
+                    beam_length = i;
+                }
+                break;
+            }
+            case WandId_COUNT:
+            case WandId_UNKNOWN:
+                panic("not a real wand id");
         }
     }
 }

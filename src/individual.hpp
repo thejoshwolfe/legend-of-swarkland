@@ -21,6 +21,7 @@ enum WandDescriptionId {
     WandDescriptionId_BONE_WAND,
     WandDescriptionId_GOLD_WAND,
     WandDescriptionId_PLASTIC_WAND,
+    WandDescriptionId_COPPER_WAND,
 
     WandDescriptionId_COUNT,
 };
@@ -28,6 +29,7 @@ enum WandId {
     WandId_WAND_OF_CONFUSION,
     WandId_WAND_OF_DIGGING,
     WandId_WAND_OF_STRIKING,
+    WandId_WAND_OF_SPEED,
 
     WandId_COUNT,
     WandId_UNKNOWN,
@@ -101,6 +103,7 @@ struct Species {
 struct StatusEffects {
     bool invisible = false;
     int confused_timeout = 0;
+    int speed_up_timeout = 0;
 };
 
 struct PerceivedWandInfo {

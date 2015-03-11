@@ -51,7 +51,8 @@ void find_items_in_inventory(Thing observer, PerceivedThing perceived_owner, Lis
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 void drop_item_to_the_floor(Thing item, Coord location);
 
-bool confuse_individual(Thing target);
+void confuse_individual(Thing target);
+void speed_up_individual(Thing target);
 void strike_individual(Thing attacker, Thing target);
 
 void change_map(Coord location, TileType new_tile_type);

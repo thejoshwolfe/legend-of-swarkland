@@ -65,6 +65,7 @@ source code to the website.
    * Experience levels.
    * Monster difficulty depends on your experience level and dungeon depth.
  * New monsters: ant, bee, beetle, scorpion, snake.
+ * New items: wand of speed.
 
 ## Version History
 

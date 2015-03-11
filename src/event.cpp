@@ -80,6 +80,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         case Event::BEAM_OF_DIGGING_HIT_WALL:
             result->span->format("the wall magically crumbles away!");
             return result;
+        case Event::BEAM_OF_SPEED_HIT_INDIVIDUAL:
+            result->span->format("%s speeds up!", get_individual_description(observer, event.the_individual_data()));
+            return result;
         case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
             result->span->format("an explosion hits %s, but nothing happens.", get_individual_description(observer, event.the_individual_data()));
             return result;
@@ -97,6 +100,11 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
             result->span->format("the wall magically crumbles away!");
             return result;
+        case Event::EXPLOSION_OF_SPEED_HIT_INDIVIDUAL: {
+            Span individual_description = get_individual_description(observer, event.the_individual_data());
+            result->span->format("an explosion hits %s; %s speeds up!", individual_description, individual_description);
+            return result;
+        }
 
         case Event::THROW_ITEM:
             result->span->format("%s throws %s.",
@@ -270,9 +278,11 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
         case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
         case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
+        case Event::BEAM_OF_SPEED_HIT_INDIVIDUAL:
         case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
         case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
         case Event::EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
+        case Event::EXPLOSION_OF_SPEED_HIT_INDIVIDUAL:
             if (!can_see_individual(observer, event.the_individual_data()))
                 return false;
             *output_event = event;
@@ -441,6 +451,10 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
             case Event::BEAM_OF_DIGGING_HIT_WALL:
             case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
                 id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_DIGGING);
+                break;
+            case Event::BEAM_OF_SPEED_HIT_INDIVIDUAL:
+            case Event::EXPLOSION_OF_SPEED_HIT_INDIVIDUAL:
+                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_SPEED);
                 break;
 
             case Event::THROW_ITEM:

@@ -88,6 +88,7 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     wand_images[WandDescriptionId_BONE_WAND] = find_image(spritesheet_images, image_count, "img/bone_wand.png");
     wand_images[WandDescriptionId_GOLD_WAND] = find_image(spritesheet_images, image_count, "img/gold_wand.png");
     wand_images[WandDescriptionId_PLASTIC_WAND] = find_image(spritesheet_images, image_count, "img/plastic_wand.png");
+    wand_images[WandDescriptionId_COPPER_WAND] = find_image(spritesheet_images, image_count, "img/copper_wand.png");
 
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
@@ -311,9 +312,14 @@ static const char * get_item_description_str(Thing observer, uint256 item_id) {
                 return "wand of digging";
             case WandId_WAND_OF_STRIKING:
                 return "wand of striking";
-            default:
-                panic("wand id");
+            case WandId_WAND_OF_SPEED:
+                return "wand of speed";
+
+            case WandId_COUNT:
+            case WandId_UNKNOWN:
+                panic("not a real wand id");
         }
+        panic("wand id");
     } else {
         switch (item->wand_info().description_id) {
             case WandDescriptionId_BONE_WAND:
@@ -322,9 +328,13 @@ static const char * get_item_description_str(Thing observer, uint256 item_id) {
                 return "gold wand";
             case WandDescriptionId_PLASTIC_WAND:
                 return "plastic wand";
-            default:
-                panic("wand id");
+            case WandDescriptionId_COPPER_WAND:
+                return "copper wand";
+
+            case WandDescriptionId_COUNT:
+                panic("not a real wand description id");
         }
+        panic("wand description");
     }
 }
 Span get_item_description(Thing observer, uint256 item_id) {

@@ -26,11 +26,13 @@ struct Event {
         BEAM_OF_CONFUSION_HIT_INDIVIDUAL,
         BEAM_OF_STRIKING_HIT_INDIVIDUAL,
         BEAM_OF_DIGGING_HIT_WALL,
+        BEAM_OF_SPEED_HIT_INDIVIDUAL,
         EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT,
         EXPLOSION_HIT_WALL_NO_EFFECT,
         EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL,
         EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL,
         EXPLOSION_OF_DIGGING_HIT_WALL,
+        EXPLOSION_OF_SPEED_HIT_INDIVIDUAL,
 
         THROW_ITEM,
         ITEM_HITS_INDIVIDUAL,
@@ -159,6 +161,9 @@ struct Event {
     static inline Event beam_of_digging_hit_wall(Coord wall_location) {
         return location_type_event(BEAM_OF_DIGGING_HIT_WALL, wall_location);
     }
+    static inline Event beam_of_speed_hit_individual(Thing target) {
+        return event_individual(BEAM_OF_SPEED_HIT_INDIVIDUAL, target->id);
+    }
     static inline Event explosion_hit_individual_no_effect(Thing target) {
         return event_individual(EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT, target->id);
     }
@@ -173,6 +178,9 @@ struct Event {
     }
     static inline Event explosion_of_digging_hit_wall(Coord wall_location) {
         return location_type_event(EXPLOSION_OF_DIGGING_HIT_WALL, wall_location);
+    }
+    static inline Event explosion_of_speed_hit_individual(Thing target) {
+        return event_individual(EXPLOSION_OF_SPEED_HIT_INDIVIDUAL, target->id);
     }
 
     static Event bump_into_wall(Thing actor, Coord wall_location) {
@@ -364,6 +372,8 @@ private:
                 return DataType_THE_INDIVIDUAL;
             case BEAM_OF_DIGGING_HIT_WALL:
                 return DataType_THE_LOCATION;
+            case BEAM_OF_SPEED_HIT_INDIVIDUAL:
+                return DataType_THE_INDIVIDUAL;
             case EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
                 return DataType_THE_INDIVIDUAL;
             case EXPLOSION_HIT_WALL_NO_EFFECT:
@@ -374,6 +384,8 @@ private:
                 return DataType_THE_INDIVIDUAL;
             case EXPLOSION_OF_DIGGING_HIT_WALL:
                 return DataType_THE_LOCATION;
+            case EXPLOSION_OF_SPEED_HIT_INDIVIDUAL:
+                return DataType_THE_INDIVIDUAL;
 
             case THROW_ITEM:
                 return DataType_ZAP_WAND;

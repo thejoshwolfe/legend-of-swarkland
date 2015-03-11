@@ -193,8 +193,9 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             case WandId_WAND_OF_CONFUSION:
                 for (int i = 0; i < affected_individuals.length(); i++) {
                     Thing target = affected_individuals[i];
-                    if (confuse_individual(target)) {
+                    if (target->life()->species()->has_mind) {
                         publish_event(Event::explosion_of_confusion_hit_individual(target), &perceived_current_zapper);
+                        confuse_individual(target);
                     } else {
                         publish_event(Event::explosion_hit_individual_no_effect(target), &perceived_current_zapper);
                     }
@@ -207,15 +208,24 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
                     publish_event(Event::explosion_hit_individual_no_effect(affected_individuals[i]), &perceived_current_zapper);
                 for (int i = 0; i < affected_walls.length(); i++) {
                     Coord wall_location = affected_walls[i];
-                    change_map(wall_location, TileType_FLOOR);
                     publish_event(Event::beam_of_digging_hit_wall(wall_location), &perceived_current_zapper);
+                    change_map(wall_location, TileType_FLOOR);
                 }
                 break;
             case WandId_WAND_OF_STRIKING:
                 for (int i = 0; i < affected_individuals.length(); i++) {
                     Thing target = affected_individuals[i];
-                    strike_individual(actor, target);
                     publish_event(Event::explosion_of_striking_hit_individual(target), &perceived_current_zapper);
+                    strike_individual(actor, target);
+                }
+                for (int i = 0; i < affected_walls.length(); i++)
+                    publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
+                break;
+            case WandId_WAND_OF_SPEED:
+                for (int i = 0; i < affected_individuals.length(); i++) {
+                    Thing target = affected_individuals[i];
+                    speed_up_individual(target);
+4                    publish_event(Event::explosion_of_speed_hit_individual(target), &perceived_current_zapper);
                 }
                 for (int i = 0; i < affected_walls.length(); i++)
                     publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
@@ -767,13 +777,12 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
 }
 
 // you need to emit events yourself
-bool confuse_individual(Thing target) {
-    if (!target->life()->species()->has_mind) {
-        // can't confuse something with no mind
-        return false;
-    }
+void confuse_individual(Thing target) {
     target->status_effects.confused_timeout = random_int(100, 200);
-    return true;
+}
+// you need to emit events yourself
+void speed_up_individual(Thing target) {
+    target->status_effects.speed_up_timeout = random_int(100, 200);
 }
 
 void strike_individual(Thing attacker, Thing target) {
