@@ -435,6 +435,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
         lines.append("Esc: cancel");
     } else if (input_mode_is_choose_direction()) {
         lines.append("numpad: direction");
+        lines.append("numpad 5: yourself");
         lines.append("Esc: cancel");
     } else {
         List<Thing> items_on_floor;
