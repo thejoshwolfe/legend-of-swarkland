@@ -143,6 +143,9 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
+
+        if (direction == Coord{0, 0})
+            break; // zapping yourself
     }
 }
 
