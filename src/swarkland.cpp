@@ -123,8 +123,8 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     // find the hit target
     int range = random_int(3, 6);
     Coord cursor = actor->location;
-    Coord air_explode_center = Coord::nowhere();
-    Coord wall_explode_center = Coord::nowhere();
+    bool explodes_in_wall = actual_wand_identities[item->wand_info()->description_id] == WandId_WAND_OF_DIGGING;
+    Coord explosion_center = Coord::nowhere();
     for (int i = 0; i < range; i++) {
         cursor += direction;
         if (is_in_bounds(cursor)) {
@@ -135,17 +135,19 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
                 int damage = random_int(1, 3);
                 damage_individual(actor, target, damage);
                 if (damage == 2)
-                    air_explode_center = wall_explode_center = cursor;
+                    explosion_center = cursor;
                 break;
             }
         }
         if (!is_in_bounds(cursor) || !is_open_space(actual_map_tiles[cursor].tile_type)) {
-            // TODO: remove this hack once the edge of the world is less reachable.
+            // TODO: remove this hack now that the edge of the world is unreachable.
             Coord wall_location = clamp(cursor, {0, 0}, map_size);
             publish_event(Event::item_hits_wall(item->id, wall_location));
             if (random_int(2) == 0) {
-                wall_explode_center = wall_location;
-                air_explode_center = cursor - direction;
+                if (explodes_in_wall)
+                    explosion_center = wall_location;
+                else
+                    explosion_center = cursor - direction;
             } else {
                 // back up one and drop it
                 cursor -= direction;
@@ -153,89 +155,8 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             break;
         }
     }
-    if (air_explode_center != Coord::nowhere()) {
-        // boom
-        WandId wand_id = actual_wand_identities[item->wand_info()->description_id];
-        Coord center;
-        int apothem;
-        if (wand_id == WandId_WAND_OF_DIGGING) {
-            center = wall_explode_center;
-            apothem = 2; // 5x5
-        } else {
-            center = air_explode_center;
-            apothem = 1; // 3x3
-        }
-        IdMap<WandDescriptionId> perceived_current_zapper;
-        publish_event(Event::wand_explodes(item->id, center), &perceived_current_zapper);
-        actual_things.remove(item->id);
-        fix_z_orders(actor->id);
-
-        List<Thing> affected_individuals;
-        Thing individual;
-        for (auto iterator = actual_individuals(); iterator.next(&individual);) {
-            if (!individual->still_exists)
-                continue;
-            Coord abs_vector = abs(individual->location - center);
-            if (max(abs_vector.x, abs_vector.y) <= apothem)
-                affected_individuals.append(individual);
-        }
-        sort<Thing, compare_things_by_id>(affected_individuals.raw(), affected_individuals.length());
-
-        List<Coord> affected_walls;
-        Coord upper_left  = clamp(center - Coord{apothem, apothem}, {0, 0}, map_size - Coord{1, 1});
-        Coord lower_right = clamp(center + Coord{apothem, apothem}, {0, 0}, map_size - Coord{1, 1});
-        for (Coord wall_cursor = upper_left; wall_cursor.y <= lower_right.y; wall_cursor.y++)
-            for (wall_cursor.x = upper_left.x; wall_cursor.x <= lower_right.x; wall_cursor.x++)
-                if (actual_map_tiles[wall_cursor].tile_type == TileType_WALL)
-                    affected_walls.append(wall_cursor);
-
-        switch (wand_id) {
-            case WandId_WAND_OF_CONFUSION:
-                for (int i = 0; i < affected_individuals.length(); i++) {
-                    Thing target = affected_individuals[i];
-                    if (target->life()->species()->has_mind) {
-                        publish_event(Event::explosion_of_confusion_hit_individual(target), &perceived_current_zapper);
-                        confuse_individual(target);
-                    } else {
-                        publish_event(Event::explosion_hit_individual_no_effect(target), &perceived_current_zapper);
-                    }
-                }
-                for (int i = 0; i < affected_walls.length(); i++)
-                    publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
-                break;
-            case WandId_WAND_OF_DIGGING:
-                for (int i = 0; i < affected_individuals.length(); i++)
-                    publish_event(Event::explosion_hit_individual_no_effect(affected_individuals[i]), &perceived_current_zapper);
-                for (int i = 0; i < affected_walls.length(); i++) {
-                    Coord wall_location = affected_walls[i];
-                    publish_event(Event::beam_of_digging_hit_wall(wall_location), &perceived_current_zapper);
-                    change_map(wall_location, TileType_FLOOR);
-                }
-                break;
-            case WandId_WAND_OF_STRIKING:
-                for (int i = 0; i < affected_individuals.length(); i++) {
-                    Thing target = affected_individuals[i];
-                    publish_event(Event::explosion_of_striking_hit_individual(target), &perceived_current_zapper);
-                    strike_individual(actor, target);
-                }
-                for (int i = 0; i < affected_walls.length(); i++)
-                    publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
-                break;
-            case WandId_WAND_OF_SPEED:
-                for (int i = 0; i < affected_individuals.length(); i++) {
-                    Thing target = affected_individuals[i];
-                    speed_up_individual(target);
-                    publish_event(Event::explosion_of_speed_hit_individual(target), &perceived_current_zapper);
-                }
-                for (int i = 0; i < affected_walls.length(); i++)
-                    publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
-                break;
-
-            case WandId_COUNT:
-            case WandId_UNKNOWN:
-                panic("not a real wand id");
-        }
-
+    if (explosion_center != Coord::nowhere()) {
+        explode_wand(actor, item, explosion_center);
     } else {
         drop_item_to_the_floor(item, cursor);
     }

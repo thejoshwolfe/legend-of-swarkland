@@ -293,5 +293,6 @@ static inline int compare_things_by_id(Thing a, Thing b) {
 // TODO: these are in the wrong place
 void compute_vision(Thing observer);
 void zap_wand(Thing individual, uint256 item_id, Coord direction);
+void explode_wand(Thing actor, Thing item, Coord explosion_center);
 
 #endif
