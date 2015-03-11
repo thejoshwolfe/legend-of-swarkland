@@ -40,6 +40,7 @@ struct Event {
         ITEM_HITS_SOMETHING,
 
         NO_LONGER_CONFUSED,
+        NO_LONGER_FAST,
 
         APPEAR,
         TURN_INVISIBLE,
@@ -212,6 +213,9 @@ struct Event {
 
     static inline Event no_longer_confused(Thing individual) {
         return event_individual(NO_LONGER_CONFUSED, individual->id);
+    }
+    static inline Event no_longer_fast(Thing individual) {
+        return event_individual(NO_LONGER_FAST, individual->id);
     }
     static inline Event appear(Thing new_guy) {
         return event_individual(APPEAR, new_guy->id);
@@ -397,6 +401,8 @@ private:
                 return DataType_ITEM_AND_LOCATION;
 
             case NO_LONGER_CONFUSED:
+                return DataType_THE_INDIVIDUAL;
+            case NO_LONGER_FAST:
                 return DataType_THE_INDIVIDUAL;
 
             case APPEAR:

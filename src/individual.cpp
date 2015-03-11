@@ -43,6 +43,7 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
     StatusEffects status_effects = target->status_effects;
     // nerf some information
     status_effects.confused_timeout = !!status_effects.confused_timeout;
+    status_effects.speed_up_timeout = !!status_effects.speed_up_timeout;
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL:
             return create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, status_effects);

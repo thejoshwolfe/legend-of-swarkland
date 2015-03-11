@@ -284,6 +284,8 @@ static Span get_status_description(const StatusEffects & status_effects) {
         result->append("invisible ");
     if (status_effects.confused_timeout > 0)
         result->append("confused ");
+    if (status_effects.speed_up_timeout > 0)
+        result->append("fast ");
     result->set_color(pink, black);
     return result;
 }

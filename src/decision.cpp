@@ -82,6 +82,8 @@ static Action get_ai_decision(Thing actor) {
                         WandId wand_id = actor->life()->knowledge.wand_identities[item->wand_info()->description_id];
                         if (wand_id == WandId_WAND_OF_DIGGING)
                             continue; // don't dig the person.
+                        if (wand_id == WandId_WAND_OF_SPEED)
+                            continue; // you'd like that, wouldn't you.
                         if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_timeout > 0)
                             continue; // already confused.
                         // worth a try

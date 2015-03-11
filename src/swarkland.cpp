@@ -225,7 +225,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
                 for (int i = 0; i < affected_individuals.length(); i++) {
                     Thing target = affected_individuals[i];
                     speed_up_individual(target);
-4                    publish_event(Event::explosion_of_speed_hit_individual(target), &perceived_current_zapper);
+                    publish_event(Event::explosion_of_speed_hit_individual(target), &perceived_current_zapper);
                 }
                 for (int i = 0; i < affected_walls.length(); i++)
                     publish_event(Event::explosion_hit_wall_no_effect(affected_walls[i]), &perceived_current_zapper);
@@ -538,7 +538,12 @@ static bool take_action(Thing actor, Action action) {
     }
 
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
-    actor->life()->movement_ready_time = time_counter + actor->life()->species()->movement_cost;
+    int movement_cost;
+    if (actor->status_effects.speed_up_timeout > 0)
+        movement_cost = 3;
+    else
+        movement_cost = actor->life()->species()->movement_cost;
+    actor->life()->movement_ready_time = time_counter + movement_cost;
 
     switch (action.type) {
         case Action::WAIT:
@@ -652,6 +657,11 @@ static void age_individual(Thing individual) {
         individual->status_effects.confused_timeout--;
         if (individual->status_effects.confused_timeout == 0)
             publish_event(Event::no_longer_confused(individual));
+    }
+    if (individual->status_effects.speed_up_timeout > 0) {
+        individual->status_effects.speed_up_timeout--;
+        if (individual->status_effects.speed_up_timeout == 0)
+            publish_event(Event::no_longer_fast(individual));
     }
 
     List<RememberedEvent> & remembered_events = individual->life()->knowledge.remembered_events;

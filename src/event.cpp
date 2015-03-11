@@ -126,6 +126,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         case Event::NO_LONGER_CONFUSED:
             result->span->format("%s is no longer confused.", get_individual_description(observer, event.the_individual_data()));
             return result;
+        case Event::NO_LONGER_FAST:
+            result->span->format("%s slows back down to normal speed.", get_individual_description(observer, event.the_individual_data()));
+            return result;
 
         case Event::APPEAR:
             result->span->format("%s appears out of nowhere!", get_individual_description(observer, event.the_individual_data()));
@@ -310,6 +313,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             return true;
 
         case Event::NO_LONGER_CONFUSED:
+        case Event::NO_LONGER_FAST:
         case Event::APPEAR:
             if (!can_see_individual(observer, event.the_individual_data()))
                 return false;
@@ -467,6 +471,9 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 break;
 
             case Event::NO_LONGER_CONFUSED:
+                record_perception_of_thing(observer, apparent_event.the_individual_data());
+                break;
+            case Event::NO_LONGER_FAST:
                 record_perception_of_thing(observer, apparent_event.the_individual_data());
                 break;
 
