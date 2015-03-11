@@ -767,6 +767,8 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
             output_actions.append(Action::zap(item_id, direction));
             output_actions.append(Action::throw_(item_id, direction));
         }
+        output_actions.append(Action::zap(item_id, {0, 0}));
+        output_actions.append(Action::throw_(item_id, {0, 0}));
         output_actions.append(Action::drop(item_id));
     }
     // go down

@@ -84,6 +84,8 @@ static Coord get_direction_from_event(const SDL_Event & event) {
         case SDL_SCANCODE_LEFT:
         case SDL_SCANCODE_KP_4:
             return {-1, 0};
+        case SDL_SCANCODE_KP_5:
+            return {0, 0};
         case SDL_SCANCODE_RIGHT:
         case SDL_SCANCODE_KP_6:
             return {1, 0};
@@ -244,6 +246,7 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
         case SDL_SCANCODE_KP_2:
         case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_KP_4:
+        case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_KP_6:
         case SDL_SCANCODE_KP_7:
         case SDL_SCANCODE_KP_8:

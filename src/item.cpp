@@ -30,11 +30,6 @@ static void confuse_individual_from_wand(Thing target, IdMap<WandDescriptionId> 
     }
 }
 
-static void strike_individual_from_wand(Thing wand_wielder, Thing target, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    publish_event(Event::beam_of_striking_hit_individual(target), perceived_current_zapper);
-    strike_individual(wand_wielder, target);
-}
-
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     IdMap<WandDescriptionId> perceived_current_zapper;
 
@@ -62,8 +57,8 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
         switch (actual_wand_identities[wand->wand_info()->description_id]) {
             case WandId_WAND_OF_DIGGING: {
                 if (actual_map_tiles[cursor].tile_type == TileType_WALL) {
-                    change_map(cursor, TileType_FLOOR);
                     publish_event(Event::beam_of_digging_hit_wall(cursor), &perceived_current_zapper);
+                    change_map(cursor, TileType_FLOOR);
                 } else {
                     // the digging beam doesn't travel well through air
                     beam_length -= 3;
@@ -76,7 +71,8 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
             case WandId_WAND_OF_STRIKING: {
                 Thing target = find_individual_at(cursor);
                 if (target != NULL) {
-                    strike_individual_from_wand(wand_wielder, target, &perceived_current_zapper);
+                    publish_event(Event::beam_of_striking_hit_individual(target), &perceived_current_zapper);
+                    strike_individual(wand_wielder, target);
                     beam_length -= 3;
                 }
                 if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
