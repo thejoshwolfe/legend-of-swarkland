@@ -13,18 +13,7 @@ struct Event {
         ZAP_WAND_NO_CHARGES,
         WAND_DISINTEGRATES,
         WAND_EXPLODES,
-        BEAM_HIT_INDIVIDUAL_NO_EFFECT,
-        BEAM_HIT_WALL_NO_EFFECT,
-        BEAM_OF_CONFUSION_HIT_INDIVIDUAL,
-        BEAM_OF_STRIKING_HIT_INDIVIDUAL,
-        BEAM_OF_DIGGING_HIT_WALL,
-        BEAM_OF_SPEED_HIT_INDIVIDUAL,
-        EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT,
-        EXPLOSION_HIT_WALL_NO_EFFECT,
-        EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL,
-        EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL,
-        EXPLOSION_OF_DIGGING_HIT_WALL,
-        EXPLOSION_OF_SPEED_HIT_INDIVIDUAL,
+        WAND_HIT,
 
         THROW_ITEM,
         ITEM_HITS_INDIVIDUAL,
@@ -80,6 +69,17 @@ struct Event {
         return _data._zap_wand;
     }
 
+    struct WandHitData {
+        WandId observable_effect;
+        bool is_explosion;
+        uint256 target;
+        Coord location;
+    };
+    WandHitData & wand_hit_data() {
+        check_data_type(DataType_WAND_HIT);
+        return _data._wand_hit;
+    }
+
     struct PolymorphData {
         uint256 individual;
         SpeciesId old_species;
@@ -118,42 +118,16 @@ struct Event {
     static inline Event wand_explodes(uint256 item_id, Coord location) {
         return item_and_location_type_event(WAND_EXPLODES, item_id, location);
     }
-
-    static inline Event beam_hit_individual_no_effect(Thing target) {
-        return event_individual(BEAM_HIT_INDIVIDUAL_NO_EFFECT, target->id);
-    }
-    static inline Event beam_hit_wall_no_effect(Coord location) {
-        return location_type_event(BEAM_HIT_WALL_NO_EFFECT, location);
-    }
-    static inline Event beam_of_confusion_hit_individual(Thing target) {
-        return event_individual(BEAM_OF_CONFUSION_HIT_INDIVIDUAL, target->id);
-    }
-    static inline Event beam_of_striking_hit_individual(Thing target) {
-        return event_individual(BEAM_OF_STRIKING_HIT_INDIVIDUAL, target->id);
-    }
-    static inline Event beam_of_digging_hit_wall(Coord wall_location) {
-        return location_type_event(BEAM_OF_DIGGING_HIT_WALL, wall_location);
-    }
-    static inline Event beam_of_speed_hit_individual(Thing target) {
-        return event_individual(BEAM_OF_SPEED_HIT_INDIVIDUAL, target->id);
-    }
-    static inline Event explosion_hit_individual_no_effect(Thing target) {
-        return event_individual(EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT, target->id);
-    }
-    static inline Event explosion_hit_wall_no_effect(Coord location) {
-        return location_type_event(EXPLOSION_HIT_WALL_NO_EFFECT, location);
-    }
-    static inline Event explosion_of_confusion_hit_individual(Thing target) {
-        return event_individual(EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL, target->id);
-    }
-    static inline Event explosion_of_striking_hit_individual(Thing target) {
-        return event_individual(EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL, target->id);
-    }
-    static inline Event explosion_of_digging_hit_wall(Coord wall_location) {
-        return location_type_event(EXPLOSION_OF_DIGGING_HIT_WALL, wall_location);
-    }
-    static inline Event explosion_of_speed_hit_individual(Thing target) {
-        return event_individual(EXPLOSION_OF_SPEED_HIT_INDIVIDUAL, target->id);
+    static inline Event wand_hit(WandId observable_effect, bool is_explosion, uint256 target, Coord location) {
+        Event result;
+        result.type = WAND_HIT;
+        result.wand_hit_data() = {
+            observable_effect,
+            is_explosion,
+            target,
+            location,
+        };
+        return result;
     }
 
     static Event bump_into(uint256 actor_id, Coord from_location, uint256 bumpee_id, Coord bumpee_location) {
@@ -269,6 +243,7 @@ private:
         Coord _the_location;
         TwoIndividualData _two_individual;
         ZapWandData _zap_wand;
+        WandHitData _wand_hit;
         PolymorphData _polymorph;
         ItemAndLocationData _item_and_location;
     } _data;
@@ -277,6 +252,7 @@ private:
         DataType_THE_LOCATION,
         DataType_TWO_INDIVIDUAL,
         DataType_ZAP_WAND,
+        DataType_WAND_HIT,
         DataType_POLYMORPH,
         DataType_ITEM_AND_LOCATION,
     };
@@ -303,31 +279,8 @@ private:
                 return DataType_ZAP_WAND;
             case WAND_EXPLODES:
                 return DataType_ITEM_AND_LOCATION;
-
-            case BEAM_HIT_INDIVIDUAL_NO_EFFECT:
-                return DataType_THE_INDIVIDUAL;
-            case BEAM_HIT_WALL_NO_EFFECT:
-                return DataType_THE_LOCATION;
-            case BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
-                return DataType_THE_INDIVIDUAL;
-            case BEAM_OF_STRIKING_HIT_INDIVIDUAL:
-                return DataType_THE_INDIVIDUAL;
-            case BEAM_OF_DIGGING_HIT_WALL:
-                return DataType_THE_LOCATION;
-            case BEAM_OF_SPEED_HIT_INDIVIDUAL:
-                return DataType_THE_INDIVIDUAL;
-            case EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
-                return DataType_THE_INDIVIDUAL;
-            case EXPLOSION_HIT_WALL_NO_EFFECT:
-                return DataType_THE_LOCATION;
-            case EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
-                return DataType_THE_INDIVIDUAL;
-            case EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
-                return DataType_THE_INDIVIDUAL;
-            case EXPLOSION_OF_DIGGING_HIT_WALL:
-                return DataType_THE_LOCATION;
-            case EXPLOSION_OF_SPEED_HIT_INDIVIDUAL:
-                return DataType_THE_INDIVIDUAL;
+            case WAND_HIT:
+                return DataType_WAND_HIT;
 
             case THROW_ITEM:
                 return DataType_ZAP_WAND;

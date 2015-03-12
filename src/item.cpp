@@ -27,49 +27,29 @@ static int pass_through_air_silently(Thing, Coord, bool, IdMap<WandDescriptionId
     return 0;
 }
 static int hit_individual_no_effect(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    if (is_explosion)
-        publish_event(Event::explosion_hit_individual_no_effect(target), perceived_current_zapper);
-    else
-        publish_event(Event::beam_hit_individual_no_effect(target));
+    publish_event(Event::wand_hit(WandId_UNKNOWN, is_explosion, target->id, target->location), perceived_current_zapper);
     return 0;
 }
-static int hit_wall_no_effect(Thing, Coord location, bool is_explosion, IdMap<WandDescriptionId> *) {
-    if (is_explosion)
-        publish_event(Event::explosion_hit_wall_no_effect(location));
-    else
-        publish_event(Event::beam_hit_wall_no_effect(location));
+static int hit_wall_no_effect(Thing, Coord location, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
+    publish_event(Event::wand_hit(WandId_UNKNOWN, is_explosion, uint256::zero(), location), perceived_current_zapper);
     // and stop
     return -1;
 }
 
 static int confusion_hit_individual(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    if (target->life()->species()->has_mind) {
-        if (is_explosion)
-            publish_event(Event::explosion_of_confusion_hit_individual(target), perceived_current_zapper);
-        else
-            publish_event(Event::beam_of_confusion_hit_individual(target), perceived_current_zapper);
+    bool confusable = target->life()->species()->has_mind;
+    publish_event(Event::wand_hit(confusable ? WandId_WAND_OF_CONFUSION : WandId_UNKNOWN, is_explosion, target->id, target->location), perceived_current_zapper);
+    if (confusable)
         confuse_individual(target);
-    } else {
-        if (is_explosion)
-            publish_event(Event::explosion_hit_individual_no_effect(target), perceived_current_zapper);
-        else
-            publish_event(Event::beam_hit_individual_no_effect(target), perceived_current_zapper);
-    }
     return 2;
 }
 static int striking_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    if (is_explosion)
-        publish_event(Event::explosion_of_striking_hit_individual(target), perceived_current_zapper);
-    else
-        publish_event(Event::beam_of_striking_hit_individual(target), perceived_current_zapper);
+    publish_event(Event::wand_hit(WandId_WAND_OF_STRIKING, is_explosion, target->id, target->location), perceived_current_zapper);
     strike_individual(actor, target);
     return 2;
 }
 static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    if (is_explosion)
-        publish_event(Event::explosion_of_speed_hit_individual(target), perceived_current_zapper);
-    else
-        publish_event(Event::beam_of_speed_hit_individual(target), perceived_current_zapper);
+    publish_event(Event::wand_hit(WandId_WAND_OF_SPEED, is_explosion, target->id, target->location), perceived_current_zapper);
     speed_up_individual(target);
     return 2;
 }
@@ -77,10 +57,7 @@ static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<Wa
 static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
     if (actual_map_tiles[location].tile_type != TileType_WALL)
         return -1; // probably border walls
-    if (is_explosion)
-        publish_event(Event::explosion_of_digging_hit_wall(location), perceived_current_zapper);
-    else
-        publish_event(Event::beam_of_digging_hit_wall(location), perceived_current_zapper);
+    publish_event(Event::wand_hit(WandId_WAND_OF_DIGGING, is_explosion, uint256::zero(), location), perceived_current_zapper);
     change_map(location, TileType_FLOOR);
     return 0;
 }

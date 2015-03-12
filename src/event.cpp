@@ -52,47 +52,39 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             result->span->format("%s explodes!", get_item_description(observer, event.item_and_location_data().item));
             return result;
 
-        case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
-            result->span->format("a magic beam hits %s, but nothing happens.", get_individual_description(observer, event.the_individual_data()));
-            return result;
-        case Event::BEAM_HIT_WALL_NO_EFFECT:
-            result->span->format("a magic beam hits the wall, but nothing happens.");
-            return result;
-        case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL: {
-            Span individual_description = get_individual_description(observer, event.the_individual_data());
-            result->span->format("a magic beam hits %s; %s is confused!", individual_description, individual_description);
-            return result;
-        }
-        case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
-            result->span->format("a magic beam strikes %s!", get_individual_description(observer, event.the_individual_data()));
-            return result;
-        case Event::BEAM_OF_DIGGING_HIT_WALL:
-            result->span->format("the wall magically crumbles away!");
-            return result;
-        case Event::BEAM_OF_SPEED_HIT_INDIVIDUAL:
-            result->span->format("%s speeds up!", get_individual_description(observer, event.the_individual_data()));
-            return result;
-        case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
-            result->span->format("an explosion hits %s, but nothing happens.", get_individual_description(observer, event.the_individual_data()));
-            return result;
-        case Event::EXPLOSION_HIT_WALL_NO_EFFECT:
-            result->span->format("an explosion hits the wall, but nothing happens.");
-            return result;
-        case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL: {
-            Span individual_description = get_individual_description(observer, event.the_individual_data());
-            result->span->format("an explosion hits %s; %s is confused!", individual_description, individual_description);
-            return result;
-        }
-        case Event::EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
-            result->span->format("an explosion strikes %s!", get_individual_description(observer, event.the_individual_data()));
-            return result;
-        case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
-            result->span->format("the wall magically crumbles away!");
-            return result;
-        case Event::EXPLOSION_OF_SPEED_HIT_INDIVIDUAL: {
-            Span individual_description = get_individual_description(observer, event.the_individual_data());
-            result->span->format("an explosion hits %s; %s speeds up!", individual_description, individual_description);
-            return result;
+        case Event::WAND_HIT: {
+            Event::WandHitData & data = event.wand_hit_data();
+            Span beam_description = new_span(data.is_explosion ? "an explosion" : "a magic beam");
+            Span target_description;
+            if (data.target != uint256::zero()) {
+                target_description = get_individual_description(observer, data.target);
+            } else if (!is_open_space(observer->life()->knowledge.tiles[data.location].tile_type)) {
+                target_description = new_span("a wall");
+            } else {
+                panic("wand hit something that's not an individual or wall");
+            }
+            switch (data.observable_effect) {
+                case WandId_WAND_OF_CONFUSION:
+                    result->span->format("%s hits %s; %s is confused!", beam_description, target_description, target_description);
+                    return result;
+                case WandId_WAND_OF_DIGGING:
+                    result->span->format("%s digs away %s!", beam_description, target_description);
+                    return result;
+                case WandId_WAND_OF_STRIKING:
+                    result->span->format("%s strikes %s!", beam_description, target_description);
+                    return result;
+                case WandId_WAND_OF_SPEED:
+                    result->span->format("%s hits %s; %s speeds up!", beam_description, target_description, target_description);
+                    return result;
+
+                case WandId_UNKNOWN:
+                    // nothing happens
+                    result->span->format("%s hits %s, but nothing happens.", beam_description, target_description);
+                    return result;
+                case WandId_COUNT:
+                    panic("not a real wand id");
+            }
+            panic("wand id");
         }
 
         case Event::THROW_ITEM:
@@ -236,26 +228,18 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             *output_event = event;
             return true;
 
-        case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
-        case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
-        case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
-        case Event::BEAM_OF_SPEED_HIT_INDIVIDUAL:
-        case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
-        case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
-        case Event::EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
-        case Event::EXPLOSION_OF_SPEED_HIT_INDIVIDUAL:
-            if (!can_see_individual(observer, event.the_individual_data()))
-                return false;
+        case Event::WAND_HIT: {
+            Event::WandHitData & data = event.wand_hit_data();
+            if (data.target != uint256::zero()) {
+                if (!can_see_individual(observer, data.target))
+                    return false;
+            } else {
+                if (!observer->life()->knowledge.tile_is_visible[data.location].any())
+                    return false;
+            }
             *output_event = event;
             return true;
-        case Event::BEAM_HIT_WALL_NO_EFFECT:
-        case Event::BEAM_OF_DIGGING_HIT_WALL:
-        case Event::EXPLOSION_HIT_WALL_NO_EFFECT:
-        case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
-            if (!can_see_location(observer, event.the_location_data()))
-                return false;
-            *output_event = event;
-            return true;
+        }
 
         case Event::THROW_ITEM:
         case Event::ITEM_HITS_INDIVIDUAL:
@@ -379,29 +363,17 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 delete_ids.append(apparent_event.item_and_location_data().item);
                 break;
 
-            case Event::BEAM_HIT_INDIVIDUAL_NO_EFFECT:
-            case Event::BEAM_HIT_WALL_NO_EFFECT:
-            case Event::EXPLOSION_HIT_INDIVIDUAL_NO_EFFECT:
-            case Event::EXPLOSION_HIT_WALL_NO_EFFECT:
-                // no state change
-                break;
-            case Event::BEAM_OF_CONFUSION_HIT_INDIVIDUAL:
-            case Event::EXPLOSION_OF_CONFUSION_HIT_INDIVIDUAL:
-                record_perception_of_thing(observer, apparent_event.the_individual_data());
-                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_CONFUSION);
-                break;
-            case Event::BEAM_OF_STRIKING_HIT_INDIVIDUAL:
-            case Event::EXPLOSION_OF_STRIKING_HIT_INDIVIDUAL:
-                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_STRIKING);
-                break;
-            case Event::BEAM_OF_DIGGING_HIT_WALL:
-            case Event::EXPLOSION_OF_DIGGING_HIT_WALL:
-                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_DIGGING);
-                break;
-            case Event::BEAM_OF_SPEED_HIT_INDIVIDUAL:
-            case Event::EXPLOSION_OF_SPEED_HIT_INDIVIDUAL:
-                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), WandId_WAND_OF_SPEED);
-                break;
+            case Event::WAND_HIT: {
+                Event::WandHitData & data = apparent_event.wand_hit_data();
+                WandId true_id = data.observable_effect;
+                if (true_id != WandId_UNKNOWN)
+                    id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), true_id);
+
+                if (data.target != uint256::zero()) {
+                    // notice confusion, speed, etc.
+                    record_perception_of_thing(observer, data.target);
+                }
+            }
 
             case Event::THROW_ITEM:
                 // item is now in the air, i guess
