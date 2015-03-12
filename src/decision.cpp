@@ -84,7 +84,7 @@ static Action get_ai_decision(Thing actor) {
                             continue; // don't dig the person.
                         if (wand_id == WandId_WAND_OF_SPEED)
                             continue; // you'd like that, wouldn't you.
-                        if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_timeout > 0)
+                        if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_expiration_time > time_counter)
                             continue; // already confused.
                         // worth a try
                         useful_inventory.append(item);

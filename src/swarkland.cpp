@@ -432,7 +432,7 @@ static const Coord directions_by_rotation[] = {
     {+1, -1},
 };
 Coord confuse_direction(Thing individual, Coord direction) {
-    if (individual->status_effects.confused_timeout == 0)
+    if (individual->status_effects.confused_expiration_time <= time_counter)
         return direction; // not confused
     if (direction == Coord{0, 0})
         return direction; // can't get that wrong
@@ -462,7 +462,7 @@ static bool take_action(Thing actor, Action action) {
 
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
     int movement_cost;
-    if (actor->status_effects.speed_up_timeout > 0)
+    if (actor->status_effects.speed_up_expiration_time > time_counter)
         movement_cost = 3;
     else
         movement_cost = actor->life()->species()->movement_cost;
@@ -573,16 +573,10 @@ static void age_individual(Thing individual) {
         }
     }
 
-    if (individual->status_effects.confused_timeout > 0) {
-        individual->status_effects.confused_timeout--;
-        if (individual->status_effects.confused_timeout == 0)
-            publish_event(Event::no_longer_confused(individual));
-    }
-    if (individual->status_effects.speed_up_timeout > 0) {
-        individual->status_effects.speed_up_timeout--;
-        if (individual->status_effects.speed_up_timeout == 0)
-            publish_event(Event::no_longer_fast(individual));
-    }
+    if (individual->status_effects.confused_expiration_time == time_counter)
+        publish_event(Event::no_longer_confused(individual));
+    if (individual->status_effects.speed_up_expiration_time == time_counter)
+        publish_event(Event::no_longer_fast(individual));
 
     List<RememberedEvent> & remembered_events = individual->life()->knowledge.remembered_events;
     if (remembered_events.length() >= 1000) {
@@ -710,11 +704,11 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
 
 // you need to emit events yourself
 void confuse_individual(Thing target) {
-    target->status_effects.confused_timeout = random_int(100, 200);
+    target->status_effects.confused_expiration_time = time_counter + random_int(100, 200);
 }
 // you need to emit events yourself
 void speed_up_individual(Thing target) {
-    target->status_effects.speed_up_timeout = random_int(100, 200);
+    target->status_effects.speed_up_expiration_time = time_counter + random_int(100, 200);
 }
 
 void strike_individual(Thing attacker, Thing target) {

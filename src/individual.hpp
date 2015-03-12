@@ -102,8 +102,8 @@ struct Species {
 
 struct StatusEffects {
     bool invisible = false;
-    int confused_timeout = 0;
-    int speed_up_timeout = 0;
+    long long confused_expiration_time = -1;
+    long long speed_up_expiration_time = -1;
 };
 
 struct PerceivedWandInfo {

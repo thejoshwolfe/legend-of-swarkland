@@ -371,7 +371,22 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
 
                 if (data.target != uint256::zero()) {
                     // notice confusion, speed, etc.
-                    record_perception_of_thing(observer, data.target);
+                    StatusEffects & status_effects = observer->life()->knowledge.perceived_things.get(data.target)->status_effects;
+                    switch (data.observable_effect) {
+                        case WandId_WAND_OF_CONFUSION:
+                            status_effects.confused_expiration_time = 0x7fffffffffffffffLL;
+                            break;
+                        case WandId_WAND_OF_SPEED:
+                            status_effects.speed_up_expiration_time = 0x7fffffffffffffffLL;
+                            break;
+                        case WandId_UNKNOWN:
+                        case WandId_WAND_OF_DIGGING:
+                        case WandId_WAND_OF_STRIKING:
+                            // no change
+                            break;
+                        case WandId_COUNT:
+                            panic("not a real wand id");
+                    }
                 }
             }
 
