@@ -244,12 +244,12 @@ static const char * get_species_name_str(SpeciesId species_id) {
             return "human";
         case SpeciesId_OGRE:
             return "ogre";
-        case SpeciesId_DOG:
-            return "dog";
         case SpeciesId_PINK_BLOB:
             return "pink blob";
         case SpeciesId_AIR_ELEMENTAL:
             return "air elemental";
+        case SpeciesId_DOG:
+            return "dog";
         case SpeciesId_ANT:
             return "ant";
         case SpeciesId_BEE:

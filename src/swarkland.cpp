@@ -19,22 +19,24 @@ static void init_specieses() {
     //                                    movement cost
     //                                    |   health
     //                                    |   |   base attack
-    //                                    |   |   |   normal vision
-    //                                    |   |   |   |  ethereal vision
-    //                                    |   |   |   |  |   has mind
-    //                                    |   |   |   |  |   |  sucks up items
-    //                                    |   |   |   |  |   |  |  auto throws items
-    //                                    |   |   |   |  |   |  |  |  uses wands
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, {1, 0}, 1, 0, 0, 1};
-    specieses[SpeciesId_OGRE         ] = {24, 10, 2, {1, 0}, 1, 0, 0, 1};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1, {0, 1}, 0, 1, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, {0, 1}, 0, 1, 1, 0};
-    specieses[SpeciesId_ANT          ] = {12,  4, 1, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  4, 3, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 5, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_SNAKE        ] = {18,  6, 2, {1, 0}, 1, 0, 0, 0};
+    //                                    |   |   |  min level
+    //                                    |   |   |  |  max level
+    //                                    |   |   |  |  |    normal vision
+    //                                    |   |   |  |  |    |  ethereal vision
+    //                                    |   |   |  |  |    |  |   has mind
+    //                                    |   |   |  |  |    |  |   |  sucks up items
+    //                                    |   |   |  |  |    |  |   |  |  auto throws items
+    //                                    |   |   |  |  |    |  |   |  |  |  uses wands
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, {1, 0}, 1, 0, 0, 1};
+    specieses[SpeciesId_OGRE         ] = {24, 10, 2, 3,  7, {1, 0}, 1, 0, 0, 1};
+    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1, 1,  4, {0, 1}, 0, 1, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3,  6, {0, 1}, 0, 1, 1, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2, 0,  5, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  4, 1, 0,  2, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  4, 3, 0,  3, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 5, 0,  4, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_SNAKE        ] = {18,  6, 2, 0,  3, {1, 0}, 1, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.
@@ -201,12 +203,30 @@ Coord find_random_location(Coord away_from_location) {
 // SpeciesId_COUNT => random
 // experience = -1 => random
 static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker, int experience) {
-    while (species_id == SpeciesId_COUNT) {
-        species_id = (SpeciesId)random_int(SpeciesId_COUNT);
-        if (species_id == SpeciesId_HUMAN) {
-            // humans are good guys.
-            species_id = SpeciesId_COUNT;
+    if (experience == -1) {
+        // monster experience scales with your level and the dungeon level.
+        int difficulty_level = (you->life()->experience_level() + dungeon_level) / 2;
+        // bias monsters to a lower level to make sure you're more powerful.
+        if (difficulty_level > 0)
+            difficulty_level -= 1;
+        int midpoint = level_to_experience(difficulty_level);
+        experience = random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
+    }
+
+    if (species_id == SpeciesId_COUNT) {
+        int difficulty = experience_to_level(experience);
+        List<SpeciesId> available_specieses;
+        for (int i = 0; i < SpeciesId_COUNT; i++) {
+            Species & species = specieses[i];
+            if (i == SpeciesId_HUMAN)
+                continue; // humans are good guys
+            if (!(species.min_level <= difficulty && difficulty <= species.max_level))
+                continue;
+            available_specieses.append((SpeciesId)i);
         }
+        if (available_specieses.length() == 0)
+            return nullptr; // wow, mister. you're really strong.
+        species_id = available_specieses[random_int(available_specieses.length())];
     }
 
     // don't spawn monsters near you. don't spawn you near the stairs.
@@ -219,15 +239,6 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
 
-    if (experience == -1) {
-        // monster experience scales with your level and the dungeon level.
-        int difficulty_level = (you->life()->experience_level() + dungeon_level) / 2;
-        // bias monsters to a lower level to make sure you're more powerful.
-        if (difficulty_level > 0)
-            difficulty_level -= 1;
-        int midpoint = level_to_experience(difficulty_level);
-        experience = random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
-    }
     gain_experience(individual, experience, false);
 
     if (random_int(10) == 0) {

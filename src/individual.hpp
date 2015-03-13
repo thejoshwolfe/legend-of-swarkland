@@ -45,9 +45,9 @@ struct WandInfo {
 enum SpeciesId {
     SpeciesId_HUMAN,
     SpeciesId_OGRE,
-    SpeciesId_DOG,
     SpeciesId_PINK_BLOB,
     SpeciesId_AIR_ELEMENTAL,
+    SpeciesId_DOG,
     SpeciesId_ANT,
     SpeciesId_BEE,
     SpeciesId_BEETLE,
@@ -95,6 +95,9 @@ struct Species {
     int movement_cost;
     int base_hitpoints;
     int base_attack_power;
+    // this range is only for random spawning
+    int min_level;
+    int max_level;
     VisionTypes vision_types;
     bool has_mind;
     bool sucks_up_items;
