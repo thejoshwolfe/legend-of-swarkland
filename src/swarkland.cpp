@@ -29,14 +29,14 @@ static void init_specieses() {
     //                                     |   |  |  |   |   |  |   |  |  |  uses wands
     //                                     |   |  |  |   |   |  |   |  |  |  |  poison attack
     specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, {1, 0}, 1, 0, 0, 1, 0};
-    specieses[SpeciesId_OGRE         ] = {24, 10, 2, 3,  7, {1, 0}, 1, 0, 0, 1, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 3, 3,  7, {1, 0}, 1, 0, 0, 1, 0};
     specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1, 1,  4, {0, 1}, 0, 1, 0, 0, 0};
     specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3,  6, {0, 1}, 0, 1, 1, 0, 0};
     specieses[SpeciesId_DOG          ] = {12,  4, 2, 0,  5, {1, 0}, 1, 0, 0, 0, 0};
     specieses[SpeciesId_ANT          ] = {12,  4, 1, 0,  2, {1, 0}, 1, 0, 0, 0, 0};
     specieses[SpeciesId_BEE          ] = {12,  4, 3, 0,  3, {1, 0}, 1, 0, 0, 0, 0};
     specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 0,  4, {1, 0}, 1, 0, 0, 0, 1};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 2,  4, {1, 0}, 1, 0, 0, 0, 1};
     specieses[SpeciesId_SNAKE        ] = {18,  6, 2, 0,  3, {1, 0}, 1, 0, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
