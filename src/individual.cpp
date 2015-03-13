@@ -13,6 +13,14 @@ ThingImpl::ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMa
     _life->hitpoints = _life->max_hitpoints();
     _life->initiative = random_uint256();
 }
+ThingImpl::ThingImpl(WandDescriptionId description_id, int charges) :
+        thing_type(ThingType_WAND)
+{
+    id = random_uint256();
+    _wand_info = create<WandInfo>();
+    _wand_info->description_id = description_id;
+    _wand_info->charges = charges;
+}
 ThingImpl::~ThingImpl() {
     switch (thing_type) {
         case ThingType_INDIVIDUAL:
@@ -24,17 +32,8 @@ ThingImpl::~ThingImpl() {
     }
 }
 
-ThingImpl::ThingImpl(WandDescriptionId description_id, int charges) :
-        thing_type(ThingType_WAND)
-{
-    id = random_uint256();
-    _wand_info = create<WandInfo>();
-    _wand_info->description_id = description_id;
-    _wand_info->charges = charges;
-}
 
-
-Species * Life::species() const {
+const Species * Life::species() const {
     return &specieses[species_id];
 }
 

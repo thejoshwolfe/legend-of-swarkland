@@ -449,6 +449,15 @@ Coord confuse_direction(Thing individual, Coord direction) {
     panic("direction not found");
 }
 
+static bool can_move(Thing actor) {
+    int movement_cost;
+    if (actor->status_effects.speed_up_expiration_time > time_counter)
+        movement_cost = 3;
+    else
+        movement_cost = actor->life()->species()->movement_cost;
+    return actor->life()->last_movement_time + movement_cost <= time_counter;
+}
+
 // return whether we did anything. also, cheatcodes take no time
 static bool take_action(Thing actor, Action action) {
     bool is_valid = validate_action(actor, action);
@@ -461,12 +470,7 @@ static bool take_action(Thing actor, Action action) {
     }
 
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
-    int movement_cost;
-    if (actor->status_effects.speed_up_expiration_time > time_counter)
-        movement_cost = 3;
-    else
-        movement_cost = actor->life()->species()->movement_cost;
-    actor->life()->movement_ready_time = time_counter + movement_cost;
+    actor->life()->last_movement_time = time_counter;
 
     switch (action.type) {
         case Action::WAIT:
@@ -611,7 +615,7 @@ void run_the_game() {
                     continue;
                 }
                 age_individual(individual);
-                if (individual->life()->movement_ready_time <= time_counter) {
+                if (can_move(individual)) {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost

@@ -200,13 +200,13 @@ struct Life {
     int hitpoints;
     long long hp_regen_deadline;
     int experience = 0;
-    long long movement_ready_time = 0;
+    long long last_movement_time = 0;
     uint256 initiative;
     Team team;
     DecisionMakerType decision_maker;
     Knowledge knowledge;
 
-    Species * species() const;
+    const Species * species() const;
     int experience_level() const {
         return experience_to_level(experience);
     }
