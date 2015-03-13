@@ -20,7 +20,7 @@ static void init_specieses() {
     //                                    |   health
     //                                    |   |   base attack
     //                                    |   |   |   normal vision
-    //                                    |   |   |   |  etheral vision
+    //                                    |   |   |   |  ethereal vision
     //                                    |   |   |   |  |   has mind
     //                                    |   |   |   |  |   |  sucks up items
     //                                    |   |   |   |  |   |  |  auto throws items
@@ -37,7 +37,8 @@ static void init_specieses() {
     specieses[SpeciesId_SNAKE        ] = {18,  6, 2, {1, 0}, 1, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
-        // movement cost of 0 is not allowed. a 0 probably just means we forgot something in the above table.
+        // a movement cost of 0 is invalid.
+        // a 0 probably just means we forgot something in the above table.
         if (specieses[i].movement_cost == 0)
             panic("you missed a spot");
     }
@@ -219,9 +220,13 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
 
     if (experience == -1) {
-        // monster experience scales around
-        int midpoint = (you->life()->experience + level_to_experience(dungeon_level)) / 2;
-        experience = random_inclusive(midpoint / 2, midpoint * 3 / 2);
+        // monster experience scales with your level and the dungeon level.
+        int difficulty_level = (you->life()->experience_level() + dungeon_level) / 2;
+        // bias monsters to a lower level to make sure you're more powerful.
+        if (difficulty_level > 0)
+            difficulty_level -= 1;
+        int midpoint = level_to_experience(difficulty_level);
+        experience = random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
     }
     gain_experience(individual, experience, false);
 
