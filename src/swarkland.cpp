@@ -594,6 +594,10 @@ static bool take_action(Thing actor, Action action) {
         case Action::CHEATCODE_CREATE_ITEM:
             create_item(you->location);
             return false;
+        case Action::CHEATCODE_IDENTIFY:
+            for (int i = 0; i < WandId_COUNT; i++)
+                you->life()->knowledge.wand_identities[i] = actual_wand_identities[i];
+            return false;
         case Action::CHEATCODE_GO_DOWN:
             go_down();
             break;
@@ -787,6 +791,7 @@ void get_available_actions(Thing individual, List<Action> * output_actions) {
         output_actions->append(Action::cheatcode_invisibility());
         output_actions->append(Action::cheatcode_generate_monster());
         output_actions->append(Action::cheatcode_create_item());
+        output_actions->append(Action::cheatcode_identify());
         output_actions->append(Action::cheatcode_go_down());
         output_actions->append(Action::cheatcode_gain_level());
     }

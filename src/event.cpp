@@ -76,6 +76,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                 case WandId_WAND_OF_SPEED:
                     result->span->format("%s hits %s; %s speeds up!", beam_description, target_description, target_description);
                     return result;
+                case WandId_WAND_OF_REMEDY:
+                    result->span->format("%s hits %s; the magic beam soothes %s.", beam_description, target_description, target_description);
+                    return result;
 
                 case WandId_UNKNOWN:
                     // nothing happens
@@ -386,6 +389,10 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                             break;
                         case WandId_WAND_OF_SPEED:
                             status_effects.speed_up_expiration_time = 0x7fffffffffffffffLL;
+                            break;
+                        case WandId_WAND_OF_REMEDY:
+                            status_effects.confused_expiration_time = -1;
+                            status_effects.poison_expiration_time = -1;
                             break;
                         case WandId_UNKNOWN:
                         case WandId_WAND_OF_DIGGING:

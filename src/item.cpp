@@ -53,6 +53,17 @@ static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<Wa
     speed_up_individual(target);
     return 2;
 }
+static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
+    bool confused = target->status_effects.confused_expiration_time > time_counter;
+    bool poisoned = target->status_effects.poison_expiration_time > time_counter;
+    bool did_it_help = confused || poisoned;
+    publish_event(Event::wand_hit(did_it_help ? WandId_WAND_OF_REMEDY : WandId_UNKNOWN, is_explosion, target->id, target->location), perceived_current_zapper);
+    if (confused)
+        target->status_effects.confused_expiration_time = time_counter + 1;
+    if (poisoned)
+        target->status_effects.poison_expiration_time = time_counter + 1;
+    return 2;
+}
 
 static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
     if (actual_map_tiles[location].tile_type != TileType_WALL)
@@ -77,6 +88,7 @@ void init_items() {
     wand_handlers[WandId_WAND_OF_DIGGING] = {digging_pass_through_air, hit_individual_no_effect, digging_hit_wall};
     wand_handlers[WandId_WAND_OF_STRIKING] = {pass_through_air_silently, striking_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_SPEED] = {pass_through_air_silently, speed_hit_individual, hit_wall_no_effect};
+    wand_handlers[WandId_WAND_OF_REMEDY] = {pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect};
 }
 
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {

@@ -22,6 +22,7 @@ enum WandDescriptionId {
     WandDescriptionId_GOLD_WAND,
     WandDescriptionId_PLASTIC_WAND,
     WandDescriptionId_COPPER_WAND,
+    WandDescriptionId_PURPLE_WAND,
 
     WandDescriptionId_COUNT,
 };
@@ -30,6 +31,7 @@ enum WandId {
     WandId_WAND_OF_DIGGING,
     WandId_WAND_OF_STRIKING,
     WandId_WAND_OF_SPEED,
+    WandId_WAND_OF_REMEDY,
 
     WandId_COUNT,
     WandId_UNKNOWN,
@@ -301,9 +303,7 @@ static inline int compare_things_by_id(Thing a, Thing b) {
     return compare(a->id, b->id);
 }
 
-// TODO: these are in the wrong place
+// TODO: this is in the wrong place
 void compute_vision(Thing observer);
-void zap_wand(Thing individual, uint256 item_id, Coord direction);
-void explode_wand(Thing actor, Thing item, Coord explosion_center);
 
 #endif

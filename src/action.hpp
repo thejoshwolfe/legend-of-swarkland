@@ -18,6 +18,7 @@ struct Action {
         CHEATCODE_INVISIBILITY,
         CHEATCODE_GENERATE_MONSTER,
         CHEATCODE_CREATE_ITEM,
+        CHEATCODE_IDENTIFY,
         CHEATCODE_GO_DOWN,
         CHEATCODE_GAIN_LEVEL,
 
@@ -74,6 +75,9 @@ struct Action {
     }
     static inline Action cheatcode_create_item() {
         return {CHEATCODE_CREATE_ITEM, uint256::zero(), {0, 0}};
+    }
+    static inline Action cheatcode_identify() {
+        return {CHEATCODE_IDENTIFY, uint256::zero(), {0, 0}};
     }
     static inline Action cheatcode_go_down() {
         return {CHEATCODE_GO_DOWN, uint256::zero(), {0, 0}};

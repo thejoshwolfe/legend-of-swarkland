@@ -58,15 +58,20 @@ source code to the website.
    * Acid traps.
    * Polymorph traps.
 
+### 4.1.0
+
+ * Interface improvements, such as [zooming out or scrolling](https://github.com/thejoshwolfe/legend-of-swarkland/issues/8).
+
 ### 4.0.0
 
  * Roguelike dungeon crawler.
    * Rooms and corridors with stairs down to the next level (no stairs up).
    * Experience levels.
    * Monster difficulty depends on your experience level and dungeon depth.
- * New monsters: ant, bee, beetle, scorpion, snake.
- * New items: wand of speed.
  * Speediness only affects movement; fighting and other actions are standard speed for everyone.
+ * New monsters: ant, bee, beetle, scorpion, snake.
+ * New items: wand of speed, wand of remedy.
+ * New status effects: fast, poisoned.
 
 ## Version History
 
