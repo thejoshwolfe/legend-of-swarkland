@@ -479,11 +479,6 @@ Coord confuse_direction(Thing individual, Coord direction) {
     panic("direction not found");
 }
 
-static int get_movement_cost(Thing actor) {
-    if (actor->status_effects.speed_up_expiration_time > time_counter)
-        return 3;
-    return actor->life()->species()->movement_cost;
-}
 bool can_move(Thing actor) {
     return actor->life()->last_movement_time + get_movement_cost(actor) <= time_counter;
 }

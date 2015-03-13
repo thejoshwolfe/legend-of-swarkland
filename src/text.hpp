@@ -131,7 +131,7 @@ public:
     }
     void format(const char * fmt) {
         // check for too many %s
-        find_percent_something(fmt, '%');
+        find_percent_something(fmt, '\0');
         append(fmt);
     }
     template<typename ...Args>

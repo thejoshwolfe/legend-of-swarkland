@@ -43,6 +43,11 @@ void get_available_moves(Thing individual, List<Action> * output_actions);
 void get_available_actions(Thing individual, List<Action> * output_actions);
 bool can_move(Thing actor);
 bool can_act(Thing actor);
+static inline int get_movement_cost(Thing actor) {
+    if (actor->status_effects.speed_up_expiration_time > time_counter)
+        return 3;
+    return actor->life()->species()->movement_cost;
+}
 
 void run_the_game();
 int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b);

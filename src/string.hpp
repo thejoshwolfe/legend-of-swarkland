@@ -12,14 +12,12 @@ static inline int find_percent_something(const char * fmt, char expected_code) {
         if (fmt[i] != '%')
             continue;
         i++;
-        if (fmt[i] == '%')
-            continue; // escaped %%
         if (fmt[i] != expected_code)
             panic("wrong format");
         i++;
         return i;
     }
-    if (expected_code == '%')
+    if (expected_code == '\0')
         return -1;
     panic("too few function parameters");
 }
@@ -53,11 +51,13 @@ public:
     // any char * is decoded as UTF-8
     void format(const char * fmt) {
         // check for too many %s
-        find_percent_something(fmt, '%');
+        find_percent_something(fmt, '\0');
         append(fmt);
     }
     template<typename... T>
     void format(const char * fmt, String s1, T... args);
+    template<typename... T>
+    void format(const char * fmt, const char * s1, T... args);
     template<typename... T>
     void format(const char * fmt, int d, T... args);
 
@@ -121,6 +121,17 @@ private:
 
 template<typename... T>
 void StringImpl::format(const char * fmt, String s1, T... args) {
+    int i = find_percent_something(fmt, 's');
+    ByteBuffer prefix;
+    prefix.append(fmt, i - 2);
+    decode(prefix);
+
+    append(s1);
+
+    format(fmt + i, args...);
+}
+template<typename... T>
+void StringImpl::format(const char * fmt, const char * s1, T... args) {
     int i = find_percent_something(fmt, 's');
     ByteBuffer prefix;
     prefix.append(fmt, i - 2);

@@ -20,7 +20,8 @@ static const SDL_Rect status_box_area = { 0, main_map_area.y + main_map_area.h, 
 static const SDL_Rect hp_area = { 0, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect xp_area = { hp_area.x + hp_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect dungeon_level_area = { xp_area.x + xp_area.w, status_box_area.y, 200, status_box_area.h };
-static const SDL_Rect status_area = { dungeon_level_area.x + dungeon_level_area.w, status_box_area.y, status_box_area.w - (dungeon_level_area.x + dungeon_level_area.w), status_box_area.h };
+static const SDL_Rect status_area = { dungeon_level_area.x + dungeon_level_area.w, status_box_area.y, 200, status_box_area.h };
+static const SDL_Rect time_area = { status_area.x + status_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, (map_size.y - 4) * tile_size };
 static const SDL_Rect tutorial_area = { inventory_area.x, inventory_area.y + inventory_area.h, 5 * tile_size, 4 * tile_size };
 static const SDL_Rect version_area = { status_box_area.x + status_box_area.w, status_box_area.y, 5 * tile_size, tile_size };
@@ -415,6 +416,7 @@ static Div hp_div = new_div();
 static Div xp_div = new_div();
 static Div dungeon_level_div = new_div();
 static Div status_div = new_div();
+static Div time_div = new_div();
 static Div keyboard_hover_div = new_div();
 static Div mouse_hover_div = new_div();
 
@@ -461,6 +463,35 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
         div->append(new_span(lines[i]));
     }
     return div;
+}
+static Span render_percent(int numerator, int denominator) {
+    numerator = clamp(numerator, 0, denominator);
+    String string = new_string();
+    string->format("%d%s", numerator * 100 / denominator, "%");
+    Span span = new_span(string);
+    if (numerator < denominator)
+        span->set_color(amber, black);
+    else
+        span->set_color(white, dark_green);
+    return span;
+}
+static Div get_time_display(Thing spectate_from) {
+    Div result = new_div();
+    Life * life = spectate_from->life();
+    int movement_cost = get_movement_cost(spectate_from);
+    if (movement_cost == action_cost && life->last_movement_time == life->last_action_time)
+        return result; // too simple to mention
+
+    Span movement_span = new_span();
+    movement_span->format("move: %s", render_percent(time_counter - life->last_movement_time, movement_cost));
+    result->append(movement_span);
+    result->append_newline();
+
+    Span action_span = new_span();
+    action_span->format("act:  %s", render_percent(time_counter - life->last_action_time, action_cost));
+    result->append(action_span);
+
+    return result;
 }
 
 void render() {
@@ -609,6 +640,10 @@ void render() {
     {
         status_div->set_content(get_status_description(spectate_from->status_effects));
         render_div(status_div, status_area, 1, 1);
+    }
+    {
+        time_div->set_content(get_time_display(spectate_from));
+        render_div(time_div, time_area, 1, 1);
     }
 
     // message area
