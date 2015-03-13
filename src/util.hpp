@@ -73,6 +73,10 @@ static inline int random_int(int at_least_this, int less_than_this) {
 static inline int random_inclusive(int min, int max) {
     return random_int(min, max + 1);
 }
+// 2/3 to 3/2. (it's a midpoint on an exponential scale).
+static inline int random_midpoint(int midpoint) {
+    return random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
+}
 
 template <typename T>
 static inline T min(T a, T b) {

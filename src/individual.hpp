@@ -103,12 +103,14 @@ struct Species {
     bool sucks_up_items;
     bool auto_throws_items;
     bool uses_wands;
+    bool poison_attack;
 };
 
 struct StatusEffects {
     bool invisible = false;
     long long confused_expiration_time = -1;
     long long speed_up_expiration_time = -1;
+    long long poison_expiration_time = -1;
 };
 
 struct PerceivedWandInfo {

@@ -104,11 +104,17 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             result->span->format("%s hits something.", get_item_description(observer, event.item_and_location_data().item));
             return result;
 
+        case Event::POISONED:
+            result->span->format("%s is poisoned!", get_individual_description(observer, event.the_individual_data()));
+            return result;
         case Event::NO_LONGER_CONFUSED:
             result->span->format("%s is no longer confused.", get_individual_description(observer, event.the_individual_data()));
             return result;
         case Event::NO_LONGER_FAST:
             result->span->format("%s slows back down to normal speed.", get_individual_description(observer, event.the_individual_data()));
+            return result;
+        case Event::NO_LONGER_POISONED:
+            result->span->format("%s is no longer poisoned.", get_individual_description(observer, event.the_individual_data()));
             return result;
 
         case Event::APPEAR:
@@ -254,8 +260,10 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             *output_event = event;
             return true;
 
+        case Event::POISONED:
         case Event::NO_LONGER_CONFUSED:
         case Event::NO_LONGER_FAST:
+        case Event::NO_LONGER_POISONED:
         case Event::APPEAR:
             if (!can_see_individual(observer, event.the_individual_data()))
                 return false;
@@ -399,10 +407,12 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 // no state change
                 break;
 
-            case Event::NO_LONGER_CONFUSED:
-                record_perception_of_thing(observer, apparent_event.the_individual_data());
+            case Event::POISONED:
+                observer->life()->knowledge.perceived_things.get(apparent_event.the_individual_data())->status_effects.poison_expiration_time = 0x7fffffffffffffffLL;
                 break;
+            case Event::NO_LONGER_CONFUSED:
             case Event::NO_LONGER_FAST:
+            case Event::NO_LONGER_POISONED:
                 record_perception_of_thing(observer, apparent_event.the_individual_data());
                 break;
 

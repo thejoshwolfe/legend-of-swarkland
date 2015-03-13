@@ -27,16 +27,17 @@ static void init_specieses() {
     //                                     |   |  |  |   |   |  |   |  sucks up items
     //                                     |   |  |  |   |   |  |   |  |  auto throws items
     //                                     |   |  |  |   |   |  |   |  |  |  uses wands
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, {1, 0}, 1, 0, 0, 1};
-    specieses[SpeciesId_OGRE         ] = {24, 10, 2, 3,  7, {1, 0}, 1, 0, 0, 1};
-    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1, 1,  4, {0, 1}, 0, 1, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3,  6, {0, 1}, 0, 1, 1, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2, 0,  5, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  4, 1, 0,  2, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  4, 3, 0,  3, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 5, 0,  4, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_SNAKE        ] = {18,  6, 2, 0,  3, {1, 0}, 1, 0, 0, 0};
+    //                                     |   |  |  |   |   |  |   |  |  |  |  poison attack
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, {1, 0}, 1, 0, 0, 1, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 10, 2, 3,  7, {1, 0}, 1, 0, 0, 1, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1, 1,  4, {0, 1}, 0, 1, 0, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3,  6, {0, 1}, 0, 1, 1, 0, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2, 0,  5, {1, 0}, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  4, 1, 0,  2, {1, 0}, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  4, 3, 0,  3, {1, 0}, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, {1, 0}, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 0,  4, {1, 0}, 1, 0, 0, 0, 1};
+    specieses[SpeciesId_SNAKE        ] = {18,  6, 2, 0,  3, {1, 0}, 1, 0, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.
@@ -96,7 +97,8 @@ static void damage_individual(Thing attacker, Thing target, int damage) {
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
         kill_individual(target);
-        gain_experience(attacker, 1, true);
+        if (attacker != nullptr)
+            gain_experience(attacker, 1, true);
     }
 }
 
@@ -210,7 +212,7 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
         if (difficulty_level > 0)
             difficulty_level -= 1;
         int midpoint = level_to_experience(difficulty_level);
-        experience = random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
+        experience = random_midpoint(midpoint);
     }
 
     if (species_id == SpeciesId_COUNT) {
@@ -247,12 +249,15 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
     return individual;
 }
 
+static void spawn_random_individual() {
+    spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, -1);
+}
 static void init_individuals() {
     if (you == nullptr) {
         you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, 0);
     } else {
         // you just landed from upstairs
-        // make sure the up and down stairs are sufficiently far appart.
+        // make sure the up and down stairs are sufficiently far apart.
         you->location = find_random_location(stairs_down_location);
         compute_vision(you);
     }
@@ -263,7 +268,7 @@ static void init_individuals() {
 
     // generate a few warm-up monsters
     for (int i = 0; i < 6; i++)
-        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, -1);
+        spawn_random_individual();
 }
 
 void swarkland_init() {
@@ -294,14 +299,6 @@ void go_down() {
     init_individuals();
 }
 
-static void spawn_random_individual() {
-    if (random_int(50) == 0) {
-        // a friend has arrived!
-        spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI, you->life()->experience);
-    } else {
-        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, -1);
-    }
-}
 static void maybe_spawn_monsters() {
     // asymptotically approach 1 monster per human decision.
     int numerator = dungeon_level;
@@ -317,7 +314,13 @@ static void create_item(Coord floor_location) {
 
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
-    if (life->hp_regen_deadline == time_counter) {
+    // poison
+    if (individual->status_effects.poison_expiration_time > time_counter) {
+        if (random_int(100) == 0) {
+            // ouch
+            damage_individual(nullptr, individual, 1);
+        }
+    } else if (life->hp_regen_deadline == time_counter) {
         if (life->hitpoints < life->max_hitpoints()) {
             int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5));
             life->hitpoints = min(life->hitpoints + hp_heal, life->max_hitpoints());
@@ -335,6 +338,10 @@ static void attack(Thing attacker, Thing target) {
     int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
     damage_individual(attacker, target, damage);
     reset_hp_regen_timeout(attacker);
+    if (attacker->life()->species()->poison_attack) {
+        publish_event(Event::poisoned(target));
+        target->status_effects.poison_expiration_time = time_counter + random_midpoint(1000);
+    }
 }
 
 static int compare_things_by_z_order(Thing a, Thing b) {
@@ -650,6 +657,10 @@ static void age_individual(Thing individual) {
         publish_event(Event::no_longer_confused(individual));
     if (individual->status_effects.speed_up_expiration_time == time_counter)
         publish_event(Event::no_longer_fast(individual));
+    if (individual->status_effects.poison_expiration_time == time_counter) {
+        publish_event(Event::no_longer_poisoned(individual));
+        reset_hp_regen_timeout(individual);
+    }
 
     List<RememberedEvent> & remembered_events = individual->life()->knowledge.remembered_events;
     if (remembered_events.length() >= 1000) {

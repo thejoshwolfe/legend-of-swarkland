@@ -20,8 +20,10 @@ struct Event {
         ITEM_HITS_WALL,
         ITEM_HITS_SOMETHING,
 
+        POISONED,
         NO_LONGER_CONFUSED,
         NO_LONGER_FAST,
+        NO_LONGER_POISONED,
 
         APPEAR,
         TURN_INVISIBLE,
@@ -148,12 +150,19 @@ struct Event {
     }
 
 
+    static inline Event poisoned(Thing individual) {
+        return event_individual(POISONED, individual->id);
+    }
     static inline Event no_longer_confused(Thing individual) {
         return event_individual(NO_LONGER_CONFUSED, individual->id);
     }
     static inline Event no_longer_fast(Thing individual) {
         return event_individual(NO_LONGER_FAST, individual->id);
     }
+    static inline Event no_longer_poisoned(Thing individual) {
+        return event_individual(NO_LONGER_POISONED, individual->id);
+    }
+
     static inline Event appear(Thing new_guy) {
         return event_individual(APPEAR, new_guy->id);
     }
@@ -291,9 +300,13 @@ private:
             case ITEM_HITS_SOMETHING:
                 return DataType_ITEM_AND_LOCATION;
 
+            case POISONED:
+                return DataType_THE_INDIVIDUAL;
             case NO_LONGER_CONFUSED:
                 return DataType_THE_INDIVIDUAL;
             case NO_LONGER_FAST:
+                return DataType_THE_INDIVIDUAL;
+            case NO_LONGER_POISONED:
                 return DataType_THE_INDIVIDUAL;
 
             case APPEAR:
