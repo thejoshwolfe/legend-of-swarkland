@@ -498,13 +498,101 @@ static bool take_action(Thing actor, Action action) {
     }
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
 
+    switch (action.type) {
+        case Action::WAIT:
+            break;
+        case Action::UNDECIDED:
+            panic("not a real action");
+        case Action::MOVE: {
+            // normally, we'd be sure that this was valid, but if you use cheatcodes,
+            // monsters can try to walk into you while you're invisible.
+            Coord new_position = actor->location + confuse_direction(actor, action.coord);
+            if (!is_open_space(actual_map_tiles[new_position].tile_type)) {
+                // this can only happen if your direction was changed.
+                // (attempting to move into a wall deliberately is an invalid move).
+                publish_event(Event::bump_into(actor->id, actor->location, uint256::zero(), new_position));
+                break;
+            }
+            Thing target = find_individual_at(new_position);
+            if (target != nullptr) {
+                // this is not attacking
+                publish_event(Event::bump_into(actor->id, actor->location, target->id, target->location));
+                break;
+            }
+            // clear to move
+            do_move(actor, new_position);
+            break;
+        }
+        case Action::ATTACK: {
+            Coord new_position = actor->location + confuse_direction(actor, action.coord);
+            Thing target = find_individual_at(new_position);
+            if (target != nullptr) {
+                attack(actor, target);
+                break;
+            } else {
+                publish_event(Event::attack(actor, uint256::zero(), new_position));
+                break;
+            }
+        }
+        case Action::ZAP:
+            zap_wand(actor, action.item, confuse_direction(actor, action.coord));
+            break;
+        case Action::PICKUP:
+            pickup_item(actor, actual_things.get(action.item));
+            publish_event(Event::individual_picks_up_item(actor, actual_things.get(action.item)));
+            break;
+        case Action::DROP:
+            drop_item_to_the_floor(actual_things.get(action.item), actor->location);
+            break;
+        case Action::THROW:
+            throw_item(actor, actual_things.get(action.item), confuse_direction(actor, action.coord));
+            break;
+
+        case Action::GO_DOWN:
+            go_down();
+            break;
+
+        case Action::CHEATCODE_HEALTH_BOOST:
+            actor->life()->hitpoints += 100;
+            return false;
+        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+            cheatcode_kill_everybody_in_the_world();
+            return false;
+        case Action::CHEATCODE_POLYMORPH:
+            cheatcode_polymorph();
+            // this one does take time, because your movement cost may have changed
+            return false;
+        case Action::CHEATCODE_INVISIBILITY:
+            if (actor->status_effects.invisible) {
+                actor->status_effects.invisible = false;
+                publish_event(Event::appear(you));
+            } else {
+                actor->status_effects.invisible = true;
+                publish_event(Event::turn_invisible(you));
+            }
+            return false;
+        case Action::CHEATCODE_GENERATE_MONSTER:
+            spawn_random_individual();
+            return false;
+        case Action::CHEATCODE_CREATE_ITEM:
+            create_item(you->location);
+            return false;
+        case Action::CHEATCODE_GO_DOWN:
+            go_down();
+            break;
+        case Action::CHEATCODE_GAIN_LEVEL:
+            gain_experience(actor, 10, true);
+            return false;
+    }
+
+    // now pay for the action
     Life * life = actor->life();
     int movement_cost = get_movement_cost(actor);
     if (action.type == Action::WAIT) {
         if (can_move(actor) && can_act(actor)) {
             int lowest_cost = min(movement_cost, action_cost);
-            life->last_movement_time += lowest_cost;
-            life->last_action_time += lowest_cost;
+            life->last_movement_time = time_counter + lowest_cost - movement_cost;
+            life->last_action_time = time_counter + lowest_cost - action_cost;
         } else if (can_move(actor)) {
             int lowest_cost = min(movement_cost, action_cost - (int)(time_counter - life->last_action_time));
             life->last_movement_time += lowest_cost;
@@ -534,93 +622,7 @@ static bool take_action(Thing actor, Action action) {
             life->last_movement_time = life->last_action_time + action_cost - movement_cost;
     }
 
-    switch (action.type) {
-        case Action::WAIT:
-            return true;
-        case Action::UNDECIDED:
-            panic("not a real action");
-        case Action::MOVE: {
-            // normally, we'd be sure that this was valid, but if you use cheatcodes,
-            // monsters can try to walk into you while you're invisible.
-            Coord new_position = actor->location + confuse_direction(actor, action.coord);
-            if (!is_open_space(actual_map_tiles[new_position].tile_type)) {
-                // this can only happen if your direction was changed.
-                // (attempting to move into a wall deliberately is an invalid move).
-                publish_event(Event::bump_into(actor->id, actor->location, uint256::zero(), new_position));
-                return true;
-            }
-            Thing target = find_individual_at(new_position);
-            if (target != nullptr) {
-                // this is not attacking
-                publish_event(Event::bump_into(actor->id, actor->location, target->id, target->location));
-                return true;
-            }
-            // clear to move
-            do_move(actor, new_position);
-            return true;
-        }
-        case Action::ATTACK: {
-            Coord new_position = actor->location + confuse_direction(actor, action.coord);
-            Thing target = find_individual_at(new_position);
-            if (target != nullptr) {
-                attack(actor, target);
-                return true;
-            } else {
-                publish_event(Event::attack(actor, uint256::zero(), new_position));
-                return true;
-            }
-        }
-        case Action::ZAP:
-            zap_wand(actor, action.item, confuse_direction(actor, action.coord));
-            return true;
-        case Action::PICKUP:
-            pickup_item(actor, actual_things.get(action.item));
-            publish_event(Event::individual_picks_up_item(actor, actual_things.get(action.item)));
-            return true;
-        case Action::DROP:
-            drop_item_to_the_floor(actual_things.get(action.item), actor->location);
-            return true;
-        case Action::THROW:
-            throw_item(actor, actual_things.get(action.item), confuse_direction(actor, action.coord));
-            return true;
-
-        case Action::GO_DOWN:
-            go_down();
-            return true;
-
-        case Action::CHEATCODE_HEALTH_BOOST:
-            actor->life()->hitpoints += 100;
-            return false;
-        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
-            cheatcode_kill_everybody_in_the_world();
-            return false;
-        case Action::CHEATCODE_POLYMORPH:
-            cheatcode_polymorph();
-            // this one does take time, because your movement cost may have changed
-            return true;
-        case Action::CHEATCODE_INVISIBILITY:
-            if (actor->status_effects.invisible) {
-                actor->status_effects.invisible = false;
-                publish_event(Event::appear(you));
-            } else {
-                actor->status_effects.invisible = true;
-                publish_event(Event::turn_invisible(you));
-            }
-            return false;
-        case Action::CHEATCODE_GENERATE_MONSTER:
-            spawn_random_individual();
-            return false;
-        case Action::CHEATCODE_CREATE_ITEM:
-            create_item(you->location);
-            return false;
-        case Action::CHEATCODE_GO_DOWN:
-            go_down();
-            return true;
-        case Action::CHEATCODE_GAIN_LEVEL:
-            gain_experience(actor, 10, true);
-            return false;
-    }
-    panic("unimplemented action type");
+    return true;
 }
 
 // advance time for an individual
