@@ -110,7 +110,10 @@ struct StatusEffects {
     bool invisible = false;
     long long confused_expiration_time = -1;
     long long speed_up_expiration_time = -1;
+
+    uint256 poisoner = uint256::zero();
     long long poison_expiration_time = -1;
+    long long poison_next_damage_time = -1;
 };
 
 struct PerceivedWandInfo {

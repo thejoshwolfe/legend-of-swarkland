@@ -88,7 +88,7 @@ static void gain_experience(Thing individual, int delta, bool publish) {
 static void reset_hp_regen_timeout(Thing individual) {
     Life * life = individual->life();
     if (life->hitpoints < life->max_hitpoints())
-        life->hp_regen_deadline = time_counter + 12 * random_inclusive(5, 9);
+        life->hp_regen_deadline = time_counter + random_midpoint(7 * 12);
 }
 static void damage_individual(Thing attacker, Thing target, int damage) {
     if (damage <= 0)
@@ -314,13 +314,16 @@ static void create_item(Coord floor_location) {
 
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
-    // poison
     if (individual->status_effects.poison_expiration_time > time_counter) {
-        if (random_int(100) == 0) {
+        // poison
+        if (individual->status_effects.poison_next_damage_time == time_counter) {
             // ouch
-            damage_individual(nullptr, individual, 1);
+            Thing attacker = actual_things.get(individual->status_effects.poisoner, nullptr);
+            damage_individual(attacker, individual, 1);
+            individual->status_effects.poison_next_damage_time = time_counter + random_midpoint(7 * 12);
         }
     } else if (life->hp_regen_deadline == time_counter) {
+        // hp regen
         if (life->hitpoints < life->max_hitpoints()) {
             int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5));
             life->hitpoints = min(life->hitpoints + hp_heal, life->max_hitpoints());
@@ -340,7 +343,9 @@ static void attack(Thing attacker, Thing target) {
     reset_hp_regen_timeout(attacker);
     if (attacker->life()->species()->poison_attack) {
         publish_event(Event::poisoned(target));
-        target->status_effects.poison_expiration_time = time_counter + random_midpoint(1000);
+        target->status_effects.poisoner = attacker->id;
+        target->status_effects.poison_expiration_time = time_counter + random_midpoint(600);
+        target->status_effects.poison_next_damage_time = time_counter + 12 * 3;
     }
 }
 

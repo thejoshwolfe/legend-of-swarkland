@@ -44,6 +44,8 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
     status_effects.confused_expiration_time = status_effects.confused_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
     status_effects.speed_up_expiration_time = status_effects.speed_up_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
     status_effects.poison_expiration_time = status_effects.poison_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
+    status_effects.poison_next_damage_time = -1;
+    status_effects.poisoner = uint256::zero();
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL:
             return create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, status_effects);
