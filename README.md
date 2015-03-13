@@ -4,7 +4,7 @@
 
 Basic turn-based, hack-n-slash survival game.
 
-## How Do I Shot Game?
+## How Do I Run It?
 
 ### Windows
 
@@ -22,7 +22,7 @@ sudo apt-get update
 install dependencies:
 
 ```
-sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev clang libpng12-dev
+sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev libpng12-dev
 ```
 
 build:
@@ -66,6 +66,7 @@ source code to the website.
    * Monster difficulty depends on your experience level and dungeon depth.
  * New monsters: ant, bee, beetle, scorpion, snake.
  * New items: wand of speed.
+ * Speediness only affects movement; fighting and other actions are standard speed for everyone.
 
 ## Version History
 
