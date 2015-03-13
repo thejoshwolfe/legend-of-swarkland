@@ -16,17 +16,17 @@ long long time_counter = 0;
 bool cheatcode_full_visibility;
 
 static void init_specieses() {
-    //                                    movement cost
-    //                                    |   health
-    //                                    |   |   base attack
-    //                                    |   |   |  min level
-    //                                    |   |   |  |  max level
-    //                                    |   |   |  |  |    normal vision
-    //                                    |   |   |  |  |    |  ethereal vision
-    //                                    |   |   |  |  |    |  |   has mind
-    //                                    |   |   |  |  |    |  |   |  sucks up items
-    //                                    |   |   |  |  |    |  |   |  |  auto throws items
-    //                                    |   |   |  |  |    |  |   |  |  |  uses wands
+    //                                     movement cost
+    //                                     |   health
+    //                                     |   |  base attack
+    //                                     |   |  |  min level
+    //                                     |   |  |  |   max level
+    //                                     |   |  |  |   |   normal vision
+    //                                     |   |  |  |   |   |  ethereal vision
+    //                                     |   |  |  |   |   |  |   has mind
+    //                                     |   |  |  |   |   |  |   |  sucks up items
+    //                                     |   |  |  |   |   |  |   |  |  auto throws items
+    //                                     |   |  |  |   |   |  |   |  |  |  uses wands
     specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, {1, 0}, 1, 0, 0, 1};
     specieses[SpeciesId_OGRE         ] = {24, 10, 2, 3,  7, {1, 0}, 1, 0, 0, 1};
     specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1, 1,  4, {0, 1}, 0, 1, 0, 0};
@@ -240,12 +240,6 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
 
     gain_experience(individual, experience, false);
-
-    if (random_int(10) == 0) {
-        // have an item
-        Thing item = random_item();
-        pickup_item(individual, item);
-    }
 
     actual_things.put(individual->id, individual);
     compute_vision(individual);

@@ -2,6 +2,7 @@
 
 #include "individual.hpp"
 #include "swarkland.hpp"
+#include "item.hpp"
 
 int dungeon_level = 0;
 MapMatrix<Tile> actual_map_tiles;
@@ -214,4 +215,12 @@ void generate_map() {
     // place the stairs down
     stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length())];
     actual_map_tiles[stairs_down_location].tile_type = TileType_STAIRS_DOWN;
+
+    // throw some items around
+    int item_count = random_inclusive(2, 4);
+    for (int i = 0; i < item_count; i++) {
+        Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
+        Thing item = random_item();
+        item->location = location;;
+    }
 }
