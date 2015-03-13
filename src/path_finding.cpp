@@ -10,7 +10,7 @@ bool do_i_think_i_can_move_here(Thing individual, Coord location) {
         return false;
     if (!is_open_space(individual->life()->knowledge.tiles[location].tile_type))
         return false;
-    if (find_individual_at(location) != NULL)
+    if (find_individual_at(location) != nullptr)
         return false;
     return true;
 }
@@ -57,7 +57,7 @@ bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * ou
     start_node->h = heuristic(start, end);
     start_node->g = 0.0;
     start_node->f = start_node->g + start_node->h;
-    start_node->parent = NULL;
+    start_node->parent = nullptr;
     open_heap.insert(start_node);
     open_set[start_node->coord] = true;
     bool found_goal = false;
@@ -105,7 +105,7 @@ bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * ou
     // take a double dump
     List<Coord> backwards_path;
     Node *it = best_node;
-    while (it != NULL) {
+    while (it != nullptr) {
         backwards_path.append(it->coord);
         it = it->parent;
     }

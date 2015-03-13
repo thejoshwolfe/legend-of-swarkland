@@ -9,15 +9,15 @@ static SDL_Surface * create_surface(int w, int h) {
 }
 
 SDL_Surface * SpanImpl::get_surface() {
-    if (_surface != NULL)
+    if (_surface != nullptr)
         return _surface;
     List<SDL_Surface*> render_surfaces;
     List<SDL_Surface*> delete_surfaces;
     for (int i = 0; i < _items.length(); i++) {
-        if (_items[i].span != NULL) {
+        if (_items[i].span != nullptr) {
             Span sub_span = _items[i].span;
             SDL_Surface * sub_surface = sub_span->get_surface();
-            if (sub_surface == NULL)
+            if (sub_surface == nullptr)
                 continue;
             render_surfaces.append(sub_surface);
         } else {
@@ -31,7 +31,7 @@ SDL_Surface * SpanImpl::get_surface() {
         }
     }
     if (render_surfaces.length() == 0)
-        return NULL;
+        return nullptr;
 
     // measure dimensions
     int width = 0;
@@ -59,19 +59,19 @@ SDL_Surface * SpanImpl::get_surface() {
 
 
 void DivImpl::render_surface() {
-    if (_surface != NULL)
+    if (_surface != nullptr)
         return;
     int total_width = 0;
     int line_width = 0;
     List<SpanOrSpace> wrapped_items;
     for (int i = 0; i < _items.length(); i++) {
-        if (_items[i].span != NULL) {
+        if (_items[i].span != nullptr) {
             SDL_Surface * sub_surface = _items[i].span->get_surface();
-            if (sub_surface == NULL)
+            if (sub_surface == nullptr)
                 continue;
             if (line_width + sub_surface->w > _max_width) {
                 // line break
-                wrapped_items.append(SpanOrSpace{NULL, -1});
+                wrapped_items.append(SpanOrSpace{nullptr, -1});
                 line_width = 0;
             }
             wrapped_items.append(_items[i]);
@@ -84,7 +84,7 @@ void DivImpl::render_surface() {
                 line_width += space_count * text_width;
                 if (line_width > _max_width) {
                     // nevermind these spaces. wrap instead
-                    wrapped_items.append(SpanOrSpace{NULL, -1});
+                    wrapped_items.append(SpanOrSpace{nullptr, -1});
                     line_width = 0;
                 } else {
                     if (line_width > total_width)
@@ -124,9 +124,9 @@ void DivImpl::render_surface() {
     int x_cursor = 0;
     int y_cursor = 0;
     for (int i = first_visible_index; i < wrapped_items.length(); i++) {
-        if (wrapped_items[i].span != NULL) {
+        if (wrapped_items[i].span != nullptr) {
             SDL_Surface * sub_surface = wrapped_items[i].span->get_surface();
-            if (sub_surface == NULL)
+            if (sub_surface == nullptr)
                 continue;
             SDL_Rect src_rect = {0, 0, sub_surface->w, sub_surface->h};
             SDL_Rect dest_rect = {x_cursor, y_cursor, src_rect.w, src_rect.h};

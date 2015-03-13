@@ -83,7 +83,7 @@ public:
     }
 
 private:
-    T * _items = NULL;
+    T * _items = nullptr;
     int _length = 0;
     int _capacity = 0;
 

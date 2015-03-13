@@ -31,7 +31,7 @@ void ByteBuffer::format(const char *format, ...) {
     va_start(ap, format);
     va_copy(ap2, ap);
 
-    int ret = vsnprintf(NULL, 0, format, ap);
+    int ret = vsnprintf(nullptr, 0, format, ap);
     if (ret < 0)
         panic("vsnprintf error");
 

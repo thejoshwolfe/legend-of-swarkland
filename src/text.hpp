@@ -97,10 +97,10 @@ public:
             return;
         }
         // set to non blank
-        if (!(_items.length() == 1 &&_items[0].string != NULL)) {
+        if (!(_items.length() == 1 &&_items[0].string != nullptr)) {
             // no, make it plain text.
             _items.clear();
-            _items.append(StringOrSpan{new_string(), NULL});
+            _items.append(StringOrSpan{new_string(), nullptr});
             dispose_resources();
         } else {
             // there's already some plain text here.
@@ -120,13 +120,13 @@ public:
     void append(const String & text) {
         if (text->length() == 0)
             return;
-        if (_items.length() == 0 || _items[_items.length() - 1].string == NULL)
-            _items.append(StringOrSpan{new_string(), NULL});
+        if (_items.length() == 0 || _items[_items.length() - 1].string == nullptr)
+            _items.append(StringOrSpan{new_string(), nullptr});
         _items[_items.length() - 1].string->append(text);
         dispose_resources();
     }
     void append(const Span & span) {
-        _items.append(StringOrSpan{NULL, span});
+        _items.append(StringOrSpan{nullptr, span});
         dispose_resources();
     }
     void format(const char * fmt) {
@@ -140,7 +140,7 @@ public:
     bool operator==(const SpanImpl & other) const {
         if (this == &other)
             return true;
-        if (this == NULL || &other == NULL)
+        if (this == nullptr || &other == nullptr)
             return false;
         return _items == other._items &&
                _foreground == other._foreground &&
@@ -153,12 +153,12 @@ private:
     List<StringOrSpan> _items;
     SDL_Color _foreground = white;
     SDL_Color _background = black;
-    SDL_Surface * _surface = NULL;
+    SDL_Surface * _surface = nullptr;
     SDL_Surface * get_surface();
     void dispose_resources() {
-        if (_surface != NULL)
+        if (_surface != nullptr)
             SDL_FreeSurface(_surface);
-        _surface = NULL;
+        _surface = nullptr;
     }
 
     friend class DivImpl;
@@ -228,11 +228,11 @@ public:
         dispose_resources();
     }
     void append_newline() {
-        _items.append(SpanOrSpace{NULL, -1});
+        _items.append(SpanOrSpace{nullptr, -1});
         dispose_resources();
     }
     void append_spaces(int count) {
-        _items.append(SpanOrSpace{NULL, count});
+        _items.append(SpanOrSpace{nullptr, count});
         dispose_resources();
     }
     void clear() {
@@ -258,9 +258,9 @@ public:
 
     SDL_Texture * get_texture(SDL_Renderer * renderer) {
         _renderer = renderer;
-        if (_texture == NULL) {
+        if (_texture == nullptr) {
             render_surface();
-            if (_surface != NULL)
+            if (_surface != nullptr)
                 _texture = SDL_CreateTextureFromSurface(renderer, _surface);
         }
         return _texture;
@@ -270,22 +270,22 @@ private:
     static const int text_height = 16;
     List<SpanOrSpace> _items;
     SDL_Color _background = black;
-    SDL_Surface * _surface = NULL;
-    SDL_Texture * _texture = NULL;
-    SDL_Renderer * _renderer = NULL;
+    SDL_Surface * _surface = nullptr;
+    SDL_Texture * _texture = nullptr;
+    SDL_Renderer * _renderer = nullptr;
     int _max_width = 0;
     int _max_height = 0;
     void render_surface();
     void dispose_resources() {
-        if (_surface != NULL)
+        if (_surface != nullptr)
             SDL_FreeSurface(_surface);
-        _surface = NULL;
-        if (_texture != NULL) {
+        _surface = nullptr;
+        if (_texture != nullptr) {
             // if the renderer has already been shutdown, then the texture has already been destroyed.
             if (renderer_is_alive(_renderer))
                 SDL_DestroyTexture(_texture);
         }
-        _texture = NULL;
+        _texture = nullptr;
     }
 
     DivImpl(DivImpl & copy) = delete;

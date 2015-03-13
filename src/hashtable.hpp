@@ -258,12 +258,12 @@ private:
             Entry * entry = &_entries[index];
 
             if (!entry->used)
-                return NULL;
+                return nullptr;
 
             if (entry->key == key)
                 return entry;
         }
-        return NULL;
+        return nullptr;
     }
 };
 

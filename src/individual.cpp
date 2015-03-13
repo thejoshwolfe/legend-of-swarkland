@@ -59,14 +59,14 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
 PerceivedThing perceive_thing(Thing observer, Thing target) {
     if (target->location != Coord::nowhere()) {
         if (!observer->life()->knowledge.tile_is_visible[target->location].any())
-            return NULL; // standing out of view
+            return nullptr; // standing out of view
     } else {
         PerceivedThing container = perceive_thing(observer, actual_things.get(target->container_id));
-        if (container == NULL)
-            return NULL; // held by something we can't see
+        if (container == nullptr)
+            return nullptr; // held by something we can't see
     }
     // invisible creates can only be seen by themselves
     if (target->status_effects.invisible && observer != target)
-        return NULL;
+        return nullptr;
     return to_perceived_thing(target->id);
 }

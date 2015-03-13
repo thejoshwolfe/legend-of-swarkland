@@ -44,7 +44,7 @@ static void kill_individual(Thing individual) {
         youre_still_alive = false;
     if (individual == cheatcode_spectator) {
         // our fun looking through the eyes of a dying man has ended. back to normal.
-        cheatcode_spectator = NULL;
+        cheatcode_spectator = nullptr;
     }
 }
 
@@ -112,7 +112,7 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     publish_event(Event::item_drops_to_the_floor(item));
 
     Thing individual = find_individual_at(location);
-    if (individual != NULL && individual->life()->species()->sucks_up_items) {
+    if (individual != nullptr && individual->life()->species()->sucks_up_items) {
         // suck it
         pickup_item(individual, item);
         publish_event(Event::individual_sucks_up_item(individual, item));
@@ -129,7 +129,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
         cursor += direction;
         if (is_in_bounds(cursor)) {
             Thing target = find_individual_at(cursor);
-            if (target != NULL) {
+            if (target != nullptr) {
                 publish_event(Event::item_hits_individual(item->id, target->id));
                 // hurt a little
                 int damage = random_int(1, 3);
@@ -172,7 +172,7 @@ Coord find_random_location(Coord away_from_location) {
                 continue;
             if (euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
                 continue;
-            if (find_individual_at(location) != NULL)
+            if (find_individual_at(location) != nullptr)
                 continue;
             available_spawn_locations.append(location);
         }
@@ -194,11 +194,11 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
     }
 
     // don't spawn monsters near you. don't spawn you near the stairs.
-    Coord away_from_location = you != NULL ? you->location : stairs_down_location;
+    Coord away_from_location = you != nullptr ? you->location : stairs_down_location;
     Coord location = find_random_location(away_from_location);
     if (location == Coord::nowhere()) {
         // it must be pretty crowded in here
-        return NULL;
+        return nullptr;
     }
 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
@@ -223,7 +223,7 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
 }
 
 static void init_individuals() {
-    if (you == NULL) {
+    if (you == nullptr) {
         you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, 0);
     } else {
         // you just landed from upstairs
@@ -330,7 +330,7 @@ PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
     for (auto iterator = get_perceived_individuals(observer); iterator.next(&individual);)
         if (individual->location == location)
             return individual;
-    return NULL;
+    return nullptr;
 }
 void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list) {
     PerceivedThing thing;
@@ -347,7 +347,7 @@ Thing find_individual_at(Coord location) {
         if (individual->location.x == location.x && individual->location.y == location.y)
             return individual;
     }
-    return NULL;
+    return nullptr;
 }
 
 void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list) {
@@ -484,7 +484,7 @@ static bool take_action(Thing actor, Action action) {
                 return true;
             }
             Thing target = find_individual_at(new_position);
-            if (target != NULL) {
+            if (target != nullptr) {
                 // this is not attacking
                 publish_event(Event::bump_into(actor->id, actor->location, target->id, target->location));
                 return true;
@@ -496,7 +496,7 @@ static bool take_action(Thing actor, Action action) {
         case Action::ATTACK: {
             Coord new_position = actor->location + confuse_direction(actor, action.coord);
             Thing target = find_individual_at(new_position);
-            if (target != NULL) {
+            if (target != nullptr) {
                 attack(actor, target);
                 return true;
             } else {
@@ -617,8 +617,8 @@ void run_the_game() {
                     // this actually only observers time in increments of your movement cost
                     if (individual->life()->species()->has_mind) {
                         List<RememberedEvent> & events = individual->life()->knowledge.remembered_events;
-                        if (events.length() > 0 && events[events.length() - 1] != NULL)
-                            events.append(NULL);
+                        if (events.length() > 0 && events[events.length() - 1] != nullptr)
+                            events.append(nullptr);
                     }
                 }
             }

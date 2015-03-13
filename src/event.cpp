@@ -8,7 +8,7 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
     switch (event.type) {
         case Event::MOVE:
             // unremarkable
-            return NULL;
+            return nullptr;
         case Event::BUMP_INTO:
         case Event::ATTACK: {
             Event::TwoIndividualData & data = event.two_individual_data();
@@ -312,7 +312,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
 
 static void record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = to_perceived_thing(target_id);
-    if (target == NULL) {
+    if (target == nullptr) {
         observer->life()->knowledge.perceived_things.remove(target_id);
         return;
     }
@@ -330,7 +330,7 @@ static void id_item(Thing observer, WandDescriptionId description_id, WandId id)
 }
 
 void publish_event(Event event) {
-    publish_event(event, NULL);
+    publish_event(event, nullptr);
 }
 void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
     Thing observer;
@@ -439,7 +439,7 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
         if (observer->life()->species()->has_mind) {
             // we need to log the event before the monster disappears from our knowledge
             RememberedEvent remembered_event = to_remembered_event(observer, apparent_event);
-            if (remembered_event != NULL)
+            if (remembered_event != nullptr)
                 observer->life()->knowledge.remembered_events.append(remembered_event);
         }
         // now that we've had a chance to talk about it, delete it if we should

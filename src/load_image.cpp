@@ -28,7 +28,7 @@ SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_
     if (png_sig_cmp(image_buffer, 0, 8))
         panic("not png file");
 
-    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
 
     if (!png_ptr)
         panic("unable to create png read struct");
@@ -85,9 +85,9 @@ SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_
 
     png_read_image(png_ptr, row_ptrs);
 
-    SDL_UpdateTexture(texture, NULL, decoded_image, pitch);
+    SDL_UpdateTexture(texture, nullptr, decoded_image, pitch);
 
-    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+    png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
     destroy(row_ptrs, 0);
     destroy(decoded_image, 0);
     destroy(image_buffer, 0);

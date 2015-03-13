@@ -99,7 +99,7 @@ void compute_vision(Thing observer) {
         if (!actual_target->still_exists)
             continue;
         PerceivedThing perceived_target = perceive_thing(observer, actual_target);
-        if (perceived_target == NULL)
+        if (perceived_target == nullptr)
             continue;
         observer->life()->knowledge.perceived_things.put(perceived_target->id, perceived_target);
     }

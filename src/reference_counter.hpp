@@ -19,7 +19,7 @@ class Reference {
 public:
     // new references
     Reference() :
-            _target(NULL) {
+            _target(nullptr) {
     }
     Reference(T * brand_new_value) :
             _target(brand_new_value) {
@@ -65,12 +65,12 @@ public:
 private:
     T * _target;
     void increment_reference() {
-        if (_target == NULL)
+        if (_target == nullptr)
             return;
         _target->_reference_count++;
     }
     void decrement_reference() {
-        if (_target == NULL)
+        if (_target == nullptr)
             return;
         _target->_reference_count--;
         if (_target->_reference_count == 0)

@@ -98,16 +98,16 @@ void display_init() {
         panic("unable to init SDL");
 
     window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, entire_window_area.w, entire_window_area.h, 0);
-    if (window == NULL)
+    if (window == nullptr)
         panic("window create failed");
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    if (renderer == NULL)
+    if (renderer == nullptr)
         panic("renderer create failed");
 
     if (rucksack_bundle_open_read_mem(get_binary_resources_start(), get_binary_resources_size(), &bundle) != RuckSackErrorNone)
         panic("error opening resource bundle");
     RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
-    if (entry == NULL)
+    if (entry == nullptr)
         panic("spritesheet not found in bundle");
 
     if (rucksack_file_open_texture(entry, &rs_texture) != RuckSackErrorNone)
@@ -123,19 +123,19 @@ void display_init() {
     TTF_Init();
 
     RuckSackFileEntry * font_entry = rucksack_bundle_find_file(bundle, "font/DejaVuSansMono.ttf", -1);
-    if (font_entry == NULL)
+    if (font_entry == nullptr)
         panic("font not found in bundle");
     long font_file_size = rucksack_file_size(font_entry);
     font_buffer = allocate<unsigned char>(font_file_size);
     rucksack_file_read(font_entry, font_buffer);
     font_rw_ops = SDL_RWFromMem(font_buffer, font_file_size);
-    if (font_rw_ops == NULL)
+    if (font_rw_ops == nullptr)
         panic("sdl rwops fail");
     status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
     TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
 
     RuckSackFileEntry * version_entry = rucksack_bundle_find_file(bundle, "version", -1);
-    if (version_entry == NULL)
+    if (version_entry == nullptr)
         panic("version not found in bundle");
     ByteBuffer buffer;
     buffer.resize(rucksack_file_size(version_entry));
@@ -168,7 +168,7 @@ static inline bool rect_contains(SDL_Rect rect, Coord point) {
 }
 
 static Thing get_spectate_individual() {
-    return cheatcode_spectator != NULL ? cheatcode_spectator : you;
+    return cheatcode_spectator != nullptr ? cheatcode_spectator : you;
 }
 
 static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, RuckSackImage * guy_image, int alpha, Coord coord) {
@@ -185,7 +185,7 @@ static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, RuckSack
     dest_rect.h = tile_size;
 
     SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_VERTICAL);
+    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, nullptr, SDL_FLIP_VERTICAL);
 }
 
 // {0, 0, w, h}
@@ -216,12 +216,12 @@ static void render_texture(SDL_Texture * texture, SDL_Rect source_rect, SDL_Rect
     dest_rect.h = source_rect.h;
     set_color(black);
     SDL_RenderFillRect(renderer, &dest_rect);
-    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, NULL, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, nullptr, SDL_FLIP_NONE);
 }
 static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int vertical_align) {
     div->set_max_size(output_area.w, output_area.h);
     SDL_Texture * texture = div->get_texture(renderer);
-    if (texture == NULL)
+    if (texture == nullptr)
         return;
     SDL_Rect source_rect = get_texture_bounds(texture);
     render_texture(texture, source_rect, output_area, horizontal_align, vertical_align);
@@ -292,16 +292,16 @@ static Span get_status_description(const StatusEffects & status_effects) {
 Span get_individual_description(Thing observer, uint256 target_id) {
     if (observer->id == target_id)
         return new_span("you", light_blue, black);
-    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, NULL);
-    if (target == NULL)
+    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
+    if (target == nullptr)
         return new_span("it", light_brown, black);
     Span result = new_span();
     result->format("a %s%s", get_status_description(target->status_effects), get_species_name(target->life().species_id));
     return result;
 }
 static const char * get_item_description_str(Thing observer, uint256 item_id) {
-    PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, NULL);
-    if (item == NULL) {
+    PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, nullptr);
+    if (item == nullptr) {
         // can't see the wand
         return "wand";
     }
@@ -391,7 +391,7 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
 static RuckSackImage * get_image_for_tile(Tile tile) {
     switch (tile.tile_type) {
         case TileType_UNKNOWN:
-            return NULL;
+            return nullptr;
         case TileType_FLOOR:
             return floor_images[tile.aesthetic_index];
         case TileType_WALL:
@@ -489,7 +489,7 @@ void render() {
             if (cheatcode_full_visibility)
                 tile = actual_map_tiles[cursor];
             RuckSackImage * image = get_image_for_tile(tile);
-            if (image == NULL)
+            if (image == nullptr)
                 continue;
             Uint8 alpha;
             if (spectate_from->life()->knowledge.tile_is_visible[cursor].any()) {
@@ -624,11 +624,11 @@ void render() {
         }
         for (int i = previous_events_length; i < events.length(); i++) {
             RememberedEvent event = events[i];
-            if (event != NULL) {
+            if (event != nullptr) {
                 // append something
                 if (i > 0) {
                     // maybe sneak in a delimiter
-                    if (events[i - 1] == NULL)
+                    if (events[i - 1] == nullptr)
                         events_div->append_newline();
                     else
                         events_div->append_spaces(2);
@@ -641,7 +641,7 @@ void render() {
             // truncate from the bottom
             events_div->set_max_size(entire_window_area.w, entire_window_area.h);
             SDL_Texture * texture = events_div->get_texture(renderer);
-            if (texture != NULL) {
+            if (texture != nullptr) {
                 SDL_Rect source_rect = get_texture_bounds(texture);
                 int overflow = source_rect.h - entire_window_area.h;
                 if (overflow > 0) {

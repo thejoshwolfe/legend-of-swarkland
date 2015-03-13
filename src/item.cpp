@@ -107,7 +107,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
 
         Thing target = find_individual_at(cursor);
         int length_penalty = 0;
-        if (target != NULL)
+        if (target != nullptr)
             length_penalty = handler.hit_individual(wand_wielder, target, false, &perceived_current_zapper);
         if (length_penalty == -1)
             break;

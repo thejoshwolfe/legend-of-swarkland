@@ -21,7 +21,7 @@ static uint32_t tas_seed;
 
 void tas_set_output_script(char * filename) {
     output_script_file = fopen(filename, "wb");
-    tas_seed = time(NULL);
+    tas_seed = time(nullptr);
     TasHeader header = {magic_number, tas_seed};
     fwrite(&header, sizeof(TasHeader), 1, output_script_file);
     fflush(output_script_file);
@@ -36,7 +36,7 @@ void tas_set_input_script(char * filename) {
 }
 
 Action tas_get_decision() {
-    if (input_script_file == NULL)
+    if (input_script_file == nullptr)
         return Action::undecided(); // no, you decide.
 
     Action result;
@@ -50,14 +50,14 @@ Action tas_get_decision() {
 }
 
 void tas_record_decision(Action action) {
-    if (output_script_file != NULL) {
+    if (output_script_file != nullptr) {
         fwrite(&action, sizeof(Action), 1, output_script_file);
         fflush(output_script_file);
     }
 }
 
 uint32_t tas_get_seed() {
-    if (input_script_file == NULL)
-        tas_seed = time(NULL);
+    if (input_script_file == nullptr)
+        tas_seed = time(nullptr);
     return tas_seed;
 }
