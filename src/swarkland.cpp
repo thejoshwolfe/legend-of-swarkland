@@ -28,7 +28,7 @@ static void init_specieses() {
     specieses[SpeciesId_HUMAN        ] = {12, 10, 3, {1, 0}, 1, 0, 0, 1};
     specieses[SpeciesId_OGRE         ] = {24, 10, 2, {1, 0}, 1, 0, 0, 1};
     specieses[SpeciesId_DOG          ] = {12,  4, 2, {1, 0}, 1, 0, 0, 0};
-    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 4, {0, 1}, 0, 1, 0, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1, {0, 1}, 0, 1, 0, 0};
     specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, {0, 1}, 0, 1, 1, 0};
     specieses[SpeciesId_ANT          ] = {12,  4, 1, {1, 0}, 1, 0, 0, 0};
     specieses[SpeciesId_BEE          ] = {12,  4, 3, {1, 0}, 1, 0, 0, 0};
@@ -38,7 +38,7 @@ static void init_specieses() {
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // movement cost of 0 is not allowed. a 0 probably just means we forgot something in the above table.
-        if (specieses[i].movement_cost != 0)
+        if (specieses[i].movement_cost == 0)
             panic("you missed a spot");
     }
 }
