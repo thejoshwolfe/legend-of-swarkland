@@ -24,6 +24,13 @@ public:
         return _length;
     }
 
+    int index_of(const T & item) {
+        for (int i = 0; i < _length; i++)
+            if (_items[i] == item)
+                return i;
+        return -1;
+    }
+
     T * raw() {
         return _items;
     }

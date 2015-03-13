@@ -87,6 +87,9 @@ static inline bool operator!=(VisionTypes a, VisionTypes b) {
     return !(a == b);
 }
 
+// everyone has the same action cost
+static const int action_cost = 12;
+
 struct Species {
     SpeciesId species_id;
     // how many ticks does it cost to move one space? average human is 12.
@@ -201,6 +204,7 @@ struct Life {
     long long hp_regen_deadline;
     int experience = 0;
     long long last_movement_time = 0;
+    long long last_action_time = 0;
     uint256 initiative;
     Team team;
     DecisionMakerType decision_maker;

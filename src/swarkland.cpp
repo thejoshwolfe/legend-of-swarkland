@@ -413,13 +413,23 @@ void cheatcode_spectate() {
     cheatcode_spectator = find_individual_at(individual_at);
 }
 
-static bool validate_action(Thing individual, Action action) {
-    List<Action> valid_actions;
-    get_available_actions(individual, valid_actions);
-    for (int i = 0; i < valid_actions.length(); i++)
-        if (valid_actions[i] == action)
-            return true;
-    return false;
+// if it's too soon for an action, it turns into a wait (TODO: is this really the best place for this?)
+static bool validate_action(Thing individual, Action * action) {
+    if (*action == Action::wait())
+        return true; // always an option
+    List<Action> moves;
+    get_available_moves(individual, &moves);
+    bool is_move = moves.index_of(*action) != -1;
+    List<Action> actions;
+    get_available_actions(individual, &actions);
+    bool is_action = !is_move && actions.index_of(*action) != -1;
+    if (!is_move && !is_action)
+        return false; // no can do
+    if ((is_move && !can_move(individual)) || (is_action && !can_act(individual))) {
+        // hold that thought
+        *action = Action::wait();
+    }
+    return true;
 }
 static const Coord directions_by_rotation[] = {
     {+1,  0},
@@ -449,18 +459,21 @@ Coord confuse_direction(Thing individual, Coord direction) {
     panic("direction not found");
 }
 
-static bool can_move(Thing actor) {
-    int movement_cost;
+static int get_movement_cost(Thing actor) {
     if (actor->status_effects.speed_up_expiration_time > time_counter)
-        movement_cost = 3;
-    else
-        movement_cost = actor->life()->species()->movement_cost;
-    return actor->life()->last_movement_time + movement_cost <= time_counter;
+        return 3;
+    return actor->life()->species()->movement_cost;
+}
+bool can_move(Thing actor) {
+    return actor->life()->last_movement_time + get_movement_cost(actor) <= time_counter;
+}
+bool can_act(Thing actor) {
+    return actor->life()->last_action_time + action_cost <= time_counter;
 }
 
 // return whether we did anything. also, cheatcodes take no time
 static bool take_action(Thing actor, Action action) {
-    bool is_valid = validate_action(actor, action);
+    bool is_valid = validate_action(actor, &action);
     if (!is_valid) {
         if (actor == you) {
             // forgive the player for trying to run into a wall or something
@@ -468,9 +481,43 @@ static bool take_action(Thing actor, Action action) {
         }
         panic("ai tried to make an illegal move");
     }
-
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
-    actor->life()->last_movement_time = time_counter;
+
+    Life * life = actor->life();
+    int movement_cost = get_movement_cost(actor);
+    if (action.type == Action::WAIT) {
+        if (can_move(actor) && can_act(actor)) {
+            int lowest_cost = min(movement_cost, action_cost);
+            life->last_movement_time += lowest_cost;
+            life->last_action_time += lowest_cost;
+        } else if (can_move(actor)) {
+            int lowest_cost = min(movement_cost, action_cost - (int)(time_counter - life->last_action_time));
+            life->last_movement_time += lowest_cost;
+        } else {
+            // can act
+            int lowest_cost = min(action_cost, movement_cost - (int)(time_counter - life->last_movement_time));
+            life->last_action_time += lowest_cost;
+        }
+    } else if (action.type == Action::MOVE) {
+        life->last_movement_time = time_counter;
+        if (movement_cost == action_cost) {
+            life->last_action_time = time_counter;
+        } else if (movement_cost > action_cost) {
+            // slow individual.
+            // wait action_cost until you can act, and even longer before you can move again.
+            life->last_action_time = time_counter;
+        } else {
+            // fast individual
+            if (life->last_action_time < life->last_movement_time + movement_cost - action_cost)
+                life->last_action_time = life->last_movement_time + movement_cost - action_cost;
+        }
+    } else {
+        // action
+        life->last_action_time = time_counter;
+        // you have to wait for the action before you can move again.
+        if (life->last_movement_time < life->last_action_time + action_cost - movement_cost)
+            life->last_movement_time = life->last_action_time + action_cost - movement_cost;
+    }
 
     switch (action.type) {
         case Action::WAIT:
@@ -615,7 +662,7 @@ void run_the_game() {
                     continue;
                 }
                 age_individual(individual);
-                if (can_move(individual)) {
+                if (can_move(individual) || can_act(individual)) {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
@@ -650,15 +697,16 @@ void run_the_game() {
     }
 }
 
-// wait will always be available
-void get_available_actions(Thing individual, List<Action> & output_actions) {
-    output_actions.append(Action::wait());
-    // move
+// uses movement cost
+void get_available_moves(Thing individual, List<Action> * output_actions) {
     for (int i = 0; i < 8; i++) {
         Coord direction = directions[i];
         if (do_i_think_i_can_move_here(individual, individual->location + direction))
-            output_actions.append(Action::move(direction));
+            output_actions->append(Action::move(direction));
     }
+}
+// uses action cost
+void get_available_actions(Thing individual, List<Action> * output_actions) {
     // attack
     PerceivedThing target;
     for (auto iterator = get_perceived_individuals(individual); iterator.next(&target);) {
@@ -667,14 +715,14 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
         Coord vector = target->location - individual->location;
         if (vector == sign(vector)) {
             // within melee range
-            output_actions.append(Action::attack(vector));
+            output_actions->append(Action::attack(vector));
         }
     }
     // pickup items
     PerceivedThing item;
     for (auto iterator = get_perceived_items(individual); iterator.next(&item);)
         if (item->location == individual->location)
-            output_actions.append(Action::pickup(item->id));
+            output_actions->append(Action::pickup(item->id));
     // use items
     List<Thing> inventory;
     find_items_in_inventory(individual->id, &inventory);
@@ -682,27 +730,27 @@ void get_available_actions(Thing individual, List<Action> & output_actions) {
         uint256 item_id = inventory[i]->id;
         for (int j = 0; j < 8; j++) {
             Coord direction = directions[j];
-            output_actions.append(Action::zap(item_id, direction));
-            output_actions.append(Action::throw_(item_id, direction));
+            output_actions->append(Action::zap(item_id, direction));
+            output_actions->append(Action::throw_(item_id, direction));
         }
-        output_actions.append(Action::zap(item_id, {0, 0}));
-        output_actions.append(Action::throw_(item_id, {0, 0}));
-        output_actions.append(Action::drop(item_id));
+        output_actions->append(Action::zap(item_id, {0, 0}));
+        output_actions->append(Action::throw_(item_id, {0, 0}));
+        output_actions->append(Action::drop(item_id));
     }
     // go down
     if (actual_map_tiles[individual->location].tile_type == TileType_STAIRS_DOWN)
-        output_actions.append(Action::go_down());
+        output_actions->append(Action::go_down());
 
     // alright, we'll let you use cheatcodes
     if (individual == you) {
-        output_actions.append(Action::cheatcode_health_boost());
-        output_actions.append(Action::cheatcode_kill_everybody_in_the_world());
-        output_actions.append(Action::cheatcode_polymorph());
-        output_actions.append(Action::cheatcode_invisibility());
-        output_actions.append(Action::cheatcode_generate_monster());
-        output_actions.append(Action::cheatcode_create_item());
-        output_actions.append(Action::cheatcode_go_down());
-        output_actions.append(Action::cheatcode_gain_level());
+        output_actions->append(Action::cheatcode_health_boost());
+        output_actions->append(Action::cheatcode_kill_everybody_in_the_world());
+        output_actions->append(Action::cheatcode_polymorph());
+        output_actions->append(Action::cheatcode_invisibility());
+        output_actions->append(Action::cheatcode_generate_monster());
+        output_actions->append(Action::cheatcode_create_item());
+        output_actions->append(Action::cheatcode_go_down());
+        output_actions->append(Action::cheatcode_gain_level());
     }
 }
 

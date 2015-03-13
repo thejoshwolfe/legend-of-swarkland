@@ -138,7 +138,7 @@ static Action get_ai_decision(Thing actor) {
 
     // idk what to do
     List<Action> actions;
-    get_available_actions(actor, actions);
+    get_available_moves(actor, &actions);
     List<Action> move_actions;
     for (int i = 0; i < actions.length(); i++)
         if (actions[i].type == Action::MOVE)
