@@ -479,17 +479,17 @@ static Div get_time_display(Thing spectate_from) {
     Div result = new_div();
     Life * life = spectate_from->life();
     int movement_cost = get_movement_cost(spectate_from);
-    if (movement_cost == action_cost && life->last_movement_time == life->last_action_time)
-        return result; // too simple to mention
-
-    Span movement_span = new_span();
-    movement_span->format("move: %s", render_percent(time_counter - life->last_movement_time, movement_cost));
-    result->append(movement_span);
+    if (!(movement_cost <= action_cost && life->last_movement_time + movement_cost <= time_counter)) {
+        Span movement_span = new_span();
+        movement_span->format("move: %s", render_percent(time_counter - life->last_movement_time, movement_cost));
+        result->append(movement_span);
+    }
     result->append_newline();
-
-    Span action_span = new_span();
-    action_span->format("act:  %s", render_percent(time_counter - life->last_action_time, action_cost));
-    result->append(action_span);
+    {
+        String time_string = new_string();
+        time_string->format("time: %d", time_counter / 12);
+        result->append(new_span(time_string));
+    }
 
     return result;
 }
