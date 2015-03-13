@@ -16,16 +16,33 @@ long long time_counter = 0;
 bool cheatcode_full_visibility;
 
 static void init_specieses() {
-    specieses[SpeciesId_HUMAN] = {SpeciesId_HUMAN, 12, 10, 3, {1, 0}, true, false, false, true};
-    specieses[SpeciesId_OGRE] = {SpeciesId_OGRE, 24, 10, 2, {1, 0}, true, false, false, true};
-    specieses[SpeciesId_DOG] = {SpeciesId_DOG, 12, 4, 2, {1, 0}, true, false, false, false};
-    specieses[SpeciesId_PINK_BLOB] = {SpeciesId_PINK_BLOB, 48, 12, 4, {0, 1}, false, true, false, false};
-    specieses[SpeciesId_AIR_ELEMENTAL] = {SpeciesId_AIR_ELEMENTAL, 6, 6, 1, {0, 1}, false, true, true, false};
-    specieses[SpeciesId_ANT] = {SpeciesId_ANT, 12, 4, 1, {1, 0}, true, false, false, false};
-    specieses[SpeciesId_BEE] = {SpeciesId_BEE, 12, 4, 3, {1, 0}, true, false, false, false};
-    specieses[SpeciesId_BEETLE] = {SpeciesId_BEETLE, 24, 6, 1, {1, 0}, true, false, false, false};
-    specieses[SpeciesId_SCORPION] = {SpeciesId_SCORPION, 24, 5, 5, {1, 0}, true, false, false, false};
-    specieses[SpeciesId_SNAKE] = {SpeciesId_SNAKE, 18, 6, 2, {1, 0}, true, false, false, false};
+    // this is filled in later. in the mean time, it's used to make sure we filled in ever item.
+    SpeciesId s = SpeciesId_COUNT;
+    //                                       movement cost
+    //                                       |   health
+    //                                       |   |   base attack
+    //                                       |   |   |   normal vision
+    //                                       |   |   |   |  etheral vision
+    //                                       |   |   |   |  |   has mind
+    //                                       |   |   |   |  |   |  sucks up items
+    //                                       |   |   |   |  |   |  |  auto throws items
+    //                                       |   |   |   |  |   |  |  |  uses wands
+    specieses[SpeciesId_HUMAN        ] = {s, 12, 10, 3, {1, 0}, 1, 0, 0, 1};
+    specieses[SpeciesId_OGRE         ] = {s, 24, 10, 2, {1, 0}, 1, 0, 0, 1};
+    specieses[SpeciesId_DOG          ] = {s, 12,  4, 2, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {s, 48, 12, 4, {0, 1}, 0, 1, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = {s,  6,  6, 1, {0, 1}, 0, 1, 1, 0};
+    specieses[SpeciesId_ANT          ] = {s, 12,  4, 1, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {s, 12,  4, 3, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {s, 24,  6, 1, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {s, 24,  5, 5, {1, 0}, 1, 0, 0, 0};
+    specieses[SpeciesId_SNAKE        ] = {s, 18,  6, 2, {1, 0}, 1, 0, 0, 0};
+
+    for (int i = 0; i < SpeciesId_COUNT; i++) {
+        if (specieses[i].species_id != s)
+            panic("you missed a spot");
+        specieses[i].species_id = (SpeciesId)i;
+    }
 }
 
 static void kill_individual(Thing individual) {
