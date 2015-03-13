@@ -91,7 +91,6 @@ static inline bool operator!=(VisionTypes a, VisionTypes b) {
 static const int action_cost = 12;
 
 struct Species {
-    SpeciesId species_id;
     // how many ticks does it cost to move one space? average human is 12.
     int movement_cost;
     int base_hitpoints;
