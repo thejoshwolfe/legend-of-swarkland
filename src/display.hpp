@@ -3,7 +3,7 @@
 
 #include "geometry.hpp"
 #include "byte_buffer.hpp"
-#include "individual.hpp"
+#include "thing.hpp"
 #include "string.hpp"
 #include "text.hpp"
 

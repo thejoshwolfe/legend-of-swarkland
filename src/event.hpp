@@ -1,7 +1,7 @@
 #ifndef EVENT_HPP
 #define EVENT_HPP
 
-#include "individual.hpp"
+#include "thing.hpp"
 
 struct Event {
     enum Type {

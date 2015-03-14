@@ -4,7 +4,7 @@
 #include "hashtable.hpp"
 #include "geometry.hpp"
 #include "list.hpp"
-#include "individual.hpp"
+#include "thing.hpp"
 #include "action.hpp"
 
 extern Species specieses[SpeciesId_COUNT];

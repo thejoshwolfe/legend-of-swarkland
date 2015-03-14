@@ -1,6 +1,6 @@
 #include "map.hpp"
 
-#include "individual.hpp"
+#include "thing.hpp"
 #include "swarkland.hpp"
 #include "item.hpp"
 

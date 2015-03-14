@@ -1,4 +1,4 @@
-#include "individual.hpp"
+#include "thing.hpp"
 
 #include "swarkland.hpp"
 

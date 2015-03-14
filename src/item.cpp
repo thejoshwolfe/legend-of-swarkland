@@ -1,6 +1,6 @@
 #include "item.hpp"
 
-#include "individual.hpp"
+#include "thing.hpp"
 #include "util.hpp"
 #include "swarkland.hpp"
 #include "event.hpp"

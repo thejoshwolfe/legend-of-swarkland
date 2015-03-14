@@ -1,7 +1,7 @@
 #include "swarkland.hpp"
 #include "display.hpp"
 #include "list.hpp"
-#include "individual.hpp"
+#include "thing.hpp"
 #include "util.hpp"
 #include "geometry.hpp"
 #include "decision.hpp"
