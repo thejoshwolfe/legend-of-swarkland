@@ -39,11 +39,6 @@ enum WandId {
 
 extern WandId actual_wand_identities[WandId_COUNT];
 
-struct WandInfo {
-    WandDescriptionId description_id;
-    int charges;
-};
-
 enum SpeciesId {
     SpeciesId_HUMAN,
     SpeciesId_OGRE,
@@ -139,38 +134,40 @@ public:
     // individual
     PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team, StatusEffects status_effects) :
             id(id), thing_type(ThingType_INDIVIDUAL), location(location), status_effects(status_effects) {
-        life() = {
-            species_id,
-            team,
-        };
+        _life = create<PerceivedLife>();
+        _life->species_id = species_id;
+        _life->team = team;
     }
     // item
-    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, StatusEffects status_effects) :
-            id(id), thing_type(ThingType_WAND), location(location), status_effects(status_effects) {
-        wand_info() = {
-            description_id,
-        };
+    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, uint256 container_id, int z_order, StatusEffects status_effects) :
+            id(id), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order), status_effects(status_effects) {
+        _wand_info = create<PerceivedWandInfo>();
+        _wand_info->description_id = description_id;
     }
-    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, uint256 container_id, int z_order, StatusEffects status_effects) :
-            id(id), thing_type(ThingType_WAND), container_id(container_id), z_order(z_order), status_effects(status_effects) {
-        wand_info() = {
-            description_id,
-        };
+    ~PerceivedThingImpl() {
+        switch (thing_type) {
+            case ThingType_INDIVIDUAL:
+                destroy(_life, 1);
+                break;
+            case ThingType_WAND:
+                destroy(_wand_info, 1);
+                break;
+        }
     }
-    PerceivedLife & life() {
+    PerceivedLife * life() {
         if (thing_type != ThingType_INDIVIDUAL)
             panic("wrong type");
         return _life;
     }
-    PerceivedWandInfo & wand_info() {
+    PerceivedWandInfo * wand_info() {
         if (thing_type != ThingType_WAND)
             panic("wrong type");
         return _wand_info;
     }
 private:
     union {
-        PerceivedLife _life;
-        PerceivedWandInfo _wand_info;
+        PerceivedLife * _life;
+        PerceivedWandInfo * _wand_info;
     };
 };
 typedef Reference<PerceivedThingImpl> PerceivedThing;
@@ -209,15 +206,13 @@ static inline int level_to_experience(int level) {
     return 1 << level;
 }
 
-struct Life {
-    SpeciesId species_id;
+struct Life : public PerceivedLife {
     int hitpoints;
     long long hp_regen_deadline;
     int experience = 0;
     long long last_movement_time = 0;
     long long last_action_time = 0;
     uint256 initiative;
-    Team team;
     DecisionMakerType decision_maker;
     Knowledge knowledge;
 
@@ -234,6 +229,10 @@ struct Life {
     int max_hitpoints() const {
         return species()->base_hitpoints + 2 * experience_level();
     }
+};
+
+struct WandInfo : public PerceivedWandInfo {
+    int charges;
 };
 
 class ThingImpl : public ReferenceCounted {

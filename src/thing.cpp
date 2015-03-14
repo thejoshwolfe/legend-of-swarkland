@@ -50,10 +50,7 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
         case ThingType_INDIVIDUAL:
             return create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, status_effects);
         case ThingType_WAND:
-            if (target->location != Coord::nowhere())
-                return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, target->location, status_effects);
-            else
-                return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, target->container_id, target->z_order, status_effects);
+            return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, target->location, target->container_id, target->z_order, status_effects);
     }
     panic("thing type");
 }

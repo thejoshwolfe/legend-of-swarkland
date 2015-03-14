@@ -303,7 +303,7 @@ Span get_individual_description(Thing observer, uint256 target_id) {
     if (target == nullptr)
         return new_span("it", light_brown, black);
     Span result = new_span();
-    result->format("a %s%s", get_status_description(target->status_effects), get_species_name(target->life().species_id));
+    result->format("a %s%s", get_status_description(target->status_effects), get_species_name(target->life()->species_id));
     return result;
 }
 static const char * get_item_description_str(Thing observer, uint256 item_id) {
@@ -312,7 +312,7 @@ static const char * get_item_description_str(Thing observer, uint256 item_id) {
         // can't see the wand
         return "wand";
     }
-    WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info().description_id];
+    WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info()->description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
@@ -332,7 +332,7 @@ static const char * get_item_description_str(Thing observer, uint256 item_id) {
         }
         panic("wand id");
     } else {
-        switch (item->wand_info().description_id) {
+        switch (item->wand_info()->description_id) {
             case WandDescriptionId_BONE_WAND:
                 return "bone wand";
             case WandDescriptionId_GOLD_WAND:
@@ -380,17 +380,8 @@ static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
     render_div(div, rect, horizontal_align, vertical_align);
 }
 
-// TODO: this duplication looks silly
-static RuckSackImage * get_image_for_perceived_thing(PerceivedThing thing) {
-    switch (thing->thing_type) {
-        case ThingType_INDIVIDUAL:
-            return species_images[thing->life().species_id];
-        case ThingType_WAND:
-            return wand_images[thing->wand_info().description_id];
-    }
-    panic("thing type");
-}
-static RuckSackImage * get_image_for_thing(Thing thing) {
+template<typename T>
+static RuckSackImage * get_image_for_thing(Reference<T> thing) {
     switch (thing->thing_type) {
         case ThingType_INDIVIDUAL:
             return species_images[thing->life()->species_id];
@@ -583,7 +574,7 @@ void render() {
                 alpha = 0x7f;
             else
                 alpha = 0xff;
-            render_tile(renderer, sprite_sheet_texture, get_image_for_perceived_thing(thing), alpha, thing->location);
+            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(thing), alpha, thing->location);
 
             List<PerceivedThing> inventory;
             find_items_in_inventory(spectate_from, thing, &inventory);
