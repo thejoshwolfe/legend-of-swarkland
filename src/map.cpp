@@ -213,8 +213,10 @@ void generate_map() {
     }
 
     // place the stairs down
-    stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length())];
-    actual_map_tiles[stairs_down_location].tile_type = TileType_STAIRS_DOWN;
+    if (dungeon_level < final_dungeon_level) {
+        stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length())];
+        actual_map_tiles[stairs_down_location].tile_type = TileType_STAIRS_DOWN;
+    }
 
     // throw some items around
     int item_count = random_inclusive(1, 2);

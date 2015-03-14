@@ -47,6 +47,7 @@ struct WandInfo {
 enum SpeciesId {
     SpeciesId_HUMAN,
     SpeciesId_OGRE,
+    SpeciesId_LICH,
     SpeciesId_PINK_BLOB,
     SpeciesId_AIR_ELEMENTAL,
     SpeciesId_DOG,

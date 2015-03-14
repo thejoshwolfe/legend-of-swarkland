@@ -57,6 +57,7 @@ static RuckSackImage * find_image(RuckSackImage ** spritesheet_images, long imag
 static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     species_images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/human.png");
     species_images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/ogre.png");
+    species_images[SpeciesId_LICH] = find_image(spritesheet_images, image_count, "img/lich.png");
     species_images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/dog.png");
     species_images[SpeciesId_PINK_BLOB] = find_image(spritesheet_images, image_count, "img/pink_blob.png");
     species_images[SpeciesId_AIR_ELEMENTAL] = find_image(spritesheet_images, image_count, "img/air_elemental.png");
@@ -245,6 +246,8 @@ static const char * get_species_name_str(SpeciesId species_id) {
             return "human";
         case SpeciesId_OGRE:
             return "ogre";
+        case SpeciesId_LICH:
+            return "lich king";
         case SpeciesId_PINK_BLOB:
             return "pink blob";
         case SpeciesId_AIR_ELEMENTAL:

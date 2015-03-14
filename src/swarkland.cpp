@@ -19,25 +19,26 @@ static void init_specieses() {
     //                                     movement cost
     //                                     |   health
     //                                     |   |  base attack
-    //                                     |   |  |  min level
-    //                                     |   |  |  |   max level
-    //                                     |   |  |  |   |   normal vision
-    //                                     |   |  |  |   |   |  ethereal vision
-    //                                     |   |  |  |   |   |  |   has mind
-    //                                     |   |  |  |   |   |  |   |  sucks up items
-    //                                     |   |  |  |   |   |  |   |  |  auto throws items
-    //                                     |   |  |  |   |   |  |   |  |  |  uses wands
-    //                                     |   |  |  |   |   |  |   |  |  |  |  poison attack
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, {1, 0}, 1, 0, 0, 1, 0};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 3, 3,  7, {1, 0}, 1, 0, 0, 1, 0};
-    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1, 1,  4, {0, 1}, 0, 1, 0, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3,  6, {0, 1}, 0, 1, 1, 0, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2, 0,  5, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  4, 1, 0,  2, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  4, 3, 0,  3, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 2,  4, {1, 0}, 1, 0, 0, 0, 1};
-    specieses[SpeciesId_SNAKE        ] = {18,  6, 2, 0,  3, {1, 0}, 1, 0, 0, 0, 0};
+    //                                     |   |  |   min level
+    //                                     |   |  |   |   max level
+    //                                     |   |  |   |   |   normal vision
+    //                                     |   |  |   |   |   |  ethereal vision
+    //                                     |   |  |   |   |   |  |   has mind
+    //                                     |   |  |   |   |   |  |   |  sucks up items
+    //                                     |   |  |   |   |   |  |   |  |  auto throws items
+    //                                     |   |  |   |   |   |  |   |  |  |  uses wands
+    //                                     |   |  |   |   |   |  |   |  |  |  |  poison attack
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 1, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 3,  3,  7, {1, 0}, 1, 0, 0, 1, 0};
+    specieses[SpeciesId_LICH         ] = {24, 20, 3, -1, -1, {1, 1}, 1, 0, 0, 1, 1};
+    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1,  1,  4, {0, 1}, 0, 1, 0, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  3,  6, {0, 1}, 0, 1, 1, 0, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2,  0,  5, {1, 0}, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  4, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  4, 3,  0,  3, {1, 0}, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  4, {1, 0}, 1, 0, 0, 0, 1};
+    specieses[SpeciesId_SNAKE        ] = {18,  6, 2,  0,  3, {1, 0}, 1, 0, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.
@@ -269,6 +270,19 @@ static void init_individuals() {
     // seed the level with monsters
     for (int i = 0; i < 4 + 3 * dungeon_level; i++)
         spawn_random_individual();
+
+    if (dungeon_level == final_dungeon_level) {
+        // boss
+        Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(7));
+        // arm him!
+        for (int i = 0; i < 5; i++) {
+            Thing item = random_item();
+            pickup_item(boss, item);
+            // teach him everything about his wands.
+            WandDescriptionId description_id = item->wand_info()->description_id;
+            boss->life()->knowledge.wand_identities[description_id] = actual_wand_identities[description_id];
+        }
+    }
 }
 
 void swarkland_init() {
