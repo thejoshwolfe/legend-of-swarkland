@@ -28,6 +28,24 @@ static int rate_interest_in_target(Thing actor, PerceivedThing target) {
 }
 
 static Action get_ai_decision(Thing actor) {
+    List<Thing> inventory;
+    find_items_in_inventory(actor->id, &inventory);
+
+    if (actor->life()->species()->advanced_strategy) {
+        // defense first
+        if (actor->status_effects.confused_expiration_time > time_counter || actor->status_effects.poison_expiration_time > time_counter) {
+            // can we remedy?
+            for (int i = 0; i < inventory.length(); i++) {
+                WandId wand_id = actor->life()->knowledge.wand_identities[inventory[i]->wand_info()->description_id];
+                if (wand_id != WandId_WAND_OF_REMEDY)
+                    continue;
+                // sweet sweet soothing
+                return Action::zap(inventory[i]->id, {0, 0});
+            }
+            // no remedy. oh well.
+        }
+    }
+
     List<PerceivedThing> things_of_interest;
     PerceivedThing target;
     for (auto iterator = actor->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
@@ -67,15 +85,27 @@ static Action get_ai_decision(Thing actor) {
         PerceivedThing target = things_of_interest[random_int(things_of_interest.length())];
 
         if (target->thing_type == ThingType_INDIVIDUAL) {
-            // you want a piece a me?
+            // we are aggro!!
+            if (actor->life()->species()->advanced_strategy) {
+                if (actor->status_effects.speed_up_expiration_time <= time_counter) {
+                    // use speed boost if we can
+                    for (int i = 0; i < inventory.length(); i++) {
+                        WandId wand_id = actor->life()->knowledge.wand_identities[inventory[i]->wand_info()->description_id];
+                        if (wand_id != WandId_WAND_OF_SPEED)
+                            continue;
+                        // gotta go fast!
+                        return Action::zap(inventory[i]->id, {0, 0});
+                    }
+                }
+            }
+
+            // zap him?
             if (actor->life()->species()->uses_wands) {
                 Coord vector = target->location - actor->location;
                 Coord abs_vector = abs(vector);
                 int distnace = ordinal_distance(target->location, actor->location);
                 if ((vector.x * vector.y == 0 || abs_vector.x == abs_vector.y) && distnace <= beam_length_average) {
                     // you're in sight.
-                    List<Thing> inventory;
-                    find_items_in_inventory(actor->id, &inventory);
                     List<Thing> useful_inventory;
                     for (int i = 0; i < inventory.length(); i++) {
                         Thing item = inventory[i];
@@ -91,7 +121,7 @@ static Action get_ai_decision(Thing actor) {
                     }
                     if (useful_inventory.length() > 0) {
                         // should we zap it?
-                        if (random_int(3) == 0) {
+                        if (actor->life()->species()->advanced_strategy || random_int(3) == 0) {
                             // get him!!
                             Coord direction = sign(vector);
                             return Action::zap(useful_inventory[random_int(useful_inventory.length())]->id, direction);
@@ -101,6 +131,7 @@ static Action get_ai_decision(Thing actor) {
                 }
             }
 
+            // move/attack
             List<Coord> path;
             find_path(actor->location, target->location, actor, &path);
             if (path.length() > 0) {

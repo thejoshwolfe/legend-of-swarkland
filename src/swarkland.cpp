@@ -26,19 +26,20 @@ static void init_specieses() {
     //                                     |   |  |   |   |   |  |   has mind
     //                                     |   |  |   |   |   |  |   |  sucks up items
     //                                     |   |  |   |   |   |  |   |  |  auto throws items
-    //                                     |   |  |   |   |   |  |   |  |  |  uses wands
-    //                                     |   |  |   |   |   |  |   |  |  |  |  poison attack
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 1, 0};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 3,  3,  7, {1, 0}, 1, 0, 0, 1, 0};
-    specieses[SpeciesId_LICH         ] = {24, 20, 3, -1, -1, {1, 1}, 1, 0, 0, 1, 1};
-    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1,  1,  4, {0, 1}, 0, 1, 0, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  3,  6, {0, 1}, 0, 1, 1, 0, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2,  0,  5, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  4, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  4, 3,  0,  3, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  4, {1, 0}, 1, 0, 0, 0, 1};
-    specieses[SpeciesId_SNAKE        ] = {18,  6, 2,  0,  3, {1, 0}, 1, 0, 0, 0, 0};
+    //                                     |   |  |   |   |   |  |   |  |  |  poison attack
+    //                                     |   |  |   |   |   |  |   |  |  |  |  uses wands
+    //                                     |   |  |   |   |   |  |   |  |  |  |  |  advanced strategy
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 3,  3,  7, {1, 0}, 1, 0, 0, 0, 1, 0};
+    specieses[SpeciesId_LICH         ] = {12, 20, 3, -1, -1, {1, 1}, 1, 0, 0, 0, 1, 1};
+    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1,  1,  4, {0, 1}, 0, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  3,  6, {0, 1}, 0, 1, 1, 0, 0, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2,  0,  5, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  4, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  4, 3,  0,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  4, {1, 0}, 1, 0, 0, 1, 0, 0};
+    specieses[SpeciesId_SNAKE        ] = {18,  6, 2,  0,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.
@@ -352,7 +353,7 @@ static void attack(Thing attacker, Thing target) {
     int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
     damage_individual(attacker, target, damage);
     reset_hp_regen_timeout(attacker);
-    if (attacker->life()->species()->poison_attack) {
+    if (target->still_exists && attacker->life()->species()->poison_attack) {
         publish_event(Event::poisoned(target));
         target->status_effects.poisoner = attacker->id;
         target->status_effects.poison_expiration_time = time_counter + random_midpoint(600);
