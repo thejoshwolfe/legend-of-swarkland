@@ -31,7 +31,7 @@ static void init_specieses() {
     //                                     |   |  |   |   |   |  |   |  |  |  |  |  advanced strategy
     specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1};
     specieses[SpeciesId_OGRE         ] = {24, 15, 3,  3,  7, {1, 0}, 1, 0, 0, 0, 1, 0};
-    specieses[SpeciesId_LICH         ] = {12, 20, 3, -1, -1, {1, 1}, 1, 0, 0, 0, 1, 1};
+    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 1}, 1, 0, 0, 0, 1, 1};
     specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1,  1,  4, {0, 1}, 0, 1, 0, 0, 0, 0};
     specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  3,  6, {0, 1}, 0, 1, 1, 0, 0, 0};
     specieses[SpeciesId_DOG          ] = {12,  4, 2,  0,  5, {1, 0}, 1, 0, 0, 0, 0, 0};
@@ -262,10 +262,6 @@ static void init_individuals() {
         // make sure the up and down stairs are sufficiently far apart.
         you->location = find_random_location(stairs_down_location);
         compute_vision(you);
-    }
-    if (random_int(dungeon_level) == 0) {
-        // have a friend
-        spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI, -1);
     }
 
     // seed the level with monsters
