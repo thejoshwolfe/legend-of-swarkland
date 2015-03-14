@@ -266,8 +266,8 @@ static void init_individuals() {
         spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_AI, -1);
     }
 
-    // generate a few warm-up monsters
-    for (int i = 0; i < 6; i++)
+    // seed the level with monsters
+    for (int i = 0; i < 4 + 3 * dungeon_level; i++)
         spawn_random_individual();
 }
 
@@ -300,10 +300,7 @@ void go_down() {
 }
 
 static void maybe_spawn_monsters() {
-    // asymptotically approach 1 monster per human decision.
-    int numerator = dungeon_level;
-    int denominator = 12 * dungeon_level + 600;
-    if (random_int(denominator) <= numerator)
+    if (random_int(2000) == 0)
         spawn_random_individual();
 }
 

@@ -217,10 +217,10 @@ void generate_map() {
     actual_map_tiles[stairs_down_location].tile_type = TileType_STAIRS_DOWN;
 
     // throw some items around
-    int item_count = random_inclusive(2, 4);
+    int item_count = random_inclusive(1, 2);
     for (int i = 0; i < item_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
         Thing item = random_item();
-        item->location = location;;
+        item->location = location;
     }
 }
