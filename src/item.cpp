@@ -7,10 +7,20 @@
 
 WandId actual_wand_identities[WandId_COUNT];
 
+static Thing new_random_item() {
+    if (random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT) < WandDescriptionId_COUNT) {
+        // wand
+        WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
+        int charges = random_int(4, 8);
+        return create<ThingImpl>(description_id, charges);
+    } else {
+        // potion
+        PotionDescriptionId description_id = (PotionDescriptionId)random_int(PotionDescriptionId_COUNT);
+        return create<ThingImpl>(description_id);
+    }
+}
 Thing random_item() {
-    WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
-    int charges = random_int(4, 8);
-    Thing item = create<ThingImpl>(description_id, charges);
+    Thing item = new_random_item();
     actual_things.put(item->id, item);
     return item;
 }

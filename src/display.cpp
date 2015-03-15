@@ -94,6 +94,10 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     wand_images[WandDescriptionId_COPPER_WAND] = find_image(spritesheet_images, image_count, "img/copper_wand.png");
     wand_images[WandDescriptionId_PURPLE_WAND] = find_image(spritesheet_images, image_count, "img/purple_wand.png");
 
+    potion_images[PotionDescriptionId_BLUE_POTION] = find_image(spritesheet_images, image_count, "img/blue_potion.png");
+    potion_images[PotionDescriptionId_GREEN_POTION] = find_image(spritesheet_images, image_count, "img/green_potion.png");
+    potion_images[PotionDescriptionId_RED_POTION] = find_image(spritesheet_images, image_count, "img/red_potion.png");
+
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
 
@@ -333,6 +337,12 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
     PotionId true_id = observer->life()->knowledge.potion_identities[description_id];
     if (true_id != PotionId_UNKNOWN) {
         switch (true_id) {
+            case PotionId_POTION_OF_HEALING:
+                return "potion of healing";
+            case PotionId_POTION_OF_POISON:
+                return "potion of poison";
+            case PotionId_POTION_OF_ETHEREAL_VISION:
+                return "potion of ethereal vision";
 
             case PotionId_COUNT:
             case PotionId_UNKNOWN:
@@ -341,6 +351,12 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
         panic("item id");
     } else {
         switch (description_id) {
+            case PotionDescriptionId_BLUE_POTION:
+                return "blue potion";
+            case PotionDescriptionId_GREEN_POTION:
+                return "green potion";
+            case PotionDescriptionId_RED_POTION:
+                return "red potion";
 
             case PotionDescriptionId_COUNT:
                 panic("not a real description id");

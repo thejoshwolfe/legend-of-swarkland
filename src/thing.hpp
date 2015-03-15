@@ -39,9 +39,17 @@ enum WandId {
 };
 
 enum PotionDescriptionId {
+    PotionDescriptionId_BLUE_POTION,
+    PotionDescriptionId_GREEN_POTION,
+    PotionDescriptionId_RED_POTION,
+
     PotionDescriptionId_COUNT,
 };
 enum PotionId {
+    PotionId_POTION_OF_HEALING,
+    PotionId_POTION_OF_POISON,
+    PotionId_POTION_OF_ETHEREAL_VISION,
+
     PotionId_COUNT,
     PotionId_UNKNOWN,
 };
@@ -158,7 +166,7 @@ public:
     }
     // potion
     PerceivedThingImpl(uint256 id, PotionDescriptionId description_id, Coord location, uint256 container_id, int z_order, StatusEffects status_effects) :
-            id(id), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order), status_effects(status_effects) {
+            id(id), thing_type(ThingType_POTION), location(location), container_id(container_id), z_order(z_order), status_effects(status_effects) {
         _potion_info = create<PerceivedPotionInfo>();
         _potion_info->description_id = description_id;
     }
@@ -213,14 +221,16 @@ struct Knowledge {
     int event_forget_counter = 0;
 
     // these are never wrong
-    WandId wand_identities[WandId_COUNT];
-    PotionId potion_identities[PotionId_COUNT];
+    WandId wand_identities[WandDescriptionId_COUNT];
+    PotionId potion_identities[PotionDescriptionId_COUNT];
 
     IdMap<PerceivedThing> perceived_things;
     Knowledge() {
         reset_map();
-        for (int i = 0; i < WandId_COUNT; i++)
+        for (int i = 0; i < WandDescriptionId_COUNT; i++)
             wand_identities[i] = WandId_UNKNOWN;
+        for (int i = 0; i < PotionDescriptionId_COUNT; i++)
+            potion_identities[i] = PotionId_UNKNOWN;
     }
     void reset_map() {
         tiles.set_all(unknown_tile);
@@ -313,7 +323,7 @@ public:
         return _wand_info;
     }
     PotionInfo * potion_info() {
-        if (thing_type != ThingType_WAND)
+        if (thing_type != ThingType_POTION)
             panic("wrong type");
         return _potion_info;
     }

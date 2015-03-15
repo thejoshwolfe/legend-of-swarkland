@@ -21,6 +21,13 @@ ThingImpl::ThingImpl(WandDescriptionId description_id, int charges) :
     _wand_info->description_id = description_id;
     _wand_info->charges = charges;
 }
+ThingImpl::ThingImpl(PotionDescriptionId description_id) :
+    thing_type(ThingType_POTION)
+{
+    id = random_uint256();
+    _potion_info = create<PotionInfo>();
+    _potion_info->description_id = description_id;
+}
 
 
 const Species * Life::species() const {
