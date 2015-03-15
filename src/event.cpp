@@ -304,7 +304,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::USE_POTION:
             if (!can_see_location(observer, event.use_potion_data().location))
                 return false;
-            if (!can_see_thing(observer, event.use_potion_data().target_id)) {
+            if (event.use_potion_data().target_id != uint256::zero() && !can_see_thing(observer, event.use_potion_data().target_id)) {
                 if (event.use_potion_data().is_breaking) {
                     // i see that it broke, but it looks like it hit nobody
                     *output_event = event;

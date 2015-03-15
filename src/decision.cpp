@@ -110,6 +110,8 @@ static Action get_ai_decision(Thing actor) {
                         List<Thing> useful_inventory;
                         for (int i = 0; i < inventory.length(); i++) {
                             Thing item = inventory[i];
+                            if (item->thing_type != ThingType_WAND)
+                                continue;
                             WandId wand_id = actor->life()->knowledge.wand_identities[item->wand_info()->description_id];
                             if (wand_id == WandId_WAND_OF_DIGGING)
                                 continue; // don't dig the person.
