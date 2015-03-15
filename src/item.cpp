@@ -176,7 +176,8 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             break;
         }
         case PotionId_POTION_OF_ETHEREAL_VISION: {
-            // TODO
+            target->status_effects.ethereal_vision_expiration_time = time_counter + random_midpoint(2000);
+            compute_vision(target);
             break;
         }
 

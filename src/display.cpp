@@ -287,6 +287,8 @@ static Span get_status_description(const StatusEffects & status_effects) {
         result->append("confused ");
     if (status_effects.speed_up_expiration_time > time_counter)
         result->append("fast ");
+    if (status_effects.ethereal_vision_expiration_time > time_counter)
+        result->append("ethereal-visioned ");
     if (status_effects.poison_expiration_time > time_counter)
         result->append("poisoned ");
     result->set_color(pink, black);

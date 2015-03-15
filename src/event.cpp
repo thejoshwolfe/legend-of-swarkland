@@ -147,6 +147,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         case Event::NO_LONGER_FAST:
             result->span->format("%s slows back down to normal speed.", get_thing_description(observer, event.the_individual_data()));
             return result;
+        case Event::NO_LONGER_HAS_ETHEREAL_VISION:
+            result->span->format("%s no longer has ethereal vision.", get_thing_description(observer, event.the_individual_data()));
+            return result;
         case Event::NO_LONGER_POISONED:
             result->span->format("%s is no longer poisoned.", get_thing_description(observer, event.the_individual_data()));
             return result;
@@ -315,6 +318,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::POISONED:
         case Event::NO_LONGER_CONFUSED:
         case Event::NO_LONGER_FAST:
+        case Event::NO_LONGER_HAS_ETHEREAL_VISION:
         case Event::NO_LONGER_POISONED:
         case Event::APPEAR:
             if (!can_see_individual(observer, event.the_individual_data()))
@@ -467,11 +471,29 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                 break;
 
             case Event::USE_POTION: {
-                PotionId effect = event.use_potion_data().effect;
+                Event::UsePotionData & data = event.use_potion_data();
+                PotionId effect = data.effect;
                 if (effect != PotionId_UNKNOWN) {
                     // ah hah!
-                    PotionDescriptionId description_id = observer->life()->knowledge.perceived_things.get(event.use_potion_data().item_id)->potion_info()->description_id;
+                    PotionDescriptionId description_id = observer->life()->knowledge.perceived_things.get(data.item_id)->potion_info()->description_id;
                     id_item(observer, description_id, effect);
+
+                    StatusEffects & status_effects = observer->life()->knowledge.perceived_things.get(data.target_id)->status_effects;
+                    switch (effect) {
+                        case PotionId_POTION_OF_HEALING:
+                            // no state change
+                            break;
+                        case PotionId_POTION_OF_POISON:
+                            status_effects.poison_expiration_time = 0x7fffffffffffffffLL;
+                            break;
+                        case PotionId_POTION_OF_ETHEREAL_VISION:
+                            status_effects.ethereal_vision_expiration_time = 0x7fffffffffffffffLL;
+                            break;
+
+                        case PotionId_UNKNOWN:
+                        case PotionId_COUNT:
+                            panic("not a real id");
+                    }
                 }
                 delete_ids.append(event.use_potion_data().item_id);
                 break;
@@ -482,6 +504,7 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                 break;
             case Event::NO_LONGER_CONFUSED:
             case Event::NO_LONGER_FAST:
+            case Event::NO_LONGER_HAS_ETHEREAL_VISION:
             case Event::NO_LONGER_POISONED:
                 record_perception_of_thing(observer, event.the_individual_data());
                 break;

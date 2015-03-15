@@ -70,9 +70,14 @@ void compute_vision(Thing observer) {
         observer->life()->knowledge.tiles.set_all(unknown_tile);
 
     observer->life()->knowledge.tile_is_visible.set_all(VisionTypes::none());
-    if (observer->life()->species()->vision_types.normal)
+    VisionTypes has_vision = observer->life()->species()->vision_types;
+    if (observer->status_effects.ethereal_vision_expiration_time > time_counter) {
+        has_vision.normal = 0;
+        has_vision.ethereal = 1;
+    }
+    if (has_vision.normal)
         refresh_normal_vision(observer);
-    if (observer->life()->species()->vision_types.ethereal)
+    if (has_vision.ethereal)
         refresh_ethereal_vision(observer);
 
     // see individuals
