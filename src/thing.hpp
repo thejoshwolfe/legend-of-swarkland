@@ -54,7 +54,8 @@ enum PotionId {
     PotionId_UNKNOWN,
 };
 
-extern WandId actual_wand_identities[WandId_COUNT];
+extern WandId actual_wand_identities[WandDescriptionId_COUNT];
+extern PotionId actual_potion_identities[PotionDescriptionId_COUNT];
 
 enum SpeciesId {
     SpeciesId_HUMAN,
@@ -345,7 +346,7 @@ static inline bool is_individual(T thing) {
 }
 template<typename T>
 static inline bool is_item(T thing) {
-    return thing->thing_type == ThingType_WAND;
+    return thing->thing_type != ThingType_INDIVIDUAL;
 }
 
 static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> get_perceived_individuals(Thing individual) {

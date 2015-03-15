@@ -145,40 +145,48 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     // find the hit target
     int range = random_int(3, 6);
     Coord cursor = actor->location;
-    bool explodes_in_wall = actual_wand_identities[item->wand_info()->description_id] == WandId_WAND_OF_DIGGING;
-    Coord explosion_center = Coord::nowhere();
+    bool item_breaks = false;
+    bool impacts_in_wall = item->thing_type == ThingType_WAND && actual_wand_identities[item->wand_info()->description_id] == WandId_WAND_OF_DIGGING;
     for (int i = 0; i < range; i++) {
         cursor += direction;
-        if (is_in_bounds(cursor)) {
-            Thing target = find_individual_at(cursor);
-            if (target != nullptr) {
-                publish_event(Event::item_hits_individual(item->id, target->id));
-                // hurt a little
-                int damage = random_int(1, 3);
-                damage_individual(actor, target, damage);
-                if (damage == 2)
-                    explosion_center = cursor;
-                break;
+        Thing target = find_individual_at(cursor);
+        if (target != nullptr) {
+            // wham!
+            publish_event(Event::item_hits_individual(item->id, target->id));
+            // hurt a little
+            int damage = random_inclusive(1, 2);
+            damage_individual(actor, target, damage);
+            if (damage == 2) {
+                // no item can survive that much damage dealt
+                item_breaks = true;
             }
+            break;
         }
-        if (!is_in_bounds(cursor) || !is_open_space(actual_map_tiles[cursor].tile_type)) {
-            // TODO: remove this hack now that the edge of the world is unreachable.
-            Coord wall_location = clamp(cursor, {0, 0}, map_size);
-            publish_event(Event::item_hits_wall(item->id, wall_location));
-            if (random_int(2) == 0) {
-                if (explodes_in_wall)
-                    explosion_center = wall_location;
-                else
-                    explosion_center = cursor - direction;
-            } else {
-                // back up one and drop it
+        if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
+            publish_event(Event::item_hits_wall(item->id, cursor));
+            item_breaks = item->thing_type == ThingType_POTION || random_int(2) == 0;
+            if (!(item_breaks && impacts_in_wall)) {
+                // impact just in front of the wall
                 cursor -= direction;
             }
             break;
         }
     }
-    if (explosion_center != Coord::nowhere()) {
-        explode_wand(actor, item, explosion_center);
+    // potions are fragile
+    if (item->thing_type == ThingType_POTION)
+        item_breaks = true;
+
+    if (item_breaks) {
+        switch (item->thing_type) {
+            case ThingType_INDIVIDUAL:
+                panic("we're not throwing an individual");
+            case ThingType_WAND:
+                explode_wand(actor, item, cursor);
+                break;
+            case ThingType_POTION:
+                break_potion(actor, item, cursor);
+                break;
+        }
     } else {
         drop_item_to_the_floor(item, cursor);
     }
@@ -320,6 +328,15 @@ static void create_item(Coord floor_location) {
     drop_item_to_the_floor(item, floor_location);
 }
 
+void heal_hp(Thing individual, int hp) {
+    Life * life = individual->life();
+    if (life->hitpoints >= life->max_hitpoints()) {
+        // you have enough hitpoints.
+        return;
+    }
+    life->hitpoints = min(life->hitpoints + hp, life->max_hitpoints());
+    reset_hp_regen_timeout(individual);
+}
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
     if (individual->status_effects.poison_expiration_time > time_counter) {
@@ -332,14 +349,16 @@ static void regen_hp(Thing individual) {
         }
     } else if (life->hp_regen_deadline == time_counter) {
         // hp regen
-        if (life->hitpoints < life->max_hitpoints()) {
-            int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5));
-            life->hitpoints = min(life->hitpoints + hp_heal, life->max_hitpoints());
-        } else {
-            // cheatcode gave you extra health. don't mess with it.
-        }
-        reset_hp_regen_timeout(individual);
+        int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5));
+        heal_hp(individual, hp_heal);
     }
+}
+
+void poison_individual(Thing attacker, Thing target) {
+    publish_event(Event::poisoned(target));
+    target->status_effects.poisoner = attacker->id;
+    target->status_effects.poison_expiration_time = time_counter + random_midpoint(600);
+    target->status_effects.poison_next_damage_time = time_counter + 12 * 3;
 }
 
 // normal melee attack
@@ -349,12 +368,8 @@ static void attack(Thing attacker, Thing target) {
     int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
     damage_individual(attacker, target, damage);
     reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->life()->species()->poison_attack) {
-        publish_event(Event::poisoned(target));
-        target->status_effects.poisoner = attacker->id;
-        target->status_effects.poison_expiration_time = time_counter + random_midpoint(600);
-        target->status_effects.poison_next_damage_time = time_counter + 12 * 3;
-    }
+    if (target->still_exists && attacker->life()->species()->poison_attack)
+        poison_individual(attacker, target);
 }
 
 static int compare_things_by_z_order(Thing a, Thing b) {

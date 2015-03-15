@@ -20,6 +20,8 @@ struct Event {
         ITEM_HITS_WALL,
         ITEM_HITS_SOMETHING,
 
+        USE_POTION,
+
         POISONED,
         NO_LONGER_CONFUSED,
         NO_LONGER_FAST,
@@ -80,6 +82,18 @@ struct Event {
     WandHitData & wand_hit_data() {
         check_data_type(DataType_WAND_HIT);
         return _data._wand_hit;
+    }
+
+    struct UsePotionData {
+        uint256 item_id;
+        PotionId effect;
+        bool is_breaking;
+        uint256 target_id;
+        Coord location;
+    };
+    UsePotionData & use_potion_data() {
+        check_data_type(DataType_USE_POTION);
+        return _data._use_potion;
     }
 
     struct PolymorphData {
@@ -149,6 +163,18 @@ struct Event {
         return item_and_location_type_event(ITEM_HITS_SOMETHING, item_id, location);
     }
 
+    static Event use_potion(uint256 item_id, PotionId effect, bool is_breaking, uint256 target_id, Coord location) {
+        Event result;
+        result.type = USE_POTION;
+        result.use_potion_data() = {
+            item_id,
+            effect,
+            is_breaking,
+            target_id,
+            location,
+        };
+        return result;
+    }
 
     static inline Event poisoned(Thing individual) {
         return event_individual(POISONED, individual->id);
@@ -253,6 +279,7 @@ private:
         TwoIndividualData _two_individual;
         ZapWandData _zap_wand;
         WandHitData _wand_hit;
+        UsePotionData _use_potion;
         PolymorphData _polymorph;
         ItemAndLocationData _item_and_location;
     } _data;
@@ -262,6 +289,7 @@ private:
         DataType_TWO_INDIVIDUAL,
         DataType_ZAP_WAND,
         DataType_WAND_HIT,
+        DataType_USE_POTION,
         DataType_POLYMORPH,
         DataType_ITEM_AND_LOCATION,
     };
@@ -299,6 +327,9 @@ private:
                 return DataType_ITEM_AND_LOCATION;
             case ITEM_HITS_SOMETHING:
                 return DataType_ITEM_AND_LOCATION;
+
+            case USE_POTION:
+                return DataType_USE_POTION;
 
             case POISONED:
                 return DataType_THE_INDIVIDUAL;

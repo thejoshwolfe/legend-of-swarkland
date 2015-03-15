@@ -5,7 +5,8 @@
 #include "swarkland.hpp"
 #include "event.hpp"
 
-WandId actual_wand_identities[WandId_COUNT];
+WandId actual_wand_identities[WandDescriptionId_COUNT];
+PotionId actual_potion_identities[PotionDescriptionId_COUNT];
 
 static Thing new_random_item() {
     if (random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT) < WandDescriptionId_COUNT) {
@@ -90,15 +91,25 @@ static int digging_pass_through_air(Thing, Coord, bool, IdMap<WandDescriptionId>
 static WandHandler wand_handlers[WandId_COUNT];
 
 void init_items() {
-    for (int i = 0; i < WandId_COUNT; i++)
+    for (int i = 0; i < WandDescriptionId_COUNT; i++)
         actual_wand_identities[i] = (WandId)i;
     shuffle(actual_wand_identities, WandId_COUNT);
+
+    for (int i = 0; i < PotionDescriptionId_COUNT; i++)
+        actual_potion_identities[i] = (PotionId)i;
+    shuffle(actual_potion_identities, PotionId_COUNT);
 
     wand_handlers[WandId_WAND_OF_CONFUSION] = {pass_through_air_silently, confusion_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_DIGGING] = {digging_pass_through_air, hit_individual_no_effect, digging_hit_wall};
     wand_handlers[WandId_WAND_OF_STRIKING] = {pass_through_air_silently, striking_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_SPEED] = {pass_through_air_silently, speed_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_REMEDY] = {pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect};
+}
+
+static void delete_item(Thing item) {
+    actual_things.remove(item->id);
+    if (item->container_id != uint256::zero())
+        fix_z_orders(item->container_id);
 }
 
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
@@ -148,6 +159,33 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     }
 }
 
+// is_breaking is used in the published event
+void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
+    uint256 target_id = target->id;
+    Coord location = target->location;
+    PotionId effect_id = actual_potion_identities[item->potion_info()->description_id];
+    publish_event(Event::use_potion(item->id, effect_id, is_breaking, target_id, location));
+    switch (effect_id) {
+        case PotionId_POTION_OF_HEALING: {
+            int hp = target->life()->max_hitpoints() * 2 / 3;
+            heal_hp(target, hp);
+            break;
+        }
+        case PotionId_POTION_OF_POISON: {
+            poison_individual(actor, target);
+            break;
+        }
+        case PotionId_POTION_OF_ETHEREAL_VISION: {
+            // TODO
+            break;
+        }
+
+        case PotionId_COUNT:
+        case PotionId_UNKNOWN:
+            panic("not real ids");
+    }
+}
+
 void explode_wand(Thing actor, Thing item, Coord explosion_center) {
     // boom
     WandId wand_id = actual_wand_identities[item->wand_info()->description_id];
@@ -159,8 +197,7 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
     }
     IdMap<WandDescriptionId> perceived_current_zapper;
     publish_event(Event::wand_explodes(item->id, explosion_center), &perceived_current_zapper);
-    actual_things.remove(item->id);
-    fix_z_orders(actor->id);
+    delete_item(item);
 
     List<Thing> affected_individuals;
     Thing individual;
@@ -186,4 +223,14 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
         handler.hit_individual(actor, affected_individuals[i], true, &perceived_current_zapper);
     for (int i = 0; i < affected_walls.length(); i++)
         handler.hit_wall(actor, affected_walls[i], true, &perceived_current_zapper);
+}
+
+void break_potion(Thing actor, Thing item, Coord location) {
+    Thing target = find_individual_at(location);
+    if (target != nullptr) {
+        use_potion(actor, target, item, true);
+    } else {
+        publish_event(Event::use_potion(item->id, PotionId_UNKNOWN, true, uint256::zero(), location));
+    }
+    delete_item(item);
 }

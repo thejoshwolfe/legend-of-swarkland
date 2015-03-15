@@ -107,6 +107,37 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             result->span->format("%s hits something.", get_thing_description(observer, event.item_and_location_data().item));
             return result;
 
+        case Event::USE_POTION: {
+            Event::UsePotionData & data = event.use_potion_data();
+            if (data.is_breaking) {
+                result->span->format("%s breaks", get_thing_description(observer, data.item_id));
+                if (data.target_id != uint256::zero())
+                    result->span->format(" and splashes on %s", get_thing_description(observer, data.target_id));
+            } else {
+                result->span->format("%s drinks %s",
+                        get_thing_description(observer, data.target_id),
+                        get_thing_description(observer, data.item_id));
+            }
+            switch (data.effect) {
+                case PotionId_POTION_OF_HEALING:
+                    result->span->format("; %s is healed!", get_thing_description(observer, data.target_id));
+                    break;
+                case PotionId_POTION_OF_POISON:
+                    result->span->format("; %s is poisoned!", get_thing_description(observer, data.target_id));
+                    break;
+                case PotionId_POTION_OF_ETHEREAL_VISION:
+                    result->span->format("; %s gains ethereal vision!", get_thing_description(observer, data.target_id));
+                    break;
+
+                case PotionId_UNKNOWN:
+                    result->span->append(", but nothing happens.");
+                    break;
+                case PotionId_COUNT:
+                    panic("not a real id");
+            }
+            return result;
+        }
+
         case Event::POISONED:
             result->span->format("%s is poisoned!", get_thing_description(observer, event.the_individual_data()));
             return result;
@@ -263,6 +294,24 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             *output_event = event;
             return true;
 
+        case Event::USE_POTION:
+            if (!can_see_location(observer, event.use_potion_data().location))
+                return false;
+            if (!can_see_individual(observer, event.use_potion_data().target_id)) {
+                if (event.use_potion_data().is_breaking) {
+                    // i see that it broke, but it looks like it hit nobody
+                    *output_event = event;
+                    output_event->use_potion_data().target_id = uint256::zero();
+                    output_event->use_potion_data().effect = PotionId_UNKNOWN;
+                    return true;
+                } else {
+                    // can't see the quaffer
+                    return false;
+                }
+            }
+            *output_event = event;
+            return true;
+
         case Event::POISONED:
         case Event::NO_LONGER_CONFUSED:
         case Event::NO_LONGER_FAST:
@@ -339,21 +388,24 @@ static void id_item(Thing observer, WandDescriptionId description_id, WandId id)
         return; // can't see it
     observer->life()->knowledge.wand_identities[description_id] = id;
 }
+static void id_item(Thing observer, PotionDescriptionId description_id, PotionId id) {
+    observer->life()->knowledge.potion_identities[description_id] = id;
+}
 
 void publish_event(Event event) {
     publish_event(event, nullptr);
 }
-void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
+void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_current_zapper) {
     Thing observer;
     for (auto iterator = actual_individuals(); iterator.next(&observer);) {
-        Event apparent_event;
-        if (!see_event(observer, event, &apparent_event))
+        Event event;
+        if (!see_event(observer, actual_event, &event))
             continue;
         // make changes to our knowledge
         List<uint256> delete_ids;
-        switch (apparent_event.type) {
+        switch (event.type) {
             case Event::MOVE:
-                record_perception_of_thing(observer, apparent_event.two_individual_data().actor);
+                record_perception_of_thing(observer, event.two_individual_data().actor);
                 break;
             case Event::BUMP_INTO:
             case Event::ATTACK:
@@ -361,21 +413,21 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 break;
 
             case Event::ZAP_WAND:
-                perceived_current_zapper->put(observer->id, actual_things.get(apparent_event.zap_wand_data().wand)->wand_info()->description_id);
+                perceived_current_zapper->put(observer->id, actual_things.get(event.zap_wand_data().wand)->wand_info()->description_id);
                 break;
             case Event::ZAP_WAND_NO_CHARGES:
                 // boring
                 break;
             case Event::WAND_DISINTEGRATES:
-                delete_ids.append(apparent_event.zap_wand_data().wand);
+                delete_ids.append(event.zap_wand_data().wand);
                 break;
             case Event::WAND_EXPLODES:
-                perceived_current_zapper->put(observer->id, actual_things.get(apparent_event.item_and_location_data().item)->wand_info()->description_id);
-                delete_ids.append(apparent_event.item_and_location_data().item);
+                perceived_current_zapper->put(observer->id, actual_things.get(event.item_and_location_data().item)->wand_info()->description_id);
+                delete_ids.append(event.item_and_location_data().item);
                 break;
 
             case Event::WAND_HIT: {
-                Event::WandHitData & data = apparent_event.wand_hit_data();
+                Event::WandHitData & data = event.wand_hit_data();
                 WandId true_id = data.observable_effect;
                 if (true_id != WandId_UNKNOWN)
                     id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), true_id);
@@ -414,48 +466,59 @@ void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zap
                 // no state change
                 break;
 
+            case Event::USE_POTION: {
+                PotionId effect = event.use_potion_data().effect;
+                if (effect != PotionId_UNKNOWN) {
+                    // ah hah!
+                    PotionDescriptionId description_id = observer->life()->knowledge.perceived_things.get(event.use_potion_data().item_id)->potion_info()->description_id;
+                    id_item(observer, description_id, effect);
+                }
+                delete_ids.append(event.use_potion_data().item_id);
+                break;
+            }
+
             case Event::POISONED:
-                observer->life()->knowledge.perceived_things.get(apparent_event.the_individual_data())->status_effects.poison_expiration_time = 0x7fffffffffffffffLL;
+                observer->life()->knowledge.perceived_things.get(event.the_individual_data())->status_effects.poison_expiration_time = 0x7fffffffffffffffLL;
                 break;
             case Event::NO_LONGER_CONFUSED:
             case Event::NO_LONGER_FAST:
             case Event::NO_LONGER_POISONED:
-                record_perception_of_thing(observer, apparent_event.the_individual_data());
+                record_perception_of_thing(observer, event.the_individual_data());
                 break;
 
             case Event::APPEAR:
-                record_perception_of_thing(observer, apparent_event.the_individual_data());
+                record_perception_of_thing(observer, event.the_individual_data());
                 break;
             case Event::TURN_INVISIBLE:
-                record_perception_of_thing(observer, apparent_event.the_individual_data());
+                record_perception_of_thing(observer, event.the_individual_data());
                 break;
             case Event::DISAPPEAR:
-                delete_ids.append(apparent_event.the_individual_data());
+                delete_ids.append(event.the_individual_data());
                 break;
             case Event::LEVEL_UP:
                 // no state change
                 break;
             case Event::DIE:
-                delete_ids.append(apparent_event.the_individual_data());
+                delete_ids.append(event.the_individual_data());
                 break;
 
             case Event::POLYMORPH:
-                record_perception_of_thing(observer, apparent_event.polymorph_data().individual);
+                record_perception_of_thing(observer, event.polymorph_data().individual);
                 break;
 
             case Event::ITEM_DROPS_TO_THE_FLOOR:
             case Event::SOMETHING_PICKS_UP_ITEM:
             case Event::SOMETHING_SUCKS_UP_ITEM:
-                record_perception_of_thing(observer, apparent_event.item_and_location_data().item);
+                record_perception_of_thing(observer, event.item_and_location_data().item);
                 break;
             case Event::INDIVIDUAL_PICKS_UP_ITEM:
             case Event::INDIVIDUAL_SUCKS_UP_ITEM:
-                record_perception_of_thing(observer, apparent_event.zap_wand_data().wand);
+                record_perception_of_thing(observer, event.zap_wand_data().wand);
                 break;
         }
         if (observer->life()->species()->has_mind) {
             // we need to log the event before the monster disappears from our knowledge
-            RememberedEvent remembered_event = to_remembered_event(observer, apparent_event);
+            RememberedEvent remembered_event = to_remembered_event(observer, event);
             if (remembered_event != nullptr)
                 observer->life()->knowledge.remembered_events.append(remembered_event);
         }

@@ -738,8 +738,8 @@ void render() {
         }
         Coord location = {map_size.x, 0};
         for (int i = 0; i < my_inventory.length(); i++) {
-            Thing & item = my_inventory[i];
-            render_tile(renderer, sprite_sheet_texture, wand_images[item->wand_info()->description_id], 0xff, location);
+            Thing item = my_inventory[i];
+            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(item), 0xff, location);
             location.y += 1;
         }
         if (render_cursor) {

@@ -63,6 +63,8 @@ void drop_item_to_the_floor(Thing item, Coord location);
 void confuse_individual(Thing target);
 void speed_up_individual(Thing target);
 void strike_individual(Thing attacker, Thing target);
+void poison_individual(Thing attacker, Thing target);
+void heal_hp(Thing individual, int hp);
 
 void change_map(Coord location, TileType new_tile_type);
 
