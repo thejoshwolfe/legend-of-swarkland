@@ -69,9 +69,10 @@ source code to the website.
    * Experience levels.
    * Monster difficulty depends on your experience level and dungeon depth.
  * Speediness only affects movement; fighting and other actions are standard speed for everyone.
+ * Added potions and quaffing.
+ * New items: wand of speed, wand of remedy, potion of healing, potion of poison, potion of ethereal vision.
  * New monsters: ant, bee, beetle, scorpion, snake.
- * New items: wand of speed, wand of remedy.
- * New status effects: fast, poisoned.
+ * New status effects: fast, poisoned, ethereal-visioned.
 
 ## Version History
 
