@@ -42,6 +42,7 @@ enum PotionDescriptionId {
     PotionDescriptionId_BLUE_POTION,
     PotionDescriptionId_GREEN_POTION,
     PotionDescriptionId_RED_POTION,
+    PotionDescriptionId_YELLOW_POTION,
 
     PotionDescriptionId_COUNT,
 };
@@ -49,6 +50,7 @@ enum PotionId {
     PotionId_POTION_OF_HEALING,
     PotionId_POTION_OF_POISON,
     PotionId_POTION_OF_ETHEREAL_VISION,
+    PotionId_POTION_OF_COGNISCOPY,
 
     PotionId_COUNT,
     PotionId_UNKNOWN,
@@ -128,6 +130,7 @@ struct StatusEffects {
     long long confused_expiration_time = -1;
     long long speed_up_expiration_time = -1;
     long long ethereal_vision_expiration_time = -1;
+    long long cogniscopy_expiration_time = -1;
 
     uint256 poisoner = uint256::zero();
     long long poison_expiration_time = -1;

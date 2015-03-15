@@ -181,15 +181,17 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             heal_hp(target, hp);
             break;
         }
-        case PotionId_POTION_OF_POISON: {
+        case PotionId_POTION_OF_POISON:
             poison_individual(actor, target);
             break;
-        }
-        case PotionId_POTION_OF_ETHEREAL_VISION: {
+        case PotionId_POTION_OF_ETHEREAL_VISION:
             target->status_effects.ethereal_vision_expiration_time = time_counter + random_midpoint(2000);
             compute_vision(target);
             break;
-        }
+        case PotionId_POTION_OF_COGNISCOPY:
+            target->status_effects.cogniscopy_expiration_time = time_counter + random_midpoint(2000);
+            compute_vision(target);
+            break;
 
         case PotionId_COUNT:
         case PotionId_UNKNOWN:

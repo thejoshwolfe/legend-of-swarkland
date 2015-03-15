@@ -31,7 +31,7 @@ static void init_specieses() {
     //                                     |   |  |   |   |   |  |   |  |  |  |  |  advanced strategy
     specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1};
     specieses[SpeciesId_OGRE         ] = {24, 15, 3,  3,  7, {1, 0}, 1, 0, 0, 0, 1, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 1}, 1, 0, 0, 0, 1, 1};
+    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 1, 0, 0, 0, 1, 1};
     specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1,  1,  4, {0, 1}, 0, 1, 0, 0, 0, 0};
     specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  3,  6, {0, 1}, 0, 1, 1, 0, 0, 0};
     specieses[SpeciesId_DOG          ] = {12,  4, 2,  0,  5, {1, 0}, 1, 0, 0, 0, 0, 0};
@@ -709,6 +709,8 @@ static void age_individual(Thing individual) {
         publish_event(Event::no_longer_fast(individual));
     if (individual->status_effects.ethereal_vision_expiration_time == time_counter)
         publish_event(Event::no_longer_has_ethereal_vision(individual));
+    if (individual->status_effects.cogniscopy_expiration_time == time_counter)
+        publish_event(Event::no_longer_cogniscopic(individual));
     if (individual->status_effects.poison_expiration_time == time_counter) {
         publish_event(Event::no_longer_poisoned(individual));
         reset_hp_regen_timeout(individual);

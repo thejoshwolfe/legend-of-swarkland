@@ -26,6 +26,7 @@ struct Event {
         NO_LONGER_CONFUSED,
         NO_LONGER_FAST,
         NO_LONGER_HAS_ETHEREAL_VISION,
+        NO_LONGER_COGNISCOPIC,
         NO_LONGER_POISONED,
 
         APPEAR,
@@ -189,6 +190,9 @@ struct Event {
     static inline Event no_longer_has_ethereal_vision(Thing individual) {
         return event_individual(NO_LONGER_HAS_ETHEREAL_VISION, individual->id);
     }
+    static inline Event no_longer_cogniscopic(Thing individual) {
+        return event_individual(NO_LONGER_COGNISCOPIC, individual->id);
+    }
     static inline Event no_longer_poisoned(Thing individual) {
         return event_individual(NO_LONGER_POISONED, individual->id);
     }
@@ -336,13 +340,10 @@ private:
                 return DataType_USE_POTION;
 
             case POISONED:
-                return DataType_THE_INDIVIDUAL;
             case NO_LONGER_CONFUSED:
-                return DataType_THE_INDIVIDUAL;
             case NO_LONGER_FAST:
-                return DataType_THE_INDIVIDUAL;
             case NO_LONGER_HAS_ETHEREAL_VISION:
-                return DataType_THE_INDIVIDUAL;
+            case NO_LONGER_COGNISCOPIC:
             case NO_LONGER_POISONED:
                 return DataType_THE_INDIVIDUAL;
 

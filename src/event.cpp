@@ -128,6 +128,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                 case PotionId_POTION_OF_ETHEREAL_VISION:
                     result->span->format("; %s gains ethereal vision!", get_thing_description(observer, data.target_id));
                     break;
+                case PotionId_POTION_OF_COGNISCOPY:
+                    result->span->format("; %s gains cogniscopy!", get_thing_description(observer, data.target_id));
+                    break;
 
                 case PotionId_UNKNOWN:
                     result->span->append(", but nothing happens.");
@@ -149,6 +152,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             return result;
         case Event::NO_LONGER_HAS_ETHEREAL_VISION:
             result->span->format("%s no longer has ethereal vision.", get_thing_description(observer, event.the_individual_data()));
+            return result;
+        case Event::NO_LONGER_COGNISCOPIC:
+            result->span->format("%s is no longer cogniscopic.", get_thing_description(observer, event.the_individual_data()));
             return result;
         case Event::NO_LONGER_POISONED:
             result->span->format("%s is no longer poisoned.", get_thing_description(observer, event.the_individual_data()));
@@ -214,9 +220,14 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     if (!observer->still_exists)
         return false;
     Thing actual_target = actual_things.get(target_id);
-    // nobody can see invisible people
+    // nobody can see invisible people, because that would be cheating :)
     if (actual_target->status_effects.invisible)
         return false;
+    // cogniscopy can see minds
+    if (observer->status_effects.cogniscopy_expiration_time > time_counter) {
+        if (actual_target->thing_type == ThingType_INDIVIDUAL && actual_target->life()->species()->has_mind)
+            return true;
+    }
     // we can see someone if they're in our line of sight
     if (!observer->life()->knowledge.tile_is_visible[target_location].any())
         return false;
@@ -224,10 +235,10 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
 }
 bool can_see_thing(Thing observer, uint256 target_id) {
     Thing thing = actual_things.get(target_id);
-    if (thing->location != Coord::nowhere())
-        return can_see_thing(observer, target_id, thing->location);
-    else
+    if (thing->location == Coord::nowhere())
         return can_see_thing(observer, thing->container_id);
+
+    return can_see_thing(observer, target_id, thing->location);
 }
 static Coord location_of(uint256 individual_id) {
     return actual_things.get(individual_id)->location;
@@ -323,6 +334,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::NO_LONGER_CONFUSED:
         case Event::NO_LONGER_FAST:
         case Event::NO_LONGER_HAS_ETHEREAL_VISION:
+        case Event::NO_LONGER_COGNISCOPIC:
         case Event::NO_LONGER_POISONED:
         case Event::APPEAR:
             if (!can_see_thing(observer, event.the_individual_data()))
@@ -493,6 +505,9 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                         case PotionId_POTION_OF_ETHEREAL_VISION:
                             status_effects.ethereal_vision_expiration_time = 0x7fffffffffffffffLL;
                             break;
+                        case PotionId_POTION_OF_COGNISCOPY:
+                            status_effects.cogniscopy_expiration_time = 0x7fffffffffffffffLL;
+                            break;
 
                         case PotionId_UNKNOWN:
                         case PotionId_COUNT:
@@ -509,6 +524,7 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
             case Event::NO_LONGER_CONFUSED:
             case Event::NO_LONGER_FAST:
             case Event::NO_LONGER_HAS_ETHEREAL_VISION:
+            case Event::NO_LONGER_COGNISCOPIC:
             case Event::NO_LONGER_POISONED:
                 record_perception_of_thing(observer, event.the_individual_data());
                 break;

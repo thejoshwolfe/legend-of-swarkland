@@ -9,6 +9,7 @@
 #include "string.hpp"
 #include "text.hpp"
 #include "resources.hpp"
+#include "event.hpp"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -97,6 +98,7 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     potion_images[PotionDescriptionId_BLUE_POTION] = find_image(spritesheet_images, image_count, "img/blue_potion.png");
     potion_images[PotionDescriptionId_GREEN_POTION] = find_image(spritesheet_images, image_count, "img/green_potion.png");
     potion_images[PotionDescriptionId_RED_POTION] = find_image(spritesheet_images, image_count, "img/red_potion.png");
+    potion_images[PotionDescriptionId_YELLOW_POTION] = find_image(spritesheet_images, image_count, "img/yellow_potion.png");
 
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
@@ -289,6 +291,8 @@ static Span get_status_description(const StatusEffects & status_effects) {
         result->append("fast ");
     if (status_effects.ethereal_vision_expiration_time > time_counter)
         result->append("ethereal-visioned ");
+    if (status_effects.cogniscopy_expiration_time > time_counter)
+        result->append("cogniscopic ");
     if (status_effects.poison_expiration_time > time_counter)
         result->append("poisoned ");
     result->set_color(pink, black);
@@ -345,6 +349,8 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "potion of poison";
             case PotionId_POTION_OF_ETHEREAL_VISION:
                 return "potion of ethereal vision";
+            case PotionId_POTION_OF_COGNISCOPY:
+                return "potion of cogniscopy";
 
             case PotionId_COUNT:
             case PotionId_UNKNOWN:
@@ -359,6 +365,8 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "green potion";
             case PotionDescriptionId_RED_POTION:
                 return "red potion";
+            case PotionDescriptionId_YELLOW_POTION:
+                return "yellow potion";
 
             case PotionDescriptionId_COUNT:
                 panic("not a real description id");
@@ -619,13 +627,13 @@ void render() {
         item_pile_rendered.set_all(false);
         for (int i = 0; i < things.length(); i++) {
             PerceivedThing thing = things[i];
-            if (thing->thing_type == ThingType_WAND) {
+            if (thing->thing_type != ThingType_INDIVIDUAL) {
                 if (item_pile_rendered[thing->location])
                     continue;
                 item_pile_rendered[thing->location] = true;
             }
             Uint8 alpha;
-            if (thing->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[thing->location].any())
+            if (thing->status_effects.invisible || !can_see_thing(spectate_from, thing->id))
                 alpha = 0x7f;
             else
                 alpha = 0xff;
