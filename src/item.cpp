@@ -8,20 +8,30 @@
 WandId actual_wand_identities[WandDescriptionId_COUNT];
 PotionId actual_potion_identities[PotionDescriptionId_COUNT];
 
-static Thing new_random_item() {
-    if (random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT) < WandDescriptionId_COUNT) {
-        // wand
-        WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
-        int charges = random_int(4, 8);
-        return create<ThingImpl>(description_id, charges);
-    } else {
-        // potion
-        PotionDescriptionId description_id = (PotionDescriptionId)random_int(PotionDescriptionId_COUNT);
-        return create<ThingImpl>(description_id);
+static Thing new_random_item(ThingType thing_type) {
+    switch (thing_type) {
+        case ThingType_POTION: {
+            PotionDescriptionId description_id = (PotionDescriptionId)random_int(PotionDescriptionId_COUNT);
+            return create<ThingImpl>(description_id);
+        }
+        case ThingType_WAND: {
+            WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
+            int charges = random_int(4, 8);
+            return create<ThingImpl>(description_id, charges);
+        }
+        case ThingType_INDIVIDUAL:
+            panic("not an item");
     }
+    panic("thing type");
 }
 Thing random_item() {
-    Thing item = new_random_item();
+    if (random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT) < WandDescriptionId_COUNT)
+        return random_item(ThingType_WAND);
+    else
+        return random_item(ThingType_POTION);
+}
+Thing random_item(ThingType thing_type) {
+    Thing item = new_random_item(thing_type);
     actual_things.put(item->id, item);
     return item;
 }
@@ -106,7 +116,7 @@ void init_items() {
     wand_handlers[WandId_WAND_OF_REMEDY] = {pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect};
 }
 
-static void delete_item(Thing item) {
+void delete_item(Thing item) {
     actual_things.remove(item->id);
     if (item->container_id != uint256::zero())
         fix_z_orders(item->container_id);

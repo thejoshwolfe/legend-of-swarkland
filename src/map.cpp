@@ -224,10 +224,14 @@ void generate_map() {
     }
 
     // throw some items around
-    int item_count = random_inclusive(1, 2);
-    for (int i = 0; i < item_count; i++) {
+    int wand_count = random_inclusive(1, 2);
+    for (int i = 0; i < wand_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
-        Thing item = random_item();
-        item->location = location;
+        random_item(ThingType_WAND)->location = location;
+    }
+    int potion_count = random_inclusive(2, 4);
+    for (int i = 0; i < potion_count; i++) {
+        Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
+        random_item(ThingType_POTION)->location = location;
     }
 }

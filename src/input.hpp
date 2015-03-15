@@ -9,6 +9,7 @@ enum InputMode {
     InputMode_DROP_CHOOSE_ITEM,
     InputMode_THROW_CHOOSE_ITEM,
     InputMode_THROW_CHOOSE_DIRECTION,
+    InputMode_QUAFF_CHOOSE_ITEM,
     InputMode_ZAP_CHOOSE_ITEM,
     InputMode_ZAP_CHOOSE_DIRECTION,
 };

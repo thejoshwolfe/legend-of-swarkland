@@ -281,7 +281,7 @@ static void init_individuals() {
         Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(7));
         // arm him!
         for (int i = 0; i < 5; i++) {
-            Thing item = random_item();
+            Thing item = random_item(ThingType_WAND);
             pickup_item(boss, item);
             // teach him everything about his wands.
             WandDescriptionId description_id = item->wand_info()->description_id;
@@ -593,6 +593,12 @@ static bool take_action(Thing actor, Action action) {
         case Action::DROP:
             drop_item_to_the_floor(actual_things.get(action.item), actor->location);
             break;
+        case Action::QUAFF: {
+            Thing item = actual_things.get(action.item);
+            use_potion(actor, actor, item, false);
+            delete_item(item);
+            break;
+        }
         case Action::THROW:
             throw_item(actor, actual_things.get(action.item), confuse_direction(actor, action.coord));
             break;
@@ -633,7 +639,8 @@ static bool take_action(Thing actor, Action action) {
                 you->life()->knowledge.potion_identities[i] = actual_potion_identities[i];
             return false;
         case Action::CHEATCODE_GO_DOWN:
-            go_down();
+            if (dungeon_level < final_dungeon_level)
+                go_down();
             break;
         case Action::CHEATCODE_GAIN_LEVEL:
             gain_experience(actor, 10, true);
@@ -811,7 +818,17 @@ void get_available_actions(Thing individual, List<Action> * output_actions) {
             output_actions->append(Action::zap(item_id, direction));
             output_actions->append(Action::throw_(item_id, direction));
         }
-        output_actions->append(Action::zap(item_id, {0, 0}));
+        switch (inventory[i]->thing_type) {
+            case ThingType_POTION:
+                output_actions->append(Action::quaff(item_id));
+                break;
+            case ThingType_WAND:
+                output_actions->append(Action::zap(item_id, {0, 0}));
+                break;
+
+            case ThingType_INDIVIDUAL:
+                panic("not an item");
+        }
         output_actions->append(Action::throw_(item_id, {0, 0}));
         output_actions->append(Action::drop(item_id));
     }

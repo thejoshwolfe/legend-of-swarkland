@@ -460,11 +460,13 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
     if (!youre_still_alive) {
         lines.append("Alt+F4: quit");
     } else if (input_mode_is_choose_item()) {
-        lines.append("numpad: select item");
+        lines.append("numpad: move cursor");
         if (input_mode == InputMode_ZAP_CHOOSE_ITEM)
             lines.append("z: zap it...");
         else if (input_mode == InputMode_THROW_CHOOSE_ITEM)
             lines.append("t: throw it...");
+        else if (input_mode == InputMode_QUAFF_CHOOSE_ITEM)
+            lines.append("q: quaff it");
         else if (input_mode == InputMode_DROP_CHOOSE_ITEM)
             lines.append("d: drop it");
         else
@@ -479,8 +481,27 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
         find_items_on_floor(spectate_from->location, &items_on_floor);
 
         lines.append("numpad: move/attack");
-        if (my_inventory.length() > 0) {
+        bool has_potions = false;
+        bool has_wands = false;
+        for (int i = 0; i < my_inventory.length(); i++) {
+            switch (my_inventory[i]->thing_type) {
+                case ThingType_POTION:
+                    has_potions = true;
+                    break;
+                case ThingType_WAND:
+                    has_wands = true;
+                    break;
+
+                case ThingType_INDIVIDUAL:
+                    panic("not an item");
+            }
+        }
+        if (has_potions)
+            lines.append("q: quaff...");
+        if (has_wands)
             lines.append("z: zap...");
+
+        if (my_inventory.length() > 0) {
             lines.append("t: throw...");
             lines.append("d: drop...");
         }

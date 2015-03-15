@@ -9,6 +9,7 @@ struct Action {
         ZAP,
         PICKUP,
         DROP,
+        QUAFF,
         THROW,
         GO_DOWN,
 
@@ -49,6 +50,9 @@ struct Action {
     }
     static inline Action drop(uint256 item_id) {
         return {DROP, item_id, {0, 0}};
+    }
+    static inline Action quaff(uint256 item_id) {
+        return {QUAFF, item_id, {0, 0}};
     }
     static inline Action throw_(uint256 item_id, Coord direction) {
         return {THROW, item_id, direction};

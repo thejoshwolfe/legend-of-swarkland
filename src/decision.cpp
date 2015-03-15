@@ -84,88 +84,90 @@ static Action get_ai_decision(Thing actor) {
 
     if (things_of_interest.length() > 0) {
         PerceivedThing target = things_of_interest[random_int(things_of_interest.length())];
-
-        if (target->thing_type == ThingType_INDIVIDUAL) {
-            // we are aggro!!
-            if (actor->life()->species()->advanced_strategy) {
-                if (actor->status_effects.speed_up_expiration_time <= time_counter) {
-                    // use speed boost if we can
-                    for (int i = 0; i < inventory.length(); i++) {
-                        WandId wand_id = actor->life()->knowledge.wand_identities[inventory[i]->wand_info()->description_id];
-                        if (wand_id != WandId_WAND_OF_SPEED)
-                            continue;
-                        // gotta go fast!
-                        return Action::zap(inventory[i]->id, {0, 0});
-                    }
-                }
-            }
-
-            // zap him?
-            if (actor->life()->species()->uses_wands) {
-                Coord vector = target->location - actor->location;
-                Coord abs_vector = abs(vector);
-                int distnace = ordinal_distance(target->location, actor->location);
-                if ((vector.x * vector.y == 0 || abs_vector.x == abs_vector.y) && distnace <= beam_length_average) {
-                    // you're in sight.
-                    List<Thing> useful_inventory;
-                    for (int i = 0; i < inventory.length(); i++) {
-                        Thing item = inventory[i];
-                        WandId wand_id = actor->life()->knowledge.wand_identities[item->wand_info()->description_id];
-                        if (wand_id == WandId_WAND_OF_DIGGING)
-                            continue; // don't dig the person.
-                        if (wand_id == WandId_WAND_OF_SPEED || wand_id == WandId_WAND_OF_REMEDY)
-                            continue; // you'd like that, wouldn't you.
-                        if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_expiration_time > time_counter)
-                            continue; // already confused.
-                        // worth a try
-                        useful_inventory.append(item);
-                    }
-                    if (useful_inventory.length() > 0) {
-                        // should we zap it?
-                        if (actor->life()->species()->advanced_strategy || random_int(3) == 0) {
-                            // get him!!
-                            Coord direction = sign(vector);
-                            return Action::zap(useful_inventory[random_int(useful_inventory.length())]->id, direction);
+        switch (target->thing_type) {
+            case ThingType_INDIVIDUAL: {
+                // we are aggro!!
+                if (actor->life()->species()->advanced_strategy) {
+                    if (actor->status_effects.speed_up_expiration_time <= time_counter) {
+                        // use speed boost if we can
+                        for (int i = 0; i < inventory.length(); i++) {
+                            WandId wand_id = actor->life()->knowledge.wand_identities[inventory[i]->wand_info()->description_id];
+                            if (wand_id != WandId_WAND_OF_SPEED)
+                                continue;
+                            // gotta go fast!
+                            return Action::zap(inventory[i]->id, {0, 0});
                         }
-                        // nah. let's save the charges.
                     }
                 }
-            }
 
-            // move/attack
-            List<Coord> path;
-            find_path(actor->location, target->location, actor, &path);
-            if (path.length() > 0) {
-                Coord direction = path[0] - actor->location;
-                if (path[0] == target->location)
-                    return Action::attack(direction);
-                else
-                    return Action::move(direction);
-            } else {
-                // we must be stuck in a crowd
-                return Action::wait();
-            }
-        } else if (target->thing_type == ThingType_WAND) {
-            // gimme that
-            if (target->location == actor->location)
-                return Action::pickup(target->id);
-
-            List<Coord> path;
-            find_path(actor->location, target->location, actor, &path);
-            if (path.length() > 0) {
-                Coord next_location = path[0];
-                if (do_i_think_i_can_move_here(actor, next_location)) {
-                    Coord direction = next_location - actor->location;
-                    return Action::move(direction);
+                // zap him?
+                if (actor->life()->species()->uses_wands) {
+                    Coord vector = target->location - actor->location;
+                    Coord abs_vector = abs(vector);
+                    int distnace = ordinal_distance(target->location, actor->location);
+                    if ((vector.x * vector.y == 0 || abs_vector.x == abs_vector.y) && distnace <= beam_length_average) {
+                        // you're in sight.
+                        List<Thing> useful_inventory;
+                        for (int i = 0; i < inventory.length(); i++) {
+                            Thing item = inventory[i];
+                            WandId wand_id = actor->life()->knowledge.wand_identities[item->wand_info()->description_id];
+                            if (wand_id == WandId_WAND_OF_DIGGING)
+                                continue; // don't dig the person.
+                            if (wand_id == WandId_WAND_OF_SPEED || wand_id == WandId_WAND_OF_REMEDY)
+                                continue; // you'd like that, wouldn't you.
+                            if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_expiration_time > time_counter)
+                                continue; // already confused.
+                            // worth a try
+                            useful_inventory.append(item);
+                        }
+                        if (useful_inventory.length() > 0) {
+                            // should we zap it?
+                            if (actor->life()->species()->advanced_strategy || random_int(3) == 0) {
+                                // get him!!
+                                Coord direction = sign(vector);
+                                return Action::zap(useful_inventory[random_int(useful_inventory.length())]->id, direction);
+                            }
+                            // nah. let's save the charges.
+                        }
+                    }
                 }
-                // someone friendly is in the way, or something.
-            } else {
-                // we must be stuck in a crowd
-                return Action::wait();
+
+                // move/attack
+                List<Coord> path;
+                find_path(actor->location, target->location, actor, &path);
+                if (path.length() > 0) {
+                    Coord direction = path[0] - actor->location;
+                    if (path[0] == target->location)
+                        return Action::attack(direction);
+                    else
+                        return Action::move(direction);
+                } else {
+                    // we must be stuck in a crowd
+                    return Action::wait();
+                }
             }
-        } else {
-            panic("thing type");
+            case ThingType_POTION:
+            case ThingType_WAND: {
+                // gimme that
+                if (target->location == actor->location)
+                    return Action::pickup(target->id);
+
+                List<Coord> path;
+                find_path(actor->location, target->location, actor, &path);
+                if (path.length() > 0) {
+                    Coord next_location = path[0];
+                    if (do_i_think_i_can_move_here(actor, next_location)) {
+                        Coord direction = next_location - actor->location;
+                        return Action::move(direction);
+                    }
+                    // someone friendly is in the way, or something.
+                } else {
+                    // we must be stuck in a crowd
+                    return Action::wait();
+                }
+            }
         }
+        panic("thing type");
     }
 
     // idk what to do
