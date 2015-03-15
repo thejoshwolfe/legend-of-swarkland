@@ -206,7 +206,7 @@ static bool can_see_location(Thing observer, Coord location) {
         return false;
     return observer->life()->knowledge.tile_is_visible[location].any();
 }
-bool can_see_individual(Thing observer, uint256 target_id, Coord target_location) {
+bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     // you can always see yourself
     if (observer->id == target_id)
         return true;
@@ -222,8 +222,12 @@ bool can_see_individual(Thing observer, uint256 target_id, Coord target_location
         return false;
     return true;
 }
-bool can_see_individual(Thing observer, uint256 target_id) {
-    return can_see_individual(observer, target_id, actual_things.get(target_id)->location);
+bool can_see_thing(Thing observer, uint256 target_id) {
+    Thing thing = actual_things.get(target_id);
+    if (thing->location != Coord::nowhere())
+        return can_see_thing(observer, target_id, thing->location);
+    else
+        return can_see_thing(observer, thing->container_id);
 }
 static Coord location_of(uint256 individual_id) {
     return actual_things.get(individual_id)->location;
@@ -233,7 +237,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
     switch (event.type) {
         case Event::MOVE: {
             Event::TwoIndividualData & data = event.two_individual_data();
-            if (!(can_see_individual(observer, data.actor, data.actor_location) || can_see_individual(observer, data.actor, data.target_location)))
+            if (!(can_see_thing(observer, data.actor, data.actor_location) || can_see_thing(observer, data.actor, data.target_location)))
                 return false;
             *output_event = event;
             return true;
@@ -243,11 +247,11 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             Event::TwoIndividualData & data = event.two_individual_data();
 
             uint256 actor = data.actor;
-            if (data.actor != uint256::zero() && !can_see_individual(observer, data.actor))
+            if (data.actor != uint256::zero() && !can_see_thing(observer, data.actor))
                 actor = uint256::zero();
 
             uint256 target = data.target;
-            if (data.target != uint256::zero() && !can_see_individual(observer, data.target))
+            if (data.target != uint256::zero() && !can_see_thing(observer, data.target))
                 target = uint256::zero();
 
             if (actor == uint256::zero() && target == uint256::zero())
@@ -261,7 +265,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::ZAP_WAND:
         case Event::ZAP_WAND_NO_CHARGES:
         case Event::WAND_DISINTEGRATES:
-            if (!can_see_individual(observer, event.zap_wand_data().wielder))
+            if (!can_see_thing(observer, event.zap_wand_data().wielder))
                 return false;
             *output_event = event;
             return true;
@@ -274,7 +278,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::WAND_HIT: {
             Event::WandHitData & data = event.wand_hit_data();
             if (data.target != uint256::zero()) {
-                if (!can_see_individual(observer, data.target))
+                if (!can_see_thing(observer, data.target))
                     return false;
             } else {
                 if (!observer->life()->knowledge.tile_is_visible[data.location].any())
@@ -286,7 +290,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
 
         case Event::THROW_ITEM:
         case Event::ITEM_HITS_INDIVIDUAL:
-            if (!can_see_individual(observer, event.zap_wand_data().wielder))
+            if (!can_see_thing(observer, event.zap_wand_data().wielder))
                 return false;
             *output_event = event;
             return true;
@@ -300,7 +304,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::USE_POTION:
             if (!can_see_location(observer, event.use_potion_data().location))
                 return false;
-            if (!can_see_individual(observer, event.use_potion_data().target_id)) {
+            if (!can_see_thing(observer, event.use_potion_data().target_id)) {
                 if (event.use_potion_data().is_breaking) {
                     // i see that it broke, but it looks like it hit nobody
                     *output_event = event;
@@ -321,14 +325,14 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::NO_LONGER_HAS_ETHEREAL_VISION:
         case Event::NO_LONGER_POISONED:
         case Event::APPEAR:
-            if (!can_see_individual(observer, event.the_individual_data()))
+            if (!can_see_thing(observer, event.the_individual_data()))
                 return false;
             *output_event = event;
             return true;
         case Event::TURN_INVISIBLE:
             if (!can_see_location(observer, location_of(event.the_individual_data())))
                 return false;
-            if (!can_see_individual(observer, event.the_individual_data())) {
+            if (!can_see_thing(observer, event.the_individual_data())) {
                 *output_event = Event::disappear(event.the_individual_data());
                 return true;
             }
@@ -338,7 +342,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             panic("not a real event");
         case Event::LEVEL_UP:
         case Event::DIE:
-            if (!can_see_individual(observer, event.the_individual_data()))
+            if (!can_see_thing(observer, event.the_individual_data()))
                 return false;
             *output_event = event;
             return true;
@@ -358,7 +362,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         case Event::INDIVIDUAL_SUCKS_UP_ITEM:
             if (!can_see_location(observer, location_of(event.zap_wand_data().wielder)))
                 return false;
-            if (!can_see_individual(observer, event.zap_wand_data().wielder)) {
+            if (!can_see_thing(observer, event.zap_wand_data().wielder)) {
                 if (event.type == Event::INDIVIDUAL_PICKS_UP_ITEM)
                     *output_event = Event::something_picks_up_item(event.zap_wand_data().wand, location_of(event.zap_wand_data().wielder));
                 else
@@ -374,7 +378,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
     panic("see event");
 }
 
-static void record_perception_of_thing(Thing observer, uint256 target_id) {
+void record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = to_perceived_thing(target_id);
     if (target == nullptr) {
         observer->life()->knowledge.perceived_things.remove(target_id);

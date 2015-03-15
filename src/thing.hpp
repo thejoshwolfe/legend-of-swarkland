@@ -358,7 +358,6 @@ static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> 
 }
 
 PerceivedThing to_perceived_thing(uint256 target_id);
-PerceivedThing perceive_thing(Thing observer, Thing target);
 
 static inline int compare_individuals_by_initiative(Thing a, Thing b) {
     return compare(a->life()->initiative, b->life()->initiative);
