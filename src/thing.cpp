@@ -21,16 +21,6 @@ ThingImpl::ThingImpl(WandDescriptionId description_id, int charges) :
     _wand_info->description_id = description_id;
     _wand_info->charges = charges;
 }
-ThingImpl::~ThingImpl() {
-    switch (thing_type) {
-        case ThingType_INDIVIDUAL:
-            destroy(_life, 1);
-            break;
-        case ThingType_WAND:
-            destroy(_wand_info, 1);
-            break;
-    }
-}
 
 
 const Species * Life::species() const {
@@ -46,11 +36,22 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
     status_effects.poison_expiration_time = status_effects.poison_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
     status_effects.poison_next_damage_time = -1;
     status_effects.poisoner = uint256::zero();
+
+    Coord location = target->location;
+    uint256 container_id = target->container_id;
+    int z_order = target->z_order;
+    if (location != Coord::nowhere()) {
+        container_id = uint256::zero();
+        z_order = 0;
+    }
+
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL:
             return create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, status_effects);
         case ThingType_WAND:
-            return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, target->location, target->container_id, target->z_order, status_effects);
+            return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, location, container_id, z_order, status_effects);
+        case ThingType_POTION:
+            return create<PerceivedThingImpl>(target->id, target->potion_info()->description_id, location, container_id, z_order, status_effects);
     }
     panic("thing type");
 }

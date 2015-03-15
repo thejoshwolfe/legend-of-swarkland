@@ -13,8 +13,9 @@
 #include <stdbool.h>
 
 enum ThingType {
-    ThingType_WAND,
     ThingType_INDIVIDUAL,
+    ThingType_WAND,
+    ThingType_POTION,
 };
 
 enum WandDescriptionId {
@@ -35,6 +36,14 @@ enum WandId {
 
     WandId_COUNT,
     WandId_UNKNOWN,
+};
+
+enum PotionDescriptionId {
+    PotionDescriptionId_COUNT,
+};
+enum PotionId {
+    PotionId_COUNT,
+    PotionId_UNKNOWN,
 };
 
 extern WandId actual_wand_identities[WandId_COUNT];
@@ -118,6 +127,9 @@ struct StatusEffects {
 struct PerceivedWandInfo {
     WandDescriptionId description_id;
 };
+struct PerceivedPotionInfo {
+    PotionDescriptionId description_id;
+};
 struct PerceivedLife {
     SpeciesId species_id;
     Team team;
@@ -138,11 +150,17 @@ public:
         _life->species_id = species_id;
         _life->team = team;
     }
-    // item
+    // wand
     PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, uint256 container_id, int z_order, StatusEffects status_effects) :
             id(id), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order), status_effects(status_effects) {
         _wand_info = create<PerceivedWandInfo>();
         _wand_info->description_id = description_id;
+    }
+    // potion
+    PerceivedThingImpl(uint256 id, PotionDescriptionId description_id, Coord location, uint256 container_id, int z_order, StatusEffects status_effects) :
+            id(id), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order), status_effects(status_effects) {
+        _potion_info = create<PerceivedPotionInfo>();
+        _potion_info->description_id = description_id;
     }
     ~PerceivedThingImpl() {
         switch (thing_type) {
@@ -151,6 +169,9 @@ public:
                 break;
             case ThingType_WAND:
                 destroy(_wand_info, 1);
+                break;
+            case ThingType_POTION:
+                destroy(_potion_info, 1);
                 break;
         }
     }
@@ -164,10 +185,16 @@ public:
             panic("wrong type");
         return _wand_info;
     }
+    PerceivedPotionInfo * potion_info() {
+        if (thing_type != ThingType_POTION)
+            panic("wrong type");
+        return _potion_info;
+    }
 private:
     union {
         PerceivedLife * _life;
         PerceivedWandInfo * _wand_info;
+        PerceivedPotionInfo * _potion_info;
     };
 };
 typedef Reference<PerceivedThingImpl> PerceivedThing;
@@ -184,8 +211,11 @@ struct Knowledge {
     List<RememberedEvent> remembered_events;
     // incremented whenever events were forgotten, which means we need to blank out and refresh the rendering of the events.
     int event_forget_counter = 0;
-    // this is never wrong
+
+    // these are never wrong
     WandId wand_identities[WandId_COUNT];
+    PotionId potion_identities[PotionId_COUNT];
+
     IdMap<PerceivedThing> perceived_things;
     Knowledge() {
         reset_map();
@@ -234,6 +264,9 @@ struct Life : public PerceivedLife {
 struct WandInfo : public PerceivedWandInfo {
     int charges;
 };
+struct PotionInfo : public PerceivedPotionInfo {
+    // it's the same
+};
 
 class ThingImpl : public ReferenceCounted {
 public:
@@ -250,11 +283,24 @@ public:
 
     // individual
     ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
-
     // wand
     ThingImpl(WandDescriptionId description_id, int charges);
+    // potion
+    ThingImpl(PotionDescriptionId description_id);
 
-    ~ThingImpl();
+    ~ThingImpl() {
+        switch (thing_type) {
+            case ThingType_INDIVIDUAL:
+                destroy(_life, 1);
+                break;
+            case ThingType_WAND:
+                destroy(_wand_info, 1);
+                break;
+            case ThingType_POTION:
+                destroy(_potion_info, 1);
+                break;
+        }
+    }
 
     Life * life() {
         if (thing_type != ThingType_INDIVIDUAL)
@@ -266,17 +312,22 @@ public:
             panic("wrong type");
         return _wand_info;
     }
+    PotionInfo * potion_info() {
+        if (thing_type != ThingType_WAND)
+            panic("wrong type");
+        return _potion_info;
+    }
 private:
     union {
         Life * _life;
         WandInfo * _wand_info;
+        PotionInfo * _potion_info;
     };
 
     ThingImpl(ThingImpl &) = delete;
     ThingImpl & operator=(ThingImpl &) = delete;
 };
 typedef Reference<ThingImpl> Thing;
-
 
 template<typename T>
 static inline bool is_individual(T thing) {

@@ -53,6 +53,7 @@ void run_the_game();
 int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b);
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location);
 void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
+void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
 Thing find_individual_at(Coord location);
 void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list);
 void find_items_in_inventory(Thing observer, PerceivedThing perceived_owner, List<PerceivedThing> * output_sorted_list);

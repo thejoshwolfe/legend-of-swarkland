@@ -167,7 +167,7 @@ static Action on_key_down_main(const SDL_Event & event) {
             }
             case SDLK_COMMA: {
                 List<PerceivedThing> items;
-                find_perceived_things_at(you, you->location, &items);
+                find_perceived_items_at(you, you->location, &items);
                 if (items.length() == 0)
                     break;
                 // grab the top one (or something)

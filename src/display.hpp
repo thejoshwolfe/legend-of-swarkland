@@ -22,8 +22,6 @@ void display_finish();
 Coord get_mouse_tile(SDL_Rect area);
 Span get_species_name(SpeciesId species_id);
 Span get_thing_description(Thing observer, uint256 target_id);
-Span get_individual_description(Thing observer, uint256 target_id);
-Span get_item_description(Thing observer, uint256 item_id);
 void render();
 
 #endif

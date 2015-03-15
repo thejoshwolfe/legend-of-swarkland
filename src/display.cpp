@@ -41,6 +41,7 @@ static RuckSackImage * floor_images[8];
 static RuckSackImage * wall_images[8];
 static RuckSackImage * stairs_down_image;
 static RuckSackImage * wand_images[WandDescriptionId_COUNT];
+static RuckSackImage * potion_images[PotionDescriptionId_COUNT];
 static RuckSackImage * equipment_image;
 
 TTF_Font * status_box_font;
@@ -273,16 +274,7 @@ static const char * get_species_name_str(SpeciesId species_id) {
 Span get_species_name(SpeciesId species_id) {
     return new_span(get_species_name_str(species_id), light_brown, black);
 }
-Span get_thing_description(Thing observer, uint256 target_id) {
-    PerceivedThing actual_thing = observer->life()->knowledge.perceived_things.get(target_id);
-    switch (actual_thing->thing_type) {
-        case ThingType_INDIVIDUAL:
-            return get_individual_description(observer, target_id);
-        case ThingType_WAND:
-            return get_item_description(observer, target_id);
-    }
-    panic("thing type");
-}
+// ends with " " if non-blank
 static Span get_status_description(const StatusEffects & status_effects) {
     Span result = new_span();
     if (status_effects.invisible)
@@ -296,23 +288,9 @@ static Span get_status_description(const StatusEffects & status_effects) {
     result->set_color(pink, black);
     return result;
 }
-Span get_individual_description(Thing observer, uint256 target_id) {
-    if (observer->id == target_id)
-        return new_span("you", light_blue, black);
-    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
-    if (target == nullptr)
-        return new_span("it", light_brown, black);
-    Span result = new_span();
-    result->format("a %s%s", get_status_description(target->status_effects), get_species_name(target->life()->species_id));
-    return result;
-}
-static const char * get_item_description_str(Thing observer, uint256 item_id) {
-    PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id, nullptr);
-    if (item == nullptr) {
-        // can't see the wand
-        return "wand";
-    }
-    WandId true_id = observer->life()->knowledge.wand_identities[item->wand_info()->description_id];
+static const char * get_wand_description_str(Thing observer, PerceivedThing item) {
+    WandDescriptionId description_id = item->wand_info()->description_id;
+    WandId true_id = observer->life()->knowledge.wand_identities[description_id];
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
@@ -330,9 +308,9 @@ static const char * get_item_description_str(Thing observer, uint256 item_id) {
             case WandId_UNKNOWN:
                 panic("not a real wand id");
         }
-        panic("wand id");
+        panic("item id");
     } else {
-        switch (item->wand_info()->description_id) {
+        switch (description_id) {
             case WandDescriptionId_BONE_WAND:
                 return "bone wand";
             case WandDescriptionId_GOLD_WAND:
@@ -345,17 +323,53 @@ static const char * get_item_description_str(Thing observer, uint256 item_id) {
                 return "purple wand";
 
             case WandDescriptionId_COUNT:
-                panic("not a real wand description id");
+                panic("not a real description id");
         }
-        panic("wand description");
+        panic("description id");
     }
 }
-Span get_item_description(Thing observer, uint256 item_id) {
-    Span result = new_span("a ");
-    result->append(new_span(get_item_description_str(observer, item_id), light_green, black));
-    return result;
-}
+static const char * get_potion_description_str(Thing observer, PerceivedThing item) {
+    PotionDescriptionId description_id = item->potion_info()->description_id;
+    PotionId true_id = observer->life()->knowledge.potion_identities[description_id];
+    if (true_id != PotionId_UNKNOWN) {
+        switch (true_id) {
 
+            case PotionId_COUNT:
+            case PotionId_UNKNOWN:
+                panic("not a real id");
+        }
+        panic("item id");
+    } else {
+        switch (description_id) {
+
+            case PotionDescriptionId_COUNT:
+                panic("not a real description id");
+        }
+        panic("description id");
+    }
+}
+Span get_thing_description(Thing observer, uint256 target_id) {
+    if (observer->id == target_id)
+        return new_span("you", light_blue, black);
+
+    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id);
+
+    Span result = new_span("a ");
+    result->append(get_status_description(target->status_effects));
+
+    switch (target->thing_type) {
+        case ThingType_INDIVIDUAL:
+            result->append(get_species_name(target->life()->species_id));
+            return result;
+        case ThingType_WAND:
+            result->append(new_span(get_wand_description_str(observer, target), light_green, black));
+            return result;
+        case ThingType_POTION:
+            result->append(new_span(get_potion_description_str(observer, target), light_green, black));
+            return result;
+    }
+    panic("thing type");
+}
 
 static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
     Coord upper_left_corner = Coord{area.x, area.y} + Coord{tile_in_area.x * tile_size, tile_in_area.y * tile_size};
@@ -387,6 +401,8 @@ static RuckSackImage * get_image_for_thing(Reference<T> thing) {
             return species_images[thing->life()->species_id];
         case ThingType_WAND:
             return wand_images[thing->wand_info()->description_id];
+        case ThingType_POTION:
+            return potion_images[thing->potion_info()->description_id];
     }
     panic("thing type");
 }
@@ -712,7 +728,7 @@ void render() {
         }
         if (render_cursor) {
             // also show popup help
-            keyboard_hover_div->set_content(get_item_description(spectate_from, my_inventory[inventory_cursor]->id));
+            keyboard_hover_div->set_content(get_thing_description(spectate_from, my_inventory[inventory_cursor]->id));
             popup_help(inventory_area, Coord{0, inventory_cursor}, keyboard_hover_div);
         }
     }
@@ -752,7 +768,7 @@ void render() {
     if (mouse_hover_inventory_tile.x == 0) {
         int inventory_index = mouse_hover_inventory_tile.y;
         if (0 <= inventory_index && inventory_index < my_inventory.length()) {
-            mouse_hover_div->set_content(get_item_description(spectate_from, my_inventory[inventory_index]->id));
+            mouse_hover_div->set_content(get_thing_description(spectate_from, my_inventory[inventory_index]->id));
             popup_help(inventory_area, Coord{0, inventory_index}, mouse_hover_div);
         }
     }

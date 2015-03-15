@@ -12,11 +12,11 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         case Event::BUMP_INTO:
         case Event::ATTACK: {
             Event::TwoIndividualData & data = event.two_individual_data();
-            Span actor_description = data.actor != uint256::zero() ? get_individual_description(observer, data.actor) : new_span("something unseen");
+            Span actor_description = data.actor != uint256::zero() ? get_thing_description(observer, data.actor) : new_span("something unseen");
             // what did it bump into? whatever we think is there
             Span bumpee_description;
             if (data.target != uint256::zero()) {
-                bumpee_description = get_individual_description(observer, data.target);
+                bumpee_description = get_thing_description(observer, data.target);
             } else {
                 // can't see anybody there. what are we bumping into?
                 if (!is_open_space(observer->life()->knowledge.tiles[data.target_location].tile_type))
@@ -33,23 +33,23 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
 
         case Event::ZAP_WAND: {
             Event::ZapWandData & data = event.zap_wand_data();
-            result->span->format("%s zaps %s.", get_individual_description(observer, data.wielder), get_item_description(observer, data.wand));
+            result->span->format("%s zaps %s.", get_thing_description(observer, data.wielder), get_thing_description(observer, data.wand));
             return result;
         }
         case Event::ZAP_WAND_NO_CHARGES: {
             Event::ZapWandData & data = event.zap_wand_data();
-            Span wand_description = get_item_description(observer, data.wand);
-            result->span->format("%s zaps %s, but %s just sputters.", get_individual_description(observer, data.wielder), wand_description, wand_description);
+            Span wand_description = get_thing_description(observer, data.wand);
+            result->span->format("%s zaps %s, but %s just sputters.", get_thing_description(observer, data.wielder), wand_description, wand_description);
             return result;
         }
         case Event::WAND_DISINTEGRATES: {
             Event::ZapWandData & data = event.zap_wand_data();
-            Span wand_description = get_item_description(observer, data.wand);
-            result->span->format("%s tries to zap %s, but %s disintegrates.", get_individual_description(observer, data.wielder), wand_description, wand_description);
+            Span wand_description = get_thing_description(observer, data.wand);
+            result->span->format("%s tries to zap %s, but %s disintegrates.", get_thing_description(observer, data.wielder), wand_description, wand_description);
             return result;
         }
         case Event::WAND_EXPLODES:
-            result->span->format("%s explodes!", get_item_description(observer, event.item_and_location_data().item));
+            result->span->format("%s explodes!", get_thing_description(observer, event.item_and_location_data().item));
             return result;
 
         case Event::WAND_HIT: {
@@ -57,7 +57,7 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             Span beam_description = new_span(data.is_explosion ? "an explosion" : "a magic beam");
             Span target_description;
             if (data.target != uint256::zero()) {
-                target_description = get_individual_description(observer, data.target);
+                target_description = get_thing_description(observer, data.target);
             } else if (!is_open_space(observer->life()->knowledge.tiles[data.location].tile_type)) {
                 target_description = new_span("a wall");
             } else {
@@ -92,74 +92,74 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
 
         case Event::THROW_ITEM:
             result->span->format("%s throws %s.",
-                    get_individual_description(observer, event.zap_wand_data().wielder),
-                    get_item_description(observer, event.zap_wand_data().wand));
+                    get_thing_description(observer, event.zap_wand_data().wielder),
+                    get_thing_description(observer, event.zap_wand_data().wand));
             return result;
         case Event::ITEM_HITS_INDIVIDUAL:
             result->span->format("%s hits %s!",
-                    get_item_description(observer, event.zap_wand_data().wand),
-                    get_individual_description(observer, event.zap_wand_data().wielder));
+                    get_thing_description(observer, event.zap_wand_data().wand),
+                    get_thing_description(observer, event.zap_wand_data().wielder));
             return result;
         case Event::ITEM_HITS_WALL:
-            result->span->format("%s hits a wall.", get_item_description(observer, event.item_and_location_data().item));
+            result->span->format("%s hits a wall.", get_thing_description(observer, event.item_and_location_data().item));
             return result;
         case Event::ITEM_HITS_SOMETHING:
-            result->span->format("%s hits something.", get_item_description(observer, event.item_and_location_data().item));
+            result->span->format("%s hits something.", get_thing_description(observer, event.item_and_location_data().item));
             return result;
 
         case Event::POISONED:
-            result->span->format("%s is poisoned!", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s is poisoned!", get_thing_description(observer, event.the_individual_data()));
             return result;
         case Event::NO_LONGER_CONFUSED:
-            result->span->format("%s is no longer confused.", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s is no longer confused.", get_thing_description(observer, event.the_individual_data()));
             return result;
         case Event::NO_LONGER_FAST:
-            result->span->format("%s slows back down to normal speed.", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s slows back down to normal speed.", get_thing_description(observer, event.the_individual_data()));
             return result;
         case Event::NO_LONGER_POISONED:
-            result->span->format("%s is no longer poisoned.", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s is no longer poisoned.", get_thing_description(observer, event.the_individual_data()));
             return result;
 
         case Event::APPEAR:
-            result->span->format("%s appears out of nowhere!", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s appears out of nowhere!", get_thing_description(observer, event.the_individual_data()));
             return result;
         case Event::TURN_INVISIBLE:
-            result->span->format("%s turns invisible!", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s turns invisible!", get_thing_description(observer, event.the_individual_data()));
             return result;
         case Event::DISAPPEAR:
-            result->span->format("%s vanishes out of sight!", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s vanishes out of sight!", get_thing_description(observer, event.the_individual_data()));
             return result;
         case Event::DIE:
-            result->span->format("%s dies.", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s dies.", get_thing_description(observer, event.the_individual_data()));
             return result;
         case Event::LEVEL_UP:
-            result->span->format("%s levels up.", get_individual_description(observer, event.the_individual_data()));
+            result->span->format("%s levels up.", get_thing_description(observer, event.the_individual_data()));
             return result;
 
         case Event::POLYMORPH:
             result->span->format("%s transforms into %s!",
                     get_species_name(event.polymorph_data().old_species),
-                    get_individual_description(observer, event.polymorph_data().individual));
+                    get_thing_description(observer, event.polymorph_data().individual));
             return result;
 
         case Event::ITEM_DROPS_TO_THE_FLOOR:
-            result->span->format("%s drops to the floor.", get_item_description(observer, event.item_and_location_data().item));
+            result->span->format("%s drops to the floor.", get_thing_description(observer, event.item_and_location_data().item));
             return result;
         case Event::INDIVIDUAL_PICKS_UP_ITEM:
             result->span->format("%s picks up %s.",
-                    get_individual_description(observer, event.zap_wand_data().wielder),
-                    get_item_description(observer, event.zap_wand_data().wand));
+                    get_thing_description(observer, event.zap_wand_data().wielder),
+                    get_thing_description(observer, event.zap_wand_data().wand));
             return result;
         case Event::SOMETHING_PICKS_UP_ITEM:
-            result->span->format("something unseen picks up %s.", get_item_description(observer, event.item_and_location_data().item));
+            result->span->format("something unseen picks up %s.", get_thing_description(observer, event.item_and_location_data().item));
             return result;
         case Event::INDIVIDUAL_SUCKS_UP_ITEM:
             result->span->format("%s sucks up %s.",
-                    get_individual_description(observer, event.zap_wand_data().wielder),
-                    get_item_description(observer, event.zap_wand_data().wand));
+                    get_thing_description(observer, event.zap_wand_data().wielder),
+                    get_thing_description(observer, event.zap_wand_data().wand));
             return result;
         case Event::SOMETHING_SUCKS_UP_ITEM:
-            result->span->format("something unseen sucks up %s.", get_item_description(observer, event.item_and_location_data().item));
+            result->span->format("something unseen sucks up %s.", get_thing_description(observer, event.item_and_location_data().item));
             return result;
     }
     panic("remembered_event");

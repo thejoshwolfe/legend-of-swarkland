@@ -22,7 +22,7 @@ static Action get_player_decision(Thing) {
 static int rate_interest_in_target(Thing actor, PerceivedThing target) {
     int score = ordinal_distance(actor->location, target->location);
     // picking up items is less attractive if there are hostiles nearby
-    if (target->thing_type == ThingType_WAND)
+    if (target->thing_type != ThingType_INDIVIDUAL)
         score += 1;
     return score;
 }
@@ -55,6 +55,7 @@ static Action get_ai_decision(Thing actor) {
                     continue; // you're cool
                 break;
             case ThingType_WAND:
+            case ThingType_POTION:
                 if (!actor->life()->species()->uses_wands)
                     continue; // don't care
                 if (target->location == Coord::nowhere())

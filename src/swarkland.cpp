@@ -364,7 +364,9 @@ static int compare_perceived_things_by_z_order(PerceivedThing a, PerceivedThing 
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
 int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b) {
-    int result = a->thing_type - b->thing_type;
+    int is_individual_a = a->thing_type == ThingType_INDIVIDUAL;
+    int is_individual_b = b->thing_type == ThingType_INDIVIDUAL;
+    int result = is_individual_a - is_individual_b;
     if (result != 0)
         return result;
     return compare_perceived_things_by_z_order(a, b);
@@ -383,6 +385,13 @@ void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThin
         if (thing->location == location)
             output_sorted_list->append(thing);
     sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+}
+void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list) {
+    PerceivedThing thing;
+    for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);)
+        if (thing->thing_type != ThingType_INDIVIDUAL && thing->location == location)
+            output_sorted_list->append(thing);
+    sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 Thing find_individual_at(Coord location) {
     Thing individual;
