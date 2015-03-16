@@ -36,6 +36,8 @@ static Action get_ai_decision(Thing actor) {
         if (actor->status_effects.confused_expiration_time > time_counter || actor->status_effects.poison_expiration_time > time_counter) {
             // can we remedy?
             for (int i = 0; i < inventory.length(); i++) {
+                if (inventory[i]->thing_type != ThingType_WAND)
+                    continue;
                 WandId wand_id = actor->life()->knowledge.wand_identities[inventory[i]->wand_info()->description_id];
                 if (wand_id != WandId_WAND_OF_REMEDY)
                     continue;
@@ -91,6 +93,8 @@ static Action get_ai_decision(Thing actor) {
                     if (actor->status_effects.speed_up_expiration_time <= time_counter) {
                         // use speed boost if we can
                         for (int i = 0; i < inventory.length(); i++) {
+                            if (inventory[i]->thing_type != ThingType_WAND)
+                                continue;
                             WandId wand_id = actor->life()->knowledge.wand_identities[inventory[i]->wand_info()->description_id];
                             if (wand_id != WandId_WAND_OF_SPEED)
                                 continue;
