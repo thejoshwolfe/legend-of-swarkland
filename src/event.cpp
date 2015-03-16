@@ -235,8 +235,17 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
 }
 bool can_see_thing(Thing observer, uint256 target_id) {
     Thing thing = actual_things.get(target_id);
-    if (thing->location == Coord::nowhere())
-        return can_see_thing(observer, thing->container_id);
+    if (thing->location == Coord::nowhere()) {
+        // it's being carried
+        Thing container = actual_things.get(thing->container_id);
+        // if the container is invisible, so is its contents
+        if (!can_see_thing(observer, container->id))
+            return false;
+        // cogniscopy doesn't show items
+        if (!can_see_location(observer, container->location))
+            return false;
+        return true;
+    }
 
     return can_see_thing(observer, target_id, thing->location);
 }
@@ -397,10 +406,13 @@ void record_perception_of_thing(Thing observer, uint256 target_id) {
         return;
     }
     observer->life()->knowledge.perceived_things.put(target_id, target);
-    List<Thing> inventory;
-    find_items_in_inventory(target_id, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
-        record_perception_of_thing(observer, inventory[i]->id);
+    // cogniscopy doesn't see items.
+    if (can_see_location(observer, target->location)) {
+        List<Thing> inventory;
+        find_items_in_inventory(target_id, &inventory);
+        for (int i = 0; i < inventory.length(); i++)
+            record_perception_of_thing(observer, inventory[i]->id);
+    }
 }
 
 static void id_item(Thing observer, WandDescriptionId description_id, WandId id) {
