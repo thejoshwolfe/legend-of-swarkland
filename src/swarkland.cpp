@@ -688,10 +688,14 @@ static void age_individual(Thing individual) {
         publish_event(Event::no_longer_confused(individual));
     if (individual->status_effects.speed_up_expiration_time == time_counter)
         publish_event(Event::no_longer_fast(individual));
-    if (individual->status_effects.ethereal_vision_expiration_time == time_counter)
+    if (individual->status_effects.ethereal_vision_expiration_time == time_counter) {
         publish_event(Event::no_longer_has_ethereal_vision(individual));
-    if (individual->status_effects.cogniscopy_expiration_time == time_counter)
+        compute_vision(individual);
+    }
+    if (individual->status_effects.cogniscopy_expiration_time == time_counter) {
         publish_event(Event::no_longer_cogniscopic(individual));
+        compute_vision(individual);
+    }
     if (individual->status_effects.poison_expiration_time == time_counter) {
         publish_event(Event::no_longer_poisoned(individual));
         reset_hp_regen_timeout(individual);
