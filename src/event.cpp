@@ -481,6 +481,8 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                 // TODO: should we delete the item if it flies out of view?
                 break;
             case Event::ITEM_HITS_INDIVIDUAL:
+                record_perception_of_thing(observer, event.zap_wand_data().wand);
+                break;
             case Event::ITEM_HITS_SOMETHING:
             case Event::ITEM_HITS_WALL:
                 // the item may have been thrown from out of view, so make sure we know what it is.
