@@ -120,7 +120,7 @@ void generate_map() {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             Tile & tile = actual_map_tiles[cursor];
             tile.tile_type = TileType_WALL;
-            tile.aesthetic_index = random_int(8);
+            tile.aesthetic_index = random_uint32();
         }
     }
     // line the border with special undiggable walls
@@ -159,7 +159,7 @@ void generate_map() {
         for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
                 room_floor_spaces.append(cursor);
-                actual_map_tiles[cursor].tile_type = TileType_FLOOR;
+                actual_map_tiles[cursor].tile_type = TileType_DIRT_FLOOR;
             }
         }
     }
@@ -213,10 +213,12 @@ void generate_map() {
         Coord b = {closest_room.x + 1, closest_room.y + 1};
         Coord delta = sign(b - a);
         Coord cursor = a;
-        for (; cursor.x * delta.x < b.x * delta.x; cursor.x += delta.x)
-            actual_map_tiles[cursor].tile_type = TileType_FLOOR;
-        for (; cursor.y * delta.y < b.y * delta.y; cursor.y += delta.y)
-            actual_map_tiles[cursor].tile_type = TileType_FLOOR;
+        for (; cursor.x * delta.x < b.x * delta.x; cursor.x += delta.x) {
+            actual_map_tiles[cursor].tile_type = TileType_DIRT_FLOOR;
+        }
+        for (; cursor.y * delta.y < b.y * delta.y; cursor.y += delta.y) {
+            actual_map_tiles[cursor].tile_type = TileType_DIRT_FLOOR;
+        }
     }
 
     // place the stairs down
@@ -255,7 +257,7 @@ void generate_map() {
 
         for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
-                actual_map_tiles[cursor].tile_type = TileType_FLOOR;
+                actual_map_tiles[cursor].tile_type = TileType_MARBLE_FLOOR;
                 spawn_zone[cursor] = false;
                 random_item()->location = cursor;
             }

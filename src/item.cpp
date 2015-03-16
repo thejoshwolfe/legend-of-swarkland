@@ -90,7 +90,7 @@ static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<Wand
     if (actual_map_tiles[location].tile_type != TileType_WALL)
         return -1; // probably border walls
     publish_event(Event::wand_hit(WandId_WAND_OF_DIGGING, is_explosion, uint256::zero(), location), perceived_current_zapper);
-    change_map(location, TileType_FLOOR);
+    change_map(location, TileType_DIRT_FLOOR);
     return 0;
 }
 static int digging_pass_through_air(Thing, Coord, bool, IdMap<WandDescriptionId> *) {

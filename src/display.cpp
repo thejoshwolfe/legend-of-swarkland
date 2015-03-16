@@ -38,11 +38,12 @@ static RuckSackTexture * rs_texture;
 static RuckSackImage ** spritesheet_images;
 
 static RuckSackImage * species_images[SpeciesId_COUNT];
-static RuckSackImage * floor_images[8];
-static RuckSackImage * wall_images[8];
-static RuckSackImage * stairs_down_image;
 static RuckSackImage * wand_images[WandDescriptionId_COUNT];
 static RuckSackImage * potion_images[PotionDescriptionId_COUNT];
+static Array<RuckSackImage *, 8> dirt_floor_images;
+static Array<RuckSackImage *, 6> marble_floor_images;
+static Array<RuckSackImage *, 8> wall_images;
+static RuckSackImage * stairs_down_image;
 static RuckSackImage * equipment_image;
 
 TTF_Font * status_box_font;
@@ -69,14 +70,21 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     species_images[SpeciesId_SCORPION] = find_image(spritesheet_images, image_count, "img/scorpion.png");
     species_images[SpeciesId_SNAKE] = find_image(spritesheet_images, image_count, "img/snake.png");
 
-    floor_images[0] = find_image(spritesheet_images, image_count, "img/grey_dirt0.png");
-    floor_images[1] = find_image(spritesheet_images, image_count, "img/grey_dirt1.png");
-    floor_images[2] = find_image(spritesheet_images, image_count, "img/grey_dirt2.png");
-    floor_images[3] = find_image(spritesheet_images, image_count, "img/grey_dirt3.png");
-    floor_images[4] = find_image(spritesheet_images, image_count, "img/grey_dirt4.png");
-    floor_images[5] = find_image(spritesheet_images, image_count, "img/grey_dirt5.png");
-    floor_images[6] = find_image(spritesheet_images, image_count, "img/grey_dirt6.png");
-    floor_images[7] = find_image(spritesheet_images, image_count, "img/grey_dirt7.png");
+    dirt_floor_images[0] = find_image(spritesheet_images, image_count, "img/dirt_floor0.png");
+    dirt_floor_images[1] = find_image(spritesheet_images, image_count, "img/dirt_floor1.png");
+    dirt_floor_images[2] = find_image(spritesheet_images, image_count, "img/dirt_floor2.png");
+    dirt_floor_images[3] = find_image(spritesheet_images, image_count, "img/dirt_floor3.png");
+    dirt_floor_images[4] = find_image(spritesheet_images, image_count, "img/dirt_floor4.png");
+    dirt_floor_images[5] = find_image(spritesheet_images, image_count, "img/dirt_floor5.png");
+    dirt_floor_images[6] = find_image(spritesheet_images, image_count, "img/dirt_floor6.png");
+    dirt_floor_images[7] = find_image(spritesheet_images, image_count, "img/dirt_floor7.png");
+
+    marble_floor_images[0] = find_image(spritesheet_images, image_count, "img/marble_floor0.png");
+    marble_floor_images[1] = find_image(spritesheet_images, image_count, "img/marble_floor1.png");
+    marble_floor_images[2] = find_image(spritesheet_images, image_count, "img/marble_floor2.png");
+    marble_floor_images[3] = find_image(spritesheet_images, image_count, "img/marble_floor3.png");
+    marble_floor_images[4] = find_image(spritesheet_images, image_count, "img/marble_floor4.png");
+    marble_floor_images[5] = find_image(spritesheet_images, image_count, "img/marble_floor5.png");
 
     wall_images[0] = find_image(spritesheet_images, image_count, "img/brick_brown0.png");
     wall_images[1] = find_image(spritesheet_images, image_count, "img/brick_brown1.png");
@@ -436,11 +444,13 @@ static RuckSackImage * get_image_for_tile(Tile tile) {
     switch (tile.tile_type) {
         case TileType_UNKNOWN:
             return nullptr;
-        case TileType_FLOOR:
-            return floor_images[tile.aesthetic_index];
+        case TileType_DIRT_FLOOR:
+            return dirt_floor_images[tile.aesthetic_index % dirt_floor_images.length()];
+        case TileType_MARBLE_FLOOR:
+            return marble_floor_images[tile.aesthetic_index % marble_floor_images.length()];
         case TileType_WALL:
         case TileType_BORDER_WALL:
-            return wall_images[tile.aesthetic_index];
+            return wall_images[tile.aesthetic_index % wall_images.length()];
         case TileType_STAIRS_DOWN:
             return stairs_down_image;
         case TileType_COUNT:

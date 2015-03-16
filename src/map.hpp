@@ -16,7 +16,8 @@ using MapMatrix = Matrix<T, MAP_SIZE_X, MAP_SIZE_Y>;
 
 enum TileType {
     TileType_UNKNOWN,
-    TileType_FLOOR,
+    TileType_DIRT_FLOOR,
+    TileType_MARBLE_FLOOR,
     TileType_WALL,
     TileType_BORDER_WALL,
     TileType_STAIRS_DOWN,
@@ -26,7 +27,8 @@ enum TileType {
 
 struct Tile {
     TileType tile_type;
-    int aesthetic_index;
+    // this will almost always be out of bounds. use % to get something useful.
+    uint32_t aesthetic_index;
 };
 
 static const Tile unknown_tile = {TileType_UNKNOWN, 0};
@@ -44,7 +46,22 @@ static inline bool is_in_bounds(Coord point) {
 }
 
 static inline bool is_open_space(TileType tile_type) {
-    return tile_type == TileType_FLOOR || tile_type == TileType_STAIRS_DOWN;
+    switch (tile_type) {
+        case TileType_UNKNOWN:
+            // consider this open for the sake of path finding
+            return true;
+        case TileType_DIRT_FLOOR:
+        case TileType_MARBLE_FLOOR:
+            return true;
+        case TileType_WALL:
+        case TileType_BORDER_WALL:
+            return false;
+        case TileType_STAIRS_DOWN:
+            return true;
+        case TileType_COUNT:
+            panic("not a tile type");
+    }
+    panic("tile type");
 }
 
 Coord find_random_location(Coord away_from_location);
