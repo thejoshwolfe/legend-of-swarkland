@@ -272,7 +272,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
             find_items_in_inventory(you->id, &inventory);
             uint256 item_id = inventory[inventory_cursor]->id;
             if (!is_item_enabled(item_id))
-6                break;
+                break;
             // doit
             switch (input_mode) {
                 case InputMode_DROP_CHOOSE_ITEM:

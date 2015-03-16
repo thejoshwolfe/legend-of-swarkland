@@ -26,7 +26,7 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                 else
                     bumpee_description = new_span("thin air");
             }
-            const char * fmt = event.type == Event::BUMP_INTO ? "%s bumps into %s" : "%s hits %s";
+            const char * fmt = event.type == Event::BUMP_INTO ? "%s bumps into %s." : "%s hits %s.";
             result->span->format(fmt, actor_description, bumpee_description);
             return result;
         }
