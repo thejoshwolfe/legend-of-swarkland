@@ -478,12 +478,13 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
             }
 
             case Event::THROW_ITEM:
-                // item is now in the air, i guess
+                // TODO: should we delete the item if it flies out of view?
                 break;
             case Event::ITEM_HITS_INDIVIDUAL:
             case Event::ITEM_HITS_SOMETHING:
             case Event::ITEM_HITS_WALL:
-                // no state change
+                // the item may have been thrown from out of view, so make sure we know what it is.
+                record_perception_of_thing(observer, event.item_and_location_data().item);
                 break;
 
             case Event::USE_POTION: {
