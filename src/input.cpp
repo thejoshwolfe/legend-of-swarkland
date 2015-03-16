@@ -52,6 +52,22 @@ bool input_mode_is_choose_direction() {
     }
     panic("input mode");
 }
+bool is_item_enabled(uint256 item_id) {
+    Thing item = actual_things.get(item_id);
+    switch (input_mode) {
+        case InputMode_QUAFF_CHOOSE_ITEM:
+            return item->thing_type == ThingType_POTION;
+        case InputMode_ZAP_CHOOSE_ITEM:
+            return item->thing_type == ThingType_WAND;
+        case InputMode_THROW_CHOOSE_DIRECTION:
+        case InputMode_ZAP_CHOOSE_DIRECTION:
+        case InputMode_MAIN:
+        case InputMode_DROP_CHOOSE_ITEM:
+        case InputMode_THROW_CHOOSE_ITEM:
+            return true;
+    }
+    panic("input mode");
+}
 
 static InputMode get_item_choosing_action_mode(const SDL_Event & event) {
     switch (event.key.keysym.sym) {
@@ -184,13 +200,7 @@ static Action on_key_down_main(const SDL_Event & event) {
                 bool any_enabled = get_enabled_inventory_items(&inventory, &enabled_items, next_state);
 
                 if (any_enabled) {
-                    // put the cursor on the nearest enabled thing
                     inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
-                    while (inventory_cursor > 0 && !enabled_items[inventory_cursor])
-                        inventory_cursor--;
-                    while (inventory_cursor < inventory.length() && !enabled_items[inventory_cursor])
-                        inventory_cursor++;
-
                     input_mode = next_state;
                 }
                 return Action::undecided();
@@ -222,22 +232,28 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
             input_mode = InputMode_MAIN;
             break;
 
+        case SDL_SCANCODE_KP_1:
         case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_KP_3:
+        case SDL_SCANCODE_KP_4:
+        case SDL_SCANCODE_KP_5:
+        case SDL_SCANCODE_KP_6:
+        case SDL_SCANCODE_KP_7:
         case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_KP_9:
         case SDL_SCANCODE_DOWN:
+        case SDL_SCANCODE_LEFT:
+        case SDL_SCANCODE_RIGHT:
         case SDL_SCANCODE_UP: {
             // move the cursor
             List<Thing> inventory;
             List<bool> enabled_items;
             get_enabled_inventory_items(&inventory, &enabled_items, input_mode);
-            int delta = get_direction_from_event(event).y;
-            int candidate = inventory_cursor + delta;
-            while (0 <= candidate && candidate < inventory.length()) {
-                if (enabled_items[candidate]) {
-                    inventory_cursor = candidate;
-                    break;
-                }
-                candidate += delta;
+            Coord location = inventory_index_to_location(inventory_cursor) + get_direction_from_event(event);
+            if (0 <= location.x && location.x < inventory_layout_width && 0 <= location.y) {
+                int new_index = inventory_location_to_index(location);
+                if (new_index < inventory.length())
+                    inventory_cursor = new_index;
             }
             return Action::undecided();
         }
@@ -252,10 +268,12 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDLK_z: {
             if (input_mode != get_item_choosing_action_mode(event))
                 break;
-            // doit
             List<Thing> inventory;
             find_items_in_inventory(you->id, &inventory);
             uint256 item_id = inventory[inventory_cursor]->id;
+            if (!is_item_enabled(item_id))
+6                break;
+            // doit
             switch (input_mode) {
                 case InputMode_DROP_CHOOSE_ITEM:
                     input_mode = InputMode_MAIN;

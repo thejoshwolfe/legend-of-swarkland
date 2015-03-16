@@ -20,6 +20,7 @@ bool input_mode_is_choose_item();
 bool input_mode_is_choose_direction();
 extern int inventory_cursor;
 extern InputMode input_mode;
+bool is_item_enabled(uint256 item_id);
 
 Coord get_mouse_pixels();
 void on_mouse_motion();

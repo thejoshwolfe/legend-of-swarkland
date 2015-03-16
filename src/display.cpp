@@ -23,7 +23,7 @@ static const SDL_Rect xp_area = { hp_area.x + hp_area.w, status_box_area.y, 200,
 static const SDL_Rect dungeon_level_area = { xp_area.x + xp_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect status_area = { dungeon_level_area.x + dungeon_level_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect time_area = { status_area.x + status_area.w, status_box_area.y, 200, status_box_area.h };
-static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, 5 * tile_size, (map_size.y - 4) * tile_size };
+static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, inventory_layout_width * tile_size, (map_size.y - 4) * tile_size };
 static const SDL_Rect tutorial_area = { inventory_area.x, inventory_area.y + inventory_area.h, 5 * tile_size, 4 * tile_size };
 static const SDL_Rect version_area = { status_box_area.x + status_box_area.w, status_box_area.y, 5 * tile_size, tile_size };
 static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_area.w, status_box_area.y + status_box_area.h };
@@ -479,16 +479,19 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
         lines.append("Alt+F4: quit");
     } else if (input_mode_is_choose_item()) {
         lines.append("numpad: move cursor");
-        if (input_mode == InputMode_ZAP_CHOOSE_ITEM)
-            lines.append("z: zap it...");
-        else if (input_mode == InputMode_THROW_CHOOSE_ITEM)
+        if (input_mode == InputMode_ZAP_CHOOSE_ITEM) {
+            if (is_item_enabled(my_inventory[inventory_cursor]->id))
+                lines.append("z: zap it...");
+        } else if (input_mode == InputMode_THROW_CHOOSE_ITEM) {
             lines.append("t: throw it...");
-        else if (input_mode == InputMode_QUAFF_CHOOSE_ITEM)
-            lines.append("q: quaff it");
-        else if (input_mode == InputMode_DROP_CHOOSE_ITEM)
+        } else if (input_mode == InputMode_QUAFF_CHOOSE_ITEM) {
+            if (is_item_enabled(my_inventory[inventory_cursor]->id))
+                lines.append("q: quaff it");
+        } else if (input_mode == InputMode_DROP_CHOOSE_ITEM) {
             lines.append("d: drop it");
-        else
+        } else {
             panic("input_mode");
+        }
         lines.append("Esc: cancel");
     } else if (input_mode_is_choose_direction()) {
         lines.append("numpad: direction");
@@ -769,24 +772,26 @@ void render() {
         bool render_cursor = input_mode_is_choose_item();
         if (render_cursor) {
             // render the cursor
+            Coord cursor_location = inventory_index_to_location(inventory_cursor);
             SDL_Rect cursor_rect;
-            cursor_rect.x = inventory_area.x;
-            cursor_rect.y = inventory_area.y + tile_size * inventory_cursor;
+            cursor_rect.x = inventory_area.x + cursor_location.x * tile_size;
+            cursor_rect.y = inventory_area.y + cursor_location.y * tile_size;
             cursor_rect.w = tile_size;
             cursor_rect.h = tile_size;
             set_color(amber);
             SDL_RenderFillRect(renderer, &cursor_rect);
         }
-        Coord location = {map_size.x, 0};
         for (int i = 0; i < my_inventory.length(); i++) {
+            Coord location = inventory_index_to_location(i);
+            location.x += map_size.x;
             Thing item = my_inventory[i];
-            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(item), 0xff, location);
-            location.y += 1;
+            int alpha = is_item_enabled(item->id) ? 0xff : 0x44;
+            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(item), alpha, location);
         }
         if (render_cursor) {
             // also show popup help
             keyboard_hover_div->set_content(get_thing_description(spectate_from, my_inventory[inventory_cursor]->id));
-            popup_help(inventory_area, Coord{0, inventory_cursor}, keyboard_hover_div);
+            popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
         }
     }
 
