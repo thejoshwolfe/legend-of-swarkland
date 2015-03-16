@@ -231,7 +231,13 @@ void generate_map() {
     int wand_count = random_inclusive(1, 2);
     for (int i = 0; i < wand_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
-        random_item(ThingType_WAND)->location = location;
+        Thing item;
+        if (dungeon_level == 1 && i == 0) {
+            // first level always has a wand of digging to make finding vaults more fair.
+            create_wand(WandId_WAND_OF_DIGGING)->location = location;
+        } else {
+            random_item(ThingType_WAND)->location = location;
+        }
     }
     int potion_count = random_inclusive(2, 4);
     for (int i = 0; i < potion_count; i++) {

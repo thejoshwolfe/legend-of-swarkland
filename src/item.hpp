@@ -9,6 +9,8 @@ const int beam_length_error_margin = 3;
 void init_items();
 Thing random_item();
 Thing random_item(ThingType thing_type);
+Thing create_wand(WandId wand_id);
+Thing create_potion(PotionId potion_id);
 void delete_item(Thing item);
 void zap_wand(Thing individual, uint256 item_id, Coord direction);
 void use_potion(Thing actor, Thing target, Thing item, bool is_breaking);

@@ -8,17 +8,38 @@
 WandId actual_wand_identities[WandDescriptionId_COUNT];
 PotionId actual_potion_identities[PotionDescriptionId_COUNT];
 
-static Thing new_random_item(ThingType thing_type) {
+static Thing register_item(Thing item) {
+    actual_things.put(item->id, item);
+    return item;
+}
+static WandDescriptionId reverse_identify(WandId wand_id) {
+    for (int i = 0; i < WandDescriptionId_COUNT; i++)
+        if (actual_wand_identities[i] == wand_id)
+            return (WandDescriptionId)i;
+    panic("wand not found");
+}
+static PotionDescriptionId reverse_identify(PotionId potion_id) {
+    for (int i = 0; i < PotionDescriptionId_COUNT; i++)
+        if (actual_potion_identities[i] == potion_id)
+            return (PotionDescriptionId)i;
+    panic("potion not found");
+}
+Thing create_wand(WandId wand_id) {
+    WandDescriptionId description_id = reverse_identify(wand_id);
+    int charges = random_int(4, 8);
+    return register_item(create<ThingImpl>(description_id, charges));
+}
+Thing create_potion(PotionId potion_id) {
+    PotionDescriptionId description_id = reverse_identify(potion_id);
+    return register_item(create<ThingImpl>(description_id));
+}
+
+Thing random_item(ThingType thing_type) {
     switch (thing_type) {
-        case ThingType_POTION: {
-            PotionDescriptionId description_id = (PotionDescriptionId)random_int(PotionDescriptionId_COUNT);
-            return create<ThingImpl>(description_id);
-        }
-        case ThingType_WAND: {
-            WandDescriptionId description_id = (WandDescriptionId)random_int(WandDescriptionId_COUNT);
-            int charges = random_int(4, 8);
-            return create<ThingImpl>(description_id, charges);
-        }
+        case ThingType_POTION:
+            return create_potion((PotionId)random_int(PotionId_COUNT));
+        case ThingType_WAND:
+            return create_wand((WandId)random_int(WandId_COUNT));
         case ThingType_INDIVIDUAL:
             panic("not an item");
     }
@@ -29,11 +50,6 @@ Thing random_item() {
         return random_item(ThingType_WAND);
     else
         return random_item(ThingType_POTION);
-}
-Thing random_item(ThingType thing_type) {
-    Thing item = new_random_item(thing_type);
-    actual_things.put(item->id, item);
-    return item;
 }
 
 // return how much extra beam length this happening requires.
