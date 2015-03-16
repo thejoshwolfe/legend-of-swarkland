@@ -27,6 +27,22 @@ static int rate_interest_in_target(Thing actor, PerceivedThing target) {
     return score;
 }
 
+static bool is_clear_line_of_sight(Thing actor, Coord location) {
+    int distnace = ordinal_distance(location, actor->location);
+    if (distnace > beam_length_average)
+        return false; // out of range
+    Coord vector = location - actor->location;
+    Coord abs_vector = abs(vector);
+    if (!(vector.x * vector.y == 0 || abs_vector.x == abs_vector.y))
+        return false; // not a straight line
+    Coord step = sign(vector);
+    MapMatrix<Tile> & tiles = actor->life()->knowledge.tiles;
+    for (Coord cursor = actor->location + step; cursor != location; cursor += step)
+        if (!is_open_space(tiles[cursor].tile_type))
+            return false;
+    return true;
+}
+
 static Action get_ai_decision(Thing actor) {
     List<Thing> inventory;
     find_items_in_inventory(actor->id, &inventory);
@@ -106,11 +122,9 @@ static Action get_ai_decision(Thing actor) {
 
                 // zap him?
                 if (actor->life()->species()->uses_wands) {
-                    Coord vector = target->location - actor->location;
-                    Coord abs_vector = abs(vector);
-                    int distnace = ordinal_distance(target->location, actor->location);
-                    if ((vector.x * vector.y == 0 || abs_vector.x == abs_vector.y) && distnace <= beam_length_average) {
-                        // you're in sight.
+                    if (is_clear_line_of_sight(actor, target->location)) {
+                        Coord vector = target->location - actor->location;
+                        // you're in line, but is there a clear path?
                         List<Thing> useful_inventory;
                         for (int i = 0; i < inventory.length(); i++) {
                             Thing item = inventory[i];
@@ -173,7 +187,6 @@ static Action get_ai_decision(Thing actor) {
                 }
             }
         }
-        panic("thing type");
     }
 
     // idk what to do
