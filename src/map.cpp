@@ -233,7 +233,7 @@ void generate_map() {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
         Thing item;
         if (dungeon_level == 1 && i == 0) {
-            // first level always has a wand of digging to make finding vaults more fair.
+            // first level always has a wand of digging to make finding vaults less random.
             create_wand(WandId_WAND_OF_DIGGING)->location = location;
         } else {
             random_item(ThingType_WAND)->location = location;
@@ -242,7 +242,12 @@ void generate_map() {
     int potion_count = random_inclusive(2, 4);
     for (int i = 0; i < potion_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
-        random_item(ThingType_POTION)->location = location;
+        if (dungeon_level == 1 && i == 0) {
+            // first level always has a potion of ethereal vision to make finding vaults less random.
+            create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = location;
+        } else {
+            random_item(ThingType_POTION)->location = location;
+        }
     }
 
     // place some vaults
