@@ -7,6 +7,7 @@
 
 int dungeon_level = 0;
 MapMatrix<Tile> actual_map_tiles;
+MapMatrix<bool> spawn_zone;
 Coord stairs_down_location;
 
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
@@ -113,6 +114,7 @@ void compute_vision(Thing observer) {
 void generate_map() {
     dungeon_level++;
 
+    spawn_zone.set_all(true);
     // randomize the appearance of every tile, even if it doesn't matter.
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
@@ -152,8 +154,8 @@ void generate_map() {
     }
     List<Coord> room_floor_spaces;
     for (int i = 0; i < rooms.length(); i++) {
-        Coord cursor;
         SDL_Rect room = rooms[i];
+        Coord cursor;
         for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
                 room_floor_spaces.append(cursor);
@@ -162,7 +164,7 @@ void generate_map() {
         }
     }
 
-    // connect rooms with prim's algorithm.
+    // connect rooms with prim's algorithm, or something.
     struct PrimUtil {
         static inline int find_root_node(const List<int> & node_to_parent_node, int node) {
             while (true) {
@@ -183,7 +185,8 @@ void generate_map() {
         SDL_Rect room = rooms[i];
         int room_root = PrimUtil::find_root_node(node_to_parent_node, i);
         // find nearest room
-        // TODO: this is not prim's algorithm. we're supposed to find the shortest edge in the graph.
+        // uh... this is not prim's algorithm. we're supposed to find the shortest edge in the graph.
+        // whatever.
         int closest_neighbor = -1;
         SDL_Rect closest_room = {-1, -1, -1, -1};
         int closest_neighbor_root = -1;
@@ -233,4 +236,56 @@ void generate_map() {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
         random_item(ThingType_POTION)->location = location;
     }
+
+    // place some vaults
+    int vault_count = random_inclusive(1, 2);
+    for (int i = 0; i < 10; i++) {
+        int width = 4;
+        int height = 4;
+        int x = random_int(0, map_size.x - width);
+        int y = random_int(0, map_size.y - height);
+        SDL_Rect room = SDL_Rect{x, y, width, height};
+
+        Coord cursor;
+        for (cursor.y = room.y; cursor.y < room.y + room.h; cursor.y++)
+            for (cursor.x = room.x; cursor.x < room.x + room.w; cursor.x++)
+                if (actual_map_tiles[cursor].tile_type != TileType_WALL)
+                    goto next_vault;
+        // this location is secluded
+
+        for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
+            for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
+                actual_map_tiles[cursor].tile_type = TileType_FLOOR;
+                spawn_zone[cursor] = false;
+                random_item()->location = cursor;
+            }
+        }
+
+        vault_count--;
+        if (vault_count == 0)
+            break;
+
+        next_vault:;
+    }
+}
+
+static const int no_spawn_radius = 10;
+Coord find_random_location(Coord away_from_location) {
+    List<Coord> available_spawn_locations;
+    for (Coord location = {0, 0}; location.y < map_size.y; location.y++) {
+        for (location.x = 0; location.x < map_size.x; location.x++) {
+            if (!is_open_space(actual_map_tiles[location].tile_type))
+                continue;
+            if (!spawn_zone[location])
+                continue;
+            if (euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
+                continue;
+            if (find_individual_at(location) != nullptr)
+                continue;
+            available_spawn_locations.append(location);
+        }
+    }
+    if (available_spawn_locations.length() == 0)
+        return Coord::nowhere();
+    return available_spawn_locations[random_int(available_spawn_locations.length())];
 }

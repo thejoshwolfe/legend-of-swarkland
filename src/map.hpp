@@ -47,4 +47,6 @@ static inline bool is_open_space(TileType tile_type) {
     return tile_type == TileType_FLOOR || tile_type == TileType_STAIRS_DOWN;
 }
 
+Coord find_random_location(Coord away_from_location);
+
 #endif

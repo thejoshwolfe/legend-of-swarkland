@@ -193,25 +193,6 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 }
 
 
-static const int no_spawn_radius = 10;
-Coord find_random_location(Coord away_from_location) {
-    List<Coord> available_spawn_locations;
-    for (Coord location = {0, 0}; location.y < map_size.y; location.y++) {
-        for (location.x = 0; location.x < map_size.x; location.x++) {
-            if (!is_open_space(actual_map_tiles[location].tile_type))
-                continue;
-            if (euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
-                continue;
-            if (find_individual_at(location) != nullptr)
-                continue;
-            available_spawn_locations.append(location);
-        }
-    }
-    if (available_spawn_locations.length() == 0)
-        return Coord::nowhere();
-    return available_spawn_locations[random_int(available_spawn_locations.length())];
-}
-
 // SpeciesId_COUNT => random
 // experience = -1 => random
 static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker, int experience) {
