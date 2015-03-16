@@ -624,7 +624,7 @@ static bool take_action(Thing actor, Action action) {
                 go_down();
             break;
         case Action::CHEATCODE_GAIN_LEVEL:
-            gain_experience(actor, 10, true);
+            level_up(actor, true);
             return false;
     }
 
