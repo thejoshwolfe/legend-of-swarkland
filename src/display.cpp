@@ -574,7 +574,7 @@ static Div get_time_display(Thing spectate_from) {
 void render() {
     Thing spectate_from = get_spectate_individual();
     List<Thing> my_inventory;
-    find_items_in_inventory(spectate_from->id, &my_inventory);
+    find_items_in_inventory(you->id, &my_inventory);
 
     set_color(black);
     SDL_RenderClear(renderer);
