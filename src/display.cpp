@@ -827,11 +827,11 @@ void render() {
         }
     }
     Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
-    if (mouse_hover_inventory_tile.x == 0) {
-        int inventory_index = mouse_hover_inventory_tile.y;
-        if (0 <= inventory_index && inventory_index < my_inventory.length()) {
+    if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
+        int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
+        if (inventory_index < my_inventory.length()) {
             mouse_hover_div->set_content(get_thing_description(spectate_from, my_inventory[inventory_index]->id));
-            popup_help(inventory_area, Coord{0, inventory_index}, mouse_hover_div);
+            popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
         }
     }
 
