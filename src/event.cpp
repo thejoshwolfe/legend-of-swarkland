@@ -234,7 +234,11 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     return true;
 }
 bool can_see_thing(Thing observer, uint256 target_id) {
-    Thing thing = actual_things.get(target_id);
+    Thing thing = actual_things.get(target_id, nullptr);
+    if (thing == nullptr) {
+        // i'm sure you can't see it, because it doesn't exist anymore.
+        return false;
+    }
     if (thing->location == Coord::nowhere()) {
         // it's being carried
         Thing container = actual_things.get(thing->container_id);
