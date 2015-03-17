@@ -20,14 +20,14 @@ static FILE * input_script_file;
 static uint32_t tas_seed;
 
 void tas_set_output_script(char * filename) {
-    output_script_file = fopen(filename, "wb");
+    output_script_file = (strcmp(filename, "-") == 0) ? stdout : fopen(filename, "wb");
     tas_seed = time(nullptr);
     TasHeader header = {magic_number, tas_seed};
     fwrite(&header, sizeof(TasHeader), 1, output_script_file);
     fflush(output_script_file);
 }
 void tas_set_input_script(char * filename) {
-    input_script_file = fopen(filename, "rb");
+    input_script_file = (strcmp(filename, "-") == 0) ? stdin : fopen(filename, "rb");
     TasHeader header;
     int elements_read = fread(&header, sizeof(TasHeader), 1, input_script_file);
     if (elements_read != 1 || header.magic != magic_number)
