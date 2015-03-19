@@ -3,10 +3,10 @@ all:
 
 OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o tas.o byte_buffer.o item.o input.o event.o string.o text.o resources.o
 
-CPP_FLAGS += -fno-exceptions -fno-rtti -fdiagnostics-color=auto -Ibuild/native -Isrc -g -Wall -Wextra -Werror $(MORE_CFLAGS)
+CPP_FLAGS += -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror $(MORE_CFLAGS)
 COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
-LINK_FLAGS += -fdiagnostics-color=auto -lm -lrucksack $(MORE_LIBS)
+LINK_FLAGS += -lm -lrucksack $(MORE_LIBS)
 LINK = $(CROSS_PREFIX)gcc -o $@ $^ $(LINK_FLAGS)
 
 # ld is not allowed to omit functions and global variables defined in .o files,
