@@ -100,7 +100,7 @@ struct Event {
 
     struct PolymorphData {
         uint256 individual;
-        SpeciesId old_species;
+        SpeciesId new_species;
     };
     PolymorphData & polymorph_data() {
         check_data_type(DataType_POLYMORPH);
@@ -213,12 +213,12 @@ struct Event {
         return event_individual(DIE, deceased->id);
     }
 
-    static inline Event polymorph(Thing shapeshifter, SpeciesId old_species) {
+    static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {
         Event result;
         result.type = POLYMORPH;
         PolymorphData & data = result.polymorph_data();
         data.individual = shapeshifter->id;
-        data.old_species = old_species;
+        data.new_species = new_species;
         return result;
     }
 

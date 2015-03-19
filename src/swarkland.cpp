@@ -452,10 +452,10 @@ static void cheatcode_kill_everybody_in_the_world() {
     }
 }
 static void cheatcode_polymorph() {
-    SpeciesId old_species = you->life()->species_id;
-    you->life()->species_id = (SpeciesId)((old_species + 1) % SpeciesId_COUNT);
+    SpeciesId new_species = (SpeciesId)((you->life()->species_id + 1) % SpeciesId_COUNT);
+    publish_event(Event::polymorph(you, new_species));
+    you->life()->species_id = new_species;
     compute_vision(you);
-    publish_event(Event::polymorph(you, old_species));
 }
 Thing cheatcode_spectator;
 void cheatcode_spectate() {

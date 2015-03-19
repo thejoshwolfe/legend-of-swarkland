@@ -177,9 +177,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             return result;
 
         case Event::POLYMORPH:
-            result->span->format("%s transforms into %s!",
-                    get_species_name(event.polymorph_data().old_species),
-                    get_thing_description(observer, event.polymorph_data().individual));
+            result->span->format("%s transforms into a %s!",
+                    get_thing_description(observer, event.polymorph_data().individual),
+                    get_species_name(event.polymorph_data().new_species));
             return result;
 
         case Event::ITEM_DROPS_TO_THE_FLOOR:
