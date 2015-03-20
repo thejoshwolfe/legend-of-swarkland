@@ -7,7 +7,7 @@ struct Event {
     enum Type {
         THE_INDIVIDUAL,
         TWO_INDIVIDUAL,
-        ZAP_WAND,
+        INDIVIDUAL_AND_ITEM,
         WAND_HIT,
         USE_POTION,
         POLYMORPH,
@@ -27,7 +27,7 @@ struct Event {
         uint256 target;
         Coord target_location;
     };
-    struct ZapWandData {
+    struct IndividualAndItemData {
         enum Id {
             ZAP_WAND,
             ZAP_WAND_NO_CHARGES,
@@ -38,8 +38,8 @@ struct Event {
             INDIVIDUAL_SUCKS_UP_ITEM,
         };
         Id id;
-        uint256 wielder;
-        uint256 wand;
+        uint256 individual;
+        uint256 item;
     };
     struct ItemAndLocationData {
         enum Id {
@@ -82,9 +82,9 @@ struct Event {
         return _data._two_individual;
     }
 
-    ZapWandData & zap_wand_data() {
-        check_data_type(ZAP_WAND);
-        return _data._zap_wand;
+    IndividualAndItemData & individual_and_item_data() {
+        check_data_type(INDIVIDUAL_AND_ITEM);
+        return _data._individual_and_item;
     }
 
     struct WandHitData {
@@ -133,13 +133,13 @@ struct Event {
     }
 
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(ZapWandData::ZAP_WAND, wand_wielder->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::ZAP_WAND, wand_wielder->id, item->id);
     }
     static inline Event wand_zap_no_charges(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(ZapWandData::ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id);
     }
     static inline Event wand_disintegrates(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(ZapWandData::WAND_DISINTEGRATES, wand_wielder->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::WAND_DISINTEGRATES, wand_wielder->id, item->id);
     }
     static inline Event wand_explodes(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::WAND_EXPLODES, item_id, location);
@@ -161,10 +161,10 @@ struct Event {
     }
 
     static Event throw_item(uint256 thrower_id, uint256 item_id) {
-        return zap_wand_type_event(ZapWandData::THROW_ITEM, thrower_id, item_id);
+        return individual_and_item_type_event(IndividualAndItemData::THROW_ITEM, thrower_id, item_id);
     }
     static Event item_hits_individual(uint256 item_id, uint256 target_id) {
-        return zap_wand_type_event(ZapWandData::ITEM_HITS_INDIVIDUAL, target_id, item_id);
+        return individual_and_item_type_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, target_id, item_id);
     }
     static Event item_hits_wall(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_WALL, item_id, location);
@@ -235,13 +235,13 @@ struct Event {
         return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
     }
     static inline Event individual_picks_up_item(Thing individual, Thing item) {
-        return zap_wand_type_event(ZapWandData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item->id);
     }
     static inline Event something_picks_up_item(uint256 item, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::SOMETHING_PICKS_UP_ITEM, item, location);
     }
     static inline Event individual_sucks_up_item(Thing individual, Thing item) {
-        return zap_wand_type_event(ZapWandData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id);
     }
     static inline Event something_sucks_up_item(uint256 item, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::SOMETHING_SUCKS_UP_ITEM, item, location);
@@ -269,12 +269,12 @@ private:
         };
         return result;
     }
-    static inline Event zap_wand_type_event(ZapWandData::Id id, uint256 wielder_id, uint256 item_id) {
+    static inline Event individual_and_item_type_event(IndividualAndItemData::Id id, uint256 individual_id, uint256 item_id) {
         Event result;
-        result.type = ZAP_WAND;
-        result.zap_wand_data() = {
+        result.type = INDIVIDUAL_AND_ITEM;
+        result.individual_and_item_data() = {
             id,
-            wielder_id,
+            individual_id,
             item_id,
         };
         return result;
@@ -293,7 +293,7 @@ private:
     union {
         TheIndividualData _the_individual;
         TwoIndividualData _two_individual;
-        ZapWandData _zap_wand;
+        IndividualAndItemData _individual_and_item;
         WandHitData _wand_hit;
         UsePotionData _use_potion;
         PolymorphData _polymorph;

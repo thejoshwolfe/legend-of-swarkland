@@ -74,41 +74,41 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             }
             panic("switch");
         }
-        case Event::ZAP_WAND: {
-            Event::ZapWandData & data = event.zap_wand_data();
+        case Event::INDIVIDUAL_AND_ITEM: {
+            Event::IndividualAndItemData & data = event.individual_and_item_data();
             switch (data.id) {
-                case Event::ZapWandData::ZAP_WAND:
-                    result->span->format("%s zaps %s.", get_thing_description(observer, data.wielder), get_thing_description(observer, data.wand));
+                case Event::IndividualAndItemData::ZAP_WAND:
+                    result->span->format("%s zaps %s.", get_thing_description(observer, data.individual), get_thing_description(observer, data.item));
                     return result;
-                case Event::ZapWandData::ZAP_WAND_NO_CHARGES: {
-                    Span wand_description = get_thing_description(observer, data.wand);
-                    result->span->format("%s zaps %s, but %s just sputters.", get_thing_description(observer, data.wielder), wand_description, wand_description);
-                    return result;
-                }
-                case Event::ZapWandData::WAND_DISINTEGRATES: {
-                    Span wand_description = get_thing_description(observer, data.wand);
-                    result->span->format("%s tries to zap %s, but %s disintegrates.", get_thing_description(observer, data.wielder), wand_description, wand_description);
+                case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES: {
+                    Span wand_description = get_thing_description(observer, data.item);
+                    result->span->format("%s zaps %s, but %s just sputters.", get_thing_description(observer, data.individual), wand_description, wand_description);
                     return result;
                 }
-                case Event::ZapWandData::THROW_ITEM:
+                case Event::IndividualAndItemData::WAND_DISINTEGRATES: {
+                    Span wand_description = get_thing_description(observer, data.item);
+                    result->span->format("%s tries to zap %s, but %s disintegrates.", get_thing_description(observer, data.individual), wand_description, wand_description);
+                    return result;
+                }
+                case Event::IndividualAndItemData::THROW_ITEM:
                     result->span->format("%s throws %s.",
-                            get_thing_description(observer, data.wielder),
-                            get_thing_description(observer, data.wand));
+                            get_thing_description(observer, data.individual),
+                            get_thing_description(observer, data.item));
                     return result;
-                case Event::ZapWandData::ITEM_HITS_INDIVIDUAL:
+                case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
                     result->span->format("%s hits %s!",
-                            get_thing_description(observer, data.wand),
-                            get_thing_description(observer, data.wielder));
+                            get_thing_description(observer, data.item),
+                            get_thing_description(observer, data.individual));
                     return result;
-                case Event::ZapWandData::INDIVIDUAL_PICKS_UP_ITEM:
+                case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
                     result->span->format("%s picks up %s.",
-                            get_thing_description(observer, data.wielder),
-                            get_thing_description(observer, data.wand));
+                            get_thing_description(observer, data.individual),
+                            get_thing_description(observer, data.item));
                     return result;
-                case Event::ZapWandData::INDIVIDUAL_SUCKS_UP_ITEM:
+                case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
                     result->span->format("%s sucks up %s.",
-                            get_thing_description(observer, data.wielder),
-                            get_thing_description(observer, data.wand));
+                            get_thing_description(observer, data.individual),
+                            get_thing_description(observer, data.item));
                     return result;
             }
             panic("switch");
@@ -313,15 +313,15 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             output_event->two_individual_data().target = target;
             return true;
         }
-        case Event::ZAP_WAND: {
-            Event::ZapWandData & data = event.zap_wand_data();
-            uint256 individual_id = check_visible(observer, data.wielder);
-            uint256 item_id = check_visible(observer, data.wand);
+        case Event::INDIVIDUAL_AND_ITEM: {
+            Event::IndividualAndItemData & data = event.individual_and_item_data();
+            uint256 individual_id = check_visible(observer, data.individual);
+            uint256 item_id = check_visible(observer, data.item);
             if (individual_id == uint256::zero() || item_id == uint256::zero())
                 return false;
             *output_event = event;
-            output_event->zap_wand_data().wielder = individual_id;
-            output_event->zap_wand_data().wand = item_id;
+            output_event->individual_and_item_data().individual = individual_id;
+            output_event->individual_and_item_data().item = item_id;
             return true;
         }
         case Event::WAND_HIT: {
@@ -453,27 +453,27 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                 }
                 break;
             }
-            case Event::ZAP_WAND: {
-                Event::ZapWandData & data = event.zap_wand_data();
+            case Event::INDIVIDUAL_AND_ITEM: {
+                Event::IndividualAndItemData & data = event.individual_and_item_data();
                 switch (data.id) {
-                    case Event::ZapWandData::ZAP_WAND:
-                        perceived_current_zapper->put(observer->id, actual_things.get(data.wand)->wand_info()->description_id);
+                    case Event::IndividualAndItemData::ZAP_WAND:
+                        perceived_current_zapper->put(observer->id, actual_things.get(data.item)->wand_info()->description_id);
                         break;
-                    case Event::ZapWandData::ZAP_WAND_NO_CHARGES:
+                    case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES:
                         // boring
                         break;
-                    case Event::ZapWandData::WAND_DISINTEGRATES:
-                        delete_ids.append(data.wand);
+                    case Event::IndividualAndItemData::WAND_DISINTEGRATES:
+                        delete_ids.append(data.item);
                         break;
-                    case Event::ZapWandData::THROW_ITEM:
+                    case Event::IndividualAndItemData::THROW_ITEM:
                         // TODO: should we delete the item if it flies out of view?
                         break;
-                    case Event::ZapWandData::ITEM_HITS_INDIVIDUAL:
+                    case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
                         // no state change
                         break;
-                    case Event::ZapWandData::INDIVIDUAL_PICKS_UP_ITEM:
-                    case Event::ZapWandData::INDIVIDUAL_SUCKS_UP_ITEM:
-                        record_perception_of_thing(observer, data.wand);
+                    case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
+                    case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
+                        record_perception_of_thing(observer, data.item);
                         break;
                 }
                 break;
