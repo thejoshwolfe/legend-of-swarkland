@@ -142,13 +142,34 @@ void drop_item_to_the_floor(Thing item, Coord location) {
 }
 static void throw_item(Thing actor, Thing item, Coord direction) {
     publish_event(Event::throw_item(actor->id, item->id));
+    // let go of the item. it's now sailing through the air.
+    item->location = actor->location;
+    item->container_id = uint256::zero();
+    item->z_order = 0;
+    fix_z_orders(actor->id);
+
     // find the hit target
     int range = random_int(3, 6);
     Coord cursor = actor->location;
     bool item_breaks = false;
+    // potions are fragile
+    if (item->thing_type == ThingType_POTION)
+        item_breaks = true;
     bool impacts_in_wall = item->thing_type == ThingType_WAND && actual_wand_identities[item->wand_info()->description_id] == WandId_WAND_OF_DIGGING;
     for (int i = 0; i < range; i++) {
         cursor += direction;
+        if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
+            if (!(item_breaks && impacts_in_wall)) {
+                // impact just in front of the wall
+                cursor -= direction;
+            }
+            item_breaks = item->thing_type == ThingType_POTION || random_int(2) == 0;
+            publish_event(Event::item_hits_wall(item->id, cursor));
+            break;
+        } else {
+            item->location = cursor;
+            publish_event(Event::move(item, cursor - direction, cursor));
+        }
         Thing target = find_individual_at(cursor);
         if (target != nullptr) {
             // wham!
@@ -162,19 +183,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             }
             break;
         }
-        if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
-            publish_event(Event::item_hits_wall(item->id, cursor));
-            item_breaks = item->thing_type == ThingType_POTION || random_int(2) == 0;
-            if (!(item_breaks && impacts_in_wall)) {
-                // impact just in front of the wall
-                cursor -= direction;
-            }
-            break;
-        }
     }
-    // potions are fragile
-    if (item->thing_type == ThingType_POTION)
-        item_breaks = true;
 
     if (item_breaks) {
         switch (item->thing_type) {
