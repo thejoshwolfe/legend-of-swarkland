@@ -580,7 +580,7 @@ void render() {
     SDL_RenderClear(renderer);
 
     // tutorial
-    tutorial_div->set_content(get_tutorial_div_content(spectate_from, my_inventory));
+    tutorial_div->set_content(get_tutorial_div_content(you, my_inventory));
     render_div(tutorial_div, tutorial_area, 1, 1);
     {
         Span blurb_span = new_span("v", gray, black);
@@ -790,7 +790,7 @@ void render() {
         }
         if (render_cursor) {
             // also show popup help
-            keyboard_hover_div->set_content(get_thing_description(spectate_from, my_inventory[inventory_cursor]->id));
+            keyboard_hover_div->set_content(get_thing_description(you, my_inventory[inventory_cursor]->id));
             popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
         }
     }
@@ -830,7 +830,7 @@ void render() {
     if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
         int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
         if (inventory_index < my_inventory.length()) {
-            mouse_hover_div->set_content(get_thing_description(spectate_from, my_inventory[inventory_index]->id));
+            mouse_hover_div->set_content(get_thing_description(you, my_inventory[inventory_index]->id));
             popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
         }
     }
