@@ -8,39 +8,40 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
             Event::TheIndividualData & data = event.the_individual_data();
+            Span individual_description = get_thing_description(observer, data.individual);
             switch (data.id) {
                 case Event::TheIndividualData::POISONED:
-                    result->span->format("%s is poisoned!", get_thing_description(observer, data.individual));
+                    result->span->format("%s is poisoned!", individual_description);
                     return result;
                 case Event::TheIndividualData::NO_LONGER_CONFUSED:
-                    result->span->format("%s is no longer confused.", get_thing_description(observer, data.individual));
+                    result->span->format("%s is no longer confused.", individual_description);
                     return result;
                 case Event::TheIndividualData::NO_LONGER_FAST:
-                    result->span->format("%s slows back down to normal speed.", get_thing_description(observer, data.individual));
+                    result->span->format("%s slows back down to normal speed.", individual_description);
                     return result;
                 case Event::TheIndividualData::NO_LONGER_HAS_ETHEREAL_VISION:
-                    result->span->format("%s no longer has ethereal vision.", get_thing_description(observer, data.individual));
+                    result->span->format("%s no longer has ethereal vision.", individual_description);
                     return result;
                 case Event::TheIndividualData::NO_LONGER_COGNISCOPIC:
-                    result->span->format("%s is no longer cogniscopic.", get_thing_description(observer, data.individual));
+                    result->span->format("%s is no longer cogniscopic.", individual_description);
                     return result;
                 case Event::TheIndividualData::NO_LONGER_POISONED:
-                    result->span->format("%s is no longer poisoned.", get_thing_description(observer, data.individual));
+                    result->span->format("%s is no longer poisoned.", individual_description);
                     return result;
                 case Event::TheIndividualData::APPEAR:
-                    result->span->format("%s appears out of nowhere!", get_thing_description(observer, data.individual));
+                    result->span->format("%s appears out of nowhere!", individual_description);
                     return result;
                 case Event::TheIndividualData::TURN_INVISIBLE:
-                    result->span->format("%s turns invisible!", get_thing_description(observer, data.individual));
+                    result->span->format("%s turns invisible!", individual_description);
                     return result;
                 case Event::TheIndividualData::DISAPPEAR:
-                    result->span->format("%s vanishes out of sight!", get_thing_description(observer, data.individual));
+                    result->span->format("%s vanishes out of sight!", individual_description);
                     return result;
                 case Event::TheIndividualData::LEVEL_UP:
-                    result->span->format("%s levels up.", get_thing_description(observer, data.individual));
+                    result->span->format("%s levels up.", individual_description);
                     return result;
                 case Event::TheIndividualData::DIE:
-                    result->span->format("%s dies.", get_thing_description(observer, data.individual));
+                    result->span->format("%s dies.", individual_description);
                     return result;
             }
             panic("switch");
@@ -76,39 +77,29 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         }
         case Event::INDIVIDUAL_AND_ITEM: {
             Event::IndividualAndItemData & data = event.individual_and_item_data();
+            Span individual_description = get_thing_description(observer, data.individual);
+            Span item_description = get_thing_description(observer, data.item);
             switch (data.id) {
                 case Event::IndividualAndItemData::ZAP_WAND:
-                    result->span->format("%s zaps %s.", get_thing_description(observer, data.individual), get_thing_description(observer, data.item));
+                    result->span->format("%s zaps %s.", individual_description, item_description);
                     return result;
-                case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES: {
-                    Span wand_description = get_thing_description(observer, data.item);
-                    result->span->format("%s zaps %s, but %s just sputters.", get_thing_description(observer, data.individual), wand_description, wand_description);
+                case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES:
+                    result->span->format("%s zaps %s, but %s just sputters.", individual_description, item_description, item_description);
                     return result;
-                }
-                case Event::IndividualAndItemData::WAND_DISINTEGRATES: {
-                    Span wand_description = get_thing_description(observer, data.item);
-                    result->span->format("%s tries to zap %s, but %s disintegrates.", get_thing_description(observer, data.individual), wand_description, wand_description);
+                case Event::IndividualAndItemData::WAND_DISINTEGRATES:
+                    result->span->format("%s tries to zap %s, but %s disintegrates.", individual_description, item_description, item_description);
                     return result;
-                }
                 case Event::IndividualAndItemData::THROW_ITEM:
-                    result->span->format("%s throws %s.",
-                            get_thing_description(observer, data.individual),
-                            get_thing_description(observer, data.item));
+                    result->span->format("%s throws %s.", individual_description, item_description);
                     return result;
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
-                    result->span->format("%s hits %s!",
-                            get_thing_description(observer, data.item),
-                            get_thing_description(observer, data.individual));
+                    result->span->format("%s hits %s!", item_description, individual_description);
                     return result;
                 case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
-                    result->span->format("%s picks up %s.",
-                            get_thing_description(observer, data.individual),
-                            get_thing_description(observer, data.item));
+                    result->span->format("%s picks up %s.", individual_description, item_description);
                     return result;
                 case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
-                    result->span->format("%s sucks up %s.",
-                            get_thing_description(observer, data.individual),
-                            get_thing_description(observer, data.item));
+                    result->span->format("%s sucks up %s.", individual_description, item_description);
                     return result;
             }
             panic("switch");
@@ -185,31 +176,30 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
         }
         case Event::POLYMORPH: {
             Event::PolymorphData & data = event.polymorph_data();
-            result->span->format("%s transforms into a %s!",
-                    get_thing_description(observer, data.individual),
-                    get_species_name(data.new_species));
+            result->span->format("%s transforms into a %s!", get_thing_description(observer, data.individual), get_species_name(data.new_species));
             return result;
         }
         case Event::ITEM_AND_LOCATION: {
             Event::ItemAndLocationData & data = event.item_and_location_data();
+            Span item_description = get_thing_description(observer, data.item);
             switch (data.id) {
                 case Event::ItemAndLocationData::WAND_EXPLODES:
-                    result->span->format("%s explodes!", get_thing_description(observer, data.item));
+                    result->span->format("%s explodes!", item_description);
                     return result;
                 case Event::ItemAndLocationData::ITEM_HITS_WALL:
-                    result->span->format("%s hits a wall.", get_thing_description(observer, data.item));
+                    result->span->format("%s hits a wall.", item_description);
                     return result;
                 case Event::ItemAndLocationData::ITEM_HITS_SOMETHING:
-                    result->span->format("%s hits something.", get_thing_description(observer, data.item));
+                    result->span->format("%s hits something.", item_description);
                     return result;
                 case Event::ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR:
-                    result->span->format("%s drops to the floor.", get_thing_description(observer, data.item));
+                    result->span->format("%s drops to the floor.", item_description);
                     return result;
                 case Event::ItemAndLocationData::SOMETHING_PICKS_UP_ITEM:
-                    result->span->format("something unseen picks up %s.", get_thing_description(observer, data.item));
+                    result->span->format("something unseen picks up %s.", item_description);
                     return result;
                 case Event::ItemAndLocationData::SOMETHING_SUCKS_UP_ITEM:
-                    result->span->format("something unseen sucks up %s.", get_thing_description(observer, data.item));
+                    result->span->format("something unseen sucks up %s.", item_description);
                     return result;
             }
         }
