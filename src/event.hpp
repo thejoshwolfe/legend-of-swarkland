@@ -5,73 +5,85 @@
 
 struct Event {
     enum Type {
-        MOVE,
-        BUMP_INTO,
-        ATTACK,
-
+        THE_INDIVIDUAL,
+        TWO_INDIVIDUAL,
         ZAP_WAND,
-        ZAP_WAND_NO_CHARGES,
-        WAND_DISINTEGRATES,
-        WAND_EXPLODES,
         WAND_HIT,
-
-        THROW_ITEM,
-        ITEM_HITS_INDIVIDUAL,
-        ITEM_HITS_WALL,
-        ITEM_HITS_SOMETHING,
-
         USE_POTION,
-
-        POISONED,
-        NO_LONGER_CONFUSED,
-        NO_LONGER_FAST,
-        NO_LONGER_HAS_ETHEREAL_VISION,
-        NO_LONGER_COGNISCOPIC,
-        NO_LONGER_POISONED,
-
-        APPEAR,
-        TURN_INVISIBLE,
-        DISAPPEAR,
-        LEVEL_UP,
-        DIE,
-
         POLYMORPH,
-
-        ITEM_DROPS_TO_THE_FLOOR,
-        INDIVIDUAL_PICKS_UP_ITEM,
-        SOMETHING_PICKS_UP_ITEM,
-        INDIVIDUAL_SUCKS_UP_ITEM,
-        SOMETHING_SUCKS_UP_ITEM,
+        ITEM_AND_LOCATION,
     };
     Type type;
 
-    uint256 & the_individual_data() {
-        check_data_type(DataType_THE_INDIVIDUAL);
-        return _data._the_individual;
-    }
-
-    Coord & the_location_data() {
-        check_data_type(DataType_THE_LOCATION);
-        return _data._the_location;
-    }
-
     struct TwoIndividualData {
+        enum Id {
+            MOVE,
+            BUMP_INTO,
+            ATTACK,
+        };
+        Id id;
         uint256 actor;
         Coord actor_location;
         uint256 target;
         Coord target_location;
     };
-    TwoIndividualData & two_individual_data() {
-        check_data_type(DataType_TWO_INDIVIDUAL);
-        return _data._two_individual;
-    }
-
     struct ZapWandData {
+        enum Id {
+            ZAP_WAND,
+            ZAP_WAND_NO_CHARGES,
+            WAND_DISINTEGRATES,
+            THROW_ITEM,
+            ITEM_HITS_INDIVIDUAL,
+            INDIVIDUAL_PICKS_UP_ITEM,
+            INDIVIDUAL_SUCKS_UP_ITEM,
+        };
+        Id id;
         uint256 wielder;
         uint256 wand;
     };
+    struct ItemAndLocationData {
+        enum Id {
+            WAND_EXPLODES,
+            ITEM_HITS_WALL,
+            ITEM_HITS_SOMETHING,
+            ITEM_DROPS_TO_THE_FLOOR,
+            SOMETHING_PICKS_UP_ITEM,
+            SOMETHING_SUCKS_UP_ITEM,
+        };
+        Id id;
+        uint256 item;
+        Coord location;
+    };
+    struct TheIndividualData {
+        enum Id {
+            POISONED,
+            NO_LONGER_CONFUSED,
+            NO_LONGER_FAST,
+            NO_LONGER_HAS_ETHEREAL_VISION,
+            NO_LONGER_COGNISCOPIC,
+            NO_LONGER_POISONED,
+            APPEAR,
+            TURN_INVISIBLE,
+            DISAPPEAR,
+            LEVEL_UP,
+            DIE,
+        };
+        Id id;
+        uint256 individual;
+    };
+
+    TheIndividualData & the_individual_data() {
+        check_data_type(THE_INDIVIDUAL);
+        return _data._the_individual;
+    }
+
+    TwoIndividualData & two_individual_data() {
+        check_data_type(TWO_INDIVIDUAL);
+        return _data._two_individual;
+    }
+
     ZapWandData & zap_wand_data() {
-        check_data_type(DataType_ZAP_WAND);
+        check_data_type(ZAP_WAND);
         return _data._zap_wand;
     }
 
@@ -82,7 +94,7 @@ struct Event {
         Coord location;
     };
     WandHitData & wand_hit_data() {
-        check_data_type(DataType_WAND_HIT);
+        check_data_type(WAND_HIT);
         return _data._wand_hit;
     }
 
@@ -94,7 +106,7 @@ struct Event {
         Coord location;
     };
     UsePotionData & use_potion_data() {
-        check_data_type(DataType_USE_POTION);
+        check_data_type(USE_POTION);
         return _data._use_potion;
     }
 
@@ -103,38 +115,34 @@ struct Event {
         SpeciesId new_species;
     };
     PolymorphData & polymorph_data() {
-        check_data_type(DataType_POLYMORPH);
+        check_data_type(POLYMORPH);
         return _data._polymorph;
     };
 
-    struct ItemAndLocationData {
-        uint256 item;
-        Coord location;
-    };
     ItemAndLocationData & item_and_location_data() {
-        check_data_type(DataType_ITEM_AND_LOCATION);
+        check_data_type(ITEM_AND_LOCATION);
         return _data._item_and_location;
     }
 
     static inline Event move(Thing mover, Coord from, Coord to) {
-        return two_individual_type_event(MOVE, mover->id, from, uint256::zero(), to);
+        return two_individual_type_event(TwoIndividualData::MOVE, mover->id, from, uint256::zero(), to);
     }
 
     static inline Event attack(Thing attacker, uint256 target_id, Coord target_location) {
-        return two_individual_type_event(ATTACK, attacker->id, attacker->location, target_id, target_location);
+        return two_individual_type_event(TwoIndividualData::ATTACK, attacker->id, attacker->location, target_id, target_location);
     }
 
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(ZAP_WAND, wand_wielder->id, item->id);
+        return zap_wand_type_event(ZapWandData::ZAP_WAND, wand_wielder->id, item->id);
     }
     static inline Event wand_zap_no_charges(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id);
+        return zap_wand_type_event(ZapWandData::ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id);
     }
     static inline Event wand_disintegrates(Thing wand_wielder, Thing item) {
-        return zap_wand_type_event(WAND_DISINTEGRATES, wand_wielder->id, item->id);
+        return zap_wand_type_event(ZapWandData::WAND_DISINTEGRATES, wand_wielder->id, item->id);
     }
     static inline Event wand_explodes(uint256 item_id, Coord location) {
-        return item_and_location_type_event(WAND_EXPLODES, item_id, location);
+        return item_and_location_type_event(ItemAndLocationData::WAND_EXPLODES, item_id, location);
     }
     static inline Event wand_hit(WandId observable_effect, bool is_explosion, uint256 target, Coord location) {
         Event result;
@@ -149,20 +157,20 @@ struct Event {
     }
 
     static Event bump_into(uint256 actor_id, Coord from_location, uint256 bumpee_id, Coord bumpee_location) {
-        return two_individual_type_event(BUMP_INTO, actor_id, from_location, bumpee_id, bumpee_location);
+        return two_individual_type_event(TwoIndividualData::BUMP_INTO, actor_id, from_location, bumpee_id, bumpee_location);
     }
 
     static Event throw_item(uint256 thrower_id, uint256 item_id) {
-        return zap_wand_type_event(THROW_ITEM, thrower_id, item_id);
+        return zap_wand_type_event(ZapWandData::THROW_ITEM, thrower_id, item_id);
     }
     static Event item_hits_individual(uint256 item_id, uint256 target_id) {
-        return zap_wand_type_event(ITEM_HITS_INDIVIDUAL, target_id, item_id);
+        return zap_wand_type_event(ZapWandData::ITEM_HITS_INDIVIDUAL, target_id, item_id);
     }
     static Event item_hits_wall(uint256 item_id, Coord location) {
-        return item_and_location_type_event(ITEM_HITS_WALL, item_id, location);
+        return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_WALL, item_id, location);
     }
     static Event item_hits_something(uint256 item_id, Coord location) {
-        return item_and_location_type_event(ITEM_HITS_SOMETHING, item_id, location);
+        return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_SOMETHING, item_id, location);
     }
 
     static Event use_potion(uint256 item_id, PotionId effect, bool is_breaking, uint256 target_id, Coord location) {
@@ -179,38 +187,38 @@ struct Event {
     }
 
     static inline Event poisoned(Thing individual) {
-        return event_individual(POISONED, individual->id);
+        return event_individual(TheIndividualData::POISONED, individual->id);
     }
     static inline Event no_longer_confused(Thing individual) {
-        return event_individual(NO_LONGER_CONFUSED, individual->id);
+        return event_individual(TheIndividualData::NO_LONGER_CONFUSED, individual->id);
     }
     static inline Event no_longer_fast(Thing individual) {
-        return event_individual(NO_LONGER_FAST, individual->id);
+        return event_individual(TheIndividualData::NO_LONGER_FAST, individual->id);
     }
     static inline Event no_longer_has_ethereal_vision(Thing individual) {
-        return event_individual(NO_LONGER_HAS_ETHEREAL_VISION, individual->id);
+        return event_individual(TheIndividualData::NO_LONGER_HAS_ETHEREAL_VISION, individual->id);
     }
     static inline Event no_longer_cogniscopic(Thing individual) {
-        return event_individual(NO_LONGER_COGNISCOPIC, individual->id);
+        return event_individual(TheIndividualData::NO_LONGER_COGNISCOPIC, individual->id);
     }
     static inline Event no_longer_poisoned(Thing individual) {
-        return event_individual(NO_LONGER_POISONED, individual->id);
+        return event_individual(TheIndividualData::NO_LONGER_POISONED, individual->id);
     }
 
     static inline Event appear(Thing new_guy) {
-        return event_individual(APPEAR, new_guy->id);
+        return event_individual(TheIndividualData::APPEAR, new_guy->id);
     }
     static inline Event turn_invisible(Thing individual) {
-        return event_individual(TURN_INVISIBLE, individual->id);
+        return event_individual(TheIndividualData::TURN_INVISIBLE, individual->id);
     }
     static inline Event disappear(uint256 individual_id) {
-        return event_individual(DISAPPEAR, individual_id);
+        return event_individual(TheIndividualData::DISAPPEAR, individual_id);
     }
     static inline Event level_up(uint256 individual_id) {
-        return event_individual(LEVEL_UP, individual_id);
+        return event_individual(TheIndividualData::LEVEL_UP, individual_id);
     }
     static inline Event die(Thing deceased) {
-        return event_individual(DIE, deceased->id);
+        return event_individual(TheIndividualData::DIE, deceased->id);
     }
 
     static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {
@@ -224,38 +232,36 @@ struct Event {
 
 
     static inline Event item_drops_to_the_floor(Thing item) {
-        return item_and_location_type_event(ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
+        return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
     }
     static inline Event individual_picks_up_item(Thing individual, Thing item) {
-        return zap_wand_type_event(INDIVIDUAL_PICKS_UP_ITEM, individual->id, item->id);
+        return zap_wand_type_event(ZapWandData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item->id);
     }
     static inline Event something_picks_up_item(uint256 item, Coord location) {
-        return item_and_location_type_event(SOMETHING_PICKS_UP_ITEM, item, location);
+        return item_and_location_type_event(ItemAndLocationData::SOMETHING_PICKS_UP_ITEM, item, location);
     }
     static inline Event individual_sucks_up_item(Thing individual, Thing item) {
-        return zap_wand_type_event(INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id);
+        return zap_wand_type_event(ZapWandData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id);
     }
     static inline Event something_sucks_up_item(uint256 item, Coord location) {
-        return item_and_location_type_event(SOMETHING_SUCKS_UP_ITEM, item, location);
+        return item_and_location_type_event(ItemAndLocationData::SOMETHING_SUCKS_UP_ITEM, item, location);
     }
 
 private:
-    static inline Event event_individual(Type type, uint256 individual_id) {
+    static inline Event event_individual(TheIndividualData::Id id, uint256 individual_id) {
         Event result;
-        result.type = type;
-        result.the_individual_data() = individual_id;
+        result.type = THE_INDIVIDUAL;
+        result.the_individual_data() = {
+            id,
+            individual_id,
+        };
         return result;
     }
-    static inline Event location_type_event(Type type, Coord location) {
+    static inline Event two_individual_type_event(TwoIndividualData::Id id, uint256 actor, Coord actor_location, uint256 target, Coord target_location) {
         Event result;
-        result.type = type;
-        result.the_location_data() = location;
-        return result;
-    }
-    static inline Event two_individual_type_event(Type type, uint256 actor, Coord actor_location, uint256 target, Coord target_location) {
-        Event result;
-        result.type = type;
+        result.type = TWO_INDIVIDUAL;
         result.two_individual_data() = {
+            id,
             actor,
             actor_location,
             target,
@@ -263,27 +269,29 @@ private:
         };
         return result;
     }
-    static inline Event zap_wand_type_event(Type type, uint256 wielder_id, uint256 item_id) {
+    static inline Event zap_wand_type_event(ZapWandData::Id id, uint256 wielder_id, uint256 item_id) {
         Event result;
-        result.type = type;
+        result.type = ZAP_WAND;
         result.zap_wand_data() = {
+            id,
             wielder_id,
             item_id,
         };
         return result;
     }
-    static inline Event item_and_location_type_event(Type type, uint256 item, Coord location) {
+    static inline Event item_and_location_type_event(ItemAndLocationData::Id id, uint256 item, Coord location) {
         Event result;
-        result.type = type;
-        ItemAndLocationData & data = result.item_and_location_data();
-        data.item = item;
-        data.location = location;
+        result.type = ITEM_AND_LOCATION;
+        result.item_and_location_data() = {
+            id,
+            item,
+            location,
+        };
         return result;
     }
 
     union {
-        uint256 _the_individual;
-        Coord _the_location;
+        TheIndividualData _the_individual;
         TwoIndividualData _two_individual;
         ZapWandData _zap_wand;
         WandHitData _wand_hit;
@@ -291,88 +299,10 @@ private:
         PolymorphData _polymorph;
         ItemAndLocationData _item_and_location;
     } _data;
-    enum DataType {
-        DataType_THE_INDIVIDUAL,
-        DataType_THE_LOCATION,
-        DataType_TWO_INDIVIDUAL,
-        DataType_ZAP_WAND,
-        DataType_WAND_HIT,
-        DataType_USE_POTION,
-        DataType_POLYMORPH,
-        DataType_ITEM_AND_LOCATION,
-    };
 
-    void check_data_type(DataType supposed_data_type) const {
-        DataType correct_data_type = get_correct_data_type();
-        if (supposed_data_type != correct_data_type)
+    void check_data_type(Type supposed_data_type) const {
+        if (supposed_data_type != type)
             panic("wrong data type");
-    }
-    DataType get_correct_data_type() const {
-        switch (type) {
-            case MOVE:
-                return DataType_TWO_INDIVIDUAL;
-            case BUMP_INTO:
-                return DataType_TWO_INDIVIDUAL;
-            case ATTACK:
-                return DataType_TWO_INDIVIDUAL;
-
-            case ZAP_WAND:
-                return DataType_ZAP_WAND;
-            case ZAP_WAND_NO_CHARGES:
-                return DataType_ZAP_WAND;
-            case WAND_DISINTEGRATES:
-                return DataType_ZAP_WAND;
-            case WAND_EXPLODES:
-                return DataType_ITEM_AND_LOCATION;
-            case WAND_HIT:
-                return DataType_WAND_HIT;
-
-            case THROW_ITEM:
-                return DataType_ZAP_WAND;
-            case ITEM_HITS_INDIVIDUAL:
-                return DataType_ZAP_WAND;
-            case ITEM_HITS_WALL:
-                return DataType_ITEM_AND_LOCATION;
-            case ITEM_HITS_SOMETHING:
-                return DataType_ITEM_AND_LOCATION;
-
-            case USE_POTION:
-                return DataType_USE_POTION;
-
-            case POISONED:
-            case NO_LONGER_CONFUSED:
-            case NO_LONGER_FAST:
-            case NO_LONGER_HAS_ETHEREAL_VISION:
-            case NO_LONGER_COGNISCOPIC:
-            case NO_LONGER_POISONED:
-                return DataType_THE_INDIVIDUAL;
-
-            case APPEAR:
-                return DataType_THE_INDIVIDUAL;
-            case TURN_INVISIBLE:
-                return DataType_THE_INDIVIDUAL;
-            case DISAPPEAR:
-                return DataType_THE_INDIVIDUAL;
-            case LEVEL_UP:
-                return DataType_THE_INDIVIDUAL;
-            case DIE:
-                return DataType_THE_INDIVIDUAL;
-
-            case POLYMORPH:
-                return DataType_POLYMORPH;
-
-            case ITEM_DROPS_TO_THE_FLOOR:
-                return DataType_ITEM_AND_LOCATION;
-            case INDIVIDUAL_PICKS_UP_ITEM:
-                return DataType_ZAP_WAND;
-            case SOMETHING_PICKS_UP_ITEM:
-                return DataType_ITEM_AND_LOCATION;
-            case INDIVIDUAL_SUCKS_UP_ITEM:
-                return DataType_ZAP_WAND;
-            case SOMETHING_SUCKS_UP_ITEM:
-                return DataType_ITEM_AND_LOCATION;
-        }
-        panic("event type");
     }
 };
 

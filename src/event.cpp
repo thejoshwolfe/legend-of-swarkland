@@ -6,52 +6,113 @@
 static RememberedEvent to_remembered_event(Thing observer, Event event) {
     RememberedEvent result = create<RememberedEventImpl>();
     switch (event.type) {
-        case Event::MOVE:
-            // unremarkable
-            return nullptr;
-        case Event::BUMP_INTO:
-        case Event::ATTACK: {
-            Event::TwoIndividualData & data = event.two_individual_data();
-            Span actor_description = data.actor != uint256::zero() ? get_thing_description(observer, data.actor) : new_span("something unseen");
-            // what did it bump into? whatever we think is there
-            Span bumpee_description;
-            if (data.target != uint256::zero()) {
-                bumpee_description = get_thing_description(observer, data.target);
-            } else {
-                // can't see anybody there. what are we bumping into?
-                if (!is_open_space(observer->life()->knowledge.tiles[data.target_location].tile_type))
-                    bumpee_description = new_span("a wall");
-                else if (!observer->life()->knowledge.tile_is_visible[data.target_location].any())
-                    bumpee_description = new_span("something");
-                else
-                    bumpee_description = new_span("thin air");
+        case Event::THE_INDIVIDUAL: {
+            Event::TheIndividualData & data = event.the_individual_data();
+            switch (data.id) {
+                case Event::TheIndividualData::POISONED:
+                    result->span->format("%s is poisoned!", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::NO_LONGER_CONFUSED:
+                    result->span->format("%s is no longer confused.", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::NO_LONGER_FAST:
+                    result->span->format("%s slows back down to normal speed.", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::NO_LONGER_HAS_ETHEREAL_VISION:
+                    result->span->format("%s no longer has ethereal vision.", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::NO_LONGER_COGNISCOPIC:
+                    result->span->format("%s is no longer cogniscopic.", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::NO_LONGER_POISONED:
+                    result->span->format("%s is no longer poisoned.", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::APPEAR:
+                    result->span->format("%s appears out of nowhere!", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::TURN_INVISIBLE:
+                    result->span->format("%s turns invisible!", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::DISAPPEAR:
+                    result->span->format("%s vanishes out of sight!", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::LEVEL_UP:
+                    result->span->format("%s levels up.", get_thing_description(observer, data.individual));
+                    return result;
+                case Event::TheIndividualData::DIE:
+                    result->span->format("%s dies.", get_thing_description(observer, data.individual));
+                    return result;
             }
-            const char * fmt = event.type == Event::BUMP_INTO ? "%s bumps into %s." : "%s hits %s.";
-            result->span->format(fmt, actor_description, bumpee_description);
-            return result;
+            panic("switch");
         }
-
+        case Event::TWO_INDIVIDUAL: {
+            Event::TwoIndividualData & data = event.two_individual_data();
+            switch (data.id) {
+                case Event::TwoIndividualData::MOVE:
+                    // unremarkable
+                    return nullptr;
+                case Event::TwoIndividualData::BUMP_INTO:
+                case Event::TwoIndividualData::ATTACK: {
+                    Span actor_description = data.actor != uint256::zero() ? get_thing_description(observer, data.actor) : new_span("something unseen");
+                    // what did it bump into? whatever we think is there
+                    Span bumpee_description;
+                    if (data.target != uint256::zero()) {
+                        bumpee_description = get_thing_description(observer, data.target);
+                    } else {
+                        // can't see anybody there. what are we bumping into?
+                        if (!is_open_space(observer->life()->knowledge.tiles[data.target_location].tile_type))
+                            bumpee_description = new_span("a wall");
+                        else if (!observer->life()->knowledge.tile_is_visible[data.target_location].any())
+                            bumpee_description = new_span("something");
+                        else
+                            bumpee_description = new_span("thin air");
+                    }
+                    const char * fmt = data.id == Event::TwoIndividualData::BUMP_INTO ? "%s bumps into %s." : "%s hits %s.";
+                    result->span->format(fmt, actor_description, bumpee_description);
+                    return result;
+                }
+            }
+            panic("switch");
+        }
         case Event::ZAP_WAND: {
             Event::ZapWandData & data = event.zap_wand_data();
-            result->span->format("%s zaps %s.", get_thing_description(observer, data.wielder), get_thing_description(observer, data.wand));
-            return result;
+            switch (data.id) {
+                case Event::ZapWandData::ZAP_WAND:
+                    result->span->format("%s zaps %s.", get_thing_description(observer, data.wielder), get_thing_description(observer, data.wand));
+                    return result;
+                case Event::ZapWandData::ZAP_WAND_NO_CHARGES: {
+                    Span wand_description = get_thing_description(observer, data.wand);
+                    result->span->format("%s zaps %s, but %s just sputters.", get_thing_description(observer, data.wielder), wand_description, wand_description);
+                    return result;
+                }
+                case Event::ZapWandData::WAND_DISINTEGRATES: {
+                    Span wand_description = get_thing_description(observer, data.wand);
+                    result->span->format("%s tries to zap %s, but %s disintegrates.", get_thing_description(observer, data.wielder), wand_description, wand_description);
+                    return result;
+                }
+                case Event::ZapWandData::THROW_ITEM:
+                    result->span->format("%s throws %s.",
+                            get_thing_description(observer, data.wielder),
+                            get_thing_description(observer, data.wand));
+                    return result;
+                case Event::ZapWandData::ITEM_HITS_INDIVIDUAL:
+                    result->span->format("%s hits %s!",
+                            get_thing_description(observer, data.wand),
+                            get_thing_description(observer, data.wielder));
+                    return result;
+                case Event::ZapWandData::INDIVIDUAL_PICKS_UP_ITEM:
+                    result->span->format("%s picks up %s.",
+                            get_thing_description(observer, data.wielder),
+                            get_thing_description(observer, data.wand));
+                    return result;
+                case Event::ZapWandData::INDIVIDUAL_SUCKS_UP_ITEM:
+                    result->span->format("%s sucks up %s.",
+                            get_thing_description(observer, data.wielder),
+                            get_thing_description(observer, data.wand));
+                    return result;
+            }
+            panic("switch");
         }
-        case Event::ZAP_WAND_NO_CHARGES: {
-            Event::ZapWandData & data = event.zap_wand_data();
-            Span wand_description = get_thing_description(observer, data.wand);
-            result->span->format("%s zaps %s, but %s just sputters.", get_thing_description(observer, data.wielder), wand_description, wand_description);
-            return result;
-        }
-        case Event::WAND_DISINTEGRATES: {
-            Event::ZapWandData & data = event.zap_wand_data();
-            Span wand_description = get_thing_description(observer, data.wand);
-            result->span->format("%s tries to zap %s, but %s disintegrates.", get_thing_description(observer, data.wielder), wand_description, wand_description);
-            return result;
-        }
-        case Event::WAND_EXPLODES:
-            result->span->format("%s explodes!", get_thing_description(observer, event.item_and_location_data().item));
-            return result;
-
         case Event::WAND_HIT: {
             Event::WandHitData & data = event.wand_hit_data();
             Span beam_description = new_span(data.is_explosion ? "an explosion" : "a magic beam");
@@ -89,24 +150,6 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             }
             panic("wand id");
         }
-
-        case Event::THROW_ITEM:
-            result->span->format("%s throws %s.",
-                    get_thing_description(observer, event.zap_wand_data().wielder),
-                    get_thing_description(observer, event.zap_wand_data().wand));
-            return result;
-        case Event::ITEM_HITS_INDIVIDUAL:
-            result->span->format("%s hits %s!",
-                    get_thing_description(observer, event.zap_wand_data().wand),
-                    get_thing_description(observer, event.zap_wand_data().wielder));
-            return result;
-        case Event::ITEM_HITS_WALL:
-            result->span->format("%s hits a wall.", get_thing_description(observer, event.item_and_location_data().item));
-            return result;
-        case Event::ITEM_HITS_SOMETHING:
-            result->span->format("%s hits something.", get_thing_description(observer, event.item_and_location_data().item));
-            return result;
-
         case Event::USE_POTION: {
             Event::UsePotionData & data = event.use_potion_data();
             if (data.is_breaking) {
@@ -140,67 +183,36 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             }
             return result;
         }
-
-        case Event::POISONED:
-            result->span->format("%s is poisoned!", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::NO_LONGER_CONFUSED:
-            result->span->format("%s is no longer confused.", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::NO_LONGER_FAST:
-            result->span->format("%s slows back down to normal speed.", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::NO_LONGER_HAS_ETHEREAL_VISION:
-            result->span->format("%s no longer has ethereal vision.", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::NO_LONGER_COGNISCOPIC:
-            result->span->format("%s is no longer cogniscopic.", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::NO_LONGER_POISONED:
-            result->span->format("%s is no longer poisoned.", get_thing_description(observer, event.the_individual_data()));
-            return result;
-
-        case Event::APPEAR:
-            result->span->format("%s appears out of nowhere!", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::TURN_INVISIBLE:
-            result->span->format("%s turns invisible!", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::DISAPPEAR:
-            result->span->format("%s vanishes out of sight!", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::DIE:
-            result->span->format("%s dies.", get_thing_description(observer, event.the_individual_data()));
-            return result;
-        case Event::LEVEL_UP:
-            result->span->format("%s levels up.", get_thing_description(observer, event.the_individual_data()));
-            return result;
-
-        case Event::POLYMORPH:
+        case Event::POLYMORPH: {
+            Event::PolymorphData & data = event.polymorph_data();
             result->span->format("%s transforms into a %s!",
-                    get_thing_description(observer, event.polymorph_data().individual),
-                    get_species_name(event.polymorph_data().new_species));
+                    get_thing_description(observer, data.individual),
+                    get_species_name(data.new_species));
             return result;
-
-        case Event::ITEM_DROPS_TO_THE_FLOOR:
-            result->span->format("%s drops to the floor.", get_thing_description(observer, event.item_and_location_data().item));
-            return result;
-        case Event::INDIVIDUAL_PICKS_UP_ITEM:
-            result->span->format("%s picks up %s.",
-                    get_thing_description(observer, event.zap_wand_data().wielder),
-                    get_thing_description(observer, event.zap_wand_data().wand));
-            return result;
-        case Event::SOMETHING_PICKS_UP_ITEM:
-            result->span->format("something unseen picks up %s.", get_thing_description(observer, event.item_and_location_data().item));
-            return result;
-        case Event::INDIVIDUAL_SUCKS_UP_ITEM:
-            result->span->format("%s sucks up %s.",
-                    get_thing_description(observer, event.zap_wand_data().wielder),
-                    get_thing_description(observer, event.zap_wand_data().wand));
-            return result;
-        case Event::SOMETHING_SUCKS_UP_ITEM:
-            result->span->format("something unseen sucks up %s.", get_thing_description(observer, event.item_and_location_data().item));
-            return result;
+        }
+        case Event::ITEM_AND_LOCATION: {
+            Event::ItemAndLocationData & data = event.item_and_location_data();
+            switch (data.id) {
+                case Event::ItemAndLocationData::WAND_EXPLODES:
+                    result->span->format("%s explodes!", get_thing_description(observer, data.item));
+                    return result;
+                case Event::ItemAndLocationData::ITEM_HITS_WALL:
+                    result->span->format("%s hits a wall.", get_thing_description(observer, data.item));
+                    return result;
+                case Event::ItemAndLocationData::ITEM_HITS_SOMETHING:
+                    result->span->format("%s hits something.", get_thing_description(observer, data.item));
+                    return result;
+                case Event::ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR:
+                    result->span->format("%s drops to the floor.", get_thing_description(observer, data.item));
+                    return result;
+                case Event::ItemAndLocationData::SOMETHING_PICKS_UP_ITEM:
+                    result->span->format("something unseen picks up %s.", get_thing_description(observer, data.item));
+                    return result;
+                case Event::ItemAndLocationData::SOMETHING_SUCKS_UP_ITEM:
+                    result->span->format("something unseen sucks up %s.", get_thing_description(observer, data.item));
+                    return result;
+            }
+        }
     }
     panic("remembered_event");
 }
@@ -256,27 +268,43 @@ bool can_see_thing(Thing observer, uint256 target_id) {
 static Coord location_of(uint256 individual_id) {
     return actual_things.get(individual_id)->location;
 }
+static uint256 check_visible(Thing observer, uint256 thing_id) {
+    if (thing_id != uint256::zero() && can_see_thing(observer, thing_id))
+        return thing_id;
+    return uint256::zero();
+}
 
 static bool see_event(Thing observer, Event event, Event * output_event) {
     switch (event.type) {
-        case Event::MOVE: {
-            Event::TwoIndividualData & data = event.two_individual_data();
-            if (!(can_see_thing(observer, data.actor, data.actor_location) || can_see_thing(observer, data.actor, data.target_location)))
+        case Event::THE_INDIVIDUAL: {
+            Event::TheIndividualData & data = event.the_individual_data();
+            if (data.id == Event::TheIndividualData::TURN_INVISIBLE) {
+                if (!can_see_location(observer, location_of(data.individual)))
+                    return false;
+                if (!can_see_thing(observer, data.individual)) {
+                    // you don't know what they disappeared.
+                    *output_event = Event::disappear(data.individual);
+                    return true;
+                }
+                *output_event = event;
+                return true;
+            }
+            if (!can_see_thing(observer, data.individual))
                 return false;
             *output_event = event;
             return true;
         }
-        case Event::BUMP_INTO:
-        case Event::ATTACK: {
+        case Event::TWO_INDIVIDUAL: {
             Event::TwoIndividualData & data = event.two_individual_data();
-
-            uint256 actor = data.actor;
-            if (data.actor != uint256::zero() && !can_see_thing(observer, data.actor))
-                actor = uint256::zero();
-
-            uint256 target = data.target;
-            if (data.target != uint256::zero() && !can_see_thing(observer, data.target))
-                target = uint256::zero();
+            if (data.id == Event::TwoIndividualData::MOVE) {
+                // for moving, you get to see the individual in either location
+                if (!(can_see_thing(observer, data.actor, data.actor_location) || can_see_thing(observer, data.actor, data.target_location)))
+                    return false;
+                *output_event = event;
+                return true;
+            }
+            uint256 actor = check_visible(observer, data.actor);
+            uint256 target = check_visible(observer, data.target);
 
             if (actor == uint256::zero() && target == uint256::zero())
                 return false;
@@ -285,20 +313,17 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             output_event->two_individual_data().target = target;
             return true;
         }
-
-        case Event::ZAP_WAND:
-        case Event::ZAP_WAND_NO_CHARGES:
-        case Event::WAND_DISINTEGRATES:
-            if (!can_see_thing(observer, event.zap_wand_data().wielder))
+        case Event::ZAP_WAND: {
+            Event::ZapWandData & data = event.zap_wand_data();
+            uint256 individual_id = check_visible(observer, data.wielder);
+            uint256 item_id = check_visible(observer, data.wand);
+            if (individual_id == uint256::zero() || item_id == uint256::zero())
                 return false;
             *output_event = event;
+            output_event->zap_wand_data().wielder = individual_id;
+            output_event->zap_wand_data().wand = item_id;
             return true;
-        case Event::WAND_EXPLODES:
-            if (!can_see_location(observer, event.item_and_location_data().location))
-                return false;
-            *output_event = event;
-            return true;
-
+        }
         case Event::WAND_HIT: {
             Event::WandHitData & data = event.wand_hit_data();
             if (data.target != uint256::zero()) {
@@ -311,25 +336,12 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             *output_event = event;
             return true;
         }
-
-        case Event::THROW_ITEM:
-        case Event::ITEM_HITS_INDIVIDUAL:
-            if (!can_see_thing(observer, event.zap_wand_data().wielder))
+        case Event::USE_POTION: {
+            Event::UsePotionData & data = event.use_potion_data();
+            if (!can_see_location(observer, data.location))
                 return false;
-            *output_event = event;
-            return true;
-        case Event::ITEM_HITS_SOMETHING:
-        case Event::ITEM_HITS_WALL:
-            if (!can_see_location(observer, event.item_and_location_data().location))
-                return false;
-            *output_event = event;
-            return true;
-
-        case Event::USE_POTION:
-            if (!can_see_location(observer, event.use_potion_data().location))
-                return false;
-            if (event.use_potion_data().target_id != uint256::zero() && !can_see_thing(observer, event.use_potion_data().target_id)) {
-                if (event.use_potion_data().is_breaking) {
+            if (data.target_id != uint256::zero() && !can_see_thing(observer, data.target_id)) {
+                if (data.is_breaking) {
                     // i see that it broke, but it looks like it hit nobody
                     *output_event = event;
                     output_event->use_potion_data().target_id = uint256::zero();
@@ -342,63 +354,24 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             }
             *output_event = event;
             return true;
-
-        case Event::POISONED:
-        case Event::NO_LONGER_CONFUSED:
-        case Event::NO_LONGER_FAST:
-        case Event::NO_LONGER_HAS_ETHEREAL_VISION:
-        case Event::NO_LONGER_COGNISCOPIC:
-        case Event::NO_LONGER_POISONED:
-        case Event::APPEAR:
-            if (!can_see_thing(observer, event.the_individual_data()))
+        }
+        case Event::POLYMORPH: {
+            if (!can_see_thing(observer, event.polymorph_data().individual))
+                return false;
+            // TODO: gaining and losing a mind should interact with cogniscopy. missing this feature can cause crashes.
+            *output_event = event;
+            return true;
+        }
+        case Event::ITEM_AND_LOCATION: {
+            Event::ItemAndLocationData & data = event.item_and_location_data();
+            if (!can_see_location(observer, data.location))
+                return false;
+            uint256 item = check_visible(observer, data.item);
+            if (item == uint256::zero())
                 return false;
             *output_event = event;
             return true;
-        case Event::TURN_INVISIBLE:
-            if (!can_see_location(observer, location_of(event.the_individual_data())))
-                return false;
-            if (!can_see_thing(observer, event.the_individual_data())) {
-                *output_event = Event::disappear(event.the_individual_data());
-                return true;
-            }
-            *output_event = event;
-            return true;
-        case Event::DISAPPEAR:
-            panic("not a real event");
-        case Event::LEVEL_UP:
-        case Event::DIE:
-            if (!can_see_thing(observer, event.the_individual_data()))
-                return false;
-            *output_event = event;
-            return true;
-
-        case Event::POLYMORPH:
-            if (!can_see_location(observer, location_of(event.polymorph_data().individual)))
-                return false;
-            *output_event = event;
-            return true;
-
-        case Event::ITEM_DROPS_TO_THE_FLOOR:
-            if (!can_see_location(observer, event.item_and_location_data().location))
-                return false;
-            *output_event = event;
-            return true;
-        case Event::INDIVIDUAL_PICKS_UP_ITEM:
-        case Event::INDIVIDUAL_SUCKS_UP_ITEM:
-            if (!can_see_location(observer, location_of(event.zap_wand_data().wielder)))
-                return false;
-            if (!can_see_thing(observer, event.zap_wand_data().wielder)) {
-                if (event.type == Event::INDIVIDUAL_PICKS_UP_ITEM)
-                    *output_event = Event::something_picks_up_item(event.zap_wand_data().wand, location_of(event.zap_wand_data().wielder));
-                else
-                    *output_event = Event::something_sucks_up_item(event.zap_wand_data().wand, location_of(event.zap_wand_data().wielder));
-                return true;
-            }
-            *output_event = event;
-            return true;
-        case Event::SOMETHING_PICKS_UP_ITEM:
-        case Event::SOMETHING_SUCKS_UP_ITEM:
-            panic("not a real event");
+        }
     }
     panic("see event");
 }
@@ -440,28 +413,71 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
         // make changes to our knowledge
         List<uint256> delete_ids;
         switch (event.type) {
-            case Event::MOVE:
-                record_perception_of_thing(observer, event.two_individual_data().actor);
+            case Event::THE_INDIVIDUAL: {
+                Event::TheIndividualData & data = event.the_individual_data();
+                switch (data.id) {
+                    case Event::TheIndividualData::POISONED:
+                        observer->life()->knowledge.perceived_things.get(data.individual)->status_effects.poison_expiration_time = 0x7fffffffffffffffLL;
+                        break;
+                    case Event::TheIndividualData::NO_LONGER_CONFUSED:
+                    case Event::TheIndividualData::NO_LONGER_FAST:
+                    case Event::TheIndividualData::NO_LONGER_HAS_ETHEREAL_VISION:
+                    case Event::TheIndividualData::NO_LONGER_COGNISCOPIC:
+                    case Event::TheIndividualData::NO_LONGER_POISONED:
+                    case Event::TheIndividualData::APPEAR:
+                    case Event::TheIndividualData::TURN_INVISIBLE:
+                        record_perception_of_thing(observer, data.individual);
+                        break;
+                    case Event::TheIndividualData::DISAPPEAR:
+                        delete_ids.append(data.individual);
+                        break;
+                    case Event::TheIndividualData::LEVEL_UP:
+                        // no state change
+                        break;
+                    case Event::TheIndividualData::DIE:
+                        delete_ids.append(data.individual);
+                        break;
+                }
                 break;
-            case Event::BUMP_INTO:
-            case Event::ATTACK:
-                // no state change
+            }
+            case Event::TWO_INDIVIDUAL: {
+                Event::TwoIndividualData & data = event.two_individual_data();
+                switch (data.id) {
+                    case Event::TwoIndividualData::MOVE:
+                        record_perception_of_thing(observer, data.actor);
+                        break;
+                    case Event::TwoIndividualData::BUMP_INTO:
+                    case Event::TwoIndividualData::ATTACK:
+                        // no satate change
+                        break;
+                }
                 break;
-
-            case Event::ZAP_WAND:
-                perceived_current_zapper->put(observer->id, actual_things.get(event.zap_wand_data().wand)->wand_info()->description_id);
+            }
+            case Event::ZAP_WAND: {
+                Event::ZapWandData & data = event.zap_wand_data();
+                switch (data.id) {
+                    case Event::ZapWandData::ZAP_WAND:
+                        perceived_current_zapper->put(observer->id, actual_things.get(data.wand)->wand_info()->description_id);
+                        break;
+                    case Event::ZapWandData::ZAP_WAND_NO_CHARGES:
+                        // boring
+                        break;
+                    case Event::ZapWandData::WAND_DISINTEGRATES:
+                        delete_ids.append(data.wand);
+                        break;
+                    case Event::ZapWandData::THROW_ITEM:
+                        // TODO: should we delete the item if it flies out of view?
+                        break;
+                    case Event::ZapWandData::ITEM_HITS_INDIVIDUAL:
+                        // no state change
+                        break;
+                    case Event::ZapWandData::INDIVIDUAL_PICKS_UP_ITEM:
+                    case Event::ZapWandData::INDIVIDUAL_SUCKS_UP_ITEM:
+                        record_perception_of_thing(observer, data.wand);
+                        break;
+                }
                 break;
-            case Event::ZAP_WAND_NO_CHARGES:
-                // boring
-                break;
-            case Event::WAND_DISINTEGRATES:
-                delete_ids.append(event.zap_wand_data().wand);
-                break;
-            case Event::WAND_EXPLODES:
-                perceived_current_zapper->put(observer->id, actual_things.get(event.item_and_location_data().item)->wand_info()->description_id);
-                delete_ids.append(event.item_and_location_data().item);
-                break;
-
+            }
             case Event::WAND_HIT: {
                 Event::WandHitData & data = event.wand_hit_data();
                 WandId true_id = data.observable_effect;
@@ -491,20 +507,8 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                             panic("not a real wand id");
                     }
                 }
+                break;
             }
-
-            case Event::THROW_ITEM:
-                // TODO: should we delete the item if it flies out of view?
-                break;
-            case Event::ITEM_HITS_INDIVIDUAL:
-                record_perception_of_thing(observer, event.zap_wand_data().wand);
-                break;
-            case Event::ITEM_HITS_SOMETHING:
-            case Event::ITEM_HITS_WALL:
-                // the item may have been thrown from out of view, so make sure we know what it is.
-                record_perception_of_thing(observer, event.item_and_location_data().item);
-                break;
-
             case Event::USE_POTION: {
                 Event::UsePotionData & data = event.use_potion_data();
                 PotionId effect = data.effect;
@@ -533,50 +537,34 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                             panic("not a real id");
                     }
                 }
-                delete_ids.append(event.use_potion_data().item_id);
+                delete_ids.append(data.item_id);
                 break;
             }
-
-            case Event::POISONED:
-                observer->life()->knowledge.perceived_things.get(event.the_individual_data())->status_effects.poison_expiration_time = 0x7fffffffffffffffLL;
+            case Event::POLYMORPH: {
+                Event::PolymorphData & data = event.polymorph_data();
+                record_perception_of_thing(observer, data.individual);
                 break;
-            case Event::NO_LONGER_CONFUSED:
-            case Event::NO_LONGER_FAST:
-            case Event::NO_LONGER_HAS_ETHEREAL_VISION:
-            case Event::NO_LONGER_COGNISCOPIC:
-            case Event::NO_LONGER_POISONED:
-                record_perception_of_thing(observer, event.the_individual_data());
+            }
+            case Event::ITEM_AND_LOCATION: {
+                Event::ItemAndLocationData & data = event.item_and_location_data();
+                switch (data.id) {
+                    case Event::ItemAndLocationData::WAND_EXPLODES:
+                        perceived_current_zapper->put(observer->id, actual_things.get(data.item)->wand_info()->description_id);
+                        delete_ids.append(data.item);
+                        break;
+                    case Event::ItemAndLocationData::ITEM_HITS_WALL:
+                    case Event::ItemAndLocationData::ITEM_HITS_SOMETHING:
+                        // the item may have been thrown from out of view, so make sure we know what it is.
+                        record_perception_of_thing(observer, data.item);
+                        break;
+                    case Event::ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR:
+                    case Event::ItemAndLocationData::SOMETHING_PICKS_UP_ITEM:
+                    case Event::ItemAndLocationData::SOMETHING_SUCKS_UP_ITEM:
+                        record_perception_of_thing(observer, data.item);
+                        break;
+                }
                 break;
-
-            case Event::APPEAR:
-                record_perception_of_thing(observer, event.the_individual_data());
-                break;
-            case Event::TURN_INVISIBLE:
-                record_perception_of_thing(observer, event.the_individual_data());
-                break;
-            case Event::DISAPPEAR:
-                delete_ids.append(event.the_individual_data());
-                break;
-            case Event::LEVEL_UP:
-                // no state change
-                break;
-            case Event::DIE:
-                delete_ids.append(event.the_individual_data());
-                break;
-
-            case Event::POLYMORPH:
-                record_perception_of_thing(observer, event.polymorph_data().individual);
-                break;
-
-            case Event::ITEM_DROPS_TO_THE_FLOOR:
-            case Event::SOMETHING_PICKS_UP_ITEM:
-            case Event::SOMETHING_SUCKS_UP_ITEM:
-                record_perception_of_thing(observer, event.item_and_location_data().item);
-                break;
-            case Event::INDIVIDUAL_PICKS_UP_ITEM:
-            case Event::INDIVIDUAL_SUCKS_UP_ITEM:
-                record_perception_of_thing(observer, event.zap_wand_data().wand);
-                break;
+            }
         }
         if (observer->life()->species()->has_mind) {
             // we need to log the event before the monster disappears from our knowledge
