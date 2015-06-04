@@ -49,6 +49,40 @@ run:
 See [this project](https://github.com/andrewrk/www.legend-of-swarkland) for
 source code to the website.
 
+## Eclipse Environment Setup on Linux
+
+Josh develops this project in Eclipse on Linux, but of course it's optional.
+These instructions were last updated with Eclipse Luna.
+
+Search Google for "eclipse luna" to get to right Eclipse downloads page (there are lots of wrong download pages.).
+Avoid the download for Java; get the one for C/C++ (if you don't see one for Java, you're probably on the wrong page.).
+The description should confirm that it's for Linux.
+You should get a binary archive on the order of 200MB with an executable at the top level called `eclipse`.
+
+```
+sudo apt-get install default-jdk
+```
+
+In eclipse, File -> New -> Project... -> C/C++ -> Makefile Project with Existing Code.
+Browse to this directory.
+**Click the "Linux GCC" toolchain.**
+
+Now you should be able to open `main.cpp` and see no error or warning annotations.
+You should be able to select a system include (`#include <...>`), and F3 to see its source.
+
+### Optional Tweaks
+
+Project -> Properties -> C/C++ Build -> Behavior Tab.
+Uncheck "Stop on first build error".
+Check "Enable parallel build".
+Check "Build on resource save (Auto build)".
+Blank out the textboxes under "Make build target" that say "all".
+
+Run -> Debug Configurations... -> C/C++ Application -> New launch configuration.
+Main Tab: Project -> Browse... -> select the one.
+C/C++ Application: `build/native/legend-of-swarkland`
+Debugger Tab: Uncheck "Stop on startup at"
+
 ## Roadmap
 
 ### 5.0.0
