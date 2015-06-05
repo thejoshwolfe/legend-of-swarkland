@@ -30,16 +30,16 @@ static void init_specieses() {
     //                                     |   |  |   |   |   |  |   |  |  |  |  uses wands
     //                                     |   |  |   |   |   |  |   |  |  |  |  |  advanced strategy
     specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 3,  3,  7, {1, 0}, 1, 0, 0, 0, 1, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 2,  4,  5, {1, 0}, 1, 0, 0, 0, 1, 0};
     specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 1, 0, 0, 0, 1, 1};
-    specieses[SpeciesId_PINK_BLOB    ] = {48, 12, 1,  1,  4, {0, 1}, 0, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  3,  6, {0, 1}, 0, 1, 1, 0, 0, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2,  0,  5, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  4, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  4, 3,  0,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1,  0,  1, {0, 1}, 0, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  4,  5, {0, 1}, 0, 1, 1, 0, 0, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2,  1,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  2, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  2, 3,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
     specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  4, {1, 0}, 1, 0, 0, 1, 0, 0};
-    specieses[SpeciesId_SNAKE        ] = {18,  6, 2,  0,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  3, {1, 0}, 1, 0, 0, 1, 0, 0};
+    specieses[SpeciesId_SNAKE        ] = {18,  4, 2,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.
@@ -204,7 +204,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 
 // SpeciesId_COUNT => random
 // experience = -1 => random
-static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker, int experience) {
+static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker, int experience, Coord location) {
     if (experience == -1) {
         // monster experience scales with your level and the dungeon level.
         int difficulty_level = (you->life()->experience_level() + dungeon_level) / 2;
@@ -231,12 +231,14 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
         species_id = available_specieses[random_int(available_specieses.length())];
     }
 
-    // don't spawn monsters near you. don't spawn you near the stairs.
     Coord away_from_location = you != nullptr ? you->location : stairs_down_location;
-    Coord location = find_random_location(away_from_location);
     if (location == Coord::nowhere()) {
-        // it must be pretty crowded in here
-        return nullptr;
+        // don't spawn monsters near you. don't spawn you near the stairs.
+        location = random_spawn_location(away_from_location);
+        if (location == Coord::nowhere()) {
+            // it must be pretty crowded in here
+            return nullptr;
+        }
     }
 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
@@ -249,26 +251,32 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
     return individual;
 }
 
+static SpeciesId get_miniboss_species(int dungeon_level) {
+    switch (dungeon_level) {
+        case 1: return SpeciesId_DOG;
+        case 2: return SpeciesId_SCORPION;
+        case 3: return SpeciesId_AIR_ELEMENTAL;
+        case 4: return SpeciesId_OGRE;
+    }
+    panic("dungeon_level");
+}
+
 static void spawn_random_individual() {
-    spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, -1);
+    spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, -1, Coord::nowhere());
 }
 static void init_individuals() {
     if (you == nullptr) {
-        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, 0);
+        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, 0, Coord::nowhere());
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far apart.
-        you->location = find_random_location(stairs_down_location);
+        you->location = random_spawn_location(stairs_down_location);
         compute_vision(you);
     }
 
-    // seed the level with monsters
-    for (int i = 0; i < 4 + 3 * dungeon_level; i++)
-        spawn_random_individual();
-
     if (dungeon_level == final_dungeon_level) {
         // boss
-        Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(7));
+        Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(7), Coord::nowhere());
         // arm him!
         for (int i = 0; i < 5; i++) {
             Thing item = random_item(ThingType_WAND);
@@ -277,7 +285,15 @@ static void init_individuals() {
             WandDescriptionId description_id = item->wand_info()->description_id;
             boss->life()->knowledge.wand_identities[description_id] = actual_wand_identities[description_id];
         }
+    } else {
+        // spawn a "miniboss", which is just a specific monster on the stairs.
+        SpeciesId miniboss_species_id = get_miniboss_species(dungeon_level);
+        spawn_a_monster(miniboss_species_id, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(dungeon_level), find_stairs_down_location());
     }
+
+    // random monsters
+    for (int i = 0; i < 4 + 3 * dungeon_level; i++)
+        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, random_inclusive(0, level_to_experience(dungeon_level)), Coord::nowhere());
 }
 
 void swarkland_init() {

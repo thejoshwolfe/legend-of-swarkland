@@ -5,6 +5,7 @@
 #include "item.hpp"
 #include "event.hpp"
 
+// starts at 1
 int dungeon_level = 0;
 MapMatrix<Tile> actual_map_tiles;
 MapMatrix<bool> spawn_zone;
@@ -283,22 +284,33 @@ void generate_map() {
 }
 
 static const int no_spawn_radius = 10;
-Coord find_random_location(Coord away_from_location) {
+bool can_spawn_at(Coord away_from_location, Coord location) {
+    if (!is_open_space(actual_map_tiles[location].tile_type))
+        return false;
+    if (!spawn_zone[location])
+        return false;
+    if (euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
+        return false;
+    if (find_individual_at(location) != nullptr)
+        return false;
+    return true;
+}
+
+Coord random_spawn_location(Coord away_from_location) {
     List<Coord> available_spawn_locations;
-    for (Coord location = {0, 0}; location.y < map_size.y; location.y++) {
-        for (location.x = 0; location.x < map_size.x; location.x++) {
-            if (!is_open_space(actual_map_tiles[location].tile_type))
-                continue;
-            if (!spawn_zone[location])
-                continue;
-            if (euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
-                continue;
-            if (find_individual_at(location) != nullptr)
-                continue;
-            available_spawn_locations.append(location);
-        }
-    }
+    for (Coord location = {0, 0}; location.y < map_size.y; location.y++)
+        for (location.x = 0; location.x < map_size.x; location.x++)
+            if (can_spawn_at(away_from_location, location))
+                available_spawn_locations.append(location);
     if (available_spawn_locations.length() == 0)
         return Coord::nowhere();
     return available_spawn_locations[random_int(available_spawn_locations.length())];
+}
+
+Coord find_stairs_down_location() {
+    for (Coord location = {0, 0}; location.y < map_size.y; location.y++)
+        for (location.x = 0; location.x < map_size.x; location.x++)
+            if (actual_map_tiles[location].tile_type == TileType_STAIRS_DOWN)
+                return location;
+    return Coord::nowhere();
 }

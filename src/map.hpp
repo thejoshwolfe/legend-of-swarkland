@@ -63,7 +63,9 @@ static inline bool is_open_space(TileType tile_type) {
     }
     panic("tile type");
 }
+bool can_spawn_at(Coord away_from_location, Coord location);
 
-Coord find_random_location(Coord away_from_location);
+Coord random_spawn_location(Coord away_from_location);
+Coord find_stairs_down_location();
 
 #endif
