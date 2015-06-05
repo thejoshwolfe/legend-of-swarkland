@@ -83,6 +83,12 @@ Main Tab: Project -> Browse... -> select the one.
 C/C++ Application: `build/native/legend-of-swarkland`
 Debugger Tab: Uncheck "Stop on startup at"
 
+Project -> Properties -> C/C++ General -> Formatter -> Edit...
+Indentation Tab: Indentation policy: Spaces only.
+Check "Statements within a 'switch' body".
+Line Wrapping Tab: Maximum line width: 9999.
+Default indentation for wrapped lines: 1.
+
 ## Roadmap
 
 ### 5.0.0
