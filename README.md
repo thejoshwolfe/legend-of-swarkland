@@ -37,6 +37,12 @@ run:
 ./build/native/legend-of-swarkland
 ```
 
+run with gdb from the command line:
+
+```
+gdb -iex "add-auto-load-safe-path ./" -ex run -ex quit ./build/native/legend-of-swarkland
+```
+
 ## Build for Windows on Linux
 
  0. `git clone https://github.com/andrewrk/mxe`
@@ -81,7 +87,8 @@ Blank out the textboxes under "Make build target" that say "all".
 Run -> Debug Configurations... -> C/C++ Application -> New launch configuration.
 Main Tab: Project -> Browse... -> select the one.
 C/C++ Application: `build/native/legend-of-swarkland`
-Debugger Tab: Uncheck "Stop on startup at"
+Debugger Tab: Uncheck "Stop on startup at".
+GDB command file: `${workspace_loc:legend-of-swarkland}/.gdbinit`
 
 Project -> Properties -> C/C++ General -> Formatter -> Edit...
 Indentation Tab: Indentation policy: Spaces only.

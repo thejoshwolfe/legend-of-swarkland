@@ -114,4 +114,6 @@ private:
     List<T> & operator= (const List<T> & other) = delete;
 };
 
+DEFINE_GDB_PY_SCRIPT("debug-scripts/list.py")
+
 #endif

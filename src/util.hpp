@@ -6,6 +6,15 @@
 #include <stdlib.h>
 #include <new>
 
+#define DEFINE_GDB_PY_SCRIPT(script_name) \
+    asm("\
+        .pushsection \".debug_gdb_scripts\", \"MS\",@progbits,1\n\
+        .byte 1 /* Python */\n\
+        .asciz \"" script_name "\"\n\
+        .popsection \n\
+    ");
+
+
 void panic(const char * str) __attribute__ ((noreturn));
 
 // create<MyClass>(a, b) is equivalent to: new MyClass(a, b)
