@@ -8,8 +8,8 @@
 #include "text.hpp"
 
 #include <rucksack/rucksack.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL.h>
+#include <SDL_ttf.h>
 
 static const int tile_size = 32;
 extern const SDL_Rect main_map_area;

@@ -3,7 +3,7 @@
 
 #include "string.hpp"
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 static const SDL_Color white       = {0xff, 0xff, 0xff, 0xff};
 static const SDL_Color gray        = {0x88, 0x88, 0x88, 0xff};

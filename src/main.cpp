@@ -10,7 +10,7 @@
 
 #include <stdbool.h>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 static void process_argv(int argc, char * argv[]) {
     for (int i = 1; i < argc; i++) {

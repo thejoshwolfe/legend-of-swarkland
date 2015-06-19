@@ -11,8 +11,8 @@
 #include "resources.hpp"
 #include "event.hpp"
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL.h>
+#include <SDL_ttf.h>
 
 // screen layout
 static const SDL_Rect message_area = { 0, 0, map_size.x * tile_size, 2 * tile_size };
