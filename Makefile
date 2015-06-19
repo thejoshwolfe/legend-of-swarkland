@@ -6,7 +6,7 @@ OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o 
 CPP_FLAGS += -fsanitize=address -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
 COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++14 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --cflags SDL2_ttf sdl2 libpng) $<
 
-LINK_FLAGS += -lm -lrucksack -lasan $(TARGET_SPECIFIC_LINK_FLAGS)
+LINK_FLAGS += -lasan -lm -lrucksack $(TARGET_SPECIFIC_LINK_FLAGS)
 LINK = $(CROSS_PREFIX)gcc -o $@ $^ $(LINK_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --libs SDL2_ttf sdl2 libpng)
 
 # ld is not allowed to omit functions and global variables defined in .o files,
