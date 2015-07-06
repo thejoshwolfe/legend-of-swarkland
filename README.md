@@ -45,7 +45,7 @@ gdb -iex "add-auto-load-safe-path ./" -ex run -ex quit ./build/native/legend-of-
 
 ## Build for Windows on Linux
 
- 0. `git clone https://github.com/andrewrk/mxe`
+ 0. `git clone https://github.com/mxe/mxe`
  0. Follow these instructions: http://mxe.cc/#requirements-debian
  0. In the mxe directory: `make gcc sdl2 sdl2_ttf libpng rucksack`
  0. In legend-of-swarkland directory: `make MXE_HOME=/path/to/mxe windows`
