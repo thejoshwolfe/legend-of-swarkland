@@ -1,4 +1,4 @@
-print("hello world from asdffdsa")
+print("hello from " + __file__)
 
 import re
 
