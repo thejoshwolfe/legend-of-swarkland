@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <new>
 
+// .pushsection is elf-specific
+#if defined(__linux__)
 #define DEFINE_GDB_PY_SCRIPT(script_name) \
     asm("\
         .pushsection \".debug_gdb_scripts\", \"MS\",@progbits,1\n\
@@ -13,6 +15,9 @@
         .asciz \"" script_name "\"\n\
         .popsection \n\
     ");
+#else
+#define DEFINE_GDB_PY_SCRIPT(script_name)
+#endif
 
 
 void panic(const char * str) __attribute__ ((noreturn));

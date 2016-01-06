@@ -3,10 +3,10 @@ all:
 
 OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o tas.o byte_buffer.o item.o input.o event.o string.o text.o resources.o
 
-CPP_FLAGS += -fsanitize=address -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
+CPP_FLAGS += $(TARGET_SPECIFIC_CPP_FLAGS) -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
 COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++14 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --cflags SDL2_ttf sdl2 libpng) $<
 
-LINK_FLAGS += -lasan -lm -lrucksack $(TARGET_SPECIFIC_LINK_FLAGS)
+LINK_FLAGS += $(TARGET_SPECIFIC_LINK_FLAGS) -lm -lrucksack
 LINK = $(CROSS_PREFIX)gcc -o $@ $^ $(LINK_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --libs SDL2_ttf sdl2 libpng)
 
 # ld is not allowed to omit functions and global variables defined in .o files,
@@ -40,11 +40,12 @@ test: build/native/test
 all: native
 -include $(wildcard build/native/*.d)
 OBJECTS_native = $(foreach f,$(OBJECT_NAMES),build/native/$f)
+$(OBJECTS_native) build/native/main.o build/native/test.o: TARGET_SPECIFIC_CPP_FLAGS = -fsanitize=address
 $(OBJECTS_native) build/native/main.o build/native/test.o: CROSS_PREFIX =
 build/native/%.o: src/%.cpp
 	$(COMPILE_CPP)
 
-build/native/legend-of-swarkland build/native/test: TARGET_SPECIFIC_LINK_FLAGS =
+build/native/legend-of-swarkland build/native/test: TARGET_SPECIFIC_LINK_FLAGS = -lasan
 build/native/legend-of-swarkland build/native/test: CROSS_PREFIX =
 build/native/legend-of-swarkland: $(OBJECTS_native) build/native/main.o
 	$(LINK)
@@ -63,6 +64,7 @@ build/native:
 -include $(wildcard build/windows/*.d)
 CROSS_windows = $(MXE_HOME)/usr/bin/i686-w64-mingw32.static-
 OBJECTS_windows = $(foreach f,$(OBJECT_NAMES),build/windows/$f)
+$(OBJECTS_windows) build/windows/main.o: TARGET_SPECIFIC_CPP_FLAGS =
 $(OBJECTS_windows) build/windows/main.o: CROSS_PREFIX = $(CROSS_windows)
 build/windows/%.o: src/%.cpp
 	$(if $(MXE_HOME),,$(error MXE_HOME is not defined))
