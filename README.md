@@ -22,7 +22,7 @@ sudo apt-get update
 install dependencies:
 
 ```
-sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev libpng12-dev
+sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev libpng12-dev upx-ucl
 ```
 
 build:
@@ -52,7 +52,7 @@ gdb -iex "add-auto-load-safe-path ./" -ex run -ex quit ./build/native/legend-of-
 
 (You can build for both Windows and native Linux at the same time by appending `native` to the above.)
 
-See [this project](https://github.com/andrewrk/www.legend-of-swarkland) for
+See [this project](https://github.com/thejoshwolfe/www.legend-of-swarkland) for
 source code to the website.
 
 ## Eclipse Environment Setup on Linux
