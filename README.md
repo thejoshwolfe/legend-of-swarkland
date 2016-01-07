@@ -104,24 +104,25 @@ Default indentation for wrapped lines: 1.
    * Secret passage ways.
    * Acid traps.
    * Polymorph traps.
+ * Spells and MP.
+ * New items:
+   * spellbooks of: assume form, blinding, charm, fear, force, life syphon, magic bullet, mapping, slowing
+   * wands of: blinding, force, invisibility, magic bullet, pointlessness, slowing
+   * potions of: experience, fruit juice, invisibility, mana
 
-### 4.1.0
-
- * Interface improvements, such as [zooming out or scrolling](https://github.com/thejoshwolfe/legend-of-swarkland/issues/8).
+## Version History
 
 ### 4.0.0
 
  * Roguelike dungeon crawler.
    * Rooms and corridors with stairs down to the next level (no stairs up).
    * Experience levels.
-   * Monster difficulty depends on your experience level and dungeon depth.
- * Speediness only affects movement; fighting and other actions are standard speed for everyone.
+   * The monsters that spawn depend on dungeon depth.
  * Added potions and quaffing.
  * New items: wand of speed, wand of remedy, potion of healing, potion of poison, potion of ethereal vision, potion of cogniscopy.
  * New monsters: ant, bee, beetle, scorpion, snake.
  * New status effects: fast, poisoned, ethereal-visioned, cogniscopic.
-
-## Version History
+ * Species have different base move speeds, but fighting and other actions are standard speed for everyone.
 
 ### 3.1.0
 
