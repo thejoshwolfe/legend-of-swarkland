@@ -83,10 +83,12 @@ build/windows:
 
 .PHONY: publish-windows
 PUBLISH_EXE_NAME = legend-of-swarkland-$(THE_VERSION).exe
-FULL_PUBLISH_EXE_NAME = build/publish-windows/$(PUBLISH_EXE_NAME)
+PUBLISH_DIR = build/publish
+FULL_PUBLISH_EXE_NAME = $(PUBLISH_DIR)/$(PUBLISH_EXE_NAME)
 publish-windows: $(FULL_PUBLISH_EXE_NAME)
 
-$(FULL_PUBLISH_EXE_NAME): build/windows/legend-of-swarkland.exe | build/publish-windows
+$(FULL_PUBLISH_EXE_NAME): build/windows/legend-of-swarkland.exe
+	rm -rf $(PUBLISH_DIR) && mkdir $(PUBLISH_DIR)
 	cp $< $@.tmp.exe
 	upx $@.tmp.exe
 	mv $@.tmp.exe $@
