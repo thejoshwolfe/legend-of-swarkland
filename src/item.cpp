@@ -208,6 +208,10 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             target->status_effects.cogniscopy_expiration_time = time_counter + random_midpoint(2000);
             compute_vision(target);
             break;
+        case PotionId_POTION_OF_BLINDNESS:
+            target->status_effects.blindness_expiration_time = time_counter + random_midpoint(1000);
+            compute_vision(target);
+            break;
 
         case PotionId_COUNT:
         case PotionId_UNKNOWN:

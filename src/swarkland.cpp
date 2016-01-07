@@ -721,6 +721,10 @@ static void age_individual(Thing individual) {
         publish_event(Event::no_longer_cogniscopic(individual));
         compute_vision(individual);
     }
+    if (individual->status_effects.blindness_expiration_time == time_counter) {
+        publish_event(Event::no_longer_blind(individual));
+        compute_vision(individual);
+    }
     if (individual->status_effects.poison_expiration_time == time_counter) {
         publish_event(Event::no_longer_poisoned(individual));
         reset_hp_regen_timeout(individual);

@@ -61,6 +61,7 @@ struct Event {
             NO_LONGER_FAST,
             NO_LONGER_HAS_ETHEREAL_VISION,
             NO_LONGER_COGNISCOPIC,
+            NO_LONGER_BLIND,
             NO_LONGER_POISONED,
             APPEAR,
             TURN_INVISIBLE,
@@ -200,6 +201,9 @@ struct Event {
     }
     static inline Event no_longer_cogniscopic(Thing individual) {
         return event_individual(TheIndividualData::NO_LONGER_COGNISCOPIC, individual->id);
+    }
+    static inline Event no_longer_blind(Thing individual) {
+        return event_individual(TheIndividualData::NO_LONGER_BLIND, individual->id);
     }
     static inline Event no_longer_poisoned(Thing individual) {
         return event_individual(TheIndividualData::NO_LONGER_POISONED, individual->id);

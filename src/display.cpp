@@ -107,6 +107,7 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     potion_images[PotionDescriptionId_GREEN_POTION] = find_image(spritesheet_images, image_count, "img/green_potion.png");
     potion_images[PotionDescriptionId_RED_POTION] = find_image(spritesheet_images, image_count, "img/red_potion.png");
     potion_images[PotionDescriptionId_YELLOW_POTION] = find_image(spritesheet_images, image_count, "img/yellow_potion.png");
+    potion_images[PotionDescriptionId_BROWN_POTION] = find_image(spritesheet_images, image_count, "img/brown_potion.png");
 
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
@@ -301,6 +302,8 @@ static Span get_status_description(const StatusEffects & status_effects) {
         result->append("ethereal-visioned ");
     if (status_effects.cogniscopy_expiration_time > time_counter)
         result->append("cogniscopic ");
+    if (status_effects.blindness_expiration_time > time_counter)
+        result->append("blind ");
     if (status_effects.poison_expiration_time > time_counter)
         result->append("poisoned ");
     result->set_color(pink, black);
@@ -359,6 +362,8 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "potion of ethereal vision";
             case PotionId_POTION_OF_COGNISCOPY:
                 return "potion of cogniscopy";
+            case PotionId_POTION_OF_BLINDNESS:
+                return "potion of blindness";
 
             case PotionId_COUNT:
             case PotionId_UNKNOWN:
@@ -375,6 +380,8 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "red potion";
             case PotionDescriptionId_YELLOW_POTION:
                 return "yellow potion";
+            case PotionDescriptionId_BROWN_POTION:
+                return "brown potion";
 
             case PotionDescriptionId_COUNT:
                 panic("not a real description id");

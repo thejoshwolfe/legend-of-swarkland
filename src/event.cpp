@@ -25,6 +25,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                 case Event::TheIndividualData::NO_LONGER_COGNISCOPIC:
                     result->span->format("%s is no longer cogniscopic.", individual_description);
                     return result;
+                case Event::TheIndividualData::NO_LONGER_BLIND:
+                    result->span->format("%s is no longer blind.", individual_description);
+                    return result;
                 case Event::TheIndividualData::NO_LONGER_POISONED:
                     result->span->format("%s is no longer poisoned.", individual_description);
                     return result;
@@ -164,6 +167,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                     break;
                 case PotionId_POTION_OF_COGNISCOPY:
                     result->span->format("; %s gains cogniscopy!", get_thing_description(observer, data.target_id));
+                    break;
+                case PotionId_POTION_OF_BLINDNESS:
+                    result->span->format("; %s is blinded!", get_thing_description(observer, data.target_id));
                     break;
 
                 case PotionId_UNKNOWN:
@@ -413,6 +419,7 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                     case Event::TheIndividualData::NO_LONGER_FAST:
                     case Event::TheIndividualData::NO_LONGER_HAS_ETHEREAL_VISION:
                     case Event::TheIndividualData::NO_LONGER_COGNISCOPIC:
+                    case Event::TheIndividualData::NO_LONGER_BLIND:
                     case Event::TheIndividualData::NO_LONGER_POISONED:
                     case Event::TheIndividualData::APPEAR:
                     case Event::TheIndividualData::TURN_INVISIBLE:
@@ -520,6 +527,9 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                             break;
                         case PotionId_POTION_OF_COGNISCOPY:
                             status_effects.cogniscopy_expiration_time = 0x7fffffffffffffffLL;
+                            break;
+                        case PotionId_POTION_OF_BLINDNESS:
+                            status_effects.blindness_expiration_time = 0x7fffffffffffffffLL;
                             break;
 
                         case PotionId_UNKNOWN:

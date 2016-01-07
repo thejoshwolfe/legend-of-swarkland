@@ -106,9 +106,9 @@ Default indentation for wrapped lines: 1.
    * Polymorph traps.
  * Spells and MP.
  * New items:
-   * spellbooks of: assume form, blinding, charm, fear, force, life syphon, magic bullet, mapping, slowing
+   * spellbooks of: assume form, charm, fear, force, life syphon, magic bullet, mapping, slowing
    * wands of: blinding, force, invisibility, magic bullet, pointlessness, slowing
-   * potions of: experience, fruit juice, invisibility, mana
+   * potions of: blinding, experience, fruit juice, invisibility, mana
 
 ## Version History
 

@@ -80,3 +80,9 @@ be used in advertising or otherwise to promote the sale, use or other
 dealings in this Font Software without prior written authorization
 from Tavmjong Bah. For further information, contact: tavmjong @ free
 . fr.
+
+# Public Domain
+
+Game art assests are in public domain.
+
+http://opengameart.org/content/dungeon-crawl-32x32-tiles

@@ -77,6 +77,8 @@ void compute_vision(Thing observer) {
     if (observer->status_effects.ethereal_vision_expiration_time > time_counter) {
         has_vision.normal = 0;
         has_vision.ethereal = 1;
+    } else if (observer->status_effects.blindness_expiration_time > time_counter) {
+        has_vision.normal = 0;
     }
     if (has_vision.normal)
         refresh_normal_vision(observer);
