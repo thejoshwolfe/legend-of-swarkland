@@ -64,10 +64,10 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                         bumpee_description = get_thing_description(observer, data.target);
                     } else {
                         // can't see anybody there. what are we bumping into?
-                        if (!is_open_space(observer->life()->knowledge.tiles[data.target_location].tile_type))
-                            bumpee_description = new_span("a wall");
-                        else if (!observer->life()->knowledge.tile_is_visible[data.target_location].any())
+                        if (data.actor != observer->id && !observer->life()->knowledge.tile_is_visible[data.target_location].any())
                             bumpee_description = new_span("something");
+                        else if (!is_open_space(observer->life()->knowledge.tiles[data.target_location].tile_type))
+                            bumpee_description = new_span("a wall");
                         else
                             bumpee_description = new_span("thin air");
                     }
@@ -484,6 +484,13 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                             } else {
                                 // you bumps into a wall or attacks a wall
                                 record_perception_of_location(observer, data.target_location);
+                                // and there's no individual there to attack
+                                List<PerceivedThing> perceived_things;
+                                find_perceived_things_at(observer, data.target_location, &perceived_things);
+                                for (int i = 0; i < perceived_things.length(); i++) {
+                                    if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
+                                        observer->life()->knowledge.perceived_things.remove(perceived_things[i]->id);
+                                }
                             }
                         } else if (data.target == observer->id) {
                             // something's happening to you, possibly while you're blind
