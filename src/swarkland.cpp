@@ -600,7 +600,7 @@ static bool take_action(Thing actor, Action action) {
             break;
         case Action::PICKUP:
             pickup_item(actor, actual_things.get(action.item));
-            publish_event(Event::individual_picks_up_item(actor, actual_things.get(action.item)));
+            publish_event(Event::individual_picks_up_item(actor, action.item));
             break;
         case Action::DROP:
             drop_item_to_the_floor(actual_things.get(action.item), actor->location);

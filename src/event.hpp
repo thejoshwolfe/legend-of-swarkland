@@ -238,8 +238,8 @@ struct Event {
     static inline Event item_drops_to_the_floor(Thing item) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
     }
-    static inline Event individual_picks_up_item(Thing individual, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item->id);
+    static inline Event individual_picks_up_item(Thing individual, uint256 item_id) {
+        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item_id);
     }
     static inline Event something_picks_up_item(uint256 item, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::SOMETHING_PICKS_UP_ITEM, item, location);

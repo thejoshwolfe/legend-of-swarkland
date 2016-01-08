@@ -320,6 +320,11 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
         }
         case Event::INDIVIDUAL_AND_ITEM: {
             Event::IndividualAndItemData & data = event.individual_and_item_data();
+            if (observer->id == data.individual) {
+                // you're always aware of what you're doing
+                *output_event = event;
+                return true;
+            }
             uint256 individual_id = check_visible(observer, data.individual);
             uint256 item_id = check_visible(observer, data.item);
             if (individual_id == uint256::zero() || item_id == uint256::zero())
@@ -384,6 +389,11 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
 static void record_perception_of_location(Thing observer, Coord location) {
     // don't set tile_is_visible, because it might actually not be.
     observer->life()->knowledge.tiles[location] = actual_map_tiles[location];
+    // we also get to see items here
+    List<Thing> items;
+    find_items_on_floor(location, &items);
+    for (int i = 0; i < items.length(); i++)
+        record_perception_of_thing(observer, items[i]->id);
 }
 
 static void become_aware_of_something_at_location(Thing observer, uint256 target_id, Coord location) {
