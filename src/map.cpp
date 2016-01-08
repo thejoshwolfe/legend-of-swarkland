@@ -239,7 +239,7 @@ void generate_map() {
             // first level always has a wand of digging to make finding vaults less random.
             create_wand(WandId_WAND_OF_DIGGING)->location = location;
         } else {
-            random_item(ThingType_WAND)->location = location;
+            create_random_item(ThingType_WAND)->location = location;
         }
     }
     int potion_count = random_inclusive(2, 4);
@@ -249,7 +249,7 @@ void generate_map() {
             // first level always has a potion of ethereal vision to make finding vaults less random.
             create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = location;
         } else {
-            random_item(ThingType_POTION)->location = location;
+            create_random_item(ThingType_POTION)->location = location;
         }
     }
 
@@ -273,7 +273,7 @@ void generate_map() {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
                 actual_map_tiles[cursor].tile_type = TileType_MARBLE_FLOOR;
                 spawn_zone[cursor] = false;
-                random_item()->location = cursor;
+                create_random_item()->location = cursor;
             }
         }
 

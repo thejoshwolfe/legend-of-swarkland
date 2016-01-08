@@ -75,6 +75,7 @@ enum SpeciesId {
     SpeciesId_SNAKE,
 
     SpeciesId_COUNT,
+    SpeciesId_UNSEEN,
 };
 
 enum Team {

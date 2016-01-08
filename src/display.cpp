@@ -38,6 +38,7 @@ static RuckSackTexture * rs_texture;
 static RuckSackImage ** spritesheet_images;
 
 static RuckSackImage * species_images[SpeciesId_COUNT];
+static RuckSackImage * unseen_individual_image;
 static RuckSackImage * wand_images[WandDescriptionId_COUNT];
 static RuckSackImage * potion_images[PotionDescriptionId_COUNT];
 static Array<RuckSackImage *, 8> dirt_floor_images;
@@ -69,6 +70,7 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     species_images[SpeciesId_BEETLE] = find_image(spritesheet_images, image_count, "img/beetle.png");
     species_images[SpeciesId_SCORPION] = find_image(spritesheet_images, image_count, "img/scorpion.png");
     species_images[SpeciesId_SNAKE] = find_image(spritesheet_images, image_count, "img/snake.png");
+    unseen_individual_image = find_image(spritesheet_images, image_count, "img/unseen_individual.png");
 
     dirt_floor_images[0] = find_image(spritesheet_images, image_count, "img/dirt_floor0.png");
     dirt_floor_images[1] = find_image(spritesheet_images, image_count, "img/dirt_floor1.png");
@@ -281,6 +283,9 @@ static const char * get_species_name_str(SpeciesId species_id) {
         case SpeciesId_SNAKE:
             return "snake";
 
+        case SpeciesId_UNSEEN:
+            return "something";
+
         case SpeciesId_COUNT:
             panic("not a real species");
     }
@@ -439,6 +444,8 @@ template<typename T>
 static RuckSackImage * get_image_for_thing(Reference<T> thing) {
     switch (thing->thing_type) {
         case ThingType_INDIVIDUAL:
+            if (thing->life()->species_id == SpeciesId_UNSEEN)
+                return unseen_individual_image;
             return species_images[thing->life()->species_id];
         case ThingType_WAND:
             return wand_images[thing->wand_info()->description_id];

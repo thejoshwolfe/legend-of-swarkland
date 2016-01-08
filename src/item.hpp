@@ -7,8 +7,8 @@ const int beam_length_average = 9;
 const int beam_length_error_margin = 3;
 
 void init_items();
-Thing random_item();
-Thing random_item(ThingType thing_type);
+Thing create_random_item();
+Thing create_random_item(ThingType thing_type);
 Thing create_wand(WandId wand_id);
 Thing create_potion(PotionId potion_id);
 void delete_item(Thing item);

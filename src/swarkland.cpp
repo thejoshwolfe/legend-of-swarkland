@@ -279,7 +279,7 @@ static void init_individuals() {
         Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(7), Coord::nowhere());
         // arm him!
         for (int i = 0; i < 5; i++) {
-            Thing item = random_item(ThingType_WAND);
+            Thing item = create_random_item(ThingType_WAND);
             pickup_item(boss, item);
             // teach him everything about his wands.
             WandDescriptionId description_id = item->wand_info()->description_id;
@@ -329,9 +329,15 @@ static void maybe_spawn_monsters() {
         spawn_random_individual();
 }
 
-static void create_item(Coord floor_location) {
-    Thing item = random_item();
-    drop_item_to_the_floor(item, floor_location);
+static void create_all_items(Coord floor_location) {
+    List<Thing> items;
+    for (int i = 0; i < PotionId_COUNT; i++)
+        items.append(create_potion((PotionId)i));
+    for (int i = 0; i < WandId_COUNT; i++)
+        items.append(create_wand((WandId)i));
+
+    for (int i = 0; i < items.length(); i++)
+        drop_item_to_the_floor(items[i], floor_location);
 }
 
 void heal_hp(Thing individual, int hp) {
@@ -493,7 +499,7 @@ static bool validate_action(Thing individual, Action * action) {
     if (*action == Action::wait())
         return true; // always an option
     List<Action> moves;
-    get_available_moves(individual, &moves);
+    get_available_moves(&moves);
     bool is_move = moves.index_of(*action) != -1;
     List<Action> actions;
     get_available_actions(individual, &actions);
@@ -636,7 +642,7 @@ static bool take_action(Thing actor, Action action) {
             spawn_random_individual();
             return false;
         case Action::CHEATCODE_CREATE_ITEM:
-            create_item(you->location);
+            create_all_items(you->location);
             return false;
         case Action::CHEATCODE_IDENTIFY:
             for (int i = 0; i < WandDescriptionId_COUNT; i++)
@@ -799,12 +805,9 @@ void run_the_game() {
 }
 
 // uses movement cost
-void get_available_moves(Thing individual, List<Action> * output_actions) {
-    for (int i = 0; i < 8; i++) {
-        Coord direction = directions[i];
-        if (do_i_think_i_can_move_here(individual, individual->location + direction))
-            output_actions->append(Action::move(direction));
-    }
+void get_available_moves(List<Action> * output_actions) {
+    for (int i = 0; i < 8; i++)
+        output_actions->append(Action::move(directions[i]));
 }
 // uses action cost
 void get_available_actions(Thing individual, List<Action> * output_actions) {

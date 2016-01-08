@@ -191,10 +191,10 @@ static Action get_ai_decision(Thing actor) {
 
     // idk what to do
     List<Action> actions;
-    get_available_moves(actor, &actions);
+    get_available_moves(&actions);
     List<Action> move_actions;
     for (int i = 0; i < actions.length(); i++)
-        if (actions[i].type == Action::MOVE)
+        if (do_i_think_i_can_move_here(actor, actor->location + actions[i].coord))
             move_actions.append(actions[i]);
     if (move_actions.length() > 0)
         return move_actions[random_int(move_actions.length())];

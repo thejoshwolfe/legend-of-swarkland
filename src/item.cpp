@@ -34,7 +34,7 @@ Thing create_potion(PotionId potion_id) {
     return register_item(create<ThingImpl>(description_id));
 }
 
-Thing random_item(ThingType thing_type) {
+Thing create_random_item(ThingType thing_type) {
     switch (thing_type) {
         case ThingType_POTION:
             return create_potion((PotionId)random_int(PotionId_COUNT));
@@ -45,11 +45,11 @@ Thing random_item(ThingType thing_type) {
     }
     panic("thing type");
 }
-Thing random_item() {
+Thing create_random_item() {
     if (random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT) < WandDescriptionId_COUNT)
-        return random_item(ThingType_WAND);
+        return create_random_item(ThingType_WAND);
     else
-        return random_item(ThingType_POTION);
+        return create_random_item(ThingType_POTION);
 }
 
 // return how much extra beam length this happening requires.

@@ -39,7 +39,7 @@ static inline Coord get_thing_location(Thing observer, const PerceivedThing & ta
 
 void swarkland_init();
 
-void get_available_moves(Thing individual, List<Action> * output_actions);
+void get_available_moves(List<Action> * output_actions);
 void get_available_actions(Thing individual, List<Action> * output_actions);
 bool can_move(Thing actor);
 bool can_act(Thing actor);

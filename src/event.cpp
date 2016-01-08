@@ -299,8 +299,17 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                 *output_event = event;
                 return true;
             }
-            uint256 actor = check_visible(observer, data.actor);
-            uint256 target = check_visible(observer, data.target);
+            uint256 actor;
+            uint256 target;
+            if (actor == observer->id || target == observer->id) {
+                // we can always observe attacking/bumping involving ourself
+                actor = data.actor;
+                target = data.target;
+            } else {
+                // we may not be privy to this happening
+                actor = check_visible(observer, data.actor);
+                target = check_visible(observer, data.target);
+            }
 
             if (actor == uint256::zero() && target == uint256::zero())
                 return false;
@@ -372,12 +381,31 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
     panic("see event");
 }
 
+static void record_perception_of_location(Thing observer, Coord location) {
+    // don't set tile_is_visible, because it might actually not be.
+    observer->life()->knowledge.tiles[location] = actual_map_tiles[location];
+}
+
+static void become_aware_of_something_at_location(Thing observer, uint256 target_id, Coord location) {
+    if (can_see_thing(observer, target_id)) {
+        // yeah, hello there.
+        record_perception_of_thing(observer, target_id);
+    } else {
+        // unseen thing
+        PerceivedThing perceived_thing = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
+        if (perceived_thing != nullptr) {
+            // there you are!
+            perceived_thing->location = location;
+        } else {
+            // who are you? what are you?
+            perceived_thing = create<PerceivedThingImpl>(target_id, SpeciesId_UNSEEN, location, Team_BAD_GUYS, StatusEffects());
+            observer->life()->knowledge.perceived_things.put(target_id, perceived_thing);
+        }
+    }
+}
+
 void record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = to_perceived_thing(target_id);
-    if (target == nullptr) {
-        observer->life()->knowledge.perceived_things.remove(target_id);
-        return;
-    }
     observer->life()->knowledge.perceived_things.put(target_id, target);
     // cogniscopy doesn't see items.
     if (can_see_location(observer, target->location)) {
@@ -442,11 +470,29 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                 switch (data.id) {
                     case Event::TwoIndividualData::MOVE:
                         record_perception_of_thing(observer, data.actor);
+                        if (data.actor == observer->id) {
+                            // moving into a space while blind explores the space
+                            record_perception_of_location(observer, data.target_location);
+                        }
                         break;
                     case Event::TwoIndividualData::BUMP_INTO:
-                    case Event::TwoIndividualData::ATTACK:
-                        // no satate change
+                    case Event::TwoIndividualData::ATTACK: {
+                        if (data.actor == observer->id) {
+                            // you're doing something, possibly blind
+                            if (data.target != uint256::zero()) {
+                                become_aware_of_something_at_location(observer, data.target, data.target_location);
+                            } else {
+                                // you bumps into a wall or attacks a wall
+                                record_perception_of_location(observer, data.target_location);
+                            }
+                        } else if (data.target == observer->id) {
+                            // something's happening to you, possibly while you're blind
+                            become_aware_of_something_at_location(observer, data.actor, data.actor_location);
+                        } else {
+                            // we already know what's going on here.
+                        }
                         break;
+                    }
                 }
                 break;
             }
