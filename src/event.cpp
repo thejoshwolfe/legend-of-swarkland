@@ -301,7 +301,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             }
             uint256 actor;
             uint256 target;
-            if (actor == observer->id || target == observer->id) {
+            if (data.actor == observer->id || data.target == observer->id) {
                 // we can always observe attacking/bumping involving ourself
                 actor = data.actor;
                 target = data.target;

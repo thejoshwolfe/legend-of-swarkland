@@ -21,6 +21,10 @@
 
 
 void panic(const char * str) __attribute__ ((noreturn));
+static inline void assert(bool condition) {
+    if (!condition)
+        panic("assertion failure");
+}
 
 // create<MyClass>(a, b) is equivalent to: new MyClass(a, b)
 template<typename T, typename... Args>

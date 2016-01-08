@@ -163,6 +163,7 @@ public:
     // individual
     PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team, StatusEffects status_effects) :
             id(id), thing_type(ThingType_INDIVIDUAL), location(location), status_effects(status_effects) {
+        assert(id != uint256::zero());
         _life = create<PerceivedLife>();
         _life->species_id = species_id;
         _life->team = team;
