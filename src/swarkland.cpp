@@ -103,7 +103,7 @@ static void damage_individual(Thing target, int damage, Thing attacker, bool isM
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
         kill_individual(target, attacker, isMelee);
-        if (attacker != nullptr)
+        if (attacker != nullptr && attacker->id != target->id)
             gain_experience(attacker, 1, true);
     }
 }
