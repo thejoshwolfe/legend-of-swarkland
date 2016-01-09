@@ -770,10 +770,8 @@ void run_the_game() {
 
             for (int i = 0; i < turn_order.length(); i++) {
                 Thing individual = turn_order[i];
-                if (!individual->still_exists) {
-                    actual_things.remove(individual->id);
+                if (!individual->still_exists)
                     continue;
-                }
                 age_individual(individual);
                 if (can_move(individual) || can_act(individual)) {
                     poised_individuals.append(individual);
@@ -807,6 +805,14 @@ void run_the_game() {
         }
         poised_individuals.clear();
         poised_individuals_index = 0;
+
+        List<Thing> delete_things;
+        Thing thing;
+        for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);)
+            if (!thing->still_exists)
+                delete_things.append(thing);
+        for (int i = 0; i < delete_things.length(); i++)
+            actual_things.remove(delete_things[i]->id);
     }
 }
 
