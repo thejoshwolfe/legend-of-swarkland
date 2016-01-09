@@ -145,7 +145,7 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     }
 }
 static void throw_item(Thing actor, Thing item, Coord direction) {
-    publish_event(Event::throw_item(actor->id, item->id));
+    publish_event(Event::throw_item(actor, item->id));
     // let go of the item. it's now sailing through the air.
     item->location = actor->location;
     item->container_id = uint256::zero();
@@ -177,7 +177,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
         Thing target = find_individual_at(cursor);
         if (target != nullptr) {
             // wham!
-            publish_event(Event::item_hits_individual(item->id, target->id));
+            publish_event(Event::item_hits_individual(item->id, target));
             // hurt a little
             int damage = random_inclusive(1, 2);
             damage_individual(target, damage, actor, false);

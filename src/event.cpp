@@ -339,14 +339,33 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                 *output_event = event;
                 return true;
             }
-            uint256 individual_id = check_visible(observer, data.individual);
-            uint256 item_id = check_visible(observer, data.item);
-            if (individual_id == uint256::zero() || item_id == uint256::zero())
-                return false;
-            *output_event = event;
-            output_event->individual_and_item_data().individual = individual_id;
-            output_event->individual_and_item_data().item = item_id;
-            return true;
+            switch (data.id) {
+                case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
+                case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
+                case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
+                case Event::IndividualAndItemData::THROW_ITEM: {
+                    // the item is not in anyone's hand, so if you can see the location, you can see the event.
+                    // note that we do this check after the pick-up type events go through,
+                    // so we can't rely on check_visible in case the holder is invisible now.
+                    if (!observer->life()->knowledge.tile_is_visible[data.location].any())
+                        return false;
+                    *output_event = event;
+                    // you might have just gotten a clue about an invisible monster
+                    return true;
+                }
+                case Event::IndividualAndItemData::WAND_DISINTEGRATES:
+                case Event::IndividualAndItemData::ZAP_WAND:
+                case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES:
+                    // you need to see the individual to see the event
+                    if (check_visible(observer, data.individual) == uint256::zero())
+                        return false;
+                    // you also need to see the item, not via cogniscopy
+                    if (check_visible(observer, data.item) == uint256::zero())
+                        return false;
+                    *output_event = event;
+                    return true;
+            }
+            panic("unreachable");
         }
         case Event::WAND_HIT: {
             Event::WandHitData & data = event.wand_hit_data();
@@ -540,6 +559,7 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
             }
             case Event::INDIVIDUAL_AND_ITEM: {
                 Event::IndividualAndItemData & data = event.individual_and_item_data();
+                become_aware_of_something_at_location(observer, data.individual, data.location);
                 switch (data.id) {
                     case Event::IndividualAndItemData::ZAP_WAND:
                         perceived_current_zapper->put(observer->id, actual_things.get(data.item)->wand_info()->description_id);
@@ -558,7 +578,12 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                         break;
                     case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
                     case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
-                        record_perception_of_thing(observer, data.item);
+                        if (!can_see_thing(observer, data.individual, data.location)) {
+                            // where'd it go?
+                            delete_ids.append(data.item);
+                        } else {
+                            record_perception_of_thing(observer, data.item);
+                        }
                         break;
                 }
                 break;

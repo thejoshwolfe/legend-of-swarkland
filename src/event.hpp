@@ -41,6 +41,7 @@ struct Event {
         Id id;
         uint256 individual;
         uint256 item;
+        Coord location;
     };
     struct ItemAndLocationData {
         enum Id {
@@ -135,13 +136,13 @@ struct Event {
     }
 
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::ZAP_WAND, wand_wielder->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::ZAP_WAND, wand_wielder->id, item->id, wand_wielder->location);
     }
     static inline Event wand_zap_no_charges(Thing wand_wielder, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id, wand_wielder->location);
     }
     static inline Event wand_disintegrates(Thing wand_wielder, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::WAND_DISINTEGRATES, wand_wielder->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::WAND_DISINTEGRATES, wand_wielder->id, item->id, wand_wielder->location);
     }
     static inline Event wand_explodes(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::WAND_EXPLODES, item_id, location);
@@ -162,11 +163,11 @@ struct Event {
         return two_individual_type_event(TwoIndividualData::BUMP_INTO, actor_id, from_location, bumpee_id, bumpee_location);
     }
 
-    static Event throw_item(uint256 thrower_id, uint256 item_id) {
-        return individual_and_item_type_event(IndividualAndItemData::THROW_ITEM, thrower_id, item_id);
+    static Event throw_item(Thing thrower, uint256 item_id) {
+        return individual_and_item_type_event(IndividualAndItemData::THROW_ITEM, thrower->id, item_id, thrower->location);
     }
-    static Event item_hits_individual(uint256 item_id, uint256 target_id) {
-        return individual_and_item_type_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, target_id, item_id);
+    static Event item_hits_individual(uint256 item_id, Thing individual) {
+        return individual_and_item_type_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, individual->id, item_id, individual->location);
     }
     static Event item_hits_wall(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_WALL, item_id, location);
@@ -243,13 +244,13 @@ struct Event {
         return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
     }
     static inline Event individual_picks_up_item(Thing individual, uint256 item_id) {
-        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item_id);
+        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item_id, individual->location);
     }
     static inline Event something_picks_up_item(uint256 item, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::SOMETHING_PICKS_UP_ITEM, item, location);
     }
     static inline Event individual_sucks_up_item(Thing individual, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id);
+        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id, individual->location);
     }
     static inline Event something_sucks_up_item(uint256 item, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::SOMETHING_SUCKS_UP_ITEM, item, location);
@@ -277,13 +278,14 @@ private:
         };
         return result;
     }
-    static inline Event individual_and_item_type_event(IndividualAndItemData::Id id, uint256 individual_id, uint256 item_id) {
+    static inline Event individual_and_item_type_event(IndividualAndItemData::Id id, uint256 individual_id, uint256 item_id, Coord location) {
         Event result;
         result.type = INDIVIDUAL_AND_ITEM;
         result.individual_and_item_data() = {
             id,
             individual_id,
             item_id,
+            location,
         };
         return result;
     }

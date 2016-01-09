@@ -27,13 +27,7 @@ static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_items() {
 static inline Coord get_thing_location(Thing observer, const PerceivedThing & target) {
     if (target->location != Coord::nowhere())
         return target->location;
-    PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id, nullptr);
-    if (container == nullptr) {
-        // don't know where the owner went.
-        // TODO: this is always a bug. this hack just puts off finding the true cause.
-        fprintf(stderr, "warning: phantom item bug\n");
-        return Coord::nowhere();
-    }
+    PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id);
     return get_thing_location(observer, container);
 }
 
