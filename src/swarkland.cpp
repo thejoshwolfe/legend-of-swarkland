@@ -315,9 +315,8 @@ void go_down() {
     for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);) {
         if (thing == you)
             continue; // you're cool
-        if (thing->thing_type == ThingType_WAND)
-            if (thing->container_id == you->id)
-                continue; // take it with you
+        if (thing->location == Coord::nowhere() && thing->container_id == you->id)
+            continue; // take it with you
         // leave this behind us
         thing->still_exists = false;
     }
