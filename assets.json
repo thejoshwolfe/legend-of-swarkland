@@ -17,12 +17,16 @@
       maxWidth: 512,
       maxHeight: 512,
       globImages: [
-        {
-          path: "assets/img/",
-          glob: "*",
-          prefix: "img/",
-          anchor: "topleft",
-        },
+        { glob: "*",    path: "assets/img/",
+          anchor: "topleft", prefix: "img/", },
+        { glob: "*",    path: "assets/img/individual/",
+          anchor: "topleft", prefix: "img/individual/", },
+        { glob: "*",    path: "assets/img/map/",
+          anchor: "topleft", prefix: "img/map/", },
+        { glob: "*",    path: "assets/img/potion/",
+          anchor: "topleft", prefix: "img/potion/", },
+        { glob: "*",    path: "assets/img/wand/",
+          anchor: "topleft", prefix: "img/wand/", },
       ],
     }
   }

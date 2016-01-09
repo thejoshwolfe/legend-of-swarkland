@@ -59,57 +59,57 @@ static RuckSackImage * find_image(RuckSackImage ** spritesheet_images, long imag
     panic("sprite not found");
 }
 static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
-    species_images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/human.png");
-    species_images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/ogre.png");
-    species_images[SpeciesId_LICH] = find_image(spritesheet_images, image_count, "img/lich.png");
-    species_images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/dog.png");
-    species_images[SpeciesId_PINK_BLOB] = find_image(spritesheet_images, image_count, "img/pink_blob.png");
-    species_images[SpeciesId_AIR_ELEMENTAL] = find_image(spritesheet_images, image_count, "img/air_elemental.png");
-    species_images[SpeciesId_ANT] = find_image(spritesheet_images, image_count, "img/ant.png");
-    species_images[SpeciesId_BEE] = find_image(spritesheet_images, image_count, "img/bee.png");
-    species_images[SpeciesId_BEETLE] = find_image(spritesheet_images, image_count, "img/beetle.png");
-    species_images[SpeciesId_SCORPION] = find_image(spritesheet_images, image_count, "img/scorpion.png");
-    species_images[SpeciesId_SNAKE] = find_image(spritesheet_images, image_count, "img/snake.png");
-    unseen_individual_image = find_image(spritesheet_images, image_count, "img/unseen_individual.png");
+    species_images[SpeciesId_HUMAN] = find_image(spritesheet_images, image_count, "img/individual/human.png");
+    species_images[SpeciesId_OGRE] = find_image(spritesheet_images, image_count, "img/individual/ogre.png");
+    species_images[SpeciesId_LICH] = find_image(spritesheet_images, image_count, "img/individual/lich.png");
+    species_images[SpeciesId_DOG] = find_image(spritesheet_images, image_count, "img/individual/dog.png");
+    species_images[SpeciesId_PINK_BLOB] = find_image(spritesheet_images, image_count, "img/individual/pink_blob.png");
+    species_images[SpeciesId_AIR_ELEMENTAL] = find_image(spritesheet_images, image_count, "img/individual/air_elemental.png");
+    species_images[SpeciesId_ANT] = find_image(spritesheet_images, image_count, "img/individual/ant.png");
+    species_images[SpeciesId_BEE] = find_image(spritesheet_images, image_count, "img/individual/bee.png");
+    species_images[SpeciesId_BEETLE] = find_image(spritesheet_images, image_count, "img/individual/beetle.png");
+    species_images[SpeciesId_SCORPION] = find_image(spritesheet_images, image_count, "img/individual/scorpion.png");
+    species_images[SpeciesId_SNAKE] = find_image(spritesheet_images, image_count, "img/individual/snake.png");
+    unseen_individual_image = find_image(spritesheet_images, image_count, "img/individual/unseen_individual.png");
 
-    dirt_floor_images[0] = find_image(spritesheet_images, image_count, "img/dirt_floor0.png");
-    dirt_floor_images[1] = find_image(spritesheet_images, image_count, "img/dirt_floor1.png");
-    dirt_floor_images[2] = find_image(spritesheet_images, image_count, "img/dirt_floor2.png");
-    dirt_floor_images[3] = find_image(spritesheet_images, image_count, "img/dirt_floor3.png");
-    dirt_floor_images[4] = find_image(spritesheet_images, image_count, "img/dirt_floor4.png");
-    dirt_floor_images[5] = find_image(spritesheet_images, image_count, "img/dirt_floor5.png");
-    dirt_floor_images[6] = find_image(spritesheet_images, image_count, "img/dirt_floor6.png");
-    dirt_floor_images[7] = find_image(spritesheet_images, image_count, "img/dirt_floor7.png");
+    dirt_floor_images[0] = find_image(spritesheet_images, image_count, "img/map/dirt_floor0.png");
+    dirt_floor_images[1] = find_image(spritesheet_images, image_count, "img/map/dirt_floor1.png");
+    dirt_floor_images[2] = find_image(spritesheet_images, image_count, "img/map/dirt_floor2.png");
+    dirt_floor_images[3] = find_image(spritesheet_images, image_count, "img/map/dirt_floor3.png");
+    dirt_floor_images[4] = find_image(spritesheet_images, image_count, "img/map/dirt_floor4.png");
+    dirt_floor_images[5] = find_image(spritesheet_images, image_count, "img/map/dirt_floor5.png");
+    dirt_floor_images[6] = find_image(spritesheet_images, image_count, "img/map/dirt_floor6.png");
+    dirt_floor_images[7] = find_image(spritesheet_images, image_count, "img/map/dirt_floor7.png");
 
-    marble_floor_images[0] = find_image(spritesheet_images, image_count, "img/marble_floor0.png");
-    marble_floor_images[1] = find_image(spritesheet_images, image_count, "img/marble_floor1.png");
-    marble_floor_images[2] = find_image(spritesheet_images, image_count, "img/marble_floor2.png");
-    marble_floor_images[3] = find_image(spritesheet_images, image_count, "img/marble_floor3.png");
-    marble_floor_images[4] = find_image(spritesheet_images, image_count, "img/marble_floor4.png");
-    marble_floor_images[5] = find_image(spritesheet_images, image_count, "img/marble_floor5.png");
+    marble_floor_images[0] = find_image(spritesheet_images, image_count, "img/map/marble_floor0.png");
+    marble_floor_images[1] = find_image(spritesheet_images, image_count, "img/map/marble_floor1.png");
+    marble_floor_images[2] = find_image(spritesheet_images, image_count, "img/map/marble_floor2.png");
+    marble_floor_images[3] = find_image(spritesheet_images, image_count, "img/map/marble_floor3.png");
+    marble_floor_images[4] = find_image(spritesheet_images, image_count, "img/map/marble_floor4.png");
+    marble_floor_images[5] = find_image(spritesheet_images, image_count, "img/map/marble_floor5.png");
 
-    wall_images[0] = find_image(spritesheet_images, image_count, "img/brick_brown0.png");
-    wall_images[1] = find_image(spritesheet_images, image_count, "img/brick_brown1.png");
-    wall_images[2] = find_image(spritesheet_images, image_count, "img/brick_brown2.png");
-    wall_images[3] = find_image(spritesheet_images, image_count, "img/brick_brown3.png");
-    wall_images[4] = find_image(spritesheet_images, image_count, "img/brick_brown4.png");
-    wall_images[5] = find_image(spritesheet_images, image_count, "img/brick_brown5.png");
-    wall_images[6] = find_image(spritesheet_images, image_count, "img/brick_brown6.png");
-    wall_images[7] = find_image(spritesheet_images, image_count, "img/brick_brown7.png");
+    wall_images[0] = find_image(spritesheet_images, image_count, "img/map/brick_brown0.png");
+    wall_images[1] = find_image(spritesheet_images, image_count, "img/map/brick_brown1.png");
+    wall_images[2] = find_image(spritesheet_images, image_count, "img/map/brick_brown2.png");
+    wall_images[3] = find_image(spritesheet_images, image_count, "img/map/brick_brown3.png");
+    wall_images[4] = find_image(spritesheet_images, image_count, "img/map/brick_brown4.png");
+    wall_images[5] = find_image(spritesheet_images, image_count, "img/map/brick_brown5.png");
+    wall_images[6] = find_image(spritesheet_images, image_count, "img/map/brick_brown6.png");
+    wall_images[7] = find_image(spritesheet_images, image_count, "img/map/brick_brown7.png");
 
-    stairs_down_image = find_image(spritesheet_images, image_count, "img/stairs_down.png");
+    stairs_down_image = find_image(spritesheet_images, image_count, "img/map/stairs_down.png");
 
-    wand_images[WandDescriptionId_BONE_WAND] = find_image(spritesheet_images, image_count, "img/bone_wand.png");
-    wand_images[WandDescriptionId_GOLD_WAND] = find_image(spritesheet_images, image_count, "img/gold_wand.png");
-    wand_images[WandDescriptionId_PLASTIC_WAND] = find_image(spritesheet_images, image_count, "img/plastic_wand.png");
-    wand_images[WandDescriptionId_COPPER_WAND] = find_image(spritesheet_images, image_count, "img/copper_wand.png");
-    wand_images[WandDescriptionId_PURPLE_WAND] = find_image(spritesheet_images, image_count, "img/purple_wand.png");
+    wand_images[WandDescriptionId_BONE_WAND] = find_image(spritesheet_images, image_count, "img/wand/bone_wand.png");
+    wand_images[WandDescriptionId_GOLD_WAND] = find_image(spritesheet_images, image_count, "img/wand/gold_wand.png");
+    wand_images[WandDescriptionId_PLASTIC_WAND] = find_image(spritesheet_images, image_count, "img/wand/plastic_wand.png");
+    wand_images[WandDescriptionId_COPPER_WAND] = find_image(spritesheet_images, image_count, "img/wand/copper_wand.png");
+    wand_images[WandDescriptionId_PURPLE_WAND] = find_image(spritesheet_images, image_count, "img/wand/purple_wand.png");
 
-    potion_images[PotionDescriptionId_BLUE_POTION] = find_image(spritesheet_images, image_count, "img/blue_potion.png");
-    potion_images[PotionDescriptionId_GREEN_POTION] = find_image(spritesheet_images, image_count, "img/green_potion.png");
-    potion_images[PotionDescriptionId_RED_POTION] = find_image(spritesheet_images, image_count, "img/red_potion.png");
-    potion_images[PotionDescriptionId_YELLOW_POTION] = find_image(spritesheet_images, image_count, "img/yellow_potion.png");
-    potion_images[PotionDescriptionId_BROWN_POTION] = find_image(spritesheet_images, image_count, "img/brown_potion.png");
+    potion_images[PotionDescriptionId_BLUE_POTION] = find_image(spritesheet_images, image_count, "img/potion/blue_potion.png");
+    potion_images[PotionDescriptionId_GREEN_POTION] = find_image(spritesheet_images, image_count, "img/potion/green_potion.png");
+    potion_images[PotionDescriptionId_RED_POTION] = find_image(spritesheet_images, image_count, "img/potion/red_potion.png");
+    potion_images[PotionDescriptionId_YELLOW_POTION] = find_image(spritesheet_images, image_count, "img/potion/yellow_potion.png");
+    potion_images[PotionDescriptionId_BROWN_POTION] = find_image(spritesheet_images, image_count, "img/potion/brown_potion.png");
 
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
