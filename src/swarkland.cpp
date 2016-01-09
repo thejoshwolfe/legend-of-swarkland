@@ -49,11 +49,15 @@ static void init_specieses() {
     }
 }
 
-static void kill_individual(Thing individual) {
+static void kill_individual(Thing individual, Thing attacker, bool isMelee) {
     individual->life()->hitpoints = 0;
     individual->still_exists = false;
 
-    publish_event(Event::die(individual));
+    if (isMelee) {
+        publish_event(Event::kill(attacker, individual));
+    } else {
+        publish_event(Event::die(individual->id));
+    }
 
     // drop your stuff
     List<Thing> inventory;
@@ -92,13 +96,13 @@ static void reset_hp_regen_timeout(Thing individual) {
     if (life->hitpoints < life->max_hitpoints())
         life->hp_regen_deadline = time_counter + random_midpoint(7 * 12);
 }
-static void damage_individual(Thing attacker, Thing target, int damage) {
+static void damage_individual(Thing target, int damage, Thing attacker, bool isMelee) {
     if (damage <= 0)
         panic("no damage");
     target->life()->hitpoints -= damage;
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
-        kill_individual(target);
+        kill_individual(target, attacker, isMelee);
         if (attacker != nullptr)
             gain_experience(attacker, 1, true);
     }
@@ -176,7 +180,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             publish_event(Event::item_hits_individual(item->id, target->id));
             // hurt a little
             int damage = random_inclusive(1, 2);
-            damage_individual(actor, target, damage);
+            damage_individual(target, damage, actor, false);
             if (damage == 2) {
                 // no item can survive that much damage dealt
                 item_breaks = true;
@@ -352,11 +356,13 @@ void heal_hp(Thing individual, int hp) {
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
     if (individual->status_effects.poison_expiration_time > time_counter) {
-        // poison
+        // poison damage instead
         if (individual->status_effects.poison_next_damage_time == time_counter) {
             // ouch
             Thing attacker = actual_things.get(individual->status_effects.poisoner, nullptr);
-            damage_individual(attacker, individual, 1);
+            if (!attacker->still_exists)
+                attacker = nullptr;
+            damage_individual(individual, 1, attacker, false);
             individual->status_effects.poison_next_damage_time = time_counter + random_midpoint(7 * 12);
         }
     } else if (life->hp_regen_deadline == time_counter) {
@@ -378,7 +384,7 @@ static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack(attacker, target->id, target->location));
     int attack_power = attacker->life()->attack_power();
     int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
-    damage_individual(attacker, target, damage);
+    damage_individual(target, damage, attacker, true);
     reset_hp_regen_timeout(attacker);
     if (target->still_exists && attacker->life()->species()->poison_attack)
         poison_individual(attacker, target);
@@ -479,7 +485,7 @@ static void cheatcode_kill_everybody_in_the_world() {
         if (!individual->still_exists)
             continue;
         if (individual != you)
-            kill_individual(individual);
+            kill_individual(individual, nullptr, false);
     }
 }
 static void cheatcode_polymorph() {
@@ -881,7 +887,7 @@ void speed_up_individual(Thing target) {
 void strike_individual(Thing attacker, Thing target) {
     // it's just some damage
     int damage = random_int(4, 8);
-    damage_individual(attacker, target, damage);
+    damage_individual(target, damage, attacker, false);
 }
 void change_map(Coord location, TileType new_tile_type) {
     actual_map_tiles[location].tile_type = new_tile_type;

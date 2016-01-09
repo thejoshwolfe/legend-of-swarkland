@@ -56,7 +56,8 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                     // unremarkable
                     return nullptr;
                 case Event::TwoIndividualData::BUMP_INTO:
-                case Event::TwoIndividualData::ATTACK: {
+                case Event::TwoIndividualData::ATTACK:
+                case Event::TwoIndividualData::KILL: {
                     Span actor_description = data.actor != uint256::zero() ? get_thing_description(observer, data.actor) : new_span("something unseen");
                     // what did it bump into? whatever we think is there
                     Span bumpee_description;
@@ -71,7 +72,20 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                         else
                             bumpee_description = new_span("thin air");
                     }
-                    const char * fmt = data.id == Event::TwoIndividualData::BUMP_INTO ? "%s bumps into %s." : "%s hits %s.";
+                    const char * fmt;
+                    switch (data.id) {
+                        case Event::TwoIndividualData::MOVE:
+                            panic("unreachable");
+                        case Event::TwoIndividualData::BUMP_INTO:
+                            fmt = "%s bumps into %s.";
+                            break;
+                        case Event::TwoIndividualData::ATTACK:
+                            fmt = "%s hits %s.";
+                            break;
+                        case Event::TwoIndividualData::KILL:
+                            fmt = "%s kills %s.";
+                            break;
+                    }
                     result->span->format(fmt, actor_description, bumpee_description);
                     return result;
                 }
@@ -486,7 +500,8 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                         }
                         break;
                     case Event::TwoIndividualData::BUMP_INTO:
-                    case Event::TwoIndividualData::ATTACK: {
+                    case Event::TwoIndividualData::ATTACK:
+                    case Event::TwoIndividualData::KILL: {
                         if (data.actor == observer->id) {
                             // you're doing something, possibly blind
                             if (data.target != uint256::zero()) {
@@ -507,6 +522,9 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                             become_aware_of_something_at_location(observer, data.actor, data.actor_location);
                         } else {
                             // we already know what's going on here.
+                        }
+                        if (data.id == Event::TwoIndividualData::KILL && data.target != uint256::zero()) {
+                            delete_ids.append(data.target);
                         }
                         break;
                     }

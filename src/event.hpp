@@ -20,6 +20,7 @@ struct Event {
             MOVE,
             BUMP_INTO,
             ATTACK,
+            KILL,
         };
         Id id;
         uint256 actor;
@@ -221,8 +222,11 @@ struct Event {
     static inline Event level_up(uint256 individual_id) {
         return event_individual(TheIndividualData::LEVEL_UP, individual_id);
     }
-    static inline Event die(Thing deceased) {
-        return event_individual(TheIndividualData::DIE, deceased->id);
+    static inline Event die(uint256 deceased_id) {
+        return event_individual(TheIndividualData::DIE, deceased_id);
+    }
+    static inline Event kill(Thing attacker, Thing deceased) {
+        return two_individual_type_event(TwoIndividualData::KILL, attacker->id, attacker->location, deceased->id, deceased->location);
     }
 
     static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {
