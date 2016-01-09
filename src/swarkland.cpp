@@ -49,11 +49,11 @@ static void init_specieses() {
     }
 }
 
-static void kill_individual(Thing individual, Thing attacker, bool isMelee) {
+static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     individual->life()->hitpoints = 0;
     individual->still_exists = false;
 
-    if (isMelee) {
+    if (is_melee) {
         publish_event(Event::kill(attacker, individual));
     } else {
         publish_event(Event::die(individual->id));
@@ -96,13 +96,13 @@ static void reset_hp_regen_timeout(Thing individual) {
     if (life->hitpoints < life->max_hitpoints())
         life->hp_regen_deadline = time_counter + random_midpoint(7 * 12);
 }
-static void damage_individual(Thing target, int damage, Thing attacker, bool isMelee) {
+static void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) {
     if (damage <= 0)
         panic("no damage");
     target->life()->hitpoints -= damage;
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
-        kill_individual(target, attacker, isMelee);
+        kill_individual(target, attacker, is_melee);
         if (attacker != nullptr && attacker->id != target->id)
             gain_experience(attacker, 1, true);
     }
