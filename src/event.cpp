@@ -477,9 +477,16 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                     case Event::TheIndividualData::TURN_INVISIBLE:
                         record_perception_of_thing(observer, data.individual);
                         break;
-                    case Event::TheIndividualData::DISAPPEAR:
+                    case Event::TheIndividualData::DISAPPEAR: {
                         delete_ids.append(data.individual);
+                        // the equipment goes too
+                        PerceivedThing item;
+                        for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&item);) {
+                            if (item->location == Coord::nowhere() && item->container_id == data.individual)
+                                delete_ids.append(item->id);
+                        }
                         break;
+                    }
                     case Event::TheIndividualData::LEVEL_UP:
                         // no state change
                         break;
