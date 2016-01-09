@@ -43,7 +43,8 @@ enum PotionDescriptionId {
     PotionDescriptionId_GREEN_POTION,
     PotionDescriptionId_RED_POTION,
     PotionDescriptionId_YELLOW_POTION,
-    PotionDescriptionId_BROWN_POTION,
+    PotionDescriptionId_ORANGE_POTION,
+    PotionDescriptionId_PURPLE_POTION,
 
     PotionDescriptionId_COUNT,
 };
@@ -53,6 +54,7 @@ enum PotionId {
     PotionId_POTION_OF_ETHEREAL_VISION,
     PotionId_POTION_OF_COGNISCOPY,
     PotionId_POTION_OF_BLINDNESS,
+    PotionId_POTION_OF_INVISIBILITY,
 
     PotionId_COUNT,
     PotionId_UNKNOWN,
@@ -129,12 +131,12 @@ struct Species {
 };
 
 struct StatusEffects {
-    bool invisible = false;
     long long confused_expiration_time = -1;
     long long speed_up_expiration_time = -1;
     long long ethereal_vision_expiration_time = -1;
     long long cogniscopy_expiration_time = -1;
     long long blindness_expiration_time = -1;
+    long long invisibility_expiration_time = -1;
 
     uint256 poisoner = uint256::zero();
     long long poison_expiration_time = -1;

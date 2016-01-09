@@ -109,7 +109,8 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     potion_images[PotionDescriptionId_GREEN_POTION] = find_image(spritesheet_images, image_count, "img/potion/green_potion.png");
     potion_images[PotionDescriptionId_RED_POTION] = find_image(spritesheet_images, image_count, "img/potion/red_potion.png");
     potion_images[PotionDescriptionId_YELLOW_POTION] = find_image(spritesheet_images, image_count, "img/potion/yellow_potion.png");
-    potion_images[PotionDescriptionId_BROWN_POTION] = find_image(spritesheet_images, image_count, "img/potion/brown_potion.png");
+    potion_images[PotionDescriptionId_ORANGE_POTION] = find_image(spritesheet_images, image_count, "img/potion/orange_potion.png");
+    potion_images[PotionDescriptionId_PURPLE_POTION] = find_image(spritesheet_images, image_count, "img/potion/purple_potion.png");
 
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
@@ -297,8 +298,6 @@ Span get_species_name(SpeciesId species_id) {
 // ends with " " if non-blank
 static Span get_status_description(const StatusEffects & status_effects) {
     Span result = new_span();
-    if (status_effects.invisible)
-        result->append("invisible ");
     if (status_effects.confused_expiration_time > time_counter)
         result->append("confused ");
     if (status_effects.speed_up_expiration_time > time_counter)
@@ -311,6 +310,8 @@ static Span get_status_description(const StatusEffects & status_effects) {
         result->append("blind ");
     if (status_effects.poison_expiration_time > time_counter)
         result->append("poisoned ");
+    if (status_effects.invisibility_expiration_time > time_counter)
+        result->append("invisible ");
     result->set_color(pink, black);
     return result;
 }
@@ -369,6 +370,8 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "potion of cogniscopy";
             case PotionId_POTION_OF_BLINDNESS:
                 return "potion of blindness";
+            case PotionId_POTION_OF_INVISIBILITY:
+                return "potion of invisibility";
 
             case PotionId_COUNT:
             case PotionId_UNKNOWN:
@@ -385,8 +388,10 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "red potion";
             case PotionDescriptionId_YELLOW_POTION:
                 return "yellow potion";
-            case PotionDescriptionId_BROWN_POTION:
-                return "brown potion";
+            case PotionDescriptionId_ORANGE_POTION:
+                return "orange potion";
+            case PotionDescriptionId_PURPLE_POTION:
+                return "purple potion";
 
             case PotionDescriptionId_COUNT:
                 panic("not a real description id");
@@ -660,7 +665,7 @@ void render() {
                 item_pile_rendered[thing->location] = true;
             }
             Uint8 alpha;
-            if (thing->status_effects.invisible || !can_see_thing(spectate_from, thing->id))
+            if (thing->status_effects.invisibility_expiration_time > time_counter || !can_see_thing(spectate_from, thing->id))
                 alpha = 0x7f;
             else
                 alpha = 0xff;
@@ -681,7 +686,7 @@ void render() {
             if (thing->location == Coord::nowhere())
                 continue;
             Uint8 alpha;
-            if (thing->status_effects.invisible || !spectate_from->life()->knowledge.tile_is_visible[thing->location].any())
+            if (thing->status_effects.invisibility_expiration_time > time_counter || !spectate_from->life()->knowledge.tile_is_visible[thing->location].any())
                 alpha = 0x7f;
             else
                 alpha = 0xff;

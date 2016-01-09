@@ -36,14 +36,15 @@ const Species * Life::species() const {
 
 PerceivedThing to_perceived_thing(uint256 target_id) {
     Thing target = actual_things.get(target_id);
-    StatusEffects status_effects = target->status_effects;
+    const StatusEffects & true_status = target->status_effects;
+    StatusEffects status_effects;
     // nerf some information
-    status_effects.confused_expiration_time = status_effects.confused_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
-    status_effects.speed_up_expiration_time = status_effects.speed_up_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
-    status_effects.ethereal_vision_expiration_time = status_effects.ethereal_vision_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
-    status_effects.cogniscopy_expiration_time = status_effects.cogniscopy_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
-    status_effects.blindness_expiration_time = status_effects.blindness_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
-    status_effects.poison_expiration_time = status_effects.poison_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
+    status_effects.confused_expiration_time = true_status.confused_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
+    status_effects.speed_up_expiration_time = true_status.speed_up_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
+    status_effects.ethereal_vision_expiration_time = true_status.ethereal_vision_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
+    status_effects.cogniscopy_expiration_time = true_status.cogniscopy_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
+    status_effects.blindness_expiration_time = true_status.blindness_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
+    status_effects.poison_expiration_time = true_status.poison_expiration_time > time_counter ? 0x7fffffffffffffffLL : -1;
     status_effects.poison_next_damage_time = -1;
     status_effects.poisoner = uint256::zero();
 

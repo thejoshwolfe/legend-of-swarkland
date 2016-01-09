@@ -634,15 +634,6 @@ static bool take_action(Thing actor, Action action) {
             cheatcode_polymorph();
             // this one does take time, because your movement cost may have changed
             return false;
-        case Action::CHEATCODE_INVISIBILITY:
-            if (actor->status_effects.invisible) {
-                actor->status_effects.invisible = false;
-                publish_event(Event::appear(you));
-            } else {
-                actor->status_effects.invisible = true;
-                publish_event(Event::turn_invisible(you));
-            }
-            return false;
         case Action::CHEATCODE_GENERATE_MONSTER:
             spawn_random_individual();
             return false;
@@ -738,6 +729,10 @@ static void age_individual(Thing individual) {
     }
     if (individual->status_effects.poison_expiration_time == time_counter) {
         publish_event(Event::no_longer_poisoned(individual));
+        reset_hp_regen_timeout(individual);
+    }
+    if (individual->status_effects.invisibility_expiration_time == time_counter) {
+        publish_event(Event::appear(individual));
         reset_hp_regen_timeout(individual);
     }
 
@@ -871,7 +866,6 @@ void get_available_actions(Thing individual, List<Action> * output_actions) {
         output_actions->append(Action::cheatcode_health_boost());
         output_actions->append(Action::cheatcode_kill_everybody_in_the_world());
         output_actions->append(Action::cheatcode_polymorph());
-        output_actions->append(Action::cheatcode_invisibility());
         output_actions->append(Action::cheatcode_generate_monster());
         output_actions->append(Action::cheatcode_create_item());
         output_actions->append(Action::cheatcode_identify());

@@ -152,8 +152,6 @@ static Action on_key_down_main(const SDL_Event & event) {
             case SDLK_s:
                 cheatcode_spectate();
                 break;
-            case SDLK_i:
-                return Action::cheatcode_invisibility();
             case SDLK_g:
                 return Action::cheatcode_generate_monster();
             case SDLK_w:

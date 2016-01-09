@@ -185,6 +185,9 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                 case PotionId_POTION_OF_BLINDNESS:
                     result->span->format("; %s is blinded!", get_thing_description(observer, data.target_id));
                     break;
+                case PotionId_POTION_OF_INVISIBILITY:
+                    result->span->format("; %s disappears!", get_thing_description(observer, data.target_id));
+                    break;
 
                 case PotionId_UNKNOWN:
                     result->span->append(", but nothing happens.");
@@ -243,7 +246,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
         return false;
     Thing actual_target = actual_things.get(target_id);
     // nobody can see invisible people, because that would be cheating :)
-    if (actual_target->status_effects.invisible)
+    if (actual_target->status_effects.invisibility_expiration_time > time_counter)
         return false;
     // cogniscopy can see minds
     if (observer->status_effects.cogniscopy_expiration_time > time_counter) {
@@ -643,6 +646,9 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                             break;
                         case PotionId_POTION_OF_BLINDNESS:
                             status_effects.blindness_expiration_time = 0x7fffffffffffffffLL;
+                            break;
+                        case PotionId_POTION_OF_INVISIBILITY:
+                            status_effects.invisibility_expiration_time = 0x7fffffffffffffffLL;
                             break;
 
                         case PotionId_UNKNOWN:

@@ -16,7 +16,6 @@ struct Action {
         CHEATCODE_HEALTH_BOOST,
         CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD,
         CHEATCODE_POLYMORPH,
-        CHEATCODE_INVISIBILITY,
         CHEATCODE_GENERATE_MONSTER,
         CHEATCODE_CREATE_ITEM,
         CHEATCODE_IDENTIFY,
@@ -70,9 +69,6 @@ struct Action {
     }
     static inline Action cheatcode_polymorph() {
         return {CHEATCODE_POLYMORPH, uint256::zero(), {0, 0}};
-    }
-    static inline Action cheatcode_invisibility() {
-        return {CHEATCODE_INVISIBILITY, uint256::zero(), {0, 0}};
     }
     static inline Action cheatcode_generate_monster() {
         return {CHEATCODE_GENERATE_MONSTER, uint256::zero(), {0, 0}};

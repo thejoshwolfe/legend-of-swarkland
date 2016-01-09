@@ -117,10 +117,12 @@ static int digging_pass_through_air(Thing, Coord, bool, IdMap<WandDescriptionId>
 static WandHandler wand_handlers[WandId_COUNT];
 
 void init_items() {
+    assert((int)WandDescriptionId_COUNT == (int)WandId_COUNT);
     for (int i = 0; i < WandDescriptionId_COUNT; i++)
         actual_wand_identities[i] = (WandId)i;
     shuffle(actual_wand_identities, WandId_COUNT);
 
+    assert((int)PotionDescriptionId_COUNT == (int)PotionId_COUNT);
     for (int i = 0; i < PotionDescriptionId_COUNT; i++)
         actual_potion_identities[i] = (PotionId)i;
     shuffle(actual_potion_identities, PotionId_COUNT);
@@ -211,6 +213,9 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
         case PotionId_POTION_OF_BLINDNESS:
             target->status_effects.blindness_expiration_time = time_counter + random_midpoint(1000);
             compute_vision(target);
+            break;
+        case PotionId_POTION_OF_INVISIBILITY:
+            target->status_effects.invisibility_expiration_time = time_counter + random_midpoint(2000);
             break;
 
         case PotionId_COUNT:
