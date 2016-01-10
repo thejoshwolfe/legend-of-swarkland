@@ -168,10 +168,11 @@ public:
     Coord location = Coord::nowhere();
     uint256 container_id = uint256::zero();
     int z_order = 0;
+    int64_t last_seen_time;
     List<StatusEffect::StatusEffectType> status_effects;
     // individual
-    PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team) :
-            id(id), thing_type(ThingType_INDIVIDUAL), location(location) {
+    PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team, int64_t last_seen_time) :
+            id(id), thing_type(ThingType_INDIVIDUAL), location(location), last_seen_time(last_seen_time) {
         assert(id != uint256::zero());
         if (id == uint256{16834101961345315201ULL, 6672530469245184391ULL, 8551116969905452987ULL, 4392448728760151208ULL}) {
             id = true ? id : id;
@@ -181,14 +182,14 @@ public:
         _life->team = team;
     }
     // wand
-    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, uint256 container_id, int z_order) :
-            id(id), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order) {
+    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, uint256 container_id, int z_order, int64_t last_seen_time) :
+            id(id), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order), last_seen_time(last_seen_time) {
         _wand_info = create<PerceivedWandInfo>();
         _wand_info->description_id = description_id;
     }
     // potion
-    PerceivedThingImpl(uint256 id, PotionDescriptionId description_id, Coord location, uint256 container_id, int z_order) :
-            id(id), thing_type(ThingType_POTION), location(location), container_id(container_id), z_order(z_order) {
+    PerceivedThingImpl(uint256 id, PotionDescriptionId description_id, Coord location, uint256 container_id, int z_order, int64_t last_seen_time) :
+            id(id), thing_type(ThingType_POTION), location(location), container_id(container_id), z_order(z_order), last_seen_time(last_seen_time) {
         _potion_info = create<PerceivedPotionInfo>();
         _potion_info->description_id = description_id;
     }
@@ -303,7 +304,7 @@ struct PotionInfo : public PerceivedPotionInfo {
 class ThingImpl : public ReferenceCounted {
 public:
     uint256 id;
-    ThingType thing_type;
+    const ThingType thing_type;
     // this is set to false in the time between actually being destroyed and being removed from the master list
     bool still_exists = true;
 

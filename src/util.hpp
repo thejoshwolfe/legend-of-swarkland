@@ -25,6 +25,10 @@ static inline void assert(bool condition) {
     if (!condition)
         panic("assertion failure");
 }
+__attribute__ ((noreturn))
+static inline void unreachable() {
+    panic("unreachable");
+}
 
 // create<MyClass>(a, b) is equivalent to: new MyClass(a, b)
 template<typename T, typename... Args>

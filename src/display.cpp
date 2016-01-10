@@ -598,6 +598,22 @@ static Div get_time_display(Thing spectate_from) {
     return result;
 }
 
+static Uint8 get_thing_alpha(Thing observer, PerceivedThing thing) {
+    if (has_status(thing, StatusEffect::INVISIBILITY))
+        return 0x7f;
+    if (!can_see_thing(observer, thing->id)) {
+        int64_t knowledge_age = time_counter - thing->last_seen_time;
+        if (knowledge_age < 12 * 10) {
+            // fresh
+            return 0x7f;
+        } else {
+            // stale
+            return 0x3f;
+        }
+    }
+    return 0xff;
+}
+
 void render() {
     Thing spectate_from = get_spectate_individual();
     List<Thing> my_inventory;
@@ -672,11 +688,7 @@ void render() {
                     continue;
                 item_pile_rendered[thing->location] = true;
             }
-            Uint8 alpha;
-            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_thing(spectate_from, thing->id))
-                alpha = 0x7f;
-            else
-                alpha = 0xff;
+            Uint8 alpha = get_thing_alpha(spectate_from, thing);
             render_tile(renderer, sprite_sheet_texture, get_image_for_thing(thing), alpha, thing->location);
 
             List<PerceivedThing> inventory;

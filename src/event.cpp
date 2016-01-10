@@ -66,7 +66,7 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
                     const char * fmt;
                     switch (data.id) {
                         case Event::IndividualAndLocationData::MOVE:
-                            panic("unreachable");
+                            unreachable();
                         case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
                             fmt = "%s bumps into %s.";
                             break;
@@ -274,6 +274,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     return true;
 }
 bool can_see_thing(Thing observer, uint256 target_id) {
+    assert(target_id != uint256::zero());
     Thing thing = actual_things.get(target_id, nullptr);
     if (thing == nullptr) {
         // i'm sure you can't see it, because it doesn't exist anymore.
@@ -296,11 +297,6 @@ bool can_see_thing(Thing observer, uint256 target_id) {
 static Coord location_of(uint256 individual_id) {
     return actual_things.get(individual_id)->location;
 }
-static uint256 check_visible(Thing observer, uint256 thing_id) {
-    if (thing_id != uint256::zero() && can_see_thing(observer, thing_id))
-        return thing_id;
-    return uint256::zero();
-}
 
 static uint256 to_unseen(Thing observer, uint256 actual_target_id) {
     Thing actual_target = actual_things.get(actual_target_id);
@@ -316,7 +312,7 @@ static uint256 to_unseen(Thing observer, uint256 actual_target_id) {
         // invent an unseen individual here
         uint256 id = random_uint256();
         Team opposite_team = observer->life()->team == Team_BAD_GUYS ? Team_GOOD_GUYS :Team_BAD_GUYS;
-        thing = create<PerceivedThingImpl>(id, SpeciesId_UNSEEN, actual_target->location, opposite_team);
+        thing = create<PerceivedThingImpl>(id, SpeciesId_UNSEEN, actual_target->location, opposite_team, time_counter);
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
     return thing->id;
@@ -384,7 +380,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                     }
                 }
             }
-            panic("unreachable");
+            unreachable();
         }
         case Event::INDIVIDUAL_AND_ITEM: {
             Event::IndividualAndItemData & data = event.individual_and_item_data();
@@ -400,7 +396,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                 case Event::IndividualAndItemData::THROW_ITEM: {
                     // the item is not in anyone's hand, so if you can see the location, you can see the event.
                     // note that we do this check after the pick-up type events go through,
-                    // so we can't rely on check_visible in case the holder is invisible now.
+                    // so we can't rely on can_see_thing in case the holder is invisible now.
                     if (!observer->life()->knowledge.tile_is_visible[data.location].any())
                         return false;
                     *output_event = event;
@@ -411,15 +407,15 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                 case Event::IndividualAndItemData::ZAP_WAND:
                 case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES:
                     // you need to see the individual to see the event
-                    if (check_visible(observer, data.individual) == uint256::zero())
+                    if (!can_see_thing(observer, data.individual))
                         return false;
                     // you also need to see the item, not via cogniscopy
-                    if (check_visible(observer, data.item) == uint256::zero())
+                    if (!can_see_thing(observer, data.item))
                         return false;
                     *output_event = event;
                     return true;
             }
-            panic("unreachable");
+            unreachable();
         }
         case Event::WAND_HIT: {
             Event::WandHitData & data = event.wand_hit_data();
@@ -463,8 +459,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             Event::ItemAndLocationData & data = event.item_and_location_data();
             if (!can_see_location(observer, data.location))
                 return false;
-            uint256 item = check_visible(observer, data.item);
-            if (item == uint256::zero())
+            if (!can_see_thing(observer, data.item))
                 return false;
             *output_event = event;
             return true;
@@ -487,8 +482,10 @@ static void record_perception_of_location(Thing observer, Coord location, bool s
 
 void record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
-    if (target != nullptr && target->thing_type == ThingType_INDIVIDUAL && target->life()->species_id == SpeciesId_UNSEEN)
+    if (target != nullptr && target->thing_type == ThingType_INDIVIDUAL && target->life()->species_id == SpeciesId_UNSEEN) {
+        target->last_seen_time = time_counter;
         return;
+    }
     target = to_perceived_thing(target_id);
     observer->life()->knowledge.perceived_things.put(target_id, target);
     // cogniscopy doesn't see items.

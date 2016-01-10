@@ -756,6 +756,18 @@ static void age_individual(Thing individual) {
         remembered_events.remove_range(0, 500);
         individual->life()->knowledge.event_forget_counter++;
     }
+
+    // clean up stale unseen things
+    List<uint256> delete_ids;
+    PerceivedThing thing;
+    for (auto iterator = individual->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
+        if (thing->thing_type == ThingType_INDIVIDUAL && thing->life()->species_id == SpeciesId_UNSEEN) {
+            if (time_counter - thing->last_seen_time >= 12 * 20)
+                delete_ids.append(thing->id);
+        }
+    }
+    for (int i = 0; i < delete_ids.length(); i++)
+        individual->life()->knowledge.perceived_things.remove(delete_ids[i]);
 }
 
 List<Thing> poised_individuals;

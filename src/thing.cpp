@@ -47,11 +47,11 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
 
     switch (target->thing_type) {
         case ThingType_WAND:
-            return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, location, container_id, z_order);
+            return create<PerceivedThingImpl>(target->id, target->wand_info()->description_id, location, container_id, z_order, time_counter);
         case ThingType_POTION:
-            return create<PerceivedThingImpl>(target->id, target->potion_info()->description_id, location, container_id, z_order);
+            return create<PerceivedThingImpl>(target->id, target->potion_info()->description_id, location, container_id, z_order, time_counter);
         case ThingType_INDIVIDUAL: {
-            PerceivedThing perceived_thing = create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team);
+            PerceivedThing perceived_thing = create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, time_counter);
             for (int i = 0; i < target->status_effects.length(); i++)
                 perceived_thing->status_effects.append(target->status_effects[i].type);
             return perceived_thing;
