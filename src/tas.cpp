@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <time.h>
 
+int tas_delay;
+
 static const uint256 magic_number = {{
         0x9a0f331969e3299cULL,
         0x198678e2bb49e5acULL,
@@ -35,7 +37,16 @@ void tas_set_input_script(char * filename) {
     tas_seed = header.seed;
 }
 
+int frame_counter;
+
 Action tas_get_decision() {
+    if (tas_delay > 0) {
+        if (frame_counter < tas_delay) {
+            frame_counter++;
+            return Action::undecided(); // let the screen draw
+        }
+        frame_counter = 0;
+    }
     if (input_script_file == nullptr)
         return Action::undecided(); // no, you decide.
 

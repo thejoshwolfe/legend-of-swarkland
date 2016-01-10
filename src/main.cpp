@@ -26,6 +26,12 @@ static void process_argv(int argc, char * argv[]) {
             i++;
             char * filename = argv[i];
             tas_set_input_script(filename);
+        } else if (strcmp(argv[i], "--tas-delay") == 0) {
+            if (i + 1 >= argc)
+                panic("expected argument");
+            i++;
+            const char * delay_str = argv[i];
+            sscanf(delay_str, "%d", &tas_delay);
         } else {
             panic("unrecognized parameter");
         }
