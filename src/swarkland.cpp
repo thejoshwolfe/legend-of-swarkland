@@ -51,13 +51,13 @@ static void init_specieses() {
 
 static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     individual->life()->hitpoints = 0;
-    individual->still_exists = false;
 
     if (is_melee) {
-        publish_event(Event::kill(attacker, individual));
+        publish_event(Event::melee_kill(attacker, individual));
     } else {
         publish_event(Event::die(individual->id));
     }
+    individual->still_exists = false;
 
     // drop your stuff
     List<Thing> inventory;
@@ -172,7 +172,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             break;
         } else {
             item->location = cursor;
-            publish_event(Event::move(item, cursor - direction, cursor));
+            publish_event(Event::move(item, cursor - direction));
         }
         Thing target = find_individual_at(cursor);
         if (target != nullptr) {
@@ -383,7 +383,7 @@ void poison_individual(Thing attacker, Thing target) {
 
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
-    publish_event(Event::attack(attacker, target->id, target->location));
+    publish_event(Event::attack_individual(attacker, target));
     int attack_power = attacker->life()->attack_power();
     int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
     damage_individual(target, damage, attacker, true);
@@ -468,7 +468,7 @@ static void do_move(Thing mover, Coord new_position) {
     compute_vision(mover);
 
     // notify other individuals who could see that move
-    publish_event(Event::move(mover, old_position, new_position));
+    publish_event(Event::move(mover, old_position));
 
     if (mover->life()->species()->sucks_up_items) {
         // pick up items for free
@@ -579,13 +579,13 @@ static bool take_action(Thing actor, Action action) {
             if (!is_open_space(actual_map_tiles[new_position].tile_type)) {
                 // this can only happen if your direction was changed.
                 // (attempting to move into a wall deliberately is an invalid move).
-                publish_event(Event::bump_into(actor->id, actor->location, uint256::zero(), new_position));
+                publish_event(Event::bump_into_location(actor, new_position));
                 break;
             }
             Thing target = find_individual_at(new_position);
             if (target != nullptr) {
                 // this is not attacking
-                publish_event(Event::bump_into(actor->id, actor->location, target->id, target->location));
+                publish_event(Event::bump_into_individual(actor, target));
                 break;
             }
             // clear to move
@@ -599,7 +599,7 @@ static bool take_action(Thing actor, Action action) {
                 attack(actor, target);
                 break;
             } else {
-                publish_event(Event::attack(actor, uint256::zero(), new_position));
+                publish_event(Event::attack_location(actor, new_position));
                 break;
             }
         }

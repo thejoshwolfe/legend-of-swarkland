@@ -90,6 +90,8 @@ void compute_vision(Thing observer) {
     List<PerceivedThing> remove_these;
     PerceivedThing target;
     for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
+        if (target->thing_type == ThingType_INDIVIDUAL && target->life()->species_id == SpeciesId_UNSEEN)
+            continue; // leave unseen things on the map
         Coord target_location = get_thing_location(observer, target);
         if (target_location == Coord::nowhere())
             continue;

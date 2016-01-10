@@ -6,6 +6,7 @@
 struct Event {
     enum Type {
         THE_INDIVIDUAL,
+        INDIVIDUAL_AND_LOCATION,
         TWO_INDIVIDUAL,
         INDIVIDUAL_AND_ITEM,
         WAND_HIT,
@@ -15,18 +16,25 @@ struct Event {
     };
     Type type;
 
-    struct TwoIndividualData {
+    struct IndividualAndLocationData {
         enum Id {
             MOVE,
-            BUMP_INTO,
-            ATTACK,
-            KILL,
+            BUMP_INTO_LOCATION,
+            ATTACK_LOCATION,
         };
         Id id;
         uint256 actor;
-        Coord actor_location;
+        Coord location;
+    };
+    struct TwoIndividualData {
+        enum Id {
+            BUMP_INTO_INDIVIDUAL,
+            ATTACK_INDIVIDUAL,
+            MELEE_KILL,
+        };
+        Id id;
+        uint256 actor;
         uint256 target;
-        Coord target_location;
     };
     struct IndividualAndItemData {
         enum Id {
@@ -80,6 +88,11 @@ struct Event {
         return _data._the_individual;
     }
 
+    IndividualAndLocationData & individual_and_location_data() {
+        check_data_type(INDIVIDUAL_AND_LOCATION);
+        return _data._individual_and_location;
+    }
+
     TwoIndividualData & two_individual_data() {
         check_data_type(TWO_INDIVIDUAL);
         return _data._two_individual;
@@ -127,12 +140,15 @@ struct Event {
         return _data._item_and_location;
     }
 
-    static inline Event move(Thing mover, Coord from, Coord to) {
-        return two_individual_type_event(TwoIndividualData::MOVE, mover->id, from, uint256::zero(), to);
+    static inline Event move(Thing mover, Coord from) {
+        return individual_and_location_event(IndividualAndLocationData::MOVE, mover->id, from);
     }
 
-    static inline Event attack(Thing attacker, uint256 target_id, Coord target_location) {
-        return two_individual_type_event(TwoIndividualData::ATTACK, attacker->id, attacker->location, target_id, target_location);
+    static inline Event attack_individual(Thing attacker, Thing target) {
+        return two_individual_type_event(TwoIndividualData::ATTACK_INDIVIDUAL, attacker->id, target->id);
+    }
+    static inline Event attack_location(Thing attacker, Coord location) {
+        return individual_and_location_event(IndividualAndLocationData::ATTACK_LOCATION, attacker->id, location);
     }
 
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
@@ -159,8 +175,11 @@ struct Event {
         return result;
     }
 
-    static Event bump_into(uint256 actor_id, Coord from_location, uint256 bumpee_id, Coord bumpee_location) {
-        return two_individual_type_event(TwoIndividualData::BUMP_INTO, actor_id, from_location, bumpee_id, bumpee_location);
+    static Event bump_into_individual(Thing actor, Thing target) {
+        return two_individual_type_event(TwoIndividualData::BUMP_INTO_INDIVIDUAL, actor->id, target->id);
+    }
+    static Event bump_into_location(Thing actor, Coord location) {
+        return individual_and_location_event(IndividualAndLocationData::BUMP_INTO_LOCATION, actor->id, location);
     }
 
     static Event throw_item(Thing thrower, uint256 item_id) {
@@ -226,8 +245,8 @@ struct Event {
     static inline Event die(uint256 deceased_id) {
         return event_individual(TheIndividualData::DIE, deceased_id);
     }
-    static inline Event kill(Thing attacker, Thing deceased) {
-        return two_individual_type_event(TwoIndividualData::KILL, attacker->id, attacker->location, deceased->id, deceased->location);
+    static inline Event melee_kill(Thing attacker, Thing deceased) {
+        return two_individual_type_event(TwoIndividualData::MELEE_KILL, attacker->id, deceased->id);
     }
 
     static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {
@@ -266,15 +285,23 @@ private:
         };
         return result;
     }
-    static inline Event two_individual_type_event(TwoIndividualData::Id id, uint256 actor, Coord actor_location, uint256 target, Coord target_location) {
+    static inline Event individual_and_location_event(IndividualAndLocationData::Id id, uint256 actor, Coord location) {
+        Event result;
+        result.type = INDIVIDUAL_AND_LOCATION;
+        result.individual_and_location_data() = {
+            id,
+            actor,
+            location,
+        };
+        return result;
+    }
+    static inline Event two_individual_type_event(TwoIndividualData::Id id, uint256 actor, uint256 target) {
         Event result;
         result.type = TWO_INDIVIDUAL;
         result.two_individual_data() = {
             id,
             actor,
-            actor_location,
             target,
-            target_location,
         };
         return result;
     }
@@ -302,6 +329,7 @@ private:
 
     union {
         TheIndividualData _the_individual;
+        IndividualAndLocationData _individual_and_location;
         TwoIndividualData _two_individual;
         IndividualAndItemData _individual_and_item;
         WandHitData _wand_hit;

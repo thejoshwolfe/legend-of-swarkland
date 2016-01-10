@@ -49,40 +49,55 @@ static RememberedEvent to_remembered_event(Thing observer, Event event) {
             }
             panic("switch");
         }
+        case Event::INDIVIDUAL_AND_LOCATION: {
+            Event::IndividualAndLocationData & data = event.individual_and_location_data();
+            switch (data.id) {
+                case Event::IndividualAndLocationData::MOVE:
+                    // unremarkable
+                    return nullptr;
+                case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
+                case Event::IndividualAndLocationData::ATTACK_LOCATION: {
+                    Span actor_description = get_thing_description(observer, data.actor);
+                    Span bumpee_description;
+                    if (!is_open_space(observer->life()->knowledge.tiles[data.location].tile_type))
+                        bumpee_description = new_span("a wall");
+                    else
+                        bumpee_description = new_span("thin air");
+                    const char * fmt;
+                    switch (data.id) {
+                        case Event::IndividualAndLocationData::MOVE:
+                            panic("unreachable");
+                        case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
+                            fmt = "%s bumps into %s.";
+                            break;
+                        case Event::IndividualAndLocationData::ATTACK_LOCATION:
+                            fmt = "%s hits %s.";
+                            break;
+                    }
+                    result->span->format(fmt, actor_description, bumpee_description);
+                    return result;
+                }
+            }
+        }
         case Event::TWO_INDIVIDUAL: {
             Event::TwoIndividualData & data = event.two_individual_data();
             switch (data.id) {
-                case Event::TwoIndividualData::MOVE:
-                    // unremarkable
-                    return nullptr;
-                case Event::TwoIndividualData::BUMP_INTO:
-                case Event::TwoIndividualData::ATTACK:
-                case Event::TwoIndividualData::KILL: {
-                    Span actor_description = data.actor != uint256::zero() ? get_thing_description(observer, data.actor) : new_span("something unseen");
+                case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
+                case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
+                case Event::TwoIndividualData::MELEE_KILL: {
+                    assert(data.actor != uint256::zero());
+                    Span actor_description = get_thing_description(observer, data.actor);
                     // what did it bump into? whatever we think is there
-                    Span bumpee_description;
-                    if (data.target != uint256::zero()) {
-                        bumpee_description = get_thing_description(observer, data.target);
-                    } else {
-                        // can't see anybody there. what are we bumping into?
-                        if (data.actor != observer->id && !observer->life()->knowledge.tile_is_visible[data.target_location].any())
-                            bumpee_description = new_span("something");
-                        else if (!is_open_space(observer->life()->knowledge.tiles[data.target_location].tile_type))
-                            bumpee_description = new_span("a wall");
-                        else
-                            bumpee_description = new_span("thin air");
-                    }
+                    Span bumpee_description = get_thing_description(observer, data.target);
                     const char * fmt;
                     switch (data.id) {
-                        case Event::TwoIndividualData::MOVE:
-                            panic("unreachable");
-                        case Event::TwoIndividualData::BUMP_INTO:
+                        case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
                             fmt = "%s bumps into %s.";
                             break;
-                        case Event::TwoIndividualData::ATTACK:
+                        case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
                             fmt = "%s hits %s.";
                             break;
-                        case Event::TwoIndividualData::KILL:
+                        case Event::TwoIndividualData::MELEE_KILL:
                             fmt = "%s kills %s.";
                             break;
                     }
@@ -287,6 +302,26 @@ static uint256 check_visible(Thing observer, uint256 thing_id) {
     return uint256::zero();
 }
 
+static uint256 to_unseen(Thing observer, uint256 actual_target_id) {
+    Thing actual_target = actual_things.get(actual_target_id);
+    PerceivedThing thing = find_perceived_individual_at(observer, actual_target->location);
+    if (thing != nullptr) {
+        // we're already aware of something here
+        if (thing->life()->species_id != SpeciesId_UNSEEN) {
+            // we're trying to place an unseen marker. leave this guy alone.
+            thing = nullptr;
+        }
+    }
+    if (thing == nullptr) {
+        // invent an unseen individual here
+        uint256 id = random_uint256();
+        Team opposite_team = observer->life()->team == Team_BAD_GUYS ? Team_GOOD_GUYS :Team_BAD_GUYS;
+        thing = create<PerceivedThingImpl>(id, SpeciesId_UNSEEN, actual_target->location, opposite_team);
+        observer->life()->knowledge.perceived_things.put(id, thing);
+    }
+    return thing->id;
+}
+
 static bool see_event(Thing observer, Event event, Event * output_event) {
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
@@ -307,33 +342,49 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
             *output_event = event;
             return true;
         }
+        case Event::INDIVIDUAL_AND_LOCATION: {
+            Event::IndividualAndLocationData & data = event.individual_and_location_data();
+            switch (data.id) {
+                case Event::IndividualAndLocationData::MOVE:
+                    // for moving, you get to see the individual in either location
+                    if (!(can_see_thing(observer, data.actor, data.location) || can_see_thing(observer, data.actor)))
+                        return false;
+                    *output_event = event;
+                    return true;
+                case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
+                case Event::IndividualAndLocationData::ATTACK_LOCATION:
+                    if (!can_see_thing(observer, data.actor))
+                        return false;
+                    *output_event = event;
+                    return true;
+            }
+        }
         case Event::TWO_INDIVIDUAL: {
             Event::TwoIndividualData & data = event.two_individual_data();
-            if (data.id == Event::TwoIndividualData::MOVE) {
-                // for moving, you get to see the individual in either location
-                if (!(can_see_thing(observer, data.actor, data.actor_location) || can_see_thing(observer, data.actor, data.target_location)))
-                    return false;
-                *output_event = event;
-                return true;
+            switch (data.id) {
+                case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
+                case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
+                case Event::TwoIndividualData::MELEE_KILL: {
+                    // maybe replace one of the individuals with an unseen one.
+                    *output_event = event;
+                    if (can_see_thing(observer, data.actor)) {
+                        if (can_see_thing(observer, data.target)) {
+                            return true;
+                        } else {
+                            output_event->two_individual_data().target = to_unseen(observer, data.target);
+                            return true;
+                        }
+                    } else {
+                        if (can_see_thing(observer, data.target)) {
+                            output_event->two_individual_data().actor = to_unseen(observer, data.actor);
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                }
             }
-            uint256 actor;
-            uint256 target;
-            if (data.actor == observer->id || data.target == observer->id) {
-                // we can always observe attacking/bumping involving ourself
-                actor = data.actor;
-                target = data.target;
-            } else {
-                // we may not be privy to this happening
-                actor = check_visible(observer, data.actor);
-                target = check_visible(observer, data.target);
-            }
-
-            if (actor == uint256::zero() && target == uint256::zero())
-                return false;
-            *output_event = event;
-            output_event->two_individual_data().actor = actor;
-            output_event->two_individual_data().target = target;
-            return true;
+            panic("unreachable");
         }
         case Event::INDIVIDUAL_AND_ITEM: {
             Event::IndividualAndItemData & data = event.individual_and_item_data();
@@ -422,36 +473,23 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
     panic("see event");
 }
 
-static void record_perception_of_location(Thing observer, Coord location) {
+static void record_perception_of_location(Thing observer, Coord location, bool see_items) {
     // don't set tile_is_visible, because it might actually not be.
     observer->life()->knowledge.tiles[location] = actual_map_tiles[location];
-    // we also get to see items here
-    List<Thing> items;
-    find_items_on_floor(location, &items);
-    for (int i = 0; i < items.length(); i++)
-        record_perception_of_thing(observer, items[i]->id);
-}
 
-static void become_aware_of_something_at_location(Thing observer, uint256 target_id, Coord location) {
-    if (can_see_thing(observer, target_id)) {
-        // yeah, hello there.
-        record_perception_of_thing(observer, target_id);
-    } else {
-        // unseen thing
-        PerceivedThing perceived_thing = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
-        if (perceived_thing != nullptr) {
-            // there you are!
-            perceived_thing->location = location;
-        } else {
-            // who are you? what are you?
-            perceived_thing = create<PerceivedThingImpl>(target_id, SpeciesId_UNSEEN, location, Team_BAD_GUYS);
-            observer->life()->knowledge.perceived_things.put(target_id, perceived_thing);
-        }
+    if (see_items) {
+        List<Thing> items;
+        find_items_on_floor(location, &items);
+        for (int i = 0; i < items.length(); i++)
+            record_perception_of_thing(observer, items[i]->id);
     }
 }
 
 void record_perception_of_thing(Thing observer, uint256 target_id) {
-    PerceivedThing target = to_perceived_thing(target_id);
+    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
+    if (target != nullptr && target->thing_type == ThingType_INDIVIDUAL && target->life()->species_id == SpeciesId_UNSEEN)
+        return;
+    target = to_perceived_thing(target_id);
     observer->life()->knowledge.perceived_things.put(target_id, target);
     // cogniscopy doesn't see items.
     if (can_see_location(observer, target->location)) {
@@ -518,41 +556,40 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                 }
                 break;
             }
-            case Event::TWO_INDIVIDUAL: {
-                Event::TwoIndividualData & data = event.two_individual_data();
+            case Event::INDIVIDUAL_AND_LOCATION: {
+                Event::IndividualAndLocationData & data = event.individual_and_location_data();
                 switch (data.id) {
-                    case Event::TwoIndividualData::MOVE:
+                    case Event::IndividualAndLocationData::MOVE:
                         record_perception_of_thing(observer, data.actor);
                         if (data.actor == observer->id) {
                             // moving into a space while blind explores the space
-                            record_perception_of_location(observer, data.target_location);
+                            record_perception_of_location(observer, observer->location, true);
                         }
                         break;
-                    case Event::TwoIndividualData::BUMP_INTO:
-                    case Event::TwoIndividualData::ATTACK:
-                    case Event::TwoIndividualData::KILL: {
-                        if (data.actor == observer->id) {
-                            // you're doing something, possibly blind
-                            if (data.target != uint256::zero()) {
-                                become_aware_of_something_at_location(observer, data.target, data.target_location);
-                            } else {
-                                // you bumps into a wall or attacks a wall
-                                record_perception_of_location(observer, data.target_location);
-                                // and there's no individual there to attack
-                                List<PerceivedThing> perceived_things;
-                                find_perceived_things_at(observer, data.target_location, &perceived_things);
-                                for (int i = 0; i < perceived_things.length(); i++) {
-                                    if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
-                                        observer->life()->knowledge.perceived_things.remove(perceived_things[i]->id);
-                                }
-                            }
-                        } else if (data.target == observer->id) {
-                            // something's happening to you, possibly while you're blind
-                            become_aware_of_something_at_location(observer, data.actor, data.actor_location);
-                        } else {
-                            // we already know what's going on here.
+                    case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
+                    case Event::IndividualAndLocationData::ATTACK_LOCATION: {
+                        record_perception_of_location(observer, data.location, false);
+                        // there's no individual there to attack
+                        List<PerceivedThing> perceived_things;
+                        find_perceived_things_at(observer, data.location, &perceived_things);
+                        for (int i = 0; i < perceived_things.length(); i++) {
+                            if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
+                                delete_ids.append(perceived_things[i]->id);
                         }
-                        if (data.id == Event::TwoIndividualData::KILL && data.target != uint256::zero()) {
+                        break;
+                    }
+                }
+                break;
+            }
+            case Event::TWO_INDIVIDUAL: {
+                Event::TwoIndividualData & data = event.two_individual_data();
+                switch (data.id) {
+                    case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
+                    case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
+                    case Event::TwoIndividualData::MELEE_KILL: {
+                        record_perception_of_thing(observer, data.actor);
+                        record_perception_of_thing(observer, data.target);
+                        if (data.id == Event::TwoIndividualData::MELEE_KILL) {
                             delete_ids.append(data.target);
                         }
                         break;
@@ -562,7 +599,7 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
             }
             case Event::INDIVIDUAL_AND_ITEM: {
                 Event::IndividualAndItemData & data = event.individual_and_item_data();
-                become_aware_of_something_at_location(observer, data.individual, data.location);
+                record_perception_of_thing(observer, data.individual);
                 switch (data.id) {
                     case Event::IndividualAndItemData::ZAP_WAND:
                         perceived_current_zapper->put(observer->id, actual_things.get(data.item)->wand_info()->description_id);
@@ -692,7 +729,19 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                 observer->life()->knowledge.remembered_events.append(remembered_event);
         }
         // now that we've had a chance to talk about it, delete it if we should
-        for (int i = 0; i < delete_ids.length(); i++)
-            observer->life()->knowledge.perceived_things.remove(delete_ids[i]);
+        if (delete_ids.length() > 0) {
+            // also delete everything that these people are holding.
+            // TODO: this smells like a bad pattern. we shouldn't be deleting things when they go out of view.
+            PerceivedThing thing;
+            for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
+                for (int i = 0; i < delete_ids.length(); i++) {
+                    if (thing->container_id == delete_ids[i]) {
+                        delete_ids.append(thing->id);
+                    }
+                }
+            }
+            for (int i = 0; i < delete_ids.length(); i++)
+                observer->life()->knowledge.perceived_things.remove(delete_ids[i]);
+        }
     }
 }
