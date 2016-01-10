@@ -74,10 +74,10 @@ void compute_vision(Thing observer) {
 
     observer->life()->knowledge.tile_is_visible.set_all(VisionTypes::none());
     VisionTypes has_vision = observer->life()->species()->vision_types;
-    if (observer->status_effects.ethereal_vision_expiration_time > time_counter) {
+    if (has_status(observer, StatusEffect::ETHEREAL_VISION)) {
         has_vision.normal = 0;
         has_vision.ethereal = 1;
-    } else if (observer->status_effects.blindness_expiration_time > time_counter) {
+    } else if (has_status(observer, StatusEffect::BLINDNESS)) {
         has_vision.normal = 0;
     }
     if (has_vision.normal)

@@ -130,17 +130,24 @@ struct Species {
     bool advanced_strategy;
 };
 
-struct StatusEffects {
-    long long confused_expiration_time = -1;
-    long long speed_up_expiration_time = -1;
-    long long ethereal_vision_expiration_time = -1;
-    long long cogniscopy_expiration_time = -1;
-    long long blindness_expiration_time = -1;
-    long long invisibility_expiration_time = -1;
+struct StatusEffect {
+    enum StatusEffectType {
+        CONFUSION,
+        SPEED,
+        ETHEREAL_VISION,
+        COGNISCOPY,
+        BLINDNESS,
+        INVISIBILITY,
+        POISON,
+    };
+    StatusEffectType type;
+    // this is never in the past
+    int64_t expiration_time;
 
-    uint256 poisoner = uint256::zero();
-    long long poison_expiration_time = -1;
-    long long poison_next_damage_time = -1;
+    // currently only used for poison
+    int64_t poison_next_damage_time;
+    // used for awarding experience for poison damage kills
+    uint256 who_is_responsible;
 };
 
 struct PerceivedWandInfo {
@@ -161,24 +168,24 @@ public:
     Coord location = Coord::nowhere();
     uint256 container_id = uint256::zero();
     int z_order = 0;
-    StatusEffects status_effects;
+    List<StatusEffect::StatusEffectType> status_effects;
     // individual
-    PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team, StatusEffects status_effects) :
-            id(id), thing_type(ThingType_INDIVIDUAL), location(location), status_effects(status_effects) {
+    PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team) :
+            id(id), thing_type(ThingType_INDIVIDUAL), location(location) {
         assert(id != uint256::zero());
         _life = create<PerceivedLife>();
         _life->species_id = species_id;
         _life->team = team;
     }
     // wand
-    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, uint256 container_id, int z_order, StatusEffects status_effects) :
-            id(id), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order), status_effects(status_effects) {
+    PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, uint256 container_id, int z_order) :
+            id(id), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order) {
         _wand_info = create<PerceivedWandInfo>();
         _wand_info->description_id = description_id;
     }
     // potion
-    PerceivedThingImpl(uint256 id, PotionDescriptionId description_id, Coord location, uint256 container_id, int z_order, StatusEffects status_effects) :
-            id(id), thing_type(ThingType_POTION), location(location), container_id(container_id), z_order(z_order), status_effects(status_effects) {
+    PerceivedThingImpl(uint256 id, PotionDescriptionId description_id, Coord location, uint256 container_id, int z_order) :
+            id(id), thing_type(ThingType_POTION), location(location), container_id(container_id), z_order(z_order) {
         _potion_info = create<PerceivedPotionInfo>();
         _potion_info->description_id = description_id;
     }
@@ -260,10 +267,10 @@ static inline int level_to_experience(int level) {
 
 struct Life : public PerceivedLife {
     int hitpoints;
-    long long hp_regen_deadline;
+    int64_t hp_regen_deadline;
     int experience = 0;
-    long long last_movement_time = 0;
-    long long last_action_time = 0;
+    int64_t last_movement_time = 0;
+    int64_t last_action_time = 0;
     uint256 initiative;
     DecisionMakerType decision_maker;
     Knowledge knowledge;
@@ -301,7 +308,7 @@ public:
     uint256 container_id = uint256::zero();
     int z_order = 0;
 
-    StatusEffects status_effects;
+    List<StatusEffect> status_effects;
 
     // individual
     ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
@@ -378,5 +385,48 @@ static inline int compare_things_by_id(Thing a, Thing b) {
 
 // TODO: this is in the wrong place
 void compute_vision(Thing observer);
+
+static inline int find_status(const List<StatusEffect> & status_effects, StatusEffect::StatusEffectType status) {
+    for (int i = 0; i < status_effects.length(); i++)
+        if (status_effects[i].type == status)
+            return i;
+    return -1;
+}
+static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::StatusEffectType status) {
+    int index = find_status(thing->status_effects, status);
+    if (index == -1) {
+        index = thing->status_effects.length();
+        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero() });
+    }
+    return &thing->status_effects[index];
+}
+
+static inline bool has_status(const List<StatusEffect> & status_effects, StatusEffect::StatusEffectType status) {
+    return find_status(status_effects, status) != -1;
+}
+static inline bool has_status(Thing thing, StatusEffect::StatusEffectType status) {
+    return has_status(thing->status_effects, status);
+}
+static inline int find_status(const List<StatusEffect::StatusEffectType> & status_effects, StatusEffect::StatusEffectType status) {
+    for (int i = 0; i < status_effects.length(); i++)
+        if (status_effects[i] == status)
+            return i;
+    return -1;
+}
+static inline bool has_status(const List<StatusEffect::StatusEffectType> & status_effects, StatusEffect::StatusEffectType status) {
+    return find_status(status_effects, status) != -1;
+}
+static inline bool has_status(PerceivedThing thing, StatusEffect::StatusEffectType status) {
+    return has_status(thing->status_effects, status);
+}
+static inline void put_status(PerceivedThing thing, StatusEffect::StatusEffectType status) {
+    if (!has_status(thing, status))
+        thing->status_effects.append(status);
+}
+static inline void maybe_remove_status(PerceivedThing thing, StatusEffect::StatusEffectType status) {
+    int index = find_status(thing->status_effects, status);
+    if (index != -1)
+        thing->status_effects.swap_remove(index);
+}
 
 #endif

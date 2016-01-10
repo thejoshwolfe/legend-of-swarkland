@@ -246,10 +246,10 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
         return false;
     Thing actual_target = actual_things.get(target_id);
     // nobody can see invisible people, because that would be cheating :)
-    if (actual_target->status_effects.invisibility_expiration_time > time_counter)
+    if (has_status(actual_target, StatusEffect::INVISIBILITY))
         return false;
     // cogniscopy can see minds
-    if (observer->status_effects.cogniscopy_expiration_time > time_counter) {
+    if (has_status(observer, StatusEffect::COGNISCOPY)) {
         if (actual_target->thing_type == ThingType_INDIVIDUAL && actual_target->life()->species()->has_mind)
             return true;
     }
@@ -444,7 +444,7 @@ static void become_aware_of_something_at_location(Thing observer, uint256 target
             perceived_thing->location = location;
         } else {
             // who are you? what are you?
-            perceived_thing = create<PerceivedThingImpl>(target_id, SpeciesId_UNSEEN, location, Team_BAD_GUYS, StatusEffects());
+            perceived_thing = create<PerceivedThingImpl>(target_id, SpeciesId_UNSEEN, location, Team_BAD_GUYS);
             observer->life()->knowledge.perceived_things.put(target_id, perceived_thing);
         }
     }
@@ -487,7 +487,7 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                 Event::TheIndividualData & data = event.the_individual_data();
                 switch (data.id) {
                     case Event::TheIndividualData::POISONED:
-                        observer->life()->knowledge.perceived_things.get(data.individual)->status_effects.poison_expiration_time = 0x7fffffffffffffffLL;
+                        put_status(observer->life()->knowledge.perceived_things.get(data.individual), StatusEffect::POISON);
                         break;
                     case Event::TheIndividualData::NO_LONGER_CONFUSED:
                     case Event::TheIndividualData::NO_LONGER_FAST:
@@ -599,17 +599,17 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
 
                 if (data.target != uint256::zero()) {
                     // notice confusion, speed, etc.
-                    StatusEffects & status_effects = observer->life()->knowledge.perceived_things.get(data.target)->status_effects;
+                    PerceivedThing target = observer->life()->knowledge.perceived_things.get(data.target);
                     switch (data.observable_effect) {
                         case WandId_WAND_OF_CONFUSION:
-                            status_effects.confused_expiration_time = 0x7fffffffffffffffLL;
+                            put_status(target, StatusEffect::CONFUSION);
                             break;
                         case WandId_WAND_OF_SPEED:
-                            status_effects.speed_up_expiration_time = 0x7fffffffffffffffLL;
+                            put_status(target, StatusEffect::SPEED);
                             break;
                         case WandId_WAND_OF_REMEDY:
-                            status_effects.confused_expiration_time = -1;
-                            status_effects.poison_expiration_time = -1;
+                            maybe_remove_status(target, StatusEffect::CONFUSION);
+                            maybe_remove_status(target, StatusEffect::POISON);
                             break;
                         case WandId_UNKNOWN:
                         case WandId_WAND_OF_DIGGING:
@@ -630,25 +630,25 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                     PotionDescriptionId description_id = observer->life()->knowledge.perceived_things.get(data.item_id)->potion_info()->description_id;
                     id_item(observer, description_id, effect);
 
-                    StatusEffects & status_effects = observer->life()->knowledge.perceived_things.get(data.target_id)->status_effects;
+                    PerceivedThing target = observer->life()->knowledge.perceived_things.get(data.target_id);
                     switch (effect) {
                         case PotionId_POTION_OF_HEALING:
                             // no state change
                             break;
                         case PotionId_POTION_OF_POISON:
-                            status_effects.poison_expiration_time = 0x7fffffffffffffffLL;
+                            put_status(target, StatusEffect::POISON);
                             break;
                         case PotionId_POTION_OF_ETHEREAL_VISION:
-                            status_effects.ethereal_vision_expiration_time = 0x7fffffffffffffffLL;
+                            put_status(target, StatusEffect::ETHEREAL_VISION);
                             break;
                         case PotionId_POTION_OF_COGNISCOPY:
-                            status_effects.cogniscopy_expiration_time = 0x7fffffffffffffffLL;
+                            put_status(target, StatusEffect::COGNISCOPY);
                             break;
                         case PotionId_POTION_OF_BLINDNESS:
-                            status_effects.blindness_expiration_time = 0x7fffffffffffffffLL;
+                            put_status(target, StatusEffect::BLINDNESS);
                             break;
                         case PotionId_POTION_OF_INVISIBILITY:
-                            status_effects.invisibility_expiration_time = 0x7fffffffffffffffLL;
+                            put_status(target, StatusEffect::INVISIBILITY);
                             break;
 
                         case PotionId_UNKNOWN:

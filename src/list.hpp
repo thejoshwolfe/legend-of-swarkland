@@ -74,6 +74,15 @@ public:
             _items[i] = _items[i + delete_count];
         _length -= delete_count;
     }
+    void swap_remove(int index) {
+        bounds_check(index);
+        if (index < _length - 1) {
+            // swap
+            _items[index] = _items[_length - 1];
+        }
+        // remove
+        _length--;
+    }
 
     bool operator==(const List<T> & other) const {
         if (this == &other)

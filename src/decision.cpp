@@ -49,7 +49,7 @@ static Action get_ai_decision(Thing actor) {
 
     if (actor->life()->species()->advanced_strategy) {
         // defense first
-        if (actor->status_effects.confused_expiration_time > time_counter || actor->status_effects.poison_expiration_time > time_counter) {
+        if (has_status(actor, StatusEffect::CONFUSION) || has_status(actor, StatusEffect::POISON)) {
             // can we remedy?
             for (int i = 0; i < inventory.length(); i++) {
                 if (inventory[i]->thing_type != ThingType_WAND)
@@ -106,7 +106,7 @@ static Action get_ai_decision(Thing actor) {
             case ThingType_INDIVIDUAL: {
                 // we are aggro!!
                 if (actor->life()->species()->advanced_strategy) {
-                    if (actor->status_effects.speed_up_expiration_time <= time_counter) {
+                    if (!has_status(actor, StatusEffect::SPEED)) {
                         // use speed boost if we can
                         for (int i = 0; i < inventory.length(); i++) {
                             if (inventory[i]->thing_type != ThingType_WAND)
@@ -135,7 +135,7 @@ static Action get_ai_decision(Thing actor) {
                                 continue; // don't dig the person.
                             if (wand_id == WandId_WAND_OF_SPEED || wand_id == WandId_WAND_OF_REMEDY)
                                 continue; // you'd like that, wouldn't you.
-                            if (wand_id == WandId_WAND_OF_CONFUSION && target->status_effects.confused_expiration_time > time_counter)
+                            if (wand_id == WandId_WAND_OF_CONFUSION && has_status(target, StatusEffect::CONFUSION))
                                 continue; // already confused.
                             // worth a try
                             useful_inventory.append(item);

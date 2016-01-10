@@ -296,24 +296,32 @@ Span get_species_name(SpeciesId species_id) {
     return new_span(get_species_name_str(species_id), light_brown, black);
 }
 // ends with " " if non-blank
-static Span get_status_description(const StatusEffects & status_effects) {
+static Span get_status_description(const List<StatusEffect::StatusEffectType> & status_effects) {
     Span result = new_span();
-    if (status_effects.confused_expiration_time > time_counter)
+    // this algorithmic complexity is a little derpy,
+    // but we need the order of words to be consistent.
+    if (has_status(status_effects, StatusEffect::CONFUSION))
         result->append("confused ");
-    if (status_effects.speed_up_expiration_time > time_counter)
+    if (has_status(status_effects, StatusEffect::SPEED))
         result->append("fast ");
-    if (status_effects.ethereal_vision_expiration_time > time_counter)
+    if (has_status(status_effects, StatusEffect::ETHEREAL_VISION))
         result->append("ethereal-visioned ");
-    if (status_effects.cogniscopy_expiration_time > time_counter)
+    if (has_status(status_effects, StatusEffect::COGNISCOPY))
         result->append("cogniscopic ");
-    if (status_effects.blindness_expiration_time > time_counter)
+    if (has_status(status_effects, StatusEffect::BLINDNESS))
         result->append("blind ");
-    if (status_effects.poison_expiration_time > time_counter)
+    if (has_status(status_effects, StatusEffect::POISON))
         result->append("poisoned ");
-    if (status_effects.invisibility_expiration_time > time_counter)
+    if (has_status(status_effects, StatusEffect::INVISIBILITY))
         result->append("invisible ");
     result->set_color(pink, black);
     return result;
+}
+static Span get_status_description(const List<StatusEffect> & status_effects) {
+    List<StatusEffect::StatusEffectType> tmp_effect_list;
+    for (int i = 0; i < status_effects.length(); i++)
+        tmp_effect_list.append(status_effects[i].type);
+    return get_status_description(tmp_effect_list);
 }
 static const char * get_wand_description_str(Thing observer, PerceivedThing item) {
     WandDescriptionId description_id = item->wand_info()->description_id;
@@ -665,7 +673,7 @@ void render() {
                 item_pile_rendered[thing->location] = true;
             }
             Uint8 alpha;
-            if (thing->status_effects.invisibility_expiration_time > time_counter || !can_see_thing(spectate_from, thing->id))
+            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_thing(spectate_from, thing->id))
                 alpha = 0x7f;
             else
                 alpha = 0xff;
@@ -686,7 +694,7 @@ void render() {
             if (thing->location == Coord::nowhere())
                 continue;
             Uint8 alpha;
-            if (thing->status_effects.invisibility_expiration_time > time_counter || !spectate_from->life()->knowledge.tile_is_visible[thing->location].any())
+            if (has_status(thing, StatusEffect::INVISIBILITY)|| !spectate_from->life()->knowledge.tile_is_visible[thing->location].any())
                 alpha = 0x7f;
             else
                 alpha = 0xff;

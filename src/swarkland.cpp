@@ -11,7 +11,7 @@ IdMap<Thing> actual_things;
 
 Thing you;
 bool youre_still_alive = true;
-long long time_counter = 0;
+int64_t time_counter = 0;
 
 bool cheatcode_full_visibility;
 
@@ -354,15 +354,17 @@ void heal_hp(Thing individual, int hp) {
 }
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
-    if (individual->status_effects.poison_expiration_time > time_counter) {
+    int index;
+    if ((index = find_status(individual->status_effects, StatusEffect::POISON)) != -1) {
         // poison damage instead
-        if (individual->status_effects.poison_next_damage_time == time_counter) {
+        StatusEffect * poison = &individual->status_effects[index];
+        if (poison->poison_next_damage_time == time_counter) {
             // ouch
-            Thing attacker = actual_things.get(individual->status_effects.poisoner, nullptr);
+            Thing attacker = actual_things.get(poison->who_is_responsible, nullptr);
             if (!attacker->still_exists)
                 attacker = nullptr;
             damage_individual(individual, 1, attacker, false);
-            individual->status_effects.poison_next_damage_time = time_counter + random_midpoint(7 * 12);
+            poison->poison_next_damage_time = time_counter + random_midpoint(7 * 12);
         }
     } else if (life->hp_regen_deadline == time_counter) {
         // hp regen
@@ -373,9 +375,10 @@ static void regen_hp(Thing individual) {
 
 void poison_individual(Thing attacker, Thing target) {
     publish_event(Event::poisoned(target));
-    target->status_effects.poisoner = attacker->id;
-    target->status_effects.poison_expiration_time = time_counter + random_midpoint(600);
-    target->status_effects.poison_next_damage_time = time_counter + 12 * 3;
+    StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON);
+    poison->who_is_responsible = attacker->id;
+    poison->expiration_time = time_counter + random_midpoint(600);
+    poison->poison_next_damage_time = time_counter + 12 * 3;
 }
 
 // normal melee attack
@@ -528,7 +531,7 @@ static const Coord directions_by_rotation[] = {
     {+1, -1},
 };
 Coord confuse_direction(Thing individual, Coord direction) {
-    if (individual->status_effects.confused_expiration_time <= time_counter)
+    if (!has_status(individual, StatusEffect::CONFUSION))
         return direction; // not confused
     if (direction == Coord{0, 0})
         return direction; // can't get that wrong
@@ -711,29 +714,41 @@ static void age_individual(Thing individual) {
         }
     }
 
-    if (individual->status_effects.confused_expiration_time == time_counter)
-        publish_event(Event::no_longer_confused(individual));
-    if (individual->status_effects.speed_up_expiration_time == time_counter)
-        publish_event(Event::no_longer_fast(individual));
-    if (individual->status_effects.ethereal_vision_expiration_time == time_counter) {
-        publish_event(Event::no_longer_has_ethereal_vision(individual));
-        compute_vision(individual);
-    }
-    if (individual->status_effects.cogniscopy_expiration_time == time_counter) {
-        publish_event(Event::no_longer_cogniscopic(individual));
-        compute_vision(individual);
-    }
-    if (individual->status_effects.blindness_expiration_time == time_counter) {
-        publish_event(Event::no_longer_blind(individual));
-        compute_vision(individual);
-    }
-    if (individual->status_effects.poison_expiration_time == time_counter) {
-        publish_event(Event::no_longer_poisoned(individual));
-        reset_hp_regen_timeout(individual);
-    }
-    if (individual->status_effects.invisibility_expiration_time == time_counter) {
-        publish_event(Event::appear(individual));
-        reset_hp_regen_timeout(individual);
+    for (int i = 0; i < individual->status_effects.length(); i++) {
+        StatusEffect status_effect = individual->status_effects[i];
+        assert(status_effect.expiration_time >= time_counter);
+        if (status_effect.expiration_time == time_counter) {
+            individual->status_effects.swap_remove(i);
+            i--;
+            switch (status_effect.type) {
+                case StatusEffect::CONFUSION:
+                    publish_event(Event::no_longer_confused(individual));
+                    break;
+                case StatusEffect::SPEED:
+                    publish_event(Event::no_longer_fast(individual));
+                    break;
+                case StatusEffect::ETHEREAL_VISION:
+                    publish_event(Event::no_longer_has_ethereal_vision(individual));
+                    compute_vision(individual);
+                    break;
+                case StatusEffect::COGNISCOPY:
+                    publish_event(Event::no_longer_cogniscopic(individual));
+                    compute_vision(individual);
+                    break;
+                case StatusEffect::BLINDNESS:
+                    publish_event(Event::no_longer_blind(individual));
+                    compute_vision(individual);
+                    break;
+                case StatusEffect::POISON:
+                    publish_event(Event::no_longer_poisoned(individual));
+                    reset_hp_regen_timeout(individual);
+                    break;
+                case StatusEffect::INVISIBILITY:
+                    publish_event(Event::appear(individual));
+                    reset_hp_regen_timeout(individual);
+                    break;
+            }
+        }
     }
 
     List<RememberedEvent> & remembered_events = individual->life()->knowledge.remembered_events;
@@ -876,11 +891,11 @@ void get_available_actions(Thing individual, List<Action> * output_actions) {
 
 // you need to emit events yourself
 void confuse_individual(Thing target) {
-    target->status_effects.confused_expiration_time = time_counter + random_int(100, 200);
+    find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = time_counter + random_int(100, 200);
 }
 // you need to emit events yourself
 void speed_up_individual(Thing target) {
-    target->status_effects.speed_up_expiration_time = time_counter + random_int(100, 200);
+    find_or_put_status(target, StatusEffect::SPEED)->expiration_time = time_counter + random_int(100, 200);
 }
 
 void strike_individual(Thing attacker, Thing target) {
