@@ -260,23 +260,33 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     if (!observer->still_exists)
         return false;
     Thing actual_target = actual_things.get(target_id);
-    // nobody can see invisible people, because that would be cheating :)
-    if (has_status(actual_target, StatusEffect::INVISIBILITY))
+    // you can't see dead things
+    if (!actual_target->still_exists)
         return false;
+    VisionTypes vision = observer->life()->knowledge.tile_is_visible[target_location];
+    if (vision.ethereal) {
+        // ethereal vision sees all
+        return true;
+    }
+    if (vision.normal) {
+        // we're looking right at it
+        if (!has_status(actual_target, StatusEffect::INVISIBILITY)) {
+            // see normally
+            return true;
+        }
+    }
     // cogniscopy can see minds
     if (has_status(observer, StatusEffect::COGNISCOPY)) {
         if (actual_target->thing_type == ThingType_INDIVIDUAL && actual_target->life()->species()->has_mind)
             return true;
     }
-    // we can see someone if they're in our line of sight
-    if (!observer->life()->knowledge.tile_is_visible[target_location].any())
-        return false;
-    return true;
+
+    return false;
 }
 bool can_see_thing(Thing observer, uint256 target_id) {
     assert(target_id != uint256::zero());
     Thing thing = actual_things.get(target_id, nullptr);
-    if (thing == nullptr) {
+    if (thing == nullptr || !thing->still_exists) {
         // i'm sure you can't see it, because it doesn't exist anymore.
         return false;
     }
