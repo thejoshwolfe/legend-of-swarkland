@@ -5,12 +5,12 @@
 
 #include <math.h>
 
-bool do_i_think_i_can_move_here(Thing individual, Coord location) {
+bool do_i_think_i_can_move_here(Thing observer, Coord location) {
     if (!is_in_bounds(location))
         return false;
-    if (!is_open_space(individual->life()->knowledge.tiles[location].tile_type))
+    if (!is_open_space(observer->life()->knowledge.tiles[location].tile_type))
         return false;
-    if (find_individual_at(location) != nullptr)
+    if (find_perceived_individual_at(observer, location) != nullptr)
         return false;
     return true;
 }
