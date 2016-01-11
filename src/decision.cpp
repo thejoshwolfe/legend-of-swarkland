@@ -29,7 +29,7 @@ static int rate_interest_in_target(Thing actor, PerceivedThing target) {
 
 static bool is_clear_line_of_sight(Thing actor, Coord location) {
     int distnace = ordinal_distance(location, actor->location);
-    if (distnace > beam_length_average)
+    if (distnace > beam_length_average - beam_length_error_margin + 1)
         return false; // out of range
     Coord vector = location - actor->location;
     Coord abs_vector = abs(vector);
@@ -46,8 +46,9 @@ static bool is_clear_line_of_sight(Thing actor, Coord location) {
 static Action get_ai_decision(Thing actor) {
     List<Thing> inventory;
     find_items_in_inventory(actor->id, &inventory);
+    bool advanced_strategy = actor->life()->species()->advanced_strategy;
 
-    if (actor->life()->species()->advanced_strategy) {
+    if (advanced_strategy) {
         // defense first
         if (has_status(actor, StatusEffect::CONFUSION) || has_status(actor, StatusEffect::POISON) || has_status(actor, StatusEffect::BLINDNESS)) {
             // can we remedy?
@@ -105,7 +106,7 @@ static Action get_ai_decision(Thing actor) {
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL: {
                 // we are aggro!!
-                if (actor->life()->species()->advanced_strategy) {
+                if (advanced_strategy) {
                     if (!has_status(actor, StatusEffect::SPEED)) {
                         // use speed boost if we can
                         for (int i = 0; i < inventory.length(); i++) {
@@ -125,27 +126,38 @@ static Action get_ai_decision(Thing actor) {
                     if (is_clear_line_of_sight(actor, target->location)) {
                         Coord vector = target->location - actor->location;
                         // you're in line, but is there a clear path?
-                        List<Thing> useful_inventory;
+                        List<Thing> useful_wands;
                         for (int i = 0; i < inventory.length(); i++) {
                             Thing item = inventory[i];
                             if (item->thing_type != ThingType_WAND)
                                 continue;
                             WandId wand_id = actor->life()->knowledge.wand_identities[item->wand_info()->description_id];
-                            if (wand_id == WandId_WAND_OF_DIGGING)
-                                continue; // don't dig the person.
-                            if (wand_id == WandId_WAND_OF_SPEED || wand_id == WandId_WAND_OF_REMEDY)
-                                continue; // you'd like that, wouldn't you.
-                            if (wand_id == WandId_WAND_OF_CONFUSION && has_status(target, StatusEffect::CONFUSION))
-                                continue; // already confused.
+                            switch (wand_id) {
+                                case WandId_WAND_OF_CONFUSION:
+                                    if (has_status(target, StatusEffect::CONFUSION))
+                                        continue; // already confused.
+                                    break; // get him!
+                                case WandId_WAND_OF_DIGGING:
+                                    continue; // don't dig the person.
+                                case WandId_WAND_OF_STRIKING:
+                                    break; // get him!
+                                case WandId_WAND_OF_SPEED:
+                                case WandId_WAND_OF_REMEDY:
+                                    continue; // you'd like that, wouldn't you.
+                                case WandId_UNKNOWN:
+                                    break; // um. sure.
+                                case WandId_COUNT:
+                                    unreachable();
+                            }
                             // worth a try
-                            useful_inventory.append(item);
+                            useful_wands.append(item);
                         }
-                        if (useful_inventory.length() > 0) {
+                        if (useful_wands.length() > 0) {
                             // should we zap it?
-                            if (actor->life()->species()->advanced_strategy || random_int(3) == 0) {
+                            if (advanced_strategy || random_int(3) == 0) {
                                 // get him!!
                                 Coord direction = sign(vector);
-                                return Action::zap(useful_inventory[random_int(useful_inventory.length())]->id, direction);
+                                return Action::zap(useful_wands[random_int(useful_wands.length())]->id, direction);
                             }
                             // nah. let's save the charges.
                         }
