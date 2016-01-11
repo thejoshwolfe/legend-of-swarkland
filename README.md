@@ -120,6 +120,7 @@ Default indentation for wrapped lines: 1.
 
  * Invisibility and blindness.
  * New items: potion of blinding, potion of invisibility.
+ * Balance: scorpions have a 1/4 chance of poison on each hit instead of 100% chance.
 
 ### 4.0.0
 

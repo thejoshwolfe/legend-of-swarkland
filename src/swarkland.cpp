@@ -388,7 +388,7 @@ static void attack(Thing attacker, Thing target) {
     int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
     damage_individual(target, damage, attacker, true);
     reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->life()->species()->poison_attack)
+    if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4) == 0)
         poison_individual(attacker, target);
 }
 
