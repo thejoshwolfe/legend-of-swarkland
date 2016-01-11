@@ -361,7 +361,7 @@ static void regen_hp(Thing individual) {
         if (poison->poison_next_damage_time == time_counter) {
             // ouch
             Thing attacker = actual_things.get(poison->who_is_responsible, nullptr);
-            if (!attacker->still_exists)
+            if (attacker != nullptr && !attacker->still_exists)
                 attacker = nullptr;
             damage_individual(individual, 1, attacker, false);
             poison->poison_next_damage_time = time_counter + random_midpoint(7 * 12);

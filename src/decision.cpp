@@ -49,7 +49,7 @@ static Action get_ai_decision(Thing actor) {
 
     if (actor->life()->species()->advanced_strategy) {
         // defense first
-        if (has_status(actor, StatusEffect::CONFUSION) || has_status(actor, StatusEffect::POISON)) {
+        if (has_status(actor, StatusEffect::CONFUSION) || has_status(actor, StatusEffect::POISON) || has_status(actor, StatusEffect::BLINDNESS)) {
             // can we remedy?
             for (int i = 0; i < inventory.length(); i++) {
                 if (inventory[i]->thing_type != ThingType_WAND)

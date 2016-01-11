@@ -93,12 +93,15 @@ static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<Wa
 static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
     int confusion_index = find_status(target->status_effects, StatusEffect::CONFUSION);
     int poison_index = find_status(target->status_effects, StatusEffect::POISON);
-    bool did_it_help = confusion_index != -1 || poison_index != -1;
+    int blindness_index = find_status(target->status_effects, StatusEffect::BLINDNESS);
+    bool did_it_help = confusion_index != -1 || poison_index != -1 || blindness_index != -1;
     publish_event(Event::wand_hit(did_it_help ? WandId_WAND_OF_REMEDY : WandId_UNKNOWN, is_explosion, target->id, target->location), perceived_current_zapper);
     if (confusion_index != -1)
         target->status_effects[confusion_index].expiration_time = time_counter + 1;
     if (poison_index != -1)
         target->status_effects[poison_index].expiration_time = time_counter + 1;
+    if (blindness_index != -1)
+        target->status_effects[blindness_index].expiration_time = time_counter + 1;
     return 2;
 }
 

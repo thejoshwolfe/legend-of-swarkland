@@ -663,6 +663,7 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
                         case WandId_WAND_OF_REMEDY:
                             maybe_remove_status(target, StatusEffect::CONFUSION);
                             maybe_remove_status(target, StatusEffect::POISON);
+                            maybe_remove_status(target, StatusEffect::BLINDNESS);
                             break;
                         case WandId_UNKNOWN:
                         case WandId_WAND_OF_DIGGING:
