@@ -119,7 +119,7 @@ Default indentation for wrapped lines: 1.
 ### 4.1.0
 
  * Invisibility and blindness.
- * New items: potions of blinding, potion of invisibility.
+ * New items: potion of blinding, potion of invisibility.
 
 ### 4.0.0
 
