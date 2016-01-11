@@ -108,17 +108,18 @@ Default indentation for wrapped lines: 1.
 
 ### 5.0.0
 
- * Secret dungeon features:
-   * Secret passage ways.
-   * Acid traps.
-   * Polymorph traps.
  * Spells and MP.
  * New items:
    * spellbooks of: assume form, charm, fear, force, life syphon, magic bullet, mapping, slowing
-   * wands of: blinding, force, invisibility, magic bullet, pointlessness, slowing
-   * potions of: blinding, experience, fruit juice, invisibility, mana
+   * wands of: blinding, force, invisibility, magic bullet, slowing
+   * potions of: experience, fruit juice, mana
 
 ## Version History
+
+### 4.1.0
+
+ * Invisibility and blindness.
+ * New items: potions of blinding, potion of invisibility.
 
 ### 4.0.0
 
