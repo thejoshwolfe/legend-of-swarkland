@@ -326,6 +326,10 @@ static uint256 to_unseen(Thing observer, uint256 actual_target_id) {
         thing = create<PerceivedThingImpl>(id, SpeciesId_UNSEEN, actual_target->location, opposite_team, time_counter);
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
+    if (can_see_location(observer, actual_target->location)) {
+        // hmmm. this guy is probably invisible
+        put_status(thing, StatusEffect::INVISIBILITY);
+    }
     return thing->id;
 }
 
@@ -337,7 +341,7 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                 if (!can_see_location(observer, location_of(data.individual)))
                     return false;
                 if (!can_see_thing(observer, data.individual)) {
-                    // you don't know what they disappeared.
+                    // you don't know why they disappeared.
                     *output_event = Event::disappear(data.individual);
                     return true;
                 }
