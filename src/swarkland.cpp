@@ -28,18 +28,19 @@ static void init_specieses() {
     //                                     |   |  |   |   |   |  |   |  |  auto throws items
     //                                     |   |  |   |   |   |  |   |  |  |  poison attack
     //                                     |   |  |   |   |   |  |   |  |  |  |  uses wands
-    //                                     |   |  |   |   |   |  |   |  |  |  |  |  advanced strategy
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 2,  4,  5, {1, 0}, 1, 0, 0, 0, 1, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 1, 0, 0, 0, 1, 1};
-    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1,  0,  1, {0, 1}, 0, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  4,  5, {0, 1}, 0, 1, 1, 0, 0, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2,  1,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  2, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  2, 3,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  3, {1, 0}, 1, 0, 0, 1, 0, 0};
-    specieses[SpeciesId_SNAKE        ] = {18,  4, 2,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
+    //                                     |   |  |   |   |   |  |   |  |  |  |  |  uses potions
+    //                                     |   |  |   |   |   |  |   |  |  |  |  |  |  advanced strategy
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1, 1};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 2,  4,  5, {1, 0}, 1, 0, 0, 0, 1, 0, 0};
+    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 1, 0, 0, 0, 1, 1, 1};
+    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1,  0,  1, {0, 1}, 0, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  4,  5, {0, 1}, 0, 1, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2,  1,  2, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  2, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  2, 3,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  3, {1, 0}, 1, 0, 0, 1, 0, 0, 0};
+    specieses[SpeciesId_SNAKE        ] = {18,  4, 2,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.
@@ -153,7 +154,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     fix_z_orders(actor->id);
 
     // find the hit target
-    int range = random_int(3, 6);
+    int range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin);
     Coord cursor = actor->location;
     bool item_breaks = false;
     // potions are fragile
@@ -283,12 +284,14 @@ static void init_individuals() {
         Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(7), Coord::nowhere());
         // arm him!
         for (int i = 0; i < 5; i++) {
-            Thing item = create_random_item(ThingType_WAND);
-            pickup_item(boss, item);
-            // teach him everything about his wands.
-            WandDescriptionId description_id = item->wand_info()->description_id;
-            boss->life()->knowledge.wand_identities[description_id] = actual_wand_identities[description_id];
+            pickup_item(boss, create_random_item(ThingType_WAND));
+            pickup_item(boss, create_random_item(ThingType_POTION));
         }
+        // teach him everything about magic.
+        for (int i = 0; i < WandDescriptionId_COUNT; i++)
+            boss->life()->knowledge.wand_identities[i] = actual_wand_identities[i];
+        for (int i = 0; i < PotionDescriptionId_COUNT; i++)
+            boss->life()->knowledge.potion_identities[i] = actual_potion_identities[i];
     } else {
         // spawn a "miniboss", which is just a specific monster on the stairs.
         SpeciesId miniboss_species_id = get_miniboss_species(dungeon_level);

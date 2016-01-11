@@ -33,6 +33,7 @@ struct Tile {
 
 static const Tile unknown_tile = {TileType_UNKNOWN, 0};
 static const int final_dungeon_level = 5;
+extern const int ethereal_radius;
 
 extern int dungeon_level;
 extern MapMatrix<Tile> actual_map_tiles;

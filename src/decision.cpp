@@ -3,6 +3,7 @@
 #include "path_finding.hpp"
 #include "tas.hpp"
 #include "item.hpp"
+#include "event.hpp"
 
 Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
 Action current_player_decision;
@@ -27,9 +28,11 @@ static int rate_interest_in_target(Thing actor, PerceivedThing target) {
     return score;
 }
 
-static bool is_clear_line_of_sight(Thing actor, Coord location) {
+static int confident_zap_distance = beam_length_average - beam_length_error_margin + 1;
+static int confident_throw_distance = throw_distance_average - throw_distance_error_margin;
+static bool is_clear_line_of_sight(Thing actor, Coord location, int confident_distance) {
     int distnace = ordinal_distance(location, actor->location);
-    if (distnace > beam_length_average - beam_length_error_margin + 1)
+    if (distnace > confident_distance)
         return false; // out of range
     Coord vector = location - actor->location;
     Coord abs_vector = abs(vector);
@@ -46,24 +49,8 @@ static bool is_clear_line_of_sight(Thing actor, Coord location) {
 static Action get_ai_decision(Thing actor) {
     List<Thing> inventory;
     find_items_in_inventory(actor->id, &inventory);
-    bool advanced_strategy = actor->life()->species()->advanced_strategy;
-
-    if (advanced_strategy) {
-        // defense first
-        if (has_status(actor, StatusEffect::CONFUSION) || has_status(actor, StatusEffect::POISON) || has_status(actor, StatusEffect::BLINDNESS)) {
-            // can we remedy?
-            for (int i = 0; i < inventory.length(); i++) {
-                if (inventory[i]->thing_type != ThingType_WAND)
-                    continue;
-                WandId wand_id = actor->life()->knowledge.wand_identities[inventory[i]->wand_info()->description_id];
-                if (wand_id != WandId_WAND_OF_REMEDY)
-                    continue;
-                // sweet sweet soothing
-                return Action::zap(inventory[i]->id, {0, 0});
-            }
-            // no remedy. oh well.
-        }
-    }
+    const Species * actor_species = actor->life()->species();
+    bool advanced_strategy = actor_species->advanced_strategy;
 
     List<PerceivedThing> things_of_interest;
     PerceivedThing target;
@@ -75,7 +62,7 @@ static Action get_ai_decision(Thing actor) {
                 break;
             case ThingType_WAND:
             case ThingType_POTION:
-                if (!actor->life()->species()->uses_wands)
+                if (!actor_species->uses_wands)
                     continue; // don't care
                 if (target->location == Coord::nowhere())
                     continue; // somebody's already got it.
@@ -121,47 +108,137 @@ static Action get_ai_decision(Thing actor) {
                     }
                 }
 
-                // zap him?
-                if (actor->life()->species()->uses_wands) {
-                    if (is_clear_line_of_sight(actor, target->location)) {
-                        Coord vector = target->location - actor->location;
-                        // you're in line, but is there a clear path?
-                        List<Thing> useful_wands;
-                        for (int i = 0; i < inventory.length(); i++) {
-                            Thing item = inventory[i];
-                            if (item->thing_type != ThingType_WAND)
-                                continue;
-                            WandId wand_id = actor->life()->knowledge.wand_identities[item->wand_info()->description_id];
-                            switch (wand_id) {
+                // use items?
+                List<Action> defense_actions;
+                List<Action> buff_actions;
+                List<Action> low_priority_buff_actions;
+                List<Action> range_attack_actions;
+                Coord vector = target->location - actor->location;
+                Coord direction = sign(vector);
+                for (int i = 0; i < inventory.length(); i++) {
+                    Thing item = inventory[i];
+                    switch (item->thing_type) {
+                        case ThingType_INDIVIDUAL:
+                            unreachable();
+                        case ThingType_WAND:
+                            if (!specieses->uses_wands)
+                                break;
+                            switch (actor->life()->knowledge.wand_identities[item->wand_info()->description_id]) {
                                 case WandId_WAND_OF_CONFUSION:
                                     if (has_status(target, StatusEffect::CONFUSION))
-                                        continue; // already confused.
-                                    break; // get him!
+                                        break; // already confused.
+                                    if (is_clear_line_of_sight(actor, target->location, confident_zap_distance)) {
+                                        // get him!
+                                        range_attack_actions.append(Action::zap(item->id, direction));
+                                    }
+                                    break;
                                 case WandId_WAND_OF_DIGGING:
-                                    continue; // don't dig the person.
+                                    // i don't understand digging.
+                                    break;
                                 case WandId_WAND_OF_STRIKING:
-                                    break; // get him!
+                                    if (is_clear_line_of_sight(actor, target->location, confident_zap_distance)) {
+                                        // get him!
+                                        range_attack_actions.append(Action::zap(item->id, direction));
+                                    }
+                                    break;
                                 case WandId_WAND_OF_SPEED:
+                                    if (!has_status(actor, StatusEffect::SPEED)) {
+                                        // gotta go fast!
+                                        buff_actions.append(Action::zap(item->id, {0, 0}));
+                                    }
+                                    break;
                                 case WandId_WAND_OF_REMEDY:
-                                    continue; // you'd like that, wouldn't you.
+                                    if (has_status(actor, StatusEffect::CONFUSION) || has_status(actor, StatusEffect::POISON) || has_status(actor, StatusEffect::BLINDNESS)) {
+                                        // sweet sweet soothing
+                                        defense_actions.append(Action::zap(item->id, {0, 0}));
+                                    }
+                                    break;
                                 case WandId_UNKNOWN:
-                                    break; // um. sure.
+                                    if (is_clear_line_of_sight(actor, target->location, confident_zap_distance)) {
+                                        // um. sure.
+                                        range_attack_actions.append(Action::zap(item->id, direction));
+                                    }
+                                    break;
                                 case WandId_COUNT:
                                     unreachable();
                             }
-                            // worth a try
-                            useful_wands.append(item);
-                        }
-                        if (useful_wands.length() > 0) {
-                            // should we zap it?
-                            if (advanced_strategy || random_int(3) == 0) {
-                                // get him!!
-                                Coord direction = sign(vector);
-                                return Action::zap(useful_wands[random_int(useful_wands.length())]->id, direction);
+                            break;
+                        case ThingType_POTION:
+                            if (!specieses->uses_potions)
+                                break;
+                            switch (actor->life()->knowledge.potion_identities[item->potion_info()->description_id]) {
+                                case PotionId_POTION_OF_HEALING:
+                                    if (actor->life()->hitpoints < actor->life()->max_hitpoints() / 2)
+                                        defense_actions.append(Action::quaff(item->id));
+                                    break;
+                                case PotionId_POTION_OF_POISON:
+                                    if (has_status(target, StatusEffect::POISON))
+                                        break; // already poisoned
+                                    if (!is_clear_line_of_sight(actor, target->location, confident_throw_distance))
+                                        break; // too far
+                                    range_attack_actions.append(Action::throw_(item->id, direction));
+                                    break;
+                                case PotionId_POTION_OF_ETHEREAL_VISION:
+                                    if (has_status(actor, StatusEffect::COGNISCOPY))
+                                        break; // that's even better
+                                    if (has_status(actor, StatusEffect::ETHEREAL_VISION))
+                                        break;
+                                    // do we think she's gone invisible?
+                                    if (!can_see_thing(actor, target->id)) {
+                                        // we've gotta be close
+                                        int information_age = (int)(time_counter - target->last_seen_time);
+                                        int max_steps = information_age / 12;
+                                        int effective_radius = ethereal_radius - max_steps;
+                                        if (effective_radius <= 0 || euclidean_distance_squared(Coord{0, 0}, vector) > effective_radius * effective_radius)
+                                            break; // probably not there anymore
+                                        // i have you now
+                                        low_priority_buff_actions.append(Action::quaff(item->id));
+                                    }
+                                    break;
+                                case PotionId_POTION_OF_COGNISCOPY:
+                                    if (has_status(actor, StatusEffect::COGNISCOPY))
+                                        break;
+                                    // do we think she's gone invisible?
+                                    if (target->life()->species_id == SpeciesId_UNSEEN) {
+                                        // you can't hide
+                                        buff_actions.append(Action::quaff(item->id));
+                                    }
+                                    break;
+                                case PotionId_POTION_OF_BLINDNESS:
+                                    if (has_status(target, StatusEffect::BLINDNESS))
+                                        break; // already blind
+                                    if (!is_clear_line_of_sight(actor, target->location, confident_throw_distance))
+                                        break; // too far
+                                    range_attack_actions.append(Action::throw_(item->id, direction));
+                                    break;
+                                case PotionId_POTION_OF_INVISIBILITY:
+                                    if (has_status(actor, StatusEffect::INVISIBILITY))
+                                        break; // already invisible
+                                    if (has_status(target, StatusEffect::COGNISCOPY) || has_status(target, StatusEffect::ETHEREAL_VISION))
+                                        break; // no point
+                                    // now you see me...
+                                    buff_actions.append(Action::quaff(item->id));
+                                    break;
+                                case PotionId_UNKNOWN:
+                                    // nah. i'm afraid of unknown potions.
+                                    break;
+                                case PotionId_COUNT:
+                                    unreachable();
                             }
-                            // nah. let's save the charges.
-                        }
+                            break;
                     }
+                }
+                if (defense_actions.length() + buff_actions.length() + range_attack_actions.length() > 0) {
+                    // should we go through with it?
+                    if (advanced_strategy || random_int(3) == 0) {
+                        if (defense_actions.length())
+                            return defense_actions[random_int(defense_actions.length())];
+                        if (buff_actions.length())
+                            return buff_actions[random_int(buff_actions.length())];
+                        if (range_attack_actions.length())
+                            return range_attack_actions[random_int(range_attack_actions.length())];
+                    }
+                    // nah. let's save the items for later.
                 }
 
                 // move/attack

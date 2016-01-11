@@ -51,7 +51,7 @@ static void refresh_normal_vision(Thing individual) {
     }
 }
 
-static const int ethereal_radius = 5;
+const int ethereal_radius = 5;
 static void refresh_ethereal_vision(Thing individual) {
     Coord you_location = individual->location;
     Coord etheral_radius_diagonal = {ethereal_radius, ethereal_radius};
