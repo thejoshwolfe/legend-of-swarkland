@@ -61,8 +61,13 @@ static Action get_ai_decision(Thing actor) {
                     continue; // you're cool
                 break;
             case ThingType_WAND:
-            case ThingType_POTION:
                 if (!actor_species->uses_wands)
+                    continue; // don't care
+                if (target->location == Coord::nowhere())
+                    continue; // somebody's already got it.
+                break;
+            case ThingType_POTION:
+                if (!actor_species->uses_potions)
                     continue; // don't care
                 if (target->location == Coord::nowhere())
                     continue; // somebody's already got it.
@@ -93,20 +98,6 @@ static Action get_ai_decision(Thing actor) {
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL: {
                 // we are aggro!!
-                if (advanced_strategy) {
-                    if (!has_status(actor, StatusEffect::SPEED)) {
-                        // use speed boost if we can
-                        for (int i = 0; i < inventory.length(); i++) {
-                            if (inventory[i]->thing_type != ThingType_WAND)
-                                continue;
-                            WandId wand_id = actor->life()->knowledge.wand_identities[inventory[i]->wand_info()->description_id];
-                            if (wand_id != WandId_WAND_OF_SPEED)
-                                continue;
-                            // gotta go fast!
-                            return Action::zap(inventory[i]->id, {0, 0});
-                        }
-                    }
-                }
 
                 // use items?
                 List<Action> defense_actions;
@@ -121,7 +112,7 @@ static Action get_ai_decision(Thing actor) {
                         case ThingType_INDIVIDUAL:
                             unreachable();
                         case ThingType_WAND:
-                            if (!specieses->uses_wands)
+                            if (!actor_species->uses_wands)
                                 break;
                             switch (actor->life()->knowledge.wand_identities[item->wand_info()->description_id]) {
                                 case WandId_WAND_OF_CONFUSION:
@@ -164,7 +155,7 @@ static Action get_ai_decision(Thing actor) {
                             }
                             break;
                         case ThingType_POTION:
-                            if (!specieses->uses_potions)
+                            if (!actor_species->uses_potions)
                                 break;
                             switch (actor->life()->knowledge.potion_identities[item->potion_info()->description_id]) {
                                 case PotionId_POTION_OF_HEALING:
