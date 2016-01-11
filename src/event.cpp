@@ -308,16 +308,17 @@ static Coord location_of(uint256 individual_id) {
     return actual_things.get(individual_id)->location;
 }
 
+static PerceivedThing find_unseen_individual(Thing observer, Coord location) {
+    PerceivedThing thing;
+    for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);)
+        if (thing->thing_type == ThingType_INDIVIDUAL && thing->life()->species_id == SpeciesId_UNSEEN && thing->location == location)
+            return thing;
+    return nullptr;
+}
+
 static uint256 to_unseen(Thing observer, uint256 actual_target_id) {
     Thing actual_target = actual_things.get(actual_target_id);
-    PerceivedThing thing = find_perceived_individual_at(observer, actual_target->location);
-    if (thing != nullptr) {
-        // we're already aware of something here
-        if (thing->life()->species_id != SpeciesId_UNSEEN) {
-            // we're trying to place an unseen marker. leave this guy alone.
-            thing = nullptr;
-        }
-    }
+    PerceivedThing thing = find_unseen_individual(observer, actual_target->location);
     if (thing == nullptr) {
         // invent an unseen individual here
         uint256 id = random_uint256();
@@ -492,9 +493,17 @@ static void record_perception_of_location(Thing observer, Coord location, bool s
 
 void record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
-    if (target != nullptr && target->thing_type == ThingType_INDIVIDUAL && target->life()->species_id == SpeciesId_UNSEEN) {
-        target->last_seen_time = time_counter;
-        return;
+    if (target != nullptr && target->thing_type == ThingType_INDIVIDUAL) {
+        if (target->life()->species_id == SpeciesId_UNSEEN) {
+            // still looking at an unseen marker
+            target->last_seen_time = time_counter;
+            return;
+        } else {
+            // clear any unseen markers here
+            PerceivedThing thing = find_unseen_individual(observer, target->location);
+            if (thing != nullptr)
+                observer->life()->knowledge.perceived_things.remove(thing->id);
+        }
     }
     target = to_perceived_thing(target_id);
     observer->life()->knowledge.perceived_things.put(target_id, target);
