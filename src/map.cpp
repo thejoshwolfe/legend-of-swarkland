@@ -95,6 +95,12 @@ void compute_vision(Thing observer) {
                 // well it's probably invisible. don't clear the marker.
                 continue;
             }
+        } else if (target->thing_type != ThingType_INDIVIDUAL && target->location == Coord::nowhere()) {
+            PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id);
+            if (container->life()->species_id == SpeciesId_UNSEEN && has_status(container, StatusEffect::INVISIBILITY)) {
+                // as above, don't clear the marker for invisible things
+                continue;
+            }
         }
         Coord target_location = get_thing_location(observer, target);
         if (target_location == Coord::nowhere())
