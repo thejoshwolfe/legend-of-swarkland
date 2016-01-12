@@ -280,12 +280,12 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     return target;
 }
 
-static void id_item(Thing observer, WandDescriptionId description_id, WandId id) {
+static void identify_wand(Thing observer, WandDescriptionId description_id, WandId id) {
     if (description_id == WandDescriptionId_COUNT)
         return; // can't see it
     observer->life()->knowledge.wand_identities[description_id] = id;
 }
-static void id_item(Thing observer, PotionDescriptionId description_id, PotionId id) {
+static void identify_potion(Thing observer, PotionDescriptionId description_id, PotionId id) {
     observer->life()->knowledge.potion_identities[description_id] = id;
 }
 
@@ -513,7 +513,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
 
             WandId true_id = data.observable_effect;
             if (true_id != WandId_UNKNOWN)
-                id_item(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), true_id);
+                identify_wand(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), true_id);
 
             break;
         }
@@ -565,7 +565,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             if (effect != PotionId_UNKNOWN) {
                 // ah hah!
                 PotionDescriptionId description_id = observer->life()->knowledge.perceived_things.get(data.item_id)->potion_info()->description_id;
-                id_item(observer, description_id, effect);
+                identify_potion(observer, description_id, effect);
             }
             delete_ids.append(data.item_id);
             break;

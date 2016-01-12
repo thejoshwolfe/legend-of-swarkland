@@ -23,7 +23,7 @@ $(VERSION_FILE): version.txt | build
 build/full_version.txt: $(VERSION_FILE)
 	echo -n "$(THE_VERSION)" > $@
 %/resources: build/full_version.txt
-	rucksack bundle assets.json $(dir $@)resources --deps $@.d
+	rucksack bundle assets/assets.json $(dir $@)resources --deps $@.d
 	rucksack strip $(dir $@)resources
 %/resources.o: %/resources
 	@# the name "resources" is where these symbol names come from:
