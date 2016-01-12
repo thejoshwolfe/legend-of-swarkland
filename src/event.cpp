@@ -519,18 +519,21 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
         }
         case Event::USE_POTION: {
             Event::UsePotionData & data = event.use_potion_data();
+            PerceivedThing target = nullptr;
             if (data.is_breaking) {
                 remembered_event->span->format("%s breaks", get_thing_description(observer, data.item_id));
-                if (data.target_id != uint256::zero())
+                if (data.target_id != uint256::zero()) {
                     remembered_event->span->format(" and splashes on %s", get_thing_description(observer, data.target_id));
+                    target = observer->life()->knowledge.perceived_things.get(data.target_id);
+                }
             } else {
                 remembered_event->span->format("%s drinks %s",
                         get_thing_description(observer, data.target_id),
                         get_thing_description(observer, data.item_id));
+                target = observer->life()->knowledge.perceived_things.get(data.target_id);
             }
 
             PotionId effect = data.effect;
-            PerceivedThing target = observer->life()->knowledge.perceived_things.get(data.target_id);
             switch (effect) {
                 case PotionId_POTION_OF_HEALING:
                     remembered_event->span->format("; %s is healed!", get_thing_description(observer, data.target_id));
