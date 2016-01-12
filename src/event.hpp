@@ -346,7 +346,7 @@ private:
 
 bool can_see_thing(Thing observer, uint256 target_id, Coord target_location);
 bool can_see_thing(Thing observer, uint256 target_id);
-void record_perception_of_thing(Thing observer, uint256 target_id);
+PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id);
 void publish_event(Event event);
 void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper);
 
