@@ -55,10 +55,7 @@ struct Event {
         enum Id {
             WAND_EXPLODES,
             ITEM_HITS_WALL,
-            ITEM_HITS_SOMETHING,
             ITEM_DROPS_TO_THE_FLOOR,
-            SOMETHING_PICKS_UP_ITEM,
-            SOMETHING_SUCKS_UP_ITEM,
         };
         Id id;
         uint256 item;
@@ -191,9 +188,6 @@ struct Event {
     static Event item_hits_wall(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_WALL, item_id, location);
     }
-    static Event item_hits_something(uint256 item_id, Coord location) {
-        return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_SOMETHING, item_id, location);
-    }
 
     static Event use_potion(uint256 item_id, PotionId effect, bool is_breaking, uint256 target_id, Coord location) {
         Event result;
@@ -265,14 +259,8 @@ struct Event {
     static inline Event individual_picks_up_item(Thing individual, uint256 item_id) {
         return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item_id, individual->location);
     }
-    static inline Event something_picks_up_item(uint256 item, Coord location) {
-        return item_and_location_type_event(ItemAndLocationData::SOMETHING_PICKS_UP_ITEM, item, location);
-    }
     static inline Event individual_sucks_up_item(Thing individual, Thing item) {
         return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id, individual->location);
-    }
-    static inline Event something_sucks_up_item(uint256 item, Coord location) {
-        return item_and_location_type_event(ItemAndLocationData::SOMETHING_SUCKS_UP_ITEM, item, location);
     }
 
 private:

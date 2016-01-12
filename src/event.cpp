@@ -518,12 +518,10 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                 case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM: {
                     const char * fmt = data.id == Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM ? "%s picks up %s." : "%s sucks up %s.";
                     remembered_event->span->format(fmt, individual_description, item_description);
-                    if (!can_see_thing(observer, data.individual, data.location)) {
-                        // where'd it go?
-                        delete_ids.append(data.item);
-                    } else {
-                        record_perception_of_thing(observer, data.item);
-                    }
+                    PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
+                    item->location = Coord::nowhere();
+                    item->container_id = data.individual;
+                    fix_perceived_z_orders(observer, data.individual);
                     break;
                 }
             }
@@ -662,20 +660,8 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     // the item may have been thrown from out of view, so make sure we know what it is.
                     remembered_event->span->format("%s hits a wall.", item_description);
                     break;
-                case Event::ItemAndLocationData::ITEM_HITS_SOMETHING:
-                    // TODO: something should be an unseen thing
-                    remembered_event->span->format("%s hits something.", item_description);
-                    break;
                 case Event::ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR:
                     remembered_event->span->format("%s drops to the floor.", item_description);
-                    break;
-                case Event::ItemAndLocationData::SOMETHING_PICKS_UP_ITEM:
-                    // TODO: something should be an unseen thing
-                    remembered_event->span->format("something unseen picks up %s.", item_description);
-                    break;
-                case Event::ItemAndLocationData::SOMETHING_SUCKS_UP_ITEM:
-                    // TODO: something should be an unseen thing
-                    remembered_event->span->format("something unseen sucks up %s.", item_description);
                     break;
             }
             break;
