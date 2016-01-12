@@ -62,6 +62,7 @@ void heal_hp(Thing individual, int hp);
 
 void change_map(Coord location, TileType new_tile_type);
 
+void fix_perceived_z_orders(Thing observer, uint256 container_id);
 void fix_z_orders(uint256 container_id);
 void fix_z_orders(Coord location);
 

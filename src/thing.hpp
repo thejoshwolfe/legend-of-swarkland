@@ -26,6 +26,7 @@ enum WandDescriptionId {
     WandDescriptionId_PURPLE_WAND,
 
     WandDescriptionId_COUNT,
+    WandDescriptionId_UNSEEN,
 };
 enum WandId {
     WandId_WAND_OF_CONFUSION,

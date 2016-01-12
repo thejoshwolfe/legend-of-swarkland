@@ -75,7 +75,44 @@ static PerceivedThing find_unseen_individual(Thing observer, Coord location) {
     return nullptr;
 }
 
-static uint256 to_unseen(Thing observer, uint256 actual_target_id) {
+static uint256 make_unseen_item(Thing observer, uint256 actual_item_id, uint256 supposed_container_id) {
+    Thing actual_item = actual_things.get(actual_item_id);
+    ThingType thing_type = actual_item->thing_type;
+    PerceivedThing container = observer->life()->knowledge.perceived_things.get(supposed_container_id);
+    List<PerceivedThing> inventory;
+    find_items_in_inventory(observer, container, &inventory);
+    for (int i = 0; i < inventory.length(); i++) {
+        PerceivedThing thing = inventory[i];
+        if (thing->thing_type != thing_type)
+            continue;
+        switch (thing->thing_type) {
+            case ThingType_INDIVIDUAL:
+                unreachable();
+            case ThingType_WAND:
+                if (thing->wand_info()->description_id == WandDescriptionId_UNSEEN)
+                    return thing->id; // already got one
+                break;
+            case ThingType_POTION:
+                panic("TODO: unseen potion");
+        }
+    }
+    // invent an item
+    uint256 id = random_uint256();
+    PerceivedThing thing;
+    switch (thing_type) {
+        case ThingType_INDIVIDUAL:
+            unreachable();
+        case ThingType_WAND:
+            thing = create<PerceivedThingImpl>(id, WandDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
+            break;
+        case ThingType_POTION:
+            panic("TODO: unseen potion");
+    }
+    observer->life()->knowledge.perceived_things.put(id, thing);
+    fix_perceived_z_orders(observer, container->id);
+    return id;
+}
+static uint256 make_unseen_individual(Thing observer, uint256 actual_target_id) {
     Thing actual_target = actual_things.get(actual_target_id);
     PerceivedThing thing = find_unseen_individual(observer, actual_target->location);
     if (thing == nullptr) {
@@ -92,7 +129,7 @@ static uint256 to_unseen(Thing observer, uint256 actual_target_id) {
     return thing->id;
 }
 
-static bool see_event(Thing observer, Event event, Event * output_event) {
+static bool true_event_to_observed_event(Thing observer, Event event, Event * output_event) {
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
             Event::TheIndividualData & data = event.the_individual_data();
@@ -141,12 +178,12 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                         if (can_see_thing(observer, data.target)) {
                             return true;
                         } else {
-                            output_event->two_individual_data().target = to_unseen(observer, data.target);
+                            output_event->two_individual_data().target = make_unseen_individual(observer, data.target);
                             return true;
                         }
                     } else {
                         if (can_see_thing(observer, data.target)) {
-                            output_event->two_individual_data().actor = to_unseen(observer, data.actor);
+                            output_event->two_individual_data().actor = make_unseen_individual(observer, data.actor);
                             return true;
                         } else {
                             return false;
@@ -167,23 +204,32 @@ static bool see_event(Thing observer, Event event, Event * output_event) {
                 case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
                 case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
-                case Event::IndividualAndItemData::THROW_ITEM: {
+                case Event::IndividualAndItemData::THROW_ITEM:
                     // the item is not in anyone's hand, so if you can see the location, you can see the event.
-                    // note that we do this check after the pick-up type events go through,
-                    // so we can't rely on can_see_thing in case the holder is invisible now.
                     if (!observer->life()->knowledge.tile_is_visible[data.location].any())
                         return false;
                     *output_event = event;
-                    // you might have just gotten a clue about an invisible monster
+                    // the individual might be invisible
+                    if (!can_see_thing(observer, data.individual))
+                        output_event->individual_and_item_data().individual = make_unseen_individual(observer, data.individual);
                     return true;
-                }
-                case Event::IndividualAndItemData::WAND_DISINTEGRATES:
                 case Event::IndividualAndItemData::ZAP_WAND:
+                    // the magic beam gives away the location, so if you can see the location, you can see the event.
+                    if (!observer->life()->knowledge.tile_is_visible[data.location].any())
+                        return false;
+                    *output_event = event;
+                    // the individual might be invisible
+                    if (!can_see_thing(observer, data.individual)) {
+                        Event::IndividualAndItemData * output_data = &output_event->individual_and_item_data();
+                        output_data->individual = make_unseen_individual(observer, data.individual);
+                        output_data->item = make_unseen_item(observer, data.item, output_data->individual);
+                    }
+                    return true;
+                case Event::IndividualAndItemData::WAND_DISINTEGRATES:
                 case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES:
-                    // you need to see the individual to see the event
+                    // you need to see the individual AND the item to see this event
                     if (!can_see_thing(observer, data.individual))
                         return false;
-                    // you also need to see the item, not via cogniscopy
                     if (!can_see_thing(observer, data.item))
                         return false;
                     *output_event = event;
@@ -256,16 +302,30 @@ static void record_perception_of_location(Thing observer, Coord location, bool s
 
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
-    if (target != nullptr && target->thing_type == ThingType_INDIVIDUAL) {
-        if (target->life()->species_id == SpeciesId_UNSEEN) {
-            // still looking at an unseen marker
-            target->last_seen_time = time_counter;
-            return target;
-        } else {
-            // clear any unseen markers here
-            PerceivedThing thing = find_unseen_individual(observer, target->location);
-            if (thing != nullptr)
-                observer->life()->knowledge.perceived_things.remove(thing->id);
+    if (target != nullptr) {
+        switch(target->thing_type) {
+            case ThingType_INDIVIDUAL:
+                if (target->life()->species_id == SpeciesId_UNSEEN) {
+                    // still looking at an unseen marker
+                    target->last_seen_time = time_counter;
+                    return target;
+                } else {
+                    // clear any unseen markers here
+                    PerceivedThing thing = find_unseen_individual(observer, target->location);
+                    if (thing != nullptr)
+                        observer->life()->knowledge.perceived_things.remove(thing->id);
+                }
+                break;
+            case ThingType_WAND:
+                if (target->wand_info()->description_id == WandDescriptionId_UNSEEN) {
+                    // still looking at an unseen marker
+                    target->last_seen_time = time_counter;
+                    return target;
+                }
+                break;
+            case ThingType_POTION:
+                // TODO: unseen potion
+                break;
         }
     }
     target = to_perceived_thing(target_id);
@@ -281,8 +341,6 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
 }
 
 static void identify_wand(Thing observer, WandDescriptionId description_id, WandId id) {
-    if (description_id == WandDescriptionId_COUNT)
-        return; // can't see it
     observer->life()->knowledge.wand_identities[description_id] = id;
 }
 static void identify_potion(Thing observer, PotionDescriptionId description_id, PotionId id) {
@@ -433,12 +491,16 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             Event::IndividualAndItemData & data = event.individual_and_item_data();
             record_perception_of_thing(observer, data.individual);
             Span individual_description = get_thing_description(observer, data.individual);
+            record_perception_of_thing(observer, data.item);
             Span item_description = get_thing_description(observer, data.item);
             switch (data.id) {
-                case Event::IndividualAndItemData::ZAP_WAND:
-                    perceived_current_zapper->put(observer->id, actual_things.get(data.item)->wand_info()->description_id);
+                case Event::IndividualAndItemData::ZAP_WAND: {
+                    WandDescriptionId wand_description = observer->life()->knowledge.perceived_things.get(data.item)->wand_info()->description_id;
+                    if (wand_description != WandDescriptionId_UNSEEN)
+                        perceived_current_zapper->put(observer->id, wand_description);
                     remembered_event->span->format("%s zaps %s.", individual_description, item_description);
                     break;
+                }
                 case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES:
                     remembered_event->span->format("%s zaps %s, but %s just sputters.", individual_description, item_description, item_description);
                     break;
@@ -512,8 +574,15 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             }
 
             WandId true_id = data.observable_effect;
-            if (true_id != WandId_UNKNOWN)
-                identify_wand(observer, perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT), true_id);
+            if (true_id != WandId_UNKNOWN) {
+                // cool, i can id this wand.
+                WandDescriptionId wand_description = perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT);
+                if (wand_description != WandDescriptionId_COUNT) {
+                    identify_wand(observer, wand_description, true_id);
+                } else {
+                    // if only i could see it!!
+                }
+            }
 
             break;
         }
@@ -639,7 +708,7 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
     Thing observer;
     for (auto iterator = actual_individuals(); iterator.next(&observer);) {
         Event event;
-        if (!see_event(observer, actual_event, &event))
+        if (!true_event_to_observed_event(observer, actual_event, &event))
             continue;
         observe_event(observer, event, perceived_current_zapper);
     }

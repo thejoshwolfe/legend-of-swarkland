@@ -926,6 +926,13 @@ void change_map(Coord location, TileType new_tile_type) {
         compute_vision(individual);
 }
 
+void fix_perceived_z_orders(Thing observer, uint256 container_id) {
+    PerceivedThing container = observer->life()->knowledge.perceived_things.get(container_id);
+    List<PerceivedThing> inventory;
+    find_items_in_inventory(observer, container, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        inventory[i]->z_order = i;
+}
 void fix_z_orders(uint256 container_id) {
     List<Thing> inventory;
     find_items_in_inventory(container_id, &inventory);

@@ -325,7 +325,7 @@ static Span get_status_description(const List<StatusEffect> & status_effects) {
 }
 static const char * get_wand_description_str(Thing observer, PerceivedThing item) {
     WandDescriptionId description_id = item->wand_info()->description_id;
-    WandId true_id = observer->life()->knowledge.wand_identities[description_id];
+    WandId true_id = description_id != WandDescriptionId_UNSEEN ? observer->life()->knowledge.wand_identities[description_id] : WandId_UNKNOWN;
     if (true_id != WandId_UNKNOWN) {
         switch (true_id) {
             case WandId_WAND_OF_CONFUSION:
@@ -356,6 +356,9 @@ static const char * get_wand_description_str(Thing observer, PerceivedThing item
                 return "copper wand";
             case WandDescriptionId_PURPLE_WAND:
                 return "purple wand";
+
+            case WandDescriptionId_UNSEEN:
+                return "unseen wand";
 
             case WandDescriptionId_COUNT:
                 panic("not a real description id");
@@ -461,8 +464,11 @@ static RuckSackImage * get_image_for_thing(Reference<T> thing) {
                 return unseen_individual_image;
             return species_images[thing->life()->species_id];
         case ThingType_WAND:
+            if (thing->wand_info()->description_id == WandDescriptionId_UNSEEN)
+                return unseen_individual_image; // TODO: actual unseen wand image
             return wand_images[thing->wand_info()->description_id];
         case ThingType_POTION:
+            // TODO: unseen potion
             return potion_images[thing->potion_info()->description_id];
     }
     panic("thing type");
