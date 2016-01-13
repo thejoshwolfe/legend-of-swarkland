@@ -1,4 +1,4 @@
-print("hello from " + __file__)
+print("loaded " + __file__)
 
 import re
 

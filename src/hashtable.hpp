@@ -55,6 +55,8 @@ static inline int compare(const uint_oversized<Size64> & a, const uint_oversized
     return 0;
 }
 
+DEFINE_GDB_PY_SCRIPT("debug-scripts/uint_oversized.py")
+
 
 typedef uint_oversized<4> uint256;
 uint32_t hash_uint256(const uint256 & a);
