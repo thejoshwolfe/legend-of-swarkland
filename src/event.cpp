@@ -136,11 +136,6 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             if (data.id == Event::TheIndividualData::TURN_INVISIBLE) {
                 if (!can_see_location(observer, location_of(data.individual)))
                     return false;
-                if (!can_see_thing(observer, data.individual)) {
-                    // you don't know why they disappeared.
-                    *output_event = Event::disappear(data.individual);
-                    return true;
-                }
                 *output_event = event;
                 return true;
             }
@@ -385,6 +380,10 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     maybe_remove_status(individual, StatusEffect::POISON);
                     remembered_event->span->format("%s is no longer poisoned.", get_thing_description(observer, data.individual));
                     break;
+                case Event::TheIndividualData::NO_LONGER_INVISIBLE:
+                    maybe_remove_status(individual, StatusEffect::INVISIBILITY);
+                    remembered_event->span->format("%s is no longer invisible.", get_thing_description(observer, data.individual));
+                    break;
                 case Event::TheIndividualData::APPEAR:
                     // TODO: this seems wrong to use here
                     individual = record_perception_of_thing(observer, data.individual);
@@ -395,11 +394,6 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     remembered_event->span->format("%s turns invisible!", get_thing_description(observer, data.individual));
                     put_status(individual, StatusEffect::INVISIBILITY);
                     break;
-                case Event::TheIndividualData::DISAPPEAR: {
-                    remembered_event->span->format("%s vanishes out of sight!", get_thing_description(observer, data.individual));
-                    delete_ids.append(data.individual);
-                    break;
-                }
                 case Event::TheIndividualData::LEVEL_UP:
                     // no state change
                     remembered_event->span->format("%s levels up.", get_thing_description(observer, data.individual));
@@ -622,7 +616,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     put_status(target, StatusEffect::BLINDNESS);
                     break;
                 case PotionId_POTION_OF_INVISIBILITY:
-                    remembered_event->span->format("; %s disappears!", get_thing_description(observer, data.target_id));
+                    remembered_event->span->format("; %s turns invisible!", get_thing_description(observer, data.target_id));
                     put_status(target, StatusEffect::INVISIBILITY);
                     break;
 

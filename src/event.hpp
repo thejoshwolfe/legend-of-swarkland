@@ -70,9 +70,9 @@ struct Event {
             NO_LONGER_COGNISCOPIC,
             NO_LONGER_BLIND,
             NO_LONGER_POISONED,
+            NO_LONGER_INVISIBLE,
             APPEAR,
             TURN_INVISIBLE,
-            DISAPPEAR,
             LEVEL_UP,
             DIE,
         };
@@ -223,15 +223,15 @@ struct Event {
     static inline Event no_longer_poisoned(Thing individual) {
         return event_individual(TheIndividualData::NO_LONGER_POISONED, individual->id);
     }
+    static inline Event no_longer_invisible(Thing individual) {
+        return event_individual(TheIndividualData::NO_LONGER_INVISIBLE, individual->id);
+    }
 
     static inline Event appear(Thing new_guy) {
         return event_individual(TheIndividualData::APPEAR, new_guy->id);
     }
     static inline Event turn_invisible(Thing individual) {
         return event_individual(TheIndividualData::TURN_INVISIBLE, individual->id);
-    }
-    static inline Event disappear(uint256 individual_id) {
-        return event_individual(TheIndividualData::DISAPPEAR, individual_id);
     }
     static inline Event level_up(uint256 individual_id) {
         return event_individual(TheIndividualData::LEVEL_UP, individual_id);
