@@ -132,7 +132,7 @@ static uint256 make_unseen_individual(Thing observer, uint256 actual_target_id) 
 static bool true_event_to_observed_event(Thing observer, Event event, Event * output_event) {
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
-            Event::TheIndividualData & data = event.the_individual_data();
+            const Event::TheIndividualData & data = event.the_individual_data();
             if (data.id == Event::TheIndividualData::TURN_INVISIBLE) {
                 if (!can_see_location(observer, location_of(data.individual)))
                     return false;
@@ -145,7 +145,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             return true;
         }
         case Event::INDIVIDUAL_AND_LOCATION: {
-            Event::IndividualAndLocationData & data = event.individual_and_location_data();
+            const Event::IndividualAndLocationData & data = event.individual_and_location_data();
             switch (data.id) {
                 case Event::IndividualAndLocationData::MOVE:
                     // for moving, you get to see the individual in either location
@@ -162,7 +162,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             }
         }
         case Event::TWO_INDIVIDUAL: {
-            Event::TwoIndividualData & data = event.two_individual_data();
+            const Event::TwoIndividualData & data = event.two_individual_data();
             switch (data.id) {
                 case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
                 case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
@@ -189,7 +189,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             unreachable();
         }
         case Event::INDIVIDUAL_AND_ITEM: {
-            Event::IndividualAndItemData & data = event.individual_and_item_data();
+            const Event::IndividualAndItemData & data = event.individual_and_item_data();
             if (observer->id == data.individual) {
                 // you're always aware of what you're doing
                 *output_event = event;
@@ -233,7 +233,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             unreachable();
         }
         case Event::WAND_HIT: {
-            Event::WandHitData & data = event.wand_hit_data();
+            const Event::WandHitData & data = event.wand_hit_data();
             if (data.target != uint256::zero()) {
                 if (!can_see_thing(observer, data.target))
                     return false;
@@ -245,7 +245,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             return true;
         }
         case Event::USE_POTION: {
-            Event::UsePotionData & data = event.use_potion_data();
+            const Event::UsePotionData & data = event.use_potion_data();
             if (!can_see_location(observer, data.location))
                 return false;
             if (data.target_id != uint256::zero() && !can_see_thing(observer, data.target_id)) {
@@ -271,7 +271,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             return true;
         }
         case Event::ITEM_AND_LOCATION: {
-            Event::ItemAndLocationData & data = event.item_and_location_data();
+            const Event::ItemAndLocationData & data = event.item_and_location_data();
             if (!can_see_location(observer, data.location))
                 return false;
             if (!can_see_thing(observer, data.item))
