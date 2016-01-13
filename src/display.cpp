@@ -40,7 +40,9 @@ static RuckSackImage ** spritesheet_images;
 static RuckSackImage * species_images[SpeciesId_COUNT];
 static RuckSackImage * unseen_individual_image;
 static RuckSackImage * wand_images[WandDescriptionId_COUNT];
+static RuckSackImage * unseen_wand_image;
 static RuckSackImage * potion_images[PotionDescriptionId_COUNT];
+static RuckSackImage * unseen_potion_image;
 static Array<RuckSackImage *, 8> dirt_floor_images;
 static Array<RuckSackImage *, 6> marble_floor_images;
 static Array<RuckSackImage *, 8> wall_images;
@@ -104,6 +106,7 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     wand_images[WandDescriptionId_PLASTIC_WAND] = find_image(spritesheet_images, image_count, "img/wand/plastic_wand.png");
     wand_images[WandDescriptionId_COPPER_WAND] = find_image(spritesheet_images, image_count, "img/wand/copper_wand.png");
     wand_images[WandDescriptionId_PURPLE_WAND] = find_image(spritesheet_images, image_count, "img/wand/purple_wand.png");
+    unseen_wand_image = find_image(spritesheet_images, image_count, "img/wand/unseen_wand.png");
 
     potion_images[PotionDescriptionId_BLUE_POTION] = find_image(spritesheet_images, image_count, "img/potion/blue_potion.png");
     potion_images[PotionDescriptionId_GREEN_POTION] = find_image(spritesheet_images, image_count, "img/potion/green_potion.png");
@@ -111,6 +114,7 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     potion_images[PotionDescriptionId_YELLOW_POTION] = find_image(spritesheet_images, image_count, "img/potion/yellow_potion.png");
     potion_images[PotionDescriptionId_ORANGE_POTION] = find_image(spritesheet_images, image_count, "img/potion/orange_potion.png");
     potion_images[PotionDescriptionId_PURPLE_POTION] = find_image(spritesheet_images, image_count, "img/potion/purple_potion.png");
+    unseen_potion_image = find_image(spritesheet_images, image_count, "img/potion/unseen_potion.png");
 
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
@@ -358,7 +362,7 @@ static const char * get_wand_description_str(Thing observer, PerceivedThing item
                 return "purple wand";
 
             case WandDescriptionId_UNSEEN:
-                return "unseen wand";
+                return "wand";
 
             case WandDescriptionId_COUNT:
                 panic("not a real description id");
@@ -368,7 +372,7 @@ static const char * get_wand_description_str(Thing observer, PerceivedThing item
 }
 static const char * get_potion_description_str(Thing observer, PerceivedThing item) {
     PotionDescriptionId description_id = item->potion_info()->description_id;
-    PotionId true_id = observer->life()->knowledge.potion_identities[description_id];
+    PotionId true_id = description_id != PotionDescriptionId_UNSEEN ? observer->life()->knowledge.potion_identities[description_id] : PotionId_UNKNOWN;
     if (true_id != PotionId_UNKNOWN) {
         switch (true_id) {
             case PotionId_POTION_OF_HEALING:
@@ -403,6 +407,9 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "orange potion";
             case PotionDescriptionId_PURPLE_POTION:
                 return "purple potion";
+
+            case PotionDescriptionId_UNSEEN:
+                return "potion";
 
             case PotionDescriptionId_COUNT:
                 panic("not a real description id");
@@ -465,10 +472,11 @@ static RuckSackImage * get_image_for_thing(Reference<T> thing) {
             return species_images[thing->life()->species_id];
         case ThingType_WAND:
             if (thing->wand_info()->description_id == WandDescriptionId_UNSEEN)
-                return unseen_individual_image; // TODO: actual unseen wand image
+                return unseen_wand_image;
             return wand_images[thing->wand_info()->description_id];
         case ThingType_POTION:
-            // TODO: unseen potion
+            if (thing->potion_info()->description_id == PotionDescriptionId_UNSEEN)
+                return unseen_potion_image;
             return potion_images[thing->potion_info()->description_id];
     }
     panic("thing type");

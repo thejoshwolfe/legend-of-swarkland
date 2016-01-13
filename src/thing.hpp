@@ -48,6 +48,7 @@ enum PotionDescriptionId {
     PotionDescriptionId_PURPLE_POTION,
 
     PotionDescriptionId_COUNT,
+    PotionDescriptionId_UNSEEN,
 };
 enum PotionId {
     PotionId_POTION_OF_HEALING,
