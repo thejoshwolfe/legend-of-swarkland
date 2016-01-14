@@ -5,6 +5,7 @@
 #include "display.hpp"
 #include "event.hpp"
 #include "item.hpp"
+#include "tas.hpp"
 
 Species specieses[SpeciesId_COUNT];
 IdMap<Thing> actual_things;
@@ -838,6 +839,7 @@ void run_the_game() {
         for (int i = 0; i < delete_things.length(); i++)
             actual_things.remove(delete_things[i]->id);
     }
+    tas_delete_save();
 }
 
 // uses movement cost

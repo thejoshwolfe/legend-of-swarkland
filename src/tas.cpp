@@ -19,6 +19,7 @@ struct TasHeader {
     uint32_t seed;
 };
 
+static const char * script_path;
 static FILE * script_file;
 static uint32_t tas_seed;
 static int frame_counter;
@@ -32,6 +33,7 @@ uint32_t tas_get_seed() {
 }
 
 void set_tas_script(TasScriptMode mode, const char * file_path) {
+    script_path = file_path;
     switch (mode) {
         case TasScriptMode_WRITE:
             script_file = fopen(file_path, "wb");
@@ -151,6 +153,21 @@ void tas_record_decision(Action action) {
         case TasScriptMode_WRITE:
             fwrite(&action, sizeof(Action), 1, script_file);
             fflush(script_file);
+            break;
+    }
+}
+
+void tas_delete_save() {
+    switch (current_mode) {
+        case TasScriptMode_READ_WRITE:
+        case TasScriptMode_READ:
+        case TasScriptMode_IGNORE:
+            // don't delete it
+            break;
+        case TasScriptMode_WRITE:
+            fclose(script_file);
+            remove(script_path);
+            current_mode = TasScriptMode_IGNORE;
             break;
     }
 }
