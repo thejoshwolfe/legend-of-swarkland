@@ -39,3 +39,9 @@ uint32_t get_random(RandomState * state) {
     state->index = (state->index + 1) % RandomState::ARRAY_SIZE;
     return y;
 }
+
+// TODO: https://github.com/thejoshwolfe/legend-of-swarkland/issues/2
+#include <time.h>
+uint32_t get_random_seed() {
+    return time(nullptr);
+}

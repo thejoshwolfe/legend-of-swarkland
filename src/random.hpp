@@ -10,6 +10,7 @@ struct RandomState {
     int index;
 };
 
+uint32_t get_random_seed();
 void init_random_state(RandomState * state, uint32_t seed);
 uint32_t get_random(RandomState * state);
 

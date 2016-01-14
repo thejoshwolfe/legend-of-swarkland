@@ -3,12 +3,17 @@
 
 #include "swarkland.hpp"
 
+enum TasScriptMode {
+    TasScriptMode_WRITE,
+    TasScriptMode_READ_WRITE,
+    TasScriptMode_READ,
+    TasScriptMode_IGNORE,
+};
+
+void set_tas_script(TasScriptMode mode, const char * file_path);
+void set_tas_delay(int n);
+uint32_t tas_get_seed();
 Action tas_get_decision();
 void tas_record_decision(Action action);
-uint32_t tas_get_seed();
-void tas_set_output_script(char * filename);
-void tas_set_input_script(char * filename);
-
-extern int tas_delay;
 
 #endif
