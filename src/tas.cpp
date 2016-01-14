@@ -88,6 +88,9 @@ static String read_line() {
         // read more chars
         char blob[256];
         size_t read_count = fread(blob, 1, 256, script_file);
+        if (read_count == 0) {
+            return nullptr;
+        }
         read_buffer.append(blob, read_count);
     }
 }
@@ -102,6 +105,97 @@ static String uint32_to_string(uint32_t n) {
     }
     return string;
 }
+template<int Size64>
+static String uint_oversized_to_string(uint_oversized<Size64> n) {
+    String string = new_string();
+    for (int j = 0; j < Size64; j++) {
+        for (int i = 0; i < 16; i++) {
+            uint32_t nibble = (n.values[j] >> (64 - (i + 1) * 4)) & 0xf;
+            char c = nibble <= 9 ? nibble + '0' : (nibble - 0xa) + 'a';
+            string->append(c);
+        }
+    }
+    return string;
+}
+static String uint256_to_string(uint256 n) {
+    return uint_oversized_to_string(n);
+}
+static String int_to_string(int n) {
+    String result = new_string();
+    if (n == -0x7fffffff) {
+        // special case, because this value is unnegatable.
+        result->append("-2147483647");
+        return result;
+    }
+    if (n < 0) {
+        result->append('-');
+        n = -n;
+    }
+    bool print_now = false;
+    for (int place_value = 1000000000; place_value > 0; place_value /= 10) {
+        int digit = n / place_value;
+        if (print_now || digit != 0) {
+            result->append('0' + digit);
+            n -= digit * place_value;
+            print_now = true;
+        }
+    }
+    if (!print_now) {
+        result->append('0');
+    }
+    return result;
+}
+
+static uint32_t parse_nibble(uint32_t c) {
+    if ('0' <= c && c <= '9') {
+        return  c - '0';
+    } else if ('a' <= c && c <= 'f') {
+        return c - 'a' + 0xa;
+    } else {
+        // TODO: error with line number
+        exit(1);
+    }
+}
+static int parse_int(const Token & token) {
+    int index = 0;
+    bool negative = false;
+    if (token.string->length() >= 1 && (*token.string)[index] == '-') {
+        negative = true;
+        index++;
+    }
+    if (token.string->length() == index) {
+        // TODO: error with line number
+        exit(1);
+    }
+    int x = 0;
+    for (; index < token.string->length(); index++) {
+        uint32_t c = (*token.string)[index];
+        int digit = c - '0';
+        if (digit > 9) {
+            // TODO: error with line number
+            exit(1);
+        }
+        // x *= radix;
+        if (__builtin_mul_overflow(x, 10, &x)) {
+            // TODO: error with line number
+            exit(1);
+        }
+
+        // x += digit
+        if (__builtin_add_overflow(x, digit, &x)) {
+            // TODO: error with line number
+            exit(1);
+        }
+    }
+    if (negative) {
+        // x *= -1;
+        if (__builtin_mul_overflow(x, -1, &x)) {
+            // TODO: error with line number
+            exit(1);
+        }
+    }
+    return x;
+}
 static uint32_t parse_uint32(const Token & token) {
     if (token.string->length() != 8) {
         // TODO: error with line number
@@ -110,18 +204,67 @@ static uint32_t parse_uint32(const Token & token) {
     uint32_t n = 0;
     for (int i = 0; i < 8; i++) {
         uint32_t c = (*token.string)[i];
-        uint32_t nibble;
-        if ('0' <= c && c <= '9') {
-            nibble = c - '0';
-        } else if ('a' <= c && c <= 'f') {
-            nibble = c - 'a' + 0xa;
-        } else {
-            // TODO: error with line number
-            exit(1);
-        }
+        uint32_t nibble = parse_nibble(c);
         n |= nibble << ((8 - i - 1) * 4);
     }
     return n;
+}
+template <int Size64>
+static uint_oversized<Size64> parse_uint_oversized(const Token & token) {
+    if (token.string->length() != 16 * Size64) {
+        // TODO: error with line number
+        exit(1);
+    }
+    uint_oversized<Size64> result;
+    for (int j = 0; j < Size64; j++) {
+        uint64_t n = 0;
+        for (int i = 0; i < 16; i++) {
+            uint32_t c = (*token.string)[j * 16 + i];
+            uint64_t nibble = parse_nibble(c);
+            n |= nibble << ((16 - i - 1) * 4);
+        }
+        result.values[j] = n;
+    }
+    return result;
+}
+static inline uint256 parse_uint256(const Token & token) {
+    return parse_uint_oversized<4>(token);
+}
+
+static Coord parse_coord(const Token & token1, const Token & token2) {
+    return Coord{parse_int(token1), parse_int(token2)};
+}
+
+// TODO: this should be _COUNT
+static String action_type_names[Action::Type::COUNT];
+static void init_action_type_names() {
+    action_type_names[Action::Type::MOVE] = new_string("move");
+    action_type_names[Action::Type::WAIT] = new_string("wait");
+    action_type_names[Action::Type::ATTACK] = new_string("attack");
+    action_type_names[Action::Type::ZAP] = new_string("zap");
+    action_type_names[Action::Type::PICKUP] = new_string("pickup");
+    action_type_names[Action::Type::DROP] = new_string("drop");
+    action_type_names[Action::Type::QUAFF] = new_string("quaff");
+    action_type_names[Action::Type::THROW] = new_string("throw");
+    action_type_names[Action::Type::GO_DOWN] = new_string("down");
+
+    action_type_names[Action::Type::CHEATCODE_HEALTH_BOOST] = new_string("!health");
+    action_type_names[Action::Type::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD] = new_string("!kill");
+    action_type_names[Action::Type::CHEATCODE_POLYMORPH] = new_string("!polymorph");
+    action_type_names[Action::Type::CHEATCODE_GENERATE_MONSTER] = new_string("!monster");
+    action_type_names[Action::Type::CHEATCODE_CREATE_ITEM] = new_string("!items");
+    action_type_names[Action::Type::CHEATCODE_IDENTIFY] = new_string("!identify");
+    action_type_names[Action::Type::CHEATCODE_GO_DOWN] = new_string("!down");
+    action_type_names[Action::Type::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
+}
+
+static Action::Type parse_action_type(const Token & token) {
+    for (int i = 0; i < Action::Type::COUNT; i++) {
+        if (*action_type_names[i] == *token.string)
+            return (Action::Type)i;
+    }
+    // TODO: error with line number
+    exit(1);
 }
 
 static const char * const SEED = "@seed";
@@ -134,6 +277,10 @@ static uint32_t read_seed() {
     List<Token> tokens;
     while (tokens.length() == 0) {
         String line = read_line();
+        if (line == nullptr) {
+            // TODO: error with line number
+            exit(1);
+        }
         tokenize_line(line, &tokens);
     }
     if (tokens.length() != 2) {
@@ -148,6 +295,7 @@ static uint32_t read_seed() {
 }
 
 void set_tas_script(TasScriptMode mode, const char * file_path) {
+    init_action_type_names();
     script_path = file_path;
 
     switch (mode) {
@@ -209,13 +357,30 @@ void set_tas_script(TasScriptMode mode, const char * file_path) {
 }
 
 static Action read_action() {
-    Action result;
-    if (fread(&result, sizeof(Action), 1, script_file) < 1) {
-        // end of script
-        return Action::undecided();
+    List<Token> tokens;
+    while (tokens.length() == 0) {
+        String line = read_line();
+        if (line == nullptr)
+            return Action::undecided(); // EOF
+        tokenize_line(line, &tokens);
     }
-    if (result == Action::undecided())
-        panic("read indecision from input script");
+    if (tokens.length() != 4) {
+        // TODO: error line number
+        exit(1);
+    }
+    Action::Type action_type = parse_action_type(tokens[0]);
+    uint256 id = parse_uint256(tokens[1]);
+    Coord coord = parse_coord(tokens[2], tokens[3]);
+    return Action{action_type, id, coord};
+}
+static String action_to_string(const Action & action) {
+    assert(action.type < Action::Type::COUNT);
+    String action_type_string = action_type_names[action.type];
+    String id_string = uint256_to_string(action.item);
+    String coord_string1 = int_to_string(action.coord.x);
+    String coord_string2 = int_to_string(action.coord.y);
+    String result = new_string();
+    result->format("%s %s %s %s\n", action_type_string, id_string, coord_string1, coord_string2);
     return result;
 }
 
@@ -253,7 +418,7 @@ Action tas_get_decision() {
     unreachable();
 }
 
-void tas_record_decision(Action action) {
+void tas_record_decision(const Action & action) {
     switch (current_mode) {
         case TasScriptMode_READ_WRITE:
         case TasScriptMode_READ:
@@ -261,8 +426,7 @@ void tas_record_decision(Action action) {
             // don't write
             break;
         case TasScriptMode_WRITE:
-            fwrite(&action, sizeof(Action), 1, script_file);
-            fflush(script_file);
+            write_line(action_to_string(action));
             break;
     }
 }

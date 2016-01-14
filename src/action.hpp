@@ -22,6 +22,7 @@ struct Action {
         CHEATCODE_GO_DOWN,
         CHEATCODE_GAIN_LEVEL,
 
+        COUNT,
         // only a player can be undecided
         UNDECIDED,
     };

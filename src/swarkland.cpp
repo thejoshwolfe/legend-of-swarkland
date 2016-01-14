@@ -660,6 +660,9 @@ static bool take_action(Thing actor, Action action) {
         case Action::CHEATCODE_GAIN_LEVEL:
             level_up(actor, true);
             return false;
+
+        case Action::COUNT:
+            unreachable();
     }
 
     // now pay for the action

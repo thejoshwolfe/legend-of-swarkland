@@ -69,7 +69,7 @@ public:
         if (!(0 <= start && start <= end && end <= _length))
             panic("bounds check");
         int delete_count = end - start;
-        int move_count = min(delete_count, _length - end);
+        int move_count = _length - end;
         for (int i = start; i < start + move_count; i++)
             _items[i] = _items[i + delete_count];
         _length -= delete_count;
