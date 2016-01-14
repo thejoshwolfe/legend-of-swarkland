@@ -27,6 +27,11 @@ public:
         _buffer.resize(new_length + 1);
         _buffer[length()] = 0;
     }
+    void remove_range(int start, int end) {
+        // don't delete the null terminator
+        assert(end <= length());
+        _buffer.remove_range(start, end);
+    }
     void append(const ByteBuffer & other);
     void append(const char * str);
     void append(const char * str, int length);

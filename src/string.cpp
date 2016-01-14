@@ -10,13 +10,16 @@ void StringImpl::decode(const ByteBuffer &bytes) {
 }
 
 void StringImpl::decode(const ByteBuffer &bytes, bool *ok) {
+    decode(bytes, 0, bytes.length(), ok);
+}
+void StringImpl::decode(const ByteBuffer &bytes, int start, int end, bool *ok) {
     *ok = true;
-    for (int i = 0; i < bytes.length(); i += 1) {
+    for (int i = start; i < end; i += 1) {
         uint8_t byte1 = *((uint8_t*)&bytes[i]);
         if ((0x80 & byte1) == 0) {
             append(byte1);
         } else if ((0xe0 & byte1) == 0xc0) {
-            if (++i >= bytes.length()) {
+            if (++i >= end) {
                 *ok = false;
                 append(0xfffd);
                 break;
@@ -32,7 +35,7 @@ void StringImpl::decode(const ByteBuffer &bytes, bool *ok) {
             uint32_t bits_byte2 = (byte2 & 0x3f);
             append(bits_byte2 | (bits_byte1 << 6));
         } else if ((0xf0 & byte1) == 0xe0) {
-            if (++i >= bytes.length()) {
+            if (++i >= end) {
                 *ok = false;
                 append(0xfffd);
                 break;
@@ -44,7 +47,7 @@ void StringImpl::decode(const ByteBuffer &bytes, bool *ok) {
                 continue;
             }
 
-            if (++i >= bytes.length()) {
+            if (++i >= end) {
                 *ok = false;
                 append(0xfffd);
                 break;
@@ -61,7 +64,7 @@ void StringImpl::decode(const ByteBuffer &bytes, bool *ok) {
             uint32_t bits_byte3 = (byte3 & 0x3f);
             append(bits_byte3 | (bits_byte2 << 6) | (bits_byte1 << 12));
         } else if ((0xf8 & byte1) == 0xf0) {
-            if (++i >= bytes.length()) {
+            if (++i >= end) {
                 *ok = false;
                 append(0xfffd);
                 break;
@@ -73,7 +76,7 @@ void StringImpl::decode(const ByteBuffer &bytes, bool *ok) {
                 continue;
             }
 
-            if (++i >= bytes.length()) {
+            if (++i >= end) {
                 *ok = false;
                 append(0xfffd);
                 break;
@@ -85,7 +88,7 @@ void StringImpl::decode(const ByteBuffer &bytes, bool *ok) {
                 continue;
             }
 
-            if (++i >= bytes.length()) {
+            if (++i >= end) {
                 *ok = false;
                 append(0xfffd);
                 break;

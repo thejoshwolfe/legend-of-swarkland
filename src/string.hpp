@@ -34,6 +34,7 @@ public:
 
     // appends characters to this string
     void decode(const ByteBuffer &bytes, bool *ok);
+    void decode(const ByteBuffer &bytes, int start, int end, bool *ok);
     // this one panics if the string is invalid
     void decode(const ByteBuffer &bytes);
     void encode(ByteBuffer * output_bytes) const;
