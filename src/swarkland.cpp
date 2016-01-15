@@ -571,7 +571,7 @@ static bool take_action(Thing actor, Action action) {
     }
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
 
-    switch (action.type) {
+    switch (action.id) {
         case Action::WAIT:
             break;
         case Action::UNDECIDED:
@@ -579,7 +579,7 @@ static bool take_action(Thing actor, Action action) {
         case Action::MOVE: {
             // normally, we'd be sure that this was valid, but if you use cheatcodes,
             // monsters can try to walk into you while you're invisible.
-            Coord new_position = actor->location + confuse_direction(actor, action.coord);
+            Coord new_position = actor->location + confuse_direction(actor, action.coord());
             if (!is_open_space(actual_map_tiles[new_position].tile_type)) {
                 // this can only happen if your direction was changed.
                 // (attempting to move into a wall deliberately is an invalid move).
@@ -597,7 +597,7 @@ static bool take_action(Thing actor, Action action) {
             break;
         }
         case Action::ATTACK: {
-            Coord new_position = actor->location + confuse_direction(actor, action.coord);
+            Coord new_position = actor->location + confuse_direction(actor, action.coord());
             Thing target = find_individual_at(new_position);
             if (target != nullptr) {
                 attack(actor, target);
@@ -608,23 +608,23 @@ static bool take_action(Thing actor, Action action) {
             }
         }
         case Action::ZAP:
-            zap_wand(actor, action.item, confuse_direction(actor, action.coord));
+            zap_wand(actor, action.coord_and_item().item, confuse_direction(actor, action.coord_and_item().coord));
             break;
         case Action::PICKUP:
-            pickup_item(actor, actual_things.get(action.item));
-            publish_event(Event::individual_picks_up_item(actor, action.item));
+            pickup_item(actor, actual_things.get(action.item()));
+            publish_event(Event::individual_picks_up_item(actor, action.item()));
             break;
         case Action::DROP:
-            drop_item_to_the_floor(actual_things.get(action.item), actor->location);
+            drop_item_to_the_floor(actual_things.get(action.item()), actor->location);
             break;
         case Action::QUAFF: {
-            Thing item = actual_things.get(action.item);
+            Thing item = actual_things.get(action.item());
             use_potion(actor, actor, item, false);
             delete_item(item);
             break;
         }
         case Action::THROW:
-            throw_item(actor, actual_things.get(action.item), confuse_direction(actor, action.coord));
+            throw_item(actor, actual_things.get(action.coord_and_item().item), confuse_direction(actor, action.coord_and_item().coord));
             break;
 
         case Action::GO_DOWN:
@@ -668,7 +668,7 @@ static bool take_action(Thing actor, Action action) {
     // now pay for the action
     Life * life = actor->life();
     int movement_cost = get_movement_cost(actor);
-    if (action.type == Action::WAIT) {
+    if (action.id == Action::WAIT) {
         if (can_move(actor) && can_act(actor)) {
             int lowest_cost = min(movement_cost, action_cost);
             life->last_movement_time = time_counter + lowest_cost - movement_cost;
@@ -681,7 +681,7 @@ static bool take_action(Thing actor, Action action) {
             int lowest_cost = min(action_cost, movement_cost - (int)(time_counter - life->last_movement_time));
             life->last_action_time += lowest_cost;
         }
-    } else if (action.type == Action::MOVE) {
+    } else if (action.id == Action::MOVE) {
         life->last_movement_time = time_counter;
         if (movement_cost == action_cost) {
             life->last_action_time = time_counter;

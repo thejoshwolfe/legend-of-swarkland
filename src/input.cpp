@@ -86,11 +86,10 @@ static InputMode get_item_choosing_action_mode(const SDL_Event & event) {
 }
 
 static Action move_or_attack(Coord direction) {
-    Action action = Action::move(direction);
     // convert moving into attacking if it's pointed at an observed monster.
-    if (find_perceived_individual_at(you, you->location + action.coord) != nullptr)
-        action.type = Action::ATTACK;
-    return action;
+    if (find_perceived_individual_at(you, you->location + direction) != nullptr)
+        return Action::attack(direction);
+    return Action::move(direction);
 }
 static Coord get_direction_from_event(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {

@@ -235,33 +235,32 @@ static Coord parse_coord(const Token & token1, const Token & token2) {
     return Coord{parse_int(token1), parse_int(token2)};
 }
 
-// TODO: this should be _COUNT
-static String action_type_names[Action::Type::COUNT];
+static String action_names[Action::Id::COUNT];
 static void init_action_type_names() {
-    action_type_names[Action::Type::MOVE] = new_string("move");
-    action_type_names[Action::Type::WAIT] = new_string("wait");
-    action_type_names[Action::Type::ATTACK] = new_string("attack");
-    action_type_names[Action::Type::ZAP] = new_string("zap");
-    action_type_names[Action::Type::PICKUP] = new_string("pickup");
-    action_type_names[Action::Type::DROP] = new_string("drop");
-    action_type_names[Action::Type::QUAFF] = new_string("quaff");
-    action_type_names[Action::Type::THROW] = new_string("throw");
-    action_type_names[Action::Type::GO_DOWN] = new_string("down");
+    action_names[Action::Id::MOVE] = new_string("move");
+    action_names[Action::Id::WAIT] = new_string("wait");
+    action_names[Action::Id::ATTACK] = new_string("attack");
+    action_names[Action::Id::ZAP] = new_string("zap");
+    action_names[Action::Id::PICKUP] = new_string("pickup");
+    action_names[Action::Id::DROP] = new_string("drop");
+    action_names[Action::Id::QUAFF] = new_string("quaff");
+    action_names[Action::Id::THROW] = new_string("throw");
+    action_names[Action::Id::GO_DOWN] = new_string("down");
 
-    action_type_names[Action::Type::CHEATCODE_HEALTH_BOOST] = new_string("!health");
-    action_type_names[Action::Type::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD] = new_string("!kill");
-    action_type_names[Action::Type::CHEATCODE_POLYMORPH] = new_string("!polymorph");
-    action_type_names[Action::Type::CHEATCODE_GENERATE_MONSTER] = new_string("!monster");
-    action_type_names[Action::Type::CHEATCODE_CREATE_ITEM] = new_string("!items");
-    action_type_names[Action::Type::CHEATCODE_IDENTIFY] = new_string("!identify");
-    action_type_names[Action::Type::CHEATCODE_GO_DOWN] = new_string("!down");
-    action_type_names[Action::Type::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
+    action_names[Action::Id::CHEATCODE_HEALTH_BOOST] = new_string("!health");
+    action_names[Action::Id::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD] = new_string("!kill");
+    action_names[Action::Id::CHEATCODE_POLYMORPH] = new_string("!polymorph");
+    action_names[Action::Id::CHEATCODE_GENERATE_MONSTER] = new_string("!monster");
+    action_names[Action::Id::CHEATCODE_CREATE_ITEM] = new_string("!items");
+    action_names[Action::Id::CHEATCODE_IDENTIFY] = new_string("!identify");
+    action_names[Action::Id::CHEATCODE_GO_DOWN] = new_string("!down");
+    action_names[Action::Id::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
 }
 
-static Action::Type parse_action_type(const Token & token) {
-    for (int i = 0; i < Action::Type::COUNT; i++) {
-        if (*action_type_names[i] == *token.string)
-            return (Action::Type)i;
+static Action::Id parse_action_type(const Token & token) {
+    for (int i = 0; i < Action::Id::COUNT; i++) {
+        if (*action_names[i] == *token.string)
+            return (Action::Id)i;
     }
     // TODO: error with line number
     exit(1);
@@ -364,23 +363,67 @@ static Action read_action() {
             return Action::undecided(); // EOF
         tokenize_line(line, &tokens);
     }
-    if (tokens.length() != 4) {
-        // TODO: error line number
-        exit(1);
+    Action action;
+    action.id = parse_action_type(tokens[0]);
+    switch (action.get_layout()) {
+        case Action::Layout_VOID:
+            if (tokens.length() != 1) {
+                // TODO: error line number
+                exit(1);
+            }
+            return action;
+        case Action::Layout_COORD: {
+            if (tokens.length() != 3) {
+                // TODO: error line number
+                exit(1);
+            }
+            action.coord() = parse_coord(tokens[1], tokens[2]);
+            return action;
+        }
+        case Action::Layout_ITEM:
+            if (tokens.length() != 2) {
+                // TODO: error line number
+                exit(1);
+            }
+            action.item() = parse_uint256(tokens[1]);
+            return action;
+        case Action::Layout_COORD_AND_ITEM: {
+            if (tokens.length() != 4) {
+                // TODO: error line number
+                exit(1);
+            }
+            action.coord_and_item().coord = parse_coord(tokens[1], tokens[2]);
+            action.coord_and_item().item = parse_uint256(tokens[3]);
+            return action;
+        }
     }
-    Action::Type action_type = parse_action_type(tokens[0]);
-    uint256 id = parse_uint256(tokens[1]);
-    Coord coord = parse_coord(tokens[2], tokens[3]);
-    return Action{action_type, id, coord};
+    unreachable();
 }
 static String action_to_string(const Action & action) {
-    assert(action.type < Action::Type::COUNT);
-    String action_type_string = action_type_names[action.type];
-    String id_string = uint256_to_string(action.item);
-    String coord_string1 = int_to_string(action.coord.x);
-    String coord_string2 = int_to_string(action.coord.y);
+    assert(action.id < Action::Id::COUNT);
     String result = new_string();
-    result->format("%s %s %s %s\n", action_type_string, id_string, coord_string1, coord_string2);
+    String action_type_string = action_names[action.id];
+    switch (action.get_layout()) {
+        case Action::Layout_VOID:
+            result->format("%s\n", action_type_string);
+            break;
+        case Action::Layout_COORD: {
+            String coord_string1 = int_to_string(action.coord().x);
+            String coord_string2 = int_to_string(action.coord().y);
+            result->format("%s %s %s\n", action_type_string, coord_string1, coord_string2);
+            break;
+        }
+        case Action::Layout_ITEM:
+            result->format("%s %s\n", action_type_string, uint256_to_string(action.item()));
+            break;
+        case Action::Layout_COORD_AND_ITEM: {
+            String coord_string1 = int_to_string(action.coord_and_item().coord.x);
+            String coord_string2 = int_to_string(action.coord_and_item().coord.y);
+            String item_string = uint256_to_string(action.coord_and_item().item);
+            result->format("%s %s %s %s\n", action_type_string, coord_string1, coord_string2, item_string);
+            break;
+        }
+    }
     return result;
 }
 
