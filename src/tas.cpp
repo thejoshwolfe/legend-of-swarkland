@@ -23,37 +23,35 @@ uint32_t tas_get_seed() {
 class Token {
 public:
     String string = nullptr;
+    // col starts at 1
     int col = 0;
 };
 
 static void tokenize_line(const String & line, List<Token> * tokens) {
     int index = 0;
     Token current_token;
-    current_token.col = -1;
     for (; index < line->length(); index++) {
         uint32_t c = (*line)[index];
         if (c == '#')
             break;
-        if (current_token.col == -1) {
+        if (current_token.col == 0) {
             if (c == ' ')
                 continue;
             // start token
-            current_token.col = index;
+            current_token.col = index + 1;
         } else {
             if (c != ' ')
                 continue;
             // end token
-            current_token.string = line->substring(current_token.col, index);
+            current_token.string = line->substring(current_token.col - 1, index);
             tokens->append(current_token);
             current_token = Token();
-            current_token.col = -1;
         }
     }
-    if (current_token.col != -1) {
+    if (current_token.col != 0) {
         // end token
-        current_token.string = line->substring(current_token.col, index);
+        current_token.string = line->substring(current_token.col - 1, index);
         tokens->append(current_token);
-        current_token = Token();
     }
 }
 
@@ -66,19 +64,25 @@ static void write_line(const String & line) {
     }
     fflush(script_file);
 }
+// line_number starts at 1
+int line_number = 0;
 ByteBuffer read_buffer;
 static String read_line() {
     int index = 0;
     while (true) {
         // look for an EOL
         for (; index < read_buffer.length(); index++) {
+            if (index >= 256) {
+                fprintf(stderr, "ERROR: line length too long: %s\n", script_path);
+            }
             if (read_buffer[index] != '\n')
                 continue;
+            line_number++;
             String line = new_string();
             bool ok;
             line->decode(read_buffer, 0, index, &ok);
             if (!ok) {
-                // TODO: line number error
+                fprintf(stderr, "ERROR: unable to decode file as UTF-8: %s\n", script_path);
                 exit(1);
             }
             read_buffer.remove_range(0, index + 1);
@@ -89,10 +93,20 @@ static String read_line() {
         char blob[256];
         size_t read_count = fread(blob, 1, 256, script_file);
         if (read_count == 0) {
+            if (read_buffer.length() > 0) {
+                fprintf(stderr, "ERROR: expected newline at end of file: %s\n", script_path);
+                exit(1);
+            }
             return nullptr;
         }
         read_buffer.append(blob, read_count);
     }
+}
+__attribute__((noreturn))
+static void report_error(const Token & token, int start, const char * msg) {
+    int col = token.col + start;
+    fprintf(stderr, "%s:%d:%d: error: %s\n", script_path, line_number, col, msg);
+    exit(1);
 }
 
 static String uint32_to_string(uint32_t n) {
@@ -146,14 +160,14 @@ static String int_to_string(int n) {
     return result;
 }
 
-static uint32_t parse_nibble(uint32_t c) {
+static uint32_t parse_nibble(const Token & token, int index) {
+    uint32_t c = (*token.string)[index];
     if ('0' <= c && c <= '9') {
         return  c - '0';
     } else if ('a' <= c && c <= 'f') {
         return c - 'a' + 0xa;
     } else {
-        // TODO: error with line number
-        exit(1);
+        report_error(token, index, "hex digit out of range [0-9a-f]");
     }
 }
 static int parse_int(const Token & token) {
@@ -163,48 +177,35 @@ static int parse_int(const Token & token) {
         negative = true;
         index++;
     }
-    if (token.string->length() == index) {
-        // TODO: error with line number
-        exit(1);
-    }
+    if (token.string->length() == index)
+        report_error(token, index, "expected decimal digits");
     int x = 0;
     for (; index < token.string->length(); index++) {
         uint32_t c = (*token.string)[index];
         int digit = c - '0';
-        if (digit > 9) {
-            // TODO: error with line number
-            exit(1);
-        }
+        if (digit > 9)
+            report_error(token, index, "expected decimal digit");
         // x *= radix;
-        if (__builtin_mul_overflow(x, 10, &x)) {
-            // TODO: error with line number
-            exit(1);
-        }
+        if (__builtin_mul_overflow(x, 10, &x))
+            report_error(token, index, "integer overflow");
 
         // x += digit
-        if (__builtin_add_overflow(x, digit, &x)) {
-            // TODO: error with line number
-            exit(1);
-        }
+        if (__builtin_add_overflow(x, digit, &x))
+            report_error(token, index, "integer overflow");
     }
     if (negative) {
         // x *= -1;
-        if (__builtin_mul_overflow(x, -1, &x)) {
-            // TODO: error with line number
-            exit(1);
-        }
+        if (__builtin_mul_overflow(x, -1, &x))
+            report_error(token, 0, "integer overflow");
     }
     return x;
 }
 static uint32_t parse_uint32(const Token & token) {
-    if (token.string->length() != 8) {
-        // TODO: error with line number
-        exit(1);
-    }
+    if (token.string->length() != 8)
+        report_error(token, 0, "expected hex uint32");
     uint32_t n = 0;
     for (int i = 0; i < 8; i++) {
-        uint32_t c = (*token.string)[i];
-        uint32_t nibble = parse_nibble(c);
+        uint32_t nibble = parse_nibble(token, i);
         n |= nibble << ((8 - i - 1) * 4);
     }
     return n;
@@ -212,15 +213,14 @@ static uint32_t parse_uint32(const Token & token) {
 template <int Size64>
 static uint_oversized<Size64> parse_uint_oversized(const Token & token) {
     if (token.string->length() != 16 * Size64) {
-        // TODO: error with line number
-        exit(1);
+        assert(Size64 == 4); // we'd need different error messages
+        report_error(token, 0, "expected hex uint256");
     }
     uint_oversized<Size64> result;
     for (int j = 0; j < Size64; j++) {
         uint64_t n = 0;
         for (int i = 0; i < 16; i++) {
-            uint32_t c = (*token.string)[j * 16 + i];
-            uint64_t nibble = parse_nibble(c);
+            uint64_t nibble = parse_nibble(token, j * 16 + i);
             n |= nibble << ((16 - i - 1) * 4);
         }
         result.values[j] = n;
@@ -262,8 +262,7 @@ static Action::Id parse_action_type(const Token & token) {
         if (*action_names[i] == *token.string)
             return (Action::Id)i;
     }
-    // TODO: error with line number
-    exit(1);
+    report_error(token, 0, "undefined action name");
 }
 
 static const char * const SEED = "@seed";
@@ -276,21 +275,15 @@ static uint32_t read_seed() {
     List<Token> tokens;
     while (tokens.length() == 0) {
         String line = read_line();
-        if (line == nullptr) {
-            // TODO: error with line number
-            exit(1);
-        }
+        if (line == nullptr)
+            break; // and error
         tokenize_line(line, &tokens);
     }
-    if (tokens.length() != 2) {
-        // TODO: error with line number
-        exit(1);
-    }
-    if (*tokens[0].string != *new_string(SEED)) {
-        // TODO: error with line number
-        exit(1);
-    }
-    return parse_uint32(tokens[1]);
+    if (tokens.length() == 2 && *tokens[0].string == *new_string(SEED))
+        return parse_uint32(tokens[1]);
+
+    fprintf(stderr, "%s:1:1: expected @seed declaration", script_path);
+    exit(1);
 }
 
 void set_tas_script(TasScriptMode mode, const char * file_path) {
@@ -367,31 +360,23 @@ static Action read_action() {
     action.id = parse_action_type(tokens[0]);
     switch (action.get_layout()) {
         case Action::Layout_VOID:
-            if (tokens.length() != 1) {
-                // TODO: error line number
-                exit(1);
-            }
+            if (tokens.length() != 1)
+                report_error(tokens[0], 0, "expected no arguments");
             return action;
         case Action::Layout_COORD: {
-            if (tokens.length() != 3) {
-                // TODO: error line number
-                exit(1);
-            }
+            if (tokens.length() != 3)
+                report_error(tokens[0], 0, "expected 2 arguments");
             action.coord() = parse_coord(tokens[1], tokens[2]);
             return action;
         }
         case Action::Layout_ITEM:
-            if (tokens.length() != 2) {
-                // TODO: error line number
-                exit(1);
-            }
+            if (tokens.length() != 2)
+                report_error(tokens[0], 0, "expected 1 argument");
             action.item() = parse_uint256(tokens[1]);
             return action;
         case Action::Layout_COORD_AND_ITEM: {
-            if (tokens.length() != 4) {
-                // TODO: error line number
-                exit(1);
-            }
+            if (tokens.length() != 4)
+                report_error(tokens[0], 0, "expected 3 arguments");
             action.coord_and_item().coord = parse_coord(tokens[1], tokens[2]);
             action.coord_and_item().item = parse_uint256(tokens[3]);
             return action;
