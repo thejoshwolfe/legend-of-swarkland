@@ -8,16 +8,20 @@
 Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
 Action current_player_decision;
 
-static Action get_player_decision(Thing) {
-    Action result = tas_get_decision();
-    if (result == Action::undecided()) {
+static Action get_player_decision(Thing actor) {
+    Action action = tas_get_decision();
+    if (action == Action::undecided()) {
         // ok, ask the real player
-        result = current_player_decision;
+        action = current_player_decision;
         current_player_decision = Action::undecided();
+        if (action != Action::undecided() && !validate_action(actor, &action)) {
+            // derp
+            action = Action::undecided();
+        }
     }
-    if (result != Action::undecided())
-        tas_record_decision(result);
-    return result;
+    if (action != Action::undecided())
+        tas_record_decision(action);
+    return action;
 }
 
 static int rate_interest_in_target(Thing actor, PerceivedThing target) {
@@ -44,6 +48,12 @@ static bool is_clear_line_of_sight(Thing actor, Coord location, int confident_di
         if (!is_open_space(tiles[cursor].tile_type))
             return false;
     return true;
+}
+
+static inline Action move_or_wait(Thing actor, Coord direction) {
+    if (!can_move(actor))
+        return Action::wait();
+    return Action::move(direction);
 }
 
 static Action get_ai_decision(Thing actor) {
@@ -240,7 +250,7 @@ static Action get_ai_decision(Thing actor) {
                     if (path[0] == target->location)
                         return Action::attack(direction);
                     else
-                        return Action::move(direction);
+                        return move_or_wait(actor, direction);
                 } else {
                     // we must be stuck in a crowd
                     return Action::wait();
@@ -258,7 +268,7 @@ static Action get_ai_decision(Thing actor) {
                     Coord next_location = path[0];
                     if (do_i_think_i_can_move_here(actor, next_location)) {
                         Coord direction = next_location - actor->location;
-                        return Action::move(direction);
+                        return move_or_wait(actor, direction);
                     }
                     // someone friendly is in the way, or something.
                 } else {
@@ -270,14 +280,14 @@ static Action get_ai_decision(Thing actor) {
     }
 
     // idk what to do
-    List<Action> actions;
-    get_available_moves(&actions);
-    List<Action> move_actions;
-    for (int i = 0; i < actions.length(); i++)
-        if (do_i_think_i_can_move_here(actor, actor->location + actions[i].coord()))
-            move_actions.append(actions[i]);
-    if (move_actions.length() > 0)
-        return move_actions[random_int(move_actions.length())];
+    if (!can_move(actor))
+        return Action::wait();
+    List<Coord> open_directions;
+    for (int i = 0; i < 8; i++)
+        if (do_i_think_i_can_move_here(actor, actor->location + directions[i]))
+            open_directions.append(directions[i]);
+    if (open_directions.length() > 0)
+        return Action::move(open_directions[random_int(open_directions.length())]);
     // we must be stuck in a crowd
     return Action::wait();
 }

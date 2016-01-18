@@ -1,6 +1,9 @@
 #ifndef ACTION_HPP
 #define ACTION_HPP
 
+#include "hashtable.hpp"
+#include "geometry.hpp"
+
 struct Action {
     enum Id {
         MOVE,
