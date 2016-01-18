@@ -14,7 +14,13 @@ static Action get_player_decision(Thing actor) {
         // ok, ask the real player
         action = current_player_decision;
         current_player_decision = Action::undecided();
-        if (action != Action::undecided() && !validate_action(actor, &action)) {
+
+        if (action.id == Action::MOVE && !can_move(actor)) {
+            // wait instead
+            action = Action::wait();
+        }
+
+        if (action != Action::undecided() && !validate_action(actor, action)) {
             // derp
             action = Action::undecided();
         }

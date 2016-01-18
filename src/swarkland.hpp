@@ -33,7 +33,7 @@ static inline Coord get_thing_location(Thing observer, const PerceivedThing & ta
 
 void swarkland_init();
 
-bool validate_action(Thing actor, Action * action);
+bool validate_action(Thing actor, Action action);
 bool can_move(Thing actor);
 static inline int get_movement_cost(Thing actor) {
     if (has_status(actor, StatusEffect::SPEED))

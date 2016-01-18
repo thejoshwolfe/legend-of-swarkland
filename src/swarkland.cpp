@@ -528,27 +528,17 @@ static bool is_in_my_inventory(Thing actor, uint256 item_id) {
         return false;
     return item->container_id == actor->id;
 }
-// if it's too soon for an action, it turns into a wait (TODO: is this really the best place for this?)
-bool validate_action(Thing actor, Action * action) {
-    switch (action->id) {
+bool validate_action(Thing actor, Action action) {
+    switch (action.id) {
         case Action::WAIT:
             // always an option
             return true;
         case Action::MOVE:
-            if (!is_direction(action->coord(), false))
-                return false;
-            if (!can_move(actor)) {
-                // turn it into a wait
-                *action = Action::wait();
-            }
-            return true;
         case Action::ATTACK:
             // you can try to move/attack any direction
-            if (!is_direction(action->coord(), false))
-                return false;
-            return true;
+            return is_direction(action.coord(), false);
         case Action::PICKUP: {
-            PerceivedThing item = actor->life()->knowledge.perceived_things.get(action->item(), nullptr);
+            PerceivedThing item = actor->life()->knowledge.perceived_things.get(action.item(), nullptr);
             if (item == nullptr)
                 return false;
             if (item->location != actor->location)
@@ -557,11 +547,9 @@ bool validate_action(Thing actor, Action * action) {
         }
         case Action::DROP:
         case Action::QUAFF:
-            if (!is_in_my_inventory(actor, action->item()))
-                return false;
-            return true;
+            return is_in_my_inventory(actor, action.item());
         case Action::THROW: {
-            const Action::CoordAndItem & data = action->coord_and_item();
+            const Action::CoordAndItem & data = action.coord_and_item();
             if (!is_direction(data.coord, false))
                 return false;
             if (!is_in_my_inventory(actor, data.item))
@@ -569,7 +557,7 @@ bool validate_action(Thing actor, Action * action) {
             return true;
         }
         case Action::ZAP: {
-            const Action::CoordAndItem & data = action->coord_and_item();
+            const Action::CoordAndItem & data = action.coord_and_item();
             if (!is_direction(data.coord, true))
                 return false;
             PerceivedThing item = actor->life()->knowledge.perceived_things.get(data.item, nullptr);
@@ -582,9 +570,7 @@ bool validate_action(Thing actor, Action * action) {
             return true;
         }
         case Action::GO_DOWN:
-            if (actor->life()->knowledge.tiles[actor->location].tile_type == TileType_STAIRS_DOWN)
-                return false;
-            return true;
+            return actor->life()->knowledge.tiles[actor->location].tile_type == TileType_STAIRS_DOWN;
 
         case Action::CHEATCODE_HEALTH_BOOST:
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
@@ -633,10 +619,7 @@ Coord confuse_direction(Thing individual, Coord direction) {
 
 // return true if time should pass, false if we used an instantaneous cheatcode.
 static bool take_action(Thing actor, Action action) {
-    Action valid_action = action;
-    bool is_valid = validate_action(actor, &valid_action);
-    if (!is_valid || action != valid_action)
-        panic("illegal move");
+    assert(validate_action(actor, action));
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
 
     switch (action.id) {
