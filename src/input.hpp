@@ -1,26 +1,24 @@
 #ifndef INPUT_HPP
 #define INPUT_HPP
 
-#include "geometry.hpp"
-#include "hashtable.hpp"
+#include "thing.hpp"
+#include "action.hpp"
 
 enum InputMode {
     InputMode_MAIN,
-    InputMode_DROP_CHOOSE_ITEM,
-    InputMode_THROW_CHOOSE_ITEM,
+    InputMode_INVENTORY_CHOOSE_ITEM,
+    InputMode_INVENTORY_CHOOSE_ACTION,
     InputMode_THROW_CHOOSE_DIRECTION,
-    InputMode_QUAFF_CHOOSE_ITEM,
-    InputMode_ZAP_CHOOSE_ITEM,
     InputMode_ZAP_CHOOSE_DIRECTION,
 };
 
 extern bool request_shutdown;
 
-bool input_mode_is_choose_item();
-bool input_mode_is_choose_direction();
-extern int inventory_cursor;
 extern InputMode input_mode;
-bool is_item_enabled(uint256 item_id);
+extern int inventory_cursor;
+extern Thing chosen_item;
+extern List<Action::Id> menu_items;
+extern int menu_cursor;
 
 Coord get_mouse_pixels();
 void on_mouse_motion();

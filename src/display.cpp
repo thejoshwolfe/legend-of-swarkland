@@ -513,64 +513,72 @@ static Div status_div = new_div();
 static Div time_div = new_div();
 static Div keyboard_hover_div = new_div();
 static Div mouse_hover_div = new_div();
+static Div menu_div = new_div();
+static List<Action::Id> last_menu_items;
+static int last_menu_cursor;
 
 static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_inventory) {
     List<const char *> lines;
     if (!youre_still_alive) {
         lines.append("Alt+F4: quit");
-    } else if (input_mode_is_choose_item()) {
-        lines.append("numpad: move cursor");
-        if (input_mode == InputMode_ZAP_CHOOSE_ITEM) {
-            if (is_item_enabled(my_inventory[inventory_cursor]->id))
-                lines.append("z: zap it...");
-        } else if (input_mode == InputMode_THROW_CHOOSE_ITEM) {
-            lines.append("t: throw it...");
-        } else if (input_mode == InputMode_QUAFF_CHOOSE_ITEM) {
-            if (is_item_enabled(my_inventory[inventory_cursor]->id))
-                lines.append("q: quaff it");
-        } else if (input_mode == InputMode_DROP_CHOOSE_ITEM) {
-            lines.append("d: drop it");
-        } else {
-            panic("input_mode");
-        }
-        lines.append("Esc: cancel");
-    } else if (input_mode_is_choose_direction()) {
-        lines.append("numpad: direction");
-        lines.append("numpad 5: yourself");
-        lines.append("Esc: cancel");
     } else {
-        List<Thing> items_on_floor;
-        find_items_on_floor(spectate_from->location, &items_on_floor);
+        switch (input_mode) {
+            case InputMode_MAIN: {
+                List<Thing> items_on_floor;
+                find_items_on_floor(spectate_from->location, &items_on_floor);
 
-        lines.append("numpad: move/attack");
-        bool has_potions = false;
-        bool has_wands = false;
-        for (int i = 0; i < my_inventory.length(); i++) {
-            switch (my_inventory[i]->thing_type) {
-                case ThingType_POTION:
-                    has_potions = true;
-                    break;
-                case ThingType_WAND:
-                    has_wands = true;
-                    break;
-
-                case ThingType_INDIVIDUAL:
-                    panic("not an item");
+                lines.append("numpad: move/attack");
+                if (my_inventory.length() > 0)
+                    lines.append("Tab: inventory...");
+                if (items_on_floor.length() > 0)
+                    lines.append(",: pick up");
+                if (actual_map_tiles[spectate_from->location].tile_type == TileType_STAIRS_DOWN)
+                    lines.append(">: go down");
+                break;
             }
-        }
-        if (has_potions)
-            lines.append("q: quaff...");
-        if (has_wands)
-            lines.append("z: zap...");
+            case InputMode_INVENTORY_CHOOSE_ITEM:
+                lines.append("numpad: move cursor");
+                lines.append("Tab: action...");
+                lines.append("Esc: cancel");
+                break;
+            case InputMode_INVENTORY_CHOOSE_ACTION:
+                lines.append("numpad: move cursor");
+                switch (menu_items[menu_cursor]) {
+                    case Action::DROP:
+                    case Action::QUAFF:
+                        lines.append("Tab: accept");
+                        break;
+                    case Action::THROW:
+                    case Action::ZAP:
+                        lines.append("Tab: accept...");
+                        break;
 
-        if (my_inventory.length() > 0) {
-            lines.append("t: throw...");
-            lines.append("d: drop...");
+                    case Action::WAIT:
+                    case Action::MOVE:
+                    case Action::ATTACK:
+                    case Action::PICKUP:
+                    case Action::GO_DOWN:
+                    case Action::CHEATCODE_HEALTH_BOOST:
+                    case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+                    case Action::CHEATCODE_POLYMORPH:
+                    case Action::CHEATCODE_GENERATE_MONSTER:
+                    case Action::CHEATCODE_CREATE_ITEM:
+                    case Action::CHEATCODE_IDENTIFY:
+                    case Action::CHEATCODE_GO_DOWN:
+                    case Action::CHEATCODE_GAIN_LEVEL:
+                    case Action::COUNT:
+                    case Action::UNDECIDED:
+                        unreachable();
+                }
+                lines.append("Esc: cancel");
+                break;
+            case InputMode_THROW_CHOOSE_DIRECTION:
+            case InputMode_ZAP_CHOOSE_DIRECTION:
+                lines.append("numpad: direction");
+                lines.append("numpad 5: yourself");
+                lines.append("Esc: cancel");
+                break;
         }
-        if (items_on_floor.length() > 0)
-            lines.append(",: pick up");
-        if (actual_map_tiles[spectate_from->location].tile_type == TileType_STAIRS_DOWN)
-            lines.append(">: go down");
     }
     lines.append("mouse: what's this");
 
@@ -628,6 +636,37 @@ static Uint8 get_thing_alpha(Thing observer, PerceivedThing thing) {
     return 0xff;
 }
 
+static const char * get_action_text(Action::Id action_id) {
+    switch (action_id) {
+        case Action::DROP:
+            return "drop";
+        case Action::QUAFF:
+            return "quaff";
+        case Action::THROW:
+            return "throw";
+        case Action::ZAP:
+            return "zap";
+
+        case Action::WAIT:
+        case Action::MOVE:
+        case Action::ATTACK:
+        case Action::PICKUP:
+        case Action::GO_DOWN:
+        case Action::CHEATCODE_HEALTH_BOOST:
+        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+        case Action::CHEATCODE_POLYMORPH:
+        case Action::CHEATCODE_GENERATE_MONSTER:
+        case Action::CHEATCODE_CREATE_ITEM:
+        case Action::CHEATCODE_IDENTIFY:
+        case Action::CHEATCODE_GO_DOWN:
+        case Action::CHEATCODE_GAIN_LEVEL:
+        case Action::COUNT:
+        case Action::UNDECIDED:
+            unreachable();
+    }
+    unreachable();
+}
+
 void render() {
     Thing spectate_from = get_spectate_individual();
     List<Thing> my_inventory;
@@ -647,37 +686,58 @@ void render() {
     }
 
     // main map
-    // render the terrain
-    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
-        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            Tile tile = spectate_from->life()->knowledge.tiles[cursor];
-            if (cheatcode_full_visibility)
-                tile = actual_map_tiles[cursor];
-            RuckSackImage * image = get_image_for_tile(tile);
-            if (image == nullptr)
-                continue;
-            Uint8 alpha;
-            if (spectate_from->life()->knowledge.tile_is_visible[cursor].any()) {
-                // it's in our direct line of sight
-                if (input_mode_is_choose_direction()) {
-                    // actually, let's only show the 8 directions
-                    Coord vector = spectate_from->location - cursor;
-                    if (vector.x * vector.y == 0) {
-                        // cardinal direction
-                        alpha = 0xff;
-                    } else if (abs(vector.x) == abs(vector.y)) {
-                        // diagonal
-                        alpha = 0xff;
+    {
+        int direction_distance_min = -1;
+        int direction_distance_max = -1;
+        switch (input_mode) {
+            case InputMode_MAIN:
+            case InputMode_INVENTORY_CHOOSE_ITEM:
+            case InputMode_INVENTORY_CHOOSE_ACTION:
+                break;
+            case InputMode_THROW_CHOOSE_DIRECTION:
+                direction_distance_min = throw_distance_average - throw_distance_error_margin;
+                direction_distance_max = throw_distance_average + throw_distance_error_margin;
+                break;
+            case InputMode_ZAP_CHOOSE_DIRECTION:
+                direction_distance_min = beam_length_average - beam_length_error_margin;
+                direction_distance_max = beam_length_average + beam_length_error_margin;
+                break;
+        }
+        // render the terrain
+        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
+            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+                Tile tile = spectate_from->life()->knowledge.tiles[cursor];
+                if (cheatcode_full_visibility)
+                    tile = actual_map_tiles[cursor];
+                RuckSackImage * image = get_image_for_tile(tile);
+                if (image == nullptr)
+                    continue;
+                Uint8 alpha;
+                if (spectate_from->life()->knowledge.tile_is_visible[cursor].any()) {
+                    // it's in our direct line of sight
+                    if (direction_distance_min != -1) {
+                        // actually, let's only show the 8 directions
+                        Coord vector = spectate_from->location - cursor;
+                        if (vector.x * vector.y == 0 || abs(vector.x) == abs(vector.y)) {
+                            // ordinal aligned
+                            int distance = ordinal_distance(spectate_from->location, cursor);
+                            if (distance <= direction_distance_min)
+                                alpha = 0xff;
+                            else if (distance <= direction_distance_max)
+                                alpha = 0xaf;
+                            else
+                                alpha = 0x7f;
+                        } else {
+                            alpha = 0x7f;
+                        }
                     } else {
-                        alpha = 0x7f;
+                        alpha = 0xff;
                     }
                 } else {
-                    alpha = 0xff;
+                    alpha = 0x7f;
                 }
-            } else {
-                alpha = 0x7f;
+                render_tile(renderer, sprite_sheet_texture, image, alpha, cursor);
             }
-            render_tile(renderer, sprite_sheet_texture, image, alpha, cursor);
         }
     }
 
@@ -714,7 +774,7 @@ void render() {
         // full visibility
         Thing thing;
         for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);) {
-            // TODO: this exposes hashtable iteration order
+            // this exposes hashtable iteration order, but it's a cheatcode, so whatever.
             if (!thing->still_exists)
                 continue;
             if (thing->location == Coord::nowhere())
@@ -822,29 +882,69 @@ void render() {
 
     // inventory pane
     {
-        bool render_cursor = input_mode_is_choose_item();
-        if (render_cursor) {
-            // render the cursor
+        bool render_popup_help = false;
+        bool render_action_menu = false;
+        SDL_Color inventory_cursor_color = SDL_Color{0, 0, 0, 0};
+        switch (input_mode) {
+            case InputMode_MAIN:
+                break;
+            case InputMode_INVENTORY_CHOOSE_ITEM:
+                render_popup_help = true;
+                inventory_cursor_color = amber;
+                break;
+            case InputMode_INVENTORY_CHOOSE_ACTION:
+                render_action_menu = true;
+                inventory_cursor_color = gray;
+                break;
+            case InputMode_THROW_CHOOSE_DIRECTION:
+            case InputMode_ZAP_CHOOSE_DIRECTION:
+                inventory_cursor_color = gray;
+                break;
+        }
+        // cursor is background
+        if (inventory_cursor_color.a != 0) {
             Coord cursor_location = inventory_index_to_location(inventory_cursor);
             SDL_Rect cursor_rect;
             cursor_rect.x = inventory_area.x + cursor_location.x * tile_size;
             cursor_rect.y = inventory_area.y + cursor_location.y * tile_size;
             cursor_rect.w = tile_size;
             cursor_rect.h = tile_size;
-            set_color(amber);
+            set_color(inventory_cursor_color);
             SDL_RenderFillRect(renderer, &cursor_rect);
         }
         for (int i = 0; i < my_inventory.length(); i++) {
             Coord location = inventory_index_to_location(i);
             location.x += map_size.x;
             Thing item = my_inventory[i];
-            int alpha = is_item_enabled(item->id) ? 0xff : 0x44;
-            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(item), alpha, location);
+            render_tile(renderer, sprite_sheet_texture, get_image_for_thing(item), 0xff, location);
         }
-        if (render_cursor) {
-            // also show popup help
+        // popup help
+        if (render_popup_help) {
             keyboard_hover_div->set_content(get_thing_description(you, my_inventory[inventory_cursor]->id));
             popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
+        }
+        // action menu
+        if (render_action_menu) {
+            if (!(last_menu_items == menu_items && last_menu_cursor == menu_cursor)) {
+                // rerender the text
+                last_menu_cursor = menu_cursor;
+                last_menu_items.clear();
+                last_menu_items.append_all(menu_items);
+
+                menu_div->clear();
+                for (int i = 0; i < menu_items.length(); i++) {
+                    if (i > 0)
+                        menu_div->append_newline();
+                    Span item_span = new_span(get_action_text(menu_items[i]));
+                    if (i == menu_cursor) {
+                        item_span->set_color(black, amber);
+                    } else {
+                        item_span->set_color(white, black);
+                    }
+                    menu_div->append(item_span);
+                }
+            }
+            popup_help(inventory_area, inventory_index_to_location(inventory_cursor), menu_div);
         }
     }
 

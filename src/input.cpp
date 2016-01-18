@@ -5,8 +5,10 @@
 #include "decision.hpp"
 
 InputMode input_mode = InputMode_MAIN;
-static uint256 chosen_item;
 int inventory_cursor;
+Thing chosen_item;
+List<Action::Id> menu_items;
+int menu_cursor;
 
 bool request_shutdown = false;
 
@@ -23,66 +25,6 @@ Coord get_mouse_pixels() {
         seen_the_mouse_for_realz = true;
     }
     return result;
-}
-bool input_mode_is_choose_item() {
-    switch (input_mode) {
-        case InputMode_ZAP_CHOOSE_ITEM:
-        case InputMode_DROP_CHOOSE_ITEM:
-        case InputMode_QUAFF_CHOOSE_ITEM:
-        case InputMode_THROW_CHOOSE_ITEM:
-            return true;
-        case InputMode_MAIN:
-        case InputMode_THROW_CHOOSE_DIRECTION:
-        case InputMode_ZAP_CHOOSE_DIRECTION:
-            return false;
-    }
-    panic("input mode");
-}
-bool input_mode_is_choose_direction() {
-    switch (input_mode) {
-        case InputMode_THROW_CHOOSE_DIRECTION:
-        case InputMode_ZAP_CHOOSE_DIRECTION:
-            return true;
-        case InputMode_MAIN:
-        case InputMode_ZAP_CHOOSE_ITEM:
-        case InputMode_DROP_CHOOSE_ITEM:
-        case InputMode_QUAFF_CHOOSE_ITEM:
-        case InputMode_THROW_CHOOSE_ITEM:
-            return false;
-    }
-    panic("input mode");
-}
-bool is_item_enabled(uint256 item_id) {
-    Thing item = actual_things.get(item_id);
-    switch (input_mode) {
-        case InputMode_QUAFF_CHOOSE_ITEM:
-            return item->thing_type == ThingType_POTION;
-        case InputMode_ZAP_CHOOSE_ITEM:
-            return item->thing_type == ThingType_WAND;
-        case InputMode_THROW_CHOOSE_DIRECTION:
-        case InputMode_ZAP_CHOOSE_DIRECTION:
-        case InputMode_MAIN:
-        case InputMode_DROP_CHOOSE_ITEM:
-        case InputMode_THROW_CHOOSE_ITEM:
-            return true;
-    }
-    panic("input mode");
-}
-
-static InputMode get_item_choosing_action_mode(const SDL_Event & event) {
-    switch (event.key.keysym.sym) {
-        case SDLK_d:
-            return InputMode_DROP_CHOOSE_ITEM;
-        case SDLK_t:
-            return InputMode_THROW_CHOOSE_ITEM;
-        case SDLK_q:
-            return InputMode_QUAFF_CHOOSE_ITEM;
-        case SDLK_z:
-            return InputMode_ZAP_CHOOSE_ITEM;
-        default:
-            break;
-    }
-    panic("input mode key");
 }
 
 static Action move_or_attack(Coord direction) {
@@ -118,21 +60,6 @@ static Coord get_direction_from_event(const SDL_Event & event) {
         default:
             panic("invalid direcetion");
     }
-}
-static bool get_enabled_inventory_items(List<Thing> * inventory, List<bool> * enabled_items, InputMode input_mode) {
-    bool any_enabled = false;
-    find_items_in_inventory(you->id, inventory);
-    for (int i = 0; i < inventory->length(); i++) {
-        if (input_mode == InputMode_QUAFF_CHOOSE_ITEM && (*inventory)[i]->thing_type != ThingType_POTION) {
-            enabled_items->append(false);
-        } else if (input_mode == InputMode_ZAP_CHOOSE_ITEM && (*inventory)[i]->thing_type != ThingType_WAND) {
-            enabled_items->append(false);
-        } else {
-            enabled_items->append(true);
-            any_enabled = true;
-        }
-    }
-    return any_enabled;
 }
 
 static Action on_key_down_main(const SDL_Event & event) {
@@ -176,33 +103,20 @@ static Action on_key_down_main(const SDL_Event & event) {
             case SDL_SCANCODE_KP_7:
             case SDL_SCANCODE_KP_8:
             case SDL_SCANCODE_KP_9:
-            case SDL_SCANCODE_DOWN:
-            case SDL_SCANCODE_LEFT:
-            case SDL_SCANCODE_RIGHT:
-            case SDL_SCANCODE_UP:
                 return move_or_attack(get_direction_from_event(event));
             case SDL_SCANCODE_SPACE:
                 return Action::wait();
-            default:
-                break;
-        }
-        switch (event.key.keysym.sym) {
-            case SDLK_d:
-            case SDLK_t:
-            case SDLK_q:
-            case SDLK_z: {
-                InputMode next_state = get_item_choosing_action_mode(event);
+            case SDL_SCANCODE_TAB: {
                 List<Thing> inventory;
-                List<bool> enabled_items;
-                bool any_enabled = get_enabled_inventory_items(&inventory, &enabled_items, next_state);
-
-                if (any_enabled) {
+                find_items_in_inventory(you->id, &inventory);
+                if (inventory.length() > 0) {
                     inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
-                    input_mode = next_state;
+                    input_mode = InputMode_INVENTORY_CHOOSE_ITEM;
                 }
                 return Action::undecided();
             }
-            case SDLK_COMMA: {
+            case SDL_SCANCODE_COMMA: {
+                // TODO: do this with numpad 5
                 List<PerceivedThing> items;
                 find_perceived_items_at(you, you->location, &items);
                 if (items.length() == 0)
@@ -211,8 +125,8 @@ static Action on_key_down_main(const SDL_Event & event) {
                 return Action::pickup(items[0]->id);
             }
 
-            case SDLK_GREATER:
-            case SDLK_PERIOD: // TODO: how do i check for > without looking at shift?
+            case SDL_SCANCODE_PERIOD:
+                // TODO: do this with numpad 5
                 if (actual_map_tiles[you->location].tile_type != TileType_STAIRS_DOWN)
                     break;
                 return Action::go_down();
@@ -233,64 +147,110 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_KP_2:
         case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_KP_4:
-        case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_KP_6:
         case SDL_SCANCODE_KP_7:
         case SDL_SCANCODE_KP_8:
-        case SDL_SCANCODE_KP_9:
-        case SDL_SCANCODE_DOWN:
-        case SDL_SCANCODE_LEFT:
-        case SDL_SCANCODE_RIGHT:
-        case SDL_SCANCODE_UP: {
+        case SDL_SCANCODE_KP_9: {
             // move the cursor
             List<Thing> inventory;
-            List<bool> enabled_items;
-            get_enabled_inventory_items(&inventory, &enabled_items, input_mode);
+            find_items_in_inventory(you->id, &inventory);
             Coord location = inventory_index_to_location(inventory_cursor) + get_direction_from_event(event);
             if (0 <= location.x && location.x < inventory_layout_width && 0 <= location.y) {
                 int new_index = inventory_location_to_index(location);
                 if (new_index < inventory.length())
                     inventory_cursor = new_index;
             }
-            return Action::undecided();
+            break;
+        }
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5: {
+            // accept
+            List<Thing> inventory;
+            find_items_in_inventory(you->id, &inventory);
+            chosen_item = inventory[inventory_cursor];
+
+            assert(menu_items.length() == 0);
+            switch (chosen_item->thing_type) {
+                case ThingType_INDIVIDUAL:
+                    unreachable();
+                case ThingType_WAND:
+                    menu_items.append(Action::ZAP);
+                    break;
+                case ThingType_POTION:
+                    menu_items.append(Action::QUAFF);
+                    break;
+            }
+            menu_items.append(Action::DROP);
+            menu_items.append(Action::THROW);
+            menu_cursor = 0;
+
+            input_mode = InputMode_INVENTORY_CHOOSE_ACTION;
+            break;
         }
 
         default:
             break;
     }
-    switch (event.key.keysym.sym) {
-        case SDLK_d:
-        case SDLK_t:
-        case SDLK_q:
-        case SDLK_z: {
-            if (input_mode != get_item_choosing_action_mode(event))
-                break;
-            List<Thing> inventory;
-            find_items_in_inventory(you->id, &inventory);
-            uint256 item_id = inventory[inventory_cursor]->id;
-            if (!is_item_enabled(item_id))
-                break;
-            // doit
-            switch (input_mode) {
-                case InputMode_DROP_CHOOSE_ITEM:
+    return Action::undecided();
+}
+static Action on_key_down_choose_action(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_INVENTORY_CHOOSE_ITEM;
+            menu_items.clear();
+            break;
+
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_KP_8:
+            // move the cursor
+            menu_cursor = (menu_cursor + get_direction_from_event(event).y + menu_items.length()) % menu_items.length();
+            break;
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
+            // accept
+            switch (menu_items[menu_cursor]) {
+                case Action::DROP: {
+                    uint256 id = chosen_item->id;
+                    chosen_item = nullptr;
                     input_mode = InputMode_MAIN;
-                    return Action::drop(item_id);
-                case InputMode_THROW_CHOOSE_ITEM:
-                    chosen_item = item_id;
+                    menu_items.clear();
+                    return Action::drop(id);
+                }
+                case Action::QUAFF: {
+                    uint256 id = chosen_item->id;
+                    chosen_item = nullptr;
+                    input_mode = InputMode_MAIN;
+                    menu_items.clear();
+                    return Action::quaff(id);
+                }
+                case Action::THROW:
                     input_mode = InputMode_THROW_CHOOSE_DIRECTION;
-                    return Action::undecided();
-                case InputMode_QUAFF_CHOOSE_ITEM:
-                    input_mode = InputMode_MAIN;
-                    return Action::quaff(item_id);
-                case InputMode_ZAP_CHOOSE_ITEM:
-                    chosen_item = item_id;
-                    input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
-                    return Action::undecided();
-                default:
+                    menu_items.clear();
                     break;
+                case Action::ZAP:
+                    input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
+                    menu_items.clear();
+                    break;
+
+                case Action::WAIT:
+                case Action::MOVE:
+                case Action::ATTACK:
+                case Action::PICKUP:
+                case Action::GO_DOWN:
+                case Action::CHEATCODE_HEALTH_BOOST:
+                case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+                case Action::CHEATCODE_POLYMORPH:
+                case Action::CHEATCODE_GENERATE_MONSTER:
+                case Action::CHEATCODE_CREATE_ITEM:
+                case Action::CHEATCODE_IDENTIFY:
+                case Action::CHEATCODE_GO_DOWN:
+                case Action::CHEATCODE_GAIN_LEVEL:
+                case Action::COUNT:
+                case Action::UNDECIDED:
+                    unreachable();
             }
-            panic("input mode");
-        }
+            break;
+
         default:
             break;
     }
@@ -328,7 +288,7 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
                 default:
                     break;
             }
-            panic("input mode");
+            unreachable();
         }
 
         default:
@@ -340,11 +300,10 @@ static Action on_key_down(const SDL_Event & event) {
     switch (input_mode) {
         case InputMode_MAIN:
             return on_key_down_main(event);
-        case InputMode_DROP_CHOOSE_ITEM:
-        case InputMode_THROW_CHOOSE_ITEM:
-        case InputMode_QUAFF_CHOOSE_ITEM:
-        case InputMode_ZAP_CHOOSE_ITEM:
+        case InputMode_INVENTORY_CHOOSE_ITEM:
             return on_key_down_choose_item(event);
+        case InputMode_INVENTORY_CHOOSE_ACTION:
+            return on_key_down_choose_action(event);
         case InputMode_THROW_CHOOSE_DIRECTION:
         case InputMode_ZAP_CHOOSE_DIRECTION:
             return on_key_down_choose_direction(event);
