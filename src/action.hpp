@@ -33,11 +33,15 @@ struct Action {
         uint256 item;
         Coord coord;
     };
+    struct GenerateMonster {
+        SpeciesId species;
+    };
     enum Layout {
         Layout_VOID,
         Layout_COORD,
         Layout_ITEM,
         Layout_COORD_AND_ITEM,
+        Layout_GENERATE_MONSTER,
     };
 
     Id id;
@@ -45,12 +49,14 @@ struct Action {
     Layout get_layout() const {
         return get_layout(id);
     }
-    const Coord        & coord()          const { assert(get_layout() == Layout_COORD);           return _coord; }
-          Coord        & coord()                { assert(get_layout() == Layout_COORD);           return _coord; }
-    const uint256      & item()           const { assert(get_layout() == Layout_ITEM);            return _item; }
-          uint256      & item()                 { assert(get_layout() == Layout_ITEM);            return _item; }
-    const CoordAndItem & coord_and_item() const { assert(get_layout() == Layout_COORD_AND_ITEM);  return _coord_and_item; }
-          CoordAndItem & coord_and_item()       { assert(get_layout() == Layout_COORD_AND_ITEM);  return _coord_and_item; }
+    const Coord           & coord()            const { assert(get_layout() == Layout_COORD);            return _coord; }
+          Coord           & coord()                  { assert(get_layout() == Layout_COORD);            return _coord; }
+    const uint256         & item()             const { assert(get_layout() == Layout_ITEM);             return _item; }
+          uint256         & item()                   { assert(get_layout() == Layout_ITEM);             return _item; }
+    const CoordAndItem    & coord_and_item()   const { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
+          CoordAndItem    & coord_and_item()         { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
+    const GenerateMonster & generate_monster() const { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
+          GenerateMonster & generate_monster()       { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
 
     static Action move(Coord direction) {
         return init(MOVE, direction);
@@ -93,8 +99,8 @@ struct Action {
     static Action cheatcode_polymorph() {
         return init(CHEATCODE_POLYMORPH);
     }
-    static Action cheatcode_generate_monster() {
-        return init(CHEATCODE_GENERATE_MONSTER);
+    static Action cheatcode_generate_monster(SpeciesId species_id) {
+        return init(CHEATCODE_GENERATE_MONSTER, species_id);
     }
     static Action cheatcode_create_item() {
         return init(CHEATCODE_CREATE_ITEM);
@@ -137,12 +143,20 @@ struct Action {
         result._coord_and_item.item = item;
         return result;
     }
+    static Action init(Id id, SpeciesId species_id) {
+        assert(get_layout(id) == Layout_GENERATE_MONSTER);
+        Action result;
+        result.id = id;
+        result._generate_monster.species = species_id;
+        return result;
+    }
 
 private:
     union {
         uint256 _item;
         Coord _coord;
         CoordAndItem _coord_and_item;
+        GenerateMonster _generate_monster;
     };
 
     static Layout get_layout(Id id) {
@@ -165,12 +179,13 @@ private:
             case CHEATCODE_HEALTH_BOOST:
             case CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
             case CHEATCODE_POLYMORPH:
-            case CHEATCODE_GENERATE_MONSTER:
             case CHEATCODE_CREATE_ITEM:
             case CHEATCODE_IDENTIFY:
             case CHEATCODE_GO_DOWN:
             case CHEATCODE_GAIN_LEVEL:
                 return Layout_VOID;
+            case CHEATCODE_GENERATE_MONSTER:
+                return Layout_GENERATE_MONSTER;
 
             case COUNT:
                 unreachable();
@@ -197,6 +212,13 @@ static inline bool operator==(const Action & a, const Action &  b) {
             if (a.coord_and_item().item != b.coord_and_item().item)
                 return false;
             return true;
+        case Action::Layout_GENERATE_MONSTER: {
+            const Action::GenerateMonster & a_data = a.generate_monster();
+            const Action::GenerateMonster & b_data = b.generate_monster();
+            if (a_data.species != b_data.species)
+                return false;
+            return true;
+        }
     }
     unreachable();
 }

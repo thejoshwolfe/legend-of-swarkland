@@ -575,12 +575,21 @@ bool validate_action(Thing actor, Action action) {
         case Action::CHEATCODE_HEALTH_BOOST:
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
         case Action::CHEATCODE_POLYMORPH:
-        case Action::CHEATCODE_GENERATE_MONSTER:
         case Action::CHEATCODE_CREATE_ITEM:
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
-            return actor == you;
+            if (actor != you)
+                return false;
+            return true;
+        case Action::CHEATCODE_GENERATE_MONSTER: {
+            if (actor != you)
+                return false;
+            const Action::GenerateMonster & data = action.generate_monster();
+            if (!(0 <= data.species && data.species < SpeciesId_COUNT))
+                return false;
+            return true;
+        }
 
         case Action::COUNT:
         case Action::UNDECIDED:
@@ -692,9 +701,11 @@ static bool take_action(Thing actor, Action action) {
             cheatcode_polymorph();
             // this one does take time, because your movement cost may have changed
             return false;
-        case Action::CHEATCODE_GENERATE_MONSTER:
-            spawn_random_individual();
+        case Action::CHEATCODE_GENERATE_MONSTER: {
+            const Action::GenerateMonster & data = action.generate_monster();
+            spawn_a_monster(data.species, Team_BAD_GUYS, DecisionMakerType_AI, -1, Coord::nowhere());
             return false;
+        }
         case Action::CHEATCODE_CREATE_ITEM:
             create_all_items(you->location);
             return false;

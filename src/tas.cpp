@@ -235,34 +235,53 @@ static Coord parse_coord(const Token & token1, const Token & token2) {
     return Coord{parse_int(token1), parse_int(token2)};
 }
 
-static String action_names[Action::Id::COUNT];
-static void init_action_type_names() {
-    action_names[Action::Id::MOVE] = new_string("move");
-    action_names[Action::Id::WAIT] = new_string("wait");
-    action_names[Action::Id::ATTACK] = new_string("attack");
-    action_names[Action::Id::ZAP] = new_string("zap");
-    action_names[Action::Id::PICKUP] = new_string("pickup");
-    action_names[Action::Id::DROP] = new_string("drop");
-    action_names[Action::Id::QUAFF] = new_string("quaff");
-    action_names[Action::Id::THROW] = new_string("throw");
-    action_names[Action::Id::GO_DOWN] = new_string("down");
+static String action_names[Action::COUNT];
+static String species_names[SpeciesId_COUNT];
+static void init_name_arrays() {
+    action_names[Action::MOVE] = new_string("move");
+    action_names[Action::WAIT] = new_string("wait");
+    action_names[Action::ATTACK] = new_string("attack");
+    action_names[Action::ZAP] = new_string("zap");
+    action_names[Action::PICKUP] = new_string("pickup");
+    action_names[Action::DROP] = new_string("drop");
+    action_names[Action::QUAFF] = new_string("quaff");
+    action_names[Action::THROW] = new_string("throw");
+    action_names[Action::GO_DOWN] = new_string("down");
+    action_names[Action::CHEATCODE_HEALTH_BOOST] = new_string("!health");
+    action_names[Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD] = new_string("!kill");
+    action_names[Action::CHEATCODE_POLYMORPH] = new_string("!polymorph");
+    action_names[Action::CHEATCODE_GENERATE_MONSTER] = new_string("!monster");
+    action_names[Action::CHEATCODE_CREATE_ITEM] = new_string("!items");
+    action_names[Action::CHEATCODE_IDENTIFY] = new_string("!identify");
+    action_names[Action::CHEATCODE_GO_DOWN] = new_string("!down");
+    action_names[Action::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
 
-    action_names[Action::Id::CHEATCODE_HEALTH_BOOST] = new_string("!health");
-    action_names[Action::Id::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD] = new_string("!kill");
-    action_names[Action::Id::CHEATCODE_POLYMORPH] = new_string("!polymorph");
-    action_names[Action::Id::CHEATCODE_GENERATE_MONSTER] = new_string("!monster");
-    action_names[Action::Id::CHEATCODE_CREATE_ITEM] = new_string("!items");
-    action_names[Action::Id::CHEATCODE_IDENTIFY] = new_string("!identify");
-    action_names[Action::Id::CHEATCODE_GO_DOWN] = new_string("!down");
-    action_names[Action::Id::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
+    species_names[SpeciesId_HUMAN] = new_string("human");
+    species_names[SpeciesId_OGRE] = new_string("ogre");
+    species_names[SpeciesId_LICH] = new_string("lich");
+    species_names[SpeciesId_PINK_BLOB] = new_string("pink_blob");
+    species_names[SpeciesId_AIR_ELEMENTAL] = new_string("air_elemenetal");
+    species_names[SpeciesId_DOG] = new_string("dog");
+    species_names[SpeciesId_ANT] = new_string("ant");
+    species_names[SpeciesId_BEE] = new_string("bee");
+    species_names[SpeciesId_BEETLE] = new_string("beetle");
+    species_names[SpeciesId_SCORPION] = new_string("scorpion");
+    species_names[SpeciesId_SNAKE] = new_string("snake");
 }
 
 static Action::Id parse_action_type(const Token & token) {
-    for (int i = 0; i < Action::Id::COUNT; i++) {
+    for (int i = 0; i < Action::COUNT; i++) {
         if (*action_names[i] == *token.string)
             return (Action::Id)i;
     }
     report_error(token, 0, "undefined action name");
+}
+static SpeciesId parse_species_id(const Token & token) {
+    for (int i = 0; i < Action::COUNT; i++) {
+        if (*species_names[i] == *token.string)
+            return (SpeciesId)i;
+    }
+    report_error(token, 0, "undefined species id");
 }
 
 static const char * const SEED = "@seed";
@@ -287,7 +306,7 @@ static uint32_t read_seed() {
 }
 
 void set_tas_script(TasScriptMode mode, const char * file_path) {
-    init_action_type_names();
+    init_name_arrays();
     script_path = file_path;
 
     switch (mode) {
@@ -381,6 +400,13 @@ static Action read_action() {
             action.coord_and_item().item = parse_uint256(tokens[3]);
             return action;
         }
+        case Action::Layout_GENERATE_MONSTER: {
+            if (tokens.length() != 2)
+                report_error(tokens[0], 0, "expected 1 argument");
+            Action::GenerateMonster & data = action.generate_monster();
+            data.species = parse_species_id(tokens[1]);
+            return action;
+        }
     }
     unreachable();
 }
@@ -406,6 +432,12 @@ static String action_to_string(const Action & action) {
             String coord_string2 = int_to_string(action.coord_and_item().coord.y);
             String item_string = uint256_to_string(action.coord_and_item().item);
             result->format("%s %s %s %s\n", action_type_string, coord_string1, coord_string2, item_string);
+            break;
+        }
+        case Action::Layout_GENERATE_MONSTER: {
+            const Action::GenerateMonster & data = action.generate_monster();
+            String species_string = species_names[data.species];
+            result->format("%s %s\n", action_type_string, species_string);
             break;
         }
     }
