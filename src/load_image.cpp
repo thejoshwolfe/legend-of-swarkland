@@ -1,6 +1,7 @@
 #include "load_image.hpp"
 
 #include "util.hpp"
+#include "text.hpp"
 
 #include <png.h>
 
@@ -19,7 +20,7 @@ static void read_png_data(png_structp png_ptr, png_bytep data, png_size_t length
     png_io->index = new_index;
 }
 
-SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture) {
+void load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture, SDL_Texture ** output_texture, SDL_Surface ** output_surface) {
     size_t size = rucksack_texture_size(rs_texture);
     unsigned char * image_buffer = allocate<unsigned char>(size);
     if (rucksack_texture_read(rs_texture, image_buffer) != RuckSackErrorNone)
@@ -87,11 +88,17 @@ SDL_Texture * load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_
 
     SDL_UpdateTexture(texture, nullptr, decoded_image, pitch);
 
+    SDL_Surface * surface = SDL_CreateRGBSurfaceFrom(decoded_image,
+        spritesheet_width, spritesheet_height,
+        32, pitch,
+        color_rmask, color_gmask, color_bmask, color_amask);
+
     png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
     destroy(row_ptrs, 0);
     destroy(decoded_image, 0);
     destroy(image_buffer, 0);
 
-    return texture;
+    *output_texture = texture;
+    *output_surface = surface;
 }
 

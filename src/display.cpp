@@ -30,7 +30,9 @@ static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_
 
 
 static SDL_Window * window;
-SDL_Texture * sprite_sheet_texture;
+static SDL_Texture * sprite_sheet_texture;
+// everything in this surface needs to be vertical flipped after clipping the x,y,w,h subimage
+SDL_Surface * sprite_sheet_surface;
 static SDL_Renderer * renderer;
 
 static RuckSackBundle * bundle;
@@ -139,7 +141,7 @@ void display_init() {
     if (rucksack_file_open_texture(entry, &rs_texture) != RuckSackErrorNone)
         panic("open texture failed");
 
-    sprite_sheet_texture = load_texture(renderer, rs_texture);
+    load_texture(renderer, rs_texture, &sprite_sheet_texture, &sprite_sheet_surface);
 
     long image_count = rucksack_texture_image_count(rs_texture);
     spritesheet_images = allocate<RuckSackImage*>(image_count);
@@ -687,11 +689,13 @@ static const char * get_action_text(Action::Id action_id) {
 static Span render_action(Thing actor, Action action) {
     Span result = new_span();
     switch (action.id) {
-        case Action::PICKUP:
-            result->format("pick up %g%s", stairs_down_image, get_thing_description(actor, action.item()));
+        case Action::PICKUP: {
+            RuckSackImage * image = get_image_for_thing(actor->life()->knowledge.perceived_things.get(action.item()));
+            result->format("pick up %g%s", image, get_thing_description(actor, action.item()));
             return result;
+        }
         case Action::GO_DOWN:
-            result->format("go down");
+            result->format("go down %g", stairs_down_image);
             return result;
 
         case Action::DROP:

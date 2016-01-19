@@ -7,6 +7,17 @@
 static SDL_Surface * create_surface(int w, int h) {
     return SDL_CreateRGBSurface(0, w, h, 32, color_rmask, color_gmask, color_bmask, color_amask);
 }
+static void flip_vertical_surface(SDL_Surface * surface) {
+    assert(surface->format->BytesPerPixel == 4);
+    uint32_t * pixels = reinterpret_cast<uint32_t*>(surface->pixels);
+    for (int x = 0; x < surface->w; x++) {
+        for (int y = 0, ry = surface->h - 1; y < ry; y++, ry--) {
+            uint32_t tmp = pixels[x + y * surface->w];
+            pixels[x + y * surface->w] = pixels[x + ry * surface->w];
+            pixels[x + ry * surface->w] = tmp;
+        }
+    }
+}
 
 SDL_Surface * SpanImpl::get_surface() {
     if (_surface != nullptr)
@@ -29,7 +40,13 @@ SDL_Surface * SpanImpl::get_surface() {
             render_surfaces.append(tmp_surface);
             delete_surfaces.append(tmp_surface);
         } else if (_items[i].image != nullptr) {
-            // TODO
+            RuckSackImage * image = _items[i].image;
+            SDL_Surface * tmp_surface = create_surface(image->width, image->height);
+            SDL_Rect src_rect = { image->x, image->y, image->width, image->height };
+            SDL_BlitSurface(sprite_sheet_surface, &src_rect, tmp_surface, nullptr);
+            flip_vertical_surface(tmp_surface);
+            render_surfaces.append(tmp_surface);
+            delete_surfaces.append(tmp_surface);
         } else {
             unreachable();
         }
@@ -39,19 +56,22 @@ SDL_Surface * SpanImpl::get_surface() {
 
     // measure dimensions
     int width = 0;
-    for (int i = 0; i < render_surfaces.length(); i++)
+    int height = 0;
+    for (int i = 0; i < render_surfaces.length(); i++) {
         width += render_surfaces[i]->w;
-    // height is the same for every span.
-    int height = render_surfaces[0]->h;
+        if (render_surfaces[i]->h > height)
+            height = render_surfaces[i]->h;
+    }
     SDL_Rect bounds = {0, 0, width, height};
     _surface = create_surface(bounds.w, bounds.h);
     // copy all the sub surfaces
     SDL_FillRect(_surface, &bounds, pack_color(_background));
     int x_cursor = 0;
     for (int i = 0; i < render_surfaces.length(); i++) {
-        SDL_Rect src_rect = {0, 0, render_surfaces[i]->w, height};
+        SDL_Rect src_rect = {0, 0, render_surfaces[i]->w, render_surfaces[i]->h};
         SDL_Rect dest_rect = src_rect;
         dest_rect.x = x_cursor;
+        dest_rect.y = (height - src_rect.h) / 2;
         SDL_BlitSurface(render_surfaces[i], &src_rect, _surface, &dest_rect);
         x_cursor += dest_rect.w;
     }
@@ -106,20 +126,28 @@ void DivImpl::render_surface() {
 
     // limit the height from the bottom
     int first_visible_index = wrapped_items.length();
-    int visible_height = text_height;
+    int visible_height = 0;
+    int line_height = 0;
     while (true) {
         if (first_visible_index == 0)
             break;
         first_visible_index--;
+        if (wrapped_items[first_visible_index].span != nullptr) {
+            SDL_Surface * sub_surface = wrapped_items[first_visible_index].span->get_surface();
+            if (sub_surface->h > line_height)
+                line_height = sub_surface->h;
+        }
         if (wrapped_items[first_visible_index].space_count != -1)
             continue;
-        if (visible_height + text_height > _max_height) {
+        if (visible_height + line_height > _max_height) {
             // this one is out of view.
             first_visible_index++;
             break;
         }
-        visible_height += text_height;
+        visible_height += line_height;
+        line_height = 0;
     }
+    visible_height += line_height;
 
     // combine the sub surfaces
     SDL_Rect bounds = {0, 0, total_width, visible_height};
@@ -127,6 +155,7 @@ void DivImpl::render_surface() {
     SDL_FillRect(_surface, &bounds, pack_color(_background));
     int x_cursor = 0;
     int y_cursor = 0;
+    line_height = 0;
     for (int i = first_visible_index; i < wrapped_items.length(); i++) {
         if (wrapped_items[i].span != nullptr) {
             SDL_Surface * sub_surface = wrapped_items[i].span->get_surface();
@@ -136,6 +165,8 @@ void DivImpl::render_surface() {
             SDL_Rect dest_rect = {x_cursor, y_cursor, src_rect.w, src_rect.h};
             SDL_BlitSurface(sub_surface, &src_rect, _surface, &dest_rect);
             x_cursor += dest_rect.w;
+            if (sub_surface->h > line_height)
+                line_height = sub_surface->h;
         } else {
             int space_count = wrapped_items[i].space_count;
             if (space_count != -1) {
@@ -143,7 +174,8 @@ void DivImpl::render_surface() {
             } else {
                 // newline
                 x_cursor = 0;
-                y_cursor += text_height;
+                y_cursor += line_height;
+                line_height = 0;
             }
         }
     }
