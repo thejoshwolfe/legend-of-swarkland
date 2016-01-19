@@ -532,39 +532,39 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                 List<Action> floor_actions;
                 get_floor_actions(spectate_from, &floor_actions);
 
-                lines.append("numpad: move/attack");
+                lines.append("qweadzxc: move/hit");
                 if (my_inventory.length() > 0)
                     lines.append("Tab: inventory...");
                 if (floor_actions.length() == 0) {
                 } else if (floor_actions.length() == 1) {
                     Action::Id action_id = floor_actions[0].id;
                     if (action_id == Action::PICKUP) {
-                        lines.append("numpad 5: pick up");
+                        lines.append("s: pick up");
                     } else if (action_id == Action::GO_DOWN) {
-                        lines.append("numpad 5: go down");
+                        lines.append("s: go down");
                     } else {
                         unreachable();
                     }
                 } else {
-                    lines.append("numpad 5: action...");
+                    lines.append("s: action...");
                 }
                 break;
             }
             case InputMode_INVENTORY_CHOOSE_ITEM:
-                lines.append("numpad: move cursor");
-                lines.append("Tab: action...");
+                lines.append("qweadzxc: move cursor");
+                lines.append("Tab/s: action...");
                 lines.append("Esc: cancel");
                 break;
             case InputMode_INVENTORY_CHOOSE_ACTION:
-                lines.append("numpad: move cursor");
+                lines.append("w/x: move cursor");
                 switch (inventory_menu_items[inventory_menu_cursor]) {
                     case Action::DROP:
                     case Action::QUAFF:
-                        lines.append("Tab: accept");
+                        lines.append("Tab/s: accept");
                         break;
                     case Action::THROW:
                     case Action::ZAP:
-                        lines.append("Tab: accept...");
+                        lines.append("Tab/s: accept...");
                         break;
 
                     case Action::WAIT:
@@ -587,14 +587,14 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                 lines.append("Esc: back");
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
-                lines.append("numpad: move cursor");
-                lines.append("Tab: accept");
+                lines.append("w/x: move cursor");
+                lines.append("Tab/s: accept");
                 lines.append("Esc: back");
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
             case InputMode_ZAP_CHOOSE_DIRECTION:
-                lines.append("numpad: direction");
-                lines.append("numpad 5: yourself");
+                lines.append("qweadzxc: direction");
+                lines.append("s: yourself");
                 lines.append("Esc: cancel");
                 break;
         }
