@@ -179,4 +179,6 @@ static inline void fprintf_string(FILE * stream, String string) {
     fprintf(stream, "%s", buffer.raw());
 }
 
+DEFINE_GDB_PY_SCRIPT("debug-scripts/string.py")
+
 #endif
