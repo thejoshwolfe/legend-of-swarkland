@@ -20,7 +20,7 @@ SDL_Surface * SpanImpl::get_surface() {
             if (sub_surface == nullptr)
                 continue;
             render_surfaces.append(sub_surface);
-        } else {
+        } else if (_items[i].string != nullptr) {
             ByteBuffer utf8;
             _items[i].string->encode(&utf8);
             if (utf8.length() == 0)
@@ -28,6 +28,10 @@ SDL_Surface * SpanImpl::get_surface() {
             SDL_Surface * tmp_surface = TTF_RenderUTF8_Blended(status_box_font, utf8.raw(), _foreground);
             render_surfaces.append(tmp_surface);
             delete_surfaces.append(tmp_surface);
+        } else if (_items[i].image != nullptr) {
+            // TODO
+        } else {
+            unreachable();
         }
     }
     if (render_surfaces.length() == 0)

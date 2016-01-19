@@ -30,7 +30,7 @@ static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_
 
 
 static SDL_Window * window;
-static SDL_Texture * sprite_sheet_texture;
+SDL_Texture * sprite_sheet_texture;
 static SDL_Renderer * renderer;
 
 static RuckSackBundle * bundle;
@@ -197,12 +197,12 @@ static Thing get_spectate_individual() {
     return cheatcode_spectator != nullptr ? cheatcode_spectator : you;
 }
 
-static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, RuckSackImage * guy_image, int alpha, Coord coord) {
+static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, RuckSackImage * image, int alpha, Coord coord) {
     SDL_Rect source_rect;
-    source_rect.x = guy_image->x;
-    source_rect.y = guy_image->y;
-    source_rect.w = guy_image->width;
-    source_rect.h = guy_image->height;
+    source_rect.x = image->x;
+    source_rect.y = image->y;
+    source_rect.w = image->width;
+    source_rect.h = image->height;
 
     SDL_Rect dest_rect;
     dest_rect.x = main_map_area.x + coord.x * tile_size;
@@ -513,9 +513,12 @@ static Div status_div = new_div();
 static Div time_div = new_div();
 static Div keyboard_hover_div = new_div();
 static Div mouse_hover_div = new_div();
-static Div menu_div = new_div();
-static List<Action::Id> last_menu_items;
-static int last_menu_cursor;
+static Div inventory_menu_div = new_div();
+static List<Action::Id> last_inventory_menu_items;
+static int last_inventory_menu_cursor;
+static Div floor_menu_div = new_div();
+static List<Action> last_floor_menu_actions;
+static int last_floor_menu_cursor;
 
 static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_inventory) {
     List<const char *> lines;
@@ -524,16 +527,25 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
     } else {
         switch (input_mode) {
             case InputMode_MAIN: {
-                List<Thing> items_on_floor;
-                find_items_on_floor(spectate_from->location, &items_on_floor);
+                List<Action> floor_actions;
+                get_floor_actions(spectate_from, &floor_actions);
 
                 lines.append("numpad: move/attack");
                 if (my_inventory.length() > 0)
                     lines.append("Tab: inventory...");
-                if (items_on_floor.length() > 0)
-                    lines.append(",: pick up");
-                if (actual_map_tiles[spectate_from->location].tile_type == TileType_STAIRS_DOWN)
-                    lines.append(">: go down");
+                if (floor_actions.length() == 0) {
+                } else if (floor_actions.length() == 1) {
+                    Action::Id action_id = floor_actions[0].id;
+                    if (action_id == Action::PICKUP) {
+                        lines.append("numpad 5: pick up");
+                    } else if (action_id == Action::GO_DOWN) {
+                        lines.append("numpad 5: go down");
+                    } else {
+                        unreachable();
+                    }
+                } else {
+                    lines.append("numpad 5: action...");
+                }
                 break;
             }
             case InputMode_INVENTORY_CHOOSE_ITEM:
@@ -543,7 +555,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                 break;
             case InputMode_INVENTORY_CHOOSE_ACTION:
                 lines.append("numpad: move cursor");
-                switch (menu_items[menu_cursor]) {
+                switch (inventory_menu_items[inventory_menu_cursor]) {
                     case Action::DROP:
                     case Action::QUAFF:
                         lines.append("Tab: accept");
@@ -570,7 +582,12 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                     case Action::UNDECIDED:
                         unreachable();
                 }
-                lines.append("Esc: cancel");
+                lines.append("Esc: back");
+                break;
+            case InputMode_FLOOR_CHOOSE_ACTION:
+                lines.append("numpad: move cursor");
+                lines.append("Tab: accept");
+                lines.append("Esc: back");
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
             case InputMode_ZAP_CHOOSE_DIRECTION:
@@ -667,6 +684,38 @@ static const char * get_action_text(Action::Id action_id) {
     unreachable();
 }
 
+static Span render_action(Thing actor, Action action) {
+    Span result = new_span();
+    switch (action.id) {
+        case Action::PICKUP:
+            result->format("pick up %g%s", get_thing_description(actor, action.item()), stairs_down_image);
+            return result;
+        case Action::GO_DOWN:
+            result->format("go down");
+            return result;
+
+        case Action::DROP:
+        case Action::QUAFF:
+        case Action::THROW:
+        case Action::ZAP:
+        case Action::WAIT:
+        case Action::MOVE:
+        case Action::ATTACK:
+        case Action::CHEATCODE_HEALTH_BOOST:
+        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+        case Action::CHEATCODE_POLYMORPH:
+        case Action::CHEATCODE_GENERATE_MONSTER:
+        case Action::CHEATCODE_CREATE_ITEM:
+        case Action::CHEATCODE_IDENTIFY:
+        case Action::CHEATCODE_GO_DOWN:
+        case Action::CHEATCODE_GAIN_LEVEL:
+        case Action::COUNT:
+        case Action::UNDECIDED:
+            unreachable();
+    }
+    unreachable();
+}
+
 void render() {
     Thing spectate_from = get_spectate_individual();
     List<Thing> my_inventory;
@@ -693,6 +742,7 @@ void render() {
             case InputMode_MAIN:
             case InputMode_INVENTORY_CHOOSE_ITEM:
             case InputMode_INVENTORY_CHOOSE_ACTION:
+            case InputMode_FLOOR_CHOOSE_ACTION:
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
                 direction_distance_min = throw_distance_average - throw_distance_error_margin;
@@ -887,6 +937,7 @@ void render() {
         SDL_Color inventory_cursor_color = SDL_Color{0, 0, 0, 0};
         switch (input_mode) {
             case InputMode_MAIN:
+            case InputMode_FLOOR_CHOOSE_ACTION:
                 break;
             case InputMode_INVENTORY_CHOOSE_ITEM:
                 render_popup_help = true;
@@ -925,66 +976,109 @@ void render() {
         }
         // action menu
         if (render_action_menu) {
-            if (!(last_menu_items == menu_items && last_menu_cursor == menu_cursor)) {
+            if (!(last_inventory_menu_items == inventory_menu_items && last_inventory_menu_cursor == inventory_menu_cursor)) {
                 // rerender the text
-                last_menu_cursor = menu_cursor;
-                last_menu_items.clear();
-                last_menu_items.append_all(menu_items);
+                last_inventory_menu_cursor = inventory_menu_cursor;
+                last_inventory_menu_items.clear();
+                last_inventory_menu_items.append_all(inventory_menu_items);
 
-                menu_div->clear();
-                for (int i = 0; i < menu_items.length(); i++) {
+                inventory_menu_div->clear();
+                for (int i = 0; i < inventory_menu_items.length(); i++) {
                     if (i > 0)
-                        menu_div->append_newline();
-                    Span item_span = new_span(get_action_text(menu_items[i]));
-                    if (i == menu_cursor) {
+                        inventory_menu_div->append_newline();
+                    Span item_span = new_span(get_action_text(inventory_menu_items[i]));
+                    if (i == inventory_menu_cursor) {
                         item_span->set_color(black, amber);
                     } else {
                         item_span->set_color(white, black);
                     }
-                    menu_div->append(item_span);
+                    inventory_menu_div->append(item_span);
                 }
             }
-            popup_help(inventory_area, inventory_index_to_location(inventory_cursor), menu_div);
+            popup_help(inventory_area, inventory_index_to_location(inventory_cursor), inventory_menu_div);
         }
     }
 
-    // popup help for hovering over things
-    Coord mouse_hover_map_tile = get_mouse_tile(main_map_area);
-    if (mouse_hover_map_tile != Coord::nowhere()) {
-        List<PerceivedThing> things;
-        find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
-        if (things.length() != 0) {
-            Div content = new_div();
-            for (int i = 0; i < things.length(); i++) {
-                PerceivedThing target = things[i];
-                if (i > 0 )
-                    content->append_newline();
-                Span thing_and_carrying = new_span();
-                thing_and_carrying->append(get_thing_description(spectate_from, target->id));
-                List<PerceivedThing> inventory;
-                find_items_in_inventory(spectate_from, target, &inventory);
-                if (inventory.length() > 0) {
-                    thing_and_carrying->append(" carrying:");
-                    content->append(thing_and_carrying);
-                    for (int j = 0; j < inventory.length(); j++) {
-                        content->append_newline();
-                        content->append_spaces(4);
-                        content->append(get_thing_description(spectate_from, inventory[j]->id));
+    {
+        bool show_floor_menu = false;
+        bool show_map_popup = true;
+        switch (input_mode) {
+            case InputMode_MAIN:
+            case InputMode_INVENTORY_CHOOSE_ITEM:
+            case InputMode_INVENTORY_CHOOSE_ACTION:
+            case InputMode_THROW_CHOOSE_DIRECTION:
+            case InputMode_ZAP_CHOOSE_DIRECTION:
+                break;
+            case InputMode_FLOOR_CHOOSE_ACTION:
+                show_floor_menu = true;
+                show_map_popup = false;
+                break;
+        }
+        // floor action menu
+        if (show_floor_menu) {
+            List<Action> floor_actions;
+            get_floor_actions(spectate_from, &floor_actions);
+            if (!(last_floor_menu_actions == floor_actions && last_floor_menu_cursor == floor_menu_cursor)) {
+                // rerender floor menu div
+                last_floor_menu_actions.clear();
+                last_floor_menu_actions.append_all(floor_actions);
+                last_floor_menu_cursor = floor_menu_cursor;
+
+                floor_menu_div->clear();
+                for (int i = 0; i < floor_actions.length(); i++) {
+                    if (i > 0)
+                        floor_menu_div->append_newline();
+                    Span item_span = render_action(spectate_from, floor_actions[i]);
+                    if (i == floor_menu_cursor) {
+                        item_span->set_color(black, amber);
+                    } else {
+                        item_span->set_color(white, black);
                     }
-                } else {
-                    content->append(thing_and_carrying);
+                    floor_menu_div->append(item_span);
                 }
             }
-            mouse_hover_div->set_content(content);
-            popup_help(main_map_area, mouse_hover_map_tile, mouse_hover_div);
+            popup_help(main_map_area, spectate_from->location, floor_menu_div);
         }
-    }
-    Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
-    if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
-        int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
-        if (inventory_index < my_inventory.length()) {
-            mouse_hover_div->set_content(get_thing_description(you, my_inventory[inventory_index]->id));
-            popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
+        // popup help for hovering over things
+        if (show_map_popup) {
+            Coord mouse_hover_map_tile = get_mouse_tile(main_map_area);
+            if (mouse_hover_map_tile != Coord::nowhere()) {
+                List<PerceivedThing> things;
+                find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
+                if (things.length() != 0) {
+                    Div content = new_div();
+                    for (int i = 0; i < things.length(); i++) {
+                        PerceivedThing target = things[i];
+                        if (i > 0 )
+                            content->append_newline();
+                        Span thing_and_carrying = new_span();
+                        thing_and_carrying->append(get_thing_description(spectate_from, target->id));
+                        List<PerceivedThing> inventory;
+                        find_items_in_inventory(spectate_from, target, &inventory);
+                        if (inventory.length() > 0) {
+                            thing_and_carrying->append(" carrying:");
+                            content->append(thing_and_carrying);
+                            for (int j = 0; j < inventory.length(); j++) {
+                                content->append_newline();
+                                content->append_spaces(4);
+                                content->append(get_thing_description(spectate_from, inventory[j]->id));
+                            }
+                        } else {
+                            content->append(thing_and_carrying);
+                        }
+                    }
+                    mouse_hover_div->set_content(content);
+                    popup_help(main_map_area, mouse_hover_map_tile, mouse_hover_div);
+                }
+            }
+            Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
+            if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
+                int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
+                if (inventory_index < my_inventory.length()) {
+                    mouse_hover_div->set_content(get_thing_description(you, my_inventory[inventory_index]->id));
+                    popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
+                }
+            }
         }
     }
 

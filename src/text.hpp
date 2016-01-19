@@ -2,6 +2,7 @@
 #define TEXT_HPP
 
 #include "string.hpp"
+#include <rucksack/rucksack.h>
 
 #include <SDL.h>
 
@@ -61,14 +62,16 @@ class DivImpl;
 typedef Reference<SpanImpl> Span;
 class SpanImpl : public ReferenceCounted {
 private:
-    struct StringOrSpan {
+    struct ChildElement {
         String string;
         Span span;
-        bool operator==(const StringOrSpan & other) const {
+        RuckSackImage * image;
+        bool operator==(const ChildElement & other) const {
             return *string == *other.string &&
-                   *span == *other.span;
+                   *span == *other.span &&
+                   image == other.image;
         }
-        bool operator!=(const StringOrSpan & other) const {
+        bool operator!=(const ChildElement & other) const {
             return !(*this == other);
         }
     };
@@ -100,7 +103,7 @@ public:
         if (!(_items.length() == 1 &&_items[0].string != nullptr)) {
             // no, make it plain text.
             _items.clear();
-            _items.append(StringOrSpan{new_string(), nullptr});
+            _items.append(ChildElement{new_string(), nullptr, nullptr});
             dispose_resources();
         } else {
             // there's already some plain text here.
@@ -121,12 +124,16 @@ public:
         if (text->length() == 0)
             return;
         if (_items.length() == 0 || _items[_items.length() - 1].string == nullptr)
-            _items.append(StringOrSpan{new_string(), nullptr});
+            _items.append(ChildElement{new_string(), nullptr, nullptr});
         _items[_items.length() - 1].string->append(text);
         dispose_resources();
     }
     void append(const Span & span) {
-        _items.append(StringOrSpan{nullptr, span});
+        _items.append(ChildElement{nullptr, span, nullptr});
+        dispose_resources();
+    }
+    void append(RuckSackImage * image) {
+        _items.append(ChildElement{nullptr, nullptr, image});
         dispose_resources();
     }
     void format(const char * fmt) {
@@ -136,6 +143,8 @@ public:
     }
     template<typename ...Args>
     void format(const char * fmt, Span span1, Args... args);
+    template<typename ...Args>
+    void format(const char * fmt, RuckSackImage * image, Args... args);
 
     bool operator==(const SpanImpl & other) const {
         if (this == &other)
@@ -150,7 +159,7 @@ public:
         return !(*this == other);
     }
 private:
-    List<StringOrSpan> _items;
+    List<ChildElement> _items;
     SDL_Color _foreground = white;
     SDL_Color _background = black;
     SDL_Surface * _surface = nullptr;
@@ -174,6 +183,17 @@ void SpanImpl::format(const char * fmt, Span span1, Args... args) {
     append(new_string(prefix));
 
     append(span1);
+
+    format(fmt + i, args...);
+}
+template<typename ...Args>
+void SpanImpl::format(const char * fmt, RuckSackImage * image, Args... args) {
+    int i = find_percent_something(fmt, 'g');
+    ByteBuffer prefix;
+    prefix.append(fmt, i - 2);
+    append(new_string(prefix));
+
+    append(image);
 
     format(fmt + i, args...);
 }
