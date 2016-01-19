@@ -19,6 +19,19 @@
 #define DEFINE_GDB_PY_SCRIPT(script_name)
 #endif
 
+#if __GNUC__ < 5
+// shims
+static inline bool __builtin_mul_overflow(int a, int b, int * result) {
+    *result = a * b;
+    long long long_result = (long long)a * (long long)b;
+    return long_result != *result;
+}
+static inline bool __builtin_add_overflow(int a, int b, int * result) {
+    *result = a + b;
+    long long long_result = (long long)a + (long long)b;
+    return long_result != *result;
+}
+#endif
 
 void panic(const char * str) __attribute__ ((noreturn));
 static inline void assert(bool condition) {
