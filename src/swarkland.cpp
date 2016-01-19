@@ -28,20 +28,19 @@ static void init_specieses() {
     //                                     |   |  |   |   |   |  |   |  sucks up items
     //                                     |   |  |   |   |   |  |   |  |  auto throws items
     //                                     |   |  |   |   |   |  |   |  |  |  poison attack
-    //                                     |   |  |   |   |   |  |   |  |  |  |  uses wands
-    //                                     |   |  |   |   |   |  |   |  |  |  |  |  uses potions
-    //                                     |   |  |   |   |   |  |   |  |  |  |  |  |  advanced strategy
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1, 1};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 2,  4,  5, {1, 0}, 1, 0, 0, 0, 1, 0, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 1, 0, 0, 0, 1, 1, 1};
-    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1,  0,  1, {0, 1}, 0, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  4,  5, {0, 1}, 0, 1, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2,  1,  2, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  2, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  2, 3,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  3, {1, 0}, 1, 0, 0, 1, 0, 0, 0};
-    specieses[SpeciesId_SNAKE        ] = {18,  4, 2,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0, 0};
+    //                                     |   |  |   |   |   |  |   |  |  |  |  uses items
+    //                                     |   |  |   |   |   |  |   |  |  |  |  |  advanced strategy
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 2,  4,  5, {1, 0}, 1, 0, 0, 0, 1, 0};
+    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 1, 0, 0, 0, 1, 1};
+    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1,  0,  1, {0, 1}, 0, 1, 0, 0, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  4,  5, {0, 1}, 0, 1, 1, 0, 0, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2,  1,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  2, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  2, 3,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  3, {1, 0}, 1, 0, 0, 1, 0, 0};
+    specieses[SpeciesId_SNAKE        ] = {18,  4, 2,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.

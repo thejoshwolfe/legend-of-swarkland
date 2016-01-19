@@ -128,8 +128,7 @@ struct Species {
     bool sucks_up_items;
     bool auto_throws_items;
     bool poison_attack;
-    bool uses_wands;
-    bool uses_potions;
+    bool uses_items;
     bool advanced_strategy;
 };
 
