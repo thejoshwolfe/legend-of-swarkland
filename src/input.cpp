@@ -48,22 +48,31 @@ static Action move_or_attack(Coord direction) {
 }
 static Coord get_direction_from_event(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_KP_7:
         case SDL_SCANCODE_Q:
             return {-1, -1};
+        case SDL_SCANCODE_KP_8:
         case SDL_SCANCODE_W:
             return {0, -1};
+        case SDL_SCANCODE_KP_9:
         case SDL_SCANCODE_E:
             return {1, -1};
+        case SDL_SCANCODE_KP_4:
         case SDL_SCANCODE_A:
             return {-1, 0};
+        case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_S:
             return {0, 0};
+        case SDL_SCANCODE_KP_6:
         case SDL_SCANCODE_D:
             return {1, 0};
+        case SDL_SCANCODE_KP_1:
         case SDL_SCANCODE_Z:
             return {-1, 1};
+        case SDL_SCANCODE_KP_2:
         case SDL_SCANCODE_X:
             return {0, 1};
+        case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_C:
             return {1, 1};
         default:
@@ -104,13 +113,21 @@ static Action on_key_down_main(const SDL_Event & event) {
     } else {
         // normal
         switch (event.key.keysym.scancode) {
+            case SDL_SCANCODE_KP_7:
             case SDL_SCANCODE_Q:
+            case SDL_SCANCODE_KP_8:
             case SDL_SCANCODE_W:
+            case SDL_SCANCODE_KP_9:
             case SDL_SCANCODE_E:
+            case SDL_SCANCODE_KP_4:
             case SDL_SCANCODE_A:
+            case SDL_SCANCODE_KP_6:
             case SDL_SCANCODE_D:
+            case SDL_SCANCODE_KP_1:
             case SDL_SCANCODE_Z:
+            case SDL_SCANCODE_KP_2:
             case SDL_SCANCODE_X:
+            case SDL_SCANCODE_KP_3:
             case SDL_SCANCODE_C:
                 return move_or_attack(get_direction_from_event(event));
             case SDL_SCANCODE_SPACE:
@@ -124,6 +141,7 @@ static Action on_key_down_main(const SDL_Event & event) {
                 }
                 break;
             }
+            case SDL_SCANCODE_KP_5:
             case SDL_SCANCODE_S: {
                 List<Action> actions;
                 get_floor_actions(you, &actions);
@@ -155,13 +173,21 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
             input_mode = InputMode_MAIN;
             break;
 
+        case SDL_SCANCODE_KP_7:
         case SDL_SCANCODE_Q:
+        case SDL_SCANCODE_KP_8:
         case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_9:
         case SDL_SCANCODE_E:
+        case SDL_SCANCODE_KP_4:
         case SDL_SCANCODE_A:
+        case SDL_SCANCODE_KP_6:
         case SDL_SCANCODE_D:
+        case SDL_SCANCODE_KP_1:
         case SDL_SCANCODE_Z:
+        case SDL_SCANCODE_KP_2:
         case SDL_SCANCODE_X:
+        case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_C: {
             // move the cursor
             List<Thing> inventory;
@@ -175,6 +201,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
             break;
         }
         case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_S: {
             // accept
             List<Thing> inventory;
@@ -212,12 +239,15 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
             inventory_menu_items.clear();
             break;
 
+        case SDL_SCANCODE_KP_8:
         case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_2:
         case SDL_SCANCODE_X:
             // move the cursor
             inventory_menu_cursor = (inventory_menu_cursor + get_direction_from_event(event).y + inventory_menu_items.length()) % inventory_menu_items.length();
             break;
         case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_S:
             // accept
             switch (inventory_menu_items[inventory_menu_cursor]) {
@@ -274,7 +304,9 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
             input_mode = InputMode_MAIN;
             break;
 
+        case SDL_SCANCODE_KP_8:
         case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_2:
         case SDL_SCANCODE_X: {
             // move the cursor
             List<Action> actions;
@@ -283,6 +315,7 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
             break;
         }
         case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_S: {
             // accept
             List<Action> actions;
@@ -302,14 +335,23 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
             input_mode = InputMode_MAIN;
             break;
 
+        case SDL_SCANCODE_KP_7:
         case SDL_SCANCODE_Q:
+        case SDL_SCANCODE_KP_8:
         case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_9:
         case SDL_SCANCODE_E:
+        case SDL_SCANCODE_KP_4:
         case SDL_SCANCODE_A:
+        case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_S:
+        case SDL_SCANCODE_KP_6:
         case SDL_SCANCODE_D:
+        case SDL_SCANCODE_KP_1:
         case SDL_SCANCODE_Z:
+        case SDL_SCANCODE_KP_2:
         case SDL_SCANCODE_X:
+        case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_C: {
             List<Thing> inventory;
             find_items_in_inventory(you->id, &inventory);
