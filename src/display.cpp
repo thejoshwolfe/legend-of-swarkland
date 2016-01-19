@@ -688,7 +688,7 @@ static Span render_action(Thing actor, Action action) {
     Span result = new_span();
     switch (action.id) {
         case Action::PICKUP:
-            result->format("pick up %g%s", get_thing_description(actor, action.item()), stairs_down_image);
+            result->format("pick up %g%s", stairs_down_image, get_thing_description(actor, action.item()));
             return result;
         case Action::GO_DOWN:
             result->format("go down");
@@ -988,9 +988,7 @@ void render() {
                         inventory_menu_div->append_newline();
                     Span item_span = new_span(get_action_text(inventory_menu_items[i]));
                     if (i == inventory_menu_cursor) {
-                        item_span->set_color(black, amber);
-                    } else {
-                        item_span->set_color(white, black);
+                        item_span->set_color_recursive(black, amber);
                     }
                     inventory_menu_div->append(item_span);
                 }
@@ -1030,9 +1028,7 @@ void render() {
                         floor_menu_div->append_newline();
                     Span item_span = render_action(spectate_from, floor_actions[i]);
                     if (i == floor_menu_cursor) {
-                        item_span->set_color(black, amber);
-                    } else {
-                        item_span->set_color(white, black);
+                        item_span->set_color_recursive(black, amber);
                     }
                     floor_menu_div->append(item_span);
                 }

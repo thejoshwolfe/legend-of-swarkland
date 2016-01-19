@@ -90,6 +90,12 @@ public:
         _background = background;
         dispose_resources();
     }
+    void set_color_recursive(SDL_Color foreground, SDL_Color background) {
+        set_color(foreground, background);
+        for (int i = 0; i < _items.length(); i++)
+            if (_items[i].span != nullptr)
+                _items[i].span->set_color_recursive(foreground, background);
+    }
     void set_text(const String & new_text) {
         if (new_text->length() == 0) {
             // blank it out
