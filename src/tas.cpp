@@ -136,9 +136,9 @@ static String uint256_to_string(uint256 n) {
 }
 static String int_to_string(int n) {
     String result = new_string();
-    if (n == -0x7fffffff) {
+    if (n == -2147483648) {
         // special case, because this value is unnegatable.
-        result->append("-2147483647");
+        result->append("-2147483648");
         return result;
     }
     if (n < 0) {
