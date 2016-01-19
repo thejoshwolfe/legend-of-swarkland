@@ -854,7 +854,7 @@ void run_the_game() {
                 if (!individual->still_exists)
                     continue;
                 age_individual(individual);
-                if (can_move(individual) || can_act(individual)) {
+                if (can_act(individual)) {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
