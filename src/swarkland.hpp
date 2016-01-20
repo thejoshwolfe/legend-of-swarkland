@@ -8,6 +8,7 @@
 #include "action.hpp"
 
 extern Species specieses[SpeciesId_COUNT];
+extern Mind specieses_mind[SpeciesId_COUNT];
 
 extern IdMap<Thing> actual_things;
 extern Thing you;
@@ -29,6 +30,39 @@ static inline Coord get_thing_location(Thing observer, const PerceivedThing & ta
         return target->location;
     PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id);
     return get_thing_location(observer, container);
+}
+static inline bool individual_has_mind(Thing thing) {
+    switch (specieses_mind[thing->life()->species_id]) {
+        case Mind_NONE:
+            return false;
+        case Mind_INSTINCT:
+        case Mind_SAPIENT_DERPER:
+        case Mind_SAPIENT_CLEVER:
+            return true;
+    }
+    unreachable();
+}
+static inline bool individual_uses_items(Thing thing) {
+    switch (specieses_mind[thing->life()->species_id]) {
+        case Mind_NONE:
+        case Mind_INSTINCT:
+            return false;
+        case Mind_SAPIENT_DERPER:
+        case Mind_SAPIENT_CLEVER:
+            return true;
+    }
+    unreachable();
+}
+static inline bool individual_is_clever(Thing thing) {
+    switch (specieses_mind[thing->life()->species_id]) {
+        case Mind_NONE:
+        case Mind_INSTINCT:
+        case Mind_SAPIENT_DERPER:
+            return false;
+        case Mind_SAPIENT_CLEVER:
+            return true;
+    }
+    unreachable();
 }
 
 void swarkland_init();

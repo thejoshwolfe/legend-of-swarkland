@@ -8,6 +8,7 @@
 #include "tas.hpp"
 
 Species specieses[SpeciesId_COUNT];
+Mind specieses_mind[SpeciesId_COUNT];
 IdMap<Thing> actual_things;
 
 Thing you;
@@ -24,23 +25,32 @@ static void init_specieses() {
     //                                     |   |  |   |   max level
     //                                     |   |  |   |   |   normal vision
     //                                     |   |  |   |   |   |  ethereal vision
-    //                                     |   |  |   |   |   |  |   has mind
-    //                                     |   |  |   |   |   |  |   |  sucks up items
-    //                                     |   |  |   |   |   |  |   |  |  auto throws items
-    //                                     |   |  |   |   |   |  |   |  |  |  poison attack
-    //                                     |   |  |   |   |   |  |   |  |  |  |  uses items
-    //                                     |   |  |   |   |   |  |   |  |  |  |  |  advanced strategy
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 1, 0, 0, 0, 1, 1};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 2,  4,  5, {1, 0}, 1, 0, 0, 0, 1, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 1, 0, 0, 0, 1, 1};
-    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1,  0,  1, {0, 1}, 0, 1, 0, 0, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  4,  5, {0, 1}, 0, 1, 1, 0, 0, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2,  1,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  2, 1,  0,  2, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  2, 3,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 1, 0, 0, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  3, {1, 0}, 1, 0, 0, 1, 0, 0};
-    specieses[SpeciesId_SNAKE        ] = {18,  4, 2,  2,  3, {1, 0}, 1, 0, 0, 0, 0, 0};
+    //                                     |   |  |   |   |   |  |   sucks up items
+    //                                     |   |  |   |   |   |  |   |  auto throws items
+    //                                     |   |  |   |   |   |  |   |  |  poison attack
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 2,  4,  5, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1,  0,  1, {0, 1}, 1, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  4,  5, {0, 1}, 1, 1, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2,  1,  2, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  2, 1,  0,  2, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  2, 3,  2,  3, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  3, {1, 0}, 0, 0, 1};
+    specieses[SpeciesId_SNAKE        ] = {18,  4, 2,  2,  3, {1, 0}, 0, 0, 0};
+
+    specieses_mind[SpeciesId_HUMAN        ] = Mind_SAPIENT_CLEVER;
+    specieses_mind[SpeciesId_OGRE         ] = Mind_SAPIENT_DERPER;
+    specieses_mind[SpeciesId_LICH         ] = Mind_SAPIENT_CLEVER;
+    specieses_mind[SpeciesId_PINK_BLOB    ] = Mind_NONE;
+    specieses_mind[SpeciesId_AIR_ELEMENTAL] = Mind_NONE;
+    specieses_mind[SpeciesId_DOG          ] = Mind_INSTINCT;
+    specieses_mind[SpeciesId_ANT          ] = Mind_INSTINCT;
+    specieses_mind[SpeciesId_BEE          ] = Mind_INSTINCT;
+    specieses_mind[SpeciesId_BEETLE       ] = Mind_INSTINCT;
+    specieses_mind[SpeciesId_SCORPION     ] = Mind_INSTINCT;
+    specieses_mind[SpeciesId_SNAKE        ] = Mind_INSTINCT;
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.
@@ -868,7 +878,7 @@ void run_the_game() {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
-                    if (individual->life()->species()->has_mind) {
+                    if (individual_has_mind(individual)) {
                         List<RememberedEvent> & events = individual->life()->knowledge.remembered_events;
                         if (events.length() > 0 && events[events.length() - 1] != nullptr)
                             events.append(nullptr);

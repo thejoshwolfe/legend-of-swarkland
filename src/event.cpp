@@ -36,7 +36,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     }
     // cogniscopy can see minds
     if (has_status(observer, StatusEffect::COGNISCOPY)) {
-        if (actual_target->thing_type == ThingType_INDIVIDUAL && actual_target->life()->species()->has_mind)
+        if (actual_target->thing_type == ThingType_INDIVIDUAL && individual_has_mind(actual_target))
             return true;
     }
 

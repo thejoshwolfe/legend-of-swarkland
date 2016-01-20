@@ -74,7 +74,7 @@ static int hit_wall_no_effect(Thing, Coord location, bool is_explosion, IdMap<Wa
 }
 
 static int confusion_hit_individual(Thing, Thing target, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    bool confusable = target->life()->species()->has_mind;
+    bool confusable = individual_has_mind(target);
     publish_event(Event::wand_hit(confusable ? WandId_WAND_OF_CONFUSION : WandId_UNKNOWN, is_explosion, target->id, target->location), perceived_current_zapper);
     if (confusable)
         confuse_individual(target);

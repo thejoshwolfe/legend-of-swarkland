@@ -68,10 +68,6 @@ static void refresh_ethereal_vision(Thing individual) {
 }
 
 void compute_vision(Thing observer) {
-    // mindless monsters can't remember the terrain
-    if (!observer->life()->species()->has_mind)
-        observer->life()->knowledge.tiles.set_all(unknown_tile);
-
     observer->life()->knowledge.tile_is_visible.set_all(VisionTypes::none());
     VisionTypes has_vision = observer->life()->species()->vision_types;
     if (has_status(observer, StatusEffect::ETHEREAL_VISION)) {
@@ -104,7 +100,7 @@ void compute_vision(Thing observer) {
         Coord target_location = get_thing_location(observer, target);
         if (target_location == Coord::nowhere())
             continue;
-        if (observer->life()->species()->has_mind && !observer->life()->knowledge.tile_is_visible[target_location].any())
+        if (!observer->life()->knowledge.tile_is_visible[target_location].any())
             continue;
         remove_these.append(target);
         List<PerceivedThing> inventory;

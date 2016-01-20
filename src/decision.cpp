@@ -63,12 +63,12 @@ static inline Action move_or_wait(Thing actor, Coord direction) {
 }
 
 static Action get_ai_decision(Thing actor) {
-    const Species * actor_species = actor->life()->species();
+    bool uses_items = individual_uses_items(actor);
+    bool advanced_strategy = individual_is_clever(actor);
     List<Thing> inventory;
     // only care about inventory if we use items
-    if (actor_species->uses_items)
+    if (uses_items)
         find_items_in_inventory(actor->id, &inventory);
-    bool advanced_strategy = actor_species->advanced_strategy;
 
     List<PerceivedThing> things_of_interest;
     PerceivedThing target;
@@ -79,13 +79,13 @@ static Action get_ai_decision(Thing actor) {
                     continue; // you're cool
                 break;
             case ThingType_WAND:
-                if (!actor_species->uses_items)
+                if (!uses_items)
                     continue; // don't care
                 if (target->location == Coord::nowhere())
                     continue; // somebody's already got it.
                 break;
             case ThingType_POTION:
-                if (!actor_species->uses_items)
+                if (!uses_items)
                     continue; // don't care
                 if (target->location == Coord::nowhere())
                     continue; // somebody's already got it.

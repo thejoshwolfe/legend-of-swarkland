@@ -112,6 +112,13 @@ static inline bool operator!=(VisionTypes a, VisionTypes b) {
     return !(a == b);
 }
 
+enum Mind {
+    Mind_NONE,
+    Mind_INSTINCT,
+    Mind_SAPIENT_DERPER,
+    Mind_SAPIENT_CLEVER,
+};
+
 // everyone has the same action cost
 static const int action_cost = 12;
 
@@ -124,12 +131,9 @@ struct Species {
     int min_level;
     int max_level;
     VisionTypes vision_types;
-    bool has_mind;
     bool sucks_up_items;
     bool auto_throws_items;
     bool poison_attack;
-    bool uses_items;
-    bool advanced_strategy;
 };
 
 struct StatusEffect {
