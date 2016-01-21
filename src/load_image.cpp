@@ -88,10 +88,17 @@ void load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture, 
 
     SDL_UpdateTexture(texture, nullptr, decoded_image, pitch);
 
-    SDL_Surface * surface = SDL_CreateRGBSurfaceFrom(decoded_image,
+    // this surface does not copy the pixels
+    SDL_Surface * tmp_surface = SDL_CreateRGBSurfaceFrom(decoded_image,
         spritesheet_width, spritesheet_height,
         32, pitch,
         color_rmask, color_gmask, color_bmask, color_amask);
+    // this surface will hold a copy of the pixels
+    SDL_Surface * surface = SDL_CreateRGBSurface(0,
+        spritesheet_width, spritesheet_height,
+        32,
+        color_rmask, color_gmask, color_bmask, color_amask);
+    SDL_BlitSurface(tmp_surface, nullptr, surface, nullptr);
 
     png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
     destroy(row_ptrs, 0);
