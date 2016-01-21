@@ -21,24 +21,24 @@ static void init_specieses() {
     //                                     movement cost
     //                                     |   health
     //                                     |   |  base attack
-    //                                     |   |  |   min level
-    //                                     |   |  |   |   max level
-    //                                     |   |  |   |   |   normal vision
-    //                                     |   |  |   |   |   |  ethereal vision
-    //                                     |   |  |   |   |   |  |   sucks up items
-    //                                     |   |  |   |   |   |  |   |  auto throws items
-    //                                     |   |  |   |   |   |  |   |  |  poison attack
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3,  0, 10, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 2,  4,  5, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 3, -1, -1, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1,  0,  1, {0, 1}, 1, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1,  4,  5, {0, 1}, 1, 1, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2,  1,  2, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  2, 1,  0,  2, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  2, 3,  2,  3, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1,  0,  1, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1,  2,  3, {1, 0}, 0, 0, 1};
-    specieses[SpeciesId_SNAKE        ] = {18,  4, 2,  2,  3, {1, 0}, 0, 0, 0};
+    //                                     |   |  |  min level
+    //                                     |   |  |  |   max level
+    //                                     |   |  |  |   |   normal vision
+    //                                     |   |  |  |   |   |  ethereal vision
+    //                                     |   |  |  |   |   |  |   sucks up items
+    //                                     |   |  |  |   |   |  |   |  auto throws items
+    //                                     |   |  |  |   |   |  |   |  |  poison attack
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 2, 4, 10, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_LICH         ] = {12, 12, 3, 7, 10, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1, 0,  1, {0, 1}, 1, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3, 10, {0, 1}, 1, 1, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2, 1,  2, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  2, 1, 0,  1, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  2, 3, 1,  2, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, {1, 0}, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 2,  3, {1, 0}, 0, 0, 1};
+    specieses[SpeciesId_SNAKE        ] = {18,  4, 2, 1,  2, {1, 0}, 0, 0, 0};
 
     specieses_mind[SpeciesId_HUMAN        ] = Mind_SAPIENT_CLEVER;
     specieses_mind[SpeciesId_OGRE         ] = Mind_SAPIENT_DERPER;
@@ -218,37 +218,26 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 
 
 // SpeciesId_COUNT => random
-// experience = -1 => random
-static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker, int experience, Coord location) {
-    if (experience == -1) {
-        // monster experience scales with your level and the dungeon level.
-        int difficulty_level = (you->life()->experience_level() + dungeon_level) / 2;
-        // bias monsters to a lower level to make sure you're more powerful.
-        if (difficulty_level > 0)
-            difficulty_level -= 1;
-        int midpoint = level_to_experience(difficulty_level);
-        experience = random_midpoint(midpoint);
-    }
-
+// location = Coord::nowhere() => random
+static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker, Coord location) {
     if (species_id == SpeciesId_COUNT) {
-        int difficulty = experience_to_level(experience);
+        int difficulty = dungeon_level - random_triangle_distribution(dungeon_level);
+        assert(0 <= difficulty && difficulty < dungeon_level);
         List<SpeciesId> available_specieses;
         for (int i = 0; i < SpeciesId_COUNT; i++) {
-            Species & species = specieses[i];
             if (i == SpeciesId_HUMAN)
-                continue; // humans are good guys
-            if (!(species.min_level <= difficulty && difficulty <= species.max_level))
-                continue;
-            available_specieses.append((SpeciesId)i);
+                continue; // humans are excluded from random
+            const Species & species = specieses[i];
+            if (species.min_level == difficulty)
+                available_specieses.append((SpeciesId)i);
         }
-        if (available_specieses.length() == 0)
-            return nullptr; // wow, mister. you're really strong.
+        assert(available_specieses.length() != 0);
         species_id = available_specieses[random_int(available_specieses.length())];
     }
 
-    Coord away_from_location = you != nullptr ? you->location : stairs_down_location;
     if (location == Coord::nowhere()) {
         // don't spawn monsters near you. don't spawn you near the stairs.
+        Coord away_from_location = you != nullptr ? you->location : stairs_down_location;
         location = random_spawn_location(away_from_location);
         if (location == Coord::nowhere()) {
             // it must be pretty crowded in here
@@ -258,7 +247,7 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
 
     Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
 
-    gain_experience(individual, experience, false);
+    gain_experience(individual, level_to_experience(specieses[species_id].min_level + 1) - 1, false);
 
     actual_things.put(individual->id, individual);
     compute_vision(individual);
@@ -277,11 +266,11 @@ static SpeciesId get_miniboss_species(int dungeon_level) {
 }
 
 static void spawn_random_individual() {
-    spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, -1, Coord::nowhere());
+    spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, Coord::nowhere());
 }
 static void init_individuals() {
     if (you == nullptr) {
-        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, 0, Coord::nowhere());
+        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, Coord::nowhere());
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far apart.
@@ -291,7 +280,7 @@ static void init_individuals() {
 
     if (dungeon_level == final_dungeon_level) {
         // boss
-        Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(7), Coord::nowhere());
+        Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, Coord::nowhere());
         // arm him!
         for (int i = 0; i < 5; i++) {
             pickup_item(boss, create_random_item(ThingType_WAND));
@@ -305,12 +294,12 @@ static void init_individuals() {
     } else {
         // spawn a "miniboss", which is just a specific monster on the stairs.
         SpeciesId miniboss_species_id = get_miniboss_species(dungeon_level);
-        spawn_a_monster(miniboss_species_id, Team_BAD_GUYS, DecisionMakerType_AI, level_to_experience(dungeon_level), find_stairs_down_location());
+        spawn_a_monster(miniboss_species_id, Team_BAD_GUYS, DecisionMakerType_AI, find_stairs_down_location());
     }
 
     // random monsters
     for (int i = 0; i < 4 + 3 * dungeon_level; i++)
-        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, random_inclusive(0, level_to_experience(dungeon_level)), Coord::nowhere());
+        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, Coord::nowhere());
 }
 
 void swarkland_init() {
@@ -712,7 +701,7 @@ static bool take_action(Thing actor, Action action) {
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {
             const Action::GenerateMonster & data = action.generate_monster();
-            spawn_a_monster(data.species, Team_BAD_GUYS, DecisionMakerType_AI, -1, Coord::nowhere());
+            spawn_a_monster(data.species, Team_BAD_GUYS, DecisionMakerType_AI, Coord::nowhere());
             return false;
         }
         case Action::CHEATCODE_CREATE_ITEM:

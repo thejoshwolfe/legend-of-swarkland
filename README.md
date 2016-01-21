@@ -123,6 +123,7 @@ Default indentation for wrapped lines: 1.
  * Balance:
    * scorpions have a 1/4 chance of poison on each hit instead of 100% chance.
    * give the final boss 5 random potions, and teach him how to use them.
+   * monsters always start at their minimum XP level. (issue [#19](https://github.com/thejoshwolfe/legend-of-swarkland/issues/19))
 
 ### 4.0.0
 

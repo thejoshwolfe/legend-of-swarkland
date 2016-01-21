@@ -112,6 +112,19 @@ static inline int random_inclusive(int min, int max) {
 static inline int random_midpoint(int midpoint) {
     return random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
 }
+static inline int random_triangle_distribution(int n) {
+    // 1 -> 1 chance
+    // 2 -> 2 chances
+    // 3 -> 3 chances
+    // ...
+    // n -> n chances
+    // out of n*(n+1)/2 chances
+    int x = random_inclusive(1, n * (n + 1) / 2);
+    for (int result = 1;; result++) {
+        if (x <= result * (result + 1) / 2)
+            return result;
+    }
+}
 
 template <typename T>
 static inline T min(T a, T b) {
