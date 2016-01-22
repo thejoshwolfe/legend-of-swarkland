@@ -99,6 +99,7 @@ void load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture, 
         32,
         color_rmask, color_gmask, color_bmask, color_amask);
     SDL_BlitSurface(tmp_surface, nullptr, surface, nullptr);
+    SDL_FreeSurface(tmp_surface);
 
     png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
     destroy(row_ptrs, 0);
