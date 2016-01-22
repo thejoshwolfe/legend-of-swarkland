@@ -41,7 +41,6 @@ extern Coord stairs_down_location;
 
 void generate_map();
 
-// TODO: this function shouldn't really be necessary now that oob is protected by border walls
 static inline bool is_in_bounds(Coord point) {
     return point.x >= 0 && point.x < map_size.x && point.y >= 0 && point.y < map_size.y;
 }

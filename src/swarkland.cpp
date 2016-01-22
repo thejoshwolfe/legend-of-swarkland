@@ -585,7 +585,10 @@ bool validate_action(Thing actor, Action action) {
             if (actor != player_actor)
                 return false;
             const Action::GenerateMonster & data = action.generate_monster();
-            if (!(0 <= data.species && data.species < SpeciesId_COUNT))
+            Coord location = data.location;
+            if (!(is_in_bounds(location) && is_open_space(actual_map_tiles[location].tile_type)))
+                return false;
+            if (find_individual_at(location) != nullptr)
                 return false;
             return true;
         }
@@ -702,7 +705,7 @@ static bool take_action(Thing actor, Action action) {
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {
             const Action::GenerateMonster & data = action.generate_monster();
-            spawn_a_monster(data.species, data.decision_maker, Coord::nowhere());
+            spawn_a_monster(data.species, data.decision_maker, data.location);
             return false;
         }
         case Action::CHEATCODE_CREATE_ITEM:

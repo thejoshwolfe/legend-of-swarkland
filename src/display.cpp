@@ -597,6 +597,11 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                 lines.append("Tab/s: accept");
                 lines.append("Esc: back");
                 break;
+            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
+                lines.append("qweadzxc: move cursor");
+                lines.append("Tab/s: accept");
+                lines.append("Esc: back");
+                break;
             case InputMode_THROW_CHOOSE_DIRECTION:
             case InputMode_ZAP_CHOOSE_DIRECTION:
                 lines.append("qweadzxc: direction");
@@ -775,6 +780,7 @@ void render() {
             case InputMode_FLOOR_CHOOSE_ACTION:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
+            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
                 direction_distance_min = throw_distance_average - throw_distance_error_margin;
@@ -972,6 +978,7 @@ void render() {
             case InputMode_FLOOR_CHOOSE_ACTION:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
+            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
                 break;
             case InputMode_INVENTORY_CHOOSE_ITEM:
                 render_popup_help = true;
@@ -1035,6 +1042,7 @@ void render() {
         bool show_floor_menu = false;
         bool show_cheatcode_generate_monster_choose_species_menu = false;
         bool show_cheatcode_generate_monster_choose_decision_maker_menu = false;
+        bool show_cheatcode_generate_monster_location_cursor = false;
         bool show_map_popup = false;
         switch (input_mode) {
             case InputMode_MAIN:
@@ -1052,6 +1060,9 @@ void render() {
                 break;
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
                 show_cheatcode_generate_monster_choose_decision_maker_menu = true;
+                break;
+            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
+                show_cheatcode_generate_monster_location_cursor = true;
                 break;
         }
         // floor action menu
@@ -1110,6 +1121,11 @@ void render() {
                 }
             }
             popup_help(main_map_area, Coord{-1, -1}, cheatcode_generate_monster_choose_decision_maker_menu_div);
+        }
+        if (show_cheatcode_generate_monster_location_cursor) {
+            SpeciesId species_id = (SpeciesId)cheatcode_generate_monster_choose_species_menu_cursor;
+            RuckSackImage * image = species_images[species_id];
+            render_tile(renderer, sprite_sheet_texture, image, 0x7f, cheatcode_generate_monster_choose_location_cursor);
         }
         // popup help for hovering over things
         if (show_map_popup) {

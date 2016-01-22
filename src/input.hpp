@@ -13,6 +13,7 @@ enum InputMode {
     InputMode_FLOOR_CHOOSE_ACTION,
     InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES,
     InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER,
+    InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION,
 };
 
 extern bool request_shutdown;
@@ -25,6 +26,7 @@ extern int inventory_menu_cursor;
 extern int floor_menu_cursor;
 extern int cheatcode_generate_monster_choose_species_menu_cursor;
 extern int cheatcode_generate_monster_choose_decision_maker_menu_cursor;
+extern Coord cheatcode_generate_monster_choose_location_cursor;
 
 Coord get_mouse_pixels();
 void on_mouse_motion();

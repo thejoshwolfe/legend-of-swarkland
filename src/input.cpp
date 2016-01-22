@@ -12,6 +12,7 @@ int inventory_menu_cursor;
 int floor_menu_cursor;
 int cheatcode_generate_monster_choose_species_menu_cursor;
 int cheatcode_generate_monster_choose_decision_maker_menu_cursor;
+Coord cheatcode_generate_monster_choose_location_cursor = {map_size.x / 2, map_size.y / 2};
 
 bool request_shutdown = false;
 
@@ -335,18 +336,16 @@ static Action on_key_down_cheatcode_generate_monster_choose_species(const SDL_Ev
         case SDL_SCANCODE_KP_8:
         case SDL_SCANCODE_W:
         case SDL_SCANCODE_KP_2:
-        case SDL_SCANCODE_X: {
+        case SDL_SCANCODE_X:
             // move the cursor
             cheatcode_generate_monster_choose_species_menu_cursor = (cheatcode_generate_monster_choose_species_menu_cursor + get_direction_from_event(event).y + SpeciesId_COUNT) % SpeciesId_COUNT;
             break;
-        }
         case SDL_SCANCODE_TAB:
         case SDL_SCANCODE_KP_5:
-        case SDL_SCANCODE_S: {
+        case SDL_SCANCODE_S:
             // accept
             input_mode = InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER;
             break;
-        }
 
         default:
             break;
@@ -363,21 +362,59 @@ static Action on_key_down_cheatcode_generate_monster_choose_decision_maker(const
         case SDL_SCANCODE_KP_8:
         case SDL_SCANCODE_W:
         case SDL_SCANCODE_KP_2:
-        case SDL_SCANCODE_X: {
+        case SDL_SCANCODE_X:
             // move the cursor
             cheatcode_generate_monster_choose_decision_maker_menu_cursor = (cheatcode_generate_monster_choose_decision_maker_menu_cursor + get_direction_from_event(event).y + DecisionMakerType_COUNT) % DecisionMakerType_COUNT;
+            break;
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
+        case SDL_SCANCODE_S:
+            // accept
+            input_mode = InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION;
+            break;
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down_cheatcode_generate_monster_choose_location(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER;
+            break;
+
+        case SDL_SCANCODE_KP_7:
+        case SDL_SCANCODE_Q:
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_9:
+        case SDL_SCANCODE_E:
+        case SDL_SCANCODE_KP_4:
+        case SDL_SCANCODE_A:
+        case SDL_SCANCODE_KP_6:
+        case SDL_SCANCODE_D:
+        case SDL_SCANCODE_KP_1:
+        case SDL_SCANCODE_Z:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_X:
+        case SDL_SCANCODE_KP_3:
+        case SDL_SCANCODE_C: {
+            // move the cursor
+            Coord new_location = cheatcode_generate_monster_choose_location_cursor + get_direction_from_event(event);
+            if (is_in_bounds(new_location))
+                cheatcode_generate_monster_choose_location_cursor = new_location;
             break;
         }
         case SDL_SCANCODE_TAB:
         case SDL_SCANCODE_KP_5:
-        case SDL_SCANCODE_S: {
+        case SDL_SCANCODE_S:
             // accept
             input_mode = InputMode_MAIN;
             return Action::cheatcode_generate_monster(
                 (SpeciesId)cheatcode_generate_monster_choose_species_menu_cursor,
-                (DecisionMakerType)cheatcode_generate_monster_choose_decision_maker_menu_cursor);
-            break;
-        }
+                (DecisionMakerType)cheatcode_generate_monster_choose_decision_maker_menu_cursor,
+                cheatcode_generate_monster_choose_location_cursor);
 
         default:
             break;
@@ -447,6 +484,8 @@ static Action on_key_down(const SDL_Event & event) {
             return on_key_down_cheatcode_generate_monster_choose_species(event);
         case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
             return on_key_down_cheatcode_generate_monster_choose_decision_maker(event);
+        case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
+            return on_key_down_cheatcode_generate_monster_choose_location(event);
     }
     return Action::undecided();
 }

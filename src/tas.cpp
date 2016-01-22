@@ -412,11 +412,12 @@ static Action read_action() {
             return action;
         }
         case Action::Layout_GENERATE_MONSTER: {
-            if (tokens.length() != 3)
-                report_error(tokens[0], 0, "expected 2 arguments");
+            if (tokens.length() != 5)
+                report_error(tokens[0], 0, "expected 4 arguments");
             Action::GenerateMonster & data = action.generate_monster();
             data.species = parse_species_id(tokens[1]);
             data.decision_maker = parse_decision_maker(tokens[2]);
+            data.location = parse_coord(tokens[3], tokens[4]);
             return action;
         }
     }
@@ -450,7 +451,9 @@ static String action_to_string(const Action & action) {
             const Action::GenerateMonster & data = action.generate_monster();
             String species_string = species_names[data.species];
             String decision_maker_string = decision_maker_names[data.decision_maker];
-            result->format("%s %s %s\n", action_type_string, species_string, decision_maker_string);
+            String location_string1 = int_to_string(data.location.x);
+            String location_string2 = int_to_string(data.location.y);
+            result->format("%s %s %s %s %s\n", action_type_string, species_string, decision_maker_string, location_string1, location_string2);
             break;
         }
     }
