@@ -75,9 +75,12 @@ static Action get_ai_decision(Thing actor) {
     for (auto iterator = actor->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL:
-                if (target->life()->team == actor->life()->team)
-                    continue; // you're cool
-                break;
+                if (target->id == you->id)
+                    break; // get him!
+                if (target->life()->species_id == SpeciesId_UNSEEN)
+                    break; // uh... get him?
+                // you're cool
+                continue;
             case ThingType_WAND:
                 if (!uses_items)
                     continue; // don't care

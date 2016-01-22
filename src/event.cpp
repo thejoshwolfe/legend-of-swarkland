@@ -121,8 +121,7 @@ static uint256 make_unseen_individual(Thing observer, uint256 actual_target_id) 
     if (thing == nullptr) {
         // invent an unseen individual here
         uint256 id = random_uint256();
-        Team opposite_team = observer->life()->team == Team_BAD_GUYS ? Team_GOOD_GUYS :Team_BAD_GUYS;
-        thing = create<PerceivedThingImpl>(id, SpeciesId_UNSEEN, actual_target->location, opposite_team, time_counter);
+        thing = create<PerceivedThingImpl>(id, SpeciesId_UNSEEN, actual_target->location, time_counter);
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
     if (can_see_location(observer, actual_target->location)) {

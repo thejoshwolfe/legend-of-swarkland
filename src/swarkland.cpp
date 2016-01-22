@@ -219,7 +219,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 
 // SpeciesId_COUNT => random
 // location = Coord::nowhere() => random
-static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType decision_maker, Coord location) {
+static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
     if (species_id == SpeciesId_COUNT) {
         int difficulty = dungeon_level - random_triangle_distribution(dungeon_level);
         assert(0 <= difficulty && difficulty < dungeon_level);
@@ -245,7 +245,7 @@ static Thing spawn_a_monster(SpeciesId species_id, Team team, DecisionMakerType 
         }
     }
 
-    Thing individual = create<ThingImpl>(species_id, location, team, decision_maker);
+    Thing individual = create<ThingImpl>(species_id, location, decision_maker);
 
     gain_experience(individual, level_to_experience(specieses[species_id].min_level + 1) - 1, false);
 
@@ -266,11 +266,11 @@ static SpeciesId get_miniboss_species(int dungeon_level) {
 }
 
 static void spawn_random_individual() {
-    spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, Coord::nowhere());
+    spawn_a_monster(SpeciesId_COUNT, DecisionMakerType_AI, Coord::nowhere());
 }
 static void init_individuals() {
     if (you == nullptr) {
-        you = spawn_a_monster(SpeciesId_HUMAN, Team_GOOD_GUYS, DecisionMakerType_PLAYER, Coord::nowhere());
+        you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord::nowhere());
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far apart.
@@ -280,7 +280,7 @@ static void init_individuals() {
 
     if (dungeon_level == final_dungeon_level) {
         // boss
-        Thing boss = spawn_a_monster(SpeciesId_LICH, Team_BAD_GUYS, DecisionMakerType_AI, Coord::nowhere());
+        Thing boss = spawn_a_monster(SpeciesId_LICH, DecisionMakerType_AI, Coord::nowhere());
         // arm him!
         for (int i = 0; i < 5; i++) {
             pickup_item(boss, create_random_item(ThingType_WAND));
@@ -294,12 +294,12 @@ static void init_individuals() {
     } else {
         // spawn a "miniboss", which is just a specific monster on the stairs.
         SpeciesId miniboss_species_id = get_miniboss_species(dungeon_level);
-        spawn_a_monster(miniboss_species_id, Team_BAD_GUYS, DecisionMakerType_AI, find_stairs_down_location());
+        spawn_a_monster(miniboss_species_id, DecisionMakerType_AI, find_stairs_down_location());
     }
 
     // random monsters
     for (int i = 0; i < 4 + 3 * dungeon_level; i++)
-        spawn_a_monster(SpeciesId_COUNT, Team_BAD_GUYS, DecisionMakerType_AI, Coord::nowhere());
+        spawn_a_monster(SpeciesId_COUNT, DecisionMakerType_AI, Coord::nowhere());
 }
 
 void swarkland_init() {
@@ -701,7 +701,7 @@ static bool take_action(Thing actor, Action action) {
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {
             const Action::GenerateMonster & data = action.generate_monster();
-            spawn_a_monster(data.species, Team_BAD_GUYS, DecisionMakerType_AI, Coord::nowhere());
+            spawn_a_monster(data.species, DecisionMakerType_AI, Coord::nowhere());
             return false;
         }
         case Action::CHEATCODE_CREATE_ITEM:

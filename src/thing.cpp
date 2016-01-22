@@ -2,13 +2,12 @@
 
 #include "swarkland.hpp"
 
-ThingImpl::ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker) :
+ThingImpl::ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType decision_maker) :
         thing_type(ThingType_INDIVIDUAL), location(location)
 {
     id = random_uint256();
     _life = create<Life>();
     _life->species_id = species_id;
-    _life->team = team;
     _life->decision_maker = decision_maker;
     _life->hitpoints = _life->max_hitpoints();
     _life->initiative = random_uint256();
@@ -51,7 +50,7 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
         case ThingType_POTION:
             return create<PerceivedThingImpl>(target->id, target->potion_info()->description_id, location, container_id, z_order, time_counter);
         case ThingType_INDIVIDUAL: {
-            PerceivedThing perceived_thing = create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, target->life()->team, time_counter);
+            PerceivedThing perceived_thing = create<PerceivedThingImpl>(target->id, target->life()->species_id, target->location, time_counter);
             for (int i = 0; i < target->status_effects.length(); i++)
                 perceived_thing->status_effects.append(target->status_effects[i].type);
             return perceived_thing;

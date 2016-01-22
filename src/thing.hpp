@@ -82,11 +82,6 @@ enum SpeciesId {
     SpeciesId_UNSEEN,
 };
 
-enum Team {
-    Team_GOOD_GUYS,
-    Team_BAD_GUYS,
-};
-
 enum DecisionMakerType {
     DecisionMakerType_PLAYER,
     DecisionMakerType_AI,
@@ -164,7 +159,6 @@ struct PerceivedPotionInfo {
 };
 struct PerceivedLife {
     SpeciesId species_id;
-    Team team;
 };
 
 class PerceivedThingImpl : public ReferenceCounted {
@@ -177,7 +171,7 @@ public:
     int64_t last_seen_time;
     List<StatusEffect::StatusEffectType> status_effects;
     // individual
-    PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, Team team, int64_t last_seen_time) :
+    PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, int64_t last_seen_time) :
             id(id), thing_type(ThingType_INDIVIDUAL), location(location), last_seen_time(last_seen_time) {
         assert(id != uint256::zero());
         if (id == uint256{16834101961345315201ULL, 6672530469245184391ULL, 8551116969905452987ULL, 4392448728760151208ULL}) {
@@ -185,7 +179,6 @@ public:
         }
         _life = create<PerceivedLife>();
         _life->species_id = species_id;
-        _life->team = team;
     }
     // wand
     PerceivedThingImpl(uint256 id, WandDescriptionId description_id, Coord location, uint256 container_id, int z_order, int64_t last_seen_time) :
@@ -321,7 +314,7 @@ public:
     List<StatusEffect> status_effects;
 
     // individual
-    ThingImpl(SpeciesId species_id, Coord location, Team team, DecisionMakerType decision_maker);
+    ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType decision_maker);
     // wand
     ThingImpl(WandDescriptionId description_id, int charges);
     // potion
