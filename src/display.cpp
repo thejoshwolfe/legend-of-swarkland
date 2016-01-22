@@ -196,7 +196,7 @@ static inline bool rect_contains(SDL_Rect rect, Coord point) {
 }
 
 static Thing get_spectate_individual() {
-    return cheatcode_spectator != nullptr ? cheatcode_spectator : you;
+    return cheatcode_spectator != nullptr ? cheatcode_spectator : player_actor;
 }
 
 static void render_tile(SDL_Renderer * renderer, SDL_Texture * texture, RuckSackImage * image, int alpha, Coord coord) {
@@ -749,13 +749,13 @@ static Span render_decision_maker(DecisionMakerType decision_maker) {
 void render() {
     Thing spectate_from = get_spectate_individual();
     List<Thing> my_inventory;
-    find_items_in_inventory(you->id, &my_inventory);
+    find_items_in_inventory(player_actor->id, &my_inventory);
 
     set_color(black);
     SDL_RenderClear(renderer);
 
     // tutorial
-    tutorial_div->set_content(get_tutorial_div_content(you, my_inventory));
+    tutorial_div->set_content(get_tutorial_div_content(player_actor, my_inventory));
     render_div(tutorial_div, tutorial_area, 1, 1);
     {
         Span blurb_span = new_span("v", gray, black);
@@ -1005,7 +1005,7 @@ void render() {
         }
         // popup help
         if (render_popup_help) {
-            keyboard_hover_div->set_content(get_thing_description(you, my_inventory[inventory_cursor]->id));
+            keyboard_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_cursor]->id));
             popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
         }
         // action menu
@@ -1147,7 +1147,7 @@ void render() {
             if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
                 int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
                 if (inventory_index < my_inventory.length()) {
-                    mouse_hover_div->set_content(get_thing_description(you, my_inventory[inventory_index]->id));
+                    mouse_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_index]->id));
                     popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
                 }
             }

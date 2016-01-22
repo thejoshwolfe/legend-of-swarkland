@@ -83,8 +83,8 @@ enum SpeciesId {
 };
 
 enum DecisionMakerType {
-    DecisionMakerType_PLAYER,
     DecisionMakerType_AI,
+    DecisionMakerType_PLAYER,
 
     DecisionMakerType_COUNT,
 };

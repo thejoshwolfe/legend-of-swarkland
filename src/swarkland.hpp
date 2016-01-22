@@ -11,9 +11,12 @@ extern Species specieses[SpeciesId_COUNT];
 extern Mind specieses_mind[SpeciesId_COUNT];
 
 extern IdMap<Thing> actual_things;
+// the good guy
 extern Thing you;
 extern bool youre_still_alive;
 extern int64_t time_counter;
+// usually you, but cheatcodes can allow you to control several monsters at once.
+extern Thing player_actor;
 
 extern bool cheatcode_full_visibility;
 extern Thing cheatcode_spectator;

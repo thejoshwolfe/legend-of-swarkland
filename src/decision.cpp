@@ -9,6 +9,7 @@ Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
 Action current_player_decision;
 
 static Action get_player_decision(Thing actor) {
+    player_actor = actor;
     Action action = tas_get_decision();
     if (action == Action::undecided()) {
         // ok, ask the real player
@@ -300,6 +301,6 @@ static Action get_ai_decision(Thing actor) {
 }
 
 void init_decisions() {
-    decision_makers[DecisionMakerType_PLAYER] = get_player_decision;
     decision_makers[DecisionMakerType_AI] = get_ai_decision;
+    decision_makers[DecisionMakerType_PLAYER] = get_player_decision;
 }

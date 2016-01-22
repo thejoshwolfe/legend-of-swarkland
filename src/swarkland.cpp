@@ -14,6 +14,7 @@ IdMap<Thing> actual_things;
 Thing you;
 bool youre_still_alive = true;
 int64_t time_counter = 0;
+Thing player_actor;
 
 bool cheatcode_full_visibility;
 
@@ -493,10 +494,10 @@ static void cheatcode_kill_everybody_in_the_world() {
     }
 }
 static void cheatcode_polymorph() {
-    SpeciesId new_species = (SpeciesId)((you->life()->species_id + 1) % SpeciesId_COUNT);
-    publish_event(Event::polymorph(you, new_species));
-    you->life()->species_id = new_species;
-    compute_vision(you);
+    SpeciesId new_species = (SpeciesId)((player_actor->life()->species_id + 1) % SpeciesId_COUNT);
+    publish_event(Event::polymorph(player_actor, new_species));
+    player_actor->life()->species_id = new_species;
+    compute_vision(player_actor);
 }
 Thing cheatcode_spectator;
 void cheatcode_spectate() {
@@ -577,11 +578,11 @@ bool validate_action(Thing actor, Action action) {
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
-            if (actor != you)
+            if (actor != player_actor)
                 return false;
             return true;
         case Action::CHEATCODE_GENERATE_MONSTER: {
-            if (actor != you)
+            if (actor != player_actor)
                 return false;
             const Action::GenerateMonster & data = action.generate_monster();
             if (!(0 <= data.species && data.species < SpeciesId_COUNT))
@@ -705,13 +706,13 @@ static bool take_action(Thing actor, Action action) {
             return false;
         }
         case Action::CHEATCODE_CREATE_ITEM:
-            create_all_items(you->location);
+            create_all_items(player_actor->location);
             return false;
         case Action::CHEATCODE_IDENTIFY:
             for (int i = 0; i < WandDescriptionId_COUNT; i++)
-                you->life()->knowledge.wand_identities[i] = actual_wand_identities[i];
+                player_actor->life()->knowledge.wand_identities[i] = actual_wand_identities[i];
             for (int i = 0; i < PotionDescriptionId_COUNT; i++)
-                you->life()->knowledge.potion_identities[i] = actual_potion_identities[i];
+                player_actor->life()->knowledge.potion_identities[i] = actual_potion_identities[i];
             return false;
         case Action::CHEATCODE_GO_DOWN:
             if (dungeon_level < final_dungeon_level)

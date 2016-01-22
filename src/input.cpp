@@ -44,7 +44,7 @@ void get_floor_actions(Thing actor, List<Action> * actions) {
 
 static Action move_or_attack(Coord direction) {
     // convert moving into attacking if it's pointed at an observed monster.
-    if (find_perceived_individual_at(you, you->location + direction) != nullptr)
+    if (find_perceived_individual_at(player_actor, player_actor->location + direction) != nullptr)
         return Action::attack(direction);
     return Action::move(direction);
 }
@@ -137,7 +137,7 @@ static Action on_key_down_main(const SDL_Event & event) {
                 return Action::wait();
             case SDL_SCANCODE_TAB: {
                 List<Thing> inventory;
-                find_items_in_inventory(you->id, &inventory);
+                find_items_in_inventory(player_actor->id, &inventory);
                 if (inventory.length() > 0) {
                     inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
                     input_mode = InputMode_INVENTORY_CHOOSE_ITEM;
@@ -147,7 +147,7 @@ static Action on_key_down_main(const SDL_Event & event) {
             case SDL_SCANCODE_KP_5:
             case SDL_SCANCODE_S: {
                 List<Action> actions;
-                get_floor_actions(you, &actions);
+                get_floor_actions(player_actor, &actions);
                 if (actions.length() == 0)
                     break;
                 if (actions.length() == 1)
@@ -157,12 +157,6 @@ static Action on_key_down_main(const SDL_Event & event) {
                 floor_menu_cursor = clamp(floor_menu_cursor, 0, actions.length() - 1);
                 break;
             }
-
-            case SDL_SCANCODE_PERIOD:
-                // TODO: do this with numpad 5
-                if (actual_map_tiles[you->location].tile_type != TileType_STAIRS_DOWN)
-                    break;
-                return Action::go_down();
 
             default:
                 break;
@@ -194,7 +188,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_C: {
             // move the cursor
             List<Thing> inventory;
-            find_items_in_inventory(you->id, &inventory);
+            find_items_in_inventory(player_actor->id, &inventory);
             Coord location = inventory_index_to_location(inventory_cursor) + get_direction_from_event(event);
             if (0 <= location.x && location.x < inventory_layout_width && 0 <= location.y) {
                 int new_index = inventory_location_to_index(location);
@@ -208,7 +202,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_S: {
             // accept
             List<Thing> inventory;
-            find_items_in_inventory(you->id, &inventory);
+            find_items_in_inventory(player_actor->id, &inventory);
             chosen_item = inventory[inventory_cursor];
 
             assert(inventory_menu_items.length() == 0);
@@ -313,7 +307,7 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
         case SDL_SCANCODE_X: {
             // move the cursor
             List<Action> actions;
-            get_floor_actions(you, &actions);
+            get_floor_actions(player_actor, &actions);
             floor_menu_cursor = (floor_menu_cursor + get_direction_from_event(event).y + actions.length()) % actions.length();
             break;
         }
@@ -322,7 +316,7 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
         case SDL_SCANCODE_S: {
             // accept
             List<Action> actions;
-            get_floor_actions(you, &actions);
+            get_floor_actions(player_actor, &actions);
             input_mode = InputMode_MAIN;
             return actions[floor_menu_cursor];
         }
@@ -415,7 +409,7 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
         case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_C: {
             List<Thing> inventory;
-            find_items_in_inventory(you->id, &inventory);
+            find_items_in_inventory(player_actor->id, &inventory);
             uint256 item_id = inventory[inventory_cursor]->id;
             switch (input_mode) {
                 case InputMode_THROW_CHOOSE_DIRECTION:
