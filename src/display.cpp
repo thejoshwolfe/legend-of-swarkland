@@ -523,6 +523,8 @@ static List<Action> last_floor_menu_actions;
 static int last_floor_menu_cursor;
 static Div cheatcode_generate_monster_choose_species_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
+static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
+static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -1;
 
 static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_inventory) {
     List<const char *> lines;
@@ -590,6 +592,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
+            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
                 lines.append("w/x: move cursor");
                 lines.append("Tab/s: accept");
                 lines.append("Esc: back");
@@ -727,6 +730,21 @@ static Span render_species(SpeciesId species_id) {
     result->format("%g%s", species_images[species_id], get_species_name(species_id));
     return result;
 }
+static Span render_decision_maker(DecisionMakerType decision_maker) {
+    Span result = new_span();
+    switch (decision_maker) {
+        case DecisionMakerType_PLAYER:
+            result->append("Player");
+            break;
+        case DecisionMakerType_AI:
+            result->append("AI");
+            break;
+
+        case DecisionMakerType_COUNT:
+            unreachable();;
+    }
+    return result;
+}
 
 void render() {
     Thing spectate_from = get_spectate_individual();
@@ -756,6 +774,7 @@ void render() {
             case InputMode_INVENTORY_CHOOSE_ACTION:
             case InputMode_FLOOR_CHOOSE_ACTION:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
+            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
                 direction_distance_min = throw_distance_average - throw_distance_error_margin;
@@ -952,6 +971,7 @@ void render() {
             case InputMode_MAIN:
             case InputMode_FLOOR_CHOOSE_ACTION:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
+            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
                 break;
             case InputMode_INVENTORY_CHOOSE_ITEM:
                 render_popup_help = true;
@@ -1014,21 +1034,24 @@ void render() {
     {
         bool show_floor_menu = false;
         bool show_cheatcode_generate_monster_choose_species_menu = false;
-        bool show_map_popup = true;
+        bool show_cheatcode_generate_monster_choose_decision_maker_menu = false;
+        bool show_map_popup = false;
         switch (input_mode) {
             case InputMode_MAIN:
             case InputMode_INVENTORY_CHOOSE_ITEM:
             case InputMode_INVENTORY_CHOOSE_ACTION:
             case InputMode_THROW_CHOOSE_DIRECTION:
             case InputMode_ZAP_CHOOSE_DIRECTION:
+                show_map_popup = true;
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
                 show_floor_menu = true;
-                show_map_popup = false;
                 break;
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
                 show_cheatcode_generate_monster_choose_species_menu = true;
-                show_map_popup = false;
+                break;
+            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
+                show_cheatcode_generate_monster_choose_decision_maker_menu = true;
                 break;
         }
         // floor action menu
@@ -1070,6 +1093,23 @@ void render() {
                 }
             }
             popup_help(main_map_area, Coord{-1, -1}, cheatcode_generate_monster_choose_species_menu_div);
+        }
+        if (show_cheatcode_generate_monster_choose_decision_maker_menu) {
+            if (last_cheatcode_generate_monster_choose_decision_maker_menu_cursor != cheatcode_generate_monster_choose_decision_maker_menu_cursor) {
+                // rerender menu div
+                cheatcode_generate_monster_choose_decision_maker_menu_div->clear();
+                last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = cheatcode_generate_monster_choose_decision_maker_menu_cursor;
+                for (int i = 0; i < DecisionMakerType_COUNT; i++) {
+                    if (i > 0)
+                        cheatcode_generate_monster_choose_decision_maker_menu_div->append_newline();
+                    Span item_span = render_decision_maker((DecisionMakerType)i);
+                    if (i == cheatcode_generate_monster_choose_decision_maker_menu_cursor) {
+                        item_span->set_color_recursive(black, amber);
+                    }
+                    cheatcode_generate_monster_choose_decision_maker_menu_div->append(item_span);
+                }
+            }
+            popup_help(main_map_area, Coord{-1, -1}, cheatcode_generate_monster_choose_decision_maker_menu_div);
         }
         // popup help for hovering over things
         if (show_map_popup) {

@@ -35,6 +35,7 @@ struct Action {
     };
     struct GenerateMonster {
         SpeciesId species;
+        DecisionMakerType decision_maker;
     };
     enum Layout {
         Layout_VOID,
@@ -99,8 +100,8 @@ struct Action {
     static Action cheatcode_polymorph() {
         return init(CHEATCODE_POLYMORPH);
     }
-    static Action cheatcode_generate_monster(SpeciesId species_id) {
-        return init(CHEATCODE_GENERATE_MONSTER, species_id);
+    static Action cheatcode_generate_monster(SpeciesId species_id, DecisionMakerType decision_maker) {
+        return init(CHEATCODE_GENERATE_MONSTER, species_id, decision_maker);
     }
     static Action cheatcode_create_item() {
         return init(CHEATCODE_CREATE_ITEM);
@@ -143,11 +144,12 @@ struct Action {
         result._coord_and_item.item = item;
         return result;
     }
-    static Action init(Id id, SpeciesId species_id) {
+    static Action init(Id id, SpeciesId species_id, DecisionMakerType decision_maker) {
         assert(get_layout(id) == Layout_GENERATE_MONSTER);
         Action result;
         result.id = id;
         result._generate_monster.species = species_id;
+        result._generate_monster.decision_maker = decision_maker;
         return result;
     }
 
@@ -216,6 +218,8 @@ static inline bool operator==(const Action & a, const Action &  b) {
             const Action::GenerateMonster & a_data = a.generate_monster();
             const Action::GenerateMonster & b_data = b.generate_monster();
             if (a_data.species != b_data.species)
+                return false;
+            if (a_data.decision_maker != b_data.decision_maker)
                 return false;
             return true;
         }

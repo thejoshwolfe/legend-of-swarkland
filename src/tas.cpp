@@ -237,6 +237,7 @@ static Coord parse_coord(const Token & token1, const Token & token2) {
 
 static String action_names[Action::COUNT];
 static String species_names[SpeciesId_COUNT];
+static String decision_maker_names[DecisionMakerType_COUNT];
 static void init_name_arrays() {
     action_names[Action::MOVE] = new_string("move");
     action_names[Action::WAIT] = new_string("wait");
@@ -267,6 +268,9 @@ static void init_name_arrays() {
     species_names[SpeciesId_BEETLE] = new_string("beetle");
     species_names[SpeciesId_SCORPION] = new_string("scorpion");
     species_names[SpeciesId_SNAKE] = new_string("snake");
+
+    decision_maker_names[DecisionMakerType_PLAYER] = new_string("player");
+    decision_maker_names[DecisionMakerType_AI] = new_string("ai");
 }
 
 static Action::Id parse_action_type(const Token & token) {
@@ -282,6 +286,13 @@ static SpeciesId parse_species_id(const Token & token) {
             return (SpeciesId)i;
     }
     report_error(token, 0, "undefined species id");
+}
+static DecisionMakerType parse_decision_maker(const Token & token) {
+    for (int i = 0; i < DecisionMakerType_COUNT; i++) {
+        if (*decision_maker_names[i] == *token.string)
+            return (DecisionMakerType)i;
+    }
+    report_error(token, 0, "undefined decision maker");
 }
 
 static const char * const SEED = "@seed";
@@ -401,10 +412,11 @@ static Action read_action() {
             return action;
         }
         case Action::Layout_GENERATE_MONSTER: {
-            if (tokens.length() != 2)
-                report_error(tokens[0], 0, "expected 1 argument");
+            if (tokens.length() != 3)
+                report_error(tokens[0], 0, "expected 2 arguments");
             Action::GenerateMonster & data = action.generate_monster();
             data.species = parse_species_id(tokens[1]);
+            data.decision_maker = parse_decision_maker(tokens[2]);
             return action;
         }
     }
@@ -437,7 +449,8 @@ static String action_to_string(const Action & action) {
         case Action::Layout_GENERATE_MONSTER: {
             const Action::GenerateMonster & data = action.generate_monster();
             String species_string = species_names[data.species];
-            result->format("%s %s\n", action_type_string, species_string);
+            String decision_maker_string = decision_maker_names[data.decision_maker];
+            result->format("%s %s %s\n", action_type_string, species_string, decision_maker_string);
             break;
         }
     }

@@ -701,7 +701,7 @@ static bool take_action(Thing actor, Action action) {
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {
             const Action::GenerateMonster & data = action.generate_monster();
-            spawn_a_monster(data.species, DecisionMakerType_AI, Coord::nowhere());
+            spawn_a_monster(data.species, data.decision_maker, Coord::nowhere());
             return false;
         }
         case Action::CHEATCODE_CREATE_ITEM:
