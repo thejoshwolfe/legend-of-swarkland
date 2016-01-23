@@ -1,5 +1,5 @@
 /build/
-*.swarkland
+/*.swarkland
 /.cproject
 /.project
 /.settings/
