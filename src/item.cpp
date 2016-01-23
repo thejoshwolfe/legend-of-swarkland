@@ -42,6 +42,9 @@ Thing create_random_item(ThingType thing_type) {
             return create_wand((WandId)random_int(WandId_COUNT));
         case ThingType_INDIVIDUAL:
             panic("not an item");
+
+        case ThingType_COUNT:
+            unreachable();
     }
     panic("thing type");
 }

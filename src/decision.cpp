@@ -94,6 +94,9 @@ static Action get_ai_decision(Thing actor) {
                 if (target->location == Coord::nowhere())
                     continue; // somebody's already got it.
                 break;
+
+            case ThingType_COUNT:
+                unreachable();
         }
         if (things_of_interest.length() == 0) {
             // found something to do
@@ -235,6 +238,9 @@ static Action get_ai_decision(Thing actor) {
                                     unreachable();
                             }
                             break;
+
+                        case ThingType_COUNT:
+                            unreachable();
                     }
                 }
                 if (defense_actions.length() + buff_actions.length() + range_attack_actions.length() > 0) {
@@ -284,6 +290,9 @@ static Action get_ai_decision(Thing actor) {
                     return Action::wait();
                 }
             }
+
+            case ThingType_COUNT:
+                unreachable();
         }
     }
 

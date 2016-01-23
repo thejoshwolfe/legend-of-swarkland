@@ -66,6 +66,9 @@ PerceivedThing to_perceived_thing(uint256 target_id) {
                 perceived_thing->status_effects.append(target->status_effects[i].type);
             return perceived_thing;
         }
+
+        case ThingType_COUNT:
+            unreachable();
     }
     panic("thing type");
 }

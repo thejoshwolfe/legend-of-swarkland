@@ -18,6 +18,8 @@ enum ThingType {
     ThingType_INDIVIDUAL,
     ThingType_WAND,
     ThingType_POTION,
+
+    ThingType_COUNT,
 };
 
 enum WandDescriptionId {
@@ -205,6 +207,9 @@ public:
             case ThingType_POTION:
                 destroy(_potion_info, 1);
                 break;
+
+            case ThingType_COUNT:
+                unreachable();
         }
     }
     PerceivedLife * life() {
@@ -333,6 +338,9 @@ public:
             case ThingType_POTION:
                 destroy(_potion_info, 1);
                 break;
+
+            case ThingType_COUNT:
+                unreachable();
         }
     }
 

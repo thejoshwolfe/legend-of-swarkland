@@ -96,6 +96,9 @@ static uint256 make_unseen_item(Thing observer, uint256 actual_item_id, uint256 
                 if (thing->potion_info()->description_id == PotionDescriptionId_UNSEEN)
                     return thing->id; // already got one
                 break;
+
+            case ThingType_COUNT:
+                unreachable();
         }
     }
     // invent an item
@@ -110,6 +113,9 @@ static uint256 make_unseen_item(Thing observer, uint256 actual_item_id, uint256 
         case ThingType_POTION:
             thing = create<PerceivedThingImpl>(id, PotionDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
             break;
+
+        case ThingType_COUNT:
+            unreachable();
     }
     observer->life()->knowledge.perceived_things.put(id, thing);
     fix_perceived_z_orders(observer, container->id);
@@ -327,6 +333,9 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
                     return target;
                 }
                 break;
+
+            case ThingType_COUNT:
+                unreachable();
         }
     }
     target = to_perceived_thing(target_id);

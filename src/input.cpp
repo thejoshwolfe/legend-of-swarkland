@@ -10,6 +10,9 @@ Thing chosen_item;
 List<Action::Id> inventory_menu_items;
 int inventory_menu_cursor;
 int floor_menu_cursor;
+int cheatcode_wish_choose_thing_type_menu_cursor;
+int cheatcode_wish_choose_wand_id_menu_cursor;
+int cheatcode_wish_choose_potion_id_menu_cursor;
 int cheatcode_generate_monster_choose_species_menu_cursor;
 int cheatcode_generate_monster_choose_decision_maker_menu_cursor;
 Coord cheatcode_generate_monster_choose_location_cursor = {map_size.x / 2, map_size.y / 2};
@@ -103,7 +106,8 @@ static Action on_key_down_main(const SDL_Event & event) {
                 input_mode = InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES;
                 break;
             case SDLK_w:
-                return Action::cheatcode_create_item();
+                input_mode = InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE;
+                break;
             case SDLK_o:
                 return Action::cheatcode_identify();
             case SDLK_PERIOD:
@@ -216,6 +220,9 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
                 case ThingType_POTION:
                     inventory_menu_items.append(Action::QUAFF);
                     break;
+
+                case ThingType_COUNT:
+                    unreachable();
             }
             inventory_menu_items.append(Action::DROP);
             inventory_menu_items.append(Action::THROW);
@@ -281,7 +288,7 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                 case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
                 case Action::CHEATCODE_POLYMORPH:
                 case Action::CHEATCODE_GENERATE_MONSTER:
-                case Action::CHEATCODE_CREATE_ITEM:
+                case Action::CHEATCODE_WISH:
                 case Action::CHEATCODE_IDENTIFY:
                 case Action::CHEATCODE_GO_DOWN:
                 case Action::CHEATCODE_GAIN_LEVEL:
@@ -321,6 +328,93 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
             input_mode = InputMode_MAIN;
             return actions[floor_menu_cursor];
         }
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down_cheatcode_wish_choose_thing_type(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_MAIN;
+            break;
+
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_X:
+            // move the cursor
+            cheatcode_wish_choose_thing_type_menu_cursor = (cheatcode_wish_choose_thing_type_menu_cursor + get_direction_from_event(event).y + (ThingType_COUNT - 1)) % (ThingType_COUNT - 1);
+            break;
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
+        case SDL_SCANCODE_S:
+            // accept
+            switch ((ThingType)(cheatcode_wish_choose_thing_type_menu_cursor + 1)) {
+                case ThingType_INDIVIDUAL:
+                    unreachable();
+                case ThingType_WAND:
+                    input_mode = InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID;
+                    break;
+                case ThingType_POTION:
+                    input_mode = InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID;
+                    break;
+
+                case ThingType_COUNT:
+                    unreachable();
+            }
+            break;
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down_cheatcode_wish_choose_wand_id(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_MAIN;
+            break;
+
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_X:
+            // move the cursor
+            cheatcode_wish_choose_wand_id_menu_cursor = (cheatcode_wish_choose_wand_id_menu_cursor + get_direction_from_event(event).y + WandId_COUNT) % WandId_COUNT;
+            break;
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
+        case SDL_SCANCODE_S:
+            // accept
+            input_mode = InputMode_MAIN;
+            return Action::cheatcode_wish((WandId)cheatcode_wish_choose_wand_id_menu_cursor);
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down_cheatcode_wish_choose_potion_id(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_MAIN;
+            break;
+
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_X:
+            // move the cursor
+            cheatcode_wish_choose_potion_id_menu_cursor = (cheatcode_wish_choose_potion_id_menu_cursor + get_direction_from_event(event).y + PotionId_COUNT) % PotionId_COUNT;
+            break;
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
+        case SDL_SCANCODE_S:
+            // accept
+            input_mode = InputMode_MAIN;
+            return Action::cheatcode_wish((PotionId)cheatcode_wish_choose_potion_id_menu_cursor);
 
         default:
             break;
@@ -480,6 +574,12 @@ static Action on_key_down(const SDL_Event & event) {
         case InputMode_ZAP_CHOOSE_DIRECTION:
             return on_key_down_choose_direction(event);
 
+        case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
+            return on_key_down_cheatcode_wish_choose_thing_type(event);
+        case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
+            return on_key_down_cheatcode_wish_choose_wand_id(event);
+        case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
+            return on_key_down_cheatcode_wish_choose_potion_id(event);
         case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             return on_key_down_cheatcode_generate_monster_choose_species(event);
         case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:

@@ -214,6 +214,9 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             case ThingType_POTION:
                 break_potion(actor, item, cursor);
                 break;
+
+            case ThingType_COUNT:
+                unreachable();
         }
     } else {
         drop_item_to_the_floor(item, cursor);
@@ -343,17 +346,6 @@ static void maybe_spawn_monsters() {
         return;
     if (random_int(2000) == 0)
         spawn_random_individual();
-}
-
-static void create_all_items(Coord floor_location) {
-    List<Thing> items;
-    for (int i = 0; i < PotionId_COUNT; i++)
-        items.append(create_potion((PotionId)i));
-    for (int i = 0; i < WandId_COUNT; i++)
-        items.append(create_wand((WandId)i));
-
-    for (int i = 0; i < items.length(); i++)
-        drop_item_to_the_floor(items[i], floor_location);
 }
 
 void heal_hp(Thing individual, int hp) {
@@ -584,11 +576,16 @@ bool validate_action(Thing actor, Action action) {
         case Action::CHEATCODE_HEALTH_BOOST:
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
         case Action::CHEATCODE_POLYMORPH:
-        case Action::CHEATCODE_CREATE_ITEM:
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
             if (actor != player_actor)
+                return false;
+            return true;
+        case Action::CHEATCODE_WISH:
+            if (actor != player_actor)
+                return false;
+            if (action.wish().thing_type == ThingType_INDIVIDUAL)
                 return false;
             return true;
         case Action::CHEATCODE_GENERATE_MONSTER: {
@@ -718,9 +715,23 @@ static bool take_action(Thing actor, Action action) {
             spawn_a_monster(data.species, data.decision_maker, data.location);
             return false;
         }
-        case Action::CHEATCODE_CREATE_ITEM:
-            create_all_items(player_actor->location);
-            return false;
+        case Action::CHEATCODE_WISH: {
+            const Action::Wish & data = action.wish();
+            switch (data.thing_type) {
+                case ThingType_INDIVIDUAL:
+                    unreachable();
+                case ThingType_WAND:
+                    drop_item_to_the_floor(create_wand(data.wand_id), actor->location);
+                    return false;
+                case ThingType_POTION:
+                    drop_item_to_the_floor(create_potion(data.potion_id), actor->location);
+                    return false;
+
+                case ThingType_COUNT:
+                    unreachable();
+            }
+            unreachable();
+        }
         case Action::CHEATCODE_IDENTIFY:
             for (int i = 0; i < WandDescriptionId_COUNT; i++)
                 player_actor->life()->knowledge.wand_identities[i] = actual_wand_identities[i];

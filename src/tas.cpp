@@ -238,6 +238,14 @@ static Coord parse_coord(const Token & token1, const Token & token2) {
 static String action_names[Action::COUNT];
 static String species_names[SpeciesId_COUNT];
 static String decision_maker_names[DecisionMakerType_COUNT];
+static String thing_type_names[ThingType_COUNT];
+static String wand_id_names[WandId_COUNT];
+static String potion_id_names[PotionId_COUNT];
+static void check_no_nulls(String array[], int size) {
+    for (int i = 0; i < size; i++)
+        if (array[i] == nullptr)
+            panic("missed a spot");
+}
 static void init_name_arrays() {
     action_names[Action::MOVE] = new_string("move");
     action_names[Action::WAIT] = new_string("wait");
@@ -252,10 +260,11 @@ static void init_name_arrays() {
     action_names[Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD] = new_string("!kill");
     action_names[Action::CHEATCODE_POLYMORPH] = new_string("!polymorph");
     action_names[Action::CHEATCODE_GENERATE_MONSTER] = new_string("!monster");
-    action_names[Action::CHEATCODE_CREATE_ITEM] = new_string("!items");
+    action_names[Action::CHEATCODE_WISH] = new_string("!wish");
     action_names[Action::CHEATCODE_IDENTIFY] = new_string("!identify");
     action_names[Action::CHEATCODE_GO_DOWN] = new_string("!down");
     action_names[Action::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
+    check_no_nulls(action_names, Action::COUNT);
 
     species_names[SpeciesId_HUMAN] = new_string("human");
     species_names[SpeciesId_OGRE] = new_string("ogre");
@@ -268,9 +277,32 @@ static void init_name_arrays() {
     species_names[SpeciesId_BEETLE] = new_string("beetle");
     species_names[SpeciesId_SCORPION] = new_string("scorpion");
     species_names[SpeciesId_SNAKE] = new_string("snake");
+    check_no_nulls(species_names, SpeciesId_COUNT);
 
     decision_maker_names[DecisionMakerType_PLAYER] = new_string("player");
     decision_maker_names[DecisionMakerType_AI] = new_string("ai");
+    check_no_nulls(decision_maker_names, DecisionMakerType_COUNT);
+
+    thing_type_names[ThingType_INDIVIDUAL] = new_string("individual");
+    thing_type_names[ThingType_WAND] = new_string("wand");
+    thing_type_names[ThingType_POTION] = new_string("potion");
+    check_no_nulls(thing_type_names, ThingType_COUNT);
+
+    wand_id_names[WandId_WAND_OF_CONFUSION] = new_string("confusion");
+    wand_id_names[WandId_WAND_OF_DIGGING] = new_string("digging");
+    wand_id_names[WandId_WAND_OF_STRIKING] = new_string("striking");
+    wand_id_names[WandId_WAND_OF_SPEED] = new_string("speed");
+    wand_id_names[WandId_WAND_OF_REMEDY] = new_string("remedy");
+    check_no_nulls(wand_id_names, WandId_COUNT);
+
+    potion_id_names[PotionId_POTION_OF_BLINDNESS] = new_string("blindness");
+    potion_id_names[PotionId_POTION_OF_HEALING] = new_string("blindness");
+    potion_id_names[PotionId_POTION_OF_POISON] = new_string("blindness");
+    potion_id_names[PotionId_POTION_OF_ETHEREAL_VISION] = new_string("blindness");
+    potion_id_names[PotionId_POTION_OF_COGNISCOPY] = new_string("blindness");
+    potion_id_names[PotionId_POTION_OF_BLINDNESS] = new_string("blindness");
+    potion_id_names[PotionId_POTION_OF_INVISIBILITY] = new_string("blindness");
+    check_no_nulls(potion_id_names, PotionId_COUNT);
 }
 
 static Action::Id parse_action_type(const Token & token) {
@@ -293,6 +325,27 @@ static DecisionMakerType parse_decision_maker(const Token & token) {
             return (DecisionMakerType)i;
     }
     report_error(token, 0, "undefined decision maker");
+}
+static ThingType parse_thing_type(const Token & token) {
+    for (int i = 0; i < ThingType_COUNT; i++) {
+        if (*thing_type_names[i] == *token.string)
+            return (ThingType)i;
+    }
+    report_error(token, 0, "undefined thing type");
+}
+static WandId parse_wand_id(const Token & token) {
+    for (int i = 0; i < WandId_COUNT; i++) {
+        if (*wand_id_names[i] == *token.string)
+            return (WandId)i;
+    }
+    report_error(token, 0, "undefined wand id");
+}
+static PotionId parse_potion_id(const Token & token) {
+    for (int i = 0; i < PotionId_COUNT; i++) {
+        if (*potion_id_names[i] == *token.string)
+            return (PotionId)i;
+    }
+    report_error(token, 0, "undefined potion id");
 }
 
 static const char * const SEED = "@seed";
@@ -432,6 +485,26 @@ static Action read_action() {
             action.coord_and_item().item = parse_uint256(tokens[3]);
             return action;
         }
+        case Action::Layout_WISH: {
+            if (tokens.length() != 3)
+                report_error(tokens[0], 0, "expected 2 arguments");
+            Action::Wish & data = action.wish();
+            data.thing_type = parse_thing_type(tokens[1]);
+            switch (data.thing_type) {
+                case ThingType_INDIVIDUAL:
+                    report_error(tokens[1], 0, "can't wish for an individual");
+                case ThingType_WAND:
+                    data.wand_id = parse_wand_id(tokens[2]);
+                    return action;
+                case ThingType_POTION:
+                    data.potion_id = parse_potion_id(tokens[2]);
+                    return action;
+
+                case ThingType_COUNT:
+                    unreachable();
+            }
+            unreachable();
+        }
         case Action::Layout_GENERATE_MONSTER: {
             if (tokens.length() != 5)
                 report_error(tokens[0], 0, "expected 4 arguments");
@@ -466,6 +539,28 @@ static String action_to_string(const Action & action) {
             String coord_string2 = int_to_string(action.coord_and_item().coord.y);
             String item_string = uint256_to_string(action.coord_and_item().item);
             result->format("%s %s %s %s\n", action_type_string, coord_string1, coord_string2, item_string);
+            break;
+        }
+        case Action::Layout_WISH: {
+            const Action::Wish & data = action.wish();
+            String thing_type_string = thing_type_names[data.thing_type];
+            switch (data.thing_type) {
+                case ThingType_INDIVIDUAL:
+                    unreachable();
+                case ThingType_WAND: {
+                    String wand_id_string = wand_id_names[data.wand_id];
+                    result->format("%s %s %s\n", action_type_string, thing_type_string, wand_id_string);
+                    break;
+                }
+                case ThingType_POTION: {
+                    String potion_id_string = potion_id_names[data.potion_id];
+                    result->format("%s %s %s\n", action_type_string, thing_type_string, potion_id_string);
+                    break;
+                }
+
+                case ThingType_COUNT:
+                    unreachable();
+            }
             break;
         }
         case Action::Layout_GENERATE_MONSTER: {

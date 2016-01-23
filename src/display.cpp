@@ -329,27 +329,30 @@ static Span get_status_description(const List<StatusEffect> & status_effects) {
         tmp_effect_list.append(status_effects[i].type);
     return get_status_description(tmp_effect_list);
 }
+static const char * get_wand_id_str(WandId wand_id) {
+    switch (wand_id) {
+        case WandId_WAND_OF_CONFUSION:
+            return "wand of confusion";
+        case WandId_WAND_OF_DIGGING:
+            return "wand of digging";
+        case WandId_WAND_OF_STRIKING:
+            return "wand of striking";
+        case WandId_WAND_OF_SPEED:
+            return "wand of speed";
+        case WandId_WAND_OF_REMEDY:
+            return "wand of remedy";
+
+        case WandId_COUNT:
+        case WandId_UNKNOWN:
+            unreachable();
+    }
+    unreachable();
+}
 static const char * get_wand_description_str(Thing observer, PerceivedThing item) {
     WandDescriptionId description_id = item->wand_info()->description_id;
     WandId true_id = description_id != WandDescriptionId_UNSEEN ? observer->life()->knowledge.wand_identities[description_id] : WandId_UNKNOWN;
     if (true_id != WandId_UNKNOWN) {
-        switch (true_id) {
-            case WandId_WAND_OF_CONFUSION:
-                return "wand of confusion";
-            case WandId_WAND_OF_DIGGING:
-                return "wand of digging";
-            case WandId_WAND_OF_STRIKING:
-                return "wand of striking";
-            case WandId_WAND_OF_SPEED:
-                return "wand of speed";
-            case WandId_WAND_OF_REMEDY:
-                return "wand of remedy";
-
-            case WandId_COUNT:
-            case WandId_UNKNOWN:
-                panic("not a real wand id");
-        }
-        panic("item id");
+        return get_wand_id_str(true_id);
     } else {
         switch (description_id) {
             case WandDescriptionId_BONE_WAND:
@@ -372,29 +375,32 @@ static const char * get_wand_description_str(Thing observer, PerceivedThing item
         panic("description id");
     }
 }
+static const char * get_potion_id_str(PotionId potion_id) {
+    switch (potion_id) {
+        case PotionId_POTION_OF_HEALING:
+            return "potion of healing";
+        case PotionId_POTION_OF_POISON:
+            return "potion of poison";
+        case PotionId_POTION_OF_ETHEREAL_VISION:
+            return "potion of ethereal vision";
+        case PotionId_POTION_OF_COGNISCOPY:
+            return "potion of cogniscopy";
+        case PotionId_POTION_OF_BLINDNESS:
+            return "potion of blindness";
+        case PotionId_POTION_OF_INVISIBILITY:
+            return "potion of invisibility";
+
+        case PotionId_COUNT:
+        case PotionId_UNKNOWN:
+            unreachable();;
+    }
+    unreachable();;
+}
 static const char * get_potion_description_str(Thing observer, PerceivedThing item) {
     PotionDescriptionId description_id = item->potion_info()->description_id;
     PotionId true_id = description_id != PotionDescriptionId_UNSEEN ? observer->life()->knowledge.potion_identities[description_id] : PotionId_UNKNOWN;
     if (true_id != PotionId_UNKNOWN) {
-        switch (true_id) {
-            case PotionId_POTION_OF_HEALING:
-                return "potion of healing";
-            case PotionId_POTION_OF_POISON:
-                return "potion of poison";
-            case PotionId_POTION_OF_ETHEREAL_VISION:
-                return "potion of ethereal vision";
-            case PotionId_POTION_OF_COGNISCOPY:
-                return "potion of cogniscopy";
-            case PotionId_POTION_OF_BLINDNESS:
-                return "potion of blindness";
-            case PotionId_POTION_OF_INVISIBILITY:
-                return "potion of invisibility";
-
-            case PotionId_COUNT:
-            case PotionId_UNKNOWN:
-                panic("not a real id");
-        }
-        panic("item id");
+        return get_potion_id_str(true_id);
     } else {
         switch (description_id) {
             case PotionDescriptionId_BLUE_POTION:
@@ -438,6 +444,9 @@ Span get_thing_description(Thing observer, uint256 target_id) {
         case ThingType_POTION:
             result->append(new_span(get_potion_description_str(observer, target), light_green, black));
             return result;
+
+        case ThingType_COUNT:
+            unreachable();
     }
     panic("thing type");
 }
@@ -480,6 +489,9 @@ static RuckSackImage * get_image_for_thing(Reference<T> thing) {
             if (thing->potion_info()->description_id == PotionDescriptionId_UNSEEN)
                 return unseen_potion_image;
             return potion_images[thing->potion_info()->description_id];
+
+        case ThingType_COUNT:
+            unreachable();
     }
     panic("thing type");
 }
@@ -521,6 +533,12 @@ static int last_inventory_menu_cursor;
 static Div floor_menu_div = new_div();
 static List<Action> last_floor_menu_actions;
 static int last_floor_menu_cursor;
+static Div cheatcode_wish_choose_thing_type_menu_div = new_div();
+static int last_cheatcode_wish_choose_thing_type_menu_cursor = -1;
+static Div cheatcode_wish_choose_wand_id_menu_div = new_div();
+static int last_cheatcode_wish_choose_wand_id_menu_cursor = -1;
+static Div cheatcode_wish_choose_potion_id_menu_div = new_div();
+static int last_cheatcode_wish_choose_potion_id_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_species_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
@@ -580,7 +598,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                     case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
                     case Action::CHEATCODE_POLYMORPH:
                     case Action::CHEATCODE_GENERATE_MONSTER:
-                    case Action::CHEATCODE_CREATE_ITEM:
+                    case Action::CHEATCODE_WISH:
                     case Action::CHEATCODE_IDENTIFY:
                     case Action::CHEATCODE_GO_DOWN:
                     case Action::CHEATCODE_GAIN_LEVEL:
@@ -591,6 +609,9 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                 lines.append("Esc: back");
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
+            case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
+            case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
+            case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
                 lines.append("w/x: move cursor");
@@ -686,7 +707,7 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
         case Action::CHEATCODE_POLYMORPH:
         case Action::CHEATCODE_GENERATE_MONSTER:
-        case Action::CHEATCODE_CREATE_ITEM:
+        case Action::CHEATCODE_WISH:
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
@@ -720,7 +741,7 @@ static Span render_action(Thing actor, Action action) {
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
         case Action::CHEATCODE_POLYMORPH:
         case Action::CHEATCODE_GENERATE_MONSTER:
-        case Action::CHEATCODE_CREATE_ITEM:
+        case Action::CHEATCODE_WISH:
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
@@ -729,6 +750,49 @@ static Span render_action(Thing actor, Action action) {
             unreachable();
     }
     unreachable();
+}
+static Span render_thing_type(ThingType thing_type) {
+    Span result = new_span();
+    switch (thing_type) {
+        case ThingType_INDIVIDUAL:
+            unreachable();
+        case ThingType_WAND:
+            result->format("%g%s", unseen_wand_image, new_span("wand"));
+            break;
+        case ThingType_POTION:
+            result->format("%g%s", unseen_potion_image, new_span("potion"));
+            break;
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    return result;
+}
+static Span render_wand_id(WandId wand_id) {
+    Span result = new_span();
+    WandDescriptionId description_id = WandDescriptionId_UNSEEN;
+    for (int i = 0; i < WandDescriptionId_COUNT; i++) {
+        if (actual_wand_identities[i] == wand_id) {
+            description_id = (WandDescriptionId)i;
+            break;
+        }
+    }
+    assert(description_id != WandDescriptionId_UNSEEN);
+    result->format("%g%s", wand_images[description_id], new_span(get_wand_id_str((WandId)wand_id)));
+    return result;
+}
+static Span render_potion_id(PotionId potion_id) {
+    Span result = new_span();
+    PotionDescriptionId description_id = PotionDescriptionId_UNSEEN;
+    for (int i = 0; i < PotionDescriptionId_COUNT; i++) {
+        if (actual_potion_identities[i] == potion_id) {
+            description_id = (PotionDescriptionId)i;
+            break;
+        }
+    }
+    assert(description_id != PotionDescriptionId_UNSEEN);
+    result->format("%g%s", potion_images[description_id], new_span(get_potion_id_str((PotionId)potion_id)));
+    return result;
 }
 static Span render_species(SpeciesId species_id) {
     Span result = new_span();
@@ -778,6 +842,9 @@ void render() {
             case InputMode_INVENTORY_CHOOSE_ITEM:
             case InputMode_INVENTORY_CHOOSE_ACTION:
             case InputMode_FLOOR_CHOOSE_ACTION:
+            case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
+            case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
+            case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
@@ -976,6 +1043,9 @@ void render() {
         switch (input_mode) {
             case InputMode_MAIN:
             case InputMode_FLOOR_CHOOSE_ACTION:
+            case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
+            case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
+            case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
@@ -1040,6 +1110,9 @@ void render() {
 
     {
         bool show_floor_menu = false;
+        bool show_cheatcode_wish_choose_thing_type_menu = false;
+        bool show_cheatcode_wish_choose_wand_id_menu = false;
+        bool show_cheatcode_wish_choose_potion_id_menu = false;
         bool show_cheatcode_generate_monster_choose_species_menu = false;
         bool show_cheatcode_generate_monster_choose_decision_maker_menu = false;
         bool show_cheatcode_generate_monster_location_cursor = false;
@@ -1054,6 +1127,15 @@ void render() {
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
                 show_floor_menu = true;
+                break;
+            case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
+                show_cheatcode_wish_choose_thing_type_menu = true;
+                break;
+            case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
+                show_cheatcode_wish_choose_wand_id_menu = true;
+                break;
+            case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
+                show_cheatcode_wish_choose_potion_id_menu = true;
                 break;
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
                 show_cheatcode_generate_monster_choose_species_menu = true;
@@ -1087,6 +1169,57 @@ void render() {
                 }
             }
             popup_help(main_map_area, spectate_from->location, floor_menu_div);
+        }
+        if (show_cheatcode_wish_choose_thing_type_menu) {
+            if (last_cheatcode_wish_choose_thing_type_menu_cursor != cheatcode_wish_choose_thing_type_menu_cursor) {
+                // rerender menu div
+                cheatcode_wish_choose_thing_type_menu_div->clear();
+                last_cheatcode_wish_choose_thing_type_menu_cursor = cheatcode_wish_choose_thing_type_menu_cursor;
+                for (int i = 0; i < ThingType_COUNT - 1; i++) {
+                    if (i > 0)
+                        cheatcode_wish_choose_thing_type_menu_div->append_newline();
+                    Span item_span = render_thing_type((ThingType)(i + 1));
+                    if (i == cheatcode_wish_choose_thing_type_menu_cursor) {
+                        item_span->set_color_recursive(black, amber);
+                    }
+                    cheatcode_wish_choose_thing_type_menu_div->append(item_span);
+                }
+            }
+            popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_thing_type_menu_div);
+        }
+        if (show_cheatcode_wish_choose_wand_id_menu) {
+            if (last_cheatcode_wish_choose_wand_id_menu_cursor != cheatcode_wish_choose_wand_id_menu_cursor) {
+                // rerender menu div
+                cheatcode_wish_choose_wand_id_menu_div->clear();
+                last_cheatcode_wish_choose_wand_id_menu_cursor = cheatcode_wish_choose_wand_id_menu_cursor;
+                for (int i = 0; i < WandId_COUNT; i++) {
+                    if (i > 0)
+                        cheatcode_wish_choose_wand_id_menu_div->append_newline();
+                    Span item_span = render_wand_id((WandId)i);
+                    if (i == cheatcode_wish_choose_wand_id_menu_cursor) {
+                        item_span->set_color_recursive(black, amber);
+                    }
+                    cheatcode_wish_choose_wand_id_menu_div->append(item_span);
+                }
+            }
+            popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_wand_id_menu_div);
+        }
+        if (show_cheatcode_wish_choose_potion_id_menu) {
+            if (last_cheatcode_wish_choose_potion_id_menu_cursor != cheatcode_wish_choose_potion_id_menu_cursor) {
+                // rerender menu div
+                cheatcode_wish_choose_potion_id_menu_div->clear();
+                last_cheatcode_wish_choose_potion_id_menu_cursor = cheatcode_wish_choose_potion_id_menu_cursor;
+                for (int i = 0; i < PotionId_COUNT; i++) {
+                    if (i > 0)
+                        cheatcode_wish_choose_potion_id_menu_div->append_newline();
+                    Span item_span = render_potion_id((PotionId)i);
+                    if (i == cheatcode_wish_choose_potion_id_menu_cursor) {
+                        item_span->set_color_recursive(black, amber);
+                    }
+                    cheatcode_wish_choose_potion_id_menu_div->append(item_span);
+                }
+            }
+            popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_potion_id_menu_div);
         }
         if (show_cheatcode_generate_monster_choose_species_menu) {
             if (last_cheatcode_generate_monster_choose_species_menu_cursor != cheatcode_generate_monster_choose_species_menu_cursor) {

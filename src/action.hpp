@@ -20,7 +20,7 @@ struct Action {
         CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD,
         CHEATCODE_POLYMORPH,
         CHEATCODE_GENERATE_MONSTER,
-        CHEATCODE_CREATE_ITEM,
+        CHEATCODE_WISH,
         CHEATCODE_IDENTIFY,
         CHEATCODE_GO_DOWN,
         CHEATCODE_GAIN_LEVEL,
@@ -33,6 +33,13 @@ struct Action {
         uint256 item;
         Coord coord;
     };
+    struct Wish {
+        ThingType thing_type;
+        union {
+            WandId wand_id;
+            PotionId potion_id;
+        };
+    };
     struct GenerateMonster {
         SpeciesId species;
         DecisionMakerType decision_maker;
@@ -43,6 +50,7 @@ struct Action {
         Layout_COORD,
         Layout_ITEM,
         Layout_COORD_AND_ITEM,
+        Layout_WISH,
         Layout_GENERATE_MONSTER,
     };
 
@@ -57,6 +65,8 @@ struct Action {
           uint256         & item()                   { assert(get_layout() == Layout_ITEM);             return _item; }
     const CoordAndItem    & coord_and_item()   const { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
           CoordAndItem    & coord_and_item()         { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
+    const Wish            & wish()             const { assert(get_layout() == Layout_WISH);             return _wish; }
+          Wish            & wish()                   { assert(get_layout() == Layout_WISH);             return _wish; }
     const GenerateMonster & generate_monster() const { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
           GenerateMonster & generate_monster()       { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
 
@@ -104,8 +114,11 @@ struct Action {
     static Action cheatcode_generate_monster(SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
         return init(CHEATCODE_GENERATE_MONSTER, species_id, decision_maker, location);
     }
-    static Action cheatcode_create_item() {
-        return init(CHEATCODE_CREATE_ITEM);
+    static Action cheatcode_wish(WandId wand_id) {
+        return init(CHEATCODE_WISH, wand_id);
+    }
+    static Action cheatcode_wish(PotionId potion_id) {
+        return init(CHEATCODE_WISH, potion_id);
     }
     static Action cheatcode_identify() {
         return init(CHEATCODE_IDENTIFY);
@@ -145,6 +158,22 @@ struct Action {
         result._coord_and_item.item = item;
         return result;
     }
+    static Action init(Id id, WandId wand_id) {
+        assert(get_layout(id) == Layout_WISH);
+        Action result;
+        result.id = id;
+        result._wish.thing_type = ThingType_WAND;
+        result._wish.wand_id = wand_id;
+        return result;
+    }
+    static Action init(Id id, PotionId potion_id) {
+        assert(get_layout(id) == Layout_WISH);
+        Action result;
+        result.id = id;
+        result._wish.thing_type = ThingType_POTION;
+        result._wish.potion_id = potion_id;
+        return result;
+    }
     static Action init(Id id, SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
         assert(get_layout(id) == Layout_GENERATE_MONSTER);
         Action result;
@@ -160,6 +189,7 @@ private:
         uint256 _item;
         Coord _coord;
         CoordAndItem _coord_and_item;
+        Wish _wish;
         GenerateMonster _generate_monster;
     };
 
@@ -183,11 +213,12 @@ private:
             case CHEATCODE_HEALTH_BOOST:
             case CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
             case CHEATCODE_POLYMORPH:
-            case CHEATCODE_CREATE_ITEM:
             case CHEATCODE_IDENTIFY:
             case CHEATCODE_GO_DOWN:
             case CHEATCODE_GAIN_LEVEL:
                 return Layout_VOID;
+            case CHEATCODE_WISH:
+                return Layout_WISH;
             case CHEATCODE_GENERATE_MONSTER:
                 return Layout_GENERATE_MONSTER;
 
@@ -216,6 +247,28 @@ static inline bool operator==(const Action & a, const Action &  b) {
             if (a.coord_and_item().item != b.coord_and_item().item)
                 return false;
             return true;
+        case Action::Layout_WISH: {
+            const Action::Wish & a_data = a.wish();
+            const Action::Wish & b_data = b.wish();
+            if (a_data.thing_type != b_data.thing_type)
+                return false;
+            switch (a_data.thing_type) {
+                case ThingType_INDIVIDUAL:
+                    unreachable();
+                case ThingType_WAND:
+                    if (a_data.wand_id != b_data.wand_id)
+                        return false;
+                    return true;
+                case ThingType_POTION:
+                    if (a_data.potion_id != b_data.potion_id)
+                        return false;
+                    return true;
+
+                case ThingType_COUNT:
+                    unreachable();
+            }
+            unreachable();
+        }
         case Action::Layout_GENERATE_MONSTER: {
             const Action::GenerateMonster & a_data = a.generate_monster();
             const Action::GenerateMonster & b_data = b.generate_monster();
