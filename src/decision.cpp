@@ -12,6 +12,10 @@ static Action get_player_decision(Thing actor) {
     player_actor = actor;
     Action action = tas_get_decision();
     if (action == Action::undecided()) {
+        if (headless_mode) {
+            // that's all folks
+            return Action::undecided();
+        }
         // ok, ask the real player
         action = current_player_decision;
         current_player_decision = Action::undecided();

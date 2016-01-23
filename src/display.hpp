@@ -17,7 +17,7 @@ extern const SDL_Rect main_map_area;
 extern TTF_Font * status_box_font;
 extern SDL_Surface * sprite_sheet_surface;
 
-void display_init();
+void init_display();
 void display_finish();
 
 static const int inventory_layout_width = 5;

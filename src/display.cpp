@@ -121,7 +121,9 @@ static void load_images(RuckSackImage ** spritesheet_images, long image_count) {
     equipment_image = find_image(spritesheet_images, image_count, "img/equipment.png");
 }
 
-void display_init() {
+void init_display() {
+    assert(!headless_mode);
+
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
         panic("unable to init SDL");
 
@@ -172,6 +174,8 @@ void display_init() {
 }
 
 void display_finish() {
+    assert(!headless_mode);
+
     TTF_Quit();
 
     SDL_RWclose(font_rw_ops);
@@ -256,6 +260,7 @@ static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int 
 }
 
 Coord get_mouse_tile(SDL_Rect area) {
+    assert(!headless_mode);
     Coord pixels = get_mouse_pixels();
     if (!rect_contains(area, pixels))
         return Coord::nowhere();
@@ -816,6 +821,8 @@ static Span render_decision_maker(DecisionMakerType decision_maker) {
 }
 
 void render() {
+    assert(!headless_mode);
+
     Thing spectate_from = get_spectate_individual();
     List<Thing> my_inventory;
     find_items_in_inventory(player_actor->id, &my_inventory);

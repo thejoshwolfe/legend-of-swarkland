@@ -11,6 +11,7 @@ extern Species specieses[SpeciesId_COUNT];
 extern Mind specieses_mind[SpeciesId_COUNT];
 
 extern bool test_mode;
+extern bool headless_mode;
 
 extern IdMap<Thing> actual_things;
 // the good guy

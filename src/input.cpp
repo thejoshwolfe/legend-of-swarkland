@@ -591,6 +591,8 @@ static Action on_key_down(const SDL_Event & event) {
 }
 
 void read_input() {
+    assert(!headless_mode);
+
     SDL_Event event;
     Action action = Action::undecided();
     while (SDL_PollEvent(&event)) {

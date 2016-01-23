@@ -11,6 +11,7 @@ Species specieses[SpeciesId_COUNT];
 Mind specieses_mind[SpeciesId_COUNT];
 
 bool test_mode;
+bool headless_mode;
 
 IdMap<Thing> actual_things;
 

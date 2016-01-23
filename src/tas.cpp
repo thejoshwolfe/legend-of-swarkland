@@ -577,7 +577,7 @@ static String action_to_string(const Action & action) {
 }
 
 Action tas_get_decision() {
-    if (tas_delay > 0) {
+    if (!headless_mode && tas_delay > 0) {
         if (frame_counter < tas_delay) {
             frame_counter++;
             return Action::undecided(); // let the screen draw

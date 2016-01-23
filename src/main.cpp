@@ -22,7 +22,7 @@ static void help(const char * error_message, const char * argument) {
     }
     fprintf(stderr,
         //                                                                              |80
-        "usage: [{--new, --replay, --resume, --no-save}] [save.swarkland]\n"
+        "usage: [options] [save.swarkland]\n"
         "\n"
         "  save.swarkland\n"
         "    the default file name for your save game.\n"
@@ -45,8 +45,11 @@ static void help(const char * error_message, const char * argument) {
         "  --replay-delay N\n"
         "    wait N frames (at 60Hz) between each step of the replay.\n"
         "\n"
-        "  --test\n"
-        "    test mode designed for recording and replaying test scripts.\n"
+        "  --record-test\n"
+        "    record a test scripts. implies --new.\n"
+        "\n"
+        "  --headless\n"
+        "    run the input script and exit without creating a window. implies --replay.\n"
         "\n"
         //                                                                              |80
         "");
@@ -55,31 +58,18 @@ static void help(const char * error_message, const char * argument) {
 static void process_argv(int argc, char * argv[]) {
     const char * save_name = nullptr;
     int tas_delay = 0;
-    bool mode_is_set = false;
     TasScriptMode mode = TasScriptMode_READ_WRITE;
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
                 help(nullptr, nullptr);
             } else if (strcmp(argv[i], "--new") == 0) {
-                if (mode_is_set)
-                    help("only one of --new, --replay, --resume, --no-save can be specified", nullptr);
-                mode_is_set = true;
                 mode = TasScriptMode_WRITE;
             } else if (strcmp(argv[i], "--replay") == 0) {
-                if (mode_is_set)
-                    help("only one of --new, --replay, --resume, --no-save can be specified", nullptr);
-                mode_is_set = true;
                 mode = TasScriptMode_READ;
             } else if (strcmp(argv[i], "--resume") == 0) {
-                if (mode_is_set)
-                    help("only one of --new, --replay, --resume, --no-save can be specified", nullptr);
-                mode_is_set = true;
                 mode = TasScriptMode_READ_WRITE;
             } else if (strcmp(argv[i], "--no-save") == 0) {
-                if (mode_is_set)
-                    help("only one of --new, --replay, --resume, --no-save can be specified", nullptr);
-                mode_is_set = true;
                 mode = TasScriptMode_IGNORE;
             } else if (strcmp(argv[i], "--replay-delay") == 0) {
                 if (i + 1 >= argc)
@@ -87,8 +77,12 @@ static void process_argv(int argc, char * argv[]) {
                 i++;
                 const char * delay_str = argv[i];
                 sscanf(delay_str, "%d", &tas_delay);
-            } else if (strcmp(argv[i], "--test") == 0) {
+            } else if (strcmp(argv[i], "--record-test") == 0) {
+                mode = TasScriptMode_WRITE;
                 test_mode = true;
+            } else if (strcmp(argv[i], "--headless") == 0) {
+                mode = TasScriptMode_READ;
+                headless_mode = true;
             } else {
                 help("unrecognized argument:", argv[i]);
             }
@@ -111,20 +105,27 @@ int main(int argc, char * argv[]) {
     process_argv(argc, argv);
     init_random();
 
-    display_init();
+    if (!headless_mode)
+        init_display();
     swarkland_init();
     init_decisions();
 
     while (!request_shutdown) {
-        read_input();
+        if (!headless_mode)
+            read_input();
 
         run_the_game();
 
-        render();
-
-        SDL_Delay(17); // 60Hz or whatever
+        if (!headless_mode) {
+            render();
+            SDL_Delay(17); // 60Hz or whatever
+        } else {
+            // that's all folks
+            break;
+        }
     }
 
-    display_finish();
+    if (!headless_mode)
+        display_finish();
     return 0;
 }
