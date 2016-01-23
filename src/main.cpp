@@ -45,6 +45,9 @@ static void help(const char * error_message, const char * argument) {
         "  --replay-delay N\n"
         "    wait N frames (at 60Hz) between each step of the replay.\n"
         "\n"
+        "  --test\n"
+        "    test mode designed for recording and replaying test scripts.\n"
+        "\n"
         //                                                                              |80
         "");
     exit(1);
@@ -78,12 +81,14 @@ static void process_argv(int argc, char * argv[]) {
                     help("only one of --new, --replay, --resume, --no-save can be specified", nullptr);
                 mode_is_set = true;
                 mode = TasScriptMode_IGNORE;
-            } else if (strcmp(argv[i], "--tas-delay") == 0) {
+            } else if (strcmp(argv[i], "--replay-delay") == 0) {
                 if (i + 1 >= argc)
                     help("expected argument", argv[i]);
                 i++;
                 const char * delay_str = argv[i];
                 sscanf(delay_str, "%d", &tas_delay);
+            } else if (strcmp(argv[i], "--test") == 0) {
+                test_mode = true;
             } else {
                 help("unrecognized argument:", argv[i]);
             }

@@ -130,7 +130,10 @@ void generate_map() {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             Tile & tile = actual_map_tiles[cursor];
             tile.tile_type = TileType_WALL;
-            tile.aesthetic_index = random_uint32();
+            if (!test_mode)
+                tile.aesthetic_index = random_uint32();
+            else
+                tile.aesthetic_index = (cursor.x / 5 + cursor.y / 5);
         }
     }
     // line the border with special undiggable walls
@@ -141,6 +144,15 @@ void generate_map() {
     for (int y = 0; y < map_size.y; y++) {
         actual_map_tiles[Coord{0, y}].tile_type = TileType_BORDER_WALL;
         actual_map_tiles[Coord{map_size.x - 1, y}].tile_type = TileType_BORDER_WALL;
+    }
+
+    if (test_mode) {
+        // just make a room
+        for (int y = 1; y < 5; y++)
+            for (int x = 1; x < 5; x++)
+                actual_map_tiles[Coord{x, y}].tile_type = TileType_DIRT_FLOOR;
+        stairs_down_location = Coord::nowhere();
+        return;
     }
 
     // create rooms
@@ -298,7 +310,7 @@ bool can_spawn_at(Coord away_from_location, Coord location) {
         return false;
     if (!spawn_zone[location])
         return false;
-    if (euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
+    if (away_from_location != Coord::nowhere() && euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
         return false;
     if (find_individual_at(location) != nullptr)
         return false;
@@ -321,5 +333,5 @@ Coord find_stairs_down_location() {
         for (location.x = 0; location.x < map_size.x; location.x++)
             if (actual_map_tiles[location].tile_type == TileType_STAIRS_DOWN)
                 return location;
-    return Coord::nowhere();
+    unreachable();
 }

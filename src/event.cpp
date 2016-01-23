@@ -99,7 +99,7 @@ static uint256 make_unseen_item(Thing observer, uint256 actual_item_id, uint256 
         }
     }
     // invent an item
-    uint256 id = random_uint256();
+    uint256 id = random_arbitrary_large_number();
     PerceivedThing thing;
     switch (thing_type) {
         case ThingType_INDIVIDUAL:
@@ -120,7 +120,7 @@ static uint256 make_unseen_individual(Thing observer, uint256 actual_target_id) 
     PerceivedThing thing = find_unseen_individual(observer, actual_target->location);
     if (thing == nullptr) {
         // invent an unseen individual here
-        uint256 id = random_uint256();
+        uint256 id = random_arbitrary_large_number();
         thing = create<PerceivedThingImpl>(id, SpeciesId_UNSEEN, actual_target->location, time_counter);
         observer->life()->knowledge.perceived_things.put(id, thing);
     }

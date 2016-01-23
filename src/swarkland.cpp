@@ -9,6 +9,9 @@
 
 Species specieses[SpeciesId_COUNT];
 Mind specieses_mind[SpeciesId_COUNT];
+
+bool test_mode;
+
 IdMap<Thing> actual_things;
 
 Thing you;
@@ -270,6 +273,11 @@ static void spawn_random_individual() {
     spawn_a_monster(SpeciesId_COUNT, DecisionMakerType_AI, Coord::nowhere());
 }
 static void init_individuals() {
+    if (test_mode) {
+        you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord{1, 1});
+        return;
+    }
+
     if (you == nullptr) {
         you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord::nowhere());
     } else {
@@ -331,6 +339,8 @@ void go_down() {
 }
 
 static void maybe_spawn_monsters() {
+    if (test_mode)
+        return;
     if (random_int(2000) == 0)
         spawn_random_individual();
 }

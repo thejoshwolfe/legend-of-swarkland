@@ -123,12 +123,14 @@ void init_items() {
     assert((int)WandDescriptionId_COUNT == (int)WandId_COUNT);
     for (int i = 0; i < WandDescriptionId_COUNT; i++)
         actual_wand_identities[i] = (WandId)i;
-    shuffle(actual_wand_identities, WandId_COUNT);
+    if (!test_mode)
+        shuffle(actual_wand_identities, WandId_COUNT);
 
     assert((int)PotionDescriptionId_COUNT == (int)PotionId_COUNT);
     for (int i = 0; i < PotionDescriptionId_COUNT; i++)
         actual_potion_identities[i] = (PotionId)i;
-    shuffle(actual_potion_identities, PotionId_COUNT);
+    if (!test_mode)
+        shuffle(actual_potion_identities, PotionId_COUNT);
 
     wand_handlers[WandId_WAND_OF_CONFUSION] = {pass_through_air_silently, confusion_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_DIGGING] = {digging_pass_through_air, hit_individual_no_effect, digging_hit_wall};

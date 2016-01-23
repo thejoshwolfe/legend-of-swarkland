@@ -12,6 +12,8 @@
 
 #include <stdbool.h>
 
+uint256 random_arbitrary_large_number();
+
 enum ThingType {
     ThingType_INDIVIDUAL,
     ThingType_WAND,

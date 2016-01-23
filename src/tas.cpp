@@ -301,7 +301,13 @@ static void write_seed(uint32_t seed) {
     line->format("%s %s\n", SEED, uint32_to_string(seed));
     write_line(line);
 }
-static uint32_t read_seed() {
+static const char * const TEST_MODE_HEADER = "@test";
+static void write_test_mode_header() {
+    String line = new_string();
+    line->format("%s\n", TEST_MODE_HEADER);
+    write_line(line);
+}
+static void read_header() {
     List<Token> tokens;
     while (tokens.length() == 0) {
         String line = read_line();
@@ -309,11 +315,22 @@ static uint32_t read_seed() {
             break; // and error
         tokenize_line(line, &tokens);
     }
-    if (tokens.length() == 2 && *tokens[0].string == *new_string(SEED))
-        return parse_uint32(tokens[1]);
-
-    fprintf(stderr, "%s:1:1: expected @seed declaration", script_path);
-    exit(1);
+    if (*tokens[0].string == *new_string(SEED)) {
+        if (tokens.length() != 2) {
+            fprintf(stderr, "%s:1:1: expected 1 argument", script_path);
+            exit(1);
+        }
+        tas_seed = parse_uint32(tokens[1]);
+    } else if (*tokens[0].string == *new_string(TEST_MODE_HEADER)) {
+        if (tokens.length() != 1) {
+            fprintf(stderr, "%s:1:1: expected no arguments", script_path);
+            exit(1);
+        }
+        test_mode = true;
+    } else {
+        fprintf(stderr, "%s:1:1: expected swarkland header", script_path);
+        exit(1);
+    }
 }
 
 void set_tas_script(TasScriptMode mode, const char * file_path) {
@@ -364,12 +381,16 @@ void set_tas_script(TasScriptMode mode, const char * file_path) {
     switch (current_mode) {
         case TasScriptMode_READ:
         case TasScriptMode_READ_WRITE: {
-            tas_seed = read_seed();
+            read_header();
             break;
         }
         case TasScriptMode_WRITE: {
-            tas_seed = get_random_seed();
-            write_seed(tas_seed);
+            if (!test_mode) {
+                tas_seed = get_random_seed();
+                write_seed(tas_seed);
+            } else {
+                write_test_mode_header();
+            }
             break;
         }
         case TasScriptMode_IGNORE:
