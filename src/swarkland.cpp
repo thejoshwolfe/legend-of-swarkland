@@ -110,7 +110,7 @@ static void gain_experience(Thing individual, int delta, bool publish) {
 static void reset_hp_regen_timeout(Thing individual) {
     Life * life = individual->life();
     if (life->hitpoints < life->max_hitpoints())
-        life->hp_regen_deadline = time_counter + random_midpoint(7 * 12);
+        life->hp_regen_deadline = time_counter + random_midpoint(7 * 12, "hp_regen");
 }
 static void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) {
     if (damage <= 0)
@@ -370,7 +370,7 @@ static void regen_hp(Thing individual) {
             if (attacker != nullptr && !attacker->still_exists)
                 attacker = nullptr;
             damage_individual(individual, 1, attacker, false);
-            poison->poison_next_damage_time = time_counter + random_midpoint(7 * 12);
+            poison->poison_next_damage_time = time_counter + random_midpoint(7 * 12, "poison_damage");
         }
     } else if (life->hp_regen_deadline == time_counter) {
         // hp regen
@@ -383,7 +383,7 @@ void poison_individual(Thing attacker, Thing target) {
     publish_event(Event::poisoned(target));
     StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON);
     poison->who_is_responsible = attacker->id;
-    poison->expiration_time = time_counter + random_midpoint(600);
+    poison->expiration_time = time_counter + random_midpoint(600, "poison_expiriration");
     poison->poison_next_damage_time = time_counter + 12 * 3;
 }
 

@@ -15,6 +15,7 @@ void set_tas_delay(int n);
 uint32_t tas_get_seed();
 Action tas_get_decision();
 void tas_record_decision(const Action & action);
+int tas_get_rng_input(const ByteBuffer & tag);
 void tas_delete_save();
 
 #endif

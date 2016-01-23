@@ -211,19 +211,19 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             poison_individual(actor, target);
             break;
         case PotionId_POTION_OF_ETHEREAL_VISION:
-            find_or_put_status(target, StatusEffect::ETHEREAL_VISION)->expiration_time = time_counter + random_midpoint(2000);
+            find_or_put_status(target, StatusEffect::ETHEREAL_VISION)->expiration_time = time_counter + random_midpoint(2000, "potion_of_ethereal_vision_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_COGNISCOPY:
-            find_or_put_status(target, StatusEffect::COGNISCOPY)->expiration_time = time_counter + random_midpoint(2000);
+            find_or_put_status(target, StatusEffect::COGNISCOPY)->expiration_time = time_counter + random_midpoint(2000, "potion_of_cogniscopy_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_BLINDNESS:
-            find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = time_counter + random_midpoint(1000);
+            find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = time_counter + random_midpoint(1000, "potion_of_blindness_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_INVISIBILITY:
-            find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = time_counter + random_midpoint(2000);
+            find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = time_counter + random_midpoint(2000, "potion_of_invisibility_expiration");
             break;
 
         case PotionId_COUNT:

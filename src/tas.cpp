@@ -108,6 +108,12 @@ static void report_error(const Token & token, int start, const char * msg) {
     fprintf(stderr, "%s:%d:%d: error: %s\n", script_path, line_number, col, msg);
     exit(1);
 }
+__attribute__((noreturn))
+static void report_error(const Token & token, int start, const char * msg1, const char * msg2) {
+    int col = token.col + start;
+    fprintf(stderr, "%s:%d:%d: error: %s%s\n", script_path, line_number, col, msg1, msg2);
+    exit(1);
+}
 
 static String uint32_to_string(uint32_t n) {
     // python: hex(n)[2:].zfill(8)
@@ -295,13 +301,12 @@ static void init_name_arrays() {
     wand_id_names[WandId_WAND_OF_REMEDY] = new_string("remedy");
     check_no_nulls(wand_id_names, WandId_COUNT);
 
+    potion_id_names[PotionId_POTION_OF_HEALING] = new_string("healing");
+    potion_id_names[PotionId_POTION_OF_POISON] = new_string("poison");
+    potion_id_names[PotionId_POTION_OF_ETHEREAL_VISION] = new_string("ethereal_vision");
+    potion_id_names[PotionId_POTION_OF_COGNISCOPY] = new_string("cogniscopy");
     potion_id_names[PotionId_POTION_OF_BLINDNESS] = new_string("blindness");
-    potion_id_names[PotionId_POTION_OF_HEALING] = new_string("blindness");
-    potion_id_names[PotionId_POTION_OF_POISON] = new_string("blindness");
-    potion_id_names[PotionId_POTION_OF_ETHEREAL_VISION] = new_string("blindness");
-    potion_id_names[PotionId_POTION_OF_COGNISCOPY] = new_string("blindness");
-    potion_id_names[PotionId_POTION_OF_BLINDNESS] = new_string("blindness");
-    potion_id_names[PotionId_POTION_OF_INVISIBILITY] = new_string("blindness");
+    potion_id_names[PotionId_POTION_OF_INVISIBILITY] = new_string("invisibility");
     check_no_nulls(potion_id_names, PotionId_COUNT);
 }
 
@@ -348,6 +353,35 @@ static PotionId parse_potion_id(const Token & token) {
     report_error(token, 0, "undefined potion id");
 }
 
+static const char * const RNG_DIRECTIVE = "@rng";
+static String rng_input_to_string(const ByteBuffer & tag, int value) {
+    String line = new_string();
+    line->format("%s %d ", RNG_DIRECTIVE, value);
+    line->decode(tag);
+    line->append("\n");
+    return line;
+}
+static int read_rng_input(const ByteBuffer & tag) {
+    List<Token> tokens;
+    while (tokens.length() == 0) {
+        String line = read_line();
+        if (line == nullptr)
+            break; // and error
+        tokenize_line(line, &tokens);
+    }
+    if (tokens.length() == 0) {
+        fprintf(stderr, "%s:%d:1: unexpected EOF", script_path, line_number);
+        exit(1);
+    }
+    if (*tokens[0].string != *new_string(RNG_DIRECTIVE))
+        report_error(tokens[0], 0, "expected rng directive with tag: ", tag.raw());
+    if (tokens.length() != 3)
+        report_error(tokens[0], 0, "expected 2 arguments");
+    if (*tokens[2].string != *new_string(tag))
+        report_error(tokens[2], 0, "rng tag mismatch. expected: ", tag.raw());
+    return parse_int(tokens[1]);
+}
+
 static const char * const SEED = "@seed";
 static void write_seed(uint32_t seed) {
     String line = new_string();
@@ -368,20 +402,24 @@ static void read_header() {
             break; // and error
         tokenize_line(line, &tokens);
     }
+    if (tokens.length() == 0) {
+        fprintf(stderr, "%s:%d:1: unexpected EOF", script_path, line_number);
+        exit(1);
+    }
     if (*tokens[0].string == *new_string(SEED)) {
         if (tokens.length() != 2) {
-            fprintf(stderr, "%s:1:1: expected 1 argument", script_path);
+            fprintf(stderr, "%s:%d:1: expected 1 argument", script_path, line_number);
             exit(1);
         }
         tas_seed = parse_uint32(tokens[1]);
     } else if (*tokens[0].string == *new_string(TEST_MODE_HEADER)) {
         if (tokens.length() != 1) {
-            fprintf(stderr, "%s:1:1: expected no arguments", script_path);
+            fprintf(stderr, "%s:%d:1: expected no arguments", script_path, line_number);
             exit(1);
         }
         test_mode = true;
     } else {
-        fprintf(stderr, "%s:1:1: expected swarkland header", script_path);
+        fprintf(stderr, "%s:%d:1: expected swarkland header", script_path, line_number);
         exit(1);
     }
 }
@@ -622,6 +660,39 @@ void tas_record_decision(const Action & action) {
             break;
     }
 }
+int tas_get_rng_input(const ByteBuffer & tag) {
+    int value;
+
+    switch (current_mode) {
+        case TasScriptMode_READ_WRITE:
+        case TasScriptMode_READ:
+            // read from script
+            value = read_rng_input(tag);
+            break;
+        case TasScriptMode_IGNORE:
+        case TasScriptMode_WRITE:
+            // read from stdio
+            printf("%s\n", tag.raw());
+            if (scanf("%d", &value) != 1)
+                panic("scanf did not return 1");
+            break;
+    }
+
+    switch (current_mode) {
+        case TasScriptMode_READ_WRITE:
+        case TasScriptMode_READ:
+        case TasScriptMode_IGNORE:
+            // don't write
+            break;
+        case TasScriptMode_WRITE: {
+            write_line(rng_input_to_string(tag, value));
+            break;
+        }
+    }
+
+    return value;
+}
+
 
 void tas_delete_save() {
     switch (current_mode) {

@@ -109,9 +109,8 @@ static inline int random_inclusive(int min, int max) {
     return random_int(min, max + 1);
 }
 // 2/3 to 3/2. (it's a midpoint on an exponential scale).
-static inline int random_midpoint(int midpoint) {
-    return random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
-}
+int random_midpoint(int midpoint, const char * comment);
+
 static inline int random_triangle_distribution(int n) {
     // 1 -> 1 chance
     // 2 -> 2 chances

@@ -27,6 +27,19 @@ uint32_t random_uint32() {
     return get_random(&the_random_state);
 }
 
+static int get_rng_input(const char * type_str, int value, const char * comment) {
+    ByteBuffer tag;
+    tag.format("%s:%d:%s", type_str, value, comment);
+    return tas_get_rng_input(tag);
+}
+
+int random_midpoint(int midpoint, const char * comment) {
+    if (test_mode)
+        return get_rng_input("midpoint", midpoint, comment);
+    return random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
+}
+
+
 int log2(int value) {
     if (value < 0)
         return 0;
