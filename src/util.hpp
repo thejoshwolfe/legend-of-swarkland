@@ -99,15 +99,9 @@ static inline void destroy(T * ptr, size_t count) {
 
 void init_random();
 uint32_t random_uint32();
-static inline int random_int(int less_than_this) {
-    return random_uint32() % less_than_this;
-}
-static inline int random_int(int at_least_this, int less_than_this) {
-    return random_int(less_than_this - at_least_this) + at_least_this;
-}
-static inline int random_inclusive(int min, int max) {
-    return random_int(min, max + 1);
-}
+int random_int(int less_than_this, const char * comment);
+int random_int(int at_least_this, int less_than_this, const char * comment);
+int random_inclusive(int min, int max, const char * comment);
 // 2/3 to 3/2. (it's a midpoint on an exponential scale).
 int random_midpoint(int midpoint, const char * comment);
 
@@ -118,7 +112,7 @@ static inline int random_triangle_distribution(int n) {
     // ...
     // n -> n chances
     // out of n*(n+1)/2 chances
-    int x = random_inclusive(1, n * (n + 1) / 2);
+    int x = random_inclusive(1, n * (n + 1) / 2, nullptr);
     for (int result = 1;; result++) {
         if (x <= result * (result + 1) / 2)
             return result;
@@ -186,7 +180,7 @@ void sort(T * in_place_list, int size) {
 template<typename T>
 void shuffle(T * in_place_list, int size) {
     for (int i = 0; i < size; i++) {
-        int swap_with = random_int(i, size);
+        int swap_with = random_int(i, size, nullptr);
         T tmp = in_place_list[swap_with];
         in_place_list[swap_with] = in_place_list[i];
         in_place_list[i] = tmp;

@@ -158,10 +158,10 @@ void generate_map() {
     // create rooms
     List<SDL_Rect> rooms;
     for (int i = 0; i < 50; i++) {
-        int width = random_int(4, 10);
-        int height = random_int(4, 10);
-        int x = random_int(0, map_size.x - width);
-        int y = random_int(0, map_size.y - height);
+        int width = random_int(4, 10, nullptr);
+        int height = random_int(4, 10, nullptr);
+        int x = random_int(0, map_size.x - width, nullptr);
+        int y = random_int(0, map_size.y - height, nullptr);
         SDL_Rect room = SDL_Rect{x, y, width, height};
         for (int j = 0; j < rooms.length(); j++) {
             SDL_Rect intersection;
@@ -245,14 +245,14 @@ void generate_map() {
 
     // place the stairs down
     if (dungeon_level < final_dungeon_level) {
-        stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length())];
+        stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
         actual_map_tiles[stairs_down_location].tile_type = TileType_STAIRS_DOWN;
     }
 
     // throw some items around
-    int wand_count = random_inclusive(1, 2);
+    int wand_count = random_inclusive(1, 2, nullptr);
     for (int i = 0; i < wand_count; i++) {
-        Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
+        Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
         Thing item;
         if (dungeon_level == 1 && i == 0) {
             // first level always has a wand of digging to make finding vaults less random.
@@ -261,9 +261,9 @@ void generate_map() {
             create_random_item(ThingType_WAND)->location = location;
         }
     }
-    int potion_count = random_inclusive(2, 4);
+    int potion_count = random_inclusive(2, 4, nullptr);
     for (int i = 0; i < potion_count; i++) {
-        Coord location = room_floor_spaces[random_int(room_floor_spaces.length())];
+        Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
         if (dungeon_level == 1 && i == 0) {
             // first level always has a potion of ethereal vision to make finding vaults less random.
             create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = location;
@@ -273,12 +273,12 @@ void generate_map() {
     }
 
     // place some vaults
-    int vault_count = random_inclusive(1, 2);
+    int vault_count = random_inclusive(1, 2, nullptr);
     for (int i = 0; i < 10; i++) {
         int width = 4;
         int height = 4;
-        int x = random_int(0, map_size.x - width);
-        int y = random_int(0, map_size.y - height);
+        int x = random_int(0, map_size.x - width, nullptr);
+        int y = random_int(0, map_size.y - height, nullptr);
         SDL_Rect room = SDL_Rect{x, y, width, height};
 
         Coord cursor;
@@ -325,7 +325,7 @@ Coord random_spawn_location(Coord away_from_location) {
                 available_spawn_locations.append(location);
     if (available_spawn_locations.length() == 0)
         return Coord::nowhere();
-    return available_spawn_locations[random_int(available_spawn_locations.length())];
+    return available_spawn_locations[random_int(available_spawn_locations.length(), nullptr)];
 }
 
 Coord find_stairs_down_location() {

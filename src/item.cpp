@@ -26,7 +26,7 @@ static PotionDescriptionId reverse_identify(PotionId potion_id) {
 }
 Thing create_wand(WandId wand_id) {
     WandDescriptionId description_id = reverse_identify(wand_id);
-    int charges = random_int(4, 8);
+    int charges = random_int(4, 8, "wand_charges");
     return register_item(create<ThingImpl>(description_id, charges));
 }
 Thing create_potion(PotionId potion_id) {
@@ -37,9 +37,9 @@ Thing create_potion(PotionId potion_id) {
 Thing create_random_item(ThingType thing_type) {
     switch (thing_type) {
         case ThingType_POTION:
-            return create_potion((PotionId)random_int(PotionId_COUNT));
+            return create_potion((PotionId)random_int(PotionId_COUNT, nullptr));
         case ThingType_WAND:
-            return create_wand((WandId)random_int(WandId_COUNT));
+            return create_wand((WandId)random_int(WandId_COUNT, nullptr));
         case ThingType_INDIVIDUAL:
             panic("not an item");
 
@@ -49,7 +49,7 @@ Thing create_random_item(ThingType thing_type) {
     panic("thing type");
 }
 Thing create_random_item() {
-    if (random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT) < WandDescriptionId_COUNT)
+    if (random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT, nullptr) < WandDescriptionId_COUNT)
         return create_random_item(ThingType_WAND);
     else
         return create_random_item(ThingType_POTION);
@@ -167,7 +167,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
 
     publish_event(Event::zap_wand(wand_wielder, wand), &perceived_current_zapper);
     Coord cursor = wand_wielder->location;
-    int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin);
+    int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin, "beam_length");
     WandHandler handler = wand_handlers[actual_wand_identities[wand->wand_info()->description_id]];
     for (int i = 0; i < beam_length; i++) {
         cursor = cursor + direction;

@@ -1,0 +1,16 @@
+@test
+!wish potion blindness
+pickup 0000000000000000000000000000000000000000000000000000000000000003
+quaff 0000000000000000000000000000000000000000000000000000000000000003
+@rng 1000 midpoint:1000:potion_of_blindness_expiration
+!monster lich player 3 1
+wait
+!wish potion healing
+pickup 0000000000000000000000000000000000000000000000000000000000000006
+@mark
+wait
+throw -1 0 0000000000000000000000000000000000000000000000000000000000000006
+@rng 6 range:4:6:throw_distance
+@rng 1 inclusive:1:2:throw_impact_damage
+@expect "a blue potion hits you!"
+@expect "a blue potion breaks and splashes on you; you is healed!"

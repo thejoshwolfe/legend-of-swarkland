@@ -111,8 +111,8 @@ static void gain_experience(Thing individual, int delta, bool publish) {
 
 static void reset_hp_regen_timeout(Thing individual) {
     Life * life = individual->life();
-    if (life->hitpoints < life->max_hitpoints())
-        life->hp_regen_deadline = time_counter + random_midpoint(7 * 12, "hp_regen");
+    if (!test_mode && life->hitpoints < life->max_hitpoints())
+        life->hp_regen_deadline = time_counter + random_midpoint(7 * 12, nullptr);
 }
 static void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) {
     if (damage <= 0)
@@ -171,7 +171,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     fix_z_orders(actor->id);
 
     // find the hit target
-    int range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin);
+    int range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "throw_distance");
     Coord cursor = actor->location;
     bool item_breaks = false;
     // potions are fragile
@@ -185,7 +185,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
                 // impact just in front of the wall
                 cursor -= direction;
             }
-            item_breaks = item->thing_type == ThingType_POTION || random_int(2) == 0;
+            item_breaks = item->thing_type == ThingType_POTION || random_int(2, "wand_breaks") == 0;
             publish_event(Event::item_hits_wall(item->id, cursor));
             break;
         } else {
@@ -197,7 +197,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             // wham!
             publish_event(Event::item_hits_individual(item->id, target));
             // hurt a little
-            int damage = random_inclusive(1, 2);
+            int damage = random_inclusive(1, 2, "throw_impact_damage");
             damage_individual(target, damage, actor, false);
             if (damage == 2) {
                 // no item can survive that much damage dealt
@@ -242,7 +242,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
                 available_specieses.append((SpeciesId)i);
         }
         assert(available_specieses.length() != 0);
-        species_id = available_specieses[random_int(available_specieses.length())];
+        species_id = available_specieses[random_int(available_specieses.length(), nullptr)];
     }
 
     if (location == Coord::nowhere()) {
@@ -347,7 +347,7 @@ void go_down() {
 static void maybe_spawn_monsters() {
     if (test_mode)
         return;
-    if (random_int(2000) == 0)
+    if (random_int(2000, nullptr) == 0)
         spawn_random_individual();
 }
 
@@ -376,7 +376,7 @@ static void regen_hp(Thing individual) {
         }
     } else if (life->hp_regen_deadline == time_counter) {
         // hp regen
-        int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5));
+        int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5), nullptr);
         heal_hp(individual, hp_heal);
     }
 }
@@ -393,10 +393,10 @@ void poison_individual(Thing attacker, Thing target) {
 static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack_individual(attacker, target));
     int attack_power = attacker->life()->attack_power();
-    int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2);
+    int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2, "melee_damage");
     damage_individual(target, damage, attacker, true);
     reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4) == 0)
+    if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4, "poison_attack") == 0)
         poison_individual(attacker, target);
 }
 
@@ -629,21 +629,20 @@ static const Coord directions_by_rotation[] = {
     {+1, -1},
 };
 Coord confuse_direction(Thing individual, Coord direction) {
-    if (!has_status(individual, StatusEffect::CONFUSION))
-        return direction; // not confused
     if (direction == Coord{0, 0})
         return direction; // can't get that wrong
-    if (random_int(2) > 0)
-        return direction; // you're ok this time
-    // which direction are we attempting
-    for (int i = 0; i < 8; i++) {
-        if (directions_by_rotation[i] != direction)
-            continue;
-        // turn left or right 45 degrees
-        i = euclidean_mod(i + 2 * random_int(2) - 1, 8);
-        return directions_by_rotation[i];
+    if (has_status(individual, StatusEffect::CONFUSION) && random_int(2, "is_direction_confused") == 0) {
+        // which direction are we attempting
+        for (int i = 0; i < 8; i++) {
+            if (directions_by_rotation[i] != direction)
+                continue;
+            // turn left or right 45 degrees
+            i = euclidean_mod(i + 2 * random_int(2, "confused_direction") - 1, 8);
+            return directions_by_rotation[i];
+        }
+        panic("direction not found");
     }
-    panic("direction not found");
+    return direction; // not confused
 }
 
 
@@ -761,15 +760,15 @@ static bool take_action(Thing actor, Action action) {
             return false;
         case Action::DIRECTIVE_EXPECT: {
             const List<RememberedEvent> & events = you->life()->knowledge.remembered_events;
-            int new_event_count = events.length() - test_you_events_mark;
-            if (new_event_count != 1)
-                test_expect_fail("expected 1 new event. got %d new events.", new_event_count);
+            if (test_you_events_mark >= events.length())
+                test_expect_fail("no new events.");
             const RememberedEvent & event = events[test_you_events_mark];
             String actual_text = new_string();
             event->span->to_string(actual_text);
             String expected_text = action.string;
             if (*actual_text != *expected_text)
                 test_expect_fail("expected event text \"%s\". got \"%s\".", expected_text, actual_text);
+            test_you_events_mark++;
             return false;
         }
 
@@ -822,16 +821,17 @@ static bool take_action(Thing actor, Action action) {
 
 // advance time for an individual
 static void age_individual(Thing individual) {
-    regen_hp(individual);
+    if (!test_mode)
+        regen_hp(individual);
 
     if (individual->life()->species()->auto_throws_items) {
         // there's a chance per item they're carrying
         List<Thing> inventory;
         find_items_in_inventory(individual->id, &inventory);
         for (int i = 0; i < inventory.length(); i++) {
-            if (random_int(100) == 0) {
+            if (!test_mode && random_int(100, nullptr) == 0) {
                 // throw item in random direction
-                throw_item(individual, inventory[i], directions[random_int(8)]);
+                throw_item(individual, inventory[i], directions[random_int(8, nullptr)]);
             }
         }
     }
@@ -963,16 +963,16 @@ void run_the_game() {
 
 // you need to emit events yourself
 void confuse_individual(Thing target) {
-    find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = time_counter + random_int(100, 200);
+    find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = time_counter + random_int(100, 200, "confusion_duration");
 }
 // you need to emit events yourself
 void speed_up_individual(Thing target) {
-    find_or_put_status(target, StatusEffect::SPEED)->expiration_time = time_counter + random_int(100, 200);
+    find_or_put_status(target, StatusEffect::SPEED)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
 }
 
 void strike_individual(Thing attacker, Thing target) {
     // it's just some damage
-    int damage = random_int(4, 8);
+    int damage = random_int(4, 8, "striking_damage");
     damage_individual(target, damage, attacker, false);
 }
 void change_map(Coord location, TileType new_tile_type) {

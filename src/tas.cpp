@@ -717,6 +717,7 @@ void tas_record_decision(const Action & action) {
     }
 }
 int tas_get_rng_input(const ByteBuffer & tag) {
+    assert(tag.index_of_rev(' ') == -1);
     int value;
 
     switch (current_mode) {
@@ -750,10 +751,8 @@ int tas_get_rng_input(const ByteBuffer & tag) {
 }
 
 __attribute__((noreturn))
-void test_expect_fail(const char * fmt, int value) {
-    ByteBuffer msg;
-    msg.format(fmt, value);
-    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
+void test_expect_fail(const char * message) {
+    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, message);
     exit_with_error();
 }
 __attribute__((noreturn))

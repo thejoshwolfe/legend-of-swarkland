@@ -123,7 +123,7 @@ static Action get_ai_decision(Thing actor) {
     }
 
     if (things_of_interest.length() > 0) {
-        PerceivedThing target = things_of_interest[random_int(things_of_interest.length())];
+        PerceivedThing target = things_of_interest[random_int(things_of_interest.length(), nullptr)];
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL: {
                 // we are aggro!!
@@ -249,13 +249,13 @@ static Action get_ai_decision(Thing actor) {
                 }
                 if (defense_actions.length() + buff_actions.length() + range_attack_actions.length() > 0) {
                     // should we go through with it?
-                    if (advanced_strategy || random_int(3) == 0) {
+                    if (advanced_strategy || random_int(3, nullptr) == 0) {
                         if (defense_actions.length())
-                            return defense_actions[random_int(defense_actions.length())];
+                            return defense_actions[random_int(defense_actions.length(), nullptr)];
                         if (buff_actions.length())
-                            return buff_actions[random_int(buff_actions.length())];
+                            return buff_actions[random_int(buff_actions.length(), nullptr)];
                         if (range_attack_actions.length())
-                            return range_attack_actions[random_int(range_attack_actions.length())];
+                            return range_attack_actions[random_int(range_attack_actions.length(), nullptr)];
                     }
                     // nah. let's save the items for later.
                 }
@@ -308,7 +308,7 @@ static Action get_ai_decision(Thing actor) {
         if (do_i_think_i_can_move_here(actor, actor->location + directions[i]))
             open_directions.append(directions[i]);
     if (open_directions.length() > 0)
-        return Action::move(open_directions[random_int(open_directions.length())]);
+        return Action::move(open_directions[random_int(open_directions.length(), nullptr)]);
     // we must be stuck in a crowd
     return Action::wait();
 }

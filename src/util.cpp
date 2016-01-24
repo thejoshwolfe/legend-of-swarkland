@@ -32,11 +32,31 @@ static int get_rng_input(const char * type_str, int value, const char * comment)
     tag.format("%s:%d:%s", type_str, value, comment);
     return tas_get_rng_input(tag);
 }
+static int get_rng_input(const char * type_str, int value1, int value2, const char * comment) {
+    ByteBuffer tag;
+    tag.format("%s:%d:%d:%s", type_str, value1, value2, comment);
+    return tas_get_rng_input(tag);
+}
 
+int random_int(int less_than_this, const char * comment) {
+    if (comment != nullptr && test_mode)
+        return get_rng_input("int", less_than_this, comment);
+    return random_uint32() % less_than_this;
+}
+int random_int(int at_least_this, int less_than_this, const char * comment) {
+    if (comment != nullptr && test_mode)
+        return get_rng_input("range", at_least_this, less_than_this, comment);
+    return random_int(less_than_this - at_least_this, nullptr) + at_least_this;
+}
+int random_inclusive(int min, int max, const char * comment) {
+    if (comment != nullptr && test_mode)
+        return get_rng_input("inclusive", min, max, comment);
+    return random_int(min, max + 1, nullptr);
+}
 int random_midpoint(int midpoint, const char * comment) {
-    if (test_mode)
+    if (comment != nullptr && test_mode)
         return get_rng_input("midpoint", midpoint, comment);
-    return random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2);
+    return random_inclusive(midpoint * 2 / 3, midpoint * 3 / 2, nullptr);
 }
 
 
