@@ -33,15 +33,13 @@ static inline bool __builtin_add_overflow(int a, int b, int * result) {
 }
 #endif
 
-void panic(const char * str) __attribute__ ((noreturn));
+#define panic(str) _panic(str, __FILE__, __LINE__)
+void _panic(const char * str, const char * file_name, int line_number) __attribute__ ((noreturn));
 static inline void assert(bool condition) {
     if (!condition)
         panic("assertion failure");
 }
-__attribute__ ((noreturn))
-static inline void unreachable() {
-    panic("unreachable");
-}
+#define unreachable() panic("unreachable")
 
 // create<MyClass>(a, b) is equivalent to: new MyClass(a, b)
 template<typename T, typename... Args>
