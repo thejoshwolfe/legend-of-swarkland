@@ -607,6 +607,8 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                     case Action::CHEATCODE_IDENTIFY:
                     case Action::CHEATCODE_GO_DOWN:
                     case Action::CHEATCODE_GAIN_LEVEL:
+                    case Action::DIRECTIVE_MARK:
+                    case Action::DIRECTIVE_EXPECT:
                     case Action::COUNT:
                     case Action::UNDECIDED:
                         unreachable();
@@ -716,6 +718,8 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
+        case Action::DIRECTIVE_MARK:
+        case Action::DIRECTIVE_EXPECT:
         case Action::COUNT:
         case Action::UNDECIDED:
             unreachable();
@@ -750,6 +754,8 @@ static Span render_action(Thing actor, Action action) {
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
+        case Action::DIRECTIVE_MARK:
+        case Action::DIRECTIVE_EXPECT:
         case Action::COUNT:
         case Action::UNDECIDED:
             unreachable();

@@ -22,6 +22,8 @@ Thing player_actor;
 
 bool cheatcode_full_visibility;
 
+static int test_you_events_mark;
+
 static void init_specieses() {
     //                                     movement cost
     //                                     |   health
@@ -601,6 +603,15 @@ bool validate_action(Thing actor, Action action) {
             return true;
         }
 
+        case Action::DIRECTIVE_MARK:
+            if (!test_mode)
+                return false;
+            return true;
+        case Action::DIRECTIVE_EXPECT:
+            if (!test_mode)
+                return false;
+            return true;
+
         case Action::COUNT:
         case Action::UNDECIDED:
             unreachable();
@@ -644,8 +655,6 @@ static bool take_action(Thing actor, Action action) {
     switch (action.id) {
         case Action::WAIT:
             break;
-        case Action::UNDECIDED:
-            panic("not a real action");
         case Action::MOVE: {
             // normally, we'd be sure that this was valid, but if you use cheatcodes,
             // monsters can try to walk into you while you're invisible.
@@ -747,7 +756,25 @@ static bool take_action(Thing actor, Action action) {
             level_up(actor, true);
             return false;
 
+        case Action::DIRECTIVE_MARK:
+            test_you_events_mark = you->life()->knowledge.remembered_events.length();
+            return false;
+        case Action::DIRECTIVE_EXPECT: {
+            const List<RememberedEvent> & events = you->life()->knowledge.remembered_events;
+            int new_event_count = events.length() - test_you_events_mark;
+            if (new_event_count != 1)
+                test_expect_fail("expected 1 new event. got %d new events.", new_event_count);
+            const RememberedEvent & event = events[test_you_events_mark];
+            String actual_text = new_string();
+            event->span->to_string(actual_text);
+            String expected_text = action.string;
+            if (*actual_text != *expected_text)
+                test_expect_fail("expected event text \"%s\". got \"%s\".", expected_text, actual_text);
+            return false;
+        }
+
         case Action::COUNT:
+        case Action::UNDECIDED:
             unreachable();
     }
 
@@ -850,6 +877,8 @@ static void age_individual(Thing individual) {
     if (remembered_events.length() >= 1000) {
         remembered_events.remove_range(0, 500);
         individual->life()->knowledge.event_forget_counter++;
+        if (test_you_events_mark != 0)
+            panic("events overflowed during mark/expect");
     }
 
     // clean up stale unseen things

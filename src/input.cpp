@@ -292,6 +292,8 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                 case Action::CHEATCODE_IDENTIFY:
                 case Action::CHEATCODE_GO_DOWN:
                 case Action::CHEATCODE_GAIN_LEVEL:
+                case Action::DIRECTIVE_MARK:
+                case Action::DIRECTIVE_EXPECT:
                 case Action::COUNT:
                 case Action::UNDECIDED:
                     unreachable();

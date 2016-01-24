@@ -152,6 +152,18 @@ public:
     template<typename ...Args>
     void format(const char * fmt, RuckSackImage * image, Args... args);
 
+    void to_string(String output_string) const {
+        for (int i = 0; i < _items.length(); i++) {
+            if (_items[i].string != nullptr) {
+                output_string->append(_items[i].string);
+            } else if (_items[i].span != nullptr) {
+                _items[i].span->to_string(output_string);
+            } else if (_items[i].image != nullptr) {
+                // sorry.
+            } else unreachable();
+        }
+    }
+
     bool operator==(const SpanImpl & other) const {
         if (this == &other)
             return true;

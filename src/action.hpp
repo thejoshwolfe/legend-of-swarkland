@@ -25,6 +25,9 @@ struct Action {
         CHEATCODE_GO_DOWN,
         CHEATCODE_GAIN_LEVEL,
 
+        DIRECTIVE_MARK,
+        DIRECTIVE_EXPECT,
+
         COUNT,
         // only a player can be undecided
         UNDECIDED,
@@ -52,9 +55,12 @@ struct Action {
         Layout_COORD_AND_ITEM,
         Layout_WISH,
         Layout_GENERATE_MONSTER,
+        Layout_STRING,
     };
 
     Id id;
+    // this can't go in the union because of constructor/destructor nonsense.
+    String string = nullptr;
 
     Layout get_layout() const {
         return get_layout(id);
@@ -222,6 +228,11 @@ private:
             case CHEATCODE_GENERATE_MONSTER:
                 return Layout_GENERATE_MONSTER;
 
+            case DIRECTIVE_MARK:
+                return Layout_VOID;
+            case DIRECTIVE_EXPECT:
+                return Layout_STRING;
+
             case COUNT:
                 unreachable();
         }
@@ -277,6 +288,17 @@ static inline bool operator==(const Action & a, const Action &  b) {
             if (a_data.decision_maker != b_data.decision_maker)
                 return false;
             if (a_data.location != b_data.location)
+                return false;
+            return true;
+        }
+        case Action::Layout_STRING: {
+            const String & a_data = a.string;
+            const String & b_data = b.string;
+            if (a_data == b_data)
+                return true;
+            if (a_data == nullptr || b_data == nullptr)
+                return false;
+            if (*a_data != *b_data)
                 return false;
             return true;
         }

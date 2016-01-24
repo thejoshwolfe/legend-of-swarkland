@@ -20,41 +20,6 @@ uint32_t tas_get_seed() {
     return tas_seed;
 }
 
-class Token {
-public:
-    String string = nullptr;
-    // col starts at 1
-    int col = 0;
-};
-
-static void tokenize_line(const String & line, List<Token> * tokens) {
-    int index = 0;
-    Token current_token;
-    for (; index < line->length(); index++) {
-        uint32_t c = (*line)[index];
-        if (c == '#')
-            break;
-        if (current_token.col == 0) {
-            if (c == ' ')
-                continue;
-            // start token
-            current_token.col = index + 1;
-        } else {
-            if (c != ' ')
-                continue;
-            // end token
-            current_token.string = line->substring(current_token.col - 1, index);
-            tokens->append(current_token);
-            current_token = Token();
-        }
-    }
-    if (current_token.col != 0) {
-        // end token
-        current_token.string = line->substring(current_token.col - 1, index);
-        tokens->append(current_token);
-    }
-}
-
 static void write_line(const String & line) {
     ByteBuffer buffer;
     line->encode(&buffer);
@@ -74,6 +39,7 @@ static String read_line() {
         for (; index < read_buffer.length(); index++) {
             if (index >= 256) {
                 fprintf(stderr, "ERROR: line length too long: %s\n", script_path);
+                exit(1);
             }
             if (read_buffer[index] != '\n')
                 continue;
@@ -100,6 +66,60 @@ static String read_line() {
             return nullptr;
         }
         read_buffer.append(blob, read_count);
+    }
+}
+
+class Token {
+public:
+    String string = nullptr;
+    // col starts at 1
+    int col = 0;
+};
+static void tokenize_line(const String & line, List<Token> * tokens) {
+    int index = 0;
+    Token current_token;
+    for (; index < line->length(); index++) {
+        uint32_t c = (*line)[index];
+        if (c == '#')
+            break;
+        if (current_token.col == 0) {
+            if (c == ' ')
+                continue;
+            // start token
+            current_token.col = index + 1;
+            if (c == '"') {
+                // start quoted string
+                while (true) {
+                    index++;
+                    if (index >= line->length()) {
+                        fprintf(stderr, "%s:%d:error: unterminated quoted string\n", script_path, line_number);
+                        exit(1);
+                    }
+                    c = (*line)[index];
+                    if (c == '"') {
+                        // end quoted string
+                        current_token.string = line->substring(current_token.col - 1, index + 1);
+                        tokens->append(current_token);
+                        current_token = Token();
+                        break;
+                    }
+                }
+            } else {
+                // start bareword token
+            }
+        } else {
+            if (c != ' ')
+                continue;
+            // end token
+            current_token.string = line->substring(current_token.col - 1, index);
+            tokens->append(current_token);
+            current_token = Token();
+        }
+    }
+    if (current_token.col != 0) {
+        // end token
+        current_token.string = line->substring(current_token.col - 1, index);
+        tokens->append(current_token);
     }
 }
 __attribute__((noreturn))
@@ -241,6 +261,23 @@ static Coord parse_coord(const Token & token1, const Token & token2) {
     return Coord{parse_int(token1), parse_int(token2)};
 }
 
+static String parse_string(const Token & token) {
+    if (token.string->length() < 2)
+        report_error(token, 0, "expected quoted string");
+    if (!((*token.string)[0] == '"' && (*token.string)[token.string->length() - 1] == '"'))
+        report_error(token, 0, "expected quoted string");
+    return token.string->substring(1, token.string->length() - 1);
+}
+static String string_to_string(const String & string) {
+    for (int i = 0; i < string->length(); i++) {
+        if ((*string)[i] == '"')
+            panic("TODO: escape literal quotes in quoted strings");
+    }
+    String result = new_string();
+    result->format("\"%s\"", string);
+    return result;
+}
+
 static String action_names[Action::COUNT];
 static String species_names[SpeciesId_COUNT];
 static String decision_maker_names[DecisionMakerType_COUNT];
@@ -270,6 +307,8 @@ static void init_name_arrays() {
     action_names[Action::CHEATCODE_IDENTIFY] = new_string("!identify");
     action_names[Action::CHEATCODE_GO_DOWN] = new_string("!down");
     action_names[Action::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
+    action_names[Action::DIRECTIVE_MARK] = new_string("@mark");
+    action_names[Action::DIRECTIVE_EXPECT] = new_string("@expect");
     check_no_nulls(action_names, Action::COUNT);
 
     species_names[SpeciesId_HUMAN] = new_string("human");
@@ -552,6 +591,12 @@ static Action read_action() {
             data.location = parse_coord(tokens[3], tokens[4]);
             return action;
         }
+        case Action::Layout_STRING: {
+            if (tokens.length() != 2)
+                report_error(tokens[0], 0, "expected 1 argument");
+            action.string = parse_string(tokens[1]);
+            return action;
+        }
     }
     unreachable();
 }
@@ -608,6 +653,11 @@ static String action_to_string(const Action & action) {
             String location_string1 = int_to_string(data.location.x);
             String location_string2 = int_to_string(data.location.y);
             result->format("%s %s %s %s %s\n", action_type_string, species_string, decision_maker_string, location_string1, location_string2);
+            break;
+        }
+        case Action::Layout_STRING: {
+            const String & string_string = string_to_string(action.string);
+            result->format("%s %s\n", action_type_string, string_string);
             break;
         }
     }
@@ -693,6 +743,24 @@ int tas_get_rng_input(const ByteBuffer & tag) {
     return value;
 }
 
+__attribute__((noreturn))
+void test_expect_fail(const char * fmt, int value) {
+    ByteBuffer msg;
+    msg.format(fmt, value);
+    fprintf(stderr, "%s:%d:1: %s", script_path, line_number, msg.raw());
+    exit(1);
+}
+__attribute__((noreturn))
+void test_expect_fail(const char * fmt, String s1, String s2) {
+    ByteBuffer buffer1;
+    s1->encode(&buffer1);
+    ByteBuffer buffer2;
+    s2->encode(&buffer2);
+    ByteBuffer msg;
+    msg.format(fmt, buffer1.raw(), buffer2.raw());
+    fprintf(stderr, "%s:%d:1: %s", script_path, line_number, msg.raw());
+    exit(1);
+}
 
 void tas_delete_save() {
     switch (current_mode) {
