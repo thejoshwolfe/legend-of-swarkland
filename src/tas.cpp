@@ -313,8 +313,11 @@ static void init_name_arrays() {
     action_names[Action::CHEATCODE_IDENTIFY] = new_string("!identify");
     action_names[Action::CHEATCODE_GO_DOWN] = new_string("!down");
     action_names[Action::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
-    action_names[Action::DIRECTIVE_MARK] = new_string("@mark");
-    action_names[Action::DIRECTIVE_EXPECT] = new_string("@expect");
+    action_names[Action::DIRECTIVE_MARK_EVENTS] = new_string("@mark_events");
+    action_names[Action::DIRECTIVE_EXPECT_EVENT] = new_string("@expect_event");
+    action_names[Action::DIRECTIVE_FIND_THINGS_AT] = new_string("@find_things_at");
+    action_names[Action::DIRECTIVE_EXPECT_THING] = new_string("@expect_thing");
+    action_names[Action::DIRECTIVE_EXPECT_NOTHING] = new_string("@expect_nothing");
     check_no_nulls(action_names, Action::COUNT);
 
     species_names[SpeciesId_HUMAN] = new_string("human");
@@ -568,14 +571,15 @@ static Action read_action() {
             action.coord_and_item().item = parse_uint256(tokens[3]);
             return action;
         }
-        case Action::Layout_WISH: {
+        case Action::Layout_THING: {
             if (tokens.length() != 3)
                 report_error(tokens[0], 0, "expected 2 arguments");
-            Action::Wish & data = action.wish();
+            Action::Thing & data = action.thing();
             data.thing_type = parse_thing_type(tokens[1]);
             switch (data.thing_type) {
                 case ThingType_INDIVIDUAL:
-                    report_error(tokens[1], 0, "can't wish for an individual");
+                    data.species_id = parse_species_id(tokens[2]);
+                    return action;
                 case ThingType_WAND:
                     data.wand_id = parse_wand_id(tokens[2]);
                     return action;
@@ -630,12 +634,15 @@ static String action_to_string(const Action & action) {
             result->format("%s %s %s %s\n", action_type_string, coord_string1, coord_string2, item_string);
             break;
         }
-        case Action::Layout_WISH: {
-            const Action::Wish & data = action.wish();
+        case Action::Layout_THING: {
+            const Action::Thing & data = action.thing();
             String thing_type_string = thing_type_names[data.thing_type];
             switch (data.thing_type) {
-                case ThingType_INDIVIDUAL:
-                    unreachable();
+                case ThingType_INDIVIDUAL: {
+                    String species_id_string = species_names[data.species_id];
+                    result->format("%s %s %s\n", action_type_string, thing_type_string, species_id_string);
+                    break;
+                }
                 case ThingType_WAND: {
                     String wand_id_string = wand_id_names[data.wand_id];
                     result->format("%s %s %s\n", action_type_string, thing_type_string, wand_id_string);
@@ -753,6 +760,15 @@ int tas_get_rng_input(const ByteBuffer & tag) {
 __attribute__((noreturn))
 void test_expect_fail(const char * message) {
     fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, message);
+    exit_with_error();
+}
+__attribute__((noreturn))
+void test_expect_fail(const char * fmt, String s) {
+    ByteBuffer buffer;
+    s->encode(&buffer);
+    ByteBuffer msg;
+    msg.format(fmt, buffer.raw());
+    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
     exit_with_error();
 }
 __attribute__((noreturn))

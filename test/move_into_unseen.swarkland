@@ -1,0 +1,13 @@
+@test
+!monster dog player 5 4
+!monster ant player 6 4
+wait
+attack 1 0
+  @rng 0 inclusive:0:1:melee_damage
+move 1 0
+wait
+move 1 0
+wait
+@find_things_at 6 4
+@expect_thing individual dog
+@expect_nothing

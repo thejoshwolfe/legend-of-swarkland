@@ -23,6 +23,7 @@ Thing player_actor;
 bool cheatcode_full_visibility;
 
 static int test_you_events_mark;
+static List<PerceivedThing> test_expect_things_list;
 
 static void init_specieses() {
     //                                     movement cost
@@ -588,7 +589,7 @@ bool validate_action(Thing actor, Action action) {
         case Action::CHEATCODE_WISH:
             if (actor != player_actor)
                 return false;
-            if (action.wish().thing_type == ThingType_INDIVIDUAL)
+            if (action.thing().thing_type == ThingType_INDIVIDUAL)
                 return false;
             return true;
         case Action::CHEATCODE_GENERATE_MONSTER: {
@@ -603,11 +604,11 @@ bool validate_action(Thing actor, Action action) {
             return true;
         }
 
-        case Action::DIRECTIVE_MARK:
-            if (!test_mode)
-                return false;
-            return true;
-        case Action::DIRECTIVE_EXPECT:
+        case Action::DIRECTIVE_MARK_EVENTS:
+        case Action::DIRECTIVE_EXPECT_EVENT:
+        case Action::DIRECTIVE_FIND_THINGS_AT:
+        case Action::DIRECTIVE_EXPECT_THING:
+        case Action::DIRECTIVE_EXPECT_NOTHING:
             if (!test_mode)
                 return false;
             return true;
@@ -643,6 +644,24 @@ Coord confuse_direction(Thing individual, Coord direction) {
         panic("direction not found");
     }
     return direction; // not confused
+}
+
+static String get_thing_description(const Action::Thing & thing) {
+    String result = new_string();
+    switch (thing.thing_type) {
+        case ThingType_INDIVIDUAL:
+            result->format("individual %s", get_species_name_str(thing.species_id));
+            return result;
+        case ThingType_WAND:
+            result->append(get_wand_id_str(thing.wand_id));
+            return result;
+        case ThingType_POTION:
+            result->append(get_potion_id_str(thing.potion_id));
+            return result;
+        case ThingType_COUNT:
+            unreachable();
+    }
+    unreachable();
 }
 
 
@@ -725,7 +744,7 @@ static bool take_action(Thing actor, Action action) {
             return false;
         }
         case Action::CHEATCODE_WISH: {
-            const Action::Wish & data = action.wish();
+            const Action::Thing & data = action.thing();
             switch (data.thing_type) {
                 case ThingType_INDIVIDUAL:
                     unreachable();
@@ -755,10 +774,10 @@ static bool take_action(Thing actor, Action action) {
             level_up(actor, true);
             return false;
 
-        case Action::DIRECTIVE_MARK:
+        case Action::DIRECTIVE_MARK_EVENTS:
             test_you_events_mark = you->life()->knowledge.remembered_events.length();
             return false;
-        case Action::DIRECTIVE_EXPECT: {
+        case Action::DIRECTIVE_EXPECT_EVENT: {
             const List<RememberedEvent> & events = you->life()->knowledge.remembered_events;
             if (test_you_events_mark >= events.length())
                 test_expect_fail("no new events.");
@@ -771,6 +790,49 @@ static bool take_action(Thing actor, Action action) {
             test_you_events_mark++;
             return false;
         }
+        case Action::DIRECTIVE_FIND_THINGS_AT:
+            test_expect_things_list.clear();
+            find_perceived_things_at(you, action.coord(), &test_expect_things_list);
+            return false;
+        case Action::DIRECTIVE_EXPECT_THING: {
+            if (test_expect_things_list.length() == 0)
+                test_expect_fail("expected %s, found nothing.", get_thing_description(action.thing()));
+            for (int i = 0; i < test_expect_things_list.length(); i++) {
+                PerceivedThing thing = test_expect_things_list[i];
+                if (thing->thing_type != action.thing().thing_type)
+                    continue;
+                switch (thing->thing_type) {
+                    case ThingType_INDIVIDUAL:
+                        if (thing->life()->species_id != action.thing().species_id)
+                            continue;
+                        break;
+                    case ThingType_WAND:
+                        if (actual_wand_identities[thing->wand_info()->description_id] != action.thing().wand_id)
+                            continue;
+                        break;
+                    case ThingType_POTION:
+                        if (actual_potion_identities[thing->potion_info()->description_id] != action.thing().potion_id)
+                            continue;
+                        break;
+                    case ThingType_COUNT:
+                        unreachable();
+                }
+                // found it
+                test_expect_things_list.swap_remove(i);
+                return false;
+            }
+            // didn't find it
+            test_expect_fail("expected %s, found other things.", get_thing_description(action.thing()));
+            return false;
+        }
+        case Action::DIRECTIVE_EXPECT_NOTHING:
+            if (test_expect_things_list.length() > 0) {
+                String thing_description = new_string();
+                Span span = get_thing_description(you, test_expect_things_list[0]->id);
+                span->to_string(thing_description);
+                test_expect_fail("expected nothing. found at least: %s.", thing_description);
+            }
+            return false;
 
         case Action::COUNT:
         case Action::UNDECIDED:

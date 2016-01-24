@@ -25,8 +25,11 @@ struct Action {
         CHEATCODE_GO_DOWN,
         CHEATCODE_GAIN_LEVEL,
 
-        DIRECTIVE_MARK,
-        DIRECTIVE_EXPECT,
+        DIRECTIVE_MARK_EVENTS,
+        DIRECTIVE_EXPECT_EVENT,
+        DIRECTIVE_FIND_THINGS_AT,
+        DIRECTIVE_EXPECT_THING,
+        DIRECTIVE_EXPECT_NOTHING,
 
         COUNT,
         // only a player can be undecided
@@ -36,9 +39,10 @@ struct Action {
         uint256 item;
         Coord coord;
     };
-    struct Wish {
+    struct Thing {
         ThingType thing_type;
         union {
+            SpeciesId species_id;
             WandId wand_id;
             PotionId potion_id;
         };
@@ -53,7 +57,7 @@ struct Action {
         Layout_COORD,
         Layout_ITEM,
         Layout_COORD_AND_ITEM,
-        Layout_WISH,
+        Layout_THING,
         Layout_GENERATE_MONSTER,
         Layout_STRING,
     };
@@ -71,8 +75,8 @@ struct Action {
           uint256         & item()                   { assert(get_layout() == Layout_ITEM);             return _item; }
     const CoordAndItem    & coord_and_item()   const { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
           CoordAndItem    & coord_and_item()         { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
-    const Wish            & wish()             const { assert(get_layout() == Layout_WISH);             return _wish; }
-          Wish            & wish()                   { assert(get_layout() == Layout_WISH);             return _wish; }
+    const Thing           & thing()            const { assert(get_layout() == Layout_THING);            return _thing; }
+          Thing           & thing()                  { assert(get_layout() == Layout_THING);            return _thing; }
     const GenerateMonster & generate_monster() const { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
           GenerateMonster & generate_monster()       { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
 
@@ -165,19 +169,19 @@ struct Action {
         return result;
     }
     static Action init(Id id, WandId wand_id) {
-        assert(get_layout(id) == Layout_WISH);
+        assert(get_layout(id) == Layout_THING);
         Action result;
         result.id = id;
-        result._wish.thing_type = ThingType_WAND;
-        result._wish.wand_id = wand_id;
+        result._thing.thing_type = ThingType_WAND;
+        result._thing.wand_id = wand_id;
         return result;
     }
     static Action init(Id id, PotionId potion_id) {
-        assert(get_layout(id) == Layout_WISH);
+        assert(get_layout(id) == Layout_THING);
         Action result;
         result.id = id;
-        result._wish.thing_type = ThingType_POTION;
-        result._wish.potion_id = potion_id;
+        result._thing.thing_type = ThingType_POTION;
+        result._thing.potion_id = potion_id;
         return result;
     }
     static Action init(Id id, SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
@@ -195,7 +199,7 @@ private:
         uint256 _item;
         Coord _coord;
         CoordAndItem _coord_and_item;
-        Wish _wish;
+        Thing _thing;
         GenerateMonster _generate_monster;
     };
 
@@ -224,14 +228,20 @@ private:
             case CHEATCODE_GAIN_LEVEL:
                 return Layout_VOID;
             case CHEATCODE_WISH:
-                return Layout_WISH;
+                return Layout_THING;
             case CHEATCODE_GENERATE_MONSTER:
                 return Layout_GENERATE_MONSTER;
 
-            case DIRECTIVE_MARK:
+            case DIRECTIVE_MARK_EVENTS:
                 return Layout_VOID;
-            case DIRECTIVE_EXPECT:
+            case DIRECTIVE_EXPECT_EVENT:
                 return Layout_STRING;
+            case DIRECTIVE_FIND_THINGS_AT:
+                return Layout_COORD;
+            case DIRECTIVE_EXPECT_THING:
+                return Layout_THING;
+            case DIRECTIVE_EXPECT_NOTHING:
+                return Layout_VOID;
 
             case COUNT:
                 unreachable();
@@ -258,14 +268,16 @@ static inline bool operator==(const Action & a, const Action &  b) {
             if (a.coord_and_item().item != b.coord_and_item().item)
                 return false;
             return true;
-        case Action::Layout_WISH: {
-            const Action::Wish & a_data = a.wish();
-            const Action::Wish & b_data = b.wish();
+        case Action::Layout_THING: {
+            const Action::Thing & a_data = a.thing();
+            const Action::Thing & b_data = b.thing();
             if (a_data.thing_type != b_data.thing_type)
                 return false;
             switch (a_data.thing_type) {
                 case ThingType_INDIVIDUAL:
-                    unreachable();
+                    if (a_data.species_id != b_data.species_id)
+                        return false;
+                    return true;
                 case ThingType_WAND:
                     if (a_data.wand_id != b_data.wand_id)
                         return false;

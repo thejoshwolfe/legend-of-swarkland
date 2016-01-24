@@ -147,10 +147,15 @@ void generate_map() {
     }
 
     if (test_mode) {
-        // just make a room
+        // basic test map
+        // a room
         for (int y = 1; y < 5; y++)
             for (int x = 1; x < 5; x++)
                 actual_map_tiles[Coord{x, y}].tile_type = TileType_DIRT_FLOOR;
+        // a hallway, so there's a "just around the corner"
+        for (int x = 5; x < 10; x++)
+            actual_map_tiles[Coord{x, 4}].tile_type = TileType_DIRT_FLOOR;
+        // no stairs
         stairs_down_location = Coord::nowhere();
         return;
     }

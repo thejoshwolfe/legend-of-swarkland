@@ -270,7 +270,7 @@ Coord get_mouse_tile(SDL_Rect area) {
     return tile_coord;
 }
 
-static const char * get_species_name_str(SpeciesId species_id) {
+const char * get_species_name_str(SpeciesId species_id) {
     switch (species_id) {
         case SpeciesId_HUMAN:
             return "human";
@@ -334,7 +334,7 @@ static Span get_status_description(const List<StatusEffect> & status_effects) {
         tmp_effect_list.append(status_effects[i].type);
     return get_status_description(tmp_effect_list);
 }
-static const char * get_wand_id_str(WandId wand_id) {
+const char * get_wand_id_str(WandId wand_id) {
     switch (wand_id) {
         case WandId_WAND_OF_CONFUSION:
             return "wand of confusion";
@@ -380,7 +380,7 @@ static const char * get_wand_description_str(Thing observer, PerceivedThing item
         panic("description id");
     }
 }
-static const char * get_potion_id_str(PotionId potion_id) {
+const char * get_potion_id_str(PotionId potion_id) {
     switch (potion_id) {
         case PotionId_POTION_OF_HEALING:
             return "potion of healing";
@@ -607,8 +607,11 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                     case Action::CHEATCODE_IDENTIFY:
                     case Action::CHEATCODE_GO_DOWN:
                     case Action::CHEATCODE_GAIN_LEVEL:
-                    case Action::DIRECTIVE_MARK:
-                    case Action::DIRECTIVE_EXPECT:
+                    case Action::DIRECTIVE_MARK_EVENTS:
+                    case Action::DIRECTIVE_EXPECT_EVENT:
+                    case Action::DIRECTIVE_FIND_THINGS_AT:
+                    case Action::DIRECTIVE_EXPECT_THING:
+                    case Action::DIRECTIVE_EXPECT_NOTHING:
                     case Action::COUNT:
                     case Action::UNDECIDED:
                         unreachable();
@@ -718,8 +721,11 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
-        case Action::DIRECTIVE_MARK:
-        case Action::DIRECTIVE_EXPECT:
+        case Action::DIRECTIVE_MARK_EVENTS:
+        case Action::DIRECTIVE_EXPECT_EVENT:
+        case Action::DIRECTIVE_FIND_THINGS_AT:
+        case Action::DIRECTIVE_EXPECT_THING:
+        case Action::DIRECTIVE_EXPECT_NOTHING:
         case Action::COUNT:
         case Action::UNDECIDED:
             unreachable();
@@ -754,8 +760,11 @@ static Span render_action(Thing actor, Action action) {
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
-        case Action::DIRECTIVE_MARK:
-        case Action::DIRECTIVE_EXPECT:
+        case Action::DIRECTIVE_MARK_EVENTS:
+        case Action::DIRECTIVE_EXPECT_EVENT:
+        case Action::DIRECTIVE_FIND_THINGS_AT:
+        case Action::DIRECTIVE_EXPECT_THING:
+        case Action::DIRECTIVE_EXPECT_NOTHING:
         case Action::COUNT:
         case Action::UNDECIDED:
             unreachable();

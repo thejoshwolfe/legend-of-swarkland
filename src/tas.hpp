@@ -21,6 +21,8 @@ void tas_delete_save();
 __attribute__((noreturn))
 void test_expect_fail(const char * message);
 __attribute__((noreturn))
+void test_expect_fail(const char * fmt, String s);
+__attribute__((noreturn))
 void test_expect_fail(const char * fmt, String s1, String s2);
 
 #endif
