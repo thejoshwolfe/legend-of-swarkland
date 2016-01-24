@@ -92,7 +92,7 @@ static void tokenize_line(const String & line, List<Token> * tokens) {
                 while (true) {
                     index++;
                     if (index >= line->length()) {
-                        fprintf(stderr, "%s:%d:error: unterminated quoted string\n", script_path, line_number);
+                        fprintf(stderr, "%s:%d: error: unterminated quoted string\n", script_path, line_number);
                         exit(1);
                     }
                     c = (*line)[index];
@@ -409,7 +409,7 @@ static int read_rng_input(const ByteBuffer & tag) {
         tokenize_line(line, &tokens);
     }
     if (tokens.length() == 0) {
-        fprintf(stderr, "%s:%d:1: unexpected EOF", script_path, line_number);
+        fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
         exit(1);
     }
     if (*tokens[0].string != *new_string(RNG_DIRECTIVE))
@@ -442,23 +442,23 @@ static void read_header() {
         tokenize_line(line, &tokens);
     }
     if (tokens.length() == 0) {
-        fprintf(stderr, "%s:%d:1: unexpected EOF", script_path, line_number);
+        fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
         exit(1);
     }
     if (*tokens[0].string == *new_string(SEED)) {
         if (tokens.length() != 2) {
-            fprintf(stderr, "%s:%d:1: expected 1 argument", script_path, line_number);
+            fprintf(stderr, "%s:%d:1: error: expected 1 argument", script_path, line_number);
             exit(1);
         }
         tas_seed = parse_uint32(tokens[1]);
     } else if (*tokens[0].string == *new_string(TEST_MODE_HEADER)) {
         if (tokens.length() != 1) {
-            fprintf(stderr, "%s:%d:1: expected no arguments", script_path, line_number);
+            fprintf(stderr, "%s:%d:1: error: expected no arguments", script_path, line_number);
             exit(1);
         }
         test_mode = true;
     } else {
-        fprintf(stderr, "%s:%d:1: expected swarkland header", script_path, line_number);
+        fprintf(stderr, "%s:%d:1: error: expected swarkland header", script_path, line_number);
         exit(1);
     }
 }
@@ -747,7 +747,7 @@ __attribute__((noreturn))
 void test_expect_fail(const char * fmt, int value) {
     ByteBuffer msg;
     msg.format(fmt, value);
-    fprintf(stderr, "%s:%d:1: %s", script_path, line_number, msg.raw());
+    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
     exit(1);
 }
 __attribute__((noreturn))
@@ -758,7 +758,7 @@ void test_expect_fail(const char * fmt, String s1, String s2) {
     s2->encode(&buffer2);
     ByteBuffer msg;
     msg.format(fmt, buffer1.raw(), buffer2.raw());
-    fprintf(stderr, "%s:%d:1: %s", script_path, line_number, msg.raw());
+    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
     exit(1);
 }
 

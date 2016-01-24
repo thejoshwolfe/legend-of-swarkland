@@ -32,25 +32,19 @@ build/full_version.txt: $(VERSION_FILE)
 	@#    binary_resources_start  binary_resources_end  binary_resources_size
 	cd $(dir $@) && $(CROSS_PREFIX)ld -r -b binary resources -o $(notdir $@)
 
-.PHONY: test
-test: build/native/test
-	build/native/test
-
 .PHONY: native
 all: native
 -include $(wildcard build/native/*.d)
 OBJECTS_native = $(foreach f,$(OBJECT_NAMES),build/native/$f)
-$(OBJECTS_native) build/native/main.o build/native/test.o: TARGET_SPECIFIC_CPP_FLAGS = -fsanitize=address
-$(OBJECTS_native) build/native/main.o build/native/test.o: CROSS_PREFIX =
+$(OBJECTS_native) build/native/main.o: TARGET_SPECIFIC_CPP_FLAGS = -fsanitize=address
+$(OBJECTS_native) build/native/main.o: CROSS_PREFIX =
 build/native/%.o: src/%.cpp
 	$(COMPILE_CPP)
 
-build/native/legend-of-swarkland build/native/test: TARGET_SPECIFIC_LINK_FLAGS = -lasan
-build/native/legend-of-swarkland build/native/test: CROSS_PREFIX =
+build/native/legend-of-swarkland: TARGET_SPECIFIC_LINK_FLAGS = -lasan
+build/native/legend-of-swarkland: CROSS_PREFIX =
 build/native/legend-of-swarkland: $(OBJECTS_native) build/native/main.o
 	$(LINK)
-build/native/test: $(OBJECTS_native) build/native/test.o
-	$(LINK_SPARSE)
 native: build/native/legend-of-swarkland
 
 $(OBJECTS_native) build/native/resources: | build/native
@@ -97,6 +91,19 @@ $(FULL_PUBLISH_EXE_NAME): build/windows/legend-of-swarkland.exe
 build/publish-windows:
 	mkdir -p $@
 
+.PHONY: test
+TEST_SOURCES = $(wildcard test/*.swarkland)
+TEST_OUTPUTS = $(patsubst test/%.swarkland,build/test/%.timestamp,$(TEST_SOURCES))
+test: $(TEST_OUTPUTS)
+$(TEST_OUTPUTS): build/native/legend-of-swarkland | build/test
+build/test/%.timestamp: test/%.swarkland
+	./build/native/legend-of-swarkland --headless $<
+	@touch $@
+
+build/test:
+	mkdir -p $@
+
+all: test
 
 build:
 	mkdir -p $@
