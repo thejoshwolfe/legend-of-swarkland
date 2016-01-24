@@ -340,6 +340,12 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     }
     target = to_perceived_thing(target_id);
     observer->life()->knowledge.perceived_things.put(target_id, target);
+    if (target->thing_type == ThingType_INDIVIDUAL && target->life()->species_id != SpeciesId_UNSEEN) {
+        // clear any unseen markers at the new location as well
+        PerceivedThing thing = find_unseen_individual(observer, target->location);
+        if (thing != nullptr)
+            observer->life()->knowledge.perceived_things.remove(thing->id);
+    }
     // cogniscopy doesn't see items.
     if (can_see_location(observer, target->location)) {
         List<Thing> inventory;
