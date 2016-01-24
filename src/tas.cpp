@@ -401,7 +401,7 @@ static PotionId parse_potion_id(const Token & token) {
 static const char * const RNG_DIRECTIVE = "@rng";
 static String rng_input_to_string(const ByteBuffer & tag, int value) {
     String line = new_string();
-    line->format("%s %d ", RNG_DIRECTIVE, value);
+    line->format("  %s %d ", RNG_DIRECTIVE, value);
     line->decode(tag);
     line->append("\n");
     return line;
