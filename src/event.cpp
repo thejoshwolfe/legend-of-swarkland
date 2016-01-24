@@ -9,6 +9,8 @@ static bool can_see_location(Thing observer, Coord location) {
         return false;
     if (!is_in_bounds(location))
         return false;
+    if (location == observer->location)
+        return true;
     return observer->life()->knowledge.tile_is_visible[location].any();
 }
 bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
@@ -281,8 +283,6 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         case Event::ITEM_AND_LOCATION: {
             const Event::ItemAndLocationData & data = event.item_and_location_data();
             if (!can_see_location(observer, data.location))
-                return false;
-            if (!can_see_thing(observer, data.item))
                 return false;
             *output_event = event;
             return true;

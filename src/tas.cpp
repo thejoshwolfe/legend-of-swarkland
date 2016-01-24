@@ -13,6 +13,12 @@ static uint32_t tas_seed;
 static int frame_counter;
 static TasScriptMode current_mode;
 
+__attribute__((noreturn))
+static void exit_with_error() {
+    // put a breakpoint here
+    exit(1);
+}
+
 void set_tas_delay(int n) {
     tas_delay = n;
 }
@@ -25,7 +31,7 @@ static void write_line(const String & line) {
     line->encode(&buffer);
     if (fwrite(buffer.raw(), buffer.length(), 1, script_file) < 1) {
         fprintf(stderr, "ERROR: IO error when writing to file: %s\n", script_path);
-        exit(1);
+        exit_with_error();
     }
     fflush(script_file);
 }
@@ -39,7 +45,7 @@ static String read_line() {
         for (; index < read_buffer.length(); index++) {
             if (index >= 256) {
                 fprintf(stderr, "ERROR: line length too long: %s\n", script_path);
-                exit(1);
+                exit_with_error();
             }
             if (read_buffer[index] != '\n')
                 continue;
@@ -49,7 +55,7 @@ static String read_line() {
             line->decode(read_buffer, 0, index, &ok);
             if (!ok) {
                 fprintf(stderr, "ERROR: unable to decode file as UTF-8: %s\n", script_path);
-                exit(1);
+                exit_with_error();
             }
             read_buffer.remove_range(0, index + 1);
             return line;
@@ -61,7 +67,7 @@ static String read_line() {
         if (read_count == 0) {
             if (read_buffer.length() > 0) {
                 fprintf(stderr, "ERROR: expected newline at end of file: %s\n", script_path);
-                exit(1);
+                exit_with_error();
             }
             return nullptr;
         }
@@ -93,7 +99,7 @@ static void tokenize_line(const String & line, List<Token> * tokens) {
                     index++;
                     if (index >= line->length()) {
                         fprintf(stderr, "%s:%d: error: unterminated quoted string\n", script_path, line_number);
-                        exit(1);
+                        exit_with_error();
                     }
                     c = (*line)[index];
                     if (c == '"') {
@@ -126,13 +132,13 @@ __attribute__((noreturn))
 static void report_error(const Token & token, int start, const char * msg) {
     int col = token.col + start;
     fprintf(stderr, "%s:%d:%d: error: %s\n", script_path, line_number, col, msg);
-    exit(1);
+    exit_with_error();
 }
 __attribute__((noreturn))
 static void report_error(const Token & token, int start, const char * msg1, const char * msg2) {
     int col = token.col + start;
     fprintf(stderr, "%s:%d:%d: error: %s%s\n", script_path, line_number, col, msg1, msg2);
-    exit(1);
+    exit_with_error();
 }
 
 static String uint32_to_string(uint32_t n) {
@@ -410,7 +416,7 @@ static int read_rng_input(const ByteBuffer & tag) {
     }
     if (tokens.length() == 0) {
         fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
-        exit(1);
+        exit_with_error();
     }
     if (*tokens[0].string != *new_string(RNG_DIRECTIVE))
         report_error(tokens[0], 0, "expected rng directive with tag: ", tag.raw());
@@ -443,23 +449,23 @@ static void read_header() {
     }
     if (tokens.length() == 0) {
         fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
-        exit(1);
+        exit_with_error();
     }
     if (*tokens[0].string == *new_string(SEED)) {
         if (tokens.length() != 2) {
             fprintf(stderr, "%s:%d:1: error: expected 1 argument", script_path, line_number);
-            exit(1);
+            exit_with_error();
         }
         tas_seed = parse_uint32(tokens[1]);
     } else if (*tokens[0].string == *new_string(TEST_MODE_HEADER)) {
         if (tokens.length() != 1) {
             fprintf(stderr, "%s:%d:1: error: expected no arguments", script_path, line_number);
-            exit(1);
+            exit_with_error();
         }
         test_mode = true;
     } else {
         fprintf(stderr, "%s:%d:1: error: expected swarkland header", script_path, line_number);
-        exit(1);
+        exit_with_error();
     }
 }
 
@@ -472,7 +478,7 @@ void set_tas_script(TasScriptMode mode, const char * file_path) {
             script_file = fopen(script_path, "wb");
             if (script_file == nullptr) {
                 fprintf(stderr, "ERROR: could not create file: %s\n", script_path);
-                exit(1);
+                exit_with_error();
             }
             current_mode = TasScriptMode_WRITE;
             break;
@@ -480,7 +486,7 @@ void set_tas_script(TasScriptMode mode, const char * file_path) {
             script_file = fopen(script_path, "rb");
             if (script_file == nullptr) {
                 fprintf(stderr, "ERROR: could not read file: %s\n", script_path);
-                exit(1);
+                exit_with_error();
             }
             current_mode = TasScriptMode_READ;
             break;
@@ -492,13 +498,13 @@ void set_tas_script(TasScriptMode mode, const char * file_path) {
             } else {
                 if (errno != ENOENT) {
                     fprintf(stderr, "ERROR: could not read/create file: %s\n", script_path);
-                    exit(1);
+                    exit_with_error();
                 }
                 // no problem. we'll just make it
                 script_file = fopen(script_path, "wb");
                 if (script_file == nullptr) {
                     fprintf(stderr, "ERROR: could not create file: %s\n", script_path);
-                    exit(1);
+                    exit_with_error();
                 }
                 current_mode = TasScriptMode_WRITE;
             }
@@ -748,7 +754,7 @@ void test_expect_fail(const char * fmt, int value) {
     ByteBuffer msg;
     msg.format(fmt, value);
     fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
-    exit(1);
+    exit_with_error();
 }
 __attribute__((noreturn))
 void test_expect_fail(const char * fmt, String s1, String s2) {
@@ -759,7 +765,7 @@ void test_expect_fail(const char * fmt, String s1, String s2) {
     ByteBuffer msg;
     msg.format(fmt, buffer1.raw(), buffer2.raw());
     fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
-    exit(1);
+    exit_with_error();
 }
 
 void tas_delete_save() {

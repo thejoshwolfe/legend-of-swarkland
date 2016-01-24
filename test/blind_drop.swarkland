@@ -7,4 +7,4 @@ quaff 0000000000000000000000000000000000000000000000000000000000000003
 @rng 1000 midpoint:1000:potion_of_blindness_expiration
 @mark
 !wish potion blindness
-@expect "a orange potion drops to the floor."
+@expect "a potion of blindness drops to the floor."
