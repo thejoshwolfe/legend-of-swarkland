@@ -366,10 +366,12 @@ static Action::Id parse_action_type(const Token & token) {
     report_error(token, 0, "undefined action name");
 }
 static SpeciesId parse_species_id(const Token & token) {
-    for (int i = 0; i < Action::COUNT; i++) {
+    for (int i = 0; i < SpeciesId_COUNT; i++) {
         if (*species_names[i] == *token.string)
             return (SpeciesId)i;
     }
+    if (*token.string == *new_string("unseen"))
+        return SpeciesId_UNSEEN;
     report_error(token, 0, "undefined species id");
 }
 static DecisionMakerType parse_decision_maker(const Token & token) {
