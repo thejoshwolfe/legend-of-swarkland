@@ -69,15 +69,20 @@ static Coord location_of(uint256 individual_id) {
     return actual_things.get(individual_id)->location;
 }
 
-static PerceivedThing find_unseen_individual(Thing observer, Coord location) {
+static PerceivedThing find_placeholder_individual(Thing observer, Coord location) {
     PerceivedThing thing;
     for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);)
-        if (thing->thing_type == ThingType_INDIVIDUAL && thing->life()->species_id == SpeciesId_UNSEEN && thing->location == location)
+        if (thing->thing_type == ThingType_INDIVIDUAL && thing->is_placeholder && thing->location == location)
             return thing;
     return nullptr;
 }
+static void clear_placeholder_individual_at(Thing observer, Coord location) {
+    PerceivedThing thing = find_placeholder_individual(observer, location);
+    if (thing != nullptr)
+        observer->life()->knowledge.perceived_things.remove(thing->id);
+}
 
-static uint256 make_unseen_item(Thing observer, uint256 actual_item_id, uint256 supposed_container_id) {
+static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uint256 supposed_container_id) {
     Thing actual_item = actual_things.get(actual_item_id);
     ThingType thing_type = actual_item->thing_type;
     PerceivedThing container = observer->life()->knowledge.perceived_things.get(supposed_container_id);
@@ -110,10 +115,10 @@ static uint256 make_unseen_item(Thing observer, uint256 actual_item_id, uint256 
         case ThingType_INDIVIDUAL:
             unreachable();
         case ThingType_WAND:
-            thing = create<PerceivedThingImpl>(id, WandDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
+            thing = create<PerceivedThingImpl>(id, true, WandDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
             break;
         case ThingType_POTION:
-            thing = create<PerceivedThingImpl>(id, PotionDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
+            thing = create<PerceivedThingImpl>(id, true, PotionDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
             break;
 
         case ThingType_COUNT:
@@ -123,13 +128,13 @@ static uint256 make_unseen_item(Thing observer, uint256 actual_item_id, uint256 
     fix_perceived_z_orders(observer, container->id);
     return id;
 }
-static uint256 make_unseen_individual(Thing observer, uint256 actual_target_id) {
+static uint256 make_placeholder_individual(Thing observer, uint256 actual_target_id) {
     Thing actual_target = actual_things.get(actual_target_id);
-    PerceivedThing thing = find_unseen_individual(observer, actual_target->location);
+    PerceivedThing thing = find_placeholder_individual(observer, actual_target->location);
     if (thing == nullptr) {
-        // invent an unseen individual here
+        // invent a placeholder here
         uint256 id = random_arbitrary_large_number();
-        thing = create<PerceivedThingImpl>(id, SpeciesId_UNSEEN, actual_target->location, time_counter);
+        thing = create<PerceivedThingImpl>(id, true, SpeciesId_UNSEEN, actual_target->location, time_counter);
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
     if (can_see_location(observer, actual_target->location)) {
@@ -177,18 +182,18 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
                 case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
                 case Event::TwoIndividualData::MELEE_KILL: {
-                    // maybe replace one of the individuals with an unseen one.
+                    // maybe replace one of the individuals with a placeholder.
                     *output_event = event;
                     if (can_see_thing(observer, data.actor)) {
                         if (can_see_thing(observer, data.target)) {
                             return true;
                         } else {
-                            output_event->two_individual_data().target = make_unseen_individual(observer, data.target);
+                            output_event->two_individual_data().target = make_placeholder_individual(observer, data.target);
                             return true;
                         }
                     } else {
                         if (can_see_thing(observer, data.target)) {
-                            output_event->two_individual_data().actor = make_unseen_individual(observer, data.actor);
+                            output_event->two_individual_data().actor = make_placeholder_individual(observer, data.actor);
                             return true;
                         } else {
                             return false;
@@ -216,7 +221,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     *output_event = event;
                     // the individual might be invisible
                     if (!can_see_thing(observer, data.individual))
-                        output_event->individual_and_item_data().individual = make_unseen_individual(observer, data.individual);
+                        output_event->individual_and_item_data().individual = make_placeholder_individual(observer, data.individual);
                     return true;
                 case Event::IndividualAndItemData::ZAP_WAND:
                     // the magic beam gives away the location, so if you can see the location, you can see the event.
@@ -226,8 +231,8 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     // the individual might be invisible
                     if (!can_see_thing(observer, data.individual)) {
                         Event::IndividualAndItemData * output_data = &output_event->individual_and_item_data();
-                        output_data->individual = make_unseen_individual(observer, data.individual);
-                        output_data->item = make_unseen_item(observer, data.item, output_data->individual);
+                        output_data->individual = make_placeholder_individual(observer, data.individual);
+                        output_data->item = make_placeholder_item(observer, data.item, output_data->individual);
                     }
                     return true;
                 case Event::IndividualAndItemData::WAND_DISINTEGRATES:
@@ -305,47 +310,15 @@ static void record_perception_of_location(Thing observer, Coord location, bool s
 
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
-    if (target != nullptr) {
-        switch(target->thing_type) {
-            case ThingType_INDIVIDUAL:
-                if (target->life()->species_id == SpeciesId_UNSEEN) {
-                    // still looking at an unseen marker
-                    target->last_seen_time = time_counter;
-                    return target;
-                } else {
-                    // clear any unseen markers here
-                    PerceivedThing thing = find_unseen_individual(observer, target->location);
-                    if (thing != nullptr)
-                        observer->life()->knowledge.perceived_things.remove(thing->id);
-                }
-                break;
-            case ThingType_WAND:
-                if (target->wand_info()->description_id == WandDescriptionId_UNSEEN) {
-                    // still looking at an unseen marker
-                    target->last_seen_time = time_counter;
-                    return target;
-                }
-                break;
-            case ThingType_POTION:
-                if (target->potion_info()->description_id == PotionDescriptionId_UNSEEN) {
-                    // still looking at an unseen marker
-                    target->last_seen_time = time_counter;
-                    return target;
-                }
-                break;
-
-            case ThingType_COUNT:
-                unreachable();
-        }
+    if (target != nullptr && target->is_placeholder) {
+        // still looking at an unseen marker at this location
+        target->last_seen_time = time_counter;
+        return target;
     }
     target = to_perceived_thing(target_id);
     observer->life()->knowledge.perceived_things.put(target_id, target);
-    if (target->thing_type == ThingType_INDIVIDUAL) {
-        // clear any unseen markers at the new location as well
-        PerceivedThing thing = find_unseen_individual(observer, target->location);
-        if (thing != nullptr)
-            observer->life()->knowledge.perceived_things.remove(thing->id);
-    }
+    if (target->thing_type == ThingType_INDIVIDUAL)
+        clear_placeholder_individual_at(observer, target->location);
     // cogniscopy doesn't see items.
     if (can_see_location(observer, target->location)) {
         List<Thing> inventory;

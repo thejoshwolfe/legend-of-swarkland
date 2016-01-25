@@ -947,7 +947,7 @@ static void age_individual(Thing individual) {
     List<uint256> delete_ids;
     PerceivedThing thing;
     for (auto iterator = individual->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
-        if (thing->thing_type == ThingType_INDIVIDUAL && thing->life()->species_id == SpeciesId_UNSEEN) {
+        if (thing->thing_type == ThingType_INDIVIDUAL && thing->is_placeholder) {
             if (time_counter - thing->last_seen_time >= 12 * 20) {
                 delete_ids.append(thing->id);
                 List<PerceivedThing> inventory;

@@ -82,7 +82,7 @@ static Action get_ai_decision(Thing actor) {
             case ThingType_INDIVIDUAL:
                 if (target->id == you->id)
                     break; // get him!
-                if (target->life()->species_id == SpeciesId_UNSEEN)
+                if (target->is_placeholder)
                     break; // uh... get him?
                 // you're cool
                 continue;
@@ -215,7 +215,7 @@ static Action get_ai_decision(Thing actor) {
                                     if (has_status(actor, StatusEffect::COGNISCOPY))
                                         break;
                                     // do we think she's gone invisible?
-                                    if (target->life()->species_id == SpeciesId_UNSEEN) {
+                                    if (target->is_placeholder) {
                                         // you can't hide
                                         buff_actions.append(Action::quaff(item->id));
                                     }
