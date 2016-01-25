@@ -317,6 +317,7 @@ static void init_name_arrays() {
     action_names[Action::DIRECTIVE_EXPECT_EVENT] = new_string("@expect_event");
     action_names[Action::DIRECTIVE_FIND_THINGS_AT] = new_string("@find_things_at");
     action_names[Action::DIRECTIVE_EXPECT_THING] = new_string("@expect_thing");
+    action_names[Action::DIRECTIVE_EXPECT_CARRYING] = new_string("@expect_carrying");
     action_names[Action::DIRECTIVE_EXPECT_NOTHING] = new_string("@expect_nothing");
     check_no_nulls(action_names, Action::COUNT);
 

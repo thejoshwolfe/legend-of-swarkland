@@ -1,0 +1,32 @@
+@test
+!monster ogre player 6 4
+move 1 1
+!wish potion invisibility
+pickup 0000000000000000000000000000000000000000000000000000000000000005
+move 1 1
+quaff 0000000000000000000000000000000000000000000000000000000000000005
+  @rng 2000 midpoint:2000:potion_of_invisibility_expiration
+wait
+!wish wand confusion
+  @rng 4 range:4:8:wand_charges
+pickup 0000000000000000000000000000000000000000000000000000000000000006
+move 1 1
+zap 1 0 0000000000000000000000000000000000000000000000000000000000000006
+  @rng 6 inclusive:6:12:beam_length
+!wish potion ethereal_vision
+pickup 0000000000000000000000000000000000000000000000000000000000000009
+move 1 0
+
+@find_things_at 6 4
+@expect_thing individual unseen
+@expect_carrying wand unknown
+@expect_nothing
+
+quaff 0000000000000000000000000000000000000000000000000000000000000009
+  @rng 2000 midpoint:2000:potion_of_ethereal_vision_expiration
+wait
+
+@find_things_at 6 4
+@expect_nothing
+
+move -1 0

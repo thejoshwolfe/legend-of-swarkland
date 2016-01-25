@@ -29,6 +29,7 @@ struct Action {
         DIRECTIVE_EXPECT_EVENT,
         DIRECTIVE_FIND_THINGS_AT,
         DIRECTIVE_EXPECT_THING,
+        DIRECTIVE_EXPECT_CARRYING,
         DIRECTIVE_EXPECT_NOTHING,
 
         COUNT,
@@ -239,6 +240,7 @@ private:
             case DIRECTIVE_FIND_THINGS_AT:
                 return Layout_COORD;
             case DIRECTIVE_EXPECT_THING:
+            case DIRECTIVE_EXPECT_CARRYING:
                 return Layout_THING;
             case DIRECTIVE_EXPECT_NOTHING:
                 return Layout_VOID;
