@@ -11,7 +11,7 @@ Action current_player_decision;
 static Action get_player_decision(Thing actor) {
     player_actor = actor;
     Action action = tas_get_decision();
-    if (action == Action::undecided()) {
+    if (action.id == Action::UNDECIDED) {
         if (headless_mode) {
             // that's all folks
             return Action::undecided();
@@ -25,12 +25,12 @@ static Action get_player_decision(Thing actor) {
             action = Action::wait();
         }
 
-        if (action != Action::undecided() && !validate_action(actor, action)) {
+        if (action.id != Action::UNDECIDED && !validate_action(actor, action)) {
             // derp
             action = Action::undecided();
         }
     }
-    if (action != Action::undecided())
+    if (action.id != Action::UNDECIDED)
         tas_record_decision(action);
     return action;
 }

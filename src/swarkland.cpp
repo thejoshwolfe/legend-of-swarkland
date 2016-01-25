@@ -1006,7 +1006,7 @@ void run_the_game() {
                 if (!individual->still_exists)
                     break; // sorry, buddy. you were that close to making another move.
                 Action action = decision_makers[individual->life()->decision_maker](individual);
-                if (action == Action::undecided()) {
+                if (action.id == Action::UNDECIDED) {
                     // give the player some time to think.
                     // we'll resume right back where we left off.
                     return;

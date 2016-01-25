@@ -690,7 +690,7 @@ Action tas_get_decision() {
     switch (current_mode) {
         case TasScriptMode_READ_WRITE: {
             Action result = read_action();
-            if (result == Action::undecided()) {
+            if (result.id == Action::UNDECIDED) {
                 // end of file
                 current_mode = TasScriptMode_WRITE;
             }
@@ -698,7 +698,7 @@ Action tas_get_decision() {
         }
         case TasScriptMode_READ: {
             Action result = read_action();
-            if (result == Action::undecided()) {
+            if (result.id == Action::UNDECIDED) {
                 // end of file
                 fclose(script_file);
                 current_mode = TasScriptMode_IGNORE;
