@@ -41,9 +41,9 @@ static inline bool individual_has_mind(Thing thing) {
     switch (specieses_mind[thing->life()->species_id]) {
         case Mind_NONE:
             return false;
-        case Mind_INSTINCT:
-        case Mind_SAPIENT_DERPER:
-        case Mind_SAPIENT_CLEVER:
+        case Mind_BEAST:
+        case Mind_SAVAGE:
+        case Mind_CIVILIZED:
             return true;
     }
     unreachable();
@@ -51,10 +51,10 @@ static inline bool individual_has_mind(Thing thing) {
 static inline bool individual_uses_items(Thing thing) {
     switch (specieses_mind[thing->life()->species_id]) {
         case Mind_NONE:
-        case Mind_INSTINCT:
+        case Mind_BEAST:
             return false;
-        case Mind_SAPIENT_DERPER:
-        case Mind_SAPIENT_CLEVER:
+        case Mind_SAVAGE:
+        case Mind_CIVILIZED:
             return true;
     }
     unreachable();
@@ -62,10 +62,10 @@ static inline bool individual_uses_items(Thing thing) {
 static inline bool individual_is_clever(Thing thing) {
     switch (specieses_mind[thing->life()->species_id]) {
         case Mind_NONE:
-        case Mind_INSTINCT:
-        case Mind_SAPIENT_DERPER:
+        case Mind_BEAST:
+        case Mind_SAVAGE:
             return false;
-        case Mind_SAPIENT_CLEVER:
+        case Mind_CIVILIZED:
             return true;
     }
     unreachable();
@@ -73,7 +73,7 @@ static inline bool individual_is_clever(Thing thing) {
 
 void swarkland_init();
 
-bool validate_action(Thing actor, Action action);
+bool validate_action(Thing actor, const Action & action);
 bool can_move(Thing actor);
 static inline int get_movement_cost(Thing actor) {
     if (has_status(actor, StatusEffect::SPEED))

@@ -48,17 +48,17 @@ static void init_specieses() {
     specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 2,  3, {1, 0}, 0, 0, 1};
     specieses[SpeciesId_SNAKE        ] = {18,  4, 2, 1,  2, {1, 0}, 0, 0, 0};
 
-    specieses_mind[SpeciesId_HUMAN        ] = Mind_SAPIENT_CLEVER;
-    specieses_mind[SpeciesId_OGRE         ] = Mind_SAPIENT_DERPER;
-    specieses_mind[SpeciesId_LICH         ] = Mind_SAPIENT_CLEVER;
+    specieses_mind[SpeciesId_HUMAN        ] = Mind_CIVILIZED;
+    specieses_mind[SpeciesId_OGRE         ] = Mind_SAVAGE;
+    specieses_mind[SpeciesId_LICH         ] = Mind_CIVILIZED;
     specieses_mind[SpeciesId_PINK_BLOB    ] = Mind_NONE;
     specieses_mind[SpeciesId_AIR_ELEMENTAL] = Mind_NONE;
-    specieses_mind[SpeciesId_DOG          ] = Mind_INSTINCT;
-    specieses_mind[SpeciesId_ANT          ] = Mind_INSTINCT;
-    specieses_mind[SpeciesId_BEE          ] = Mind_INSTINCT;
-    specieses_mind[SpeciesId_BEETLE       ] = Mind_INSTINCT;
-    specieses_mind[SpeciesId_SCORPION     ] = Mind_INSTINCT;
-    specieses_mind[SpeciesId_SNAKE        ] = Mind_INSTINCT;
+    specieses_mind[SpeciesId_DOG          ] = Mind_BEAST;
+    specieses_mind[SpeciesId_ANT          ] = Mind_BEAST;
+    specieses_mind[SpeciesId_BEE          ] = Mind_BEAST;
+    specieses_mind[SpeciesId_BEETLE       ] = Mind_BEAST;
+    specieses_mind[SpeciesId_SCORPION     ] = Mind_BEAST;
+    specieses_mind[SpeciesId_SNAKE        ] = Mind_BEAST;
 
     for (int i = 0; i < SpeciesId_COUNT; i++) {
         // a movement cost of 0 is invalid.
@@ -533,7 +533,7 @@ static bool is_in_my_inventory(Thing actor, uint256 item_id) {
         return false;
     return item->container_id == actor->id;
 }
-bool validate_action(Thing actor, Action action) {
+bool validate_action(Thing actor, const Action & action) {
     switch (action.id) {
         case Action::WAIT:
             // always an option
@@ -666,7 +666,7 @@ static String get_thing_description(const Action::Thing & thing) {
 
 
 // return true if time should pass, false if we used an instantaneous cheatcode.
-static bool take_action(Thing actor, Action action) {
+static bool take_action(Thing actor, const Action & action) {
     assert(validate_action(actor, action));
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
 

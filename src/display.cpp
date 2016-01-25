@@ -733,7 +733,7 @@ static const char * get_action_text(Action::Id action_id) {
     unreachable();
 }
 
-static Span render_action(Thing actor, Action action) {
+static Span render_action(Thing actor, const Action & action) {
     Span result = new_span();
     switch (action.id) {
         case Action::PICKUP: {

@@ -113,9 +113,9 @@ static inline bool operator!=(VisionTypes a, VisionTypes b) {
 
 enum Mind {
     Mind_NONE,
-    Mind_INSTINCT,
-    Mind_SAPIENT_DERPER,
-    Mind_SAPIENT_CLEVER,
+    Mind_BEAST,
+    Mind_SAVAGE,
+    Mind_CIVILIZED,
 };
 
 // everyone has the same action cost
@@ -178,9 +178,6 @@ public:
     PerceivedThingImpl(uint256 id, SpeciesId species_id, Coord location, int64_t last_seen_time) :
             id(id), thing_type(ThingType_INDIVIDUAL), location(location), last_seen_time(last_seen_time) {
         assert(id != uint256::zero());
-        if (id == uint256{16834101961345315201ULL, 6672530469245184391ULL, 8551116969905452987ULL, 4392448728760151208ULL}) {
-            id = true ? id : id;
-        }
         _life = create<PerceivedLife>();
         _life->species_id = species_id;
     }
