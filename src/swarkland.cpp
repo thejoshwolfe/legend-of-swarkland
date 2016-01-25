@@ -26,27 +26,28 @@ static int test_you_events_mark;
 static List<PerceivedThing> test_expect_things_list;
 
 static void init_specieses() {
+    VisionTypes norm = VisionTypes::just_normal();
+    VisionTypes ethe = VisionTypes::just_ethereal();
     //                                     movement cost
     //                                     |   health
     //                                     |   |  base attack
     //                                     |   |  |  min level
     //                                     |   |  |  |   max level
-    //                                     |   |  |  |   |   normal vision
-    //                                     |   |  |  |   |   |  ethereal vision
-    //                                     |   |  |  |   |   |  |   sucks up items
-    //                                     |   |  |  |   |   |  |   |  auto throws items
-    //                                     |   |  |  |   |   |  |   |  |  poison attack
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 2, 4, 10, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 3, 7, 10, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1, 0,  1, {0, 1}, 1, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3, 10, {0, 1}, 1, 1, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2, 1,  2, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  2, 1, 0,  1, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  2, 3, 1,  2, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, {1, 0}, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 2,  3, {1, 0}, 0, 0, 1};
-    specieses[SpeciesId_SNAKE        ] = {18,  4, 2, 1,  2, {1, 0}, 0, 0, 0};
+    //                                     |   |  |  |   |  vision
+    //                                     |   |  |  |   |  |     sucks up items
+    //                                     |   |  |  |   |  |     |  auto throws items
+    //                                     |   |  |  |   |  |     |  |  poison attack
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, norm, 0, 0, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 2, 4, 10, norm, 0, 0, 0};
+    specieses[SpeciesId_LICH         ] = {12, 12, 3, 7, 10, norm, 0, 0, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1, 0,  1, ethe, 1, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3, 10, ethe, 1, 1, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 2, 1,  2, norm, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  2, 1, 0,  1, norm, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  2, 3, 1,  2, norm, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, norm, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 2,  3, norm, 0, 0, 1};
+    specieses[SpeciesId_SNAKE        ] = {18,  4, 2, 1,  2, norm, 0, 0, 0};
 
     specieses_mind[SpeciesId_HUMAN        ] = Mind_CIVILIZED;
     specieses_mind[SpeciesId_OGRE         ] = Mind_SAVAGE;

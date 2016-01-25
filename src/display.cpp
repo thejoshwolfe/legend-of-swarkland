@@ -347,8 +347,10 @@ const char * get_wand_id_str(WandId wand_id) {
         case WandId_WAND_OF_REMEDY:
             return "wand of remedy";
 
-        case WandId_COUNT:
         case WandId_UNKNOWN:
+            return "wand";
+
+        case WandId_COUNT:
             unreachable();
     }
     unreachable();

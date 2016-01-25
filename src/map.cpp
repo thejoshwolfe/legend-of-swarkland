@@ -11,6 +11,10 @@ MapMatrix<Tile> actual_map_tiles;
 MapMatrix<bool> spawn_zone;
 Coord stairs_down_location;
 
+static bool can_see_invisible(VisionTypes vision_types) {
+    return vision_types.ethereal || vision_types.touch;
+}
+
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     if (from_location == to_location)
         return true;
@@ -68,7 +72,14 @@ static void refresh_ethereal_vision(Thing individual) {
 }
 
 void compute_vision(Thing observer) {
-    observer->life()->knowledge.tile_is_visible.set_all(VisionTypes::none());
+    Knowledge & knowledge = observer->life()->knowledge;
+
+    VisionTypes no_vision_yet = VisionTypes::none();
+    if (has_status(observer, StatusEffect::COGNISCOPY)) {
+        // cogniscopy reaches everywhere
+        no_vision_yet.cogniscopy = 1;
+    }
+    knowledge.tile_is_visible.set_all(no_vision_yet);
     VisionTypes has_vision = observer->life()->species()->vision_types;
     if (has_status(observer, StatusEffect::ETHEREAL_VISION)) {
         has_vision.normal = 0;
@@ -80,18 +91,21 @@ void compute_vision(Thing observer) {
         refresh_normal_vision(observer);
     if (has_vision.ethereal)
         refresh_ethereal_vision(observer);
+    // you can always feel just the spot you're on
+    knowledge.tile_is_visible[observer->location].touch = 1;
 
     // see individuals
     // first clear out anything that we know are no longer where we thought
-    List<PerceivedThing> remove_these;
+    List<uint256> delete_ids;
     PerceivedThing target;
-    for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
-        if (has_status(target, StatusEffect::INVISIBILITY)) {
-            // well it's probably invisible. don't clear the marker.
+    for (auto iterator = knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
+        if (has_status(target, StatusEffect::INVISIBILITY) && !can_see_invisible(knowledge.tile_is_visible[target->location])) {
+            // we had reason to believe there was something invisible here, and we don't have confidence that it's gone.
+            // leave the marker.
             continue;
         }
         if (target->thing_type != ThingType_INDIVIDUAL && target->location == Coord::nowhere()) {
-            PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id);
+            PerceivedThing container = knowledge.perceived_things.get(target->container_id);
             if (has_status(container, StatusEffect::INVISIBILITY)) {
                 // as above, don't clear the marker for invisible things
                 continue;
@@ -100,16 +114,17 @@ void compute_vision(Thing observer) {
         Coord target_location = get_thing_location(observer, target);
         if (target_location == Coord::nowhere())
             continue;
-        if (!observer->life()->knowledge.tile_is_visible[target_location].any())
+        if (!knowledge.tile_is_visible[target_location].any())
             continue;
-        remove_these.append(target);
+        delete_ids.append(target->id);
         List<PerceivedThing> inventory;
         find_items_in_inventory(observer, target, &inventory);
-        remove_these.append_all(inventory);
+        for (int i = 0; i < inventory.length(); i++)
+            delete_ids.append(inventory[i]->id);
     }
     // do this as a second pass, because modifying in the middle of iteration doesn't work properly.
-    for (int i = 0; i < remove_these.length(); i++)
-        observer->life()->knowledge.perceived_things.remove(remove_these[i]->id);
+    for (int i = 0; i < delete_ids.length(); i++)
+        knowledge.perceived_things.remove(delete_ids[i]);
 
     // now see anything that's in our line of vision
     Thing actual_target;

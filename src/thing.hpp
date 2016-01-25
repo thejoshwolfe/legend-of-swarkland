@@ -96,12 +96,20 @@ enum DecisionMakerType {
 struct VisionTypes {
     unsigned normal : 1;
     unsigned ethereal : 1;
+    unsigned cogniscopy : 1;
+    unsigned touch : 1;
 
     bool any() const {
         return normal || ethereal;
     }
     static inline VisionTypes none() {
-        return {0, 0};
+        return {0, 0, 0, 0};
+    }
+    static inline VisionTypes just_normal() {
+        return {1, 0, 0, 0};
+    }
+    static inline VisionTypes just_ethereal() {
+        return {0, 1, 0, 0};
     }
 };
 static inline bool operator==(VisionTypes a, VisionTypes b) {

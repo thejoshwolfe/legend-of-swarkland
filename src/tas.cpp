@@ -393,6 +393,8 @@ static WandId parse_wand_id(const Token & token) {
         if (*wand_id_names[i] == *token.string)
             return (WandId)i;
     }
+    if (*token.string == *new_string("unknown"))
+        return WandId_UNKNOWN;
     report_error(token, 0, "undefined wand id");
 }
 static PotionId parse_potion_id(const Token & token) {
@@ -400,6 +402,8 @@ static PotionId parse_potion_id(const Token & token) {
         if (*potion_id_names[i] == *token.string)
             return (PotionId)i;
     }
+    if (*token.string == *new_string("unknown"))
+        return PotionId_UNKNOWN;
     report_error(token, 0, "undefined potion id");
 }
 
