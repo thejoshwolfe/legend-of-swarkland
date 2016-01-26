@@ -27,6 +27,7 @@ struct Action {
 
         DIRECTIVE_MARK_EVENTS,
         DIRECTIVE_EXPECT_EVENT,
+        DIRECTIVE_EXPECT_NO_EVENTS,
         DIRECTIVE_FIND_THINGS_AT,
         DIRECTIVE_EXPECT_THING,
         DIRECTIVE_EXPECT_NOTHING,
@@ -238,6 +239,8 @@ private:
                 return Layout_VOID;
             case DIRECTIVE_EXPECT_EVENT:
                 return Layout_STRING;
+            case DIRECTIVE_EXPECT_NO_EVENTS:
+                return Layout_VOID;
             case DIRECTIVE_FIND_THINGS_AT:
                 return Layout_COORD;
             case DIRECTIVE_EXPECT_THING:

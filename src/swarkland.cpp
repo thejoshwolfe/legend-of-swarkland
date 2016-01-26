@@ -608,6 +608,7 @@ bool validate_action(Thing actor, const Action & action) {
 
         case Action::DIRECTIVE_MARK_EVENTS:
         case Action::DIRECTIVE_EXPECT_EVENT:
+        case Action::DIRECTIVE_EXPECT_NO_EVENTS:
         case Action::DIRECTIVE_FIND_THINGS_AT:
         case Action::DIRECTIVE_EXPECT_THING:
         case Action::DIRECTIVE_EXPECT_NOTHING:
@@ -714,6 +715,10 @@ static void expect_nothing(const List<PerceivedThing> & things) {
     Span span = get_thing_description(you, things[0]->id);
     span->to_string(thing_description);
     test_expect_fail("expected nothing. found at least: %s.", thing_description);
+}
+static void skip_blank_events(const List<RememberedEvent> & events) {
+    while (test_you_events_mark < events.length() && events[test_you_events_mark] == nullptr)
+        test_you_events_mark++;
 }
 // return true if time should pass, false if we used an instantaneous cheatcode.
 static bool take_action(Thing actor, const Action & action) {
@@ -828,6 +833,7 @@ static bool take_action(Thing actor, const Action & action) {
             return false;
         case Action::DIRECTIVE_EXPECT_EVENT: {
             const List<RememberedEvent> & events = you->life()->knowledge.remembered_events;
+            skip_blank_events(events);
             if (test_you_events_mark >= events.length())
                 test_expect_fail("no new events.");
             const RememberedEvent & event = events[test_you_events_mark];
@@ -837,6 +843,16 @@ static bool take_action(Thing actor, const Action & action) {
             if (*actual_text != *expected_text)
                 test_expect_fail("expected event text \"%s\". got \"%s\".", expected_text, actual_text);
             test_you_events_mark++;
+            return false;
+        }
+        case Action::DIRECTIVE_EXPECT_NO_EVENTS: {
+            const List<RememberedEvent> & events = you->life()->knowledge.remembered_events;
+            skip_blank_events(events);
+            if (test_you_events_mark < events.length()) {
+                String event_text = new_string();
+                events[test_you_events_mark]->span->to_string(event_text);
+                test_expect_fail("expected no events. got \"%s\".", event_text);
+            }
             return false;
         }
         case Action::DIRECTIVE_FIND_THINGS_AT:

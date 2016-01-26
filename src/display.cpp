@@ -611,6 +611,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                     case Action::CHEATCODE_GAIN_LEVEL:
                     case Action::DIRECTIVE_MARK_EVENTS:
                     case Action::DIRECTIVE_EXPECT_EVENT:
+                    case Action::DIRECTIVE_EXPECT_NO_EVENTS:
                     case Action::DIRECTIVE_FIND_THINGS_AT:
                     case Action::DIRECTIVE_EXPECT_THING:
                     case Action::DIRECTIVE_EXPECT_NOTHING:
@@ -727,6 +728,7 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::CHEATCODE_GAIN_LEVEL:
         case Action::DIRECTIVE_MARK_EVENTS:
         case Action::DIRECTIVE_EXPECT_EVENT:
+        case Action::DIRECTIVE_EXPECT_NO_EVENTS:
         case Action::DIRECTIVE_FIND_THINGS_AT:
         case Action::DIRECTIVE_EXPECT_THING:
         case Action::DIRECTIVE_EXPECT_NOTHING:
@@ -768,6 +770,7 @@ static Span render_action(Thing actor, const Action & action) {
         case Action::CHEATCODE_GAIN_LEVEL:
         case Action::DIRECTIVE_MARK_EVENTS:
         case Action::DIRECTIVE_EXPECT_EVENT:
+        case Action::DIRECTIVE_EXPECT_NO_EVENTS:
         case Action::DIRECTIVE_FIND_THINGS_AT:
         case Action::DIRECTIVE_EXPECT_THING:
         case Action::DIRECTIVE_EXPECT_NOTHING:

@@ -319,6 +319,7 @@ static void init_name_arrays() {
     action_names[Action::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
     action_names[Action::DIRECTIVE_MARK_EVENTS] = new_string("@mark_events");
     action_names[Action::DIRECTIVE_EXPECT_EVENT] = new_string("@expect_event");
+    action_names[Action::DIRECTIVE_EXPECT_NO_EVENTS] = new_string("@expect_no_events");
     action_names[Action::DIRECTIVE_FIND_THINGS_AT] = new_string("@find_things_at");
     action_names[Action::DIRECTIVE_EXPECT_THING] = new_string("@expect_thing");
     action_names[Action::DIRECTIVE_EXPECT_NOTHING] = new_string("@expect_nothing");

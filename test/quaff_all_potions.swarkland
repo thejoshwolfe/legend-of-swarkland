@@ -2,7 +2,10 @@
 @test
 !wish potion healing
 pickup 0000000000000000000000000000000000000000000000000000000000000003
-quaff 0000000000000000000000000000000000000000000000000000000000000003
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000003
+  @expect_event "you drinks a blue potion; you is healed!"
+  @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
     @expect_carrying_nothing
@@ -10,8 +13,11 @@ quaff 0000000000000000000000000000000000000000000000000000000000000003
 
 !wish potion cogniscopy
 pickup 0000000000000000000000000000000000000000000000000000000000000004
-quaff 0000000000000000000000000000000000000000000000000000000000000004
-  @rng 20 midpoint:2000:potion_of_cogniscopy_expiration
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000004
+    @rng 20 midpoint:2000:potion_of_cogniscopy_expiration
+  @expect_event "you drinks a yellow potion; you gains cogniscopy!"
+  @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
     @expect_carrying_nothing
@@ -20,8 +26,11 @@ wait
 
 !wish potion poison
 pickup 0000000000000000000000000000000000000000000000000000000000000005
-quaff 0000000000000000000000000000000000000000000000000000000000000005
-  @rng 20 midpoint:600:poison_expiriration
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000005
+    @rng 20 midpoint:600:poison_expiriration
+  @expect_event "you drinks a green potion; you is poisoned!"
+  @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
     @expect_carrying_nothing
