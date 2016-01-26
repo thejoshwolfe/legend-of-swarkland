@@ -290,11 +290,13 @@ static String decision_maker_names[DecisionMakerType_COUNT];
 static String thing_type_names[ThingType_COUNT];
 static String wand_id_names[WandId_COUNT];
 static String potion_id_names[PotionId_COUNT];
-static void check_no_nulls(String array[], int size) {
-    for (int i = 0; i < size; i++)
-        if (array[i] == nullptr)
-            panic("missed a spot");
-}
+
+// making this a macro makes the red squiggly from the panic() show up at the call site instead of here.
+#define check_no_nulls(array) \
+    for (int i = 0; i < (int)(sizeof(array) / sizeof(array[0])); i++) \
+        if (array[i] == nullptr) \
+            panic("missed a spot")
+
 static void init_name_arrays() {
     action_names[Action::MOVE] = new_string("move");
     action_names[Action::WAIT] = new_string("wait");
@@ -317,9 +319,10 @@ static void init_name_arrays() {
     action_names[Action::DIRECTIVE_EXPECT_EVENT] = new_string("@expect_event");
     action_names[Action::DIRECTIVE_FIND_THINGS_AT] = new_string("@find_things_at");
     action_names[Action::DIRECTIVE_EXPECT_THING] = new_string("@expect_thing");
-    action_names[Action::DIRECTIVE_EXPECT_CARRYING] = new_string("@expect_carrying");
     action_names[Action::DIRECTIVE_EXPECT_NOTHING] = new_string("@expect_nothing");
-    check_no_nulls(action_names, Action::COUNT);
+    action_names[Action::DIRECTIVE_EXPECT_CARRYING] = new_string("@expect_carrying");
+    action_names[Action::DIRECTIVE_EXPECT_CARRYING_NOTHING] = new_string("@expect_carrying_nothing");
+    check_no_nulls(action_names);
 
     species_names[SpeciesId_HUMAN] = new_string("human");
     species_names[SpeciesId_OGRE] = new_string("ogre");
@@ -332,23 +335,23 @@ static void init_name_arrays() {
     species_names[SpeciesId_BEETLE] = new_string("beetle");
     species_names[SpeciesId_SCORPION] = new_string("scorpion");
     species_names[SpeciesId_SNAKE] = new_string("snake");
-    check_no_nulls(species_names, SpeciesId_COUNT);
+    check_no_nulls(species_names);
 
     decision_maker_names[DecisionMakerType_PLAYER] = new_string("player");
     decision_maker_names[DecisionMakerType_AI] = new_string("ai");
-    check_no_nulls(decision_maker_names, DecisionMakerType_COUNT);
+    check_no_nulls(decision_maker_names);
 
     thing_type_names[ThingType_INDIVIDUAL] = new_string("individual");
     thing_type_names[ThingType_WAND] = new_string("wand");
     thing_type_names[ThingType_POTION] = new_string("potion");
-    check_no_nulls(thing_type_names, ThingType_COUNT);
+    check_no_nulls(thing_type_names);
 
     wand_id_names[WandId_WAND_OF_CONFUSION] = new_string("confusion");
     wand_id_names[WandId_WAND_OF_DIGGING] = new_string("digging");
     wand_id_names[WandId_WAND_OF_STRIKING] = new_string("striking");
     wand_id_names[WandId_WAND_OF_SPEED] = new_string("speed");
     wand_id_names[WandId_WAND_OF_REMEDY] = new_string("remedy");
-    check_no_nulls(wand_id_names, WandId_COUNT);
+    check_no_nulls(wand_id_names);
 
     potion_id_names[PotionId_POTION_OF_HEALING] = new_string("healing");
     potion_id_names[PotionId_POTION_OF_POISON] = new_string("poison");
@@ -356,7 +359,7 @@ static void init_name_arrays() {
     potion_id_names[PotionId_POTION_OF_COGNISCOPY] = new_string("cogniscopy");
     potion_id_names[PotionId_POTION_OF_BLINDNESS] = new_string("blindness");
     potion_id_names[PotionId_POTION_OF_INVISIBILITY] = new_string("invisibility");
-    check_no_nulls(potion_id_names, PotionId_COUNT);
+    check_no_nulls(potion_id_names);
 }
 
 static Action::Id parse_action_type(const Token & token) {

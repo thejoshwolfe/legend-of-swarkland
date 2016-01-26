@@ -610,8 +610,9 @@ bool validate_action(Thing actor, const Action & action) {
         case Action::DIRECTIVE_EXPECT_EVENT:
         case Action::DIRECTIVE_FIND_THINGS_AT:
         case Action::DIRECTIVE_EXPECT_THING:
-        case Action::DIRECTIVE_EXPECT_CARRYING:
         case Action::DIRECTIVE_EXPECT_NOTHING:
+        case Action::DIRECTIVE_EXPECT_CARRYING:
+        case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
             if (!test_mode)
                 return false;
             return true;
@@ -706,7 +707,14 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
     // didn't find it
     test_expect_fail("expected %s, found other things.", get_thing_description(expected_thing));
 }
-
+static void expect_nothing(const List<PerceivedThing> & things) {
+    if (things.length() == 0)
+        return;
+    String thing_description = new_string();
+    Span span = get_thing_description(you, things[0]->id);
+    span->to_string(thing_description);
+    test_expect_fail("expected nothing. found at least: %s.", thing_description);
+}
 // return true if time should pass, false if we used an instantaneous cheatcode.
 static bool take_action(Thing actor, const Action & action) {
     assert(validate_action(actor, action));
@@ -842,17 +850,14 @@ static bool take_action(Thing actor, const Action & action) {
             find_items_in_inventory(you, thing, &test_expect_carrying_list);
             return false;
         }
+        case Action::DIRECTIVE_EXPECT_NOTHING:
+            expect_nothing(test_expect_things_list);
+            return false;
         case Action::DIRECTIVE_EXPECT_CARRYING:
             expect_thing(action.thing(), &test_expect_carrying_list);
             return false;
-
-        case Action::DIRECTIVE_EXPECT_NOTHING:
-            if (test_expect_things_list.length() > 0) {
-                String thing_description = new_string();
-                Span span = get_thing_description(you, test_expect_things_list[0]->id);
-                span->to_string(thing_description);
-                test_expect_fail("expected nothing. found at least: %s.", thing_description);
-            }
+        case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
+            expect_nothing(test_expect_carrying_list);
             return false;
 
         case Action::COUNT:

@@ -29,8 +29,9 @@ struct Action {
         DIRECTIVE_EXPECT_EVENT,
         DIRECTIVE_FIND_THINGS_AT,
         DIRECTIVE_EXPECT_THING,
-        DIRECTIVE_EXPECT_CARRYING,
         DIRECTIVE_EXPECT_NOTHING,
+        DIRECTIVE_EXPECT_CARRYING,
+        DIRECTIVE_EXPECT_CARRYING_NOTHING,
 
         COUNT,
         // only a player can be undecided
@@ -243,6 +244,7 @@ private:
             case DIRECTIVE_EXPECT_CARRYING:
                 return Layout_THING;
             case DIRECTIVE_EXPECT_NOTHING:
+            case DIRECTIVE_EXPECT_CARRYING_NOTHING:
                 return Layout_VOID;
 
             case COUNT:

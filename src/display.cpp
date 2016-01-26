@@ -613,8 +613,9 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                     case Action::DIRECTIVE_EXPECT_EVENT:
                     case Action::DIRECTIVE_FIND_THINGS_AT:
                     case Action::DIRECTIVE_EXPECT_THING:
-                    case Action::DIRECTIVE_EXPECT_CARRYING:
                     case Action::DIRECTIVE_EXPECT_NOTHING:
+                    case Action::DIRECTIVE_EXPECT_CARRYING:
+                    case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
                     case Action::COUNT:
                     case Action::UNDECIDED:
                         unreachable();
@@ -728,8 +729,9 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::DIRECTIVE_EXPECT_EVENT:
         case Action::DIRECTIVE_FIND_THINGS_AT:
         case Action::DIRECTIVE_EXPECT_THING:
-        case Action::DIRECTIVE_EXPECT_CARRYING:
         case Action::DIRECTIVE_EXPECT_NOTHING:
+        case Action::DIRECTIVE_EXPECT_CARRYING:
+        case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
         case Action::COUNT:
         case Action::UNDECIDED:
             unreachable();
@@ -768,8 +770,9 @@ static Span render_action(Thing actor, const Action & action) {
         case Action::DIRECTIVE_EXPECT_EVENT:
         case Action::DIRECTIVE_FIND_THINGS_AT:
         case Action::DIRECTIVE_EXPECT_THING:
-        case Action::DIRECTIVE_EXPECT_CARRYING:
         case Action::DIRECTIVE_EXPECT_NOTHING:
+        case Action::DIRECTIVE_EXPECT_CARRYING:
+        case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
         case Action::COUNT:
         case Action::UNDECIDED:
             unreachable();
