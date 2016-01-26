@@ -201,6 +201,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     Coord location = target->location;
     PotionId effect_id = actual_potion_identities[item->potion_info()->description_id];
     publish_event(Event::use_potion(item->id, effect_id, is_breaking, target_id, location));
+    delete_item(item);
     switch (effect_id) {
         case PotionId_POTION_OF_HEALING: {
             int hp = target->life()->max_hitpoints() * 2 / 3;

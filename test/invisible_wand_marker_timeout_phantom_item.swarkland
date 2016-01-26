@@ -60,13 +60,15 @@ wait
 move -1 0
 wait
 @find_things_at 7 4
-@expect_thing individual unseen
-@expect_nothing
+  @expect_thing individual unseen
+    @expect_carrying wand unknown
+    @expect_carrying_nothing
+  @expect_nothing
 
 move 1 0
 wait
 @find_things_at 7 4
-@expect_nothing
+  @expect_nothing
 
 # make sure there's no phantom item crash here
 move -1 0

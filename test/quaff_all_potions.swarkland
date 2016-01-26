@@ -1,0 +1,59 @@
+# TODO: add expected events
+@test
+!wish potion healing
+pickup 0000000000000000000000000000000000000000000000000000000000000003
+quaff 0000000000000000000000000000000000000000000000000000000000000003
+@find_things_at 1 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing
+
+!wish potion cogniscopy
+pickup 0000000000000000000000000000000000000000000000000000000000000004
+quaff 0000000000000000000000000000000000000000000000000000000000000004
+  @rng 20 midpoint:2000:potion_of_cogniscopy_expiration
+@find_things_at 1 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing
+wait
+
+!wish potion poison
+pickup 0000000000000000000000000000000000000000000000000000000000000005
+quaff 0000000000000000000000000000000000000000000000000000000000000005
+  @rng 20 midpoint:600:poison_expiriration
+@find_things_at 1 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing
+wait
+
+!wish potion ethereal_vision
+pickup 0000000000000000000000000000000000000000000000000000000000000006
+quaff 0000000000000000000000000000000000000000000000000000000000000006
+  @rng 20 midpoint:2000:potion_of_ethereal_vision_expiration
+@find_things_at 1 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing
+wait
+
+!wish potion blindness
+pickup 0000000000000000000000000000000000000000000000000000000000000007
+quaff 0000000000000000000000000000000000000000000000000000000000000007
+  @rng 20 midpoint:1000:potion_of_blindness_expiration
+@find_things_at 1 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing
+wait
+
+!wish potion invisibility
+pickup 0000000000000000000000000000000000000000000000000000000000000008
+quaff 0000000000000000000000000000000000000000000000000000000000000008
+  @rng 20 midpoint:2000:potion_of_invisibility_expiration
+@find_things_at 1 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing
+wait

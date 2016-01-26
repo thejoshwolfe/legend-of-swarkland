@@ -9,5 +9,5 @@ wait
 move 1 0
 wait
 @find_things_at 6 4
-@expect_thing individual dog
-@expect_nothing
+  @expect_thing individual dog
+  @expect_nothing

@@ -290,6 +290,8 @@ static String decision_maker_names[DecisionMakerType_COUNT];
 static String thing_type_names[ThingType_COUNT];
 static String wand_id_names[WandId_COUNT];
 static String potion_id_names[PotionId_COUNT];
+static const char * const RNG_DIRECTIVE = "@rng";
+static const char * const SEED = "@seed";
 
 // making this a macro makes the red squiggly from the panic() show up at the call site instead of here.
 #define check_no_nulls(array) \
@@ -367,6 +369,8 @@ static Action::Id parse_action_type(const Token & token) {
         if (*action_names[i] == *token.string)
             return (Action::Id)i;
     }
+    if (*token.string == *new_string(RNG_DIRECTIVE))
+        report_error(token, 0, "unexpected rng directive");
     report_error(token, 0, "undefined action name");
 }
 static SpeciesId parse_species_id(const Token & token) {
@@ -411,7 +415,6 @@ static PotionId parse_potion_id(const Token & token) {
     report_error(token, 0, "undefined potion id");
 }
 
-static const char * const RNG_DIRECTIVE = "@rng";
 static String rng_input_to_string(const ByteBuffer & tag, int value) {
     String line = new_string();
     line->format("  %s %d ", RNG_DIRECTIVE, value);
@@ -440,7 +443,6 @@ static int read_rng_input(const ByteBuffer & tag) {
     return parse_int(tokens[1]);
 }
 
-static const char * const SEED = "@seed";
 static void write_seed(uint32_t seed) {
     String line = new_string();
     line->format("%s %s\n", SEED, uint32_to_string(seed));

@@ -11,7 +11,7 @@ quaff 0000000000000000000000000000000000000000000000000000000000000005
 
 # you shouldn't see the mindless blob
 @find_things_at 6 4
-@expect_nothing
+  @expect_nothing
 
 !monster lich player 8 4
 wait
@@ -29,10 +29,10 @@ zap -1 0 0000000000000000000000000000000000000000000000000000000000000009
 
 # even after those zapping shenanigans, you shouldn't see the blob
 @find_things_at 6 4
-@expect_nothing
+  @expect_nothing
 
 # you can see the lich though
 @find_things_at 8 4
-@expect_thing individual lich
-  @expect_carrying_nothing
-@expect_nothing
+  @expect_thing individual lich
+    @expect_carrying_nothing
+  @expect_nothing

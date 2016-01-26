@@ -18,15 +18,16 @@ pickup 0000000000000000000000000000000000000000000000000000000000000009
 move 1 0
 
 @find_things_at 6 4
-@expect_thing individual unseen
-@expect_carrying wand unknown
-@expect_nothing
+  @expect_thing individual unseen
+    @expect_carrying wand unknown
+    @expect_carrying_nothing
+  @expect_nothing
 
 quaff 0000000000000000000000000000000000000000000000000000000000000009
   @rng 2000 midpoint:2000:potion_of_ethereal_vision_expiration
 wait
 
 @find_things_at 6 4
-@expect_nothing
+  @expect_nothing
 
 move -1 0
