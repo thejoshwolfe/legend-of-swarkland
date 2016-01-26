@@ -1,4 +1,3 @@
-# TODO: add expected events
 @test
 !wish potion healing
 pickup 0000000000000000000000000000000000000000000000000000000000000003
@@ -39,8 +38,11 @@ wait
 
 !wish potion ethereal_vision
 pickup 0000000000000000000000000000000000000000000000000000000000000006
-quaff 0000000000000000000000000000000000000000000000000000000000000006
-  @rng 20 midpoint:2000:potion_of_ethereal_vision_expiration
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000006
+    @rng 20 midpoint:2000:potion_of_ethereal_vision_expiration
+  @expect_event "you drinks a red potion; you gains ethereal vision!"
+  @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
     @expect_carrying_nothing
@@ -49,8 +51,11 @@ wait
 
 !wish potion blindness
 pickup 0000000000000000000000000000000000000000000000000000000000000007
-quaff 0000000000000000000000000000000000000000000000000000000000000007
-  @rng 20 midpoint:1000:potion_of_blindness_expiration
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000007
+    @rng 20 midpoint:1000:potion_of_blindness_expiration
+  @expect_event "you drinks a orange potion; you is blinded!"
+  @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
     @expect_carrying_nothing
@@ -59,8 +64,11 @@ wait
 
 !wish potion invisibility
 pickup 0000000000000000000000000000000000000000000000000000000000000008
-quaff 0000000000000000000000000000000000000000000000000000000000000008
-  @rng 20 midpoint:2000:potion_of_invisibility_expiration
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000008
+    @rng 20 midpoint:2000:potion_of_invisibility_expiration
+  @expect_event "you drinks a purple potion; you turns invisible!"
+  @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
     @expect_carrying_nothing
