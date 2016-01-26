@@ -12,7 +12,7 @@
 
 #include <stdbool.h>
 
-uint256 random_arbitrary_large_number();
+uint256 random_id();
 
 enum ThingType {
     ThingType_INDIVIDUAL,

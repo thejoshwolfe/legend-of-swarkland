@@ -565,24 +565,24 @@ static Action read_action() {
         case Action::Layout_VOID:
             if (tokens.length() != 1)
                 report_error(tokens[0], 0, "expected no arguments");
-            return action;
+            break;
         case Action::Layout_COORD: {
             if (tokens.length() != 3)
                 report_error(tokens[0], 0, "expected 2 arguments");
             action.coord() = parse_coord(tokens[1], tokens[2]);
-            return action;
+            break;
         }
         case Action::Layout_ITEM:
             if (tokens.length() != 2)
                 report_error(tokens[0], 0, "expected 1 argument");
             action.item() = parse_uint256(tokens[1]);
-            return action;
+            break;
         case Action::Layout_COORD_AND_ITEM: {
             if (tokens.length() != 4)
                 report_error(tokens[0], 0, "expected 3 arguments");
             action.coord_and_item().coord = parse_coord(tokens[1], tokens[2]);
             action.coord_and_item().item = parse_uint256(tokens[3]);
-            return action;
+            break;
         }
         case Action::Layout_THING: {
             if (tokens.length() != 3)
@@ -592,18 +592,18 @@ static Action read_action() {
             switch (data.thing_type) {
                 case ThingType_INDIVIDUAL:
                     data.species_id = parse_species_id(tokens[2]);
-                    return action;
+                    break;
                 case ThingType_WAND:
                     data.wand_id = parse_wand_id(tokens[2]);
-                    return action;
+                    break;
                 case ThingType_POTION:
                     data.potion_id = parse_potion_id(tokens[2]);
-                    return action;
+                    break;
 
                 case ThingType_COUNT:
                     unreachable();
             }
-            unreachable();
+            break;
         }
         case Action::Layout_GENERATE_MONSTER: {
             if (tokens.length() != 5)
@@ -612,16 +612,21 @@ static Action read_action() {
             data.species = parse_species_id(tokens[1]);
             data.decision_maker = parse_decision_maker(tokens[2]);
             data.location = parse_coord(tokens[3], tokens[4]);
-            return action;
+            break;
         }
         case Action::Layout_STRING: {
             if (tokens.length() != 2)
                 report_error(tokens[0], 0, "expected 1 argument");
             action.string = parse_string(tokens[1]);
-            return action;
+            break;
         }
     }
-    unreachable();
+    // this can catch outdated tests
+    if (!validate_action(player_actor, action)) {
+        fprintf(stderr, "%s:%d:1: error: invalid action\n", script_path, line_number);
+        exit_with_error();
+    }
+    return action;
 }
 static String action_to_string(const Action & action) {
     assert(action.id < Action::Id::COUNT);

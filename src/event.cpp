@@ -109,7 +109,7 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
         }
     }
     // invent an item
-    uint256 id = random_arbitrary_large_number();
+    uint256 id = random_id();
     PerceivedThing thing;
     switch (thing_type) {
         case ThingType_INDIVIDUAL:
@@ -133,7 +133,7 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
     PerceivedThing thing = find_placeholder_individual(observer, actual_target->location);
     if (thing == nullptr) {
         // invent a placeholder here
-        uint256 id = random_arbitrary_large_number();
+        uint256 id = random_id();
         thing = create<PerceivedThingImpl>(id, true, SpeciesId_UNSEEN, actual_target->location, time_counter);
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
