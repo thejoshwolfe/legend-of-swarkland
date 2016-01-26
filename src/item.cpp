@@ -152,7 +152,6 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     IdMap<WandDescriptionId> perceived_current_zapper;
 
     Thing wand = actual_things.get(item_id);
-    wand->wand_info()->charges--;
     if (wand->wand_info()->charges <= -1) {
         publish_event(Event::wand_disintegrates(wand_wielder, wand), &perceived_current_zapper);
 
@@ -162,8 +161,10 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     }
     if (wand->wand_info()->charges <= 0) {
         publish_event(Event::wand_zap_no_charges(wand_wielder, wand), &perceived_current_zapper);
+        wand->wand_info()->charges--;
         return;
     }
+    wand->wand_info()->charges--;
 
     publish_event(Event::zap_wand(wand_wielder, wand), &perceived_current_zapper);
     Coord cursor = wand_wielder->location;
