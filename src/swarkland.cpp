@@ -767,7 +767,6 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::QUAFF: {
             Thing item = actual_things.get(action.item());
             use_potion(actor, actor, item, false);
-            delete_item(item);
             break;
         }
         case Action::THROW:

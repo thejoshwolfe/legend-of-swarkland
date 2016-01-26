@@ -104,6 +104,20 @@ Check "Statements within a 'switch' body".
 Line Wrapping Tab: Maximum line width: 9999.
 Default indentation for wrapped lines: 1.
 
+## VIM syntax setup
+
+To get vim syntax highlighting for the .swarkland file format:
+
+```
+ln -s /path/to/legend-of-swarkland/vim/syntax/swarkland.vim ~/.vim/syntax/swarkland.vim
+```
+
+and add this to your `.vimrc`:
+
+```
+autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
+```
+
 ## Roadmap
 
 ### 5.0.0
