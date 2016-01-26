@@ -385,7 +385,6 @@ static void regen_hp(Thing individual) {
 }
 
 void poison_individual(Thing attacker, Thing target) {
-    publish_event(Event::poisoned(target));
     StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON);
     poison->who_is_responsible = attacker->id;
     poison->expiration_time = time_counter + random_midpoint(600, "poison_expiriration");
@@ -399,8 +398,10 @@ static void attack(Thing attacker, Thing target) {
     int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2, "melee_damage");
     damage_individual(target, damage, attacker, true);
     reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4, "poison_attack") == 0)
+    if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4, "poison_attack") == 0) {
+        publish_event(Event::poisoned(target));
         poison_individual(attacker, target);
+    }
 }
 
 static int compare_things_by_z_order(Thing a, Thing b) {
