@@ -109,8 +109,11 @@ static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<W
 }
 
 static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    if (actual_map_tiles[location].tile_type != TileType_WALL)
-        return -1; // probably border walls
+    if (actual_map_tiles[location].tile_type == TileType_BORDER_WALL) {
+        // no effect on border walls
+        publish_event(Event::wand_hit(WandId_UNKNOWN, is_explosion, uint256::zero(), location), perceived_current_zapper);
+        return -1;
+    }
     publish_event(Event::wand_hit(WandId_WAND_OF_DIGGING, is_explosion, uint256::zero(), location), perceived_current_zapper);
     change_map(location, TileType_DIRT_FLOOR);
     return 0;
