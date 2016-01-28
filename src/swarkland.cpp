@@ -395,7 +395,8 @@ void poison_individual(Thing attacker, Thing target) {
 static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack_individual(attacker, target));
     int attack_power = attacker->life()->attack_power();
-    int damage = (attack_power + 1) / 2 + random_inclusive(0, attack_power / 2, "melee_damage");
+    int min_damage = (attack_power + 1) / 2;
+    int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
     damage_individual(target, damage, attacker, true);
     reset_hp_regen_timeout(attacker);
     if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4, "poison_attack") == 0) {
