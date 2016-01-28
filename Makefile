@@ -19,6 +19,7 @@ THE_VERSION := $(shell echo $$(echo -n $$(cat version.txt)).$$(echo -n $$(git re
 # depend on this whenever you depend on the exact full version number.
 VERSION_FILE = build/the_version_is.$(THE_VERSION)
 $(VERSION_FILE): version.txt | build
+	@rm -f build/the_version_is.*
 	touch "$@"
 build/full_version.txt: $(VERSION_FILE)
 	echo -n "$(THE_VERSION)" > $@
