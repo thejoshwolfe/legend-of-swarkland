@@ -303,7 +303,14 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
 
 static void record_perception_of_location(Thing observer, Coord location, bool see_items) {
     // don't set tile_is_visible, because it might actually not be.
-    observer->life()->knowledge.tiles[location] = actual_map_tiles[location];
+    MapMatrix<Tile> & tiles = observer->life()->knowledge.tiles;
+    if (tiles[location].tile_type != actual_map_tiles[location].tile_type) {
+        tiles[location] = actual_map_tiles[location];
+        if (!can_see_location(observer, location)) {
+            bool is_floor = is_open_space(actual_map_tiles[location].tile_type);
+            tiles[location].tile_type = is_floor ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
+        }
+    }
 
     if (see_items) {
         List<Thing> items;

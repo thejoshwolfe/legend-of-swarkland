@@ -201,22 +201,4 @@ private:
     bool (*filter)(ValueType);
 };
 
-// this gives you a .length() property, since you already know it anyway.
-// there are no bounds checks here.
-// this type is POD if T is POD.
-template<typename T, size_t Size>
-struct Array {
-    size_t length() const {
-        return Size;
-    }
-    T & operator[](size_t index) {
-        return _items[index];
-    }
-    const T & operator[](size_t index) const {
-        return _items[index];
-    }
-private:
-    T _items[Size];
-};
-
 #endif

@@ -40,16 +40,18 @@ static RuckSackTexture * rs_texture;
 static RuckSackImage ** spritesheet_images;
 static long spritesheet_image_count;
 
+static RuckSackImage * dirt_floor_image;
+static RuckSackImage * marble_floor_image;
+static RuckSackImage * unknown_floor_image;
+static RuckSackImage * brown_brick_wall_image;
+static RuckSackImage * unknown_wall_image;
+static RuckSackImage * stairs_down_image;
 static RuckSackImage * species_images[SpeciesId_COUNT];
 static RuckSackImage * unseen_individual_image;
 static RuckSackImage * wand_images[WandDescriptionId_COUNT];
 static RuckSackImage * unseen_wand_image;
 static RuckSackImage * potion_images[PotionDescriptionId_COUNT];
 static RuckSackImage * unseen_potion_image;
-static RuckSackImage * dirt_floor_image;
-static RuckSackImage * marble_floor_image;
-static RuckSackImage * brown_brick_wall_image;
-static RuckSackImage * stairs_down_image;
 static RuckSackImage * equipment_image;
 
 TTF_Font * status_box_font;
@@ -64,6 +66,13 @@ static RuckSackImage * find_image(const char * name) {
     panic("sprite not found");
 }
 static void load_images() {
+    dirt_floor_image = find_image("img/map/dirt_floor.png");
+    marble_floor_image = find_image("img/map/marble_floor.png");
+    unknown_floor_image = find_image("img/map/unknown_floor.png");
+    brown_brick_wall_image = find_image("img/map/brick_brown.png");
+    unknown_wall_image = find_image("img/map/unknown_wall.png");
+    stairs_down_image = find_image("img/map/stairs_down.png");
+
     species_images[SpeciesId_HUMAN] = find_image("img/individual/human.png");
     species_images[SpeciesId_OGRE] = find_image("img/individual/ogre.png");
     species_images[SpeciesId_LICH] = find_image("img/individual/lich.png");
@@ -76,12 +85,6 @@ static void load_images() {
     species_images[SpeciesId_SCORPION] = find_image("img/individual/scorpion.png");
     species_images[SpeciesId_SNAKE] = find_image("img/individual/snake.png");
     unseen_individual_image = find_image("img/individual/unseen_individual.png");
-
-    dirt_floor_image = find_image("img/map/dirt_floor.png");
-    marble_floor_image = find_image("img/map/marble_floor.png");
-    brown_brick_wall_image = find_image("img/map/brick_brown.png");
-
-    stairs_down_image = find_image("img/map/stairs_down.png");
 
     wand_images[WandDescriptionId_BONE_WAND] = find_image("img/wand/bone_wand.png");
     wand_images[WandDescriptionId_GOLD_WAND] = find_image("img/wand/gold_wand.png");
@@ -494,9 +497,13 @@ static RuckSackImage * get_image_for_tile(TileType tile_type) {
             return dirt_floor_image;
         case TileType_MARBLE_FLOOR:
             return marble_floor_image;
+        case TileType_UNKNOWN_FLOOR:
+            return unknown_floor_image;
         case TileType_WALL:
         case TileType_BORDER_WALL:
             return brown_brick_wall_image;
+        case TileType_UNKNOWN_WALL:
+            return unknown_wall_image;
         case TileType_STAIRS_DOWN:
             return stairs_down_image;
         case TileType_COUNT:

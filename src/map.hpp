@@ -21,6 +21,8 @@ enum TileType {
     TileType_WALL,
     TileType_BORDER_WALL,
     TileType_STAIRS_DOWN,
+    TileType_UNKNOWN_FLOOR,
+    TileType_UNKNOWN_WALL,
 
     TileType_COUNT,
 };
@@ -52,9 +54,11 @@ static inline bool is_open_space(TileType tile_type) {
             return true;
         case TileType_DIRT_FLOOR:
         case TileType_MARBLE_FLOOR:
+        case TileType_UNKNOWN_FLOOR:
             return true;
         case TileType_WALL:
         case TileType_BORDER_WALL:
+        case TileType_UNKNOWN_WALL:
             return false;
         case TileType_STAIRS_DOWN:
             return true;
