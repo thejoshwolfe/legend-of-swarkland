@@ -78,8 +78,13 @@ static PerceivedThing find_placeholder_individual(Thing observer, Coord location
 }
 static void clear_placeholder_individual_at(Thing observer, Coord location) {
     PerceivedThing thing = find_placeholder_individual(observer, location);
-    if (thing != nullptr)
+    if (thing != nullptr) {
         observer->life()->knowledge.perceived_things.remove(thing->id);
+        List<PerceivedThing> inventory;
+        find_items_in_inventory(observer, thing, &inventory);
+        for (int i = 0; i < inventory.length(); i++)
+            observer->life()->knowledge.perceived_things.remove(inventory[i]->id);
+    }
 }
 
 static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uint256 supposed_container_id) {
