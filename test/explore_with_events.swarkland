@@ -1,0 +1,21 @@
+@test
+!monster lich player 5 4
+wait
+move 1 -1
+!monster bee player 7 4
+wait
+!wish potion invisibility
+pickup 0000000000000000000000000000000000000000000000000000000000000004
+wait
+wait
+throw 1 0 0000000000000000000000000000000000000000000000000000000000000004
+  @rng 4 range:4:6:throw_distance
+  @rng 1 inclusive:1:2:throw_impact_damage
+  @rng 2000 midpoint:2000:potion_of_invisibility_expiration
+move -1 0
+wait
+move 1 0
+move 1 0
+wait
+attack 1 0
+wait
