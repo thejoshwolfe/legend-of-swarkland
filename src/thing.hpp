@@ -249,7 +249,7 @@ typedef Reference<RememberedEventImpl> RememberedEvent;
 
 struct Knowledge {
     // terrain knowledge
-    MapMatrix<Tile> tiles;
+    MapMatrix<TileType> tiles;
     MapMatrix<VisionTypes> tile_is_visible;
     List<RememberedEvent> remembered_events;
     // incremented whenever events were forgotten, which means we need to blank out and refresh the rendering of the events.
@@ -268,7 +268,7 @@ struct Knowledge {
             potion_identities[i] = PotionId_UNKNOWN;
     }
     void reset_map() {
-        tiles.set_all(unknown_tile);
+        tiles.set_all(TileType_UNKNOWN);
         tile_is_visible.set_all(VisionTypes::none());
     }
 };

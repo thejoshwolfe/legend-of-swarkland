@@ -54,9 +54,9 @@ static bool is_clear_line_of_sight(Thing actor, Coord location, int confident_di
     if (!(vector.x * vector.y == 0 || abs_vector.x == abs_vector.y))
         return false; // not a straight line
     Coord step = sign(vector);
-    MapMatrix<Tile> & tiles = actor->life()->knowledge.tiles;
+    const MapMatrix<TileType> & tiles = actor->life()->knowledge.tiles;
     for (Coord cursor = actor->location + step; cursor != location; cursor += step)
-        if (!is_open_space(tiles[cursor].tile_type))
+        if (!is_open_space(tiles[cursor]))
             return false;
     return true;
 }

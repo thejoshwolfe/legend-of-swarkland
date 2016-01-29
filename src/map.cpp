@@ -7,7 +7,8 @@
 
 // starts at 1
 int dungeon_level = 0;
-MapMatrix<Tile> actual_map_tiles;
+MapMatrix<TileType> actual_map_tiles;
+MapMatrix<uint32_t> aesthetic_indexes;
 MapMatrix<bool> spawn_zone;
 Coord stairs_down_location;
 
@@ -26,7 +27,7 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
             // x = y * m + b
             // m = run / rise
             int x = (y - from_location.y) * (to_location.x - from_location.x) / (to_location.y - from_location.y) + from_location.x;
-            if (!is_open_space(actual_map_tiles[Coord{x, y}].tile_type))
+            if (!is_open_space(actual_map_tiles[Coord{x, y}]))
                 return false;
         }
     } else {
@@ -36,7 +37,7 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
             // y = x * m + b
             // m = rise / run
             int y = (x - from_location.x) * (to_location.y - from_location.y) / (to_location.x - from_location.x) + from_location.y;
-            if (!is_open_space(actual_map_tiles[Coord{x, y}].tile_type))
+            if (!is_open_space(actual_map_tiles[Coord{x, y}]))
                 return false;
         }
     }
@@ -143,22 +144,21 @@ void generate_map() {
     // randomize the appearance of every tile, even if it doesn't matter.
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            Tile & tile = actual_map_tiles[cursor];
-            tile.tile_type = TileType_WALL;
+            actual_map_tiles[cursor] = TileType_WALL;
             if (!test_mode)
-                tile.aesthetic_index = random_uint32();
+                aesthetic_indexes[cursor] = random_uint32();
             else
-                tile.aesthetic_index = (cursor.x / 5 + cursor.y / 5);
+                aesthetic_indexes[cursor] = (cursor.x / 5 + cursor.y / 5);
         }
     }
     // line the border with special undiggable walls
     for (int x = 0; x < map_size.x; x++) {
-        actual_map_tiles[Coord{x, 0}].tile_type = TileType_BORDER_WALL;
-        actual_map_tiles[Coord{x, map_size.y - 1}].tile_type = TileType_BORDER_WALL;
+        actual_map_tiles[Coord{x, 0}] = TileType_BORDER_WALL;
+        actual_map_tiles[Coord{x, map_size.y - 1}] = TileType_BORDER_WALL;
     }
     for (int y = 0; y < map_size.y; y++) {
-        actual_map_tiles[Coord{0, y}].tile_type = TileType_BORDER_WALL;
-        actual_map_tiles[Coord{map_size.x - 1, y}].tile_type = TileType_BORDER_WALL;
+        actual_map_tiles[Coord{0, y}] = TileType_BORDER_WALL;
+        actual_map_tiles[Coord{map_size.x - 1, y}] = TileType_BORDER_WALL;
     }
 
     if (test_mode) {
@@ -166,10 +166,10 @@ void generate_map() {
         // a room
         for (int y = 1; y < 5; y++)
             for (int x = 1; x < 5; x++)
-                actual_map_tiles[Coord{x, y}].tile_type = TileType_DIRT_FLOOR;
+                actual_map_tiles[Coord{x, y}] = TileType_DIRT_FLOOR;
         // a hallway, so there's a "just around the corner"
         for (int x = 5; x < 10; x++)
-            actual_map_tiles[Coord{x, 4}].tile_type = TileType_DIRT_FLOOR;
+            actual_map_tiles[Coord{x, 4}] = TileType_DIRT_FLOOR;
         // no stairs
         stairs_down_location = Coord::nowhere();
         return;
@@ -201,7 +201,7 @@ void generate_map() {
         for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
                 room_floor_spaces.append(cursor);
-                actual_map_tiles[cursor].tile_type = TileType_DIRT_FLOOR;
+                actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
             }
         }
     }
@@ -256,17 +256,17 @@ void generate_map() {
         Coord delta = sign(b - a);
         Coord cursor = a;
         for (; cursor.x * delta.x < b.x * delta.x; cursor.x += delta.x) {
-            actual_map_tiles[cursor].tile_type = TileType_DIRT_FLOOR;
+            actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
         }
         for (; cursor.y * delta.y < b.y * delta.y; cursor.y += delta.y) {
-            actual_map_tiles[cursor].tile_type = TileType_DIRT_FLOOR;
+            actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
         }
     }
 
     // place the stairs down
     if (dungeon_level < final_dungeon_level) {
         stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        actual_map_tiles[stairs_down_location].tile_type = TileType_STAIRS_DOWN;
+        actual_map_tiles[stairs_down_location] = TileType_STAIRS_DOWN;
     }
 
     // throw some items around
@@ -304,13 +304,13 @@ void generate_map() {
         Coord cursor;
         for (cursor.y = room.y; cursor.y < room.y + room.h; cursor.y++)
             for (cursor.x = room.x; cursor.x < room.x + room.w; cursor.x++)
-                if (actual_map_tiles[cursor].tile_type != TileType_WALL)
+                if (actual_map_tiles[cursor] != TileType_WALL)
                     goto next_vault;
         // this location is secluded
 
         for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
-                actual_map_tiles[cursor].tile_type = TileType_MARBLE_FLOOR;
+                actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
                 spawn_zone[cursor] = false;
                 create_random_item()->location = cursor;
             }
@@ -326,7 +326,7 @@ void generate_map() {
 
 static const int no_spawn_radius = 10;
 bool can_spawn_at(Coord away_from_location, Coord location) {
-    if (!is_open_space(actual_map_tiles[location].tile_type))
+    if (!is_open_space(actual_map_tiles[location]))
         return false;
     if (!spawn_zone[location])
         return false;
@@ -351,7 +351,7 @@ Coord random_spawn_location(Coord away_from_location) {
 Coord find_stairs_down_location() {
     for (Coord location = {0, 0}; location.y < map_size.y; location.y++)
         for (location.x = 0; location.x < map_size.x; location.x++)
-            if (actual_map_tiles[location].tile_type == TileType_STAIRS_DOWN)
+            if (actual_map_tiles[location] == TileType_STAIRS_DOWN)
                 return location;
     unreachable();
 }

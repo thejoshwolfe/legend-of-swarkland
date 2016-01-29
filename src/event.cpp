@@ -303,12 +303,12 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
 
 static void record_perception_of_location(Thing observer, Coord location, bool see_items) {
     // don't set tile_is_visible, because it might actually not be.
-    MapMatrix<Tile> & tiles = observer->life()->knowledge.tiles;
-    if (tiles[location].tile_type != actual_map_tiles[location].tile_type) {
+    MapMatrix<TileType> & tiles = observer->life()->knowledge.tiles;
+    if (tiles[location] != actual_map_tiles[location]) {
         tiles[location] = actual_map_tiles[location];
         if (!can_see_location(observer, location)) {
-            bool is_floor = is_open_space(actual_map_tiles[location].tile_type);
-            tiles[location].tile_type = is_floor ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
+            bool is_floor = is_open_space(actual_map_tiles[location]);
+            tiles[location] = is_floor ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
         }
     }
 
@@ -434,7 +434,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     }
                     Span actor_description = get_thing_description(observer, data.actor);
                     Span bumpee_description;
-                    if (!is_open_space(observer->life()->knowledge.tiles[data.location].tile_type))
+                    if (!is_open_space(observer->life()->knowledge.tiles[data.location]))
                         bumpee_description = new_span("a wall");
                     else
                         bumpee_description = new_span("thin air");
@@ -535,7 +535,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             if (data.target != uint256::zero()) {
                 target = observer->life()->knowledge.perceived_things.get(data.target);
                 target_description = get_thing_description(observer, data.target);
-            } else if (!is_open_space(observer->life()->knowledge.tiles[data.location].tile_type)) {
+            } else if (!is_open_space(observer->life()->knowledge.tiles[data.location])) {
                 target = nullptr;
                 target_description = new_span("a wall");
             } else {

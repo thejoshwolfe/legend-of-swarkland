@@ -27,18 +27,12 @@ enum TileType {
     TileType_COUNT,
 };
 
-struct Tile {
-    TileType tile_type;
-    // this will almost always be out of bounds. use % to get something useful.
-    uint32_t aesthetic_index;
-};
-
-static const Tile unknown_tile = {TileType_UNKNOWN, 0};
 static const int final_dungeon_level = 5;
 extern const int ethereal_radius;
 
 extern int dungeon_level;
-extern MapMatrix<Tile> actual_map_tiles;
+extern MapMatrix<TileType> actual_map_tiles;
+extern MapMatrix<uint32_t> aesthetic_indexes;
 extern Coord stairs_down_location;
 
 void generate_map();

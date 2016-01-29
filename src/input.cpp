@@ -42,7 +42,7 @@ void get_floor_actions(Thing actor, List<Action> * actions) {
         actions->append(Action::pickup(items[i]->id));
 
     // go down
-    if (actor->life()->knowledge.tiles[actor->location].tile_type == TileType_STAIRS_DOWN)
+    if (actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN)
         actions->append(Action::go_down());
 }
 

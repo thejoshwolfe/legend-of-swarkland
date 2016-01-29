@@ -59,6 +59,11 @@ public:
             panic("matrix bounds check");
         return items[index.y * SizeX + index.x];
     }
+    const T & operator[](Coord index) const {
+        if (index.x < 0 || index.x >= SizeX || index.y < 0 || index.y >= SizeY)
+            panic("matrix bounds check");
+        return items[index.y * SizeX + index.x];
+    }
     void set_all(const T & value) {
         for (int i = 0; i < SizeX * SizeY; i++)
             items[i] = value;

@@ -885,10 +885,10 @@ void render() {
         // render the terrain
         for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
             for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-                Tile tile = spectate_from->life()->knowledge.tiles[cursor];
+                TileType tile = spectate_from->life()->knowledge.tiles[cursor];
                 if (cheatcode_full_visibility)
                     tile = actual_map_tiles[cursor];
-                RuckSackImage * image = get_image_for_tile(tile.tile_type);
+                RuckSackImage * image = get_image_for_tile(tile);
                 if (image == nullptr)
                     continue;
                 Uint8 alpha;
@@ -915,7 +915,7 @@ void render() {
                 } else {
                     alpha = 0x7f;
                 }
-                render_tile(image, tile.aesthetic_index, alpha, cursor);
+                render_tile(image, aesthetic_indexes[cursor], alpha, cursor);
             }
         }
     }

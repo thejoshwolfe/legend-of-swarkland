@@ -183,7 +183,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     bool impacts_in_wall = item->thing_type == ThingType_WAND && actual_wand_identities[item->wand_info()->description_id] == WandId_WAND_OF_DIGGING;
     for (int i = 0; i < range; i++) {
         cursor += direction;
-        if (!is_open_space(actual_map_tiles[cursor].tile_type)) {
+        if (!is_open_space(actual_map_tiles[cursor])) {
             if (!(item_breaks && impacts_in_wall)) {
                 // impact just in front of the wall
                 cursor -= direction;
@@ -579,7 +579,7 @@ bool validate_action(Thing actor, const Action & action) {
             return true;
         }
         case Action::GO_DOWN:
-            return actor->life()->knowledge.tiles[actor->location].tile_type == TileType_STAIRS_DOWN;
+            return actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN;
 
         case Action::CHEATCODE_HEALTH_BOOST:
         case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
@@ -601,7 +601,7 @@ bool validate_action(Thing actor, const Action & action) {
                 return false;
             const Action::GenerateMonster & data = action.generate_monster();
             Coord location = data.location;
-            if (!(is_in_bounds(location) && is_open_space(actual_map_tiles[location].tile_type)))
+            if (!(is_in_bounds(location) && is_open_space(actual_map_tiles[location])))
                 return false;
             if (find_individual_at(location) != nullptr)
                 return false;
@@ -734,7 +734,7 @@ static bool take_action(Thing actor, const Action & action) {
             // normally, we'd be sure that this was valid, but if you use cheatcodes,
             // monsters can try to walk into you while you're invisible.
             Coord new_position = actor->location + confuse_direction(actor, action.coord());
-            if (!is_open_space(actual_map_tiles[new_position].tile_type)) {
+            if (!is_open_space(actual_map_tiles[new_position])) {
                 // this can only happen if your direction was changed.
                 // (attempting to move into a wall deliberately is an invalid move).
                 publish_event(Event::bump_into_location(actor, new_position));
@@ -1086,7 +1086,7 @@ void strike_individual(Thing attacker, Thing target) {
     damage_individual(target, damage, attacker, false);
 }
 void change_map(Coord location, TileType new_tile_type) {
-    actual_map_tiles[location].tile_type = new_tile_type;
+    actual_map_tiles[location] = new_tile_type;
     // recompute everyone's vision
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);)

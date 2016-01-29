@@ -109,7 +109,7 @@ static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<W
 }
 
 static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<WandDescriptionId> * perceived_current_zapper) {
-    if (actual_map_tiles[location].tile_type == TileType_BORDER_WALL) {
+    if (actual_map_tiles[location] == TileType_BORDER_WALL) {
         // no effect on border walls
         publish_event(Event::wand_hit(WandId_UNKNOWN, is_explosion, uint256::zero(), location), perceived_current_zapper);
         return -1;
@@ -186,7 +186,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
             break;
         beam_length -= length_penalty;
 
-        if (!is_open_space(actual_map_tiles[cursor].tile_type))
+        if (!is_open_space(actual_map_tiles[cursor]))
             length_penalty = handler.hit_wall(wand_wielder, cursor, false, &perceived_current_zapper);
         else
             length_penalty = handler.hit_air(wand_wielder, cursor, false, &perceived_current_zapper);
@@ -266,7 +266,7 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
     Coord lower_right = clamp(explosion_center + Coord{apothem, apothem}, {0, 0}, map_size - Coord{1, 1});
     for (Coord wall_cursor = upper_left; wall_cursor.y <= lower_right.y; wall_cursor.y++)
         for (wall_cursor.x = upper_left.x; wall_cursor.x <= lower_right.x; wall_cursor.x++)
-            if (actual_map_tiles[wall_cursor].tile_type == TileType_WALL)
+            if (actual_map_tiles[wall_cursor] == TileType_WALL)
                 affected_walls.append(wall_cursor);
 
     WandHandler handler = wand_handlers[actual_wand_identities[item->wand_info()->description_id]];
