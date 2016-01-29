@@ -95,8 +95,8 @@ void compute_vision(Thing observer) {
     // you can always feel just the spot you're on
     knowledge.tile_is_visible[observer->location].touch = 1;
 
-    // see individuals
-    // first clear out anything that we know are no longer where we thought
+    // see things
+    // first clear out anything that we know is no longer where we thought
     List<uint256> delete_ids;
     PerceivedThing target;
     for (auto iterator = knowledge.perceived_things.value_iterator(); iterator.next(&target);) {

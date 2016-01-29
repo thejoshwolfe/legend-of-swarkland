@@ -19,3 +19,25 @@ move 1 0
 wait
 attack 1 0
 wait
+# TODO: expect what just happened
+
+# TODO: move this to a blindness test
+!wish potion blindness
+pickup 0000000000000000000000000000000000000000000000000000000000000007
+wait
+wait
+quaff 0000000000000000000000000000000000000000000000000000000000000007
+  @rng 1000 midpoint:1000:potion_of_blindness_expiration
+!monster dog player 2 1
+wait
+wait
+!wish potion healing
+move 1 1
+move 1 0
+wait
+wait
+wait
+@find_things_at 2 1
+  @expect_thing individual human
+  @expect_thing potion healing
+  @expect_nothing

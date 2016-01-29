@@ -36,8 +36,12 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
             return true;
         }
     }
+    if (vision.touch) {
+        // we're on top of it
+        return true;
+    }
     // cogniscopy can see minds
-    if (has_status(observer, StatusEffect::COGNISCOPY)) {
+    if (vision.cogniscopy) {
         if (actual_target->thing_type == ThingType_INDIVIDUAL && individual_has_mind(actual_target))
             return true;
     }
@@ -417,10 +421,6 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                 case Event::IndividualAndLocationData::MOVE:
                     remembered_event = nullptr;
                     record_perception_of_thing(observer, data.actor);
-                    if (data.actor == observer->id) {
-                        // moving into a space while blind explores the space
-                        record_perception_of_location(observer, observer->location, true);
-                    }
                     break;
                 case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
                 case Event::IndividualAndLocationData::ATTACK_LOCATION: {
