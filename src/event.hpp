@@ -7,6 +7,7 @@ struct Event {
     enum Type {
         THE_INDIVIDUAL,
         INDIVIDUAL_AND_LOCATION,
+        MOVE,
         TWO_INDIVIDUAL,
         INDIVIDUAL_AND_ITEM,
         WAND_HIT,
@@ -18,13 +19,18 @@ struct Event {
 
     struct IndividualAndLocationData {
         enum Id {
-            MOVE,
             BUMP_INTO_LOCATION,
             ATTACK_LOCATION,
         };
         Id id;
         uint256 actor;
         Coord location;
+        bool is_air;
+    };
+    struct MoveData {
+        uint256 actor;
+        Coord old_location;
+        Coord new_location;
     };
     struct TwoIndividualData {
         enum Id {
@@ -90,6 +96,11 @@ struct Event {
         return _data._individual_and_location;
     }
 
+    MoveData & move_data() {
+        check_data_type(MOVE);
+        return _data._move;
+    }
+
     TwoIndividualData & two_individual_data() {
         check_data_type(TWO_INDIVIDUAL);
         return _data._two_individual;
@@ -138,14 +149,14 @@ struct Event {
     }
 
     static inline Event move(Thing mover, Coord from) {
-        return individual_and_location_event(IndividualAndLocationData::MOVE, mover->id, from);
+        return move_event(mover->id, from, mover->location);
     }
 
     static inline Event attack_individual(Thing attacker, Thing target) {
         return two_individual_type_event(TwoIndividualData::ATTACK_INDIVIDUAL, attacker->id, target->id);
     }
-    static inline Event attack_location(Thing attacker, Coord location) {
-        return individual_and_location_event(IndividualAndLocationData::ATTACK_LOCATION, attacker->id, location);
+    static inline Event attack_location(Thing attacker, Coord location, bool is_air) {
+        return individual_and_location_event(IndividualAndLocationData::ATTACK_LOCATION, attacker->id, location, is_air);
     }
 
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
@@ -175,8 +186,8 @@ struct Event {
     static Event bump_into_individual(Thing actor, Thing target) {
         return two_individual_type_event(TwoIndividualData::BUMP_INTO_INDIVIDUAL, actor->id, target->id);
     }
-    static Event bump_into_location(Thing actor, Coord location) {
-        return individual_and_location_event(IndividualAndLocationData::BUMP_INTO_LOCATION, actor->id, location);
+    static Event bump_into_location(Thing actor, Coord location, bool is_air) {
+        return individual_and_location_event(IndividualAndLocationData::BUMP_INTO_LOCATION, actor->id, location, is_air);
     }
 
     static Event throw_item(Thing thrower, uint256 item_id) {
@@ -273,13 +284,24 @@ private:
         };
         return result;
     }
-    static inline Event individual_and_location_event(IndividualAndLocationData::Id id, uint256 actor, Coord location) {
+    static inline Event individual_and_location_event(IndividualAndLocationData::Id id, uint256 actor, Coord location, bool is_air) {
         Event result;
         result.type = INDIVIDUAL_AND_LOCATION;
         result.individual_and_location_data() = {
             id,
             actor,
             location,
+            is_air,
+        };
+        return result;
+    }
+    static inline Event move_event(uint256 actor, Coord old_location, Coord new_location) {
+        Event result;
+        result.type = MOVE;
+        result.move_data() = {
+            actor,
+            old_location,
+            new_location,
         };
         return result;
     }
@@ -318,6 +340,7 @@ private:
     union {
         TheIndividualData _the_individual;
         IndividualAndLocationData _individual_and_location;
+        MoveData _move;
         TwoIndividualData _two_individual;
         IndividualAndItemData _individual_and_item;
         WandHitData _wand_hit;

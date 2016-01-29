@@ -737,7 +737,7 @@ static bool take_action(Thing actor, const Action & action) {
             if (!is_open_space(actual_map_tiles[new_position])) {
                 // this can only happen if your direction was changed.
                 // (attempting to move into a wall deliberately is an invalid move).
-                publish_event(Event::bump_into_location(actor, new_position));
+                publish_event(Event::bump_into_location(actor, new_position, false));
                 break;
             }
             Thing target = find_individual_at(new_position);
@@ -757,7 +757,8 @@ static bool take_action(Thing actor, const Action & action) {
                 attack(actor, target);
                 break;
             } else {
-                publish_event(Event::attack_location(actor, new_position));
+                bool is_air = is_open_space(actual_map_tiles[new_position]);
+                publish_event(Event::attack_location(actor, new_position, is_air));
                 break;
             }
         }

@@ -171,12 +171,6 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         case Event::INDIVIDUAL_AND_LOCATION: {
             const Event::IndividualAndLocationData & data = event.individual_and_location_data();
             switch (data.id) {
-                case Event::IndividualAndLocationData::MOVE:
-                    // for moving, you get to see the individual in either location
-                    if (!(can_see_thing(observer, data.actor, data.location) || can_see_thing(observer, data.actor)))
-                        return false;
-                    *output_event = event;
-                    return true;
                 case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
                 case Event::IndividualAndLocationData::ATTACK_LOCATION:
                     if (!can_see_thing(observer, data.actor))
@@ -184,6 +178,14 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     *output_event = event;
                     return true;
             }
+        }
+        case Event::MOVE: {
+            const Event::MoveData & data = event.move_data();
+            // for moving, you get to see the individual in either location
+            if (!(can_see_thing(observer, data.actor, data.old_location) || can_see_thing(observer, data.actor)))
+                return false;
+            *output_event = event;
+            return true;
         }
         case Event::TWO_INDIVIDUAL: {
             const Event::TwoIndividualData & data = event.two_individual_data();
@@ -305,23 +307,11 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
     unreachable();
 }
 
-static void record_perception_of_location(Thing observer, Coord location, bool see_items) {
+static void record_solidity_of_location(Thing observer, Coord location, bool is_air) {
     // don't set tile_is_visible, because it might actually not be.
     MapMatrix<TileType> & tiles = observer->life()->knowledge.tiles;
-    if (tiles[location] != actual_map_tiles[location]) {
-        tiles[location] = actual_map_tiles[location];
-        if (!can_see_location(observer, location)) {
-            bool is_floor = is_open_space(actual_map_tiles[location]);
-            tiles[location] = is_floor ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
-        }
-    }
-
-    if (see_items) {
-        List<Thing> items;
-        find_items_on_floor(location, &items);
-        for (int i = 0; i < items.length(); i++)
-            record_perception_of_thing(observer, items[i]->id);
-    }
+    if (tiles[location] == TileType_UNKNOWN || is_open_space(tiles[location]) != is_air)
+        tiles[location] = is_air ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
 }
 
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
@@ -418,13 +408,9 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
         case Event::INDIVIDUAL_AND_LOCATION: {
             Event::IndividualAndLocationData & data = event.individual_and_location_data();
             switch (data.id) {
-                case Event::IndividualAndLocationData::MOVE:
-                    remembered_event = nullptr;
-                    record_perception_of_thing(observer, data.actor);
-                    break;
                 case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
                 case Event::IndividualAndLocationData::ATTACK_LOCATION: {
-                    record_perception_of_location(observer, data.location, false);
+                    record_solidity_of_location(observer, data.location, data.is_air);
                     // there's no individual there to attack
                     List<PerceivedThing> perceived_things;
                     find_perceived_things_at(observer, data.location, &perceived_things);
@@ -440,8 +426,6 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                         bumpee_description = new_span("thin air");
                     const char * fmt;
                     switch (data.id) {
-                        case Event::IndividualAndLocationData::MOVE:
-                            unreachable();
                         case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
                             fmt = "%s bumps into %s.";
                             break;
@@ -453,6 +437,12 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     break;
                 }
             }
+            break;
+        }
+        case Event::MOVE: {
+            const Event::MoveData & data = event.move_data();
+            remembered_event = nullptr;
+            record_perception_of_thing(observer, data.actor);
             break;
         }
         case Event::TWO_INDIVIDUAL: {
