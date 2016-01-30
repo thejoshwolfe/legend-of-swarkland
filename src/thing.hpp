@@ -117,10 +117,14 @@ static inline bool operator==(VisionTypes a, VisionTypes b) {
 }
 
 static inline bool can_see_invisible(VisionTypes vision_types) {
+    // TODO: delete this function in favor of positive ideas like shape and color
     return vision_types.ethereal || vision_types.touch;
 }
-static inline bool can_see_terrain(VisionTypes vision_types) {
+static inline bool can_see_shape(VisionTypes vision_types) {
     return vision_types.normal || vision_types.ethereal || vision_types.touch;
+}
+static inline bool can_see_color(VisionTypes vision_types) {
+    return vision_types.normal || vision_types.ethereal;
 }
 
 enum Mind {

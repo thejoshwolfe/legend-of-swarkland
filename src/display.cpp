@@ -892,7 +892,7 @@ void render() {
                 if (image == nullptr)
                     continue;
                 Uint8 alpha;
-                if (can_see_terrain(spectate_from->life()->knowledge.tile_is_visible[cursor])) {
+                if (can_see_shape(spectate_from->life()->knowledge.tile_is_visible[cursor])) {
                     // it's in our direct line of sight
                     if (direction_distance_min != -1) {
                         // actually, let's only show the 8 directions
@@ -959,7 +959,7 @@ void render() {
             if (thing->location == Coord::nowhere())
                 continue;
             Uint8 alpha;
-            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_terrain(spectate_from->life()->knowledge.tile_is_visible[thing->location]))
+            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_shape(spectate_from->life()->knowledge.tile_is_visible[thing->location]))
                 alpha = 0x7f;
             else
                 alpha = 0xff;

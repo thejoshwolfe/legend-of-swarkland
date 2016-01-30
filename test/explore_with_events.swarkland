@@ -39,5 +39,5 @@ wait
 wait
 @find_things_at 2 1
   @expect_thing individual human
-  @expect_thing potion healing
+  @expect_thing potion unknown
   @expect_nothing

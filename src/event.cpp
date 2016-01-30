@@ -152,7 +152,7 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
     VisionTypes vision = observer->life()->knowledge.tile_is_visible[actual_target->location];
-    if (can_see_terrain(vision)) {
+    if (vision.normal) {
         // hmmm. this guy is probably invisible
         assert(!can_see_invisible(vision));
         put_status(thing, StatusEffect::INVISIBILITY);
@@ -227,8 +227,8 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
                 case Event::IndividualAndItemData::THROW_ITEM:
-                    // the item is not in anyone's hand, so if you can see the location, you can see the event.
-                    if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
+                    // the item is not in anyone's hand, so if you can see the item, you can see the event.
+                    if (!can_see_shape(observer->life()->knowledge.tile_is_visible[data.location]))
                         return false;
                     *output_event = event;
                     // the individual might be invisible
@@ -236,8 +236,8 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                         output_event->individual_and_item_data().individual = make_placeholder_individual(observer, data.individual);
                     return true;
                 case Event::IndividualAndItemData::ZAP_WAND:
-                    // the magic beam gives away the location, so if you can see the location, you can see the event.
-                    if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
+                    // the magic beam gives away the location, so if you can see the beam, you can see the event.
+                    if (!can_see_shape(observer->life()->knowledge.tile_is_visible[data.location]))
                         return false;
                     *output_event = event;
                     // the individual might be invisible
@@ -261,19 +261,16 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         }
         case Event::WAND_HIT: {
             const Event::WandHitData & data = event.wand_hit_data();
-            if (data.target != uint256::zero()) {
-                if (!can_see_thing(observer, data.target))
-                    return false;
-            } else {
-                if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
-                    return false;
-            }
+            if (!can_see_shape(observer->life()->knowledge.tile_is_visible[data.location]))
+                return false;
             *output_event = event;
+            if (data.target != uint256::zero() && !can_see_thing(observer, data.target))
+                output_event->wand_hit_data().target = make_placeholder_individual(observer, data.target);
             return true;
         }
         case Event::USE_POTION: {
             const Event::UsePotionData & data = event.use_potion_data();
-            if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
+            if (!can_see_shape(observer->life()->knowledge.tile_is_visible[data.location]))
                 return false;
             if (data.target_id != uint256::zero() && !can_see_thing(observer, data.target_id)) {
                 if (data.is_breaking) {
@@ -293,13 +290,12 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         case Event::POLYMORPH: {
             if (!can_see_thing(observer, event.polymorph_data().individual))
                 return false;
-            // TODO: gaining and losing a mind should interact with cogniscopy. missing this feature can cause crashes.
             *output_event = event;
             return true;
         }
         case Event::ITEM_AND_LOCATION: {
             const Event::ItemAndLocationData & data = event.item_and_location_data();
-            if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
+            if (!can_see_shape(observer->life()->knowledge.tile_is_visible[data.location]))
                 return false;
             *output_event = event;
             return true;
@@ -322,7 +318,7 @@ static void record_location_of_thing(Thing observer, uint256 thing_id, Coord new
         clear_placeholder_individual_at(observer, new_location);
 }
 static PerceivedThing to_perceived_thing(uint256 target_id, VisionTypes vision) {
-    can_see_terrain(vision); // TODO: hide information for different types of vision
+    can_see_shape(vision); // TODO: hide information for different types of vision
     Thing target = actual_things.get(target_id);
 
     Coord location = target->location;
@@ -335,19 +331,32 @@ static PerceivedThing to_perceived_thing(uint256 target_id, VisionTypes vision) 
 
     PerceivedThing result;
     switch (target->thing_type) {
-        case ThingType_WAND:
-            result = create<PerceivedThingImpl>(target->id, false, target->wand_info()->description_id, location, container_id, z_order, time_counter);
+        case ThingType_INDIVIDUAL: {
+            SpeciesId species_id = SpeciesId_UNSEEN;
+            if (can_see_shape(vision))
+                species_id = target->life()->species_id;
+            result = create<PerceivedThingImpl>(target->id, false, species_id, target->location, time_counter);
             break;
-        case ThingType_POTION:
-            result = create<PerceivedThingImpl>(target->id, false, target->potion_info()->description_id, location, container_id, z_order, time_counter);
+        }
+        case ThingType_WAND: {
+            WandDescriptionId description_id = WandDescriptionId_UNSEEN;
+            if (can_see_color(vision))
+                description_id = target->wand_info()->description_id;
+            result = create<PerceivedThingImpl>(target->id, false, description_id, location, container_id, z_order, time_counter);
             break;
-        case ThingType_INDIVIDUAL:
-            result = create<PerceivedThingImpl>(target->id, false, target->life()->species_id, target->location, time_counter);
+        }
+        case ThingType_POTION: {
+            PotionDescriptionId description_id = PotionDescriptionId_UNSEEN;
+            if (can_see_color(vision))
+                description_id = target->potion_info()->description_id;
+            result = create<PerceivedThingImpl>(target->id, false, description_id, location, container_id, z_order, time_counter);
             break;
+        }
 
         case ThingType_COUNT:
             unreachable();
     }
+    // TODO: limited perception of status effects
     for (int i = 0; i < target->status_effects.length(); i++)
         result->status_effects.append(target->status_effects[i].type);
     return result;
@@ -372,7 +381,7 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     target = to_perceived_thing(target_id, vision);
     knowledge.perceived_things.put(target_id, target);
     record_location_of_thing(observer, target_id, target->location);
-    if (can_see_terrain(vision)) {
+    if (can_see_shape(vision)) {
         // TODO: do this here?
         // cogniscopy doesn't see items.
         List<Thing> inventory;
@@ -381,13 +390,6 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
             record_perception_of_thing(observer, inventory[i]->id);
     }
     return target;
-}
-
-static void identify_wand(Thing observer, WandDescriptionId description_id, WandId id) {
-    observer->life()->knowledge.wand_identities[description_id] = id;
-}
-static void identify_potion(Thing observer, PotionDescriptionId description_id, PotionId id) {
-    observer->life()->knowledge.potion_identities[description_id] = id;
 }
 
 static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
@@ -610,7 +612,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                 // cool, i can id this wand.
                 WandDescriptionId wand_description = perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT);
                 if (wand_description != WandDescriptionId_COUNT) {
-                    identify_wand(observer, wand_description, true_id);
+                    observer->life()->knowledge.wand_identities[wand_description] = true_id;
                 } else {
                     // if only i could see it!!
                 }
@@ -669,7 +671,11 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             if (effect != PotionId_UNKNOWN) {
                 // ah hah!
                 PotionDescriptionId description_id = observer->life()->knowledge.perceived_things.get(data.item_id)->potion_info()->description_id;
-                identify_potion(observer, description_id, effect);
+                if (description_id != PotionDescriptionId_UNSEEN) {
+                    observer->life()->knowledge.potion_identities[description_id] = effect;
+                } else {
+                    // ...awe
+                }
             }
             delete_ids.append(data.item_id);
             break;

@@ -33,6 +33,6 @@ zap -1 0 0000000000000000000000000000000000000000000000000000000000000006
 
 # you can see the lich though
 @find_things_at 8 4
-  @expect_thing individual lich
+  @expect_thing individual unseen
     @expect_carrying_nothing
   @expect_nothing
