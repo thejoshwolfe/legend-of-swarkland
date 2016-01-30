@@ -12,10 +12,6 @@ MapMatrix<uint32_t> aesthetic_indexes;
 MapMatrix<bool> spawn_zone;
 Coord stairs_down_location;
 
-static bool can_see_invisible(VisionTypes vision_types) {
-    return vision_types.ethereal || vision_types.touch;
-}
-
 static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
     if (from_location == to_location)
         return true;
@@ -100,23 +96,20 @@ void compute_vision(Thing observer) {
     List<uint256> delete_ids;
     PerceivedThing target;
     for (auto iterator = knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
-        if (has_status(target, StatusEffect::INVISIBILITY) && !can_see_invisible(knowledge.tile_is_visible[target->location])) {
+        Coord target_location = get_thing_location(observer, target);
+        if (target_location == Coord::nowhere())
+            continue;
+        VisionTypes vision = knowledge.tile_is_visible[target_location];
+        // TODO: allow cogniscopy to clear some markers
+        vision.cogniscopy = 0;
+
+        if (!vision.any())
+            continue; // leave the marker
+        if (is_invisible(observer, target) && !can_see_invisible(vision)) {
             // we had reason to believe there was something invisible here, and we don't have confidence that it's gone.
             // leave the marker.
             continue;
         }
-        if (target->thing_type != ThingType_INDIVIDUAL && target->location == Coord::nowhere()) {
-            PerceivedThing container = knowledge.perceived_things.get(target->container_id);
-            if (has_status(container, StatusEffect::INVISIBILITY)) {
-                // as above, don't clear the marker for invisible things
-                continue;
-            }
-        }
-        Coord target_location = get_thing_location(observer, target);
-        if (target_location == Coord::nowhere())
-            continue;
-        if (!knowledge.tile_is_visible[target_location].any())
-            continue;
         delete_ids.append(target->id);
         List<PerceivedThing> inventory;
         find_items_in_inventory(observer, target, &inventory);

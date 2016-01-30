@@ -99,8 +99,8 @@ struct VisionTypes {
     unsigned cogniscopy : 1;
     unsigned touch : 1;
 
-    bool any() const {
-        return normal || ethereal;
+    inline bool any() {
+        return normal || ethereal || cogniscopy || touch;
     }
     static inline VisionTypes none() {
         return {0, 0, 0, 0};
@@ -115,8 +115,12 @@ struct VisionTypes {
 static inline bool operator==(VisionTypes a, VisionTypes b) {
     return a.normal == b.normal && a.ethereal == b.ethereal;
 }
-static inline bool operator!=(VisionTypes a, VisionTypes b) {
-    return !(a == b);
+
+static inline bool can_see_invisible(VisionTypes vision_types) {
+    return vision_types.ethereal || vision_types.touch;
+}
+static inline bool can_see_terrain(VisionTypes vision_types) {
+    return vision_types.normal || vision_types.ethereal || vision_types.touch;
 }
 
 enum Mind {
@@ -393,8 +397,6 @@ static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> 
     return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_things.value_iterator(), is_item);
 }
 
-PerceivedThing to_perceived_thing(uint256 target_id);
-
 static inline int compare_individuals_by_initiative(Thing a, Thing b) {
     return compare(a->life()->initiative, b->life()->initiative);
 }
@@ -446,6 +448,13 @@ static inline void maybe_remove_status(PerceivedThing thing, StatusEffect::Statu
     int index = find_status(thing->status_effects, status);
     if (index != -1)
         thing->status_effects.swap_remove(index);
+}
+
+static inline bool is_invisible(Thing observer, PerceivedThing thing) {
+    PerceivedThing container = thing;
+    if (thing->location == Coord::nowhere())
+        container = observer->life()->knowledge.perceived_things.get(thing->container_id);
+    return has_status(container, StatusEffect::INVISIBILITY);
 }
 
 #endif

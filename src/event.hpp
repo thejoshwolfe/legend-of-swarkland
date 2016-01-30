@@ -78,7 +78,6 @@ struct Event {
             NO_LONGER_POISONED,
             NO_LONGER_INVISIBLE,
             APPEAR,
-            TURN_INVISIBLE,
             LEVEL_UP,
             DIE,
         };
@@ -240,9 +239,6 @@ struct Event {
 
     static inline Event appear(Thing new_guy) {
         return event_individual(TheIndividualData::APPEAR, new_guy->id);
-    }
-    static inline Event turn_invisible(Thing individual) {
-        return event_individual(TheIndividualData::TURN_INVISIBLE, individual->id);
     }
     static inline Event level_up(uint256 individual_id) {
         return event_individual(TheIndividualData::LEVEL_UP, individual_id);

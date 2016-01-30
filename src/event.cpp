@@ -3,16 +3,6 @@
 #include "display.hpp"
 #include "swarkland.hpp"
 
-
-static bool can_see_location(Thing observer, Coord location) {
-    if (!observer->still_exists)
-        return false;
-    if (!is_in_bounds(location))
-        return false;
-    if (location == observer->location)
-        return true;
-    return observer->life()->knowledge.tile_is_visible[location].any();
-}
 bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     // you can always see yourself
     if (observer->id == target_id)
@@ -31,7 +21,10 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     }
     if (vision.normal) {
         // we're looking right at it
-        if (!has_status(actual_target, StatusEffect::INVISIBILITY)) {
+        Thing container = actual_target;
+        if (actual_target->location == Coord::nowhere())
+            container = actual_things.get(actual_target->container_id);
+        if (!has_status(container, StatusEffect::INVISIBILITY)) {
             // see normally
             return true;
         }
@@ -55,22 +48,34 @@ bool can_see_thing(Thing observer, uint256 target_id) {
         // i'm sure you can't see it, because it doesn't exist anymore.
         return false;
     }
-    if (thing->location == Coord::nowhere()) {
+    Coord location = thing->location;
+    if (location == Coord::nowhere()) {
         // it's being carried
-        Thing container = actual_things.get(thing->container_id);
-        // if the container is invisible, so is its contents
-        if (!can_see_thing(observer, container->id))
-            return false;
-        // cogniscopy doesn't show items
-        if (!can_see_location(observer, container->location))
-            return false;
-        return true;
+        location = actual_things.get(thing->container_id)->location;
     }
 
-    return can_see_thing(observer, target_id, thing->location);
+    return can_see_thing(observer, target_id, location);
 }
-static Coord location_of(uint256 individual_id) {
-    return actual_things.get(individual_id)->location;
+static bool see_thing(Thing observer, uint256 target_id, Coord location) {
+    if (!can_see_thing(observer, target_id, location))
+        return false;
+    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
+    if (target == nullptr) {
+        record_perception_of_thing(observer, target_id);
+    }
+    return true;
+}
+static bool see_thing(Thing observer, uint256 target_id) {
+    assert(target_id != uint256::zero());
+     Thing thing = actual_things.get(target_id, nullptr);
+     if (thing == nullptr || !thing->still_exists)
+         return false;
+     Coord location = thing->location;
+     if (location == Coord::nowhere()) {
+         // it's being carried
+         location = actual_things.get(thing->container_id)->location;
+     }
+     return see_thing(observer, target_id, location);
 }
 
 static PerceivedThing find_placeholder_individual(Thing observer, Coord location) {
@@ -146,8 +151,10 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
         thing = create<PerceivedThingImpl>(id, true, SpeciesId_UNSEEN, actual_target->location, time_counter);
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
-    if (can_see_location(observer, actual_target->location)) {
+    VisionTypes vision = observer->life()->knowledge.tile_is_visible[actual_target->location];
+    if (can_see_terrain(vision)) {
         // hmmm. this guy is probably invisible
+        assert(!can_see_invisible(vision));
         put_status(thing, StatusEffect::INVISIBILITY);
     }
     return thing->id;
@@ -157,13 +164,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
             const Event::TheIndividualData & data = event.the_individual_data();
-            if (data.id == Event::TheIndividualData::TURN_INVISIBLE) {
-                if (!can_see_location(observer, location_of(data.individual)))
-                    return false;
-                *output_event = event;
-                return true;
-            }
-            if (!can_see_thing(observer, data.individual))
+            if (!see_thing(observer, data.individual))
                 return false;
             *output_event = event;
             return true;
@@ -173,7 +174,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             switch (data.id) {
                 case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
                 case Event::IndividualAndLocationData::ATTACK_LOCATION:
-                    if (!can_see_thing(observer, data.actor))
+                    if (!see_thing(observer, data.actor))
                         return false;
                     *output_event = event;
                     return true;
@@ -182,7 +183,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         case Event::MOVE: {
             const Event::MoveData & data = event.move_data();
             // for moving, you get to see the individual in either location
-            if (!(can_see_thing(observer, data.actor, data.old_location) || can_see_thing(observer, data.actor)))
+            if (!(see_thing(observer, data.actor, data.old_location) || see_thing(observer, data.actor)))
                 return false;
             *output_event = event;
             return true;
@@ -195,15 +196,15 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TwoIndividualData::MELEE_KILL: {
                     // maybe replace one of the individuals with a placeholder.
                     *output_event = event;
-                    if (can_see_thing(observer, data.actor)) {
-                        if (can_see_thing(observer, data.target)) {
+                    if (see_thing(observer, data.actor)) {
+                        if (see_thing(observer, data.target)) {
                             return true;
                         } else {
                             output_event->two_individual_data().target = make_placeholder_individual(observer, data.target);
                             return true;
                         }
                     } else {
-                        if (can_see_thing(observer, data.target)) {
+                        if (see_thing(observer, data.target)) {
                             output_event->two_individual_data().actor = make_placeholder_individual(observer, data.actor);
                             return true;
                         } else {
@@ -227,7 +228,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
                 case Event::IndividualAndItemData::THROW_ITEM:
                     // the item is not in anyone's hand, so if you can see the location, you can see the event.
-                    if (!observer->life()->knowledge.tile_is_visible[data.location].any())
+                    if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
                         return false;
                     *output_event = event;
                     // the individual might be invisible
@@ -236,7 +237,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     return true;
                 case Event::IndividualAndItemData::ZAP_WAND:
                     // the magic beam gives away the location, so if you can see the location, you can see the event.
-                    if (!observer->life()->knowledge.tile_is_visible[data.location].any())
+                    if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
                         return false;
                     *output_event = event;
                     // the individual might be invisible
@@ -264,7 +265,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 if (!can_see_thing(observer, data.target))
                     return false;
             } else {
-                if (!observer->life()->knowledge.tile_is_visible[data.location].any())
+                if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
                     return false;
             }
             *output_event = event;
@@ -272,7 +273,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         }
         case Event::USE_POTION: {
             const Event::UsePotionData & data = event.use_potion_data();
-            if (!can_see_location(observer, data.location))
+            if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
                 return false;
             if (data.target_id != uint256::zero() && !can_see_thing(observer, data.target_id)) {
                 if (data.is_breaking) {
@@ -298,7 +299,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         }
         case Event::ITEM_AND_LOCATION: {
             const Event::ItemAndLocationData & data = event.item_and_location_data();
-            if (!can_see_location(observer, data.location))
+            if (!can_see_terrain(observer->life()->knowledge.tile_is_visible[data.location]))
                 return false;
             *output_event = event;
             return true;
@@ -314,19 +315,66 @@ static void record_solidity_of_location(Thing observer, Coord location, bool is_
         tiles[location] = is_air ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
 }
 
+static void record_location_of_thing(Thing observer, uint256 thing_id, Coord new_location) {
+    PerceivedThing target = observer->life()->knowledge.perceived_things.get(thing_id);
+    target->location = new_location;
+    if (target->thing_type == ThingType_INDIVIDUAL)
+        clear_placeholder_individual_at(observer, new_location);
+}
+static PerceivedThing to_perceived_thing(uint256 target_id, VisionTypes vision) {
+    can_see_terrain(vision); // TODO: hide information for different types of vision
+    Thing target = actual_things.get(target_id);
+
+    Coord location = target->location;
+    uint256 container_id = target->container_id;
+    int z_order = target->z_order;
+    if (location != Coord::nowhere()) {
+        container_id = uint256::zero();
+        z_order = 0;
+    }
+
+    PerceivedThing result;
+    switch (target->thing_type) {
+        case ThingType_WAND:
+            result = create<PerceivedThingImpl>(target->id, false, target->wand_info()->description_id, location, container_id, z_order, time_counter);
+            break;
+        case ThingType_POTION:
+            result = create<PerceivedThingImpl>(target->id, false, target->potion_info()->description_id, location, container_id, z_order, time_counter);
+            break;
+        case ThingType_INDIVIDUAL:
+            result = create<PerceivedThingImpl>(target->id, false, target->life()->species_id, target->location, time_counter);
+            break;
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    for (int i = 0; i < target->status_effects.length(); i++)
+        result->status_effects.append(target->status_effects[i].type);
+    return result;
+}
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
-    PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id, nullptr);
+    Knowledge & knowledge = observer->life()->knowledge;
+    PerceivedThing target = knowledge.perceived_things.get(target_id, nullptr);
     if (target != nullptr && target->is_placeholder) {
         // still looking at an unseen marker at this location
         target->last_seen_time = time_counter;
         return target;
     }
-    target = to_perceived_thing(target_id);
-    observer->life()->knowledge.perceived_things.put(target_id, target);
-    if (target->thing_type == ThingType_INDIVIDUAL)
-        clear_placeholder_individual_at(observer, target->location);
-    // cogniscopy doesn't see items.
-    if (can_see_location(observer, target->location)) {
+
+    Thing actual_target = actual_things.get(target_id);
+    Coord location = actual_target->location;
+    if (location == Coord::nowhere())
+        location = actual_things.get(actual_target->container_id)->location;
+    VisionTypes vision = knowledge.tile_is_visible[location];
+    if (!vision.any())
+        return nullptr;
+
+    target = to_perceived_thing(target_id, vision);
+    knowledge.perceived_things.put(target_id, target);
+    record_location_of_thing(observer, target_id, target->location);
+    if (can_see_terrain(vision)) {
+        // TODO: do this here?
+        // cogniscopy doesn't see items.
         List<Thing> inventory;
         find_items_in_inventory(target_id, &inventory);
         for (int i = 0; i < inventory.length(); i++)
@@ -390,10 +438,6 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     maybe_remove_status(individual, StatusEffect::INVISIBILITY);
                     remembered_event->span->format("%s appears out of nowhere!", get_thing_description(observer, data.individual));
                     break;
-                case Event::TheIndividualData::TURN_INVISIBLE:
-                    remembered_event->span->format("%s turns invisible!", get_thing_description(observer, data.individual));
-                    put_status(individual, StatusEffect::INVISIBILITY);
-                    break;
                 case Event::TheIndividualData::LEVEL_UP:
                     // no state change
                     remembered_event->span->format("%s levels up.", get_thing_description(observer, data.individual));
@@ -442,7 +486,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
         case Event::MOVE: {
             const Event::MoveData & data = event.move_data();
             remembered_event = nullptr;
-            record_perception_of_thing(observer, data.actor);
+            record_location_of_thing(observer, data.actor, data.new_location);
             break;
         }
         case Event::TWO_INDIVIDUAL: {

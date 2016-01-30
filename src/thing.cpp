@@ -51,32 +51,3 @@ ThingImpl::ThingImpl(PotionDescriptionId description_id) :
 const Species * Life::species() const {
     return &specieses[species_id];
 }
-
-PerceivedThing to_perceived_thing(uint256 target_id) {
-    Thing target = actual_things.get(target_id);
-
-    Coord location = target->location;
-    uint256 container_id = target->container_id;
-    int z_order = target->z_order;
-    if (location != Coord::nowhere()) {
-        container_id = uint256::zero();
-        z_order = 0;
-    }
-
-    switch (target->thing_type) {
-        case ThingType_WAND:
-            return create<PerceivedThingImpl>(target->id, false, target->wand_info()->description_id, location, container_id, z_order, time_counter);
-        case ThingType_POTION:
-            return create<PerceivedThingImpl>(target->id, false, target->potion_info()->description_id, location, container_id, z_order, time_counter);
-        case ThingType_INDIVIDUAL: {
-            PerceivedThing perceived_thing = create<PerceivedThingImpl>(target->id, false, target->life()->species_id, target->location, time_counter);
-            for (int i = 0; i < target->status_effects.length(); i++)
-                perceived_thing->status_effects.append(target->status_effects[i].type);
-            return perceived_thing;
-        }
-
-        case ThingType_COUNT:
-            unreachable();
-    }
-    panic("thing type");
-}
