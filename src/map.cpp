@@ -46,7 +46,7 @@ static void refresh_normal_vision(Thing individual) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
             if (!is_open_line_of_sight(you_location, target))
                 continue;
-            individual->life()->knowledge.tile_is_visible[target].normal = true;
+            individual->life()->knowledge.tile_is_visible[target] |= VisionTypes_NORMAL;
             individual->life()->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
@@ -62,7 +62,7 @@ static void refresh_ethereal_vision(Thing individual) {
         for (target.x = upper_left.x; target.x <= lower_right.x; target.x++) {
             if (euclidean_distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
                 continue;
-            individual->life()->knowledge.tile_is_visible[target].ethereal = true;
+            individual->life()->knowledge.tile_is_visible[target] |= VisionTypes_ETHEREAL;
             individual->life()->knowledge.tiles[target] = actual_map_tiles[target];
         }
     }
@@ -71,25 +71,25 @@ static void refresh_ethereal_vision(Thing individual) {
 void compute_vision(Thing observer) {
     Knowledge & knowledge = observer->life()->knowledge;
 
-    VisionTypes no_vision_yet = VisionTypes::none();
+    VisionTypes no_vision_yet = 0;
     if (has_status(observer, StatusEffect::COGNISCOPY)) {
         // cogniscopy reaches everywhere
-        no_vision_yet.cogniscopy = 1;
+        no_vision_yet |= VisionTypes_COGNISCOPY;
     }
     knowledge.tile_is_visible.set_all(no_vision_yet);
     VisionTypes has_vision = observer->life()->species()->vision_types;
     if (has_status(observer, StatusEffect::ETHEREAL_VISION)) {
-        has_vision.normal = 0;
-        has_vision.ethereal = 1;
+        has_vision &= ~VisionTypes_NORMAL;
+        has_vision |= VisionTypes_ETHEREAL;
     } else if (has_status(observer, StatusEffect::BLINDNESS)) {
-        has_vision.normal = 0;
+        has_vision &= ~VisionTypes_NORMAL;
     }
-    if (has_vision.normal)
+    if (has_vision & VisionTypes_NORMAL)
         refresh_normal_vision(observer);
-    if (has_vision.ethereal)
+    if (has_vision & VisionTypes_ETHEREAL)
         refresh_ethereal_vision(observer);
     // you can always feel just the spot you're on
-    knowledge.tile_is_visible[observer->location].touch = 1;
+    knowledge.tile_is_visible[observer->location] |= VisionTypes_TOUCH;
 
     // see things
     // first clear out anything that we know is no longer where we thought
@@ -101,9 +101,9 @@ void compute_vision(Thing observer) {
             continue;
         VisionTypes vision = knowledge.tile_is_visible[target_location];
         // TODO: allow cogniscopy to clear some markers
-        vision.cogniscopy = 0;
+        vision &= ~VisionTypes_COGNISCOPY;
 
-        if (!vision.any())
+        if (vision == 0)
             continue; // leave the marker
         if (is_invisible(observer, target) && !can_see_invisible(vision)) {
             // we had reason to believe there was something invisible here, and we don't have confidence that it's gone.

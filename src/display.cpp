@@ -593,7 +593,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_
                     case Action::PICKUP:
                     case Action::GO_DOWN:
                     case Action::CHEATCODE_HEALTH_BOOST:
-                    case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+                    case Action::CHEATCODE_KILL:
                     case Action::CHEATCODE_POLYMORPH:
                     case Action::CHEATCODE_GENERATE_MONSTER:
                     case Action::CHEATCODE_WISH:
@@ -710,7 +710,7 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::PICKUP:
         case Action::GO_DOWN:
         case Action::CHEATCODE_HEALTH_BOOST:
-        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+        case Action::CHEATCODE_KILL:
         case Action::CHEATCODE_POLYMORPH:
         case Action::CHEATCODE_GENERATE_MONSTER:
         case Action::CHEATCODE_WISH:
@@ -752,7 +752,7 @@ static Span render_action(Thing actor, const Action & action) {
         case Action::MOVE:
         case Action::ATTACK:
         case Action::CHEATCODE_HEALTH_BOOST:
-        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+        case Action::CHEATCODE_KILL:
         case Action::CHEATCODE_POLYMORPH:
         case Action::CHEATCODE_GENERATE_MONSTER:
         case Action::CHEATCODE_WISH:

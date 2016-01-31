@@ -310,7 +310,7 @@ static void init_name_arrays() {
     action_names[Action::THROW] = new_string("throw");
     action_names[Action::GO_DOWN] = new_string("down");
     action_names[Action::CHEATCODE_HEALTH_BOOST] = new_string("!health");
-    action_names[Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD] = new_string("!kill");
+    action_names[Action::CHEATCODE_KILL] = new_string("!kill");
     action_names[Action::CHEATCODE_POLYMORPH] = new_string("!polymorph");
     action_names[Action::CHEATCODE_GENERATE_MONSTER] = new_string("!monster");
     action_names[Action::CHEATCODE_WISH] = new_string("!wish");

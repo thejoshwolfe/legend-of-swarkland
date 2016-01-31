@@ -15,11 +15,11 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     if (!actual_target->still_exists)
         return false;
     VisionTypes vision = observer->life()->knowledge.tile_is_visible[target_location];
-    if (vision.ethereal) {
+    if (vision & VisionTypes_ETHEREAL) {
         // ethereal vision sees all
         return true;
     }
-    if (vision.normal) {
+    if (vision & VisionTypes_NORMAL) {
         // we're looking right at it
         Thing container = actual_target;
         if (actual_target->location == Coord::nowhere())
@@ -29,12 +29,12 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
             return true;
         }
     }
-    if (vision.touch) {
+    if (vision & VisionTypes_TOUCH) {
         // we're on top of it
         return true;
     }
     // cogniscopy can see minds
-    if (vision.cogniscopy) {
+    if (vision & VisionTypes_COGNISCOPY) {
         if (actual_target->thing_type == ThingType_INDIVIDUAL && individual_has_mind(actual_target))
             return true;
     }
@@ -152,7 +152,7 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
     VisionTypes vision = observer->life()->knowledge.tile_is_visible[actual_target->location];
-    if (vision.normal) {
+    if (vision & VisionTypes_NORMAL) {
         // hmmm. this guy is probably invisible
         assert(!can_see_invisible(vision));
         put_status(thing, StatusEffect::INVISIBILITY);
@@ -311,12 +311,6 @@ static void record_solidity_of_location(Thing observer, Coord location, bool is_
         tiles[location] = is_air ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
 }
 
-static void record_location_of_thing(Thing observer, uint256 thing_id, Coord new_location) {
-    PerceivedThing target = observer->life()->knowledge.perceived_things.get(thing_id);
-    target->location = new_location;
-    if (target->thing_type == ThingType_INDIVIDUAL)
-        clear_placeholder_individual_at(observer, new_location);
-}
 static PerceivedThing to_perceived_thing(uint256 target_id, VisionTypes vision) {
     can_see_shape(vision); // TODO: hide information for different types of vision
     Thing target = actual_things.get(target_id);
@@ -361,6 +355,23 @@ static PerceivedThing to_perceived_thing(uint256 target_id, VisionTypes vision) 
         result->status_effects.append(target->status_effects[i].type);
     return result;
 }
+static PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id, VisionTypes vision) {
+    PerceivedThing target = to_perceived_thing(target_id, vision);
+    observer->life()->knowledge.perceived_things.put(target_id, target);
+
+    if (target->thing_type == ThingType_INDIVIDUAL)
+        clear_placeholder_individual_at(observer, target->location);
+
+    if (can_see_shape(vision)) {
+        // TODO: do this here?
+        // cogniscopy doesn't see items.
+        List<Thing> inventory;
+        find_items_in_inventory(target_id, &inventory);
+        for (int i = 0; i < inventory.length(); i++)
+            record_perception_of_thing(observer, inventory[i]->id);
+    }
+    return target;
+}
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     Knowledge & knowledge = observer->life()->knowledge;
     PerceivedThing target = knowledge.perceived_things.get(target_id, nullptr);
@@ -375,21 +386,10 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     if (location == Coord::nowhere())
         location = actual_things.get(actual_target->container_id)->location;
     VisionTypes vision = knowledge.tile_is_visible[location];
-    if (!vision.any())
+    if (vision == 0)
         return nullptr;
 
-    target = to_perceived_thing(target_id, vision);
-    knowledge.perceived_things.put(target_id, target);
-    record_location_of_thing(observer, target_id, target->location);
-    if (can_see_shape(vision)) {
-        // TODO: do this here?
-        // cogniscopy doesn't see items.
-        List<Thing> inventory;
-        find_items_in_inventory(target_id, &inventory);
-        for (int i = 0; i < inventory.length(); i++)
-            record_perception_of_thing(observer, inventory[i]->id);
-    }
-    return target;
+    return record_perception_of_thing(observer, target_id, vision);
 }
 
 static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
@@ -488,7 +488,9 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
         case Event::MOVE: {
             const Event::MoveData & data = event.move_data();
             remembered_event = nullptr;
-            record_location_of_thing(observer, data.actor, data.new_location);
+            const MapMatrix<VisionTypes> & tile_is_visible = observer->life()->knowledge.tile_is_visible;
+            VisionTypes vision = tile_is_visible[data.old_location] | tile_is_visible[data.new_location];
+            record_perception_of_thing(observer, data.actor, vision);
             break;
         }
         case Event::TWO_INDIVIDUAL: {

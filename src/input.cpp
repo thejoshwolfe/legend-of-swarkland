@@ -95,8 +95,12 @@ static Action on_key_down_main(const SDL_Event & event) {
                 break;
             case SDLK_h:
                 return Action::cheatcode_health_boost();
-            case SDLK_k:
-                return Action::cheatcode_kill_everybody_in_the_world();
+            case SDLK_k: {
+                Thing individual = find_individual_at(get_mouse_tile(main_map_area));
+                if (individual != nullptr)
+                    return Action::cheatcode_kill(individual->id);
+                return Action::undecided();
+            }
             case SDLK_p:
                 return Action::cheatcode_polymorph();
             case SDLK_s:
@@ -285,7 +289,7 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                 case Action::PICKUP:
                 case Action::GO_DOWN:
                 case Action::CHEATCODE_HEALTH_BOOST:
-                case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
+                case Action::CHEATCODE_KILL:
                 case Action::CHEATCODE_POLYMORPH:
                 case Action::CHEATCODE_GENERATE_MONSTER:
                 case Action::CHEATCODE_WISH:

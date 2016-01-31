@@ -27,8 +27,8 @@ static List<PerceivedThing> test_expect_things_list;
 static List<PerceivedThing> test_expect_carrying_list;
 
 static void init_specieses() {
-    VisionTypes norm = VisionTypes::just_normal();
-    VisionTypes ethe = VisionTypes::just_ethereal();
+    VisionTypes norm = VisionTypes_NORMAL;
+    VisionTypes ethe = VisionTypes_ETHEREAL;
     //                                     movement cost
     //                                     |   health
     //                                     |   |  base attack
@@ -494,14 +494,9 @@ static void do_move(Thing mover, Coord new_position) {
     }
 }
 
-static void cheatcode_kill_everybody_in_the_world() {
-    Thing individual;
-    for (auto iterator = actual_individuals(); iterator.next(&individual);) {
-        if (!individual->still_exists)
-            continue;
-        if (individual != you)
-            kill_individual(individual, nullptr, false);
-    }
+static void cheatcode_kill(uint256 individual_id) {
+    Thing individual = actual_things.get(individual_id);
+    kill_individual(individual, nullptr, false);
 }
 static void cheatcode_polymorph() {
     SpeciesId new_species = (SpeciesId)((player_actor->life()->species_id + 1) % SpeciesId_COUNT);
@@ -582,12 +577,17 @@ bool validate_action(Thing actor, const Action & action) {
             return actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN;
 
         case Action::CHEATCODE_HEALTH_BOOST:
-        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
         case Action::CHEATCODE_POLYMORPH:
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
             if (actor != player_actor)
+                return false;
+            return true;
+        case Action::CHEATCODE_KILL:
+            if (actor != player_actor)
+                return false;
+            if (actual_things.get(action.item()) == nullptr)
                 return false;
             return true;
         case Action::CHEATCODE_WISH:
@@ -788,8 +788,8 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::CHEATCODE_HEALTH_BOOST:
             actor->life()->hitpoints += 100;
             return false;
-        case Action::CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
-            cheatcode_kill_everybody_in_the_world();
+        case Action::CHEATCODE_KILL:
+            cheatcode_kill(action.item());
             return false;
         case Action::CHEATCODE_POLYMORPH:
             cheatcode_polymorph();

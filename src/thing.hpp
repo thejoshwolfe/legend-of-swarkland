@@ -93,38 +93,23 @@ enum DecisionMakerType {
     DecisionMakerType_COUNT,
 };
 
-struct VisionTypes {
-    unsigned normal : 1;
-    unsigned ethereal : 1;
-    unsigned cogniscopy : 1;
-    unsigned touch : 1;
-
-    inline bool any() {
-        return normal || ethereal || cogniscopy || touch;
-    }
-    static inline VisionTypes none() {
-        return {0, 0, 0, 0};
-    }
-    static inline VisionTypes just_normal() {
-        return {1, 0, 0, 0};
-    }
-    static inline VisionTypes just_ethereal() {
-        return {0, 1, 0, 0};
-    }
+typedef uint8_t VisionTypes;
+enum VisionTypesBits {
+    VisionTypes_NORMAL = 0x1,
+    VisionTypes_ETHEREAL = 0x2,
+    VisionTypes_COGNISCOPY = 0x4,
+    VisionTypes_TOUCH = 0x8,
 };
-static inline bool operator==(VisionTypes a, VisionTypes b) {
-    return a.normal == b.normal && a.ethereal == b.ethereal;
-}
 
 static inline bool can_see_invisible(VisionTypes vision_types) {
     // TODO: delete this function in favor of positive ideas like shape and color
-    return vision_types.ethereal || vision_types.touch;
+    return vision_types & (VisionTypes_ETHEREAL | VisionTypes_TOUCH);
 }
 static inline bool can_see_shape(VisionTypes vision_types) {
-    return vision_types.normal || vision_types.ethereal || vision_types.touch;
+    return vision_types & (VisionTypes_NORMAL | VisionTypes_ETHEREAL | VisionTypes_TOUCH);
 }
 static inline bool can_see_color(VisionTypes vision_types) {
-    return vision_types.normal || vision_types.ethereal;
+    return vision_types & (VisionTypes_NORMAL | VisionTypes_ETHEREAL);
 }
 
 enum Mind {
@@ -277,7 +262,7 @@ struct Knowledge {
     }
     void reset_map() {
         tiles.set_all(TileType_UNKNOWN);
-        tile_is_visible.set_all(VisionTypes::none());
+        tile_is_visible.set_all(0);
     }
 };
 

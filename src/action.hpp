@@ -17,7 +17,7 @@ struct Action {
         GO_DOWN,
 
         CHEATCODE_HEALTH_BOOST,
-        CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD,
+        CHEATCODE_KILL,
         CHEATCODE_POLYMORPH,
         CHEATCODE_GENERATE_MONSTER,
         CHEATCODE_WISH,
@@ -118,8 +118,8 @@ struct Action {
     static Action cheatcode_health_boost() {
         return init(CHEATCODE_HEALTH_BOOST);
     }
-    static Action cheatcode_kill_everybody_in_the_world() {
-        return init(CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD);
+    static Action cheatcode_kill(uint256 individual) {
+        return init(CHEATCODE_KILL, individual);
     }
     static Action cheatcode_polymorph() {
         return init(CHEATCODE_POLYMORPH);
@@ -224,12 +224,13 @@ private:
                 return Layout_COORD_AND_ITEM;
 
             case CHEATCODE_HEALTH_BOOST:
-            case CHEATCODE_KILL_EVERYBODY_IN_THE_WORLD:
             case CHEATCODE_POLYMORPH:
             case CHEATCODE_IDENTIFY:
             case CHEATCODE_GO_DOWN:
             case CHEATCODE_GAIN_LEVEL:
                 return Layout_VOID;
+            case CHEATCODE_KILL:
+                return Layout_ITEM;
             case CHEATCODE_WISH:
                 return Layout_THING;
             case CHEATCODE_GENERATE_MONSTER:
