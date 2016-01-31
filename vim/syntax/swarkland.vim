@@ -12,25 +12,25 @@ syn case match
 
 " actions/directives
 syn keyword swarklandAction move wait attack zap pickup drop quaff throw down
-syn match   swarklandCheat "!health"
-syn match   swarklandCheat "!kill"
-syn match   swarklandCheat "!polymorph"
-syn match   swarklandCheat "!monster"
-syn match   swarklandCheat "!wish"
-syn match   swarklandCheat "!identify"
-syn match   swarklandCheat "!down"
-syn match   swarklandCheat "!levelup"
-syn match   swarklandDirective "@test"
-syn match   swarklandDirective "@seed"
-syn match   swarklandDirective "@rng"
-syn match   swarklandDirective "@mark_events"
-syn match   swarklandDirective "@expect_event"
-syn match   swarklandDirective "@expect_no_events"
-syn match   swarklandDirective "@find_things_at"
-syn match   swarklandDirective "@expect_thing"
-syn match   swarklandDirective "@expect_nothing"
-syn match   swarklandDirective "@expect_carrying"
-syn match   swarklandDirective "@expect_carrying_nothing"
+syn match   swarklandCheat     /!health\>/
+syn match   swarklandCheat     /!kill\>/
+syn match   swarklandCheat     /!polymorph\>/
+syn match   swarklandCheat     /!monster\>/
+syn match   swarklandCheat     /!wish\>/
+syn match   swarklandCheat     /!identify\>/
+syn match   swarklandCheat     /!down\>/
+syn match   swarklandCheat     /!levelup\>/
+syn match   swarklandDirective /@test\>/
+syn match   swarklandDirective /@seed\>/
+syn match   swarklandDirective /@rng\>/
+syn match   swarklandDirective /@mark_events\>/
+syn match   swarklandDirective /@expect_event\>/
+syn match   swarklandDirective /@expect_no_events\>/
+syn match   swarklandDirective /@find_things_at\>/
+syn match   swarklandDirective /@expect_thing\>/
+syn match   swarklandDirective /@expect_nothing\>/
+syn match   swarklandDirective /@expect_carrying\>/
+syn match   swarklandDirective /@expect_carrying_nothing\>/
 
 " barewords
 syn keyword swarklandBareword individual potion wand
