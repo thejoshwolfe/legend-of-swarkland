@@ -32,7 +32,7 @@ static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_items() {
     return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_item);
 }
 static inline Coord get_thing_location(Thing observer, const PerceivedThing & target) {
-    if (target->location != Coord::nowhere())
+    if (target->container_id == uint256::zero())
         return target->location;
     PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id);
     return get_thing_location(observer, container);

@@ -22,7 +22,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     if (vision & VisionTypes_NORMAL) {
         // we're looking right at it
         Thing container = actual_target;
-        if (actual_target->location == Coord::nowhere())
+        if (actual_target->container_id != uint256::zero())
             container = actual_things.get(actual_target->container_id);
         if (!has_status(container, StatusEffect::INVISIBILITY)) {
             // see normally
@@ -49,7 +49,7 @@ bool can_see_thing(Thing observer, uint256 target_id) {
         return false;
     }
     Coord location = thing->location;
-    if (location == Coord::nowhere()) {
+    if (thing->container_id != uint256::zero()) {
         // it's being carried
         location = actual_things.get(thing->container_id)->location;
     }
@@ -71,7 +71,7 @@ static bool see_thing(Thing observer, uint256 target_id) {
      if (thing == nullptr || !thing->still_exists)
          return false;
      Coord location = thing->location;
-     if (location == Coord::nowhere()) {
+     if (thing->container_id != uint256::zero()) {
          // it's being carried
          location = actual_things.get(thing->container_id)->location;
      }
@@ -312,16 +312,11 @@ static void record_solidity_of_location(Thing observer, Coord location, bool is_
 }
 
 static PerceivedThing to_perceived_thing(uint256 target_id, VisionTypes vision) {
-    can_see_shape(vision); // TODO: hide information for different types of vision
     Thing target = actual_things.get(target_id);
 
     Coord location = target->location;
     uint256 container_id = target->container_id;
     int z_order = target->z_order;
-    if (location != Coord::nowhere()) {
-        container_id = uint256::zero();
-        z_order = 0;
-    }
 
     PerceivedThing result;
     switch (target->thing_type) {
@@ -383,7 +378,7 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
 
     Thing actual_target = actual_things.get(target_id);
     Coord location = actual_target->location;
-    if (location == Coord::nowhere())
+    if (actual_target->container_id != uint256::zero())
         location = actual_things.get(actual_target->container_id)->location;
     VisionTypes vision = knowledge.tile_is_visible[location];
     if (vision == 0)

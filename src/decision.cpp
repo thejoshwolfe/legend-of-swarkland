@@ -90,13 +90,13 @@ static Action get_ai_decision(Thing actor) {
                 if (!uses_items)
                     continue; // don't care
                 if (target->location == Coord::nowhere())
-                    continue; // somebody's already got it.
+                    continue; // not available to pick up
                 break;
             case ThingType_POTION:
                 if (!uses_items)
                     continue; // don't care
                 if (target->location == Coord::nowhere())
-                    continue; // somebody's already got it.
+                    continue; // not available to pick up
                 break;
 
             case ThingType_COUNT:

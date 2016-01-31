@@ -171,14 +171,14 @@ public:
     uint256 id;
     bool is_placeholder;
     ThingType thing_type;
-    Coord location = Coord::nowhere();
-    uint256 container_id = uint256::zero();
+    Coord location;
+    uint256 container_id;
     int z_order = 0;
     int64_t last_seen_time;
     List<StatusEffect::StatusEffectType> status_effects;
     // individual
     PerceivedThingImpl(uint256 id, bool is_placeholder, SpeciesId species_id, Coord location, int64_t last_seen_time) :
-            id(id), is_placeholder(is_placeholder), thing_type(ThingType_INDIVIDUAL), location(location), last_seen_time(last_seen_time) {
+            id(id), is_placeholder(is_placeholder), thing_type(ThingType_INDIVIDUAL), location(location), container_id(uint256::zero()), last_seen_time(last_seen_time) {
         assert(id != uint256::zero());
         _life = create<PerceivedLife>();
         _life->species_id = species_id;
@@ -441,7 +441,7 @@ static inline void maybe_remove_status(PerceivedThing thing, StatusEffect::Statu
 
 static inline bool is_invisible(Thing observer, PerceivedThing thing) {
     PerceivedThing container = thing;
-    if (thing->location == Coord::nowhere())
+    if (thing->container_id != uint256::zero())
         container = observer->life()->knowledge.perceived_things.get(thing->container_id);
     return has_status(container, StatusEffect::INVISIBILITY);
 }
