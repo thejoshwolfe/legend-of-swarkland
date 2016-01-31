@@ -316,34 +316,41 @@ static void record_solidity_of_location(Thing observer, Coord location, bool is_
         tiles[location] = is_air ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
 }
 
-static PerceivedThing to_perceived_thing(uint256 target_id, VisionTypes vision) {
-    Thing target = actual_things.get(target_id);
+static PerceivedThing new_perceived_thing(uint256 id, ThingType thing_type) {
+    switch (thing_type) {
+        case ThingType_INDIVIDUAL:
+            return create<PerceivedThingImpl>(id, false, SpeciesId_UNSEEN, Coord::nowhere(), time_counter);
+        case ThingType_WAND:
+            return create<PerceivedThingImpl>(id, false, WandDescriptionId_UNSEEN, Coord::nowhere(), uint256::zero(), 0, time_counter);
+        case ThingType_POTION:
+            return create<PerceivedThingImpl>(id, false, PotionDescriptionId_UNSEEN, Coord::nowhere(), uint256::zero(), 0, time_counter);
 
-    Coord location = target->location;
-    uint256 container_id = target->container_id;
-    int z_order = target->z_order;
+        case ThingType_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+static void update_perception_of_thing(PerceivedThing target, VisionTypes vision) {
+    Thing actual_target = actual_things.get(target->id);
 
-    PerceivedThing result;
+    target->location = actual_target->location;
+    target->container_id = actual_target->container_id;
+    target->z_order = actual_target->z_order;
+
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL: {
-            SpeciesId species_id = SpeciesId_UNSEEN;
             if (can_see_shape(vision))
-                species_id = target->life()->species_id;
-            result = create<PerceivedThingImpl>(target->id, false, species_id, target->location, time_counter);
+                target->life()->species_id = actual_target->life()->species_id;
             break;
         }
         case ThingType_WAND: {
-            WandDescriptionId description_id = WandDescriptionId_UNSEEN;
             if (can_see_color(vision))
-                description_id = target->wand_info()->description_id;
-            result = create<PerceivedThingImpl>(target->id, false, description_id, location, container_id, z_order, time_counter);
+                target->wand_info()->description_id = actual_target->wand_info()->description_id;
             break;
         }
         case ThingType_POTION: {
-            PotionDescriptionId description_id = PotionDescriptionId_UNSEEN;
             if (can_see_color(vision))
-                description_id = target->potion_info()->description_id;
-            result = create<PerceivedThingImpl>(target->id, false, description_id, location, container_id, z_order, time_counter);
+                target->potion_info()->description_id = actual_target->potion_info()->description_id;
             break;
         }
 
@@ -351,13 +358,16 @@ static PerceivedThing to_perceived_thing(uint256 target_id, VisionTypes vision) 
             unreachable();
     }
     // TODO: limited perception of status effects
-    for (int i = 0; i < target->status_effects.length(); i++)
-        result->status_effects.append(target->status_effects[i].type);
-    return result;
+    for (int i = 0; i < actual_target->status_effects.length(); i++)
+        target->status_effects.append(actual_target->status_effects[i].type);
 }
 static PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id, VisionTypes vision) {
-    PerceivedThing target = to_perceived_thing(target_id, vision);
-    observer->life()->knowledge.perceived_things.put(target_id, target);
+    PerceivedThing target =  observer->life()->knowledge.perceived_things.get(target_id, nullptr);
+    if (target == nullptr) {
+        target = new_perceived_thing(target_id, actual_things.get(target_id)->thing_type);
+        observer->life()->knowledge.perceived_things.put(target_id, target);
+    }
+    update_perception_of_thing(target, vision);
 
     if (target->thing_type == ThingType_INDIVIDUAL)
         clear_placeholder_individual_at(observer, target->location);

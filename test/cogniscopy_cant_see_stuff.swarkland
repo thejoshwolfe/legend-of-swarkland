@@ -21,7 +21,7 @@ pickup 0000000000000000000000000000000000000000000000000000000000000006
 wait
 zap 1 0 0000000000000000000000000000000000000000000000000000000000000004
   @rng 6 inclusive:6:12:beam_length
-  @rng 100 range:100:200:confusion_duration
+  @rng 72 range:100:200:confusion_duration
 zap -1 0 0000000000000000000000000000000000000000000000000000000000000006
   @rng 1 int:2:is_direction_confused
   @rng 6 inclusive:6:12:beam_length
@@ -34,5 +34,51 @@ zap -1 0 0000000000000000000000000000000000000000000000000000000000000006
 # you can see the lich though
 @find_things_at 8 4
   @expect_thing individual unseen
+    # but not his wand
+    @expect_carrying_nothing
+  @expect_nothing
+
+# now go take a peek at the lich, and make sure we remember his species when we look away
+!kill 0000000000000000000000000000000000000000000000000000000000000002
+move 0 1
+wait
+move 0 1
+wait
+move 0 1
+wait
+move 0 -1
+wait
+move 0 -1
+wait
+move 0 -1
+wait
+@find_things_at 8 4
+  @expect_thing individual lich
+    # last i saw you, you were carrying a wand
+    @expect_carrying wand speed
+    @expect_carrying_nothing
+  @expect_nothing
+wait
+# throw the wand into view
+throw -1 0 0000000000000000000000000000000000000000000000000000000000000006
+  @rng 5 range:4:6:throw_distance
+@find_things_at 8 4
+  @expect_thing individual lich
+    # ok, you're probably not carrying that wand anymore
+    @expect_carrying_nothing
+  @expect_nothing
+wait
+move -1 0
+wait
+move -1 0
+wait
+pickup 0000000000000000000000000000000000000000000000000000000000000004
+wait
+move 1 0
+wait
+move 1 0
+@find_things_at 8 4
+  @expect_thing individual lich
+    # even though you picked up a wand, i can't see that
     @expect_carrying_nothing
   @expect_nothing
