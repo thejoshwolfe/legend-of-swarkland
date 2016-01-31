@@ -1,9 +1,5 @@
 print("loaded " + __file__)
 
-import re
-
-string_regex = re.compile("StringImpl")
-
 def string_matcher(value):
   if value.type.code == gdb.TYPE_CODE_PTR:
     type = value.type.target().strip_typedefs()

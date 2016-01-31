@@ -446,4 +446,6 @@ static inline bool is_invisible(Thing observer, PerceivedThing thing) {
     return has_status(container, StatusEffect::INVISIBILITY);
 }
 
+DEFINE_GDB_PY_SCRIPT("debug-scripts/vision_types.py")
+
 #endif
