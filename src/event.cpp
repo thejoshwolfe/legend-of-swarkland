@@ -395,7 +395,6 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
 static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
     // make changes to our knowledge
     RememberedEvent remembered_event = create<RememberedEventImpl>();
-    List<uint256> delete_ids;
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
             Event::TheIndividualData & data = event.the_individual_data();
@@ -446,47 +445,50 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     break;
                 case Event::TheIndividualData::DIE:
                     remembered_event->span->format("%s dies.", get_thing_description(observer, data.individual));
-                    delete_ids.append(data.individual);
+                    individual->location = Coord::nowhere();
                     break;
                 case Event::TheIndividualData::DELETE_THING:
                     remembered_event = nullptr;
-                    delete_ids.append(data.individual);
+                    PerceivedThing thing = observer->life()->knowledge.perceived_things.get(data.individual, nullptr);
+                    if (thing != nullptr) {
+                        observer->life()->knowledge.perceived_things.remove(data.individual);
+                        // assume everything drops to the floor
+                        List<PerceivedThing> inventory;
+                        find_items_in_inventory(observer, thing, &inventory);
+                        for (int i = 0; i < inventory.length(); i++) {
+                            inventory[i]->location = thing->location;
+                            inventory[i]->container_id = uint256::zero();
+                        }
+                    }
                     break;
             }
             break;
         }
         case Event::INDIVIDUAL_AND_LOCATION: {
             Event::IndividualAndLocationData & data = event.individual_and_location_data();
+            record_solidity_of_location(observer, data.location, data.is_air);
+            // there's no individual there to attack
+            List<PerceivedThing> perceived_things;
+            find_perceived_things_at(observer, data.location, &perceived_things);
+            for (int i = 0; i < perceived_things.length(); i++)
+                if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
+                    perceived_things[i]->location = Coord::nowhere();
+            Span actor_description = get_thing_description(observer, data.actor);
+            Span bumpee_description;
+            if (!is_open_space(observer->life()->knowledge.tiles[data.location]))
+                bumpee_description = new_span("a wall");
+            else
+                bumpee_description = new_span("thin air");
+            const char * fmt;
             switch (data.id) {
                 case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
-                case Event::IndividualAndLocationData::ATTACK_LOCATION: {
-                    record_solidity_of_location(observer, data.location, data.is_air);
-                    // there's no individual there to attack
-                    List<PerceivedThing> perceived_things;
-                    find_perceived_things_at(observer, data.location, &perceived_things);
-                    for (int i = 0; i < perceived_things.length(); i++) {
-                        if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
-                            delete_ids.append(perceived_things[i]->id);
-                    }
-                    Span actor_description = get_thing_description(observer, data.actor);
-                    Span bumpee_description;
-                    if (!is_open_space(observer->life()->knowledge.tiles[data.location]))
-                        bumpee_description = new_span("a wall");
-                    else
-                        bumpee_description = new_span("thin air");
-                    const char * fmt;
-                    switch (data.id) {
-                        case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
-                            fmt = "%s bumps into %s.";
-                            break;
-                        case Event::IndividualAndLocationData::ATTACK_LOCATION:
-                            fmt = "%s hits %s.";
-                            break;
-                    }
-                    remembered_event->span->format(fmt, actor_description, bumpee_description);
+                    fmt = "%s bumps into %s.";
                     break;
-                }
+                case Event::IndividualAndLocationData::ATTACK_LOCATION:
+                    fmt = "%s hits %s.";
+                    break;
             }
+            remembered_event->span->format(fmt, actor_description, bumpee_description);
             break;
         }
         case Event::MOVE: {
@@ -521,9 +523,8 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                             break;
                     }
                     remembered_event->span->format(fmt, actor_description, bumpee_description);
-                    if (data.id == Event::TwoIndividualData::MELEE_KILL) {
-                        delete_ids.append(data.target);
-                    }
+                    if (data.id == Event::TwoIndividualData::MELEE_KILL)
+                        observer->life()->knowledge.perceived_things.get(data.target)->location = Coord::nowhere();
                     break;
                 }
             }
@@ -533,7 +534,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             Event::IndividualAndItemData & data = event.individual_and_item_data();
             record_perception_of_thing(observer, data.individual);
             Span individual_description = get_thing_description(observer, data.individual);
-            record_perception_of_thing(observer, data.item);
+            PerceivedThing item = record_perception_of_thing(observer, data.item);
             Span item_description = get_thing_description(observer, data.item);
             switch (data.id) {
                 case Event::IndividualAndItemData::ZAP_WAND: {
@@ -548,7 +549,8 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     break;
                 case Event::IndividualAndItemData::WAND_DISINTEGRATES:
                     remembered_event->span->format("%s tries to zap %s, but %s disintegrates.", individual_description, item_description, item_description);
-                    delete_ids.append(data.item);
+                    item->location = Coord::nowhere();
+                    item->container_id = uint256::zero();
                     break;
                 case Event::IndividualAndItemData::THROW_ITEM:
                     remembered_event->span->format("%s throws %s.", individual_description, item_description);
@@ -674,16 +676,18 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                 case PotionId_COUNT:
                     unreachable();
             }
+            PerceivedThing potion = observer->life()->knowledge.perceived_things.get(data.item_id);
             if (effect != PotionId_UNKNOWN) {
                 // ah hah!
-                PotionDescriptionId description_id = observer->life()->knowledge.perceived_things.get(data.item_id)->potion_info()->description_id;
+                PotionDescriptionId description_id = potion->potion_info()->description_id;
                 if (description_id != PotionDescriptionId_UNSEEN) {
                     observer->life()->knowledge.potion_identities[description_id] = effect;
                 } else {
                     // ...awe
                 }
             }
-            delete_ids.append(data.item_id);
+            potion->location = Coord::nowhere();
+            potion->container_id = uint256::zero();
             break;
         }
         case Event::POLYMORPH: {
@@ -694,13 +698,14 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
         }
         case Event::ITEM_AND_LOCATION: {
             Event::ItemAndLocationData & data = event.item_and_location_data();
-            record_perception_of_thing(observer, data.item);
+            PerceivedThing item = record_perception_of_thing(observer, data.item);
             Span item_description = get_thing_description(observer, data.item);
             switch (data.id) {
                 case Event::ItemAndLocationData::WAND_EXPLODES:
                     remembered_event->span->format("%s explodes!", item_description);
                     perceived_current_zapper->put(observer->id, actual_things.get(data.item)->wand_info()->description_id);
-                    delete_ids.append(data.item);
+                    item->location = Coord::nowhere();
+                    item->container_id = uint256::zero();
                     break;
                 case Event::ItemAndLocationData::ITEM_HITS_WALL:
                     // the item may have been thrown from out of view, so make sure we know what it is.
@@ -716,21 +721,6 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
 
     if (remembered_event != nullptr)
         observer->life()->knowledge.remembered_events.append(remembered_event);
-
-    if (delete_ids.length() > 0) {
-        // also delete everything that these people are holding.
-        // TODO: this smells like a bad pattern. we shouldn't be deleting things when they go out of view.
-        PerceivedThing thing;
-        for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
-            for (int i = 0; i < delete_ids.length(); i++) {
-                if (thing->container_id == delete_ids[i]) {
-                    delete_ids.append(thing->id);
-                }
-            }
-        }
-        for (int i = 0; i < delete_ids.length(); i++)
-            observer->life()->knowledge.perceived_things.remove(delete_ids[i]);
-    }
 }
 
 void publish_event(Event event) {

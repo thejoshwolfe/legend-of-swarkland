@@ -1,0 +1,39 @@
+@test
+move 1 1
+move 1 1
+move 1 1
+move 1 0
+move 1 0
+!monster lich player 3 2
+wait
+# see a lich pick up a potion
+!wish potion healing
+pickup 0000000000000000000000000000000000000000000000000000000000000003
+@find_things_at 3 2
+  @expect_thing individual lich
+    @expect_carrying potion healing
+    @expect_carrying_nothing
+  @expect_nothing
+# look way
+move 1 0
+move 1 -1
+# peek back at the room
+move -1 0
+drop 0000000000000000000000000000000000000000000000000000000000000003
+# he's gone
+@find_things_at 3 2
+  @expect_nothing
+# can't see him yet
+@find_things_at 4 1
+  @expect_nothing
+move -1 0
+wait
+move -1 0
+wait
+# there you are
+@find_things_at 4 1
+  @expect_thing individual lich
+    @expect_carrying_nothing
+  # and i see you've dropped the potion since last we saw each other
+  @expect_thing potion healing
+  @expect_nothing

@@ -987,7 +987,7 @@ static void age_individual(Thing individual) {
             panic("events overflowed during mark/expect");
     }
 
-    // clean up stale unseen things
+    // clean up stale placeholders
     List<uint256> delete_ids;
     PerceivedThing thing;
     for (auto iterator = individual->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {

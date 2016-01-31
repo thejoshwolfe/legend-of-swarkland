@@ -93,7 +93,6 @@ void compute_vision(Thing observer) {
 
     // see things
     // first clear out anything that we know is no longer where we thought
-    List<uint256> delete_ids;
     PerceivedThing target;
     for (auto iterator = knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
         Coord target_location = get_thing_location(observer, target);
@@ -110,15 +109,8 @@ void compute_vision(Thing observer) {
             // leave the marker.
             continue;
         }
-        delete_ids.append(target->id);
-        List<PerceivedThing> inventory;
-        find_items_in_inventory(observer, target, &inventory);
-        for (int i = 0; i < inventory.length(); i++)
-            delete_ids.append(inventory[i]->id);
+        target->location = Coord::nowhere();
     }
-    // do this as a second pass, because modifying in the middle of iteration doesn't work properly.
-    for (int i = 0; i < delete_ids.length(); i++)
-        knowledge.perceived_things.remove(delete_ids[i]);
 
     // now see anything that's in our line of vision
     Thing actual_target;
