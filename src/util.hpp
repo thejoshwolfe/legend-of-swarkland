@@ -38,6 +38,9 @@ void _panic(const char * str, const char * file_name, int line_number) __attribu
 #define assert(condition) \
     if (!(condition)) \
         panic("assertion failure")
+#define assert_str(condition, str) \
+    if (!(condition)) \
+        panic(str)
 #define unreachable() panic("unreachable")
 
 // create<MyClass>(a, b) is equivalent to: new MyClass(a, b)

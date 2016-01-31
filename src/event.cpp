@@ -164,6 +164,11 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
             const Event::TheIndividualData & data = event.the_individual_data();
+            if (data.id == Event::TheIndividualData::DELETE_THING) {
+                // special case. everyone can see this. it prevents memory leaks (or whatever).
+                *output_event = event;
+                return true;
+            }
             if (!see_thing(observer, data.individual))
                 return false;
             *output_event = event;
@@ -441,6 +446,10 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     break;
                 case Event::TheIndividualData::DIE:
                     remembered_event->span->format("%s dies.", get_thing_description(observer, data.individual));
+                    delete_ids.append(data.individual);
+                    break;
+                case Event::TheIndividualData::DELETE_THING:
+                    remembered_event = nullptr;
                     delete_ids.append(data.individual);
                     break;
             }

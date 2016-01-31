@@ -100,8 +100,7 @@ public:
 
     V get(const K & key) const {
         Entry * entry = internal_get(key);
-        if (!entry)
-            panic("key not found");
+        assert_str(entry != nullptr, "key not found");
         return entry->value;
     }
 
@@ -151,8 +150,7 @@ public:
     class Iterator {
     public:
         bool next(V * output) {
-            if (_inital_modification_count != _table->_modification_count)
-                panic("concurrent modification");
+            assert_str(_inital_modification_count == _table->_modification_count, "concurrent modification");
             if (_count >= _table->size())
                 return false;
             for (; _index < _table->_capacity; _index++) {

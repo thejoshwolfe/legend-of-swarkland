@@ -1005,6 +1005,30 @@ static void age_individual(Thing individual) {
         individual->life()->knowledge.perceived_things.remove(delete_ids[i]);
 }
 
+static void delete_dead_things() {
+    List<Thing> delete_things;
+    {
+        Thing thing;
+        for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);)
+            if (!thing->still_exists)
+                delete_things.append(thing);
+    }
+    List<uint256> fix_z_order_container_ids;
+    for (int i = 0; i < delete_things.length(); i++) {
+        Thing thing = delete_things[i];
+        actual_things.remove(thing->id);
+        if (thing->container_id != uint256::zero())
+            if (fix_z_order_container_ids.index_of(thing->container_id) == -1)
+                fix_z_order_container_ids.append(thing->container_id);
+    }
+    for (int i = 0; i < fix_z_order_container_ids.length(); i++)
+        fix_z_orders(fix_z_order_container_ids[i]);
+    // tell everyone to forget about this stuff.
+    // TODO: delay this a random amount of time to hide information
+    for (int i = 0; i < delete_things.length(); i++)
+        publish_event(Event::delete_thing(delete_things[i]->id));
+}
+
 List<Thing> poised_individuals;
 int poised_individuals_index = 0;
 // this function will return only when we're expecting player input
@@ -1061,13 +1085,7 @@ void run_the_game() {
         poised_individuals.clear();
         poised_individuals_index = 0;
 
-        List<Thing> delete_things;
-        Thing thing;
-        for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);)
-            if (!thing->still_exists)
-                delete_things.append(thing);
-        for (int i = 0; i < delete_things.length(); i++)
-            actual_things.remove(delete_things[i]->id);
+        delete_dead_things();
     }
     tas_delete_save();
 }
@@ -1101,6 +1119,7 @@ void fix_perceived_z_orders(Thing observer, uint256 container_id) {
     for (int i = 0; i < inventory.length(); i++)
         inventory[i]->z_order = i;
 }
+// it's ok to call this with a bogus/deleted id
 void fix_z_orders(uint256 container_id) {
     List<Thing> inventory;
     find_items_in_inventory(container_id, &inventory);

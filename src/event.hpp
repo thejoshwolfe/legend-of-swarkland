@@ -80,6 +80,7 @@ struct Event {
             APPEAR,
             LEVEL_UP,
             DIE,
+            DELETE_THING,
         };
         Id id;
         uint256 individual;
@@ -245,6 +246,9 @@ struct Event {
     }
     static inline Event die(uint256 deceased_id) {
         return event_individual(TheIndividualData::DIE, deceased_id);
+    }
+    static inline Event delete_thing(uint256 deceased_id) {
+        return event_individual(TheIndividualData::DELETE_THING, deceased_id);
     }
     static inline Event melee_kill(Thing attacker, Thing deceased) {
         return two_individual_type_event(TwoIndividualData::MELEE_KILL, attacker->id, deceased->id);

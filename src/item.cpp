@@ -145,12 +145,6 @@ void init_items() {
     wand_handlers[WandId_WAND_OF_REMEDY] = {pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect};
 }
 
-void delete_item(Thing item) {
-    actual_things.remove(item->id);
-    if (item->container_id != uint256::zero())
-        fix_z_orders(item->container_id);
-}
-
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     IdMap<WandDescriptionId> perceived_current_zapper;
 
@@ -158,8 +152,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     if (wand->wand_info()->charges <= -1) {
         publish_event(Event::wand_disintegrates(wand_wielder, wand), &perceived_current_zapper);
 
-        actual_things.remove(item_id);
-        fix_z_orders(wand_wielder->id);
+        wand->still_exists = false;
         return;
     }
     if (wand->wand_info()->charges <= 0) {
@@ -205,7 +198,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     Coord location = target->location;
     PotionId effect_id = actual_potion_identities[item->potion_info()->description_id];
     publish_event(Event::use_potion(item->id, effect_id, is_breaking, target_id, location));
-    delete_item(item);
+    item->still_exists = false;
     switch (effect_id) {
         case PotionId_POTION_OF_HEALING: {
             int hp = target->life()->max_hitpoints() * 2 / 3;
@@ -248,7 +241,7 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
     }
     IdMap<WandDescriptionId> perceived_current_zapper;
     publish_event(Event::wand_explodes(item->id, explosion_center), &perceived_current_zapper);
-    delete_item(item);
+    item->still_exists = false;
 
     List<Thing> affected_individuals;
     Thing individual;
@@ -283,5 +276,5 @@ void break_potion(Thing actor, Thing item, Coord location) {
     } else {
         publish_event(Event::use_potion(item->id, PotionId_UNKNOWN, true, uint256::zero(), location));
     }
-    delete_item(item);
+    item->still_exists = false;
 }
