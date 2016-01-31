@@ -458,10 +458,10 @@ void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_l
             output_sorted_list->append(item);
     sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
-void find_items_in_inventory(Thing observer, PerceivedThing perceived_owner, List<PerceivedThing> * output_sorted_list) {
+void find_items_in_inventory(Thing observer, uint256 container_id, List<PerceivedThing> * output_sorted_list) {
     PerceivedThing item;
     for (auto iterator = get_perceived_items(observer); iterator.next(&item);)
-        if (item->container_id == perceived_owner->id)
+        if (item->container_id == container_id)
             output_sorted_list->append(item);
     sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
@@ -864,7 +864,7 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::DIRECTIVE_EXPECT_THING: {
             PerceivedThing thing = expect_thing(action.thing(), &test_expect_things_list);
             test_expect_carrying_list.clear();
-            find_items_in_inventory(you, thing, &test_expect_carrying_list);
+            find_items_in_inventory(you, thing->id, &test_expect_carrying_list);
             return false;
         }
         case Action::DIRECTIVE_EXPECT_NOTHING:
@@ -994,7 +994,7 @@ static void age_individual(Thing individual) {
             if (time_counter - thing->last_seen_time >= 12 * 20) {
                 delete_ids.append(thing->id);
                 List<PerceivedThing> inventory;
-                find_items_in_inventory(individual, thing, &inventory);
+                find_items_in_inventory(individual, thing->id, &inventory);
                 for (int i = 0; i < inventory.length(); i++)
                     delete_ids.append(inventory[i]->id);
             }
@@ -1112,9 +1112,8 @@ void change_map(Coord location, TileType new_tile_type) {
 }
 
 void fix_perceived_z_orders(Thing observer, uint256 container_id) {
-    PerceivedThing container = observer->life()->knowledge.perceived_things.get(container_id);
     List<PerceivedThing> inventory;
-    find_items_in_inventory(observer, container, &inventory);
+    find_items_in_inventory(observer, container_id, &inventory);
     for (int i = 0; i < inventory.length(); i++)
         inventory[i]->z_order = i;
 }

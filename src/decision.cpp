@@ -70,10 +70,10 @@ static inline Action move_or_wait(Thing actor, Coord direction) {
 static Action get_ai_decision(Thing actor) {
     bool uses_items = individual_uses_items(actor);
     bool advanced_strategy = individual_is_clever(actor);
-    List<Thing> inventory;
+    List<PerceivedThing> inventory;
     // only care about inventory if we use items
     if (uses_items)
-        find_items_in_inventory(actor->id, &inventory);
+        find_items_in_inventory(actor, actor->id, &inventory);
 
     List<PerceivedThing> things_of_interest;
     PerceivedThing target;
@@ -91,6 +91,8 @@ static Action get_ai_decision(Thing actor) {
                     continue; // don't care
                 if (target->location == Coord::nowhere())
                     continue; // not available to pick up
+                if (target->wand_info()->used_count == -1)
+                    continue; // pshhh. dead wands are no use.
                 break;
             case ThingType_POTION:
                 if (!uses_items)
@@ -136,11 +138,13 @@ static Action get_ai_decision(Thing actor) {
                 Coord vector = target->location - actor->location;
                 Coord direction = sign(vector);
                 for (int i = 0; i < inventory.length(); i++) {
-                    Thing item = inventory[i];
+                    PerceivedThing item = inventory[i];
                     switch (item->thing_type) {
                         case ThingType_INDIVIDUAL:
                             unreachable();
                         case ThingType_WAND:
+                            if (item->wand_info()->used_count == -1)
+                                break; // empty wand.
                             switch (actor->life()->knowledge.wand_identities[item->wand_info()->description_id]) {
                                 case WandId_WAND_OF_CONFUSION:
                                     if (has_status(target, StatusEffect::CONFUSION))
@@ -289,6 +293,7 @@ static Action get_ai_decision(Thing actor) {
                         return move_or_wait(actor, direction);
                     }
                     // someone friendly is in the way, or something.
+                    return Action::wait();
                 } else {
                     // we must be stuck in a crowd
                     return Action::wait();

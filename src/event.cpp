@@ -90,7 +90,7 @@ static void clear_placeholder_individual_at(Thing observer, Coord location) {
     if (thing != nullptr) {
         observer->life()->knowledge.perceived_things.remove(thing->id);
         List<PerceivedThing> inventory;
-        find_items_in_inventory(observer, thing, &inventory);
+        find_items_in_inventory(observer, thing->id, &inventory);
         for (int i = 0; i < inventory.length(); i++)
             observer->life()->knowledge.perceived_things.remove(inventory[i]->id);
     }
@@ -101,7 +101,7 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
     ThingType thing_type = actual_item->thing_type;
     PerceivedThing container = observer->life()->knowledge.perceived_things.get(supposed_container_id);
     List<PerceivedThing> inventory;
-    find_items_in_inventory(observer, container, &inventory);
+    find_items_in_inventory(observer, container->id, &inventory);
     for (int i = 0; i < inventory.length(); i++) {
         PerceivedThing thing = inventory[i];
         if (thing->thing_type != thing_type)
@@ -465,7 +465,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                         observer->life()->knowledge.perceived_things.remove(data.individual);
                         // assume everything drops to the floor
                         List<PerceivedThing> inventory;
-                        find_items_in_inventory(observer, thing, &inventory);
+                        find_items_in_inventory(observer, thing->id, &inventory);
                         for (int i = 0; i < inventory.length(); i++) {
                             inventory[i]->location = thing->location;
                             inventory[i]->container_id = uint256::zero();

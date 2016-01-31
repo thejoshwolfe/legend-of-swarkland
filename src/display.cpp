@@ -560,7 +560,7 @@ static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -1;
 
-static Div get_tutorial_div_content(Thing spectate_from, const List<Thing> & my_inventory) {
+static Div get_tutorial_div_content(Thing spectate_from, const List<PerceivedThing> & my_inventory) {
     List<const char *> lines;
     if (!youre_still_alive) {
         lines.append("Alt+F4: quit");
@@ -755,7 +755,7 @@ static Span render_action(Thing actor, const Action & action) {
     switch (action.id) {
         case Action::PICKUP: {
             RuckSackImage * image = get_image_for_thing(actor->life()->knowledge.perceived_things.get(action.item()));
-            result->format("pick up %g%s", image, get_thing_description(actor, action.item()));
+            result->format("pick up %g%s", image, get_thing_description(actor, action.item(), true));
             return result;
         }
         case Action::GO_DOWN:
@@ -859,8 +859,8 @@ void render() {
     assert(!headless_mode);
 
     Thing spectate_from = get_spectate_individual();
-    List<Thing> my_inventory;
-    find_items_in_inventory(player_actor->id, &my_inventory);
+    List<PerceivedThing> my_inventory;
+    find_items_in_inventory(player_actor, player_actor->id, &my_inventory);
 
     set_color(black);
     SDL_RenderClear(renderer);
@@ -963,7 +963,7 @@ void render() {
             render_tile(get_image_for_thing(thing), 0, alpha, thing->location);
 
             List<PerceivedThing> inventory;
-            find_items_in_inventory(spectate_from, thing, &inventory);
+            find_items_in_inventory(spectate_from, thing->id, &inventory);
             if (inventory.length() > 0)
                 render_tile(equipment_image, 0, alpha, thing->location);
         }
@@ -1119,7 +1119,7 @@ void render() {
         for (int i = 0; i < my_inventory.length(); i++) {
             Coord location = inventory_index_to_location(i);
             location.x += map_size.x;
-            Thing item = my_inventory[i];
+            PerceivedThing item = my_inventory[i];
             render_tile(get_image_for_thing(item), 0, 0xff, location);
         }
         // popup help
@@ -1317,7 +1317,7 @@ void render() {
                         Span thing_and_carrying = new_span();
                         thing_and_carrying->append(get_thing_description(spectate_from, target->id, true));
                         List<PerceivedThing> inventory;
-                        find_items_in_inventory(spectate_from, target, &inventory);
+                        find_items_in_inventory(spectate_from, target->id, &inventory);
                         if (inventory.length() > 0) {
                             thing_and_carrying->append(" carrying:");
                             content->append(thing_and_carrying);

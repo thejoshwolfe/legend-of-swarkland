@@ -6,7 +6,7 @@
 
 InputMode input_mode = InputMode_MAIN;
 int inventory_cursor;
-Thing chosen_item;
+static PerceivedThing chosen_item;
 List<Action::Id> inventory_menu_items;
 int inventory_menu_cursor;
 int floor_menu_cursor;
@@ -145,8 +145,8 @@ static Action on_key_down_main(const SDL_Event & event) {
             case SDL_SCANCODE_SPACE:
                 return Action::wait();
             case SDL_SCANCODE_TAB: {
-                List<Thing> inventory;
-                find_items_in_inventory(player_actor->id, &inventory);
+                List<PerceivedThing> inventory;
+                find_items_in_inventory(player_actor, player_actor->id, &inventory);
                 if (inventory.length() > 0) {
                     inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
                     input_mode = InputMode_INVENTORY_CHOOSE_ITEM;
@@ -196,8 +196,8 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_C: {
             // move the cursor
-            List<Thing> inventory;
-            find_items_in_inventory(player_actor->id, &inventory);
+            List<PerceivedThing> inventory;
+            find_items_in_inventory(player_actor, player_actor->id, &inventory);
             Coord location = inventory_index_to_location(inventory_cursor) + get_direction_from_event(event);
             if (0 <= location.x && location.x < inventory_layout_width && 0 <= location.y) {
                 int new_index = inventory_location_to_index(location);
@@ -210,8 +210,8 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_S: {
             // accept
-            List<Thing> inventory;
-            find_items_in_inventory(player_actor->id, &inventory);
+            List<PerceivedThing> inventory;
+            find_items_in_inventory(player_actor, player_actor->id, &inventory);
             chosen_item = inventory[inventory_cursor];
 
             assert(inventory_menu_items.length() == 0);
@@ -551,8 +551,8 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
         case SDL_SCANCODE_X:
         case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_C: {
-            List<Thing> inventory;
-            find_items_in_inventory(player_actor->id, &inventory);
+            List<PerceivedThing> inventory;
+            find_items_in_inventory(player_actor, player_actor->id, &inventory);
             uint256 item_id = inventory[inventory_cursor]->id;
             switch (input_mode) {
                 case InputMode_THROW_CHOOSE_DIRECTION:

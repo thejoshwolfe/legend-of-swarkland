@@ -23,7 +23,6 @@ extern bool request_shutdown;
 
 extern InputMode input_mode;
 extern int inventory_cursor;
-extern Thing chosen_item;
 extern List<Action::Id> inventory_menu_items;
 extern int inventory_menu_cursor;
 extern int floor_menu_cursor;
