@@ -342,7 +342,6 @@ void go_down() {
     }
 
     you->life()->knowledge.reset_map();
-    you->life()->knowledge.perceived_things.clear();
     generate_map();
     init_individuals();
 }

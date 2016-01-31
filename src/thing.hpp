@@ -158,6 +158,7 @@ struct StatusEffect {
 
 struct PerceivedWandInfo {
     WandDescriptionId description_id;
+    int used_count; // -1 for empty
 };
 struct PerceivedPotionInfo {
     PotionDescriptionId description_id;
@@ -188,6 +189,7 @@ public:
             id(id), is_placeholder(is_placeholder), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order), last_seen_time(last_seen_time) {
         _wand_info = create<PerceivedWandInfo>();
         _wand_info->description_id = description_id;
+        _wand_info->used_count = 0;
     }
     // potion
     PerceivedThingImpl(uint256 id, bool is_placeholder, PotionDescriptionId description_id, Coord location, uint256 container_id, int z_order, int64_t last_seen_time) :
@@ -299,11 +301,12 @@ struct Life : public PerceivedLife {
     }
 };
 
-struct WandInfo : public PerceivedWandInfo {
+struct WandInfo {
+    WandDescriptionId description_id;
     int charges;
 };
-struct PotionInfo : public PerceivedPotionInfo {
-    // it's the same
+struct PotionInfo {
+    PotionDescriptionId description_id;
 };
 
 class ThingImpl : public ReferenceCounted {

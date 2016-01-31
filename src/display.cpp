@@ -369,6 +369,15 @@ static const char * get_wand_description_str(Thing observer, PerceivedThing item
         panic("description id");
     }
 }
+static Span get_used_count_description(int used_count) {
+    if (used_count == -1)
+        return new_span("(empty)", white, red);
+    String string = new_string();
+    string->format("(-%d)", used_count);
+    Span span = new_span(string);
+    span->set_color(black, amber);
+    return span;
+}
 const char * get_potion_id_str(PotionId potion_id) {
     switch (potion_id) {
         case PotionId_POTION_OF_HEALING:
@@ -419,7 +428,7 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
         panic("description id");
     }
 }
-Span get_thing_description(Thing observer, uint256 target_id) {
+static Span get_thing_description(Thing observer, uint256 target_id, bool verbose) {
     if (observer->id == target_id)
         return new_span("you", light_blue, black);
 
@@ -432,9 +441,15 @@ Span get_thing_description(Thing observer, uint256 target_id) {
         case ThingType_INDIVIDUAL:
             result->append(get_species_name(target->life()->species_id));
             return result;
-        case ThingType_WAND:
+        case ThingType_WAND: {
             result->append(new_span(get_wand_description_str(observer, target), light_green, black));
+            int used_count = target->wand_info()->used_count;
+            if (verbose && used_count != 0) {
+                result->append(" ");
+                result->append(get_used_count_description(used_count));
+            }
             return result;
+        }
         case ThingType_POTION:
             result->append(new_span(get_potion_description_str(observer, target), light_green, black));
             return result;
@@ -443,6 +458,9 @@ Span get_thing_description(Thing observer, uint256 target_id) {
             unreachable();
     }
     panic("thing type");
+}
+Span get_thing_description(Thing observer, uint256 target_id) {
+    return get_thing_description(observer, target_id, false);
 }
 
 static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
@@ -1106,7 +1124,7 @@ void render() {
         }
         // popup help
         if (render_popup_help) {
-            keyboard_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_cursor]->id));
+            keyboard_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_cursor]->id, true));
             popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
         }
         // action menu
@@ -1297,7 +1315,7 @@ void render() {
                         if (i > 0 )
                             content->append_newline();
                         Span thing_and_carrying = new_span();
-                        thing_and_carrying->append(get_thing_description(spectate_from, target->id));
+                        thing_and_carrying->append(get_thing_description(spectate_from, target->id, true));
                         List<PerceivedThing> inventory;
                         find_items_in_inventory(spectate_from, target, &inventory);
                         if (inventory.length() > 0) {
@@ -1306,7 +1324,7 @@ void render() {
                             for (int j = 0; j < inventory.length(); j++) {
                                 content->append_newline();
                                 content->append_spaces(4);
-                                content->append(get_thing_description(spectate_from, inventory[j]->id));
+                                content->append(get_thing_description(spectate_from, inventory[j]->id, true));
                             }
                         } else {
                             content->append(thing_and_carrying);
@@ -1320,7 +1338,7 @@ void render() {
             if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
                 int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
                 if (inventory_index < my_inventory.length()) {
-                    mouse_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_index]->id));
+                    mouse_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_index]->id, true));
                     popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
                 }
             }

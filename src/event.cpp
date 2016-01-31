@@ -336,6 +336,7 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
     target->location = actual_target->location;
     target->container_id = actual_target->container_id;
     target->z_order = actual_target->z_order;
+    target->last_seen_time = time_counter;
 
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL: {
@@ -548,14 +549,17 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             Span item_description = get_thing_description(observer, data.item);
             switch (data.id) {
                 case Event::IndividualAndItemData::ZAP_WAND: {
-                    WandDescriptionId wand_description = observer->life()->knowledge.perceived_things.get(data.item)->wand_info()->description_id;
+                    PerceivedThing wand = observer->life()->knowledge.perceived_things.get(data.item);
+                    WandDescriptionId wand_description = wand->wand_info()->description_id;
                     if (wand_description != WandDescriptionId_UNSEEN)
                         perceived_current_zapper->put(observer->id, wand_description);
                     remembered_event->span->format("%s zaps %s.", individual_description, item_description);
+                    wand->wand_info()->used_count += 1;
                     break;
                 }
                 case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES:
                     remembered_event->span->format("%s zaps %s, but %s just sputters.", individual_description, item_description, item_description);
+                    observer->life()->knowledge.perceived_things.get(data.item)->wand_info()->used_count = -1;
                     break;
                 case Event::IndividualAndItemData::WAND_DISINTEGRATES:
                     remembered_event->span->format("%s tries to zap %s, but %s disintegrates.", individual_description, item_description, item_description);
