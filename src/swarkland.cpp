@@ -118,8 +118,7 @@ static void reset_hp_regen_timeout(Thing individual) {
         life->hp_regen_deadline = time_counter + random_midpoint(7 * 12, nullptr);
 }
 static void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) {
-    if (damage <= 0)
-        panic("no damage");
+    assert_str(damage > 0, "no damage");
     target->life()->hitpoints -= damage;
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
@@ -499,7 +498,11 @@ static void cheatcode_kill(uint256 individual_id) {
 }
 static void cheatcode_polymorph(SpeciesId species_id) {
     publish_event(Event::polymorph(player_actor, species_id));
-    player_actor->life()->species_id = species_id;
+    Life * life = player_actor->life();
+    int old_max_hitpoints = life->max_hitpoints();
+    life->species_id = species_id;
+    int new_max_hitpoints = life->max_hitpoints();
+    life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
     compute_vision(player_actor);
 }
 Thing cheatcode_spectator;
@@ -1054,11 +1057,9 @@ void run_the_game() {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
-                    if (individual_has_mind(individual)) {
-                        List<RememberedEvent> & events = individual->life()->knowledge.remembered_events;
-                        if (events.length() > 0 && events[events.length() - 1] != nullptr)
-                            events.append(nullptr);
-                    }
+                    List<RememberedEvent> & events = individual->life()->knowledge.remembered_events;
+                    if (events.length() > 0 && events[events.length() - 1] != nullptr)
+                        events.append(nullptr);
                 }
             }
         }
