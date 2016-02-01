@@ -972,7 +972,6 @@ static void age_individual(Thing individual) {
                     break;
                 case StatusEffect::INVISIBILITY:
                     publish_event(Event::lose_status(individual->id, StatusEffect::INVISIBILITY));
-                    reset_hp_regen_timeout(individual);
                     break;
             }
         }

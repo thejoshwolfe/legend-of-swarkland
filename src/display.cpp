@@ -182,10 +182,6 @@ static inline bool rect_contains(SDL_Rect rect, Coord point) {
            rect.y <= point.y && point.y < rect.y + rect.h;
 }
 
-static Thing get_spectate_individual() {
-    return cheatcode_spectator != nullptr ? cheatcode_spectator : player_actor;
-}
-
 static void render_tile(RuckSackImage * image, uint32_t aesthetic_index, int alpha, Coord dest_coord) {
     SDL_Rect source_rect;
     source_rect.x = image->x;
@@ -314,12 +310,6 @@ static Span get_status_description(const List<StatusEffect::Id> & status_effects
         result->append("invisible ");
     result->set_color(pink, black);
     return result;
-}
-static Span get_status_description(const List<StatusEffect> & status_effects) {
-    List<StatusEffect::Id> tmp_effect_list;
-    for (int i = 0; i < status_effects.length(); i++)
-        tmp_effect_list.append(status_effects[i].type);
-    return get_status_description(tmp_effect_list);
 }
 const char * get_wand_id_str(WandId wand_id) {
     switch (wand_id) {
@@ -858,7 +848,8 @@ static Span render_decision_maker(DecisionMakerType decision_maker) {
 void render() {
     assert(!headless_mode);
 
-    Thing spectate_from = get_spectate_individual();
+    Thing spectate_from = cheatcode_spectator != nullptr ? cheatcode_spectator : player_actor;
+    PerceivedThing perceived_self = spectate_from->life()->knowledge.perceived_things.get(spectate_from->id);
     List<PerceivedThing> my_inventory;
     find_items_in_inventory(player_actor, player_actor->id, &my_inventory);
 
@@ -1025,7 +1016,7 @@ void render() {
         render_div(dungeon_level_div, dungeon_level_area, 1, 1);
     }
     {
-        status_div->set_content(get_status_description(spectate_from->status_effects));
+        status_div->set_content(get_status_description(perceived_self->status_effects));
         render_div(status_div, status_area, 1, 1);
     }
     {
