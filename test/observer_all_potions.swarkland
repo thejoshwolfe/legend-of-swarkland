@@ -20,7 +20,7 @@ wait
     @rng 12 midpoint:600:poison_expiriration
   wait
   @expect_event "a lich king drinks a green potion; a lich king is poisoned!"
-  @expect_event "a poisoned lich king is no longer poisoned."
+  @expect_event "a lich king is no longer poisoned."
   @expect_no_events
 
 !wish potion ethereal_vision
@@ -51,7 +51,7 @@ wait
     @rng 12 midpoint:1000:potion_of_blindness_expiration
   wait
   @expect_event "a lich king drinks a orange potion; a lich king is blinded!"
-  @expect_event "a blind lich king is no longer blind."
+  @expect_event "a lich king is no longer blind."
   @expect_no_events
 
 !wish potion invisibility
@@ -62,5 +62,5 @@ wait
     @rng 12 midpoint:2000:potion_of_invisibility_expiration
   wait
   @expect_event "a lich king drinks a purple potion; a lich king turns invisible!"
-  @expect_event "a invisible lich king is no longer invisible."
+  @expect_event "a lich king is no longer invisible."
   @expect_no_events

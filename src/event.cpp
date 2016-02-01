@@ -187,6 +187,8 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         }
         case Event::INDIVIDUAL_AND_STATUS: {
             const Event::IndividualAndStatusData & data = event.individual_and_status_data();
+            if (!see_thing(observer, data.individual))
+                return false;
             VisionTypes vision = get_vision_for_thing(observer, data.individual);
             if (!can_see_status_effect(data.status, vision))
                 return false;
@@ -477,17 +479,21 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
         case Event::INDIVIDUAL_AND_STATUS: {
             const Event::IndividualAndStatusData & data = event.individual_and_status_data();
             PerceivedThing individual = observer->life()->knowledge.perceived_things.get(data.individual);
-            Span individual_description = get_thing_description(observer, data.individual);
+            Span individual_description;
             const char * is_no_longer;
             const char * punctuation;
             switch (data.id) {
                 case Event::IndividualAndStatusData::GAIN_STATUS:
                     is_no_longer = "is";
                     punctuation = "!";
+                    individual_description = get_thing_description(observer, data.individual);
+                    put_status(individual, data.status);
                     break;
                 case Event::IndividualAndStatusData::LOSE_STATUS:
                     is_no_longer = "is no longer";
                     punctuation = ".";
+                    maybe_remove_status(individual, data.status);
+                    individual_description = get_thing_description(observer, data.individual);
                     break;
             }
             const char * status_description = nullptr;
