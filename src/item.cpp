@@ -195,7 +195,6 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
 // is_breaking is used in the published event
 void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     uint256 target_id = target->id;
-    Coord location = target->location;
     PotionId effect_id = actual_potion_identities[item->potion_info()->description_id];
     // the potion might appear to do nothing
     PotionId apparent_effect = effect_id;
@@ -229,7 +228,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
         case PotionId_UNKNOWN:
             unreachable();
     }
-    publish_event(Event::use_potion(item->id, apparent_effect, is_breaking, target_id, location));
+    publish_event(Event::use_potion(item->id, apparent_effect, is_breaking, target_id));
     item->still_exists = false;
     switch (effect_id) {
         case PotionId_POTION_OF_HEALING: {
@@ -306,7 +305,7 @@ void break_potion(Thing actor, Thing item, Coord location) {
     if (target != nullptr) {
         use_potion(actor, target, item, true);
     } else {
-        publish_event(Event::use_potion(item->id, PotionId_UNKNOWN, true, uint256::zero(), location));
+        publish_event(Event::potion_breaks(item->id, location));
     }
     item->still_exists = false;
 }

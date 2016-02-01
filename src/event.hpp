@@ -63,6 +63,7 @@ struct Event {
             WAND_EXPLODES,
             ITEM_HITS_WALL,
             ITEM_DROPS_TO_THE_FLOOR,
+            POTION_BREAKS,
         };
         Id id;
         uint256 item;
@@ -133,7 +134,6 @@ struct Event {
         PotionId effect;
         bool is_breaking;
         uint256 target_id;
-        Coord location;
     };
     UsePotionData & use_potion_data() {
         check_data_type(USE_POTION);
@@ -205,8 +205,11 @@ struct Event {
     static Event item_hits_wall(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_WALL, item_id, location);
     }
+    static Event potion_breaks(uint256 item_id, Coord location) {
+        return item_and_location_type_event(ItemAndLocationData::POTION_BREAKS, item_id, location);
+    }
 
-    static Event use_potion(uint256 item_id, PotionId effect, bool is_breaking, uint256 target_id, Coord location) {
+    static Event use_potion(uint256 item_id, PotionId effect, bool is_breaking, uint256 target_id) {
         Event result;
         result.type = USE_POTION;
         result.use_potion_data() = {
@@ -214,7 +217,6 @@ struct Event {
             effect,
             is_breaking,
             target_id,
-            location,
         };
         return result;
     }

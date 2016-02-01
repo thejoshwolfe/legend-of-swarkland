@@ -793,6 +793,9 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                 case Event::ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR:
                     remembered_event->span->format("%s drops to the floor.", item_description);
                     break;
+                case Event::ItemAndLocationData::POTION_BREAKS:
+                    remembered_event->span->format("%s shatters!", item_description);
+                    break;
             }
             break;
         }
