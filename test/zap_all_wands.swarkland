@@ -13,7 +13,7 @@ wait
     @rng 20 range:100:200:confusion_duration
   @expect_event "a lich king zaps a bone wand."
   @expect_event "a magic beam hits you; you is confused!"
-  @expect_event "a magic beam hits a wall, but nothing happens."
+  @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
 @mark_events
@@ -37,9 +37,9 @@ wait
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000004
     @rng 12 inclusive:6:12:beam_length
   @expect_event "a lich king zaps a gold wand."
-  @expect_event "a magic beam hits you, but nothing happens."
+  @expect_event "a magic beam hits you."
   # digging doesn't work on border stone
-  @expect_event "a magic beam hits a wall, but nothing happens."
+  @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
 @mark_events
@@ -48,7 +48,7 @@ wait
   # the wand is still not identified from hitting a border wall
   @expect_event "a lich king zaps a gold wand."
   @expect_event "a magic beam digs away a wall!"
-  @expect_event "a magic beam hits a wall, but nothing happens."
+  @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
 @mark_events
@@ -73,7 +73,7 @@ wait
     @rng 4 range:4:8:striking_damage
   @expect_event "a lich king zaps a plastic wand."
   @expect_event "a magic beam strikes you!"
-  @expect_event "a magic beam hits a wall, but nothing happens."
+  @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
 @mark_events
@@ -97,7 +97,7 @@ wait
     @rng 20 range:100:200:speed_duration
   @expect_event "a lich king zaps a copper wand."
   @expect_event "a magic beam hits you; you speeds up!"
-  @expect_event "a magic beam hits a wall, but nothing happens."
+  @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
 @mark_events
@@ -131,7 +131,7 @@ quaff 0000000000000000000000000000000000000000000000000000000000000008
     @rng 12 inclusive:6:12:beam_length
   @expect_event "a lich king zaps a purple wand."
   @expect_event "a magic beam hits you; the magic beam soothes you."
-  @expect_event "a magic beam hits a wall, but nothing happens."
+  @expect_event "a magic beam hits a wall."
   @expect_event "you is no longer poisoned."
   @expect_no_events
 wait

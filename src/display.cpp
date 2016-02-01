@@ -294,7 +294,7 @@ Span get_species_name(SpeciesId species_id) {
     return new_span(get_species_name_str(species_id), light_brown, black);
 }
 // ends with " " if non-blank
-static Span get_status_description(const List<StatusEffect::StatusEffectType> & status_effects) {
+static Span get_status_description(const List<StatusEffect::Id> & status_effects) {
     Span result = new_span();
     // this algorithmic complexity is a little derpy,
     // but we need the order of words to be consistent.
@@ -316,7 +316,7 @@ static Span get_status_description(const List<StatusEffect::StatusEffectType> & 
     return result;
 }
 static Span get_status_description(const List<StatusEffect> & status_effects) {
-    List<StatusEffect::StatusEffectType> tmp_effect_list;
+    List<StatusEffect::Id> tmp_effect_list;
     for (int i = 0; i < status_effects.length(); i++)
         tmp_effect_list.append(status_effects[i].type);
     return get_status_description(tmp_effect_list);

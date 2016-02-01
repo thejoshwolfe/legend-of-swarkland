@@ -18,7 +18,7 @@ extern IdMap<Thing> actual_things;
 extern Thing you;
 extern bool youre_still_alive;
 extern int64_t time_counter;
-// usually you, but cheatcodes can allow you to control several monsters at once.
+// usually just you, but cheatcodes can allow you to control several monsters in rotation.
 extern Thing player_actor;
 
 extern bool cheatcode_full_visibility;
@@ -31,11 +31,15 @@ static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals
 static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_items() {
     return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_item);
 }
-static inline Coord get_thing_location(Thing observer, const PerceivedThing & target) {
-    if (target->container_id == uint256::zero())
-        return target->location;
-    PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id);
-    return get_thing_location(observer, container);
+static inline Thing get_top_level_container(Thing thing) {
+    while (thing->container_id != uint256::zero())
+        thing = actual_things.get(thing->container_id);
+    return thing;
+}
+static inline PerceivedThing get_top_level_container(const Thing & observer, PerceivedThing thing) {
+    while (thing->container_id != uint256::zero())
+        thing = observer->life()->knowledge.perceived_things.get(thing->container_id);
+    return thing;
 }
 static inline bool individual_has_mind(Thing thing) {
     switch (specieses_mind[thing->life()->species_id]) {
@@ -69,6 +73,10 @@ static inline bool individual_is_clever(Thing thing) {
             return true;
     }
     unreachable();
+}
+
+static inline bool is_invisible(Thing observer, PerceivedThing thing) {
+    return has_status(get_top_level_container(observer, thing), StatusEffect::INVISIBILITY);
 }
 
 void swarkland_init();

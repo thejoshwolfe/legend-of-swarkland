@@ -399,7 +399,7 @@ static void attack(Thing attacker, Thing target) {
     damage_individual(target, damage, attacker, true);
     reset_hp_regen_timeout(attacker);
     if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4, "poison_attack") == 0) {
-        publish_event(Event::poisoned(target));
+        publish_event(Event::gain_status(target->id, StatusEffect::POISON));
         poison_individual(attacker, target);
     }
 }
@@ -949,29 +949,29 @@ static void age_individual(Thing individual) {
             i--;
             switch (status_effect.type) {
                 case StatusEffect::CONFUSION:
-                    publish_event(Event::no_longer_confused(individual));
+                    publish_event(Event::lose_status(individual->id, StatusEffect::CONFUSION));
                     break;
                 case StatusEffect::SPEED:
-                    publish_event(Event::no_longer_fast(individual));
+                    publish_event(Event::lose_status(individual->id, StatusEffect::SPEED));
                     break;
                 case StatusEffect::ETHEREAL_VISION:
-                    publish_event(Event::no_longer_has_ethereal_vision(individual));
+                    publish_event(Event::lose_status(individual->id, StatusEffect::ETHEREAL_VISION));
                     compute_vision(individual);
                     break;
                 case StatusEffect::COGNISCOPY:
-                    publish_event(Event::no_longer_cogniscopic(individual));
+                    publish_event(Event::lose_status(individual->id, StatusEffect::COGNISCOPY));
                     compute_vision(individual);
                     break;
                 case StatusEffect::BLINDNESS:
-                    publish_event(Event::no_longer_blind(individual));
+                    publish_event(Event::lose_status(individual->id, StatusEffect::BLINDNESS));
                     compute_vision(individual);
                     break;
                 case StatusEffect::POISON:
-                    publish_event(Event::no_longer_poisoned(individual));
+                    publish_event(Event::lose_status(individual->id, StatusEffect::POISON));
                     reset_hp_regen_timeout(individual);
                     break;
                 case StatusEffect::INVISIBILITY:
-                    publish_event(Event::no_longer_invisible(individual));
+                    publish_event(Event::lose_status(individual->id, StatusEffect::INVISIBILITY));
                     reset_hp_regen_timeout(individual);
                     break;
             }

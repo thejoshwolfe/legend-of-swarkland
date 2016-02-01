@@ -6,6 +6,7 @@
 struct Event {
     enum Type {
         THE_INDIVIDUAL,
+        INDIVIDUAL_AND_STATUS,
         INDIVIDUAL_AND_LOCATION,
         MOVE,
         TWO_INDIVIDUAL,
@@ -69,14 +70,6 @@ struct Event {
     };
     struct TheIndividualData {
         enum Id {
-            POISONED,
-            NO_LONGER_CONFUSED,
-            NO_LONGER_FAST,
-            NO_LONGER_HAS_ETHEREAL_VISION,
-            NO_LONGER_COGNISCOPIC,
-            NO_LONGER_BLIND,
-            NO_LONGER_POISONED,
-            NO_LONGER_INVISIBLE,
             APPEAR,
             LEVEL_UP,
             DIE,
@@ -85,10 +78,23 @@ struct Event {
         Id id;
         uint256 individual;
     };
+    struct IndividualAndStatusData {
+        enum Id {
+            GAIN_STATUS,
+            LOSE_STATUS,
+        };
+        Id id;
+        uint256 individual;
+        StatusEffect::Id status;
+    };
 
     TheIndividualData & the_individual_data() {
         check_data_type(THE_INDIVIDUAL);
         return _data._the_individual;
+    }
+    IndividualAndStatusData & individual_and_status_data() {
+        check_data_type(INDIVIDUAL_AND_STATUS);
+        return _data._individual_and_status;
     }
 
     IndividualAndLocationData & individual_and_location_data() {
@@ -213,42 +219,24 @@ struct Event {
         return result;
     }
 
-    static inline Event poisoned(Thing individual) {
-        return event_individual(TheIndividualData::POISONED, individual->id);
+    static inline Event gain_status(uint256 individual_id, StatusEffect::Id status) {
+        return individual_and_status_event(IndividualAndStatusData::GAIN_STATUS, individual_id, status);
     }
-    static inline Event no_longer_confused(Thing individual) {
-        return event_individual(TheIndividualData::NO_LONGER_CONFUSED, individual->id);
-    }
-    static inline Event no_longer_fast(Thing individual) {
-        return event_individual(TheIndividualData::NO_LONGER_FAST, individual->id);
-    }
-    static inline Event no_longer_has_ethereal_vision(Thing individual) {
-        return event_individual(TheIndividualData::NO_LONGER_HAS_ETHEREAL_VISION, individual->id);
-    }
-    static inline Event no_longer_cogniscopic(Thing individual) {
-        return event_individual(TheIndividualData::NO_LONGER_COGNISCOPIC, individual->id);
-    }
-    static inline Event no_longer_blind(Thing individual) {
-        return event_individual(TheIndividualData::NO_LONGER_BLIND, individual->id);
-    }
-    static inline Event no_longer_poisoned(Thing individual) {
-        return event_individual(TheIndividualData::NO_LONGER_POISONED, individual->id);
-    }
-    static inline Event no_longer_invisible(Thing individual) {
-        return event_individual(TheIndividualData::NO_LONGER_INVISIBLE, individual->id);
+    static inline Event lose_status(uint256 individual_id, StatusEffect::Id status) {
+        return individual_and_status_event(IndividualAndStatusData::LOSE_STATUS, individual_id, status);
     }
 
     static inline Event appear(Thing new_guy) {
-        return event_individual(TheIndividualData::APPEAR, new_guy->id);
+        return individual_event(TheIndividualData::APPEAR, new_guy->id);
     }
     static inline Event level_up(uint256 individual_id) {
-        return event_individual(TheIndividualData::LEVEL_UP, individual_id);
+        return individual_event(TheIndividualData::LEVEL_UP, individual_id);
     }
     static inline Event die(uint256 deceased_id) {
-        return event_individual(TheIndividualData::DIE, deceased_id);
+        return individual_event(TheIndividualData::DIE, deceased_id);
     }
     static inline Event delete_thing(uint256 deceased_id) {
-        return event_individual(TheIndividualData::DELETE_THING, deceased_id);
+        return individual_event(TheIndividualData::DELETE_THING, deceased_id);
     }
     static inline Event melee_kill(Thing attacker, Thing deceased) {
         return two_individual_type_event(TwoIndividualData::MELEE_KILL, attacker->id, deceased->id);
@@ -275,12 +263,22 @@ struct Event {
     }
 
 private:
-    static inline Event event_individual(TheIndividualData::Id id, uint256 individual_id) {
+    static inline Event individual_event(TheIndividualData::Id id, uint256 individual_id) {
         Event result;
         result.type = THE_INDIVIDUAL;
         result.the_individual_data() = {
             id,
             individual_id,
+        };
+        return result;
+    }
+    static inline Event individual_and_status_event(IndividualAndStatusData::Id id, uint256 individual_id, StatusEffect::Id status) {
+        Event result;
+        result.type = INDIVIDUAL_AND_STATUS;
+        result.individual_and_status_data() = {
+            id,
+            individual_id,
+            status,
         };
         return result;
     }
@@ -339,6 +337,7 @@ private:
 
     union {
         TheIndividualData _the_individual;
+        IndividualAndStatusData _individual_and_status;
         IndividualAndLocationData _individual_and_location;
         MoveData _move;
         TwoIndividualData _two_individual;
@@ -350,8 +349,7 @@ private:
     } _data;
 
     void check_data_type(Type supposed_data_type) const {
-        if (supposed_data_type != type)
-            panic("wrong data type");
+        assert_str(supposed_data_type == type, "wrong data type");
     }
 };
 

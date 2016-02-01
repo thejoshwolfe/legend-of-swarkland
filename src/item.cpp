@@ -197,7 +197,39 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     uint256 target_id = target->id;
     Coord location = target->location;
     PotionId effect_id = actual_potion_identities[item->potion_info()->description_id];
-    publish_event(Event::use_potion(item->id, effect_id, is_breaking, target_id, location));
+    // the potion might appear to do nothing
+    PotionId apparent_effect = effect_id;
+    switch (effect_id) {
+        case PotionId_POTION_OF_HEALING:
+            if (target->life()->hitpoints >= target->life()->max_hitpoints())
+                apparent_effect = PotionId_UNKNOWN;
+            break;
+        case PotionId_POTION_OF_POISON:
+            if (has_status(target, StatusEffect::POISON))
+                apparent_effect = PotionId_UNKNOWN;
+            break;
+        case PotionId_POTION_OF_ETHEREAL_VISION:
+            if (has_status(target, StatusEffect::ETHEREAL_VISION))
+                apparent_effect = PotionId_UNKNOWN;
+            break;
+        case PotionId_POTION_OF_COGNISCOPY:
+            if (has_status(target, StatusEffect::COGNISCOPY))
+                apparent_effect = PotionId_UNKNOWN;
+            break;
+        case PotionId_POTION_OF_BLINDNESS:
+            if (has_status(target, StatusEffect::BLINDNESS))
+                apparent_effect = PotionId_UNKNOWN;
+            break;
+        case PotionId_POTION_OF_INVISIBILITY:
+            if (has_status(target, StatusEffect::INVISIBILITY))
+                apparent_effect = PotionId_UNKNOWN;
+            break;
+
+        case PotionId_COUNT:
+        case PotionId_UNKNOWN:
+            unreachable();
+    }
+    publish_event(Event::use_potion(item->id, apparent_effect, is_breaking, target_id, location));
     item->still_exists = false;
     switch (effect_id) {
         case PotionId_POTION_OF_HEALING: {
@@ -226,7 +258,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
 
         case PotionId_COUNT:
         case PotionId_UNKNOWN:
-            panic("not real ids");
+            unreachable();
     }
 }
 

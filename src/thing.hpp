@@ -101,15 +101,19 @@ enum VisionTypesBits {
     VisionTypes_TOUCH = 0x8,
 };
 
-static inline bool can_see_invisible(VisionTypes vision_types) {
+static inline bool can_see_invisible(VisionTypes vision) {
     // TODO: delete this function in favor of positive ideas like shape and color
-    return vision_types & (VisionTypes_ETHEREAL | VisionTypes_TOUCH);
+    return vision & (VisionTypes_ETHEREAL | VisionTypes_TOUCH);
 }
-static inline bool can_see_shape(VisionTypes vision_types) {
-    return vision_types & (VisionTypes_NORMAL | VisionTypes_ETHEREAL | VisionTypes_TOUCH);
+static inline bool can_see_shape(VisionTypes vision) {
+    return vision & (VisionTypes_NORMAL | VisionTypes_ETHEREAL | VisionTypes_TOUCH);
 }
-static inline bool can_see_color(VisionTypes vision_types) {
-    return vision_types & (VisionTypes_NORMAL | VisionTypes_ETHEREAL);
+static inline bool can_see_color(VisionTypes vision) {
+    return vision & (VisionTypes_NORMAL | VisionTypes_ETHEREAL);
+}
+static inline bool can_see_thoughts(VisionTypes vision) {
+    // you can only see your own thoughts.
+    return vision & VisionTypes_TOUCH;
 }
 
 enum Mind {
@@ -137,7 +141,7 @@ struct Species {
 };
 
 struct StatusEffect {
-    enum StatusEffectType {
+    enum Id {
         CONFUSION,
         SPEED,
         ETHEREAL_VISION,
@@ -146,7 +150,7 @@ struct StatusEffect {
         INVISIBILITY,
         POISON,
     };
-    StatusEffectType type;
+    Id type;
     // this is never in the past
     int64_t expiration_time;
 
@@ -155,6 +159,46 @@ struct StatusEffect {
     // used for awarding experience for poison damage kills
     uint256 who_is_responsible;
 };
+
+static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vision) {
+    switch (effect) {
+        case StatusEffect::CONFUSION: // the derpy look on your face
+        case StatusEffect::SPEED:     // the twitchy motion of your body
+        case StatusEffect::BLINDNESS: // the empty look in your eyes
+        case StatusEffect::POISON:    // the sick look on your face
+            return can_see_shape(vision);
+        case StatusEffect::INVISIBILITY:
+            // ironically, you need normal vision to tell when something can't be seen with it.
+            return (vision & VisionTypes_NORMAL);
+        case StatusEffect::ETHEREAL_VISION:
+        case StatusEffect::COGNISCOPY:
+            // you'd have to see things through my eyes
+            return can_see_thoughts(vision);
+    }
+    unreachable();
+}
+static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
+    switch (effect) {
+        case PotionId_POTION_OF_HEALING: // the wounds closing
+            return can_see_shape(vision);
+        case PotionId_POTION_OF_POISON:
+            return can_see_status_effect(StatusEffect::POISON, vision);
+        case PotionId_POTION_OF_ETHEREAL_VISION:
+            return can_see_status_effect(StatusEffect::ETHEREAL_VISION, vision);
+        case PotionId_POTION_OF_COGNISCOPY:
+            return can_see_status_effect(StatusEffect::COGNISCOPY, vision);
+        case PotionId_POTION_OF_BLINDNESS:
+            return can_see_status_effect(StatusEffect::BLINDNESS, vision);
+        case PotionId_POTION_OF_INVISIBILITY:
+            return can_see_status_effect(StatusEffect::INVISIBILITY, vision);
+
+        case PotionId_UNKNOWN: // you alread know you can't see it
+            return false;
+        case PotionId_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
 
 struct PerceivedWandInfo {
     WandDescriptionId description_id;
@@ -176,7 +220,7 @@ public:
     uint256 container_id;
     int z_order = 0;
     int64_t last_seen_time;
-    List<StatusEffect::StatusEffectType> status_effects;
+    List<StatusEffect::Id> status_effects;
     // individual
     PerceivedThingImpl(uint256 id, bool is_placeholder, SpeciesId species_id, Coord location, int64_t last_seen_time) :
             id(id), is_placeholder(is_placeholder), thing_type(ThingType_INDIVIDUAL), location(location), container_id(uint256::zero()), last_seen_time(last_seen_time) {
@@ -347,8 +391,11 @@ public:
     }
 
     Life * life() {
-        if (thing_type != ThingType_INDIVIDUAL)
-            panic("wrong type");
+        assert_str(thing_type == ThingType_INDIVIDUAL, "wrong type");
+        return _life;
+    }
+    const Life * life() const {
+        assert_str(thing_type == ThingType_INDIVIDUAL, "wrong type");
         return _life;
     }
     WandInfo * wand_info() {
@@ -399,13 +446,13 @@ static inline int compare_things_by_id(Thing a, Thing b) {
 // TODO: this is in the wrong place
 void compute_vision(Thing observer);
 
-static inline int find_status(const List<StatusEffect> & status_effects, StatusEffect::StatusEffectType status) {
+static inline int find_status(const List<StatusEffect> & status_effects, StatusEffect::Id status) {
     for (int i = 0; i < status_effects.length(); i++)
         if (status_effects[i].type == status)
             return i;
     return -1;
 }
-static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::StatusEffectType status) {
+static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::Id status) {
     int index = find_status(thing->status_effects, status);
     if (index == -1) {
         index = thing->status_effects.length();
@@ -414,39 +461,32 @@ static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::Statu
     return &thing->status_effects[index];
 }
 
-static inline bool has_status(const List<StatusEffect> & status_effects, StatusEffect::StatusEffectType status) {
+static inline bool has_status(const List<StatusEffect> & status_effects, StatusEffect::Id status) {
     return find_status(status_effects, status) != -1;
 }
-static inline bool has_status(Thing thing, StatusEffect::StatusEffectType status) {
+static inline bool has_status(Thing thing, StatusEffect::Id status) {
     return has_status(thing->status_effects, status);
 }
-static inline int find_status(const List<StatusEffect::StatusEffectType> & status_effects, StatusEffect::StatusEffectType status) {
+static inline int find_status(const List<StatusEffect::Id> & status_effects, StatusEffect::Id status) {
     for (int i = 0; i < status_effects.length(); i++)
         if (status_effects[i] == status)
             return i;
     return -1;
 }
-static inline bool has_status(const List<StatusEffect::StatusEffectType> & status_effects, StatusEffect::StatusEffectType status) {
+static inline bool has_status(const List<StatusEffect::Id> & status_effects, StatusEffect::Id status) {
     return find_status(status_effects, status) != -1;
 }
-static inline bool has_status(PerceivedThing thing, StatusEffect::StatusEffectType status) {
+static inline bool has_status(PerceivedThing thing, StatusEffect::Id status) {
     return has_status(thing->status_effects, status);
 }
-static inline void put_status(PerceivedThing thing, StatusEffect::StatusEffectType status) {
+static inline void put_status(PerceivedThing thing, StatusEffect::Id status) {
     if (!has_status(thing, status))
         thing->status_effects.append(status);
 }
-static inline void maybe_remove_status(PerceivedThing thing, StatusEffect::StatusEffectType status) {
+static inline void maybe_remove_status(PerceivedThing thing, StatusEffect::Id status) {
     int index = find_status(thing->status_effects, status);
     if (index != -1)
         thing->status_effects.swap_remove(index);
-}
-
-static inline bool is_invisible(Thing observer, PerceivedThing thing) {
-    PerceivedThing container = thing;
-    if (thing->container_id != uint256::zero())
-        container = observer->life()->knowledge.perceived_things.get(thing->container_id);
-    return has_status(container, StatusEffect::INVISIBILITY);
 }
 
 DEFINE_GDB_PY_SCRIPT("debug-scripts/vision_types.py")

@@ -3,6 +3,17 @@
 #include "display.hpp"
 #include "swarkland.hpp"
 
+static VisionTypes get_vision_for_thing(Thing observer, uint256 target_id) {
+    Thing target = actual_things.get(target_id);
+    Thing container = get_top_level_container(target);
+    VisionTypes vision = observer->life()->knowledge.tile_is_visible[container->location];
+    if (has_status(container, StatusEffect::INVISIBILITY))
+        vision &= ~VisionTypes_NORMAL;
+    if (!(target->thing_type == ThingType_INDIVIDUAL && individual_has_mind(target)))
+        vision &= ~VisionTypes_COGNISCOPY;
+    // nothing can hide from touch or ethereal vision
+    return vision;
+}
 bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     // you can always see yourself
     if (observer->id == target_id)
@@ -174,6 +185,14 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             *output_event = event;
             return true;
         }
+        case Event::INDIVIDUAL_AND_STATUS: {
+            const Event::IndividualAndStatusData & data = event.individual_and_status_data();
+            VisionTypes vision = get_vision_for_thing(observer, data.individual);
+            if (!can_see_status_effect(data.status, vision))
+                return false;
+            *output_event = event;
+            return true;
+        }
         case Event::INDIVIDUAL_AND_LOCATION: {
             const Event::IndividualAndLocationData & data = event.individual_and_location_data();
             switch (data.id) {
@@ -275,21 +294,25 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         }
         case Event::USE_POTION: {
             const Event::UsePotionData & data = event.use_potion_data();
-            if (!can_see_shape(observer->life()->knowledge.tile_is_visible[data.location]))
-                return false;
-            if (data.target_id != uint256::zero() && !can_see_thing(observer, data.target_id)) {
-                if (data.is_breaking) {
-                    // i see that it broke, but it looks like it hit nobody
-                    *output_event = event;
-                    output_event->use_potion_data().target_id = uint256::zero();
-                    output_event->use_potion_data().effect = PotionId_UNKNOWN;
-                    return true;
-                } else {
-                    // can't see the quaffer
-                    return false;
-                }
+            assert(data.target_id != uint256::zero());
+            Thing target = actual_things.get(data.target_id);
+            VisionTypes vision_for_actor = get_vision_for_thing(observer, data.target_id);
+            VisionTypes vision_for_potion;
+            if (data.is_breaking) {
+                // while the potion is flying through the air,
+                // the target's invisibility (if any) doesn't shroud the potion.
+                vision_for_potion = observer->life()->knowledge.tile_is_visible[target->location];
+            } else {
+                // held and quaffed
+                vision_for_potion = vision_for_actor;
             }
+            if (!can_see_shape(vision_for_potion))
+                return false;
             *output_event = event;
+            if (!can_see_thing(observer, data.target_id))
+                output_event->use_potion_data().target_id = make_placeholder_individual(observer, data.target_id);
+            if (!can_see_potion_effect(data.effect, vision_for_actor))
+                output_event->use_potion_data().effect = PotionId_UNKNOWN;
             return true;
         }
         case Event::POLYMORPH: {
@@ -358,9 +381,17 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
         case ThingType_COUNT:
             unreachable();
     }
-    // TODO: limited perception of status effects
-    for (int i = 0; i < actual_target->status_effects.length(); i++)
-        target->status_effects.append(actual_target->status_effects[i].type);
+
+    for (int i = target->status_effects.length() - 1; i >= 0; i--) {
+        StatusEffect::Id effect = target->status_effects[i];
+        if (can_see_status_effect(effect, vision))
+            target->status_effects.swap_remove(i);
+    }
+    for (int i = 0; i < actual_target->status_effects.length(); i++) {
+        StatusEffect::Id effect = actual_target->status_effects[i].type;
+        if (can_see_status_effect(effect, vision))
+            target->status_effects.append(effect);
+    }
 }
 static PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id, VisionTypes vision) {
     PerceivedThing target =  observer->life()->knowledge.perceived_things.get(target_id, nullptr);
@@ -408,42 +439,10 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
     RememberedEvent remembered_event = create<RememberedEventImpl>();
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
-            Event::TheIndividualData & data = event.the_individual_data();
+            const Event::TheIndividualData & data = event.the_individual_data();
             PerceivedThing individual = observer->life()->knowledge.perceived_things.get(data.individual, nullptr);
             Span individual_description;
             switch (data.id) {
-                case Event::TheIndividualData::POISONED:
-                    remembered_event->span->format("%s is poisoned!", get_thing_description(observer, data.individual));
-                    put_status(individual, StatusEffect::POISON);
-                    break;
-                case Event::TheIndividualData::NO_LONGER_CONFUSED:
-                    maybe_remove_status(individual, StatusEffect::CONFUSION);
-                    remembered_event->span->format("%s is no longer confused.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::TheIndividualData::NO_LONGER_FAST:
-                    maybe_remove_status(individual, StatusEffect::SPEED);
-                    remembered_event->span->format("%s slows back down to normal speed.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::TheIndividualData::NO_LONGER_HAS_ETHEREAL_VISION:
-                    maybe_remove_status(individual, StatusEffect::ETHEREAL_VISION);
-                    remembered_event->span->format("%s no longer has ethereal vision.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::TheIndividualData::NO_LONGER_COGNISCOPIC:
-                    maybe_remove_status(individual, StatusEffect::COGNISCOPY);
-                    remembered_event->span->format("%s is no longer cogniscopic.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::TheIndividualData::NO_LONGER_BLIND:
-                    maybe_remove_status(individual, StatusEffect::BLINDNESS);
-                    remembered_event->span->format("%s is no longer blind.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::TheIndividualData::NO_LONGER_POISONED:
-                    maybe_remove_status(individual, StatusEffect::POISON);
-                    remembered_event->span->format("%s is no longer poisoned.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::TheIndividualData::NO_LONGER_INVISIBLE:
-                    maybe_remove_status(individual, StatusEffect::INVISIBILITY);
-                    remembered_event->span->format("%s is no longer invisible.", get_thing_description(observer, data.individual));
-                    break;
                 case Event::TheIndividualData::APPEAR:
                     // TODO: this seems wrong to use here
                     individual = record_perception_of_thing(observer, data.individual);
@@ -475,8 +474,70 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             }
             break;
         }
+        case Event::INDIVIDUAL_AND_STATUS: {
+            const Event::IndividualAndStatusData & data = event.individual_and_status_data();
+            PerceivedThing individual = observer->life()->knowledge.perceived_things.get(data.individual);
+            Span individual_description = get_thing_description(observer, data.individual);
+            const char * is_no_longer;
+            const char * punctuation;
+            switch (data.id) {
+                case Event::IndividualAndStatusData::GAIN_STATUS:
+                    is_no_longer = "is";
+                    punctuation = "!";
+                    break;
+                case Event::IndividualAndStatusData::LOSE_STATUS:
+                    is_no_longer = "is no longer";
+                    punctuation = ".";
+                    break;
+            }
+            const char * status_description = nullptr;
+            switch (data.status) {
+                case StatusEffect::CONFUSION:
+                    status_description = "confused";
+                    break;
+                case StatusEffect::SPEED:
+                    switch (data.id) {
+                        case Event::IndividualAndStatusData::GAIN_STATUS:
+                            remembered_event->span->format("%s speeds up!", individual_description);
+                            break;
+                        case Event::IndividualAndStatusData::LOSE_STATUS:
+                            remembered_event->span->format("%s slows back down to normal speed.", individual_description);
+                            break;
+                    }
+                    break;
+                case StatusEffect::ETHEREAL_VISION:
+                    switch (data.id) {
+                        case Event::IndividualAndStatusData::GAIN_STATUS:
+                            remembered_event->span->format("%s gains ethereal vision!", individual_description);
+                            break;
+                        case Event::IndividualAndStatusData::LOSE_STATUS:
+                            remembered_event->span->format("%s no longer has ethereal vision.", individual_description);
+                            break;
+                    }
+                    break;
+                case StatusEffect::COGNISCOPY:
+                    status_description = "cogniscopic";
+                    break;
+                case StatusEffect::BLINDNESS:
+                    status_description = "blind";
+                    break;
+                case StatusEffect::POISON:
+                    status_description = "poisoned";
+                    break;
+                case StatusEffect::INVISIBILITY:
+                    status_description = "invisible";
+                    break;
+            }
+            if (status_description != nullptr) {
+                // TODO: we should be able to pass const char * to span->format()
+                String string = new_string();
+                string->format("%s %s%s", is_no_longer, status_description, punctuation);
+                remembered_event->span->format("%s %s", individual_description, new_span(string));
+            }
+            break;
+        }
         case Event::INDIVIDUAL_AND_LOCATION: {
-            Event::IndividualAndLocationData & data = event.individual_and_location_data();
+            const Event::IndividualAndLocationData & data = event.individual_and_location_data();
             record_solidity_of_location(observer, data.location, data.is_air);
             // there's no individual there to attack
             List<PerceivedThing> perceived_things;
@@ -511,7 +572,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             break;
         }
         case Event::TWO_INDIVIDUAL: {
-            Event::TwoIndividualData & data = event.two_individual_data();
+            const Event::TwoIndividualData & data = event.two_individual_data();
             switch (data.id) {
                 case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
                 case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
@@ -542,7 +603,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             break;
         }
         case Event::INDIVIDUAL_AND_ITEM: {
-            Event::IndividualAndItemData & data = event.individual_and_item_data();
+            const Event::IndividualAndItemData & data = event.individual_and_item_data();
             record_perception_of_thing(observer, data.individual);
             Span individual_description = get_thing_description(observer, data.individual);
             PerceivedThing item = record_perception_of_thing(observer, data.item);
@@ -586,7 +647,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             break;
         }
         case Event::WAND_HIT: {
-            Event::WandHitData & data = event.wand_hit_data();
+            const Event::WandHitData & data = event.wand_hit_data();
             Span beam_description = new_span(data.is_explosion ? "an explosion" : "a magic beam");
             PerceivedThing target;
             Span target_description;
@@ -616,14 +677,12 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     break;
                 case WandId_WAND_OF_REMEDY:
                     remembered_event->span->format("%s hits %s; the magic beam soothes %s.", beam_description, target_description, target_description);
-                    maybe_remove_status(target, StatusEffect::CONFUSION);
-                    maybe_remove_status(target, StatusEffect::POISON);
-                    maybe_remove_status(target, StatusEffect::BLINDNESS);
+                    // statuses are removed by other events
                     break;
 
                 case WandId_UNKNOWN:
                     // nothing happens
-                    remembered_event->span->format("%s hits %s, but nothing happens.", beam_description, target_description);
+                    remembered_event->span->format("%s hits %s.", beam_description, target_description);
                     break;
                 case WandId_COUNT:
                     unreachable();
@@ -643,7 +702,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             break;
         }
         case Event::USE_POTION: {
-            Event::UsePotionData & data = event.use_potion_data();
+            const Event::UsePotionData & data = event.use_potion_data();
             PerceivedThing target = nullptr;
             if (data.is_breaking) {
                 remembered_event->span->format("%s breaks", get_thing_description(observer, data.item_id));
@@ -705,13 +764,13 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             break;
         }
         case Event::POLYMORPH: {
-            Event::PolymorphData & data = event.polymorph_data();
+            const Event::PolymorphData & data = event.polymorph_data();
             remembered_event->span->format("%s transforms into a %s!", get_thing_description(observer, data.individual), get_species_name(data.new_species));
             record_perception_of_thing(observer, data.individual);
             break;
         }
         case Event::ITEM_AND_LOCATION: {
-            Event::ItemAndLocationData & data = event.item_and_location_data();
+            const Event::ItemAndLocationData & data = event.item_and_location_data();
             PerceivedThing item = record_perception_of_thing(observer, data.item);
             Span item_description = get_thing_description(observer, data.item);
             switch (data.id) {
@@ -743,6 +802,8 @@ void publish_event(Event event) {
 void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_current_zapper) {
     Thing observer;
     for (auto iterator = actual_individuals(); iterator.next(&observer);) {
+        if (!observer->still_exists)
+            continue;
         Event event;
         if (!true_event_to_observed_event(observer, actual_event, &event))
             continue;

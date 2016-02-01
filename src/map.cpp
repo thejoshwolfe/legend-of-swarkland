@@ -95,7 +95,7 @@ void compute_vision(Thing observer) {
     // first clear out anything that we know is no longer where we thought
     PerceivedThing target;
     for (auto iterator = knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
-        Coord target_location = get_thing_location(observer, target);
+        Coord target_location = get_top_level_container(observer, target)->location;
         if (target_location == Coord::nowhere())
             continue;
         VisionTypes vision = knowledge.tile_is_visible[target_location];
