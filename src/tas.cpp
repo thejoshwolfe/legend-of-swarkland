@@ -290,6 +290,8 @@ static String decision_maker_names[DecisionMakerType_COUNT];
 static String thing_type_names[ThingType_COUNT];
 static String wand_id_names[WandId_COUNT];
 static String potion_id_names[PotionId_COUNT];
+static String ability_names[Ability::COUNT];
+
 static const char * const RNG_DIRECTIVE = "@rng";
 static const char * const SEED = "@seed";
 
@@ -309,6 +311,7 @@ static void init_name_arrays() {
     action_names[Action::QUAFF] = new_string("quaff");
     action_names[Action::THROW] = new_string("throw");
     action_names[Action::GO_DOWN] = new_string("down");
+    action_names[Action::ABILITY] = new_string("ability");
     action_names[Action::CHEATCODE_HEALTH_BOOST] = new_string("!health");
     action_names[Action::CHEATCODE_KILL] = new_string("!kill");
     action_names[Action::CHEATCODE_POLYMORPH] = new_string("!polymorph");
@@ -338,6 +341,7 @@ static void init_name_arrays() {
     species_names[SpeciesId_BEETLE] = new_string("beetle");
     species_names[SpeciesId_SCORPION] = new_string("scorpion");
     species_names[SpeciesId_SNAKE] = new_string("snake");
+    species_names[SpeciesId_COBRA] = new_string("cobra");
     check_no_nulls(species_names);
 
     decision_maker_names[DecisionMakerType_PLAYER] = new_string("player");
@@ -363,6 +367,9 @@ static void init_name_arrays() {
     potion_id_names[PotionId_POTION_OF_BLINDNESS] = new_string("blindness");
     potion_id_names[PotionId_POTION_OF_INVISIBILITY] = new_string("invisibility");
     check_no_nulls(potion_id_names);
+
+    ability_names[Ability::SPIT_BLINDING_VENOM] = new_string("spit_blinding_venom");
+    check_no_nulls(ability_names);
 }
 
 static Action::Id parse_action_type(const Token & token) {
@@ -414,6 +421,13 @@ static PotionId parse_potion_id(const Token & token) {
     if (*token.string == *new_string("unknown"))
         return PotionId_UNKNOWN;
     report_error(token, 0, "undefined potion id");
+}
+static Ability::Id parse_ability_id(const Token & token) {
+    for (int i = 0; i < Ability::COUNT; i++) {
+        if (*ability_names[i] == *token.string)
+            return (Ability::Id)i;
+    }
+    report_error(token, 0, "undefined ability id");
 }
 
 static String rng_input_to_string(const ByteBuffer & tag, int value) {
@@ -620,6 +634,14 @@ static Action read_action() {
             data.location = parse_coord(tokens[3], tokens[4]);
             break;
         }
+        case Action::Layout_ABILITY: {
+            if (tokens.length() != 4)
+                report_error(tokens[0], 0, "expected 3 arguments");
+            Action::AbilityData & data = action.ability();
+            data.ability_id = parse_ability_id(tokens[1]);
+            data.direction = parse_coord(tokens[2], tokens[3]);
+            break;
+        }
         case Action::Layout_STRING: {
             if (tokens.length() != 2)
                 report_error(tokens[0], 0, "expected 1 argument");
@@ -694,6 +716,14 @@ static String action_to_string(const Action & action) {
             String location_string1 = int_to_string(data.location.x);
             String location_string2 = int_to_string(data.location.y);
             result->format("%s %s %s %s %s\n", action_type_string, species_string, decision_maker_string, location_string1, location_string2);
+            break;
+        }
+        case Action::Layout_ABILITY: {
+            const Action::AbilityData & data = action.ability();
+            String ability_name = ability_names[data.ability_id];
+            String direction_string1 = int_to_string(data.direction.x);
+            String direction_string2 = int_to_string(data.direction.y);
+            result->format("%s %s %s %s", action_type_string, ability_name,  direction_string1, direction_string2);
             break;
         }
         case Action::Layout_STRING: {

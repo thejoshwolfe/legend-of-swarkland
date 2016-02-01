@@ -81,6 +81,7 @@ enum SpeciesId {
     SpeciesId_BEETLE,
     SpeciesId_SCORPION,
     SpeciesId_SNAKE,
+    SpeciesId_COBRA,
 
     SpeciesId_COUNT,
     SpeciesId_UNSEEN,
@@ -199,6 +200,15 @@ static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
     }
     unreachable();
 }
+
+struct Ability {
+    enum Id {
+        SPIT_BLINDING_VENOM,
+
+        COUNT,
+    };
+    Id id;
+};
 
 struct PerceivedWandInfo {
     WandDescriptionId description_id;

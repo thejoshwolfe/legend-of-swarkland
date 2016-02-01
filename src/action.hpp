@@ -14,6 +14,7 @@ struct Action {
         DROP,
         QUAFF,
         THROW,
+        ABILITY,
         GO_DOWN,
 
         CHEATCODE_HEALTH_BOOST,
@@ -55,6 +56,10 @@ struct Action {
         DecisionMakerType decision_maker;
         Coord location;
     };
+    struct AbilityData {
+        Ability::Id ability_id;
+        Coord direction;
+    };
     enum Layout {
         Layout_VOID,
         Layout_COORD,
@@ -63,6 +68,7 @@ struct Action {
         Layout_THING,
         Layout_SPECIES,
         Layout_GENERATE_MONSTER,
+        Layout_ABILITY,
         Layout_STRING,
     };
 
@@ -83,6 +89,8 @@ struct Action {
           SpeciesId       & species()                { assert(get_layout() == Layout_SPECIES);          return _species; }
     const GenerateMonster & generate_monster() const { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
           GenerateMonster & generate_monster()       { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
+    const AbilityData     & ability()          const { assert(get_layout() == Layout_ABILITY);          return _ability; }
+          AbilityData     & ability()                { assert(get_layout() == Layout_ABILITY);          return _ability; }
     const String          & string()           const { assert(get_layout() == Layout_STRING);           return _string; }
           String          & string()                 { assert(get_layout() == Layout_STRING);           return _string; }
 
@@ -112,6 +120,9 @@ struct Action {
     }
     static Action throw_(uint256 item_id, Coord direction) {
         return init(THROW, direction, item_id);
+    }
+    static Action ability(Ability::Id ability_id, Coord direction) {
+        return init(ABILITY, ability_id, direction);
     }
 
     static Action go_down() {
@@ -206,6 +217,14 @@ struct Action {
         result._generate_monster.location = location;
         return result;
     }
+    static Action init(Id id, Ability::Id ability_id, Coord direction) {
+        assert(get_layout(id) == Layout_ABILITY);
+        Action result;
+        result.id = id;
+        result._ability.ability_id = ability_id;
+        result._ability.direction = direction;
+        return result;
+    }
 
 private:
     union {
@@ -215,6 +234,7 @@ private:
         Thing _thing;
         SpeciesId _species;
         GenerateMonster _generate_monster;
+        AbilityData _ability;
     };
     // this can't go in the union because of constructor/destructor nonsense.
     String _string = nullptr;
@@ -235,6 +255,8 @@ private:
             case ZAP:
             case THROW:
                 return Layout_COORD_AND_ITEM;
+            case ABILITY:
+                return Layout_ABILITY;
 
             case CHEATCODE_HEALTH_BOOST:
             case CHEATCODE_IDENTIFY:
@@ -327,6 +349,15 @@ static inline bool operator==(const Action & a, const Action &  b) {
             if (a_data.decision_maker != b_data.decision_maker)
                 return false;
             if (a_data.location != b_data.location)
+                return false;
+            return true;
+        }
+        case Action::Layout_ABILITY: {
+            const Action::AbilityData & a_data = a.ability();
+            const Action::AbilityData & b_data = b.ability();
+            if (a_data.ability_id != b_data.ability_id)
+                return false;
+            if (a_data.direction != b_data.direction)
                 return false;
             return true;
         }

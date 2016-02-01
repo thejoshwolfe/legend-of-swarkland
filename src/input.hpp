@@ -7,8 +7,10 @@
 enum InputMode {
     InputMode_MAIN,
     InputMode_INVENTORY_CHOOSE_ITEM,
+    InputMode_CHOOSE_ABILITY,
     InputMode_INVENTORY_CHOOSE_ACTION,
     InputMode_THROW_CHOOSE_DIRECTION,
+    InputMode_ABILITY_CHOOSE_DIRECTION,
     InputMode_ZAP_CHOOSE_DIRECTION,
     InputMode_FLOOR_CHOOSE_ACTION,
     InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES,
@@ -26,6 +28,7 @@ extern InputMode input_mode;
 extern int inventory_cursor;
 extern List<Action::Id> inventory_menu_items;
 extern int inventory_menu_cursor;
+extern int ability_cursor;
 extern int floor_menu_cursor;
 extern int cheatcode_polymorph_choose_species_menu_cursor;
 extern int cheatcode_wish_choose_thing_type_menu_cursor;

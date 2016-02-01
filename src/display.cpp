@@ -23,9 +23,10 @@ static const SDL_Rect xp_area = { hp_area.x + hp_area.w, status_box_area.y, 200,
 static const SDL_Rect dungeon_level_area = { xp_area.x + xp_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect status_area = { dungeon_level_area.x + dungeon_level_area.w, status_box_area.y, 200, status_box_area.h };
 static const SDL_Rect time_area = { status_area.x + status_area.w, status_box_area.y, 200, status_box_area.h };
-static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, inventory_layout_width * tile_size, (map_size.y - 4) * tile_size };
-static const SDL_Rect tutorial_area = { inventory_area.x, inventory_area.y + inventory_area.h, 5 * tile_size, 4 * tile_size };
-static const SDL_Rect version_area = { status_box_area.x + status_box_area.w, status_box_area.y, 5 * tile_size, tile_size };
+static const SDL_Rect inventory_area = { main_map_area.x + main_map_area.w, 2 * tile_size, inventory_layout_width * tile_size, (map_size.y - 8) * tile_size };
+static const SDL_Rect ability_area = { inventory_area.x, inventory_area.y + inventory_area.h, inventory_layout_width * tile_size, 4 * tile_size };
+static const SDL_Rect tutorial_area = { ability_area.x, ability_area.y + ability_area.h, inventory_layout_width * tile_size, 4 * tile_size };
+static const SDL_Rect version_area = { status_box_area.x + status_box_area.w, status_box_area.y, inventory_layout_width * tile_size, tile_size };
 static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_area.w, status_box_area.y + status_box_area.h };
 
 
@@ -84,6 +85,7 @@ static void load_images() {
     species_images[SpeciesId_BEETLE] = find_image("img/individual/beetle.png");
     species_images[SpeciesId_SCORPION] = find_image("img/individual/scorpion.png");
     species_images[SpeciesId_SNAKE] = find_image("img/individual/snake.png");
+    species_images[SpeciesId_COBRA] = find_image("img/individual/cobra.png");
     unseen_individual_image = find_image("img/individual/unseen_individual.png");
 
     wand_images[WandDescriptionId_BONE_WAND] = find_image("img/wand/bone_wand.png");
@@ -277,6 +279,8 @@ const char * get_species_name_str(SpeciesId species_id) {
             return "scorpion";
         case SpeciesId_SNAKE:
             return "snake";
+        case SpeciesId_COBRA:
+            return "cobra";
 
         case SpeciesId_UNSEEN:
             return "something";
@@ -552,7 +556,7 @@ static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -1;
 
-static Div get_tutorial_div_content(Thing spectate_from, const List<PerceivedThing> & my_inventory) {
+static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, bool has_abilities) {
     List<const char *> lines;
     if (!youre_still_alive) {
         lines.append("Alt+F4: quit");
@@ -563,8 +567,10 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<PerceivedThi
                 get_floor_actions(spectate_from, &floor_actions);
 
                 lines.append("qweadzxc: move/hit");
-                if (my_inventory.length() > 0)
+                if (has_inventory)
                     lines.append("Tab: inventory...");
+                if (has_abilities)
+                    lines.append("v: ability...");
                 if (floor_actions.length() == 0) {
                 } else if (floor_actions.length() == 1) {
                     Action::Id action_id = floor_actions[0].id;
@@ -581,6 +587,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<PerceivedThi
                 break;
             }
             case InputMode_INVENTORY_CHOOSE_ITEM:
+            case InputMode_CHOOSE_ABILITY:
                 lines.append("qweadzxc: move cursor");
                 lines.append("Tab/s: action...");
                 lines.append("Esc: cancel");
@@ -602,6 +609,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<PerceivedThi
                     case Action::ATTACK:
                     case Action::PICKUP:
                     case Action::GO_DOWN:
+                    case Action::ABILITY:
                     case Action::CHEATCODE_HEALTH_BOOST:
                     case Action::CHEATCODE_KILL:
                     case Action::CHEATCODE_POLYMORPH:
@@ -642,6 +650,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<PerceivedThi
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
             case InputMode_ZAP_CHOOSE_DIRECTION:
+            case InputMode_ABILITY_CHOOSE_DIRECTION:
                 lines.append("qweadzxc: direction");
                 lines.append("s: yourself");
                 lines.append("Esc: cancel");
@@ -720,6 +729,7 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::ATTACK:
         case Action::PICKUP:
         case Action::GO_DOWN:
+        case Action::ABILITY:
         case Action::CHEATCODE_HEALTH_BOOST:
         case Action::CHEATCODE_KILL:
         case Action::CHEATCODE_POLYMORPH:
@@ -762,6 +772,7 @@ static Span render_action(Thing actor, const Action & action) {
         case Action::WAIT:
         case Action::MOVE:
         case Action::ATTACK:
+        case Action::ABILITY:
         case Action::CHEATCODE_HEALTH_BOOST:
         case Action::CHEATCODE_KILL:
         case Action::CHEATCODE_POLYMORPH:
@@ -848,6 +859,18 @@ static Span render_decision_maker(DecisionMakerType decision_maker) {
     return result;
 }
 
+static Span get_ability_description(Ability::Id ability_id) {
+    Span span = new_span();
+    switch (ability_id) {
+        case Ability::SPIT_BLINDING_VENOM:
+            span->format("spit blinding venom");
+            return span;
+        case Ability::COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+
 void render() {
     assert(!headless_mode);
 
@@ -855,12 +878,102 @@ void render() {
     PerceivedThing perceived_self = spectate_from->life()->knowledge.perceived_things.get(spectate_from->id);
     List<PerceivedThing> my_inventory;
     find_items_in_inventory(player_actor, player_actor->id, &my_inventory);
+    List<Ability::Id> my_abilities;
+    get_abilities(player_actor, &my_abilities);
 
     set_color(black);
     SDL_RenderClear(renderer);
 
+    int direction_distance_min = -1;
+    int direction_distance_max = -1;
+    bool show_inventory_cursor_help = false;
+    bool show_inventory_action_menu = false;
+    bool show_inventory_cursor = false;
+    SDL_Color inventory_cursor_color = SDL_Color{0, 0, 0, 0};
+    bool show_ability_cursor = false;
+    bool show_ability_cursor_help = false;
+    SDL_Color ability_cursor_color = SDL_Color{0, 0, 0, 0};
+    bool show_floor_menu = false;
+    bool show_cheatcode_polymorph_choose_species_menu = false;
+    bool show_cheatcode_wish_choose_thing_type_menu = false;
+    bool show_cheatcode_wish_choose_wand_id_menu = false;
+    bool show_cheatcode_wish_choose_potion_id_menu = false;
+    bool show_cheatcode_generate_monster_choose_species_menu = false;
+    bool show_cheatcode_generate_monster_choose_decision_maker_menu = false;
+    bool show_cheatcode_generate_monster_location_cursor = false;
+    bool show_map_popup_help = false;
+
+    switch (input_mode) {
+        case InputMode_MAIN:
+            show_map_popup_help = true;
+            break;
+        case InputMode_INVENTORY_CHOOSE_ITEM:
+            show_inventory_cursor_help = true;
+            show_inventory_cursor = true;
+            inventory_cursor_color = amber;
+            show_map_popup_help = true;
+            break;
+        case InputMode_CHOOSE_ABILITY:
+            show_ability_cursor = true;
+            show_ability_cursor_help = true;
+            ability_cursor_color = amber;
+            show_map_popup_help = true;
+            break;
+        case InputMode_INVENTORY_CHOOSE_ACTION:
+            show_inventory_action_menu = true;
+            show_inventory_cursor = true;
+            inventory_cursor_color = gray;
+            show_map_popup_help = true;
+            break;
+        case InputMode_ZAP_CHOOSE_DIRECTION:
+            direction_distance_min = beam_length_average - beam_length_error_margin;
+            direction_distance_max = beam_length_average + beam_length_error_margin;
+            show_inventory_cursor = true;
+            inventory_cursor_color = gray;
+            show_map_popup_help = true;
+            break;
+        case InputMode_THROW_CHOOSE_DIRECTION:
+            direction_distance_min = throw_distance_average - throw_distance_error_margin;
+            direction_distance_max = throw_distance_average + throw_distance_error_margin;
+            show_inventory_cursor = true;
+            inventory_cursor_color = gray;
+            show_map_popup_help = true;
+            break;
+        case InputMode_ABILITY_CHOOSE_DIRECTION:
+            direction_distance_min = throw_distance_average - throw_distance_error_margin;
+            direction_distance_max = throw_distance_average + throw_distance_error_margin;
+            show_ability_cursor = true;
+            ability_cursor_color = gray;
+            show_map_popup_help = true;
+            break;
+        case InputMode_FLOOR_CHOOSE_ACTION:
+            show_floor_menu = true;
+            break;
+        case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
+            show_cheatcode_polymorph_choose_species_menu = true;
+            break;
+        case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
+            show_cheatcode_wish_choose_thing_type_menu = true;
+            break;
+        case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
+            show_cheatcode_wish_choose_wand_id_menu = true;
+            break;
+        case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
+            show_cheatcode_wish_choose_potion_id_menu = true;
+            break;
+        case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
+            show_cheatcode_generate_monster_choose_species_menu = true;
+            break;
+        case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
+            show_cheatcode_generate_monster_choose_decision_maker_menu = true;
+            break;
+        case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
+            show_cheatcode_generate_monster_location_cursor = true;
+            break;
+    }
+
     // tutorial
-    tutorial_div->set_content(get_tutorial_div_content(player_actor, my_inventory));
+    tutorial_div->set_content(get_tutorial_div_content(player_actor, my_inventory.length() > 0, my_abilities.length() > 0));
     render_div(tutorial_div, tutorial_area, 1, 1);
     {
         Span blurb_span = new_span("v", gray, black);
@@ -870,66 +983,40 @@ void render() {
     }
 
     // main map
-    {
-        int direction_distance_min = -1;
-        int direction_distance_max = -1;
-        switch (input_mode) {
-            case InputMode_MAIN:
-            case InputMode_INVENTORY_CHOOSE_ITEM:
-            case InputMode_INVENTORY_CHOOSE_ACTION:
-            case InputMode_FLOOR_CHOOSE_ACTION:
-            case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
-            case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
-            case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
-            case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
-                break;
-            case InputMode_THROW_CHOOSE_DIRECTION:
-                direction_distance_min = throw_distance_average - throw_distance_error_margin;
-                direction_distance_max = throw_distance_average + throw_distance_error_margin;
-                break;
-            case InputMode_ZAP_CHOOSE_DIRECTION:
-                direction_distance_min = beam_length_average - beam_length_error_margin;
-                direction_distance_max = beam_length_average + beam_length_error_margin;
-                break;
-        }
-        // render the terrain
-        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
-            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-                TileType tile = spectate_from->life()->knowledge.tiles[cursor];
-                if (cheatcode_full_visibility)
-                    tile = actual_map_tiles[cursor];
-                RuckSackImage * image = get_image_for_tile(tile);
-                if (image == nullptr)
-                    continue;
-                Uint8 alpha;
-                if (can_see_shape(spectate_from->life()->knowledge.tile_is_visible[cursor])) {
-                    // it's in our direct line of sight
-                    if (direction_distance_min != -1) {
-                        // actually, let's only show the 8 directions
-                        Coord vector = spectate_from->location - cursor;
-                        if (vector.x * vector.y == 0 || abs(vector.x) == abs(vector.y)) {
-                            // ordinal aligned
-                            int distance = ordinal_distance(spectate_from->location, cursor);
-                            if (distance <= direction_distance_min)
-                                alpha = 0xff;
-                            else if (distance <= direction_distance_max)
-                                alpha = 0xaf;
-                            else
-                                alpha = 0x7f;
-                        } else {
+    // render the terrain
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+            TileType tile = spectate_from->life()->knowledge.tiles[cursor];
+            if (cheatcode_full_visibility)
+                tile = actual_map_tiles[cursor];
+            RuckSackImage * image = get_image_for_tile(tile);
+            if (image == nullptr)
+                continue;
+            Uint8 alpha;
+            if (can_see_shape(spectate_from->life()->knowledge.tile_is_visible[cursor])) {
+                // it's in our direct line of sight
+                if (direction_distance_min != -1) {
+                    // actually, let's only show the 8 directions
+                    Coord vector = spectate_from->location - cursor;
+                    if (vector.x * vector.y == 0 || abs(vector.x) == abs(vector.y)) {
+                        // ordinal aligned
+                        int distance = ordinal_distance(spectate_from->location, cursor);
+                        if (distance <= direction_distance_min)
+                            alpha = 0xff;
+                        else if (distance <= direction_distance_max)
+                            alpha = 0xaf;
+                        else
                             alpha = 0x7f;
-                        }
                     } else {
-                        alpha = 0xff;
+                        alpha = 0x7f;
                     }
                 } else {
-                    alpha = 0x7f;
+                    alpha = 0xff;
                 }
-                render_tile(image, aesthetic_indexes[cursor], alpha, cursor);
+            } else {
+                alpha = 0x7f;
             }
+            render_tile(image, aesthetic_indexes[cursor], alpha, cursor);
         }
     }
 
@@ -1073,291 +1160,234 @@ void render() {
     }
 
     // inventory pane
-    {
-        bool render_popup_help = false;
-        bool render_action_menu = false;
-        SDL_Color inventory_cursor_color = SDL_Color{0, 0, 0, 0};
-        switch (input_mode) {
-            case InputMode_MAIN:
-            case InputMode_FLOOR_CHOOSE_ACTION:
-            case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
-            case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
-            case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
-            case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
-                break;
-            case InputMode_INVENTORY_CHOOSE_ITEM:
-                render_popup_help = true;
-                inventory_cursor_color = amber;
-                break;
-            case InputMode_INVENTORY_CHOOSE_ACTION:
-                render_action_menu = true;
-                inventory_cursor_color = gray;
-                break;
-            case InputMode_THROW_CHOOSE_DIRECTION:
-            case InputMode_ZAP_CHOOSE_DIRECTION:
-                inventory_cursor_color = gray;
-                break;
-        }
-        // cursor is background
-        if (inventory_cursor_color.a != 0) {
-            Coord cursor_location = inventory_index_to_location(inventory_cursor);
-            SDL_Rect cursor_rect;
-            cursor_rect.x = inventory_area.x + cursor_location.x * tile_size;
-            cursor_rect.y = inventory_area.y + cursor_location.y * tile_size;
-            cursor_rect.w = tile_size;
-            cursor_rect.h = tile_size;
-            set_color(inventory_cursor_color);
-            SDL_RenderFillRect(renderer, &cursor_rect);
-        }
-        for (int i = 0; i < my_inventory.length(); i++) {
-            Coord location = inventory_index_to_location(i);
-            location.x += map_size.x;
-            PerceivedThing item = my_inventory[i];
-            render_tile(get_image_for_thing(item), 0, 0xff, location);
-        }
-        // popup help
-        if (render_popup_help) {
-            keyboard_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_cursor]->id, true));
-            popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
-        }
-        // action menu
-        if (render_action_menu) {
-            if (!(last_inventory_menu_items == inventory_menu_items && last_inventory_menu_cursor == inventory_menu_cursor)) {
-                // rerender the text
-                last_inventory_menu_cursor = inventory_menu_cursor;
-                last_inventory_menu_items.clear();
-                last_inventory_menu_items.append_all(inventory_menu_items);
+    // cursor is background
+    if (show_inventory_cursor) {
+        Coord cursor_location = inventory_index_to_location(inventory_cursor);
+        SDL_Rect cursor_rect;
+        cursor_rect.x = inventory_area.x + cursor_location.x * tile_size;
+        cursor_rect.y = inventory_area.y + cursor_location.y * tile_size;
+        cursor_rect.w = tile_size;
+        cursor_rect.h = tile_size;
+        set_color(inventory_cursor_color);
+        SDL_RenderFillRect(renderer, &cursor_rect);
+    }
+    for (int i = 0; i < my_inventory.length(); i++) {
+        Coord location = inventory_index_to_location(i);
+        location.x += map_size.x;
+        PerceivedThing item = my_inventory[i];
+        render_tile(get_image_for_thing(item), 0, 0xff, location);
+    }
+    if (show_inventory_cursor_help) {
+        keyboard_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_cursor]->id, true));
+        popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
+    }
+    if (show_inventory_action_menu) {
+        if (!(last_inventory_menu_items == inventory_menu_items && last_inventory_menu_cursor == inventory_menu_cursor)) {
+            // rerender the text
+            last_inventory_menu_cursor = inventory_menu_cursor;
+            last_inventory_menu_items.clear();
+            last_inventory_menu_items.append_all(inventory_menu_items);
 
-                inventory_menu_div->clear();
-                for (int i = 0; i < inventory_menu_items.length(); i++) {
-                    if (i > 0)
-                        inventory_menu_div->append_newline();
-                    Span item_span = new_span(get_action_text(inventory_menu_items[i]));
-                    if (i == inventory_menu_cursor) {
-                        item_span->set_color_recursive(black, amber);
-                    }
-                    inventory_menu_div->append(item_span);
+            inventory_menu_div->clear();
+            for (int i = 0; i < inventory_menu_items.length(); i++) {
+                if (i > 0)
+                    inventory_menu_div->append_newline();
+                Span item_span = new_span(get_action_text(inventory_menu_items[i]));
+                if (i == inventory_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
                 }
+                inventory_menu_div->append(item_span);
             }
-            popup_help(inventory_area, inventory_index_to_location(inventory_cursor), inventory_menu_div);
         }
+        popup_help(inventory_area, inventory_index_to_location(inventory_cursor), inventory_menu_div);
     }
 
-    {
-        bool show_floor_menu = false;
-        bool show_cheatcode_polymorph_choose_species_menu = false;
-        bool show_cheatcode_wish_choose_thing_type_menu = false;
-        bool show_cheatcode_wish_choose_wand_id_menu = false;
-        bool show_cheatcode_wish_choose_potion_id_menu = false;
-        bool show_cheatcode_generate_monster_choose_species_menu = false;
-        bool show_cheatcode_generate_monster_choose_decision_maker_menu = false;
-        bool show_cheatcode_generate_monster_location_cursor = false;
-        bool show_map_popup = false;
-        switch (input_mode) {
-            case InputMode_MAIN:
-            case InputMode_INVENTORY_CHOOSE_ITEM:
-            case InputMode_INVENTORY_CHOOSE_ACTION:
-            case InputMode_THROW_CHOOSE_DIRECTION:
-            case InputMode_ZAP_CHOOSE_DIRECTION:
-                show_map_popup = true;
-                break;
-            case InputMode_FLOOR_CHOOSE_ACTION:
-                show_floor_menu = true;
-                break;
-            case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
-                show_cheatcode_polymorph_choose_species_menu = true;
-                break;
-            case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
-                show_cheatcode_wish_choose_thing_type_menu = true;
-                break;
-            case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
-                show_cheatcode_wish_choose_wand_id_menu = true;
-                break;
-            case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
-                show_cheatcode_wish_choose_potion_id_menu = true;
-                break;
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
-                show_cheatcode_generate_monster_choose_species_menu = true;
-                break;
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
-                show_cheatcode_generate_monster_choose_decision_maker_menu = true;
-                break;
-            case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
-                show_cheatcode_generate_monster_location_cursor = true;
-                break;
-        }
-        // floor action menu
-        if (show_floor_menu) {
-            List<Action> floor_actions;
-            get_floor_actions(spectate_from, &floor_actions);
-            if (!(last_floor_menu_actions == floor_actions && last_floor_menu_cursor == floor_menu_cursor)) {
-                // rerender floor menu div
-                last_floor_menu_actions.clear();
-                last_floor_menu_actions.append_all(floor_actions);
-                last_floor_menu_cursor = floor_menu_cursor;
+    if (show_ability_cursor) {
+        Coord cursor_location = inventory_index_to_location(ability_cursor);
+        SDL_Rect cursor_rect;
+        cursor_rect.x = ability_area.x + cursor_location.x * tile_size;
+        cursor_rect.y = ability_area.y + cursor_location.y * tile_size;
+        cursor_rect.w = tile_size;
+        cursor_rect.h = tile_size;
+        set_color(ability_cursor_color);
+        SDL_RenderFillRect(renderer, &cursor_rect);
+    }
+    for (int i = 0; i < my_abilities.length(); i++) {
+        Coord location = inventory_index_to_location(i) + Coord{map_size.x, inventory_area.h / tile_size};
+        render_tile(species_images[SpeciesId_COBRA], 0, 0xff, location);
+    }
+    if (show_ability_cursor_help) {
+        keyboard_hover_div->set_content(get_ability_description(my_abilities[ability_cursor]));
+        popup_help(ability_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
+    }
 
-                floor_menu_div->clear();
-                for (int i = 0; i < floor_actions.length(); i++) {
-                    if (i > 0)
-                        floor_menu_div->append_newline();
-                    Span item_span = render_action(spectate_from, floor_actions[i]);
-                    if (i == floor_menu_cursor) {
-                        item_span->set_color_recursive(black, amber);
-                    }
-                    floor_menu_div->append(item_span);
+    if (show_floor_menu) {
+        List<Action> floor_actions;
+        get_floor_actions(spectate_from, &floor_actions);
+        if (!(last_floor_menu_actions == floor_actions && last_floor_menu_cursor == floor_menu_cursor)) {
+            // rerender floor menu div
+            last_floor_menu_actions.clear();
+            last_floor_menu_actions.append_all(floor_actions);
+            last_floor_menu_cursor = floor_menu_cursor;
+
+            floor_menu_div->clear();
+            for (int i = 0; i < floor_actions.length(); i++) {
+                if (i > 0)
+                    floor_menu_div->append_newline();
+                Span item_span = render_action(spectate_from, floor_actions[i]);
+                if (i == floor_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
                 }
+                floor_menu_div->append(item_span);
             }
-            popup_help(main_map_area, spectate_from->location, floor_menu_div);
         }
-        if (show_cheatcode_polymorph_choose_species_menu) {
-            if (last_cheatcode_polymorph_choose_species_menu_cursor != cheatcode_polymorph_choose_species_menu_cursor) {
-                // rerender menu div
-                cheatcode_polymorph_choose_species_menu_div->clear();
-                last_cheatcode_polymorph_choose_species_menu_cursor = cheatcode_polymorph_choose_species_menu_cursor;
-                for (int i = 0; i < SpeciesId_COUNT; i++) {
-                    if (i > 0)
-                        cheatcode_polymorph_choose_species_menu_div->append_newline();
-                    Span item_span = render_species((SpeciesId)i);
-                    if (i == cheatcode_polymorph_choose_species_menu_cursor) {
-                        item_span->set_color_recursive(black, amber);
-                    }
-                    cheatcode_polymorph_choose_species_menu_div->append(item_span);
+        popup_help(main_map_area, spectate_from->location, floor_menu_div);
+    }
+    if (show_cheatcode_polymorph_choose_species_menu) {
+        if (last_cheatcode_polymorph_choose_species_menu_cursor != cheatcode_polymorph_choose_species_menu_cursor) {
+            // rerender menu div
+            cheatcode_polymorph_choose_species_menu_div->clear();
+            last_cheatcode_polymorph_choose_species_menu_cursor = cheatcode_polymorph_choose_species_menu_cursor;
+            for (int i = 0; i < SpeciesId_COUNT; i++) {
+                if (i > 0)
+                    cheatcode_polymorph_choose_species_menu_div->append_newline();
+                Span item_span = render_species((SpeciesId)i);
+                if (i == cheatcode_polymorph_choose_species_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
                 }
+                cheatcode_polymorph_choose_species_menu_div->append(item_span);
             }
-            popup_help(main_map_area, Coord{-1, -1}, cheatcode_polymorph_choose_species_menu_div);
         }
-        if (show_cheatcode_wish_choose_thing_type_menu) {
-            if (last_cheatcode_wish_choose_thing_type_menu_cursor != cheatcode_wish_choose_thing_type_menu_cursor) {
-                // rerender menu div
-                cheatcode_wish_choose_thing_type_menu_div->clear();
-                last_cheatcode_wish_choose_thing_type_menu_cursor = cheatcode_wish_choose_thing_type_menu_cursor;
-                for (int i = 0; i < ThingType_COUNT - 1; i++) {
-                    if (i > 0)
-                        cheatcode_wish_choose_thing_type_menu_div->append_newline();
-                    Span item_span = render_thing_type((ThingType)(i + 1));
-                    if (i == cheatcode_wish_choose_thing_type_menu_cursor) {
-                        item_span->set_color_recursive(black, amber);
-                    }
-                    cheatcode_wish_choose_thing_type_menu_div->append(item_span);
+        popup_help(main_map_area, Coord{-1, -1}, cheatcode_polymorph_choose_species_menu_div);
+    }
+    if (show_cheatcode_wish_choose_thing_type_menu) {
+        if (last_cheatcode_wish_choose_thing_type_menu_cursor != cheatcode_wish_choose_thing_type_menu_cursor) {
+            // rerender menu div
+            cheatcode_wish_choose_thing_type_menu_div->clear();
+            last_cheatcode_wish_choose_thing_type_menu_cursor = cheatcode_wish_choose_thing_type_menu_cursor;
+            for (int i = 0; i < ThingType_COUNT - 1; i++) {
+                if (i > 0)
+                    cheatcode_wish_choose_thing_type_menu_div->append_newline();
+                Span item_span = render_thing_type((ThingType)(i + 1));
+                if (i == cheatcode_wish_choose_thing_type_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
                 }
+                cheatcode_wish_choose_thing_type_menu_div->append(item_span);
             }
-            popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_thing_type_menu_div);
         }
-        if (show_cheatcode_wish_choose_wand_id_menu) {
-            if (last_cheatcode_wish_choose_wand_id_menu_cursor != cheatcode_wish_choose_wand_id_menu_cursor) {
-                // rerender menu div
-                cheatcode_wish_choose_wand_id_menu_div->clear();
-                last_cheatcode_wish_choose_wand_id_menu_cursor = cheatcode_wish_choose_wand_id_menu_cursor;
-                for (int i = 0; i < WandId_COUNT; i++) {
-                    if (i > 0)
-                        cheatcode_wish_choose_wand_id_menu_div->append_newline();
-                    Span item_span = render_wand_id((WandId)i);
-                    if (i == cheatcode_wish_choose_wand_id_menu_cursor) {
-                        item_span->set_color_recursive(black, amber);
-                    }
-                    cheatcode_wish_choose_wand_id_menu_div->append(item_span);
+        popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_thing_type_menu_div);
+    }
+    if (show_cheatcode_wish_choose_wand_id_menu) {
+        if (last_cheatcode_wish_choose_wand_id_menu_cursor != cheatcode_wish_choose_wand_id_menu_cursor) {
+            // rerender menu div
+            cheatcode_wish_choose_wand_id_menu_div->clear();
+            last_cheatcode_wish_choose_wand_id_menu_cursor = cheatcode_wish_choose_wand_id_menu_cursor;
+            for (int i = 0; i < WandId_COUNT; i++) {
+                if (i > 0)
+                    cheatcode_wish_choose_wand_id_menu_div->append_newline();
+                Span item_span = render_wand_id((WandId)i);
+                if (i == cheatcode_wish_choose_wand_id_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
                 }
+                cheatcode_wish_choose_wand_id_menu_div->append(item_span);
             }
-            popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_wand_id_menu_div);
         }
-        if (show_cheatcode_wish_choose_potion_id_menu) {
-            if (last_cheatcode_wish_choose_potion_id_menu_cursor != cheatcode_wish_choose_potion_id_menu_cursor) {
-                // rerender menu div
-                cheatcode_wish_choose_potion_id_menu_div->clear();
-                last_cheatcode_wish_choose_potion_id_menu_cursor = cheatcode_wish_choose_potion_id_menu_cursor;
-                for (int i = 0; i < PotionId_COUNT; i++) {
-                    if (i > 0)
-                        cheatcode_wish_choose_potion_id_menu_div->append_newline();
-                    Span item_span = render_potion_id((PotionId)i);
-                    if (i == cheatcode_wish_choose_potion_id_menu_cursor) {
-                        item_span->set_color_recursive(black, amber);
-                    }
-                    cheatcode_wish_choose_potion_id_menu_div->append(item_span);
+        popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_wand_id_menu_div);
+    }
+    if (show_cheatcode_wish_choose_potion_id_menu) {
+        if (last_cheatcode_wish_choose_potion_id_menu_cursor != cheatcode_wish_choose_potion_id_menu_cursor) {
+            // rerender menu div
+            cheatcode_wish_choose_potion_id_menu_div->clear();
+            last_cheatcode_wish_choose_potion_id_menu_cursor = cheatcode_wish_choose_potion_id_menu_cursor;
+            for (int i = 0; i < PotionId_COUNT; i++) {
+                if (i > 0)
+                    cheatcode_wish_choose_potion_id_menu_div->append_newline();
+                Span item_span = render_potion_id((PotionId)i);
+                if (i == cheatcode_wish_choose_potion_id_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
                 }
+                cheatcode_wish_choose_potion_id_menu_div->append(item_span);
             }
-            popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_potion_id_menu_div);
         }
-        if (show_cheatcode_generate_monster_choose_species_menu) {
-            if (last_cheatcode_generate_monster_choose_species_menu_cursor != cheatcode_generate_monster_choose_species_menu_cursor) {
-                // rerender menu div
-                cheatcode_generate_monster_choose_species_menu_div->clear();
-                last_cheatcode_generate_monster_choose_species_menu_cursor = cheatcode_generate_monster_choose_species_menu_cursor;
-                for (int i = 0; i < SpeciesId_COUNT; i++) {
-                    if (i > 0)
-                        cheatcode_generate_monster_choose_species_menu_div->append_newline();
-                    Span item_span = render_species((SpeciesId)i);
-                    if (i == cheatcode_generate_monster_choose_species_menu_cursor) {
-                        item_span->set_color_recursive(black, amber);
-                    }
-                    cheatcode_generate_monster_choose_species_menu_div->append(item_span);
+        popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_potion_id_menu_div);
+    }
+    if (show_cheatcode_generate_monster_choose_species_menu) {
+        if (last_cheatcode_generate_monster_choose_species_menu_cursor != cheatcode_generate_monster_choose_species_menu_cursor) {
+            // rerender menu div
+            cheatcode_generate_monster_choose_species_menu_div->clear();
+            last_cheatcode_generate_monster_choose_species_menu_cursor = cheatcode_generate_monster_choose_species_menu_cursor;
+            for (int i = 0; i < SpeciesId_COUNT; i++) {
+                if (i > 0)
+                    cheatcode_generate_monster_choose_species_menu_div->append_newline();
+                Span item_span = render_species((SpeciesId)i);
+                if (i == cheatcode_generate_monster_choose_species_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
                 }
+                cheatcode_generate_monster_choose_species_menu_div->append(item_span);
             }
-            popup_help(main_map_area, Coord{-1, -1}, cheatcode_generate_monster_choose_species_menu_div);
         }
-        if (show_cheatcode_generate_monster_choose_decision_maker_menu) {
-            if (last_cheatcode_generate_monster_choose_decision_maker_menu_cursor != cheatcode_generate_monster_choose_decision_maker_menu_cursor) {
-                // rerender menu div
-                cheatcode_generate_monster_choose_decision_maker_menu_div->clear();
-                last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = cheatcode_generate_monster_choose_decision_maker_menu_cursor;
-                for (int i = 0; i < DecisionMakerType_COUNT; i++) {
-                    if (i > 0)
-                        cheatcode_generate_monster_choose_decision_maker_menu_div->append_newline();
-                    Span item_span = render_decision_maker((DecisionMakerType)i);
-                    if (i == cheatcode_generate_monster_choose_decision_maker_menu_cursor) {
-                        item_span->set_color_recursive(black, amber);
-                    }
-                    cheatcode_generate_monster_choose_decision_maker_menu_div->append(item_span);
+        popup_help(main_map_area, Coord{-1, -1}, cheatcode_generate_monster_choose_species_menu_div);
+    }
+    if (show_cheatcode_generate_monster_choose_decision_maker_menu) {
+        if (last_cheatcode_generate_monster_choose_decision_maker_menu_cursor != cheatcode_generate_monster_choose_decision_maker_menu_cursor) {
+            // rerender menu div
+            cheatcode_generate_monster_choose_decision_maker_menu_div->clear();
+            last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = cheatcode_generate_monster_choose_decision_maker_menu_cursor;
+            for (int i = 0; i < DecisionMakerType_COUNT; i++) {
+                if (i > 0)
+                    cheatcode_generate_monster_choose_decision_maker_menu_div->append_newline();
+                Span item_span = render_decision_maker((DecisionMakerType)i);
+                if (i == cheatcode_generate_monster_choose_decision_maker_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
                 }
+                cheatcode_generate_monster_choose_decision_maker_menu_div->append(item_span);
             }
-            popup_help(main_map_area, Coord{-1, -1}, cheatcode_generate_monster_choose_decision_maker_menu_div);
         }
-        if (show_cheatcode_generate_monster_location_cursor) {
-            SpeciesId species_id = (SpeciesId)cheatcode_generate_monster_choose_species_menu_cursor;
-            RuckSackImage * image = species_images[species_id];
-            render_tile(image, 0, 0x7f, cheatcode_generate_monster_choose_location_cursor);
-        }
-        // popup help for hovering over things
-        if (show_map_popup) {
-            Coord mouse_hover_map_tile = get_mouse_tile(main_map_area);
-            if (mouse_hover_map_tile != Coord::nowhere()) {
-                List<PerceivedThing> things;
-                find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
-                if (things.length() != 0) {
-                    Div content = new_div();
-                    for (int i = 0; i < things.length(); i++) {
-                        PerceivedThing target = things[i];
-                        if (i > 0 )
+        popup_help(main_map_area, Coord{-1, -1}, cheatcode_generate_monster_choose_decision_maker_menu_div);
+    }
+    if (show_cheatcode_generate_monster_location_cursor) {
+        SpeciesId species_id = (SpeciesId)cheatcode_generate_monster_choose_species_menu_cursor;
+        RuckSackImage * image = species_images[species_id];
+        render_tile(image, 0, 0x7f, cheatcode_generate_monster_choose_location_cursor);
+    }
+    // popup help for hovering over things
+    if (show_map_popup_help) {
+        Coord mouse_hover_map_tile = get_mouse_tile(main_map_area);
+        if (mouse_hover_map_tile != Coord::nowhere()) {
+            List<PerceivedThing> things;
+            find_perceived_things_at(spectate_from, mouse_hover_map_tile, &things);
+            if (things.length() != 0) {
+                Div content = new_div();
+                for (int i = 0; i < things.length(); i++) {
+                    PerceivedThing target = things[i];
+                    if (i > 0 )
+                        content->append_newline();
+                    Span thing_and_carrying = new_span();
+                    thing_and_carrying->append(get_thing_description(spectate_from, target->id, true));
+                    List<PerceivedThing> inventory;
+                    find_items_in_inventory(spectate_from, target->id, &inventory);
+                    if (inventory.length() > 0) {
+                        thing_and_carrying->append(" carrying:");
+                        content->append(thing_and_carrying);
+                        for (int j = 0; j < inventory.length(); j++) {
                             content->append_newline();
-                        Span thing_and_carrying = new_span();
-                        thing_and_carrying->append(get_thing_description(spectate_from, target->id, true));
-                        List<PerceivedThing> inventory;
-                        find_items_in_inventory(spectate_from, target->id, &inventory);
-                        if (inventory.length() > 0) {
-                            thing_and_carrying->append(" carrying:");
-                            content->append(thing_and_carrying);
-                            for (int j = 0; j < inventory.length(); j++) {
-                                content->append_newline();
-                                content->append_spaces(4);
-                                content->append(get_thing_description(spectate_from, inventory[j]->id, true));
-                            }
-                        } else {
-                            content->append(thing_and_carrying);
+                            content->append_spaces(4);
+                            content->append(get_thing_description(spectate_from, inventory[j]->id, true));
                         }
+                    } else {
+                        content->append(thing_and_carrying);
                     }
-                    mouse_hover_div->set_content(content);
-                    popup_help(main_map_area, mouse_hover_map_tile, mouse_hover_div);
                 }
+                mouse_hover_div->set_content(content);
+                popup_help(main_map_area, mouse_hover_map_tile, mouse_hover_div);
             }
-            Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
-            if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
-                int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
-                if (inventory_index < my_inventory.length()) {
-                    mouse_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_index]->id, true));
-                    popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
-                }
+        }
+        Coord mouse_hover_inventory_tile = get_mouse_tile(inventory_area);
+        if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
+            int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
+            if (inventory_index < my_inventory.length()) {
+                mouse_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_index]->id, true));
+                popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
             }
         }
     }

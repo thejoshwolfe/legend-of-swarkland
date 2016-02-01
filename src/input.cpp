@@ -9,6 +9,8 @@ int inventory_cursor;
 static PerceivedThing chosen_item;
 List<Action::Id> inventory_menu_items;
 int inventory_menu_cursor;
+int ability_cursor;
+static Ability::Id chosen_ability;
 int floor_menu_cursor;
 int cheatcode_polymorph_choose_species_menu_cursor;
 int cheatcode_wish_choose_thing_type_menu_cursor;
@@ -155,6 +157,15 @@ static Action on_key_down_main(const SDL_Event & event) {
                 }
                 break;
             }
+            case SDL_SCANCODE_V: {
+                List<Ability::Id> abilities;
+                get_abilities(player_actor, &abilities);
+                if (abilities.length() > 0) {
+                    ability_cursor = clamp(ability_cursor, 0, abilities.length() - 1);
+                    input_mode = InputMode_CHOOSE_ABILITY;
+                }
+                break;
+            }
             case SDL_SCANCODE_KP_5:
             case SDL_SCANCODE_S: {
                 List<Action> actions;
@@ -243,6 +254,56 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
     }
     return Action::undecided();
 }
+static Action on_key_down_choose_ability(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_MAIN;
+            break;
+
+        case SDL_SCANCODE_KP_7:
+        case SDL_SCANCODE_Q:
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_9:
+        case SDL_SCANCODE_E:
+        case SDL_SCANCODE_KP_4:
+        case SDL_SCANCODE_A:
+        case SDL_SCANCODE_KP_6:
+        case SDL_SCANCODE_D:
+        case SDL_SCANCODE_KP_1:
+        case SDL_SCANCODE_Z:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_X:
+        case SDL_SCANCODE_KP_3:
+        case SDL_SCANCODE_C: {
+            // move the cursor
+            List<Ability::Id> abilities;
+            get_abilities(player_actor, &abilities);
+            Coord location = inventory_index_to_location(ability_cursor) + get_direction_from_event(event);
+            if (0 <= location.x && location.x < inventory_layout_width && 0 <= location.y) {
+                int new_index = inventory_location_to_index(location);
+                if (new_index < abilities.length())
+                    ability_cursor = new_index;
+            }
+            break;
+        }
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_V:
+        case SDL_SCANCODE_KP_5:
+        case SDL_SCANCODE_S: {
+            // accept
+            List<Ability::Id> abilities;
+            get_abilities(player_actor, &abilities);
+            chosen_ability = abilities[ability_cursor];
+            input_mode = InputMode_ABILITY_CHOOSE_DIRECTION;
+            break;
+        }
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
 static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {
         case SDL_SCANCODE_ESCAPE:
@@ -290,6 +351,7 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                 case Action::ATTACK:
                 case Action::PICKUP:
                 case Action::GO_DOWN:
+                case Action::ABILITY:
                 case Action::CHEATCODE_HEALTH_BOOST:
                 case Action::CHEATCODE_KILL:
                 case Action::CHEATCODE_POLYMORPH:
@@ -584,18 +646,29 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
         case SDL_SCANCODE_X:
         case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_C: {
-            List<PerceivedThing> inventory;
-            find_items_in_inventory(player_actor, player_actor->id, &inventory);
-            uint256 item_id = inventory[inventory_cursor]->id;
             switch (input_mode) {
                 case InputMode_THROW_CHOOSE_DIRECTION:
                     input_mode = InputMode_MAIN;
-                    return Action::throw_(item_id, get_direction_from_event(event));
+                    return Action::throw_(chosen_item->id, get_direction_from_event(event));
                 case InputMode_ZAP_CHOOSE_DIRECTION:
                     input_mode = InputMode_MAIN;
-                    return Action::zap(item_id, get_direction_from_event(event));
-                default:
-                    break;
+                    return Action::zap(chosen_item->id, get_direction_from_event(event));
+                case InputMode_ABILITY_CHOOSE_DIRECTION:
+                    input_mode = InputMode_MAIN;
+                    return Action::ability(chosen_ability, get_direction_from_event(event));
+                case InputMode_MAIN:
+                case InputMode_INVENTORY_CHOOSE_ITEM:
+                case InputMode_CHOOSE_ABILITY:
+                case InputMode_INVENTORY_CHOOSE_ACTION:
+                case InputMode_FLOOR_CHOOSE_ACTION:
+                case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
+                case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
+                case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
+                case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
+                case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
+                case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
+                case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
+                    unreachable();
             }
             unreachable();
         }
@@ -611,12 +684,15 @@ static Action on_key_down(const SDL_Event & event) {
             return on_key_down_main(event);
         case InputMode_INVENTORY_CHOOSE_ITEM:
             return on_key_down_choose_item(event);
+        case InputMode_CHOOSE_ABILITY:
+            return on_key_down_choose_ability(event);
         case InputMode_INVENTORY_CHOOSE_ACTION:
             return on_key_down_inventory_choose_action(event);
         case InputMode_FLOOR_CHOOSE_ACTION:
             return on_key_down_floor_choose_action(event);
         case InputMode_THROW_CHOOSE_DIRECTION:
         case InputMode_ZAP_CHOOSE_DIRECTION:
+        case InputMode_ABILITY_CHOOSE_DIRECTION:
             return on_key_down_choose_direction(event);
 
         case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:

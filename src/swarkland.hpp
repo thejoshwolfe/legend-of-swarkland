@@ -10,6 +10,9 @@
 extern Species specieses[SpeciesId_COUNT];
 extern Mind specieses_mind[SpeciesId_COUNT];
 
+extern Ability abilities[Ability::COUNT];
+extern List<Ability::Id> species_abilities[SpeciesId_COUNT];
+
 extern bool test_mode;
 extern bool headless_mode;
 
@@ -99,6 +102,7 @@ void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_l
 void find_items_in_inventory(Thing observer, uint256 container_id, List<PerceivedThing> * output_sorted_list);
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 void drop_item_to_the_floor(Thing item, Coord location);
+void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities);
 
 void confuse_individual(Thing target);
 void speed_up_individual(Thing target);

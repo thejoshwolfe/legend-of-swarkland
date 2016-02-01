@@ -75,6 +75,8 @@ struct Event {
             LEVEL_UP,
             DIE,
             DELETE_THING,
+            SPIT_BLINDING_VENOM,
+            BLINDING_VENOM_HIT_INDIVIDUAL,
         };
         Id id;
         uint256 individual;
@@ -226,6 +228,13 @@ struct Event {
     }
     static inline Event lose_status(uint256 individual_id, StatusEffect::Id status) {
         return individual_and_status_event(IndividualAndStatusData::LOSE_STATUS, individual_id, status);
+    }
+
+    static inline Event spit_blinding_venom(uint256 deceased_id) {
+        return individual_event(TheIndividualData::SPIT_BLINDING_VENOM, deceased_id);
+    }
+    static inline Event blinding_venom_hit_individual(uint256 deceased_id) {
+        return individual_event(TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL, deceased_id);
     }
 
     static inline Event appear(Thing new_guy) {

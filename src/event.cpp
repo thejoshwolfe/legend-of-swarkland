@@ -175,13 +175,21 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
             const Event::TheIndividualData & data = event.the_individual_data();
-            if (data.id == Event::TheIndividualData::DELETE_THING) {
-                // special case. everyone can see this. it prevents memory leaks (or whatever).
-                *output_event = event;
-                return true;
+            switch (data.id) {
+                case Event::TheIndividualData::DELETE_THING:
+                    // special case. everyone can see this. it prevents memory leaks (or whatever).
+                    *output_event = event;
+                    return true;
+                case Event::TheIndividualData::APPEAR:
+                case Event::TheIndividualData::LEVEL_UP:
+                case Event::TheIndividualData::DIE:
+                case Event::TheIndividualData::SPIT_BLINDING_VENOM:
+                case Event::TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL:
+                    // TODO: need more filtered check, such as cogniscopy not seeing level ups.
+                    if (!see_thing(observer, data.individual))
+                        return false;
+                    break;
             }
-            if (!see_thing(observer, data.individual))
-                return false;
             *output_event = event;
             return true;
         }
@@ -459,7 +467,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     remembered_event->span->format("%s dies.", get_thing_description(observer, data.individual));
                     individual->location = Coord::nowhere();
                     break;
-                case Event::TheIndividualData::DELETE_THING:
+                case Event::TheIndividualData::DELETE_THING: {
                     remembered_event = nullptr;
                     PerceivedThing thing = observer->life()->knowledge.perceived_things.get(data.individual, nullptr);
                     if (thing != nullptr) {
@@ -472,6 +480,14 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                             inventory[i]->container_id = uint256::zero();
                         }
                     }
+                    break;
+                }
+                case Event::TheIndividualData::SPIT_BLINDING_VENOM:
+                    remembered_event->span->format("%s spits blinding venom!", get_thing_description(observer, data.individual));
+                    break;
+                case Event::TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL:
+                    remembered_event->span->format("%s is hit by blinding venom!", get_thing_description(observer, data.individual));
+                    // status is included in a different event
                     break;
             }
             break;

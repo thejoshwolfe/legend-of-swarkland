@@ -10,6 +10,9 @@
 Species specieses[SpeciesId_COUNT];
 Mind specieses_mind[SpeciesId_COUNT];
 
+Ability abilities[Ability::COUNT];
+List<Ability::Id> species_abilities[SpeciesId_COUNT];
+
 bool test_mode;
 bool headless_mode;
 
@@ -26,7 +29,7 @@ static int test_you_events_mark;
 static List<PerceivedThing> test_expect_things_list;
 static List<PerceivedThing> test_expect_carrying_list;
 
-static void init_specieses() {
+static void init_static_data() {
     VisionTypes norm = VisionTypes_NORMAL;
     VisionTypes ethe = VisionTypes_ETHEREAL;
     //                                     movement cost
@@ -49,6 +52,10 @@ static void init_specieses() {
     specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, norm, 0, 0, 0};
     specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 2,  3, norm, 0, 0, 1};
     specieses[SpeciesId_SNAKE        ] = {18,  4, 2, 1,  2, norm, 0, 0, 0};
+    specieses[SpeciesId_COBRA        ] = {18,  2, 1, 2,  3, norm, 0, 0, 0};
+    for (int i = 0; i < SpeciesId_COUNT; i++)
+        if (specieses[i].movement_cost == 0)
+            panic("you missed a spot");
 
     specieses_mind[SpeciesId_HUMAN        ] = Mind_CIVILIZED;
     specieses_mind[SpeciesId_OGRE         ] = Mind_SAVAGE;
@@ -61,13 +68,11 @@ static void init_specieses() {
     specieses_mind[SpeciesId_BEETLE       ] = Mind_BEAST;
     specieses_mind[SpeciesId_SCORPION     ] = Mind_BEAST;
     specieses_mind[SpeciesId_SNAKE        ] = Mind_BEAST;
+    specieses_mind[SpeciesId_COBRA        ] = Mind_BEAST;
 
-    for (int i = 0; i < SpeciesId_COUNT; i++) {
-        // a movement cost of 0 is invalid.
-        // a 0 probably just means we forgot something in the above table.
-        if (specieses[i].movement_cost == 0)
-            panic("you missed a spot");
-    }
+    abilities[Ability::SPIT_BLINDING_VENOM] = {Ability::SPIT_BLINDING_VENOM};
+
+    species_abilities[SpeciesId_COBRA].append(Ability::SPIT_BLINDING_VENOM);
 }
 
 static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
@@ -126,6 +131,18 @@ static void damage_individual(Thing target, int damage, Thing attacker, bool is_
         if (attacker != nullptr && attacker->id != target->id)
             gain_experience(attacker, 1, true);
     }
+}
+
+void poison_individual(Thing attacker, Thing target) {
+    StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON);
+    poison->who_is_responsible = attacker->id;
+    poison->expiration_time = time_counter + random_midpoint(600, "poison_expiriration");
+    poison->poison_next_damage_time = time_counter + 12 * 3;
+}
+static void blind_individual(Thing attacker, Thing target) {
+    StatusEffect * effect = find_or_put_status(target, StatusEffect::BLINDNESS);
+    effect->who_is_responsible = attacker->id;
+    effect->expiration_time = time_counter + random_midpoint(600, "blindness_expiriration");
 }
 
 // publish the event yourself
@@ -228,6 +245,35 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     }
 }
 
+static void do_ability(Thing actor, Ability::Id ability_id, Coord direction) {
+    int range;
+    switch (ability_id) {
+        case Ability::SPIT_BLINDING_VENOM:
+            publish_event(Event::spit_blinding_venom(actor->id));
+            range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "spit_distance");
+            break;
+        case Ability::COUNT:
+            unreachable();
+    }
+    Coord cursor = actor->location;
+    for (int i = 0; i < range; i++) {
+        cursor += direction;
+        Thing target = find_individual_at(cursor);
+        if (target != nullptr) {
+            publish_event(Event::blinding_venom_hit_individual(target->id));
+            blind_individual(actor, target);
+            publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
+            compute_vision(target);
+            return;
+        }
+        if (!is_open_space(actual_map_tiles[cursor])) {
+            // hit wall
+            // TODO: publish event
+            return;
+        }
+    }
+    // falls on the floor
+}
 
 // SpeciesId_COUNT => random
 // location = Coord::nowhere() => random
@@ -320,7 +366,7 @@ static void init_individuals() {
 }
 
 void swarkland_init() {
-    init_specieses();
+    init_static_data();
     init_items();
 
     generate_map();
@@ -380,13 +426,6 @@ static void regen_hp(Thing individual) {
         int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5), nullptr);
         heal_hp(individual, hp_heal);
     }
-}
-
-void poison_individual(Thing attacker, Thing target) {
-    StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON);
-    poison->who_is_responsible = attacker->id;
-    poison->expiration_time = time_counter + random_midpoint(600, "poison_expiriration");
-    poison->poison_next_damage_time = time_counter + 12 * 3;
 }
 
 // normal melee attack
@@ -464,6 +503,10 @@ void find_items_in_inventory(Thing observer, uint256 container_id, List<Perceive
             output_sorted_list->append(item);
     sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
+void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities) {
+    output_sorted_abilities->append_all(species_abilities[individual->life()->species_id]);
+}
+
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     Thing item;
     for (auto iterator = actual_items(); iterator.next(&item);)
@@ -576,6 +619,13 @@ bool validate_action(Thing actor, const Action & action) {
         }
         case Action::GO_DOWN:
             return actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN;
+        case Action::ABILITY: {
+            const Action::AbilityData & data = action.ability();
+            if (species_abilities[actor->life()->species_id].index_of(data.ability_id) == -1)
+                return false;
+            // TODO: also check for cooldown
+            return true;
+        }
 
         case Action::CHEATCODE_HEALTH_BOOST:
         case Action::CHEATCODE_POLYMORPH:
@@ -785,6 +835,11 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::GO_DOWN:
             go_down();
             break;
+        case Action::ABILITY: {
+            const Action::AbilityData & data = action.ability();
+            do_ability(actor, data.ability_id, confuse_direction(actor, data.direction));
+            break;
+        }
 
         case Action::CHEATCODE_HEALTH_BOOST:
             actor->life()->hitpoints += 100;
