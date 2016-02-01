@@ -90,6 +90,8 @@ void compute_vision(Thing observer) {
         refresh_ethereal_vision(observer);
     // you can always feel just the spot you're on
     knowledge.tile_is_visible[observer->location] |= VisionTypes_TOUCH;
+    if (knowledge.tiles[observer->location] == TileType_UNKNOWN)
+        knowledge.tiles[observer->location] = is_open_space(actual_map_tiles[observer->location]) ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
 
     // see things
     // first clear out anything that we know is no longer where we thought
