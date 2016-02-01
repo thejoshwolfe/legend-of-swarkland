@@ -1,0 +1,66 @@
+@test
+!monster lich player 2 1
+
+wait
+!wish potion healing
+pickup 0000000000000000000000000000000000000000000000000000000000000003
+attack 1 0
+  @rng 2 inclusive:2:3:melee_damage
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000003
+  wait
+  @expect_event "a lich king drinks a blue potion; a lich king is healed!"
+  @expect_no_events
+
+!wish potion poison
+pickup 0000000000000000000000000000000000000000000000000000000000000004
+wait
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000004
+    @rng 12 midpoint:600:poison_expiriration
+  wait
+  @expect_event "a lich king drinks a green potion; a lich king is poisoned!"
+  @expect_event "a poisoned lich king is no longer poisoned."
+  @expect_no_events
+
+!wish potion ethereal_vision
+pickup 0000000000000000000000000000000000000000000000000000000000000005
+wait
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000005
+    @rng 12 midpoint:2000:potion_of_ethereal_vision_expiration
+  wait
+  @expect_event "a lich king drinks a red potion, but nothing happens."
+  @expect_no_events
+
+!wish potion cogniscopy
+pickup 0000000000000000000000000000000000000000000000000000000000000006
+wait
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000006
+    @rng 12 midpoint:2000:potion_of_cogniscopy_expiration
+  wait
+  @expect_event "a lich king drinks a yellow potion, but nothing happens."
+  @expect_no_events
+
+!wish potion blindness
+pickup 0000000000000000000000000000000000000000000000000000000000000007
+wait
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000007
+    @rng 12 midpoint:1000:potion_of_blindness_expiration
+  wait
+  @expect_event "a lich king drinks a orange potion; a lich king is blinded!"
+  @expect_event "a blind lich king is no longer blind."
+  @expect_no_events
+
+!wish potion invisibility
+pickup 0000000000000000000000000000000000000000000000000000000000000008
+wait
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000008
+    @rng 12 midpoint:2000:potion_of_invisibility_expiration
+  wait
+  @expect_event "a lich king drinks a purple potion; a lich king turns invisible!"
+  @expect_event "a invisible lich king is no longer invisible."
+  @expect_no_events
