@@ -295,7 +295,9 @@ static Action on_key_down_choose_ability(const SDL_Event & event) {
             List<Ability::Id> abilities;
             get_abilities(player_actor, &abilities);
             chosen_ability = abilities[ability_cursor];
-            input_mode = InputMode_ABILITY_CHOOSE_DIRECTION;
+            if (is_ability_ready(player_actor, chosen_ability)) {
+                input_mode = InputMode_ABILITY_CHOOSE_DIRECTION;
+            }
             break;
         }
 

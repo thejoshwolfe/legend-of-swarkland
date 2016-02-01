@@ -103,6 +103,7 @@ void find_items_in_inventory(Thing observer, uint256 container_id, List<Perceive
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 void drop_item_to_the_floor(Thing item, Coord location);
 void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities);
+bool is_ability_ready(Thing actor, Ability::Id ability_id);
 
 void confuse_individual(Thing target);
 void speed_up_individual(Thing target);

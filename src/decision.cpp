@@ -254,13 +254,16 @@ static Action get_ai_decision(Thing actor) {
                     }
                 }
                 for (int i = 0; i < abilities.length(); i++){
-                    switch (abilities[i]) {
+                    Ability::Id ability_id = abilities[i];
+                    if (!is_ability_ready(actor, ability_id))
+                        continue;
+                    switch (ability_id) {
                         case Ability::SPIT_BLINDING_VENOM:
                             if (advanced_strategy && has_status(target, StatusEffect::BLINDNESS))
                                 break; // already blind
                             if (!is_clear_line_of_sight(actor, target->location, confident_throw_distance))
                                 break; // too far
-                            range_attack_actions.append(Action::ability(abilities[i], direction));
+                            range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
                         case Ability::COUNT:
                             unreachable();

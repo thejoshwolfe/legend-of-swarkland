@@ -210,6 +210,11 @@ struct Ability {
     Id id;
 };
 
+struct AbilityCooldown {
+    Ability::Id ability_id;
+    int64_t expiration_time;
+};
+
 struct PerceivedWandInfo {
     WandDescriptionId description_id;
     int used_count; // -1 for empty
@@ -375,6 +380,7 @@ public:
     int z_order = 0;
 
     List<StatusEffect> status_effects;
+    List<AbilityCooldown> ability_cooldowns;
 
     // individual
     ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType decision_maker);

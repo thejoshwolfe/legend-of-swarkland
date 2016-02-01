@@ -859,16 +859,20 @@ static Span render_decision_maker(DecisionMakerType decision_maker) {
     return result;
 }
 
-static Span get_ability_description(Ability::Id ability_id) {
+static Span get_ability_description(Ability::Id ability_id, bool is_ready) {
     Span span = new_span();
     switch (ability_id) {
         case Ability::SPIT_BLINDING_VENOM:
             span->format("spit blinding venom");
-            return span;
+            break;
         case Ability::COUNT:
             unreachable();
     }
-    unreachable();
+    if (!is_ready) {
+        span->append(" ");
+        span->append(new_span("(recharging)", black, amber));
+    }
+    return span;
 }
 
 void render() {
@@ -1214,10 +1218,14 @@ void render() {
     }
     for (int i = 0; i < my_abilities.length(); i++) {
         Coord location = inventory_index_to_location(i) + Coord{map_size.x, inventory_area.h / tile_size};
-        render_tile(species_images[SpeciesId_COBRA], 0, 0xff, location);
+        int alpha = 0xff;
+        if (!is_ability_ready(player_actor, my_abilities[i]))
+            alpha = 0x44;
+        render_tile(species_images[SpeciesId_COBRA], 0, alpha, location);
     }
     if (show_ability_cursor_help) {
-        keyboard_hover_div->set_content(get_ability_description(my_abilities[ability_cursor]));
+        bool is_ready = is_ability_ready(player_actor, my_abilities[ability_cursor]);
+        keyboard_hover_div->set_content(get_ability_description(my_abilities[ability_cursor], is_ready));
         popup_help(ability_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
     }
 

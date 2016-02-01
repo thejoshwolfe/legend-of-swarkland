@@ -246,6 +246,9 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 }
 
 static void do_ability(Thing actor, Ability::Id ability_id, Coord direction) {
+    int cooldown_time = random_midpoint(1000, "ability_cooldown");
+    actor->ability_cooldowns.append(AbilityCooldown{ability_id, time_counter + cooldown_time});
+
     int range;
     switch (ability_id) {
         case Ability::SPIT_BLINDING_VENOM:
@@ -506,6 +509,13 @@ void find_items_in_inventory(Thing observer, uint256 container_id, List<Perceive
 void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities) {
     output_sorted_abilities->append_all(species_abilities[individual->life()->species_id]);
 }
+bool is_ability_ready(Thing actor, Ability::Id ability_id) {
+    const List<AbilityCooldown> & ability_cooldowns = actor->ability_cooldowns;
+    for (int i = 0; ability_cooldowns.length(); i++)
+        if (ability_cooldowns[i].ability_id == ability_id)
+            return false;
+    return true;
+}
 
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     Thing item;
@@ -623,7 +633,8 @@ bool validate_action(Thing actor, const Action & action) {
             const Action::AbilityData & data = action.ability();
             if (species_abilities[actor->life()->species_id].index_of(data.ability_id) == -1)
                 return false;
-            // TODO: also check for cooldown
+            if (!is_ability_ready(actor, data.ability_id))
+                return false;
             return true;
         }
 
@@ -1031,6 +1042,14 @@ static void age_individual(Thing individual) {
                     publish_event(Event::lose_status(individual->id, StatusEffect::INVISIBILITY));
                     break;
             }
+        }
+    }
+
+    for (int i = 0; i < individual->ability_cooldowns.length(); i++) {
+        assert(individual->ability_cooldowns[i].expiration_time >= time_counter);
+        if (individual->ability_cooldowns[i].expiration_time == time_counter) {
+            individual->ability_cooldowns.swap_remove(i);
+            i--;
         }
     }
 
