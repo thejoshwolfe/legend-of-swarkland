@@ -10,6 +10,7 @@ static PerceivedThing chosen_item;
 List<Action::Id> inventory_menu_items;
 int inventory_menu_cursor;
 int floor_menu_cursor;
+int cheatcode_polymorph_choose_species_menu_cursor;
 int cheatcode_wish_choose_thing_type_menu_cursor;
 int cheatcode_wish_choose_wand_id_menu_cursor;
 int cheatcode_wish_choose_potion_id_menu_cursor;
@@ -102,7 +103,8 @@ static Action on_key_down_main(const SDL_Event & event) {
                 return Action::undecided();
             }
             case SDLK_p:
-                return Action::cheatcode_polymorph();
+                input_mode = InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES;
+                break;
             case SDLK_s:
                 cheatcode_spectate();
                 break;
@@ -339,6 +341,37 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
             get_floor_actions(player_actor, &actions);
             input_mode = InputMode_MAIN;
             return actions[floor_menu_cursor];
+        }
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down_cheatcode_polymorph_choose_species(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_MAIN;
+            break;
+
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_X:
+            // move the cursor
+            cheatcode_polymorph_choose_species_menu_cursor = (cheatcode_polymorph_choose_species_menu_cursor + get_direction_from_event(event).y + SpeciesId_COUNT) % SpeciesId_COUNT;
+            break;
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
+        case SDL_SCANCODE_S: {
+            // accept
+            input_mode = InputMode_MAIN;
+            SpeciesId species_id = (SpeciesId)cheatcode_polymorph_choose_species_menu_cursor;
+            if (player_actor->life()->species_id == species_id) {
+                // ok. you're already that species.
+                return Action::undecided();
+            }
+            return Action::cheatcode_polymorph(species_id);
         }
 
         default:
@@ -586,6 +619,8 @@ static Action on_key_down(const SDL_Event & event) {
         case InputMode_ZAP_CHOOSE_DIRECTION:
             return on_key_down_choose_direction(event);
 
+        case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
+            return on_key_down_cheatcode_polymorph_choose_species(event);
         case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
             return on_key_down_cheatcode_wish_choose_thing_type(event);
         case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:

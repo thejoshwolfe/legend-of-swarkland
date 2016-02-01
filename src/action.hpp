@@ -61,13 +61,12 @@ struct Action {
         Layout_ITEM,
         Layout_COORD_AND_ITEM,
         Layout_THING,
+        Layout_SPECIES,
         Layout_GENERATE_MONSTER,
         Layout_STRING,
     };
 
     Id id;
-    // this can't go in the union because of constructor/destructor nonsense.
-    String string = nullptr;
 
     Layout get_layout() const {
         return get_layout(id);
@@ -80,8 +79,12 @@ struct Action {
           CoordAndItem    & coord_and_item()         { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
     const Thing           & thing()            const { assert(get_layout() == Layout_THING);            return _thing; }
           Thing           & thing()                  { assert(get_layout() == Layout_THING);            return _thing; }
+    const SpeciesId       & species()          const { assert(get_layout() == Layout_SPECIES);          return _species; }
+          SpeciesId       & species()                { assert(get_layout() == Layout_SPECIES);          return _species; }
     const GenerateMonster & generate_monster() const { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
           GenerateMonster & generate_monster()       { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
+    const String          & string()           const { assert(get_layout() == Layout_STRING);           return _string; }
+          String          & string()                 { assert(get_layout() == Layout_STRING);           return _string; }
 
     static Action move(Coord direction) {
         return init(MOVE, direction);
@@ -121,8 +124,8 @@ struct Action {
     static Action cheatcode_kill(uint256 individual) {
         return init(CHEATCODE_KILL, individual);
     }
-    static Action cheatcode_polymorph() {
-        return init(CHEATCODE_POLYMORPH);
+    static Action cheatcode_polymorph(SpeciesId species_id) {
+        return init(CHEATCODE_POLYMORPH, species_id);
     }
     static Action cheatcode_generate_monster(SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
         return init(CHEATCODE_GENERATE_MONSTER, species_id, decision_maker, location);
@@ -171,6 +174,13 @@ struct Action {
         result._coord_and_item.item = item;
         return result;
     }
+    static Action init(Id id, SpeciesId species_id) {
+        assert(get_layout(id) == Layout_SPECIES);
+        Action result;
+        result.id = id;
+        result._species = species_id;
+        return result;
+    }
     static Action init(Id id, WandId wand_id) {
         assert(get_layout(id) == Layout_THING);
         Action result;
@@ -203,8 +213,11 @@ private:
         Coord _coord;
         CoordAndItem _coord_and_item;
         Thing _thing;
+        SpeciesId _species;
         GenerateMonster _generate_monster;
     };
+    // this can't go in the union because of constructor/destructor nonsense.
+    String _string = nullptr;
 
     static Layout get_layout(Id id) {
         switch (id) {
@@ -224,11 +237,12 @@ private:
                 return Layout_COORD_AND_ITEM;
 
             case CHEATCODE_HEALTH_BOOST:
-            case CHEATCODE_POLYMORPH:
             case CHEATCODE_IDENTIFY:
             case CHEATCODE_GO_DOWN:
             case CHEATCODE_GAIN_LEVEL:
                 return Layout_VOID;
+            case CHEATCODE_POLYMORPH:
+                return Layout_SPECIES;
             case CHEATCODE_KILL:
                 return Layout_ITEM;
             case CHEATCODE_WISH:
@@ -300,6 +314,11 @@ static inline bool operator==(const Action & a, const Action &  b) {
             }
             unreachable();
         }
+        case Action::Layout_SPECIES: {
+            if (a.species() != b.species())
+                return false;
+            return true;
+        }
         case Action::Layout_GENERATE_MONSTER: {
             const Action::GenerateMonster & a_data = a.generate_monster();
             const Action::GenerateMonster & b_data = b.generate_monster();
@@ -312,8 +331,8 @@ static inline bool operator==(const Action & a, const Action &  b) {
             return true;
         }
         case Action::Layout_STRING: {
-            const String & a_data = a.string;
-            const String & b_data = b.string;
+            const String & a_data = a.string();
+            const String & b_data = b.string();
             if (a_data == b_data)
                 return true;
             if (a_data == nullptr || b_data == nullptr)

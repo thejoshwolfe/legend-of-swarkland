@@ -584,6 +584,12 @@ static Action read_action() {
             action.coord_and_item().item = parse_uint256(tokens[3]);
             break;
         }
+        case Action::Layout_SPECIES: {
+            if (tokens.length() != 2)
+                report_error(tokens[0], 0, "expected 1 argument");
+            action.species() = parse_species_id(tokens[1]);
+            break;
+        }
         case Action::Layout_THING: {
             if (tokens.length() != 3)
                 report_error(tokens[0], 0, "expected 2 arguments");
@@ -617,7 +623,7 @@ static Action read_action() {
         case Action::Layout_STRING: {
             if (tokens.length() != 2)
                 report_error(tokens[0], 0, "expected 1 argument");
-            action.string = parse_string(tokens[1]);
+            action.string() = parse_string(tokens[1]);
             break;
         }
     }
@@ -650,6 +656,10 @@ static String action_to_string(const Action & action) {
             String coord_string2 = int_to_string(action.coord_and_item().coord.y);
             String item_string = uint256_to_string(action.coord_and_item().item);
             result->format("%s %s %s %s\n", action_type_string, coord_string1, coord_string2, item_string);
+            break;
+        }
+        case Action::Layout_SPECIES: {
+            result->format("%s %s\n", action_type_string, species_names[action.species()]);
             break;
         }
         case Action::Layout_THING: {
@@ -687,7 +697,7 @@ static String action_to_string(const Action & action) {
             break;
         }
         case Action::Layout_STRING: {
-            const String & string_string = string_to_string(action.string);
+            const String & string_string = string_to_string(action.string());
             result->format("%s %s\n", action_type_string, string_string);
             break;
         }

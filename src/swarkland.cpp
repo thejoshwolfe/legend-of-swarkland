@@ -497,10 +497,9 @@ static void cheatcode_kill(uint256 individual_id) {
     Thing individual = actual_things.get(individual_id);
     kill_individual(individual, nullptr, false);
 }
-static void cheatcode_polymorph() {
-    SpeciesId new_species = (SpeciesId)((player_actor->life()->species_id + 1) % SpeciesId_COUNT);
-    publish_event(Event::polymorph(player_actor, new_species));
-    player_actor->life()->species_id = new_species;
+static void cheatcode_polymorph(SpeciesId species_id) {
+    publish_event(Event::polymorph(player_actor, species_id));
+    player_actor->life()->species_id = species_id;
     compute_vision(player_actor);
 }
 Thing cheatcode_spectator;
@@ -791,7 +790,7 @@ static bool take_action(Thing actor, const Action & action) {
             cheatcode_kill(action.item());
             return false;
         case Action::CHEATCODE_POLYMORPH:
-            cheatcode_polymorph();
+            cheatcode_polymorph(action.species());
             // this one does take time, because your movement cost may have changed
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {
@@ -841,7 +840,7 @@ static bool take_action(Thing actor, const Action & action) {
             const RememberedEvent & event = events[test_you_events_mark];
             String actual_text = new_string();
             event->span->to_string(actual_text);
-            String expected_text = action.string;
+            String expected_text = action.string();
             if (*actual_text != *expected_text)
                 test_expect_fail("expected event text \"%s\". got \"%s\".", expected_text, actual_text);
             test_you_events_mark++;

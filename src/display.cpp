@@ -539,6 +539,8 @@ static int last_inventory_menu_cursor;
 static Div floor_menu_div = new_div();
 static List<Action> last_floor_menu_actions;
 static int last_floor_menu_cursor;
+static Div cheatcode_polymorph_choose_species_menu_div = new_div();
+static int last_cheatcode_polymorph_choose_species_menu_cursor = -1;
 static Div cheatcode_wish_choose_thing_type_menu_div = new_div();
 static int last_cheatcode_wish_choose_thing_type_menu_cursor = -1;
 static Div cheatcode_wish_choose_wand_id_menu_div = new_div();
@@ -623,6 +625,7 @@ static Div get_tutorial_div_content(Thing spectate_from, const List<PerceivedThi
                 lines.append("Esc: back");
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
+            case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
             case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
             case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
@@ -875,6 +878,7 @@ void render() {
             case InputMode_INVENTORY_CHOOSE_ITEM:
             case InputMode_INVENTORY_CHOOSE_ACTION:
             case InputMode_FLOOR_CHOOSE_ACTION:
+            case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
             case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
             case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
@@ -1076,6 +1080,7 @@ void render() {
         switch (input_mode) {
             case InputMode_MAIN:
             case InputMode_FLOOR_CHOOSE_ACTION:
+            case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
             case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
             case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
@@ -1143,6 +1148,7 @@ void render() {
 
     {
         bool show_floor_menu = false;
+        bool show_cheatcode_polymorph_choose_species_menu = false;
         bool show_cheatcode_wish_choose_thing_type_menu = false;
         bool show_cheatcode_wish_choose_wand_id_menu = false;
         bool show_cheatcode_wish_choose_potion_id_menu = false;
@@ -1160,6 +1166,9 @@ void render() {
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
                 show_floor_menu = true;
+                break;
+            case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
+                show_cheatcode_polymorph_choose_species_menu = true;
                 break;
             case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
                 show_cheatcode_wish_choose_thing_type_menu = true;
@@ -1202,6 +1211,23 @@ void render() {
                 }
             }
             popup_help(main_map_area, spectate_from->location, floor_menu_div);
+        }
+        if (show_cheatcode_polymorph_choose_species_menu) {
+            if (last_cheatcode_polymorph_choose_species_menu_cursor != cheatcode_polymorph_choose_species_menu_cursor) {
+                // rerender menu div
+                cheatcode_polymorph_choose_species_menu_div->clear();
+                last_cheatcode_polymorph_choose_species_menu_cursor = cheatcode_polymorph_choose_species_menu_cursor;
+                for (int i = 0; i < SpeciesId_COUNT; i++) {
+                    if (i > 0)
+                        cheatcode_polymorph_choose_species_menu_div->append_newline();
+                    Span item_span = render_species((SpeciesId)i);
+                    if (i == cheatcode_polymorph_choose_species_menu_cursor) {
+                        item_span->set_color_recursive(black, amber);
+                    }
+                    cheatcode_polymorph_choose_species_menu_div->append(item_span);
+                }
+            }
+            popup_help(main_map_area, Coord{-1, -1}, cheatcode_polymorph_choose_species_menu_div);
         }
         if (show_cheatcode_wish_choose_thing_type_menu) {
             if (last_cheatcode_wish_choose_thing_type_menu_cursor != cheatcode_wish_choose_thing_type_menu_cursor) {
