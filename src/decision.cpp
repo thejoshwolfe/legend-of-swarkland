@@ -74,6 +74,8 @@ static Action get_ai_decision(Thing actor) {
     // only care about inventory if we use items
     if (uses_items)
         find_items_in_inventory(actor, actor->id, &inventory);
+    List<Ability::Id> abilities;
+    get_abilities(actor, &abilities);
 
     List<PerceivedThing> things_of_interest;
     PerceivedThing target;
@@ -248,6 +250,19 @@ static Action get_ai_decision(Thing actor) {
                             break;
 
                         case ThingType_COUNT:
+                            unreachable();
+                    }
+                }
+                for (int i = 0; i < abilities.length(); i++){
+                    switch (abilities[i]) {
+                        case Ability::SPIT_BLINDING_VENOM:
+                            if (advanced_strategy && has_status(target, StatusEffect::BLINDNESS))
+                                break; // already blind
+                            if (!is_clear_line_of_sight(actor, target->location, confident_throw_distance))
+                                break; // too far
+                            range_attack_actions.append(Action::ability(abilities[i], direction));
+                            break;
+                        case Ability::COUNT:
                             unreachable();
                     }
                 }
