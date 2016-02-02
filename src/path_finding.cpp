@@ -5,14 +5,18 @@
 
 #include <math.h>
 
-bool do_i_think_i_can_move_here(Thing observer, Coord location) {
+// -1 means impossible
+static int get_movement_cost_for_location(Thing observer, Coord location) {
     if (!is_in_bounds(location))
-        return false;
+        return -1;
     if (!is_open_space(observer->life()->knowledge.tiles[location]))
-        return false;
+        return -1;
     if (find_perceived_individual_at(observer, location) != nullptr)
-        return false;
-    return true;
+        return 3;
+    return 1;
+}
+bool do_i_think_i_can_move_here(Thing individual, Coord location) {
+    return get_movement_cost_for_location(individual, location) == 1;
 }
 
 // start with the cardinal directions, because these are more "direct"
@@ -80,7 +84,8 @@ bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * ou
             if (!is_in_bounds(neighbor_coord))
                 continue;
 
-            if (neighbor_coord != end && !do_i_think_i_can_move_here(according_to_whom, neighbor_coord))
+            int g_for_neighbor = get_movement_cost_for_location(according_to_whom, neighbor_coord);
+            if (neighbor_coord != end && g_for_neighbor == -1)
                 continue;
             if (closed_set[neighbor_coord])
                 continue;
@@ -88,7 +93,7 @@ bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * ou
             Node *neighbor = &nodes[neighbor_coord];
             neighbor->coord = neighbor_coord;
 
-            int g_from_this_node = node->g + 1;
+            int g_from_this_node = node->g + g_for_neighbor;
             if (!open_set[neighbor->coord] || g_from_this_node < neighbor->g) {
                 neighbor->parent = node;
                 neighbor->g = g_from_this_node;

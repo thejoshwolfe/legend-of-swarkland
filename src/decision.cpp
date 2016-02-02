@@ -365,10 +365,15 @@ static Action get_ai_decision(Thing actor) {
                 find_path(actor->location, target->location, actor, &path);
                 if (path.length() > 0) {
                     Coord direction = path[0] - actor->location;
-                    if (path[0] == target->location)
+                    if (path[0] == target->location) {
                         return Action::attack(direction);
-                    else
+                    } else {
+                        if (find_perceived_individual_at(actor, path[0]) != nullptr) {
+                            // there's someone in the way
+                            return Action::wait();
+                        }
                         return move_or_wait(actor, direction);
+                    }
                 } else {
                     // we must be stuck in a crowd
                     return Action::wait();
