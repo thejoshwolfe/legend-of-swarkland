@@ -10,6 +10,7 @@
 #include "text.hpp"
 #include "resources.hpp"
 #include "event.hpp"
+#include "decision.hpp"
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -583,6 +584,20 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
                     }
                 } else {
                     lines.append("s: action...");
+                }
+
+                List<uint256> scary_individuals;
+                List<StatusEffect::Id> annoying_status_effects;
+                bool stop_for_other_reasons;
+                assess_auto_wait_situation(&scary_individuals, &annoying_status_effects, &stop_for_other_reasons);
+                if (scary_individuals.length() == 0 && annoying_status_effects.length() > 0) {
+                    if (current_player_decision.id == Action::AUTO_WAIT) {
+                        // in the middle of an auto wait
+                        lines.append("Esc: cancel");
+                    } else {
+                        // TODO: talk about the reasons somehow
+                        lines.append("r: rest");
+                    }
                 }
                 break;
             }

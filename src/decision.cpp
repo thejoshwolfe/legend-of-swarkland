@@ -16,7 +16,7 @@ void start_auto_wait() {
     previous_waiting_hp = you->life()->hitpoints;
 }
 
-static Action get_auto_wait_decision() {
+void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<StatusEffect::Id> * output_annoying_status_effects, bool * output_stop_for_other_reasons) {
     Life * life = player_actor->life();
     PerceivedThing self = life->knowledge.perceived_things.get(player_actor->id);
     // we're scared of people who can see us
@@ -35,40 +35,35 @@ static Action get_auto_wait_decision() {
         // let's jump at that opportunity.
         bool we_can_see_them = is_open_line_of_sight(player_actor->location, target->location, life->knowledge.tiles);
         if (they_can_see_us || we_can_see_them)
-            return Action::undecided();
+            output_scary_individuals->append(target->id);
     }
     if (life->hitpoints < previous_waiting_hp) {
         // probably poison.
         // let the user intervene whenever your hp drops.
-        return Action::undecided();
+        *output_stop_for_other_reasons = true;
     } else if (life->hitpoints > previous_waiting_hp) {
         // that's what i like to see
         if (life->hitpoints == life->max_hitpoints()) {
             // this calls for a celebration.
             // even if there's more stuff going on, like blindness, break now.
-            return Action::undecided();
+            *output_stop_for_other_reasons = true;
         }
     }
-    previous_waiting_hp = life->hitpoints;
 
     if (life->knowledge.remembered_events.length() > start_waiting_event_count) {
         // wake up! something happened.
-        return Action::undecided();
+        *output_stop_for_other_reasons = true;
     }
 
-    // alright, there's nothing scary going on.
-    // now is there any reason to wait any longer?
-
+    // is there any reason to wait any longer?
     if (life->hitpoints < life->max_hitpoints())
-        return Action::wait();
+        output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low hp" or something
     if (has_status(self, StatusEffect::POISON))
-        return Action::wait();
+        output_annoying_status_effects->append(StatusEffect::POISON);
     if (has_status(self, StatusEffect::CONFUSION))
-        return Action::wait();
+        output_annoying_status_effects->append(StatusEffect::CONFUSION);
     if (has_status(self, StatusEffect::BLINDNESS))
-        return Action::wait();
-    // i guess there's no point in waiting
-    return Action::undecided();
+        output_annoying_status_effects->append(StatusEffect::BLINDNESS);
 }
 static int auto_wait_animation_index = 0;
 static Action get_player_decision(Thing actor) {
@@ -82,17 +77,22 @@ static Action get_player_decision(Thing actor) {
         // ok, ask the real player
         action = current_player_decision;
         if (action.id == Action::AUTO_WAIT) {
-            action = get_auto_wait_decision();
-            if (action.id != Action::UNDECIDED) {
+            List<uint256> scary_individuals;
+            List<StatusEffect::Id> annoying_status_effects;
+            bool stop_for_other_reasons;
+            assess_auto_wait_situation(&scary_individuals, &annoying_status_effects, &stop_for_other_reasons);
+            previous_waiting_hp = player_actor->life()->hitpoints;
+            if (scary_individuals.length() == 0 && annoying_status_effects.length() > 0 && !stop_for_other_reasons) {
                 // auto-wait has decided
                 auto_wait_animation_index = 1 - auto_wait_animation_index;
                 if (auto_wait_animation_index == 0) {
                     // hold that thought. let's draw the screen first.
                     return Action::undecided();
                 }
-                return action;
+                return Action::wait();
             }
             // auto-wait has finished
+            action = Action::undecided();
         }
         current_player_decision = Action::undecided();
 
