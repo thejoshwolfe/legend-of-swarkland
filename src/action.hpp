@@ -38,6 +38,9 @@ struct Action {
         COUNT,
         // only a player can be undecided
         UNDECIDED,
+        // this is a pseudo-action that activates an intermediate AI
+        // that waits until something interesting happens.
+        AUTO_WAIT,
     };
     struct CoordAndItem {
         uint256 item;
@@ -105,6 +108,9 @@ struct Action {
     }
     static Action undecided() {
         return init(UNDECIDED);
+    }
+    static Action auto_wait() {
+        return init(AUTO_WAIT);
     }
     static Action zap(uint256 item_id, Coord direction) {
         return init(ZAP, direction, item_id);
@@ -244,6 +250,7 @@ private:
             case WAIT:
             case GO_DOWN:
             case UNDECIDED:
+            case AUTO_WAIT:
                 return Layout_VOID;
             case MOVE:
             case ATTACK:

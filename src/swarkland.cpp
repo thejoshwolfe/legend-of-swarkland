@@ -684,6 +684,7 @@ bool validate_action(Thing actor, const Action & action) {
 
         case Action::COUNT:
         case Action::UNDECIDED:
+        case Action::AUTO_WAIT:
             unreachable();
     }
     unreachable();
@@ -947,6 +948,7 @@ static bool take_action(Thing actor, const Action & action) {
 
         case Action::COUNT:
         case Action::UNDECIDED:
+        case Action::AUTO_WAIT:
             unreachable();
     }
 

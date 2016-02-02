@@ -62,6 +62,7 @@ static inline bool is_open_space(TileType tile_type) {
     panic("tile type");
 }
 bool can_spawn_at(Coord away_from_location, Coord location);
+bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatrix<TileType> map_tiles);
 
 Coord random_spawn_location(Coord away_from_location);
 Coord find_stairs_down_location();

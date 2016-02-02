@@ -628,6 +628,7 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
                     case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
                     case Action::COUNT:
                     case Action::UNDECIDED:
+                    case Action::AUTO_WAIT:
                         unreachable();
                 }
                 lines.append("Esc: back");
@@ -748,6 +749,7 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
         case Action::COUNT:
         case Action::UNDECIDED:
+        case Action::AUTO_WAIT:
             unreachable();
     }
     unreachable();
@@ -791,6 +793,7 @@ static Span render_action(Thing actor, const Action & action) {
         case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
         case Action::COUNT:
         case Action::UNDECIDED:
+        case Action::AUTO_WAIT:
             unreachable();
     }
     unreachable();

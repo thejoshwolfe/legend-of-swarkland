@@ -12,7 +12,7 @@ MapMatrix<uint32_t> aesthetic_indexes;
 MapMatrix<bool> spawn_zone;
 Coord stairs_down_location;
 
-static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
+bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatrix<TileType> map_tiles) {
     if (from_location == to_location)
         return true;
     Coord abs_delta = {abs(to_location.x - from_location.x), abs(to_location.y - from_location.y)};
@@ -23,7 +23,7 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
             // x = y * m + b
             // m = run / rise
             int x = (y - from_location.y) * (to_location.x - from_location.x) / (to_location.y - from_location.y) + from_location.x;
-            if (!is_open_space(actual_map_tiles[Coord{x, y}]))
+            if (!is_open_space(map_tiles[Coord{x, y}]))
                 return false;
         }
     } else {
@@ -33,7 +33,7 @@ static bool is_open_line_of_sight(Coord from_location, Coord to_location) {
             // y = x * m + b
             // m = rise / run
             int y = (x - from_location.x) * (to_location.y - from_location.y) / (to_location.x - from_location.x) + from_location.y;
-            if (!is_open_space(actual_map_tiles[Coord{x, y}]))
+            if (!is_open_space(map_tiles[Coord{x, y}]))
                 return false;
         }
     }
@@ -44,7 +44,7 @@ static void refresh_normal_vision(Thing individual) {
     Coord you_location = individual->location;
     for (Coord target = {0, 0}; target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
-            if (!is_open_line_of_sight(you_location, target))
+            if (!is_open_line_of_sight(you_location, target, actual_map_tiles))
                 continue;
             individual->life()->knowledge.tile_is_visible[target] |= VisionTypes_NORMAL;
             individual->life()->knowledge.tiles[target] = actual_map_tiles[target];

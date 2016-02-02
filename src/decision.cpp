@@ -7,7 +7,57 @@
 
 Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
 Action current_player_decision;
+int start_waiting_event_count = -1;
 
+static Action get_auto_wait_decision() {
+    Life * life = player_actor->life();
+    PerceivedThing self = life->knowledge.perceived_things.get(player_actor->id);
+    // we're scared of people who can see us
+    PerceivedThing target;
+    for (auto iterator = life->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
+        if (target->thing_type != ThingType_INDIVIDUAL)
+            continue;
+        if (target == self)
+            continue; // i'm not afraid of myself
+        if (target->location == Coord::nowhere())
+            continue; // don't know where you are
+        // even if we don't have normal vision,
+        // if we think they're in a position where they can see us, we should be afraid.
+        bool they_can_see_us = is_open_line_of_sight(target->location, player_actor->location, life->knowledge.tiles);
+        // also, if they've just come around a corner, and we have an advantageous position to see them first,
+        // let's jump at that opportunity.
+        bool we_can_see_them = is_open_line_of_sight(player_actor->location, target->location, life->knowledge.tiles);
+        if (they_can_see_us || we_can_see_them)
+            return Action::undecided();
+    }
+    bool is_poisoned = has_status(self, StatusEffect::POISON);
+    if (is_poisoned && life->hitpoints == 1) {
+        // critical poison status.
+        // let the player cry as they see their last hitpoint fall through their fingers.
+        // or maybe they've been saving a wand of remedy for this occasion.
+        return Action::undecided();
+    }
+
+    assert_str(player_actor == you, "TODO: implement auto wait for multiple player actors");
+    if (life->knowledge.remembered_events.length() > start_waiting_event_count) {
+        // wake up! something happened.
+        return Action::undecided();
+    }
+
+    // alright, there's nothing scary going on.
+    // now is there any reason to wait any longer?
+
+    if (life->hitpoints < life->max_hitpoints())
+        return Action::wait();
+    if (is_poisoned)
+        return Action::wait();
+    if (has_status(self, StatusEffect::CONFUSION))
+        return Action::wait();
+    if (has_status(self, StatusEffect::BLINDNESS))
+        return Action::wait();
+    // i guess there's no point in waiting
+    return Action::undecided();
+}
 static Action get_player_decision(Thing actor) {
     player_actor = actor;
     Action action = tas_get_decision();
@@ -18,6 +68,14 @@ static Action get_player_decision(Thing actor) {
         }
         // ok, ask the real player
         action = current_player_decision;
+        if (action.id == Action::AUTO_WAIT) {
+            action = get_auto_wait_decision();
+            if (action.id != Action::UNDECIDED) {
+                // auto-wait has decided
+                return action;
+            }
+            // auto-wait has finished
+        }
         current_player_decision = Action::undecided();
 
         if (action.id == Action::MOVE && !can_move(actor)) {
@@ -45,7 +103,7 @@ static int rate_interest_in_target(Thing actor, PerceivedThing target) {
 
 static int confident_zap_distance = beam_length_average - beam_length_error_margin + 1;
 static int confident_throw_distance = throw_distance_average - throw_distance_error_margin;
-static bool is_clear_line_of_sight(Thing actor, Coord location, int confident_distance) {
+static bool is_clear_projectile_shot(Thing actor, Coord location, int confident_distance) {
     int distnace = ordinal_distance(location, actor->location);
     if (distnace > confident_distance)
         return false; // out of range
@@ -151,7 +209,7 @@ static Action get_ai_decision(Thing actor) {
                                 case WandId_WAND_OF_CONFUSION:
                                     if (has_status(target, StatusEffect::CONFUSION))
                                         break; // already confused.
-                                    if (is_clear_line_of_sight(actor, target->location, confident_zap_distance)) {
+                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
                                         // get him!
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
@@ -160,7 +218,7 @@ static Action get_ai_decision(Thing actor) {
                                     // i don't understand digging.
                                     break;
                                 case WandId_WAND_OF_STRIKING:
-                                    if (is_clear_line_of_sight(actor, target->location, confident_zap_distance)) {
+                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
                                         // get him!
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
@@ -178,7 +236,7 @@ static Action get_ai_decision(Thing actor) {
                                     }
                                     break;
                                 case WandId_UNKNOWN:
-                                    if (is_clear_line_of_sight(actor, target->location, confident_zap_distance)) {
+                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
                                         // um. sure.
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
@@ -196,7 +254,7 @@ static Action get_ai_decision(Thing actor) {
                                 case PotionId_POTION_OF_POISON:
                                     if (has_status(target, StatusEffect::POISON))
                                         break; // already poisoned
-                                    if (!is_clear_line_of_sight(actor, target->location, confident_throw_distance))
+                                    if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
                                         break; // too far
                                     range_attack_actions.append(Action::throw_(item->id, direction));
                                     break;
@@ -229,7 +287,7 @@ static Action get_ai_decision(Thing actor) {
                                 case PotionId_POTION_OF_BLINDNESS:
                                     if (has_status(target, StatusEffect::BLINDNESS))
                                         break; // already blind
-                                    if (!is_clear_line_of_sight(actor, target->location, confident_throw_distance))
+                                    if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
                                         break; // too far
                                     range_attack_actions.append(Action::throw_(item->id, direction));
                                     break;
@@ -261,7 +319,7 @@ static Action get_ai_decision(Thing actor) {
                         case Ability::SPIT_BLINDING_VENOM:
                             if (advanced_strategy && has_status(target, StatusEffect::BLINDNESS))
                                 break; // already blind
-                            if (!is_clear_line_of_sight(actor, target->location, confident_throw_distance))
+                            if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
