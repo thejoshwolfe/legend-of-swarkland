@@ -102,7 +102,6 @@ bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * ou
         }
     }
     // construct path
-    // take a double dump
     List<Coord> backwards_path;
     Node *it = best_node;
     while (it != nullptr) {
