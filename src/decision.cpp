@@ -180,6 +180,12 @@ static Action get_ai_decision(Thing actor) {
                 if (target->location == Coord::nowhere())
                     continue; // not available to pick up
                 break;
+            case ThingType_BOOK:
+                if (!advanced_strategy)
+                    continue; // can't read
+                if (target->location == Coord::nowhere())
+                    continue; // not available to pick up
+                break;
 
             case ThingType_COUNT:
                 unreachable();
@@ -326,6 +332,9 @@ static Action get_ai_decision(Thing actor) {
                                     unreachable();
                             }
                             break;
+                        case ThingType_BOOK:
+                            // TODO use books
+                            break;
 
                         case ThingType_COUNT:
                             unreachable();
@@ -379,8 +388,9 @@ static Action get_ai_decision(Thing actor) {
                     return Action::wait();
                 }
             }
+            case ThingType_WAND:
             case ThingType_POTION:
-            case ThingType_WAND: {
+            case ThingType_BOOK: {
                 // gimme that
                 if (target->location == actor->location)
                     return Action::pickup(target->id);

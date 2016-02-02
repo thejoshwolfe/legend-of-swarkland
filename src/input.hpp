@@ -12,11 +12,13 @@ enum InputMode {
     InputMode_THROW_CHOOSE_DIRECTION,
     InputMode_ABILITY_CHOOSE_DIRECTION,
     InputMode_ZAP_CHOOSE_DIRECTION,
+    InputMode_READ_BOOK_CHOOSE_DIRECTION,
     InputMode_FLOOR_CHOOSE_ACTION,
     InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES,
     InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE,
     InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID,
     InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID,
+    InputMode_CHEATCODE_WISH_CHOOSE_BOOK_ID,
     InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES,
     InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER,
     InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION,
@@ -34,6 +36,7 @@ extern int cheatcode_polymorph_choose_species_menu_cursor;
 extern int cheatcode_wish_choose_thing_type_menu_cursor;
 extern int cheatcode_wish_choose_wand_id_menu_cursor;
 extern int cheatcode_wish_choose_potion_id_menu_cursor;
+extern int cheatcode_wish_choose_book_id_menu_cursor;
 extern int cheatcode_generate_monster_choose_species_menu_cursor;
 extern int cheatcode_generate_monster_choose_decision_maker_menu_cursor;
 extern Coord cheatcode_generate_monster_choose_location_cursor;

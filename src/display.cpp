@@ -54,6 +54,8 @@ static RuckSackImage * wand_images[WandDescriptionId_COUNT];
 static RuckSackImage * unseen_wand_image;
 static RuckSackImage * potion_images[PotionDescriptionId_COUNT];
 static RuckSackImage * unseen_potion_image;
+static RuckSackImage * book_images[BookDescriptionId_COUNT];
+static RuckSackImage * unseen_book_image;
 static RuckSackImage * equipment_image;
 
 TTF_Font * status_box_font;
@@ -103,6 +105,9 @@ static void load_images() {
     potion_images[PotionDescriptionId_ORANGE_POTION] = find_image("img/potion/orange_potion.png");
     potion_images[PotionDescriptionId_PURPLE_POTION] = find_image("img/potion/purple_potion.png");
     unseen_potion_image = find_image("img/potion/unseen_potion.png");
+
+    book_images[BookDescriptionId_PURPLE_BOOK] = find_image("img/book/purple_book.png");
+    unseen_book_image = find_image("img/book/unseen_book.png");
 
     equipment_image = find_image("img/equipment.png");
 }
@@ -394,6 +399,17 @@ const char * get_potion_id_str(PotionId potion_id) {
     }
     unreachable();;
 }
+const char * get_book_id_str(BookId book_id) {
+    switch (book_id) {
+        case BookId_SPELLBOOK_OF_MAGIC_BULLET:
+            return "spellbook of magic bullet";
+
+        case BookId_COUNT:
+        case BookId_UNKNOWN:
+            unreachable();;
+    }
+    unreachable();;
+}
 static const char * get_potion_description_str(Thing observer, PerceivedThing item) {
     PotionDescriptionId description_id = item->potion_info()->description_id;
     PotionId true_id = description_id != PotionDescriptionId_UNSEEN ? observer->life()->knowledge.potion_identities[description_id] : PotionId_UNKNOWN;
@@ -418,9 +434,28 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "potion";
 
             case PotionDescriptionId_COUNT:
-                panic("not a real description id");
+                unreachable();
         }
-        panic("description id");
+        unreachable();
+    }
+}
+static const char * get_book_description_str(Thing observer, PerceivedThing item) {
+    BookDescriptionId description_id = item->book_info()->description_id;
+    BookId true_id = description_id != BookDescriptionId_UNSEEN ? observer->life()->knowledge.book_identities[description_id] : BookId_UNKNOWN;
+    if (true_id != BookId_UNKNOWN) {
+        return get_book_id_str(true_id);
+    } else {
+        switch (description_id) {
+            case BookDescriptionId_PURPLE_BOOK:
+                return "purple book";
+
+            case BookDescriptionId_UNSEEN:
+                return "book";
+
+            case BookDescriptionId_COUNT:
+                unreachable();
+        }
+        unreachable();
     }
 }
 static Span get_thing_description(Thing observer, uint256 target_id, bool verbose) {
@@ -447,6 +482,9 @@ static Span get_thing_description(Thing observer, uint256 target_id, bool verbos
         }
         case ThingType_POTION:
             result->append(new_span(get_potion_description_str(observer, target), light_green, black));
+            return result;
+        case ThingType_BOOK:
+            result->append(new_span(get_book_description_str(observer, target), light_green, black));
             return result;
 
         case ThingType_COUNT:
@@ -496,6 +534,10 @@ static RuckSackImage * get_image_for_thing(Reference<T> thing) {
             if (thing->potion_info()->description_id == PotionDescriptionId_UNSEEN)
                 return unseen_potion_image;
             return potion_images[thing->potion_info()->description_id];
+        case ThingType_BOOK:
+            if (thing->book_info()->description_id == BookDescriptionId_UNSEEN)
+                return unseen_book_image;
+            return book_images[thing->book_info()->description_id];
 
         case ThingType_COUNT:
             unreachable();
@@ -552,6 +594,8 @@ static Div cheatcode_wish_choose_wand_id_menu_div = new_div();
 static int last_cheatcode_wish_choose_wand_id_menu_cursor = -1;
 static Div cheatcode_wish_choose_potion_id_menu_div = new_div();
 static int last_cheatcode_wish_choose_potion_id_menu_cursor = -1;
+static Div cheatcode_wish_choose_book_id_menu_div = new_div();
+static int last_cheatcode_wish_choose_book_id_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_species_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
@@ -614,8 +658,9 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
                     case Action::QUAFF:
                         lines.append("Tab/s: accept");
                         break;
-                    case Action::THROW:
                     case Action::ZAP:
+                    case Action::READ_BOOK:
+                    case Action::THROW:
                         lines.append("Tab/s: accept...");
                         break;
 
@@ -653,6 +698,7 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
             case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
             case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
             case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
+            case InputMode_CHEATCODE_WISH_CHOOSE_BOOK_ID:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
                 lines.append("w/x: move cursor");
@@ -666,6 +712,7 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
             case InputMode_ZAP_CHOOSE_DIRECTION:
+            case InputMode_READ_BOOK_CHOOSE_DIRECTION:
             case InputMode_ABILITY_CHOOSE_DIRECTION:
                 lines.append("qweadzxc: direction");
                 lines.append("s: yourself");
@@ -739,6 +786,8 @@ static const char * get_action_text(Action::Id action_id) {
             return "throw";
         case Action::ZAP:
             return "zap";
+        case Action::READ_BOOK:
+            return "cast spell";
 
         case Action::WAIT:
         case Action::MOVE:
@@ -786,6 +835,7 @@ static Span render_action(Thing actor, const Action & action) {
         case Action::QUAFF:
         case Action::THROW:
         case Action::ZAP:
+        case Action::READ_BOOK:
         case Action::WAIT:
         case Action::MOVE:
         case Action::ATTACK:
@@ -824,6 +874,9 @@ static Span render_thing_type(ThingType thing_type) {
         case ThingType_POTION:
             result->format("%g%s", unseen_potion_image, new_span("potion"));
             break;
+        case ThingType_BOOK:
+            result->format("%g%s", unseen_book_image, new_span("book"));
+            break;
 
         case ThingType_COUNT:
             unreachable();
@@ -854,6 +907,19 @@ static Span render_potion_id(PotionId potion_id) {
     }
     assert(description_id != PotionDescriptionId_UNSEEN);
     result->format("%g%s", potion_images[description_id], new_span(get_potion_id_str((PotionId)potion_id)));
+    return result;
+}
+static Span render_book_id(BookId book_id) {
+    Span result = new_span();
+    BookDescriptionId description_id = BookDescriptionId_UNSEEN;
+    for (int i = 0; i < BookDescriptionId_COUNT; i++) {
+        if (actual_book_identities[i] == book_id) {
+            description_id = (BookDescriptionId)i;
+            break;
+        }
+    }
+    assert(description_id != BookDescriptionId_UNSEEN);
+    result->format("%g%s", book_images[description_id], new_span(get_book_id_str((BookId)book_id)));
     return result;
 }
 static Span render_species(SpeciesId species_id) {
@@ -920,6 +986,7 @@ void render() {
     bool show_cheatcode_wish_choose_thing_type_menu = false;
     bool show_cheatcode_wish_choose_wand_id_menu = false;
     bool show_cheatcode_wish_choose_potion_id_menu = false;
+    bool show_cheatcode_wish_choose_book_id_menu = false;
     bool show_cheatcode_generate_monster_choose_species_menu = false;
     bool show_cheatcode_generate_monster_choose_decision_maker_menu = false;
     bool show_cheatcode_generate_monster_location_cursor = false;
@@ -948,6 +1015,7 @@ void render() {
             show_map_popup_help = true;
             break;
         case InputMode_ZAP_CHOOSE_DIRECTION:
+        case InputMode_READ_BOOK_CHOOSE_DIRECTION:
             direction_distance_min = beam_length_average - beam_length_error_margin;
             direction_distance_max = beam_length_average + beam_length_error_margin;
             show_inventory_cursor = true;
@@ -982,6 +1050,9 @@ void render() {
             break;
         case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
             show_cheatcode_wish_choose_potion_id_menu = true;
+            break;
+        case InputMode_CHEATCODE_WISH_CHOOSE_BOOK_ID:
+            show_cheatcode_wish_choose_book_id_menu = true;
             break;
         case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             show_cheatcode_generate_monster_choose_species_menu = true;
@@ -1336,6 +1407,23 @@ void render() {
             }
         }
         popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_potion_id_menu_div);
+    }
+    if (show_cheatcode_wish_choose_book_id_menu) {
+        if (last_cheatcode_wish_choose_book_id_menu_cursor != cheatcode_wish_choose_book_id_menu_cursor) {
+            // rerender menu div
+            cheatcode_wish_choose_book_id_menu_div->clear();
+            last_cheatcode_wish_choose_book_id_menu_cursor = cheatcode_wish_choose_book_id_menu_cursor;
+            for (int i = 0; i < BookId_COUNT; i++) {
+                if (i > 0)
+                    cheatcode_wish_choose_book_id_menu_div->append_newline();
+                Span item_span = render_book_id((BookId)i);
+                if (i == cheatcode_wish_choose_book_id_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
+                }
+                cheatcode_wish_choose_book_id_menu_div->append(item_span);
+            }
+        }
+        popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_book_id_menu_div);
     }
     if (show_cheatcode_generate_monster_choose_species_menu) {
         if (last_cheatcode_generate_monster_choose_species_menu_cursor != cheatcode_generate_monster_choose_species_menu_cursor) {

@@ -16,6 +16,7 @@ int cheatcode_polymorph_choose_species_menu_cursor;
 int cheatcode_wish_choose_thing_type_menu_cursor;
 int cheatcode_wish_choose_wand_id_menu_cursor;
 int cheatcode_wish_choose_potion_id_menu_cursor;
+int cheatcode_wish_choose_book_id_menu_cursor;
 int cheatcode_generate_monster_choose_species_menu_cursor;
 int cheatcode_generate_monster_choose_decision_maker_menu_cursor;
 Coord cheatcode_generate_monster_choose_location_cursor = {map_size.x / 2, map_size.y / 2};
@@ -244,12 +245,15 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
                 case ThingType_POTION:
                     inventory_menu_items.append(Action::QUAFF);
                     break;
+                case ThingType_BOOK:
+                    inventory_menu_items.append(Action::READ_BOOK);
+                    break;
 
                 case ThingType_COUNT:
                     unreachable();
             }
-            inventory_menu_items.append(Action::DROP);
             inventory_menu_items.append(Action::THROW);
+            inventory_menu_items.append(Action::DROP);
             inventory_menu_cursor = 0;
 
             input_mode = InputMode_INVENTORY_CHOOSE_ACTION;
@@ -352,6 +356,10 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                     break;
                 case Action::ZAP:
                     input_mode = InputMode_ZAP_CHOOSE_DIRECTION;
+                    inventory_menu_items.clear();
+                    break;
+                case Action::READ_BOOK:
+                    input_mode = InputMode_READ_BOOK_CHOOSE_DIRECTION;
                     inventory_menu_items.clear();
                     break;
 
@@ -477,6 +485,9 @@ static Action on_key_down_cheatcode_wish_choose_thing_type(const SDL_Event & eve
                 case ThingType_POTION:
                     input_mode = InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID;
                     break;
+                case ThingType_BOOK:
+                    input_mode = InputMode_CHEATCODE_WISH_CHOOSE_BOOK_ID;
+                    break;
 
                 case ThingType_COUNT:
                     unreachable();
@@ -491,7 +502,7 @@ static Action on_key_down_cheatcode_wish_choose_thing_type(const SDL_Event & eve
 static Action on_key_down_cheatcode_wish_choose_wand_id(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {
         case SDL_SCANCODE_ESCAPE:
-            input_mode = InputMode_MAIN;
+            input_mode = InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE;
             break;
 
         case SDL_SCANCODE_KP_8:
@@ -516,7 +527,7 @@ static Action on_key_down_cheatcode_wish_choose_wand_id(const SDL_Event & event)
 static Action on_key_down_cheatcode_wish_choose_potion_id(const SDL_Event & event) {
     switch (event.key.keysym.scancode) {
         case SDL_SCANCODE_ESCAPE:
-            input_mode = InputMode_MAIN;
+            input_mode = InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE;
             break;
 
         case SDL_SCANCODE_KP_8:
@@ -532,6 +543,31 @@ static Action on_key_down_cheatcode_wish_choose_potion_id(const SDL_Event & even
             // accept
             input_mode = InputMode_MAIN;
             return Action::cheatcode_wish((PotionId)cheatcode_wish_choose_potion_id_menu_cursor);
+
+        default:
+            break;
+    }
+    return Action::undecided();
+}
+static Action on_key_down_cheatcode_wish_choose_book_id(const SDL_Event & event) {
+    switch (event.key.keysym.scancode) {
+        case SDL_SCANCODE_ESCAPE:
+            input_mode = InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE;
+            break;
+
+        case SDL_SCANCODE_KP_8:
+        case SDL_SCANCODE_W:
+        case SDL_SCANCODE_KP_2:
+        case SDL_SCANCODE_X:
+            // move the cursor
+            cheatcode_wish_choose_book_id_menu_cursor = (cheatcode_wish_choose_book_id_menu_cursor + get_direction_from_event(event).y + BookId_COUNT) % BookId_COUNT;
+            break;
+        case SDL_SCANCODE_TAB:
+        case SDL_SCANCODE_KP_5:
+        case SDL_SCANCODE_S:
+            // accept
+            input_mode = InputMode_MAIN;
+            return Action::cheatcode_wish((BookId)cheatcode_wish_choose_book_id_menu_cursor);
 
         default:
             break;
@@ -663,6 +699,9 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
                 case InputMode_ZAP_CHOOSE_DIRECTION:
                     input_mode = InputMode_MAIN;
                     return Action::zap(chosen_item->id, get_direction_from_event(event));
+                case InputMode_READ_BOOK_CHOOSE_DIRECTION:
+                    input_mode = InputMode_MAIN;
+                    return Action::read_book(chosen_item->id, get_direction_from_event(event));
                 case InputMode_ABILITY_CHOOSE_DIRECTION:
                     input_mode = InputMode_MAIN;
                     return Action::ability(chosen_ability, get_direction_from_event(event));
@@ -675,6 +714,7 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
                 case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
                 case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
                 case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
+                case InputMode_CHEATCODE_WISH_CHOOSE_BOOK_ID:
                 case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
                 case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
                 case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
@@ -702,6 +742,7 @@ static Action on_key_down(const SDL_Event & event) {
             return on_key_down_floor_choose_action(event);
         case InputMode_THROW_CHOOSE_DIRECTION:
         case InputMode_ZAP_CHOOSE_DIRECTION:
+        case InputMode_READ_BOOK_CHOOSE_DIRECTION:
         case InputMode_ABILITY_CHOOSE_DIRECTION:
             return on_key_down_choose_direction(event);
 
@@ -713,6 +754,8 @@ static Action on_key_down(const SDL_Event & event) {
             return on_key_down_cheatcode_wish_choose_wand_id(event);
         case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
             return on_key_down_cheatcode_wish_choose_potion_id(event);
+        case InputMode_CHEATCODE_WISH_CHOOSE_BOOK_ID:
+            return on_key_down_cheatcode_wish_choose_book_id(event);
         case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             return on_key_down_cheatcode_generate_monster_choose_species(event);
         case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:

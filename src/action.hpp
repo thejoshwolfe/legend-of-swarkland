@@ -13,6 +13,7 @@ struct Action {
         PICKUP,
         DROP,
         QUAFF,
+        READ_BOOK,
         THROW,
         ABILITY,
         GO_DOWN,
@@ -52,6 +53,7 @@ struct Action {
             SpeciesId species_id;
             WandId wand_id;
             PotionId potion_id;
+            BookId book_id;
         };
     };
     struct GenerateMonster {
@@ -115,6 +117,9 @@ struct Action {
     static Action zap(uint256 item_id, Coord direction) {
         return init(ZAP, direction, item_id);
     }
+    static Action read_book(uint256 item_id, Coord direction) {
+        return init(READ_BOOK, direction, item_id);
+    }
     static Action pickup(uint256 item_id) {
         return init(PICKUP, item_id);
     }
@@ -152,6 +157,9 @@ struct Action {
     }
     static Action cheatcode_wish(PotionId potion_id) {
         return init(CHEATCODE_WISH, potion_id);
+    }
+    static Action cheatcode_wish(BookId book_id) {
+        return init(CHEATCODE_WISH, book_id);
     }
     static Action cheatcode_identify() {
         return init(CHEATCODE_IDENTIFY);
@@ -214,6 +222,14 @@ struct Action {
         result._thing.potion_id = potion_id;
         return result;
     }
+    static Action init(Id id, BookId book_id) {
+        assert(get_layout(id) == Layout_THING);
+        Action result;
+        result.id = id;
+        result._thing.thing_type = ThingType_BOOK;
+        result._thing.book_id = book_id;
+        return result;
+    }
     static Action init(Id id, SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
         assert(get_layout(id) == Layout_GENERATE_MONSTER);
         Action result;
@@ -260,6 +276,7 @@ private:
             case QUAFF:
                 return Layout_ITEM;
             case ZAP:
+            case READ_BOOK:
             case THROW:
                 return Layout_COORD_AND_ITEM;
             case ABILITY:
@@ -335,6 +352,10 @@ static inline bool operator==(const Action & a, const Action &  b) {
                     return true;
                 case ThingType_POTION:
                     if (a_data.potion_id != b_data.potion_id)
+                        return false;
+                    return true;
+                case ThingType_BOOK:
+                    if (a_data.book_id != b_data.book_id)
                         return false;
                     return true;
 

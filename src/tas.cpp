@@ -290,6 +290,7 @@ static String decision_maker_names[DecisionMakerType_COUNT];
 static String thing_type_names[ThingType_COUNT];
 static String wand_id_names[WandId_COUNT];
 static String potion_id_names[PotionId_COUNT];
+static String book_id_names[BookId_COUNT];
 static String ability_names[Ability::COUNT];
 
 static const char * const RNG_DIRECTIVE = "@rng";
@@ -309,6 +310,7 @@ static void init_name_arrays() {
     action_names[Action::PICKUP] = new_string("pickup");
     action_names[Action::DROP] = new_string("drop");
     action_names[Action::QUAFF] = new_string("quaff");
+    action_names[Action::READ_BOOK] = new_string("read_book");
     action_names[Action::THROW] = new_string("throw");
     action_names[Action::GO_DOWN] = new_string("down");
     action_names[Action::ABILITY] = new_string("ability");
@@ -351,6 +353,7 @@ static void init_name_arrays() {
     thing_type_names[ThingType_INDIVIDUAL] = new_string("individual");
     thing_type_names[ThingType_WAND] = new_string("wand");
     thing_type_names[ThingType_POTION] = new_string("potion");
+    thing_type_names[ThingType_BOOK] = new_string("book");
     check_no_nulls(thing_type_names);
 
     wand_id_names[WandId_WAND_OF_CONFUSION] = new_string("confusion");
@@ -367,6 +370,9 @@ static void init_name_arrays() {
     potion_id_names[PotionId_POTION_OF_BLINDNESS] = new_string("blindness");
     potion_id_names[PotionId_POTION_OF_INVISIBILITY] = new_string("invisibility");
     check_no_nulls(potion_id_names);
+
+    book_id_names[BookId_SPELLBOOK_OF_MAGIC_BULLET] = new_string("magic_bullet");
+    check_no_nulls(book_id_names);
 
     ability_names[Ability::SPIT_BLINDING_VENOM] = new_string("spit_blinding_venom");
     check_no_nulls(ability_names);
@@ -421,6 +427,15 @@ static PotionId parse_potion_id(const Token & token) {
     if (*token.string == *new_string("unknown"))
         return PotionId_UNKNOWN;
     report_error(token, 0, "undefined potion id");
+}
+static BookId parse_book_id(const Token & token) {
+    for (int i = 0; i < BookId_COUNT; i++) {
+        if (*book_id_names[i] == *token.string)
+            return (BookId)i;
+    }
+    if (*token.string == *new_string("unknown"))
+        return BookId_UNKNOWN;
+    report_error(token, 0, "undefined book id");
 }
 static Ability::Id parse_ability_id(const Token & token) {
     for (int i = 0; i < Ability::COUNT; i++) {
@@ -619,6 +634,9 @@ static Action read_action() {
                 case ThingType_POTION:
                     data.potion_id = parse_potion_id(tokens[2]);
                     break;
+                case ThingType_BOOK:
+                    data.book_id = parse_book_id(tokens[2]);
+                    break;
 
                 case ThingType_COUNT:
                     unreachable();
@@ -701,6 +719,11 @@ static String action_to_string(const Action & action) {
                 case ThingType_POTION: {
                     String potion_id_string = potion_id_names[data.potion_id];
                     result->format("%s %s %s\n", action_type_string, thing_type_string, potion_id_string);
+                    break;
+                }
+                case ThingType_BOOK: {
+                    String book_id_string = book_id_names[data.book_id];
+                    result->format("%s %s %s\n", action_type_string, thing_type_string, book_id_string);
                     break;
                 }
 

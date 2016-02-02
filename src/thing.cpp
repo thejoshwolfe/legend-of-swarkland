@@ -46,6 +46,13 @@ ThingImpl::ThingImpl(PotionDescriptionId description_id) :
     _potion_info = create<PotionInfo>();
     _potion_info->description_id = description_id;
 }
+ThingImpl::ThingImpl(BookDescriptionId description_id) :
+    thing_type(ThingType_BOOK)
+{
+    id = random_id();
+    _book_info = create<BookInfo>();
+    _book_info->description_id = description_id;
+}
 
 
 const Species * Life::species() const {

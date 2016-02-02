@@ -19,6 +19,8 @@
       globImages: [
         { glob: "*.png", path: "assets/img/",
           anchor: "topleft", prefix:  "img/", },
+        { glob: "*.png", path: "assets/img/book/",
+          anchor: "topleft", prefix:  "img/book/", },
         { glob: "*.png", path: "assets/img/individual/",
           anchor: "topleft", prefix:  "img/individual/", },
         { glob: "*.png", path: "assets/img/map/",

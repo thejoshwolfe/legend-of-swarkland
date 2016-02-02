@@ -229,12 +229,16 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     if (item_breaks) {
         switch (item->thing_type) {
             case ThingType_INDIVIDUAL:
-                panic("we're not throwing an individual");
+                unreachable();
             case ThingType_WAND:
                 explode_wand(actor, item, cursor);
                 break;
             case ThingType_POTION:
                 break_potion(actor, item, cursor);
+                break;
+            case ThingType_BOOK:
+                // actually, the book doesn't break
+                drop_item_to_the_floor(item, cursor);
                 break;
 
             case ThingType_COUNT:
@@ -627,6 +631,19 @@ bool validate_action(Thing actor, const Action & action) {
                 return false;
             return true;
         }
+        case Action::READ_BOOK: {
+            const Action::CoordAndItem & data = action.coord_and_item();
+            if (!is_direction(data.coord, true))
+                return false;
+            PerceivedThing item = actor->life()->knowledge.perceived_things.get(data.item, nullptr);
+            if (item == nullptr)
+                return false;
+            if (item->container_id != actor->id)
+                return false;
+            if (item->thing_type != ThingType_BOOK)
+                return false;
+            return true;
+        }
         case Action::GO_DOWN:
             return actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN;
         case Action::ABILITY: {
@@ -728,6 +745,9 @@ static String get_thing_description(const Action::Thing & thing) {
         case ThingType_POTION:
             result->append(get_potion_id_str(thing.potion_id));
             return result;
+        case ThingType_BOOK:
+            result->append(get_book_id_str(thing.book_id));
+            return result;
         case ThingType_COUNT:
             unreachable();
     }
@@ -760,6 +780,15 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
                         continue;
                 } else {
                     if (actual_potion_identities[thing->potion_info()->description_id] != expected_thing.potion_id)
+                        continue;
+                }
+                break;
+            case ThingType_BOOK:
+                if (thing->book_info()->description_id == BookDescriptionId_UNSEEN) {
+                    if (expected_thing.book_id != BookId_UNKNOWN)
+                        continue;
+                } else {
+                    if (actual_book_identities[thing->book_info()->description_id] != expected_thing.book_id)
                         continue;
                 }
                 break;
@@ -828,6 +857,9 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::ZAP:
             zap_wand(actor, action.coord_and_item().item, confuse_direction(actor, action.coord_and_item().coord));
             break;
+        case Action::READ_BOOK:
+            read_book(actor, action.coord_and_item().item, confuse_direction(actor, action.coord_and_item().coord));
+            break;
         case Action::PICKUP:
             pickup_item(actor, actual_things.get(action.item()));
             publish_event(Event::individual_picks_up_item(actor, action.item()));
@@ -878,6 +910,9 @@ static bool take_action(Thing actor, const Action & action) {
                     return false;
                 case ThingType_POTION:
                     drop_item_to_the_floor(create_potion(data.potion_id), actor->location);
+                    return false;
+                case ThingType_BOOK:
+                    drop_item_to_the_floor(create_book(data.book_id), actor->location);
                     return false;
 
                 case ThingType_COUNT:

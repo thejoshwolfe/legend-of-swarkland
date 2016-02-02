@@ -7,6 +7,7 @@
 
 WandId actual_wand_identities[WandDescriptionId_COUNT];
 PotionId actual_potion_identities[PotionDescriptionId_COUNT];
+BookId actual_book_identities[BookDescriptionId_COUNT];
 
 static Thing register_item(Thing item) {
     actual_things.put(item->id, item);
@@ -16,13 +17,19 @@ static WandDescriptionId reverse_identify(WandId wand_id) {
     for (int i = 0; i < WandDescriptionId_COUNT; i++)
         if (actual_wand_identities[i] == wand_id)
             return (WandDescriptionId)i;
-    panic("wand not found");
+    unreachable();
 }
 static PotionDescriptionId reverse_identify(PotionId potion_id) {
     for (int i = 0; i < PotionDescriptionId_COUNT; i++)
         if (actual_potion_identities[i] == potion_id)
             return (PotionDescriptionId)i;
-    panic("potion not found");
+    unreachable();
+}
+static BookDescriptionId reverse_identify(BookId book_id) {
+    for (int i = 0; i < BookDescriptionId_COUNT; i++)
+        if (actual_book_identities[i] == book_id)
+            return (BookDescriptionId)i;
+    unreachable();
 }
 Thing create_wand(WandId wand_id) {
     WandDescriptionId description_id = reverse_identify(wand_id);
@@ -33,15 +40,21 @@ Thing create_potion(PotionId potion_id) {
     PotionDescriptionId description_id = reverse_identify(potion_id);
     return register_item(create<ThingImpl>(description_id));
 }
+Thing create_book(BookId book_id) {
+    BookDescriptionId description_id = reverse_identify(book_id);
+    return register_item(create<ThingImpl>(description_id));
+}
 
 Thing create_random_item(ThingType thing_type) {
     switch (thing_type) {
-        case ThingType_POTION:
-            return create_potion((PotionId)random_int(PotionId_COUNT, nullptr));
+        case ThingType_INDIVIDUAL:
+            unreachable();
         case ThingType_WAND:
             return create_wand((WandId)random_int(WandId_COUNT, nullptr));
-        case ThingType_INDIVIDUAL:
-            panic("not an item");
+        case ThingType_POTION:
+            return create_potion((PotionId)random_int(PotionId_COUNT, nullptr));
+        case ThingType_BOOK:
+            return create_book((BookId)random_int(BookId_COUNT, nullptr));
 
         case ThingType_COUNT:
             unreachable();
@@ -49,10 +62,13 @@ Thing create_random_item(ThingType thing_type) {
     panic("thing type");
 }
 Thing create_random_item() {
-    if (random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT, nullptr) < WandDescriptionId_COUNT)
+    int thing_type_selector = random_int(WandDescriptionId_COUNT + PotionDescriptionId_COUNT + BookDescriptionId_COUNT, nullptr);
+    if (thing_type_selector < WandDescriptionId_COUNT)
         return create_random_item(ThingType_WAND);
-    else
+    else if (thing_type_selector < WandDescriptionId_COUNT + PotionDescriptionId_COUNT)
         return create_random_item(ThingType_POTION);
+    else
+        return create_random_item(ThingType_BOOK);
 }
 
 // return how much extra beam length this happening requires.
@@ -190,6 +206,13 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
         if (direction == Coord{0, 0})
             break; // zapping yourself
     }
+}
+
+void read_book(Thing actor, uint256 item_id, Coord direction) {
+    panic("TODO");
+    actor->life();
+    if (item_id == uint256::zero())
+        abs(direction);
 }
 
 // is_breaking is used in the published event

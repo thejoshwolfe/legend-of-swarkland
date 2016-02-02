@@ -128,6 +128,10 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
                 if (thing->potion_info()->description_id == PotionDescriptionId_UNSEEN)
                     return thing->id; // already got one
                 break;
+            case ThingType_BOOK:
+                if (thing->book_info()->description_id == BookDescriptionId_UNSEEN)
+                    return thing->id; // already got one
+                break;
 
             case ThingType_COUNT:
                 unreachable();
@@ -144,6 +148,9 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
             break;
         case ThingType_POTION:
             thing = create<PerceivedThingImpl>(id, true, PotionDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
+            break;
+        case ThingType_BOOK:
+            thing = create<PerceivedThingImpl>(id, true, BookDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
             break;
 
         case ThingType_COUNT:
@@ -357,6 +364,8 @@ static PerceivedThing new_perceived_thing(uint256 id, ThingType thing_type) {
             return create<PerceivedThingImpl>(id, false, WandDescriptionId_UNSEEN, Coord::nowhere(), uint256::zero(), 0, time_counter);
         case ThingType_POTION:
             return create<PerceivedThingImpl>(id, false, PotionDescriptionId_UNSEEN, Coord::nowhere(), uint256::zero(), 0, time_counter);
+        case ThingType_BOOK:
+            return create<PerceivedThingImpl>(id, false, BookDescriptionId_UNSEEN, Coord::nowhere(), uint256::zero(), 0, time_counter);
 
         case ThingType_COUNT:
             unreachable();
@@ -372,21 +381,22 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
     target->last_seen_time = time_counter;
 
     switch (target->thing_type) {
-        case ThingType_INDIVIDUAL: {
+        case ThingType_INDIVIDUAL:
             if (can_see_shape(vision))
                 target->life()->species_id = actual_target->life()->species_id;
             break;
-        }
-        case ThingType_WAND: {
+        case ThingType_WAND:
             if (can_see_color(vision))
                 target->wand_info()->description_id = actual_target->wand_info()->description_id;
             break;
-        }
-        case ThingType_POTION: {
+        case ThingType_POTION:
             if (can_see_color(vision))
                 target->potion_info()->description_id = actual_target->potion_info()->description_id;
             break;
-        }
+        case ThingType_BOOK:
+            if (can_see_color(vision))
+                target->book_info()->description_id = actual_target->book_info()->description_id;
+            break;
 
         case ThingType_COUNT:
             unreachable();

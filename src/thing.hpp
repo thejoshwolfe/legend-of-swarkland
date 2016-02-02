@@ -18,6 +18,7 @@ enum ThingType {
     ThingType_INDIVIDUAL,
     ThingType_WAND,
     ThingType_POTION,
+    ThingType_BOOK,
 
     ThingType_COUNT,
 };
@@ -66,8 +67,22 @@ enum PotionId {
     PotionId_UNKNOWN,
 };
 
+enum BookDescriptionId {
+    BookDescriptionId_PURPLE_BOOK,
+
+    BookDescriptionId_COUNT,
+    BookDescriptionId_UNSEEN,
+};
+enum BookId {
+    BookId_SPELLBOOK_OF_MAGIC_BULLET,
+
+    BookId_COUNT,
+    BookId_UNKNOWN,
+};
+
 extern WandId actual_wand_identities[WandDescriptionId_COUNT];
 extern PotionId actual_potion_identities[PotionDescriptionId_COUNT];
+extern BookId actual_book_identities[BookDescriptionId_COUNT];
 
 enum SpeciesId {
     SpeciesId_HUMAN,
@@ -222,6 +237,9 @@ struct PerceivedWandInfo {
 struct PerceivedPotionInfo {
     PotionDescriptionId description_id;
 };
+struct PerceivedBookInfo {
+    BookDescriptionId description_id;
+};
 struct PerceivedLife {
     SpeciesId species_id;
 };
@@ -256,6 +274,12 @@ public:
         _potion_info = create<PerceivedPotionInfo>();
         _potion_info->description_id = description_id;
     }
+    // book
+    PerceivedThingImpl(uint256 id, bool is_placeholder, BookDescriptionId description_id, Coord location, uint256 container_id, int z_order, int64_t last_seen_time) :
+            id(id), is_placeholder(is_placeholder), thing_type(ThingType_BOOK), location(location), container_id(container_id), z_order(z_order), last_seen_time(last_seen_time) {
+        _book_info = create<PerceivedBookInfo>();
+        _book_info->description_id = description_id;
+    }
     ~PerceivedThingImpl() {
         switch (thing_type) {
             case ThingType_INDIVIDUAL:
@@ -267,31 +291,36 @@ public:
             case ThingType_POTION:
                 destroy(_potion_info, 1);
                 break;
+            case ThingType_BOOK:
+                destroy(_book_info, 1);
+                break;
 
             case ThingType_COUNT:
                 unreachable();
         }
     }
     PerceivedLife * life() {
-        if (thing_type != ThingType_INDIVIDUAL)
-            panic("wrong type");
+        assert_str(thing_type == ThingType_INDIVIDUAL, "wrong type");
         return _life;
     }
     PerceivedWandInfo * wand_info() {
-        if (thing_type != ThingType_WAND)
-            panic("wrong type");
+        assert_str(thing_type == ThingType_WAND, "wrong type");
         return _wand_info;
     }
     PerceivedPotionInfo * potion_info() {
-        if (thing_type != ThingType_POTION)
-            panic("wrong type");
+        assert_str(thing_type == ThingType_POTION, "wrong type");
         return _potion_info;
+    }
+    PerceivedBookInfo * book_info() {
+        assert_str(thing_type == ThingType_BOOK, "wrong type");
+        return _book_info;
     }
 private:
     union {
         PerceivedLife * _life;
         PerceivedWandInfo * _wand_info;
         PerceivedPotionInfo * _potion_info;
+        PerceivedBookInfo * _book_info;
     };
 };
 typedef Reference<PerceivedThingImpl> PerceivedThing;
@@ -312,6 +341,7 @@ struct Knowledge {
     // these are never wrong
     WandId wand_identities[WandDescriptionId_COUNT];
     PotionId potion_identities[PotionDescriptionId_COUNT];
+    BookId book_identities[BookDescriptionId_COUNT];
 
     IdMap<PerceivedThing> perceived_things;
     Knowledge() {
@@ -367,6 +397,9 @@ struct WandInfo {
 struct PotionInfo {
     PotionDescriptionId description_id;
 };
+struct BookInfo {
+    BookDescriptionId description_id;
+};
 
 class ThingImpl : public ReferenceCounted {
 public:
@@ -388,6 +421,8 @@ public:
     ThingImpl(WandDescriptionId description_id, int charges);
     // potion
     ThingImpl(PotionDescriptionId description_id);
+    // book
+    ThingImpl(BookDescriptionId description_id);
 
     ~ThingImpl() {
         switch (thing_type) {
@@ -399,6 +434,9 @@ public:
                 break;
             case ThingType_POTION:
                 destroy(_potion_info, 1);
+                break;
+            case ThingType_BOOK:
+                destroy(_book_info, 1);
                 break;
 
             case ThingType_COUNT:
@@ -424,11 +462,17 @@ public:
             panic("wrong type");
         return _potion_info;
     }
+    BookInfo * book_info() {
+        if (thing_type != ThingType_BOOK)
+            panic("wrong type");
+        return _book_info;
+    }
 private:
     union {
         Life * _life;
         WandInfo * _wand_info;
         PotionInfo * _potion_info;
+        BookInfo * _book_info;
     };
 
     ThingImpl(ThingImpl &) = delete;
