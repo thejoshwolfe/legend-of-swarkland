@@ -5,9 +5,9 @@ pickup 0000000000000000000000000000000000000000000000000000000000000002
 @mark_events
   read_book 1 0 0000000000000000000000000000000000000000000000000000000000000002
     @rng 6 inclusive:6:12:beam_length
-    @rng 4 range:4:8:striking_damage
+    @rng 2 inclusive:1:2:magic_bullet_damage
   @expect_event "you reads a purple book."
-  @expect_event "a magic beam strikes a dog!"
+  @expect_event "a magic beam pelts a dog!"
   @expect_no_events
 wait
 

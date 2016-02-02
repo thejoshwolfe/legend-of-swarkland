@@ -10,6 +10,7 @@ enum MagicBeamEffect {
     MagicBeamEffect_STRIKING,
     MagicBeamEffect_SPEED,
     MagicBeamEffect_REMEDY,
+    MagicBeamEffect_MAGIC_BULLET,
 };
 
 struct Event {

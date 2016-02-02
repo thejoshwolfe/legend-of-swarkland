@@ -124,8 +124,8 @@ static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<u
     return 2;
 }
 static int magic_bullet_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_STRIKING, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
-    strike_individual(actor, target);
+    publish_event(Event::magic_beam_hit(MagicBeamEffect_MAGIC_BULLET, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
+    magic_bullet_hit_individual(actor, target);
     return -1;
 }
 

@@ -1209,8 +1209,11 @@ void speed_up_individual(Thing target) {
 }
 
 void strike_individual(Thing attacker, Thing target) {
-    // it's just some damage
     int damage = random_int(4, 8, "striking_damage");
+    damage_individual(target, damage, attacker, false);
+}
+void magic_bullet_hit_individual(Thing attacker, Thing target) {
+    int damage = random_inclusive(1, 2, "magic_bullet_damage");
     damage_individual(target, damage, attacker, false);
 }
 void change_map(Coord location, TileType new_tile_type) {

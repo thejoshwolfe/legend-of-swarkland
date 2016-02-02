@@ -122,6 +122,10 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
 ### 5.0.0
 
+ * Stairs up.
+
+### 4.3.0
+
  * Spells and MP.
  * New items:
    * spellbooks of: assume form, charm, fear, force, life syphon, magic bullet, mapping, slowing

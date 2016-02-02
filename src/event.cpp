@@ -721,7 +721,6 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
                 case MagicBeamEffect_STRIKING:
                     remembered_event->span->format("%s strikes %s!", beam_description, target_description);
                     wand_id = WandId_WAND_OF_STRIKING;
-                    book_id = BookId_SPELLBOOK_OF_MAGIC_BULLET;
                     break;
                 case MagicBeamEffect_SPEED:
                     remembered_event->span->format("%s hits %s; %s speeds up!", beam_description, target_description, target_description);
@@ -733,6 +732,11 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
                     // statuses are removed by other events
                     wand_id = WandId_WAND_OF_REMEDY;
                     break;
+                case MagicBeamEffect_MAGIC_BULLET:
+                    remembered_event->span->format("%s pelts %s!", beam_description, target_description);
+                    book_id = BookId_SPELLBOOK_OF_MAGIC_BULLET;
+                    break;
+
 
                 case MagicBeamEffect_UNKNOWN:
                     // nothing happens
