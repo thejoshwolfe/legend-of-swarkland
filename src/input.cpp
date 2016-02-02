@@ -161,6 +161,9 @@ static Action on_key_down_main(const SDL_Event & event) {
                 // this might end up doing nothing
                 start_auto_wait();
                 return Action::auto_wait();
+            case SDL_SCANCODE_ESCAPE:
+                // this can cancel auto wait
+                return Action::undecided();
             case SDL_SCANCODE_V: {
                 List<Ability::Id> abilities;
                 get_abilities(player_actor, &abilities);
@@ -724,16 +727,14 @@ void read_input() {
     assert(!headless_mode);
 
     SDL_Event event;
-    Action action = Action::undecided();
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_KEYDOWN:
-                action = on_key_down(event);
+                current_player_decision = on_key_down(event);
                 break;
             case SDL_QUIT:
                 request_shutdown = true;
                 break;
         }
     }
-    current_player_decision = action;
 }

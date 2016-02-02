@@ -6,7 +6,7 @@
 #include "event.hpp"
 
 Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
-Action current_player_decision;
+Action current_player_decision = Action::undecided();
 
 static int start_waiting_event_count = -1;
 static int previous_waiting_hp;
@@ -70,6 +70,7 @@ static Action get_auto_wait_decision() {
     // i guess there's no point in waiting
     return Action::undecided();
 }
+static int auto_wait_animation_index = 0;
 static Action get_player_decision(Thing actor) {
     player_actor = actor;
     Action action = tas_get_decision();
@@ -84,6 +85,11 @@ static Action get_player_decision(Thing actor) {
             action = get_auto_wait_decision();
             if (action.id != Action::UNDECIDED) {
                 // auto-wait has decided
+                auto_wait_animation_index = 1 - auto_wait_animation_index;
+                if (auto_wait_animation_index == 0) {
+                    // hold that thought. let's draw the screen first.
+                    return Action::undecided();
+                }
                 return action;
             }
             // auto-wait has finished
