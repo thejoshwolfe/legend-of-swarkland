@@ -7,7 +7,14 @@
 
 Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
 Action current_player_decision;
-int start_waiting_event_count = -1;
+
+static int start_waiting_event_count = -1;
+static int previous_waiting_hp;
+void start_auto_wait() {
+    assert_str(player_actor == you, "TODO: implement auto wait for multiple player actors");
+    start_waiting_event_count = you->life()->knowledge.remembered_events.length();
+    previous_waiting_hp = you->life()->hitpoints;
+}
 
 static Action get_auto_wait_decision() {
     Life * life = player_actor->life();
@@ -30,15 +37,20 @@ static Action get_auto_wait_decision() {
         if (they_can_see_us || we_can_see_them)
             return Action::undecided();
     }
-    bool is_poisoned = has_status(self, StatusEffect::POISON);
-    if (is_poisoned && life->hitpoints == 1) {
-        // critical poison status.
-        // let the player cry as they see their last hitpoint fall through their fingers.
-        // or maybe they've been saving a wand of remedy for this occasion.
+    if (life->hitpoints < previous_waiting_hp) {
+        // probably poison.
+        // let the user intervene whenever your hp drops.
         return Action::undecided();
+    } else if (life->hitpoints > previous_waiting_hp) {
+        // that's what i like to see
+        if (life->hitpoints == life->max_hitpoints()) {
+            // this calls for a celebration.
+            // even if there's more stuff going on, like blindness, break now.
+            return Action::undecided();
+        }
     }
+    previous_waiting_hp = life->hitpoints;
 
-    assert_str(player_actor == you, "TODO: implement auto wait for multiple player actors");
     if (life->knowledge.remembered_events.length() > start_waiting_event_count) {
         // wake up! something happened.
         return Action::undecided();
@@ -49,7 +61,7 @@ static Action get_auto_wait_decision() {
 
     if (life->hitpoints < life->max_hitpoints())
         return Action::wait();
-    if (is_poisoned)
+    if (has_status(self, StatusEffect::POISON))
         return Action::wait();
     if (has_status(self, StatusEffect::CONFUSION))
         return Action::wait();

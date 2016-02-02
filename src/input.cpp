@@ -159,8 +159,7 @@ static Action on_key_down_main(const SDL_Event & event) {
             }
             case SDL_SCANCODE_R:
                 // this might end up doing nothing
-                assert_str(player_actor == you, "TODO: implement auto wait for multiple player actors");
-                start_waiting_event_count = you->life()->knowledge.remembered_events.length();
+                start_auto_wait();
                 return Action::auto_wait();
             case SDL_SCANCODE_V: {
                 List<Ability::Id> abilities;
