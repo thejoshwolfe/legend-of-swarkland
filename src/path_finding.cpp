@@ -29,14 +29,14 @@ const Coord directions[] = {
 
 struct Node {
     Coord coord;
-    float f;
-    float g;
-    float h;
+    int f;
+    int g;
+    int h;
     Node * parent;
 };
 
-static float heuristic(Coord start, Coord end) {
-    return sqrtf(euclidean_distance_squared(start, end));
+static int heuristic(Coord start, Coord end) {
+    return cardinal_distance(start, end);
 }
 
 static int compare_nodes(Node *a, Node *b) {
@@ -55,7 +55,7 @@ bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * ou
     Node *start_node = &nodes[start];
     start_node->coord = start;
     start_node->h = heuristic(start, end);
-    start_node->g = 0.0;
+    start_node->g = 0;
     start_node->f = start_node->g + start_node->h;
     start_node->parent = nullptr;
     open_heap.insert(start_node);
@@ -88,7 +88,7 @@ bool find_path(Coord start, Coord end, Thing according_to_whom, List<Coord> * ou
             Node *neighbor = &nodes[neighbor_coord];
             neighbor->coord = neighbor_coord;
 
-            float g_from_this_node = node->g + 1.0f;
+            int g_from_this_node = node->g + 1;
             if (!open_set[neighbor->coord] || g_from_this_node < neighbor->g) {
                 neighbor->parent = node;
                 neighbor->g = g_from_this_node;

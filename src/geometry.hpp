@@ -50,6 +50,11 @@ static inline int ordinal_distance(Coord a, Coord b) {
     Coord abs_vector = abs(b - a);
     return max(abs_vector.x, abs_vector.y);
 }
+// how many moves does it take, assuming you cannot move diagonally
+static inline int cardinal_distance(Coord a, Coord b) {
+    Coord abs_vector = abs(b - a);
+    return abs_vector.x + abs_vector.y;
+}
 
 template<typename T, int SizeX, int SizeY>
 class Matrix {
