@@ -288,6 +288,13 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                         output_data->item = make_placeholder_item(observer, data.item, output_data->individual);
                     }
                     return true;
+                case Event::IndividualAndItemData::READ_BOOK:
+                    // this event is noticing that the person is staring into the pages of the book.
+                    // the audible spell cast happens later.
+                    if (!can_see_shape(get_vision_for_thing(observer, data.individual)))
+                        return false;
+                    *output_event = event;
+                    return true;
                 case Event::IndividualAndItemData::WAND_DISINTEGRATES:
                 case Event::IndividualAndItemData::ZAP_WAND_NO_CHARGES:
                     // you need to see the individual AND the item to see this event
@@ -300,13 +307,13 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             }
             unreachable();
         }
-        case Event::WAND_HIT: {
-            const Event::WandHitData & data = event.wand_hit_data();
+        case Event::MAGIC_BEAM_HIT: {
+            const Event::MagicBeamHitData & data = event.magic_beam_hit_data();
             if (!can_see_shape(observer->life()->knowledge.tile_is_visible[data.location]))
                 return false;
             *output_event = event;
             if (data.target != uint256::zero() && !can_see_thing(observer, data.target))
-                output_event->wand_hit_data().target = make_placeholder_individual(observer, data.target);
+                output_event->magic_beam_hit_data().target = make_placeholder_individual(observer, data.target);
             return true;
         }
         case Event::USE_POTION: {
@@ -454,7 +461,7 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     return record_perception_of_thing(observer, target_id, vision);
 }
 
-static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> * perceived_current_zapper) {
+static void observe_event(Thing observer, Event event, IdMap<uint256> * perceived_source_of_magic_beam) {
     // make changes to our knowledge
     RememberedEvent remembered_event = create<RememberedEventImpl>();
     switch (event.type) {
@@ -645,7 +652,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     PerceivedThing wand = observer->life()->knowledge.perceived_things.get(data.item);
                     WandDescriptionId wand_description = wand->wand_info()->description_id;
                     if (wand_description != WandDescriptionId_UNSEEN)
-                        perceived_current_zapper->put(observer->id, wand_description);
+                        perceived_source_of_magic_beam->put(observer->id, wand->id);
                     remembered_event->span->format("%s zaps %s.", individual_description, item_description);
                     wand->wand_info()->used_count += 1;
                     break;
@@ -659,6 +666,13 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                     item->location = Coord::nowhere();
                     item->container_id = uint256::zero();
                     break;
+                case Event::IndividualAndItemData::READ_BOOK: {
+                    PerceivedThing book = observer->life()->knowledge.perceived_things.get(data.item);
+                    if (book->book_info()->description_id != BookDescriptionId_UNSEEN)
+                        perceived_source_of_magic_beam->put(observer->id, book->id);
+                    remembered_event->span->format("%s reads %s.", individual_description, item_description);
+                    break;
+                }
                 case Event::IndividualAndItemData::THROW_ITEM:
                     remembered_event->span->format("%s throws %s.", individual_description, item_description);
                     break;
@@ -678,8 +692,8 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             }
             break;
         }
-        case Event::WAND_HIT: {
-            const Event::WandHitData & data = event.wand_hit_data();
+        case Event::MAGIC_BEAM_HIT: {
+            const Event::MagicBeamHitData & data = event.magic_beam_hit_data();
             Span beam_description = new_span(data.is_explosion ? "an explosion" : "a magic beam");
             PerceivedThing target;
             Span target_description;
@@ -690,44 +704,63 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
                 target = nullptr;
                 target_description = new_span("a wall");
             } else {
-                panic("wand hit something that's not an individual or wall");
+                unreachable();
             }
+            WandId wand_id = WandId_UNKNOWN;
+            BookId book_id = BookId_UNKNOWN;
             switch (data.observable_effect) {
-                case WandId_WAND_OF_CONFUSION:
+                case MagicBeamEffect_CONFUSION:
                     remembered_event->span->format("%s hits %s; %s is confused!", beam_description, target_description, target_description);
                     put_status(target, StatusEffect::CONFUSION);
+                    wand_id = WandId_WAND_OF_CONFUSION;
                     break;
-                case WandId_WAND_OF_DIGGING:
+                case MagicBeamEffect_DIGGING:
                     remembered_event->span->format("%s digs away %s!", beam_description, target_description);
+                    wand_id = WandId_WAND_OF_DIGGING;
                     break;
-                case WandId_WAND_OF_STRIKING:
+                case MagicBeamEffect_STRIKING:
                     remembered_event->span->format("%s strikes %s!", beam_description, target_description);
+                    wand_id = WandId_WAND_OF_STRIKING;
+                    book_id = BookId_SPELLBOOK_OF_MAGIC_BULLET;
                     break;
-                case WandId_WAND_OF_SPEED:
+                case MagicBeamEffect_SPEED:
                     remembered_event->span->format("%s hits %s; %s speeds up!", beam_description, target_description, target_description);
                     put_status(target, StatusEffect::SPEED);
+                    wand_id = WandId_WAND_OF_SPEED;
                     break;
-                case WandId_WAND_OF_REMEDY:
+                case MagicBeamEffect_REMEDY:
                     remembered_event->span->format("%s hits %s; the magic beam soothes %s.", beam_description, target_description, target_description);
                     // statuses are removed by other events
+                    wand_id = WandId_WAND_OF_REMEDY;
                     break;
 
-                case WandId_UNKNOWN:
+                case MagicBeamEffect_UNKNOWN:
                     // nothing happens
                     remembered_event->span->format("%s hits %s.", beam_description, target_description);
                     break;
-                case WandId_COUNT:
-                    unreachable();
             }
 
-            WandId true_id = data.observable_effect;
-            if (true_id != WandId_UNKNOWN) {
-                // cool, i can id this wand.
-                WandDescriptionId wand_description = perceived_current_zapper->get(observer->id, WandDescriptionId_COUNT);
-                if (wand_description != WandDescriptionId_COUNT) {
-                    observer->life()->knowledge.wand_identities[wand_description] = true_id;
-                } else {
-                    // if only i could see it!!
+            // try to identify the source of the magic
+            uint256 item_id = perceived_source_of_magic_beam->get(observer->id, uint256::zero());
+            if (item_id != uint256::zero()) {
+                PerceivedThing source_of_magic_beam = observer->life()->knowledge.perceived_things.get(item_id);
+                switch (source_of_magic_beam->thing_type) {
+                    case ThingType_INDIVIDUAL:
+                    case ThingType_POTION:
+                    case ThingType_COUNT:
+                        unreachable();
+                    case ThingType_WAND:
+                        if (wand_id != WandId_UNKNOWN) {
+                            assert(source_of_magic_beam->wand_info()->description_id < WandDescriptionId_COUNT);
+                            observer->life()->knowledge.wand_identities[source_of_magic_beam->wand_info()->description_id] = wand_id;
+                        }
+                        break;
+                    case ThingType_BOOK:
+                        if (book_id != BookId_UNKNOWN) {
+                            assert(source_of_magic_beam->book_info()->description_id < BookDescriptionId_COUNT);
+                            observer->life()->knowledge.book_identities[source_of_magic_beam->book_info()->description_id] = book_id;
+                        }
+                        break;
                 }
             }
 
@@ -808,7 +841,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
             switch (data.id) {
                 case Event::ItemAndLocationData::WAND_EXPLODES:
                     remembered_event->span->format("%s explodes!", item_description);
-                    perceived_current_zapper->put(observer->id, actual_things.get(data.item)->wand_info()->description_id);
+                    perceived_source_of_magic_beam->put(observer->id, data.item);
                     item->location = Coord::nowhere();
                     item->container_id = uint256::zero();
                     break;
@@ -834,7 +867,7 @@ static void observe_event(Thing observer, Event event, IdMap<WandDescriptionId> 
 void publish_event(Event event) {
     publish_event(event, nullptr);
 }
-void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_current_zapper) {
+void publish_event(Event actual_event, IdMap<uint256> * perceived_source_of_magic_beam) {
     Thing observer;
     for (auto iterator = actual_individuals(); iterator.next(&observer);) {
         if (!observer->still_exists)
@@ -842,6 +875,6 @@ void publish_event(Event actual_event, IdMap<WandDescriptionId> * perceived_curr
         Event event;
         if (!true_event_to_observed_event(observer, actual_event, &event))
             continue;
-        observe_event(observer, event, perceived_current_zapper);
+        observe_event(observer, event, perceived_source_of_magic_beam);
     }
 }

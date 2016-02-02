@@ -3,6 +3,15 @@
 
 #include "thing.hpp"
 
+enum MagicBeamEffect {
+    MagicBeamEffect_UNKNOWN,
+    MagicBeamEffect_CONFUSION,
+    MagicBeamEffect_DIGGING,
+    MagicBeamEffect_STRIKING,
+    MagicBeamEffect_SPEED,
+    MagicBeamEffect_REMEDY,
+};
+
 struct Event {
     enum Type {
         THE_INDIVIDUAL,
@@ -11,7 +20,7 @@ struct Event {
         MOVE,
         TWO_INDIVIDUAL,
         INDIVIDUAL_AND_ITEM,
-        WAND_HIT,
+        MAGIC_BEAM_HIT,
         USE_POTION,
         POLYMORPH,
         ITEM_AND_LOCATION,
@@ -48,6 +57,7 @@ struct Event {
             ZAP_WAND,
             ZAP_WAND_NO_CHARGES,
             WAND_DISINTEGRATES,
+            READ_BOOK,
             THROW_ITEM,
             ITEM_HITS_INDIVIDUAL,
             INDIVIDUAL_PICKS_UP_ITEM,
@@ -120,15 +130,15 @@ struct Event {
         return _data._individual_and_item;
     }
 
-    struct WandHitData {
-        WandId observable_effect;
+    struct MagicBeamHitData {
+        MagicBeamEffect observable_effect;
         bool is_explosion;
         uint256 target;
         Coord location;
     };
-    WandHitData & wand_hit_data() {
-        check_data_type(WAND_HIT);
-        return _data._wand_hit;
+    MagicBeamHitData & magic_beam_hit_data() {
+        check_data_type(MAGIC_BEAM_HIT);
+        return _data._magic_beam_hit;
     }
 
     struct UsePotionData {
@@ -168,21 +178,24 @@ struct Event {
     }
 
     static inline Event zap_wand(Thing wand_wielder, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::ZAP_WAND, wand_wielder->id, item->id, wand_wielder->location);
+        return individual_and_item_event(IndividualAndItemData::ZAP_WAND, wand_wielder->id, item->id, wand_wielder->location);
     }
     static inline Event wand_zap_no_charges(Thing wand_wielder, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id, wand_wielder->location);
+        return individual_and_item_event(IndividualAndItemData::ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id, wand_wielder->location);
     }
     static inline Event wand_disintegrates(Thing wand_wielder, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::WAND_DISINTEGRATES, wand_wielder->id, item->id, wand_wielder->location);
+        return individual_and_item_event(IndividualAndItemData::WAND_DISINTEGRATES, wand_wielder->id, item->id, wand_wielder->location);
     }
     static inline Event wand_explodes(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::WAND_EXPLODES, item_id, location);
     }
-    static inline Event wand_hit(WandId observable_effect, bool is_explosion, uint256 target, Coord location) {
+    static inline Event read_book(Thing actor, Thing item) {
+        return individual_and_item_event(IndividualAndItemData::READ_BOOK, actor->id, item->id, actor->location);
+    }
+    static inline Event magic_beam_hit(MagicBeamEffect observable_effect, bool is_explosion, uint256 target, Coord location) {
         Event result;
-        result.type = WAND_HIT;
-        result.wand_hit_data() = {
+        result.type = MAGIC_BEAM_HIT;
+        result.magic_beam_hit_data() = {
             observable_effect,
             is_explosion,
             target,
@@ -199,10 +212,10 @@ struct Event {
     }
 
     static Event throw_item(Thing thrower, uint256 item_id) {
-        return individual_and_item_type_event(IndividualAndItemData::THROW_ITEM, thrower->id, item_id, thrower->location);
+        return individual_and_item_event(IndividualAndItemData::THROW_ITEM, thrower->id, item_id, thrower->location);
     }
     static Event item_hits_individual(uint256 item_id, Thing individual) {
-        return individual_and_item_type_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, individual->id, item_id, individual->location);
+        return individual_and_item_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, individual->id, item_id, individual->location);
     }
     static Event item_hits_wall(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_WALL, item_id, location);
@@ -267,10 +280,10 @@ struct Event {
         return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
     }
     static inline Event individual_picks_up_item(Thing individual, uint256 item_id) {
-        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item_id, individual->location);
+        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item_id, individual->location);
     }
     static inline Event individual_sucks_up_item(Thing individual, Thing item) {
-        return individual_and_item_type_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id, individual->location);
+        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id, individual->location);
     }
 
 private:
@@ -324,7 +337,7 @@ private:
         };
         return result;
     }
-    static inline Event individual_and_item_type_event(IndividualAndItemData::Id id, uint256 individual_id, uint256 item_id, Coord location) {
+    static inline Event individual_and_item_event(IndividualAndItemData::Id id, uint256 individual_id, uint256 item_id, Coord location) {
         Event result;
         result.type = INDIVIDUAL_AND_ITEM;
         result.individual_and_item_data() = {
@@ -353,7 +366,7 @@ private:
         MoveData _move;
         TwoIndividualData _two_individual;
         IndividualAndItemData _individual_and_item;
-        WandHitData _wand_hit;
+        MagicBeamHitData _magic_beam_hit;
         UsePotionData _use_potion;
         PolymorphData _polymorph;
         ItemAndLocationData _item_and_location;
@@ -368,6 +381,6 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location);
 bool can_see_thing(Thing observer, uint256 target_id);
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id);
 void publish_event(Event event);
-void publish_event(Event event, IdMap<WandDescriptionId> * perceived_current_zapper);
+void publish_event(Event event, IdMap<uint256> * perceived_source_of_magic_beam);
 
 #endif

@@ -11,7 +11,7 @@ syn case match
 
 
 " actions/directives
-syn keyword swarklandAction move wait attack zap pickup drop quaff throw down
+syn keyword swarklandAction move wait attack zap pickup drop quaff read_book throw down
 syn match   swarklandCheat     /!health\>/
 syn match   swarklandCheat     /!kill\>/
 syn match   swarklandCheat     /!polymorph\>/
@@ -33,11 +33,12 @@ syn match   swarklandDirective /@expect_carrying\>/
 syn match   swarklandDirective /@expect_carrying_nothing\>/
 
 " barewords
-syn keyword swarklandBareword individual potion wand
+syn keyword swarklandBareword individual potion wand book
 syn keyword swarklandBareword human ogre lich pink_blob air_elemenetal dog ant bee beetle scorpion snake unseen
 syn keyword swarklandBareword player ai
 syn keyword swarklandBareword confusion digging striking speed remedy unknown
 syn keyword swarklandBareword healing poison ethereal_vision cogniscopy blindness invisibility
+syn keyword swarklandBareword magic_bullet
 
 " patterns
 syn match   swarklandNumber /-\?\<\d\{1,10\}\>/

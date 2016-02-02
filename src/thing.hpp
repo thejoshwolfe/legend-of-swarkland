@@ -350,6 +350,8 @@ struct Knowledge {
             wand_identities[i] = WandId_UNKNOWN;
         for (int i = 0; i < PotionDescriptionId_COUNT; i++)
             potion_identities[i] = PotionId_UNKNOWN;
+        for (int i = 0; i < BookDescriptionId_COUNT; i++)
+            book_identities[i] = BookId_UNKNOWN;
     }
     void reset_map() {
         tiles.set_all(TileType_UNKNOWN);

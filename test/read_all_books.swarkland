@@ -1,0 +1,19 @@
+@test
+!wish book magic_bullet
+pickup 0000000000000000000000000000000000000000000000000000000000000002
+!monster dog player 3 1
+@mark_events
+  read_book 1 0 0000000000000000000000000000000000000000000000000000000000000002
+    @rng 6 inclusive:6:12:beam_length
+    @rng 4 range:4:8:striking_damage
+  @expect_event "you reads a purple book."
+  @expect_event "a magic beam strikes a dog!"
+  @expect_no_events
+wait
+
+# make sure it's identified
+@mark_events
+  drop 0000000000000000000000000000000000000000000000000000000000000002
+  @expect_event "a spellbook of magic bullet drops to the floor."
+  @expect_no_events
+wait
