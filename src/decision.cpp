@@ -156,6 +156,8 @@ static Action get_ai_decision(Thing actor) {
     List<PerceivedThing> things_of_interest;
     PerceivedThing target;
     for (auto iterator = actor->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
+        if (target->location == Coord::nowhere())
+            continue; // can't access you
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL:
                 if (target->id == you->id)
