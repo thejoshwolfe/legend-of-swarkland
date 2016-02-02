@@ -130,6 +130,11 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
 ## Version History
 
+### 4.2.0
+ * New monster: cobra that spits blinding venom.
+ * Added a rest button. (issue [#22](https://github.com/thejoshwolfe/legend-of-swarkland/issues/22))
+ * Limitted perception of status effects. (i.e. You can't identify cogniscopy by throwing it at enemies, etc.)
+
 ### 4.1.0
 
  * Invisibility and blindness.
