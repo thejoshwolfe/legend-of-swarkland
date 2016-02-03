@@ -107,6 +107,7 @@ static void load_images() {
     unseen_potion_image = find_image("img/potion/unseen_potion.png");
 
     book_images[BookDescriptionId_PURPLE_BOOK] = find_image("img/book/purple_book.png");
+    book_images[BookDescriptionId_BLUE_BOOK] = find_image("img/book/blue_book.png");
     unseen_book_image = find_image("img/book/unseen_book.png");
 
     equipment_image = find_image("img/equipment.png");
@@ -403,6 +404,8 @@ const char * get_book_id_str(BookId book_id) {
     switch (book_id) {
         case BookId_SPELLBOOK_OF_MAGIC_BULLET:
             return "spellbook of magic bullet";
+        case BookId_SPELLBOOK_OF_SPEED:
+            return "spellbook of speed";
 
         case BookId_COUNT:
         case BookId_UNKNOWN:
@@ -448,6 +451,8 @@ static const char * get_book_description_str(Thing observer, PerceivedThing item
         switch (description_id) {
             case BookDescriptionId_PURPLE_BOOK:
                 return "purple book";
+            case BookDescriptionId_BLUE_BOOK:
+                return "blue book";
 
             case BookDescriptionId_UNSEEN:
                 return "book";

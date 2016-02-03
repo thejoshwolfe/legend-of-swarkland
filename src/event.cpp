@@ -726,6 +726,7 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
                     remembered_event->span->format("%s hits %s; %s speeds up!", beam_description, target_description, target_description);
                     put_status(target, StatusEffect::SPEED);
                     wand_id = WandId_WAND_OF_SPEED;
+                    book_id = BookId_SPELLBOOK_OF_SPEED;
                     break;
                 case MagicBeamEffect_REMEDY:
                     remembered_event->span->format("%s hits %s; the magic beam soothes %s.", beam_description, target_description, target_description);

@@ -147,6 +147,12 @@ static int digging_pass_through_air(Thing, Coord, bool, IdMap<uint256> *) {
 static MagicBeamHandler wand_handlers[WandId_COUNT];
 static MagicBeamHandler book_handlers[BookId_COUNT];
 
+// making this a macro makes the red squiggly from the panic() show up at the call site instead of here.
+#define check_no_nulls(array) \
+    for (int i = 0; i < (int)(sizeof(array) / sizeof(array[0])); i++) \
+        if (*(void**)&array[i] == nullptr) \
+            panic("missed a spot")
+
 void init_items() {
     assert((int)WandDescriptionId_COUNT == (int)WandId_COUNT);
     for (int i = 0; i < WandDescriptionId_COUNT; i++)
@@ -171,8 +177,11 @@ void init_items() {
     wand_handlers[WandId_WAND_OF_STRIKING] = {pass_through_air_silently, striking_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_SPEED] = {pass_through_air_silently, speed_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_REMEDY] = {pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect};
+    check_no_nulls(wand_handlers);
 
     book_handlers[BookId_SPELLBOOK_OF_MAGIC_BULLET] = {pass_through_air_silently, magic_bullet_hit_individual, hit_wall_no_effect};
+    book_handlers[BookId_SPELLBOOK_OF_SPEED] = {pass_through_air_silently, speed_hit_individual, hit_wall_no_effect};
+    check_no_nulls(book_handlers);
 }
 
 static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBeamHandler & handler, IdMap<uint256> * perceived_source_of_magic_beam) {
@@ -230,6 +239,8 @@ int get_mana_cost(BookId book_id) {
     switch (book_id) {
         case BookId_SPELLBOOK_OF_MAGIC_BULLET:
             return 2;
+        case BookId_SPELLBOOK_OF_SPEED:
+            return 4;
 
         case BookId_COUNT:
         case BookId_UNKNOWN:

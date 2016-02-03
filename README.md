@@ -135,7 +135,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
  * Spells and MP.
  * New items:
-   * spellbooks of: magic bullet
+   * spellbooks of: magic bullet, speed
 
 ## Version History
 
