@@ -124,13 +124,18 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
  * Stairs up.
 
+### 4.4.0
+
+ * New items:
+   * spellbooks of: assume form, charm, fear, force, life syphon, mapping, slowing
+   * wands of: blinding, force, invisibility, magic bullet, slowing
+   * potions of: experience, fruit juice, mana
+
 ### 4.3.0
 
  * Spells and MP.
  * New items:
-   * spellbooks of: assume form, charm, fear, force, life syphon, magic bullet, mapping, slowing
-   * wands of: blinding, force, invisibility, magic bullet, slowing
-   * potions of: experience, fruit juice, mana
+   * spellbooks of: magic bullet
 
 ## Version History
 
