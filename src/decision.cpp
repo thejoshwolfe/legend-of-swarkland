@@ -10,10 +10,12 @@ Action current_player_decision = Action::undecided();
 
 static int start_waiting_event_count = -1;
 static int previous_waiting_hp;
+static int previous_waiting_mp;
 void start_auto_wait() {
     assert_str(player_actor == you, "TODO: implement auto wait for multiple player actors");
     start_waiting_event_count = you->life()->knowledge.remembered_events.length();
     previous_waiting_hp = you->life()->hitpoints;
+    previous_waiting_mp = you->life()->mana;
 }
 
 void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<StatusEffect::Id> * output_annoying_status_effects, bool * output_stop_for_other_reasons) {
@@ -49,6 +51,11 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
             *output_stop_for_other_reasons = true;
         }
     }
+    if (life->mana > previous_waiting_mp) {
+        if (life->mana == life->max_mana()) {
+            *output_stop_for_other_reasons = true;
+        }
+    }
 
     if (life->knowledge.remembered_events.length() > start_waiting_event_count) {
         // wake up! something happened.
@@ -58,6 +65,8 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
     // is there any reason to wait any longer?
     if (life->hitpoints < life->max_hitpoints())
         output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low hp" or something
+    if (life->mana < life->max_mana())
+        output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low mp" or something
     if (has_status(self, StatusEffect::POISON))
         output_annoying_status_effects->append(StatusEffect::POISON);
     if (has_status(self, StatusEffect::CONFUSION))

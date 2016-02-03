@@ -1167,9 +1167,9 @@ void render() {
 
     // status box
     {
-        String hp_string = new_string();
         int hp = spectate_from->life()->hitpoints;
         int max_hp = spectate_from->life()->max_hitpoints();
+        String hp_string = new_string();
         hp_string->format("HP: %d/%d", hp, max_hp);
         Span hp_span = new_span(hp_string);
         if (hp <= max_hp / 3)
@@ -1179,6 +1179,22 @@ void render() {
         else
             hp_span->set_color(white, dark_green);
         hp_div->set_content(hp_span);
+
+        int mana = spectate_from->life()->mana;
+        int max_mana = spectate_from->life()->max_mana();
+        if (max_mana > 0) {
+            String mp_string = new_string();
+            mp_string->format("MP: %d/%d", mana, max_mana);
+            Span mp_span = new_span(mp_string);
+            if (mana <= 0)
+                mp_span->set_color(white, red);
+            else if (mana < max_mana)
+                mp_span->set_color(black, amber);
+            else
+                mp_span->set_color(white, black);
+            hp_div->append_newline();
+            hp_div->append(mp_span);
+        }
         render_div(hp_div, hp_area, 1, 1);
     }
     {

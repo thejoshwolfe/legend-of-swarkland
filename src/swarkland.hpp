@@ -111,6 +111,8 @@ void strike_individual(Thing attacker, Thing target);
 void magic_bullet_hit_individual(Thing attacker, Thing target);
 void poison_individual(Thing attacker, Thing target);
 void heal_hp(Thing individual, int hp);
+void use_mana(Thing actor, int mana);
+void gain_mp(Thing individual, int mp);
 
 void change_map(Coord location, TileType new_tile_type);
 

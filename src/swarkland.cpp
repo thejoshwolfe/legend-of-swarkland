@@ -34,25 +34,26 @@ static void init_static_data() {
     VisionTypes ethe = VisionTypes_ETHEREAL;
     //                                     movement cost
     //                                     |   health
-    //                                     |   |  base attack
-    //                                     |   |  |  min level
-    //                                     |   |  |  |   max level
-    //                                     |   |  |  |   |  vision
-    //                                     |   |  |  |   |  |     sucks up items
-    //                                     |   |  |  |   |  |     |  auto throws items
-    //                                     |   |  |  |   |  |     |  |  poison attack
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 0, 10, norm, 0, 0, 0};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 2, 4, 10, norm, 0, 0, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 3, 7, 10, norm, 0, 0, 0};
-    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 1, 0,  1, ethe, 1, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 1, 3, 10, ethe, 1, 1, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 2, 1,  2, norm, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  2, 1, 0,  1, norm, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  2, 3, 1,  2, norm, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 1, 0,  1, norm, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 1, 2,  3, norm, 0, 0, 1};
-    specieses[SpeciesId_SNAKE        ] = {18,  4, 2, 1,  2, norm, 0, 0, 0};
-    specieses[SpeciesId_COBRA        ] = {18,  2, 1, 2,  3, norm, 0, 0, 0};
+    //                                     |   |  base mana
+    //                                     |   |  |  base attack
+    //                                     |   |  |  |  min level
+    //                                     |   |  |  |  |   max level
+    //                                     |   |  |  |  |   |  vision
+    //                                     |   |  |  |  |   |  |     sucks up items
+    //                                     |   |  |  |  |   |  |     |  auto throws items
+    //                                     |   |  |  |  |   |  |     |  |  poison attack
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 3, 0, 10, norm, 0, 0, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 0, 2, 4, 10, norm, 0, 0, 0};
+    specieses[SpeciesId_LICH         ] = {12, 12, 4, 3, 7, 10, norm, 0, 0, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 0, 1, 0,  1, ethe, 1, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 0, 1, 3, 10, ethe, 1, 1, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 0, 2, 1,  2, norm, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  2, 0, 1, 0,  1, norm, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  2, 0, 3, 1,  2, norm, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 0, 1, 0,  1, norm, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 0, 1, 2,  3, norm, 0, 0, 1};
+    specieses[SpeciesId_SNAKE        ] = {18,  4, 0, 2, 1,  2, norm, 0, 0, 0};
+    specieses[SpeciesId_COBRA        ] = {18,  2, 0, 1, 2,  3, norm, 0, 0, 0};
     for (int i = 0; i < SpeciesId_COUNT; i++)
         if (specieses[i].movement_cost == 0)
             panic("you missed a spot");
@@ -102,9 +103,15 @@ static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
 static void level_up(Thing individual, bool publish) {
     Life * life = individual->life();
     int old_max_hitpoints = life->max_hitpoints();
+    int old_max_mana = life->max_mana();
     life->experience = life->next_level_up();
     int new_max_hitpoints = life->max_hitpoints();
+    int new_max_mana = life->max_mana();
     life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
+    if (old_max_mana > 0)
+        life->mana = life->mana * new_max_mana / old_max_mana;
+    else
+        life->mana = new_max_mana;
     if (publish)
         publish_event(Event::level_up(individual->id));
 }
@@ -407,8 +414,8 @@ static void maybe_spawn_monsters() {
 
 void heal_hp(Thing individual, int hp) {
     Life * life = individual->life();
-    if (life->hitpoints >= life->max_hitpoints()) {
-        // you have enough hitpoints.
+    if (life->mana < 0) {
+        // no can do.
         return;
     }
     life->hitpoints = min(life->hitpoints + hp, life->max_hitpoints());
@@ -434,6 +441,42 @@ static void regen_hp(Thing individual) {
         heal_hp(individual, hp_heal);
     }
 }
+
+static void reset_mp_regen_timeout(Thing individual) {
+    Life * life = individual->life();
+    if (!test_mode && life->mana < life->max_mana())
+        life->mp_regen_deadline = time_counter + random_midpoint(7 * 12, nullptr);
+}
+void gain_mp(Thing individual, int mp) {
+    Life * life = individual->life();
+    bool was_negative = life->mana < 0;
+    life->mana = min(life->mana + mp, life->max_mana());
+    reset_mp_regen_timeout(individual);
+
+    if (was_negative && life->mana >= 0) {
+        // you can heal again
+        reset_hp_regen_timeout(individual);
+    }
+}
+static void regen_mp(Thing individual) {
+    Life * life = individual->life();
+    if (life->mp_regen_deadline == time_counter) {
+        int mp_gain = random_inclusive(1, max(1, life->max_mana() / 5), nullptr);
+        gain_mp(individual, mp_gain);
+    }
+}
+void use_mana(Thing actor, int mana) {
+    assert(mana > 0);
+    Life * life = actor->life();
+    life->mana -= mana;
+    if (life->mana < 0) {
+        // also lose hp
+        int damage = min(-life->mana, mana);
+        damage_individual(actor, damage, actor, false);
+    }
+    reset_mp_regen_timeout(actor);
+}
+
 
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
@@ -557,9 +600,15 @@ static void cheatcode_polymorph(SpeciesId species_id) {
     publish_event(Event::polymorph(player_actor, species_id));
     Life * life = player_actor->life();
     int old_max_hitpoints = life->max_hitpoints();
+    int old_max_mana = life->max_mana();
     life->species_id = species_id;
     int new_max_hitpoints = life->max_hitpoints();
+    int new_max_mana = life->max_mana();
     life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
+    if (old_max_mana > 0)
+        life->mana = life->mana * new_max_mana / old_max_mana;
+    else
+        life->mana = new_max_mana;
     compute_vision(player_actor);
 }
 Thing cheatcode_spectator;
@@ -1031,8 +1080,10 @@ static bool take_action(Thing actor, const Action & action) {
 
 // advance time for an individual
 static void age_individual(Thing individual) {
-    if (!test_mode)
+    if (!test_mode) {
         regen_hp(individual);
+        regen_mp(individual);
+    }
 
     if (individual->life()->species()->auto_throws_items) {
         // there's a chance per item they're carrying

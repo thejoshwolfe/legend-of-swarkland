@@ -226,15 +226,29 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     shoot_magic_beam(wand_wielder, direction, handler, &perceived_source_of_magic_beam);
 }
 
+int get_mana_cost(BookId book_id) {
+    switch (book_id) {
+        case BookId_SPELLBOOK_OF_MAGIC_BULLET:
+            return 2;
+
+        case BookId_COUNT:
+        case BookId_UNKNOWN:
+            unreachable();
+    }
+    unreachable();
+}
+
 void read_book(Thing actor, uint256 item_id, Coord direction) {
     IdMap<uint256> perceived_source_of_magic_beam;
 
     Thing book = actual_things.get(item_id);
-
     publish_event(Event::read_book(actor, book), &perceived_source_of_magic_beam);
+
+    BookId book_id = actual_book_identities[book->book_info()->description_id];
     // TODO: check for success
-    MagicBeamHandler handler = book_handlers[actual_book_identities[book->book_info()->description_id]];
-    shoot_magic_beam(actor, direction, handler, &perceived_source_of_magic_beam);
+    int mana_cost = get_mana_cost(book_id);
+    use_mana(actor, mana_cost);
+    shoot_magic_beam(actor, direction, book_handlers[book_id], &perceived_source_of_magic_beam);
 }
 
 // is_breaking is used in the published event

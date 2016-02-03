@@ -146,6 +146,7 @@ struct Species {
     // how many ticks does it cost to move one space? average human is 12.
     int movement_cost;
     int base_hitpoints;
+    int base_mana;
     int base_attack_power;
     // this range is only for random spawning
     int min_level;
@@ -370,6 +371,8 @@ static inline int level_to_experience(int level) {
 struct Life : public PerceivedLife {
     int hitpoints;
     int64_t hp_regen_deadline;
+    int mana;
+    int64_t mp_regen_deadline;
     int experience = 0;
     int64_t last_movement_time = 0;
     int64_t last_action_time = 0;
@@ -389,6 +392,9 @@ struct Life : public PerceivedLife {
     }
     int max_hitpoints() const {
         return species()->base_hitpoints + 2 * experience_level();
+    }
+    int max_mana() const {
+        return species()->base_mana * (experience_level() + 1);
     }
 };
 
