@@ -99,9 +99,9 @@ static int confusion_hit_individual(Thing, Thing target, bool is_explosion, IdMa
         confuse_individual(target);
     return 2;
 }
-static int striking_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_STRIKING, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
-    strike_individual(actor, target);
+static int magic_missile_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
+    publish_event(Event::magic_beam_hit(MagicBeamEffect_MAGIC_MISSILE, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
+    magic_missile_hit_individual(actor, target);
     return 2;
 }
 static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
@@ -174,7 +174,7 @@ void init_items() {
 
     wand_handlers[WandId_WAND_OF_CONFUSION] = {pass_through_air_silently, confusion_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_DIGGING] = {digging_pass_through_air, hit_individual_no_effect, digging_hit_wall};
-    wand_handlers[WandId_WAND_OF_STRIKING] = {pass_through_air_silently, striking_hit_individual, hit_wall_no_effect};
+    wand_handlers[WandId_WAND_OF_MAGIC_MISSILE] = {pass_through_air_silently, magic_missile_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_SPEED] = {pass_through_air_silently, speed_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_REMEDY] = {pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect};
     check_no_nulls(wand_handlers);

@@ -718,9 +718,10 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
                     remembered_event->span->format("%s digs away %s!", beam_description, target_description);
                     wand_id = WandId_WAND_OF_DIGGING;
                     break;
-                case MagicBeamEffect_STRIKING:
-                    remembered_event->span->format("%s strikes %s!", beam_description, target_description);
-                    wand_id = WandId_WAND_OF_STRIKING;
+                case MagicBeamEffect_MAGIC_MISSILE:
+                    // TODO: better text
+                    remembered_event->span->format("%s is a magic missile and hits %s!", beam_description, target_description);
+                    wand_id = WandId_WAND_OF_MAGIC_MISSILE;
                     break;
                 case MagicBeamEffect_SPEED:
                     remembered_event->span->format("%s hits %s; %s speeds up!", beam_description, target_description, target_description);

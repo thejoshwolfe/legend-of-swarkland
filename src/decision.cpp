@@ -252,7 +252,7 @@ static Action get_ai_decision(Thing actor) {
                                 case WandId_WAND_OF_DIGGING:
                                     // i don't understand digging.
                                     break;
-                                case WandId_WAND_OF_STRIKING:
+                                case WandId_WAND_OF_MAGIC_MISSILE:
                                     if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
                                         // get him!
                                         range_attack_actions.append(Action::zap(item->id, direction));

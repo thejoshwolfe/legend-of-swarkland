@@ -358,7 +358,7 @@ static void init_name_arrays() {
 
     wand_id_names[WandId_WAND_OF_CONFUSION] = new_string("confusion");
     wand_id_names[WandId_WAND_OF_DIGGING] = new_string("digging");
-    wand_id_names[WandId_WAND_OF_STRIKING] = new_string("striking");
+    wand_id_names[WandId_WAND_OF_MAGIC_MISSILE] = new_string("magic_missile");
     wand_id_names[WandId_WAND_OF_SPEED] = new_string("speed");
     wand_id_names[WandId_WAND_OF_REMEDY] = new_string("remedy");
     check_no_nulls(wand_id_names);

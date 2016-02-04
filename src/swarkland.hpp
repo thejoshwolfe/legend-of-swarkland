@@ -107,7 +107,7 @@ bool is_ability_ready(Thing actor, Ability::Id ability_id);
 
 void confuse_individual(Thing target);
 void speed_up_individual(Thing target);
-void strike_individual(Thing attacker, Thing target);
+void magic_missile_hit_individual(Thing attacker, Thing target);
 void magic_bullet_hit_individual(Thing attacker, Thing target);
 void poison_individual(Thing attacker, Thing target);
 void heal_hp(Thing individual, int hp);

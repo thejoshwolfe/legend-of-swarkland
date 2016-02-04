@@ -63,27 +63,27 @@ wait
 wait
 
 
-!wish wand striking
+!wish wand magic_missile
   @rng 1 range:4:8:wand_charges
 pickup 0000000000000000000000000000000000000000000000000000000000000005
 wait
 @mark_events
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000005
     @rng 12 inclusive:6:12:beam_length
-    @rng 4 range:4:8:striking_damage
+    @rng 4 range:4:8:magic_missile_damage
   @expect_event "a lich king zaps a plastic wand."
-  @expect_event "a magic beam strikes you!"
+  @expect_event "a magic beam is a magic missile and hits you!"
   @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
 @mark_events
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000005
-  @expect_event "a lich king zaps a wand of striking, but a wand of striking just sputters."
+  @expect_event "a lich king zaps a wand of magic missile, but a wand of magic missile just sputters."
   @expect_no_events
 wait
 @mark_events
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000005
-  @expect_event "a lich king tries to zap a wand of striking, but a wand of striking disintegrates."
+  @expect_event "a lich king tries to zap a wand of magic missile, but a wand of magic missile disintegrates."
   @expect_no_events
 wait
 

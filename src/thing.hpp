@@ -36,7 +36,7 @@ enum WandDescriptionId {
 enum WandId {
     WandId_WAND_OF_CONFUSION,
     WandId_WAND_OF_DIGGING,
-    WandId_WAND_OF_STRIKING,
+    WandId_WAND_OF_MAGIC_MISSILE,
     WandId_WAND_OF_SPEED,
     WandId_WAND_OF_REMEDY,
 

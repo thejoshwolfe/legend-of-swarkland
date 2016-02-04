@@ -7,7 +7,7 @@ enum MagicBeamEffect {
     MagicBeamEffect_UNKNOWN,
     MagicBeamEffect_CONFUSION,
     MagicBeamEffect_DIGGING,
-    MagicBeamEffect_STRIKING,
+    MagicBeamEffect_MAGIC_MISSILE,
     MagicBeamEffect_SPEED,
     MagicBeamEffect_REMEDY,
     MagicBeamEffect_MAGIC_BULLET,

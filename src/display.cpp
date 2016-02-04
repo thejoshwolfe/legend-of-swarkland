@@ -328,8 +328,8 @@ const char * get_wand_id_str(WandId wand_id) {
             return "wand of confusion";
         case WandId_WAND_OF_DIGGING:
             return "wand of digging";
-        case WandId_WAND_OF_STRIKING:
-            return "wand of striking";
+        case WandId_WAND_OF_MAGIC_MISSILE:
+            return "wand of magic missile";
         case WandId_WAND_OF_SPEED:
             return "wand of speed";
         case WandId_WAND_OF_REMEDY:
