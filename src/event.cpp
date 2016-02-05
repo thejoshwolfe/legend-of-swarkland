@@ -461,7 +461,7 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     return record_perception_of_thing(observer, target_id, vision);
 }
 
-static void observe_event(Thing observer, Event event, IdMap<uint256> * perceived_source_of_magic_beam) {
+static void observe_event(Thing observer, Event event, IdMap<uint256> * observer_to_active_identifiable_item) {
     // make changes to our knowledge
     RememberedEvent remembered_event = create<RememberedEventImpl>();
     switch (event.type) {
@@ -652,7 +652,7 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
                     PerceivedThing wand = observer->life()->knowledge.perceived_things.get(data.item);
                     WandDescriptionId wand_description = wand->wand_info()->description_id;
                     if (wand_description != WandDescriptionId_UNSEEN)
-                        perceived_source_of_magic_beam->put(observer->id, wand->id);
+                        observer_to_active_identifiable_item->put(observer->id, wand->id);
                     remembered_event->span->format("%s zaps %s.", individual_description, item_description);
                     wand->wand_info()->used_count += 1;
                     break;
@@ -669,7 +669,7 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
                 case Event::IndividualAndItemData::READ_BOOK: {
                     PerceivedThing book = observer->life()->knowledge.perceived_things.get(data.item);
                     if (book->book_info()->description_id != BookDescriptionId_UNSEEN)
-                        perceived_source_of_magic_beam->put(observer->id, book->id);
+                        observer_to_active_identifiable_item->put(observer->id, book->id);
                     remembered_event->span->format("%s reads %s.", individual_description, item_description);
                     break;
                 }
@@ -747,7 +747,7 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
             }
 
             // try to identify the source of the magic
-            uint256 item_id = perceived_source_of_magic_beam->get(observer->id, uint256::zero());
+            uint256 item_id = observer_to_active_identifiable_item->get(observer->id, uint256::zero());
             if (item_id != uint256::zero()) {
                 PerceivedThing source_of_magic_beam = observer->life()->knowledge.perceived_things.get(item_id);
                 switch (source_of_magic_beam->thing_type) {
@@ -847,7 +847,7 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
             switch (data.id) {
                 case Event::ItemAndLocationData::WAND_EXPLODES:
                     remembered_event->span->format("%s explodes!", item_description);
-                    perceived_source_of_magic_beam->put(observer->id, data.item);
+                    observer_to_active_identifiable_item->put(observer->id, data.item);
                     item->location = Coord::nowhere();
                     item->container_id = uint256::zero();
                     break;
@@ -873,7 +873,7 @@ static void observe_event(Thing observer, Event event, IdMap<uint256> * perceive
 void publish_event(Event event) {
     publish_event(event, nullptr);
 }
-void publish_event(Event actual_event, IdMap<uint256> * perceived_source_of_magic_beam) {
+void publish_event(Event actual_event, IdMap<uint256> * observer_to_active_identifiable_item) {
     Thing observer;
     for (auto iterator = actual_individuals(); iterator.next(&observer);) {
         if (!observer->still_exists)
@@ -881,6 +881,6 @@ void publish_event(Event actual_event, IdMap<uint256> * perceived_source_of_magi
         Event event;
         if (!true_event_to_observed_event(observer, actual_event, &event))
             continue;
-        observe_event(observer, event, perceived_source_of_magic_beam);
+        observe_event(observer, event, observer_to_active_identifiable_item);
     }
 }

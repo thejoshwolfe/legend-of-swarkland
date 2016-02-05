@@ -74,47 +74,47 @@ Thing create_random_item() {
 // return how much extra beam length this happening requires.
 // return -1 for stop the beam.
 struct MagicBeamHandler {
-    int (*hit_air)(Thing actor, Coord location, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam);
-    int (*hit_individual)(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam);
-    int (*hit_wall)(Thing actor, Coord location, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam);
+    int (*hit_air)(Thing actor, Coord location, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item);
+    int (*hit_individual)(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item);
+    int (*hit_wall)(Thing actor, Coord location, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item);
 };
 
 static int pass_through_air_silently(Thing, Coord, bool, IdMap<uint256> *) {
     return 0;
 }
-static int hit_individual_no_effect(Thing, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
+static int hit_individual_no_effect(Thing, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
+    publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
     return 0;
 }
-static int hit_wall_no_effect(Thing, Coord location, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, uint256::zero(), location), perceived_source_of_magic_beam);
+static int hit_wall_no_effect(Thing, Coord location, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
+    publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, uint256::zero(), location), observer_to_active_identifiable_item);
     // and stop
     return -1;
 }
 
-static int confusion_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
+static int confusion_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
     bool confusable = individual_has_mind(target);
-    publish_event(Event::magic_beam_hit(confusable ? MagicBeamEffect_CONFUSION : MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
+    publish_event(Event::magic_beam_hit(confusable ? MagicBeamEffect_CONFUSION : MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
     if (confusable)
         confuse_individual(target);
     return 2;
 }
-static int magic_missile_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_MAGIC_MISSILE, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
+static int magic_missile_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
+    publish_event(Event::magic_beam_hit(MagicBeamEffect_MAGIC_MISSILE, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
     magic_missile_hit_individual(actor, target);
     return 2;
 }
-static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_SPEED, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
+static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
+    publish_event(Event::magic_beam_hit(MagicBeamEffect_SPEED, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
     speed_up_individual(target);
     return 2;
 }
-static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
+static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
     int confusion_index = find_status(target->status_effects, StatusEffect::CONFUSION);
     int poison_index = find_status(target->status_effects, StatusEffect::POISON);
     int blindness_index = find_status(target->status_effects, StatusEffect::BLINDNESS);
     bool did_it_help = confusion_index != -1 || poison_index != -1 || blindness_index != -1;
-    publish_event(Event::magic_beam_hit(did_it_help ? MagicBeamEffect_REMEDY : MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
+    publish_event(Event::magic_beam_hit(did_it_help ? MagicBeamEffect_REMEDY : MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
     if (confusion_index != -1)
         target->status_effects[confusion_index].expiration_time = time_counter + 1;
     if (poison_index != -1)
@@ -123,19 +123,19 @@ static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<u
         target->status_effects[blindness_index].expiration_time = time_counter + 1;
     return 2;
 }
-static int magic_bullet_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_MAGIC_BULLET, is_explosion, target->id, target->location), perceived_source_of_magic_beam);
+static int magic_bullet_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
+    publish_event(Event::magic_beam_hit(MagicBeamEffect_MAGIC_BULLET, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
     magic_bullet_hit_individual(actor, target);
     return -1;
 }
 
-static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<uint256> * perceived_source_of_magic_beam) {
+static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
     if (actual_map_tiles[location] == TileType_BORDER_WALL) {
         // no effect on border walls
-        publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, uint256::zero(), location), perceived_source_of_magic_beam);
+        publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, uint256::zero(), location), observer_to_active_identifiable_item);
         return -1;
     }
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_DIGGING, is_explosion, uint256::zero(), location), perceived_source_of_magic_beam);
+    publish_event(Event::magic_beam_hit(MagicBeamEffect_DIGGING, is_explosion, uint256::zero(), location), observer_to_active_identifiable_item);
     change_map(location, TileType_DIRT_FLOOR);
     return 0;
 }
@@ -184,7 +184,7 @@ void init_items() {
     check_no_nulls(book_handlers);
 }
 
-static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBeamHandler & handler, IdMap<uint256> * perceived_source_of_magic_beam) {
+static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBeamHandler & handler, IdMap<uint256> * observer_to_active_identifiable_item) {
     Coord cursor = wand_wielder->location;
     int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin, "beam_length");
     for (int i = 0; i < beam_length; i++) {
@@ -195,15 +195,15 @@ static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBea
         Thing target = find_individual_at(cursor);
         int length_penalty = 0;
         if (target != nullptr)
-            length_penalty = handler.hit_individual(wand_wielder, target, false, perceived_source_of_magic_beam);
+            length_penalty = handler.hit_individual(wand_wielder, target, false, observer_to_active_identifiable_item);
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
 
         if (!is_open_space(actual_map_tiles[cursor]))
-            length_penalty = handler.hit_wall(wand_wielder, cursor, false, perceived_source_of_magic_beam);
+            length_penalty = handler.hit_wall(wand_wielder, cursor, false, observer_to_active_identifiable_item);
         else
-            length_penalty = handler.hit_air(wand_wielder, cursor, false, perceived_source_of_magic_beam);
+            length_penalty = handler.hit_air(wand_wielder, cursor, false, observer_to_active_identifiable_item);
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
@@ -214,25 +214,25 @@ static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBea
 }
 
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
-    IdMap<uint256> perceived_source_of_magic_beam;
+    IdMap<uint256> observer_to_active_identifiable_item;
 
     Thing wand = actual_things.get(item_id);
     if (wand->wand_info()->charges <= -1) {
-        publish_event(Event::wand_disintegrates(wand_wielder, wand), &perceived_source_of_magic_beam);
+        publish_event(Event::wand_disintegrates(wand_wielder, wand), &observer_to_active_identifiable_item);
 
         wand->still_exists = false;
         return;
     }
     if (wand->wand_info()->charges <= 0) {
-        publish_event(Event::wand_zap_no_charges(wand_wielder, wand), &perceived_source_of_magic_beam);
+        publish_event(Event::wand_zap_no_charges(wand_wielder, wand), &observer_to_active_identifiable_item);
         wand->wand_info()->charges--;
         return;
     }
     wand->wand_info()->charges--;
 
-    publish_event(Event::zap_wand(wand_wielder, wand), &perceived_source_of_magic_beam);
+    publish_event(Event::zap_wand(wand_wielder, wand), &observer_to_active_identifiable_item);
     MagicBeamHandler handler = wand_handlers[actual_wand_identities[wand->wand_info()->description_id]];
-    shoot_magic_beam(wand_wielder, direction, handler, &perceived_source_of_magic_beam);
+    shoot_magic_beam(wand_wielder, direction, handler, &observer_to_active_identifiable_item);
 }
 
 int get_mana_cost(BookId book_id) {
@@ -250,16 +250,16 @@ int get_mana_cost(BookId book_id) {
 }
 
 void read_book(Thing actor, uint256 item_id, Coord direction) {
-    IdMap<uint256> perceived_source_of_magic_beam;
+    IdMap<uint256> observer_to_active_identifiable_item;
 
     Thing book = actual_things.get(item_id);
-    publish_event(Event::read_book(actor, book), &perceived_source_of_magic_beam);
+    publish_event(Event::read_book(actor, book), &observer_to_active_identifiable_item);
 
     BookId book_id = actual_book_identities[book->book_info()->description_id];
     // TODO: check for success
     int mana_cost = get_mana_cost(book_id);
     use_mana(actor, mana_cost);
-    shoot_magic_beam(actor, direction, book_handlers[book_id], &perceived_source_of_magic_beam);
+    shoot_magic_beam(actor, direction, book_handlers[book_id], &observer_to_active_identifiable_item);
 }
 
 // is_breaking is used in the published event
@@ -340,8 +340,8 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
     } else {
         apothem = 1; // 3x3
     }
-    IdMap<uint256> perceived_source_of_magic_beam;
-    publish_event(Event::wand_explodes(item->id, explosion_center), &perceived_source_of_magic_beam);
+    IdMap<uint256> observer_to_active_identifiable_item;
+    publish_event(Event::wand_explodes(item->id, explosion_center), &observer_to_active_identifiable_item);
     item->still_exists = false;
 
     List<Thing> affected_individuals;
@@ -365,9 +365,9 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
 
     MagicBeamHandler handler = wand_handlers[actual_wand_identities[item->wand_info()->description_id]];
     for (int i = 0; i < affected_individuals.length(); i++)
-        handler.hit_individual(actor, affected_individuals[i], true, &perceived_source_of_magic_beam);
+        handler.hit_individual(actor, affected_individuals[i], true, &observer_to_active_identifiable_item);
     for (int i = 0; i < affected_walls.length(); i++)
-        handler.hit_wall(actor, affected_walls[i], true, &perceived_source_of_magic_beam);
+        handler.hit_wall(actor, affected_walls[i], true, &observer_to_active_identifiable_item);
 }
 
 void break_potion(Thing actor, Thing item, Coord location) {
