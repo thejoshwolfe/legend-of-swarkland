@@ -82,9 +82,9 @@ enum BookId {
     BookId_UNKNOWN,
 };
 
-extern WandId actual_wand_identities[WandDescriptionId_COUNT];
-extern PotionId actual_potion_identities[PotionDescriptionId_COUNT];
-extern BookId actual_book_identities[BookDescriptionId_COUNT];
+extern WandDescriptionId actual_wand_descriptions[WandId_COUNT];
+extern PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
+extern BookDescriptionId actual_book_descriptions[BookId_COUNT];
 
 enum SpeciesId {
     SpeciesId_HUMAN,
@@ -401,14 +401,14 @@ struct Life : public PerceivedLife {
 };
 
 struct WandInfo {
-    WandDescriptionId description_id;
+    WandId wand_id;
     int charges;
 };
 struct PotionInfo {
-    PotionDescriptionId description_id;
+    PotionId potion_id;
 };
 struct BookInfo {
-    BookDescriptionId description_id;
+    BookId book_id;
 };
 
 class ThingImpl : public ReferenceCounted {
@@ -428,11 +428,11 @@ public:
     // individual
     ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType decision_maker);
     // wand
-    ThingImpl(WandDescriptionId description_id, int charges);
+    ThingImpl(WandId wand_id, int charges);
     // potion
-    ThingImpl(PotionDescriptionId description_id);
+    ThingImpl(PotionId potion_id);
     // book
-    ThingImpl(BookDescriptionId description_id);
+    ThingImpl(BookId book_id);
 
     ~ThingImpl() {
         switch (thing_type) {

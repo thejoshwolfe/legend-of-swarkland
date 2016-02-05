@@ -203,7 +203,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     // potions are fragile
     if (item->thing_type == ThingType_POTION)
         item_breaks = true;
-    bool impacts_in_wall = item->thing_type == ThingType_WAND && actual_wand_identities[item->wand_info()->description_id] == WandId_WAND_OF_DIGGING;
+    bool impacts_in_wall = item->thing_type == ThingType_WAND && item->wand_info()->wand_id == WandId_WAND_OF_DIGGING;
     for (int i = 0; i < range; i++) {
         cursor += direction;
         if (!is_open_space(actual_map_tiles[cursor])) {
@@ -364,10 +364,12 @@ static void init_individuals() {
             pickup_item(boss, create_random_item(ThingType_POTION));
         }
         // teach him everything about magic.
-        for (int i = 0; i < WandDescriptionId_COUNT; i++)
-            boss->life()->knowledge.wand_identities[i] = actual_wand_identities[i];
-        for (int i = 0; i < PotionDescriptionId_COUNT; i++)
-            boss->life()->knowledge.potion_identities[i] = actual_potion_identities[i];
+        for (int i = 0; i < WandId_COUNT; i++)
+            boss->life()->knowledge.wand_identities[actual_wand_descriptions[i]] = (WandId)i;
+        for (int i = 0; i < PotionId_COUNT; i++)
+            boss->life()->knowledge.potion_identities[actual_potion_descriptions[i]] = (PotionId)i;
+        for (int i = 0; i < BookId_COUNT; i++)
+            boss->life()->knowledge.book_identities[actual_book_descriptions[i]] = (BookId)i;
     } else {
         // spawn a "miniboss", which is just a specific monster on the stairs.
         SpeciesId miniboss_species_id = get_miniboss_species(dungeon_level);
@@ -819,7 +821,7 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
                     if (expected_thing.wand_id != WandId_UNKNOWN)
                         continue;
                 } else {
-                    if (actual_wand_identities[thing->wand_info()->description_id] != expected_thing.wand_id)
+                    if (thing->wand_info()->description_id != actual_wand_descriptions[expected_thing.wand_id])
                         continue;
                 }
                 break;
@@ -828,7 +830,7 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
                     if (expected_thing.potion_id != PotionId_UNKNOWN)
                         continue;
                 } else {
-                    if (actual_potion_identities[thing->potion_info()->description_id] != expected_thing.potion_id)
+                    if (thing->potion_info()->description_id != actual_potion_descriptions[expected_thing.potion_id])
                         continue;
                 }
                 break;
@@ -837,7 +839,7 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
                     if (expected_thing.book_id != BookId_UNKNOWN)
                         continue;
                 } else {
-                    if (actual_book_identities[thing->book_info()->description_id] != expected_thing.book_id)
+                    if (thing->book_info()->description_id != actual_book_descriptions[expected_thing.book_id])
                         continue;
                 }
                 break;
@@ -970,10 +972,12 @@ static bool take_action(Thing actor, const Action & action) {
             unreachable();
         }
         case Action::CHEATCODE_IDENTIFY:
-            for (int i = 0; i < WandDescriptionId_COUNT; i++)
-                player_actor->life()->knowledge.wand_identities[i] = actual_wand_identities[i];
-            for (int i = 0; i < PotionDescriptionId_COUNT; i++)
-                player_actor->life()->knowledge.potion_identities[i] = actual_potion_identities[i];
+            for (int i = 0; i < WandId_COUNT; i++)
+                player_actor->life()->knowledge.wand_identities[actual_wand_descriptions[i]] = (WandId)i;
+            for (int i = 0; i < PotionId_COUNT; i++)
+                player_actor->life()->knowledge.potion_identities[actual_potion_descriptions[i]] = (PotionId)i;
+            for (int i = 0; i < BookId_COUNT; i++)
+                player_actor->life()->knowledge.book_identities[actual_book_descriptions[i]] = (BookId)i;
             return false;
         case Action::CHEATCODE_GO_DOWN:
             if (dungeon_level < final_dungeon_level)

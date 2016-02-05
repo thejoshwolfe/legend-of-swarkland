@@ -5,44 +5,23 @@
 #include "swarkland.hpp"
 #include "event.hpp"
 
-WandId actual_wand_identities[WandDescriptionId_COUNT];
-PotionId actual_potion_identities[PotionDescriptionId_COUNT];
-BookId actual_book_identities[BookDescriptionId_COUNT];
+WandDescriptionId actual_wand_descriptions[WandId_COUNT];
+PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
+BookDescriptionId actual_book_descriptions[BookId_COUNT];
 
 static Thing register_item(Thing item) {
     actual_things.put(item->id, item);
     return item;
 }
-static WandDescriptionId reverse_identify(WandId wand_id) {
-    for (int i = 0; i < WandDescriptionId_COUNT; i++)
-        if (actual_wand_identities[i] == wand_id)
-            return (WandDescriptionId)i;
-    unreachable();
-}
-static PotionDescriptionId reverse_identify(PotionId potion_id) {
-    for (int i = 0; i < PotionDescriptionId_COUNT; i++)
-        if (actual_potion_identities[i] == potion_id)
-            return (PotionDescriptionId)i;
-    unreachable();
-}
-static BookDescriptionId reverse_identify(BookId book_id) {
-    for (int i = 0; i < BookDescriptionId_COUNT; i++)
-        if (actual_book_identities[i] == book_id)
-            return (BookDescriptionId)i;
-    unreachable();
-}
 Thing create_wand(WandId wand_id) {
-    WandDescriptionId description_id = reverse_identify(wand_id);
     int charges = random_int(4, 8, "wand_charges");
-    return register_item(create<ThingImpl>(description_id, charges));
+    return register_item(create<ThingImpl>(wand_id, charges));
 }
 Thing create_potion(PotionId potion_id) {
-    PotionDescriptionId description_id = reverse_identify(potion_id);
-    return register_item(create<ThingImpl>(description_id));
+    return register_item(create<ThingImpl>(potion_id));
 }
 Thing create_book(BookId book_id) {
-    BookDescriptionId description_id = reverse_identify(book_id);
-    return register_item(create<ThingImpl>(description_id));
+    return register_item(create<ThingImpl>(book_id));
 }
 
 Thing create_random_item(ThingType thing_type) {
@@ -155,22 +134,22 @@ static MagicBeamHandler book_handlers[BookId_COUNT];
 
 void init_items() {
     assert((int)WandDescriptionId_COUNT == (int)WandId_COUNT);
-    for (int i = 0; i < WandDescriptionId_COUNT; i++)
-        actual_wand_identities[i] = (WandId)i;
+    for (int i = 0; i < WandId_COUNT; i++)
+        actual_wand_descriptions[i] = (WandDescriptionId)i;
     if (!test_mode)
-        shuffle(actual_wand_identities, WandId_COUNT);
+        shuffle(actual_wand_descriptions, WandId_COUNT);
 
     assert((int)PotionDescriptionId_COUNT == (int)PotionId_COUNT);
-    for (int i = 0; i < PotionDescriptionId_COUNT; i++)
-        actual_potion_identities[i] = (PotionId)i;
+    for (int i = 0; i < PotionId_COUNT; i++)
+        actual_potion_descriptions[i] = (PotionDescriptionId)i;
     if (!test_mode)
-        shuffle(actual_potion_identities, PotionId_COUNT);
+        shuffle(actual_potion_descriptions, PotionId_COUNT);
 
     assert((int)BookDescriptionId_COUNT == (int)BookId_COUNT);
-    for (int i = 0; i < BookDescriptionId_COUNT; i++)
-        actual_book_identities[i] = (BookId)i;
+    for (int i = 0; i < BookId_COUNT; i++)
+        actual_book_descriptions[i] = (BookDescriptionId)i;
     if (!test_mode)
-        shuffle(actual_book_identities, BookId_COUNT);
+        shuffle(actual_book_descriptions, BookId_COUNT);
 
     wand_handlers[WandId_WAND_OF_CONFUSION] = {pass_through_air_silently, confusion_hit_individual, hit_wall_no_effect};
     wand_handlers[WandId_WAND_OF_DIGGING] = {digging_pass_through_air, hit_individual_no_effect, digging_hit_wall};
@@ -231,7 +210,7 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     wand->wand_info()->charges--;
 
     publish_event(Event::zap_wand(wand_wielder, wand), &observer_to_active_identifiable_item);
-    MagicBeamHandler handler = wand_handlers[actual_wand_identities[wand->wand_info()->description_id]];
+    MagicBeamHandler handler = wand_handlers[wand->wand_info()->wand_id];
     shoot_magic_beam(wand_wielder, direction, handler, &observer_to_active_identifiable_item);
 }
 
@@ -255,7 +234,7 @@ void read_book(Thing actor, uint256 item_id, Coord direction) {
     Thing book = actual_things.get(item_id);
     publish_event(Event::read_book(actor, book), &observer_to_active_identifiable_item);
 
-    BookId book_id = actual_book_identities[book->book_info()->description_id];
+    BookId book_id = book->book_info()->book_id;
     // TODO: check for success
     int mana_cost = get_mana_cost(book_id);
     use_mana(actor, mana_cost);
@@ -265,10 +244,10 @@ void read_book(Thing actor, uint256 item_id, Coord direction) {
 // is_breaking is used in the published event
 void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     uint256 target_id = target->id;
-    PotionId effect_id = actual_potion_identities[item->potion_info()->description_id];
+    PotionId potion_id = item->potion_info()->potion_id;
     // the potion might appear to do nothing
-    PotionId apparent_effect = effect_id;
-    switch (effect_id) {
+    PotionId apparent_effect = potion_id;
+    switch (potion_id) {
         case PotionId_POTION_OF_HEALING:
             if (target->life()->hitpoints >= target->life()->max_hitpoints())
                 apparent_effect = PotionId_UNKNOWN;
@@ -300,7 +279,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     }
     publish_event(Event::use_potion(item->id, apparent_effect, is_breaking, target_id));
     item->still_exists = false;
-    switch (effect_id) {
+    switch (potion_id) {
         case PotionId_POTION_OF_HEALING: {
             int hp = target->life()->max_hitpoints() * 2 / 3;
             heal_hp(target, hp);
@@ -333,7 +312,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
 
 void explode_wand(Thing actor, Thing item, Coord explosion_center) {
     // boom
-    WandId wand_id = actual_wand_identities[item->wand_info()->description_id];
+    WandId wand_id = item->wand_info()->wand_id;
     int apothem;
     if (wand_id == WandId_WAND_OF_DIGGING) {
         apothem = 2; // 5x5
@@ -363,7 +342,7 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
             if (actual_map_tiles[wall_cursor] == TileType_WALL)
                 affected_walls.append(wall_cursor);
 
-    MagicBeamHandler handler = wand_handlers[actual_wand_identities[item->wand_info()->description_id]];
+    MagicBeamHandler handler = wand_handlers[item->wand_info()->wand_id];
     for (int i = 0; i < affected_individuals.length(); i++)
         handler.hit_individual(actor, affected_individuals[i], true, &observer_to_active_identifiable_item);
     for (int i = 0; i < affected_walls.length(); i++)

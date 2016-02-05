@@ -524,8 +524,7 @@ static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
     render_div(div, rect, horizontal_align, vertical_align);
 }
 
-template<typename T>
-static RuckSackImage * get_image_for_thing(Reference<T> thing) {
+static RuckSackImage * get_image_for_thing(PerceivedThing thing) {
     switch (thing->thing_type) {
         case ThingType_INDIVIDUAL:
             if (thing->life()->species_id == SpeciesId_UNSEEN)
@@ -543,6 +542,22 @@ static RuckSackImage * get_image_for_thing(Reference<T> thing) {
             if (thing->book_info()->description_id == BookDescriptionId_UNSEEN)
                 return unseen_book_image;
             return book_images[thing->book_info()->description_id];
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    panic("thing type");
+}
+static RuckSackImage * get_image_for_thing(Thing thing) {
+    switch (thing->thing_type) {
+        case ThingType_INDIVIDUAL:
+            return species_images[thing->life()->species_id];
+        case ThingType_WAND:
+            return wand_images[actual_wand_descriptions[thing->wand_info()->wand_id]];
+        case ThingType_POTION:
+            return potion_images[actual_potion_descriptions[thing->potion_info()->potion_id]];
+        case ThingType_BOOK:
+            return book_images[actual_book_descriptions[thing->book_info()->book_id]];
 
         case ThingType_COUNT:
             unreachable();
@@ -890,40 +905,19 @@ static Span render_thing_type(ThingType thing_type) {
 }
 static Span render_wand_id(WandId wand_id) {
     Span result = new_span();
-    WandDescriptionId description_id = WandDescriptionId_UNSEEN;
-    for (int i = 0; i < WandDescriptionId_COUNT; i++) {
-        if (actual_wand_identities[i] == wand_id) {
-            description_id = (WandDescriptionId)i;
-            break;
-        }
-    }
-    assert(description_id != WandDescriptionId_UNSEEN);
+    WandDescriptionId description_id = actual_wand_descriptions[wand_id];
     result->format("%g%s", wand_images[description_id], new_span(get_wand_id_str((WandId)wand_id)));
     return result;
 }
 static Span render_potion_id(PotionId potion_id) {
     Span result = new_span();
-    PotionDescriptionId description_id = PotionDescriptionId_UNSEEN;
-    for (int i = 0; i < PotionDescriptionId_COUNT; i++) {
-        if (actual_potion_identities[i] == potion_id) {
-            description_id = (PotionDescriptionId)i;
-            break;
-        }
-    }
-    assert(description_id != PotionDescriptionId_UNSEEN);
+    PotionDescriptionId description_id = actual_potion_descriptions[potion_id];
     result->format("%g%s", potion_images[description_id], new_span(get_potion_id_str((PotionId)potion_id)));
     return result;
 }
 static Span render_book_id(BookId book_id) {
     Span result = new_span();
-    BookDescriptionId description_id = BookDescriptionId_UNSEEN;
-    for (int i = 0; i < BookDescriptionId_COUNT; i++) {
-        if (actual_book_identities[i] == book_id) {
-            description_id = (BookDescriptionId)i;
-            break;
-        }
-    }
-    assert(description_id != BookDescriptionId_UNSEEN);
+    BookDescriptionId description_id = actual_book_descriptions[book_id];
     result->format("%g%s", book_images[description_id], new_span(get_book_id_str((BookId)book_id)));
     return result;
 }

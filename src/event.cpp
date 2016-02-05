@@ -394,15 +394,15 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
             break;
         case ThingType_WAND:
             if (can_see_color(vision))
-                target->wand_info()->description_id = actual_target->wand_info()->description_id;
+                target->wand_info()->description_id = actual_wand_descriptions[actual_target->wand_info()->wand_id];
             break;
         case ThingType_POTION:
             if (can_see_color(vision))
-                target->potion_info()->description_id = actual_target->potion_info()->description_id;
+                target->potion_info()->description_id = actual_potion_descriptions[actual_target->potion_info()->potion_id];
             break;
         case ThingType_BOOK:
             if (can_see_color(vision))
-                target->book_info()->description_id = actual_target->book_info()->description_id;
+                target->book_info()->description_id = actual_book_descriptions[actual_target->book_info()->book_id];
             break;
 
         case ThingType_COUNT:
