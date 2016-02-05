@@ -144,18 +144,19 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
         case ThingType_INDIVIDUAL:
             unreachable();
         case ThingType_WAND:
-            thing = create<PerceivedThingImpl>(id, true, WandDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
+            thing = create<PerceivedThingImpl>(id, true, WandDescriptionId_UNSEEN, time_counter);
             break;
         case ThingType_POTION:
-            thing = create<PerceivedThingImpl>(id, true, PotionDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
+            thing = create<PerceivedThingImpl>(id, true, PotionDescriptionId_UNSEEN, time_counter);
             break;
         case ThingType_BOOK:
-            thing = create<PerceivedThingImpl>(id, true, BookDescriptionId_UNSEEN, Coord::nowhere(), supposed_container_id, 0, time_counter);
+            thing = create<PerceivedThingImpl>(id, true, BookDescriptionId_UNSEEN, time_counter);
             break;
 
         case ThingType_COUNT:
             unreachable();
     }
+    thing->container_id = supposed_container_id;
     observer->life()->knowledge.perceived_things.put(id, thing);
     fix_perceived_z_orders(observer, container->id);
     return id;
@@ -166,7 +167,8 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
     if (thing == nullptr) {
         // invent a placeholder here
         uint256 id = random_id();
-        thing = create<PerceivedThingImpl>(id, true, SpeciesId_UNSEEN, actual_target->location, time_counter);
+        thing = create<PerceivedThingImpl>(id, true, SpeciesId_UNSEEN, time_counter);
+        thing->location = actual_target->location;
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
     VisionTypes vision = observer->life()->knowledge.tile_is_visible[actual_target->location];
@@ -366,13 +368,13 @@ static void record_solidity_of_location(Thing observer, Coord location, bool is_
 static PerceivedThing new_perceived_thing(uint256 id, ThingType thing_type) {
     switch (thing_type) {
         case ThingType_INDIVIDUAL:
-            return create<PerceivedThingImpl>(id, false, SpeciesId_UNSEEN, Coord::nowhere(), time_counter);
+            return create<PerceivedThingImpl>(id, false, SpeciesId_UNSEEN, time_counter);
         case ThingType_WAND:
-            return create<PerceivedThingImpl>(id, false, WandDescriptionId_UNSEEN, Coord::nowhere(), uint256::zero(), 0, time_counter);
+            return create<PerceivedThingImpl>(id, false, WandDescriptionId_UNSEEN, time_counter);
         case ThingType_POTION:
-            return create<PerceivedThingImpl>(id, false, PotionDescriptionId_UNSEEN, Coord::nowhere(), uint256::zero(), 0, time_counter);
+            return create<PerceivedThingImpl>(id, false, PotionDescriptionId_UNSEEN, time_counter);
         case ThingType_BOOK:
-            return create<PerceivedThingImpl>(id, false, BookDescriptionId_UNSEEN, Coord::nowhere(), uint256::zero(), 0, time_counter);
+            return create<PerceivedThingImpl>(id, false, BookDescriptionId_UNSEEN, time_counter);
 
         case ThingType_COUNT:
             unreachable();

@@ -252,34 +252,34 @@ public:
     uint256 id;
     bool is_placeholder;
     ThingType thing_type;
-    Coord location;
-    uint256 container_id;
+    Coord location = Coord::nowhere();
+    uint256 container_id = uint256::zero();
     int z_order = 0;
     int64_t last_seen_time;
     List<StatusEffect::Id> status_effects;
     // individual
-    PerceivedThingImpl(uint256 id, bool is_placeholder, SpeciesId species_id, Coord location, int64_t last_seen_time) :
-            id(id), is_placeholder(is_placeholder), thing_type(ThingType_INDIVIDUAL), location(location), container_id(uint256::zero()), last_seen_time(last_seen_time) {
+    PerceivedThingImpl(uint256 id, bool is_placeholder, SpeciesId species_id, int64_t last_seen_time) :
+            id(id), is_placeholder(is_placeholder), thing_type(ThingType_INDIVIDUAL), last_seen_time(last_seen_time) {
         assert(id != uint256::zero());
         _life = create<PerceivedLife>();
         _life->species_id = species_id;
     }
     // wand
-    PerceivedThingImpl(uint256 id, bool is_placeholder, WandDescriptionId description_id, Coord location, uint256 container_id, int z_order, int64_t last_seen_time) :
-            id(id), is_placeholder(is_placeholder), thing_type(ThingType_WAND), location(location), container_id(container_id), z_order(z_order), last_seen_time(last_seen_time) {
+    PerceivedThingImpl(uint256 id, bool is_placeholder, WandDescriptionId description_id, int64_t last_seen_time) :
+            id(id), is_placeholder(is_placeholder), thing_type(ThingType_WAND), last_seen_time(last_seen_time) {
         _wand_info = create<PerceivedWandInfo>();
         _wand_info->description_id = description_id;
         _wand_info->used_count = 0;
     }
     // potion
-    PerceivedThingImpl(uint256 id, bool is_placeholder, PotionDescriptionId description_id, Coord location, uint256 container_id, int z_order, int64_t last_seen_time) :
-            id(id), is_placeholder(is_placeholder), thing_type(ThingType_POTION), location(location), container_id(container_id), z_order(z_order), last_seen_time(last_seen_time) {
+    PerceivedThingImpl(uint256 id, bool is_placeholder, PotionDescriptionId description_id, int64_t last_seen_time) :
+            id(id), is_placeholder(is_placeholder), thing_type(ThingType_POTION), last_seen_time(last_seen_time) {
         _potion_info = create<PerceivedPotionInfo>();
         _potion_info->description_id = description_id;
     }
     // book
-    PerceivedThingImpl(uint256 id, bool is_placeholder, BookDescriptionId description_id, Coord location, uint256 container_id, int z_order, int64_t last_seen_time) :
-            id(id), is_placeholder(is_placeholder), thing_type(ThingType_BOOK), location(location), container_id(container_id), z_order(z_order), last_seen_time(last_seen_time) {
+    PerceivedThingImpl(uint256 id, bool is_placeholder, BookDescriptionId description_id, int64_t last_seen_time) :
+            id(id), is_placeholder(is_placeholder), thing_type(ThingType_BOOK), last_seen_time(last_seen_time) {
         _book_info = create<PerceivedBookInfo>();
         _book_info->description_id = description_id;
     }
