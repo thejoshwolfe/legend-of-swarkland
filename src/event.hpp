@@ -3,26 +3,15 @@
 
 #include "thing.hpp"
 
-enum MagicBeamEffect {
-    MagicBeamEffect_UNKNOWN,
-    MagicBeamEffect_CONFUSION,
-    MagicBeamEffect_DIGGING,
-    MagicBeamEffect_MAGIC_MISSILE,
-    MagicBeamEffect_SPEED,
-    MagicBeamEffect_REMEDY,
-    MagicBeamEffect_MAGIC_BULLET,
-};
-
 struct Event {
     enum Type {
         THE_INDIVIDUAL,
+        THE_LOCATION,
         INDIVIDUAL_AND_STATUS,
         INDIVIDUAL_AND_LOCATION,
         MOVE,
         TWO_INDIVIDUAL,
         INDIVIDUAL_AND_ITEM,
-        MAGIC_BEAM_HIT,
-        USE_POTION,
         POLYMORPH,
         ITEM_AND_LOCATION,
     };
@@ -63,11 +52,12 @@ struct Event {
             ITEM_HITS_INDIVIDUAL,
             INDIVIDUAL_PICKS_UP_ITEM,
             INDIVIDUAL_SUCKS_UP_ITEM,
+            QUAFF_POTION,
+            POTION_HITS_INDIVIDUAL,
         };
         Id id;
         uint256 individual;
         uint256 item;
-        Coord location;
     };
     struct ItemAndLocationData {
         enum Id {
@@ -88,9 +78,21 @@ struct Event {
             DELETE_THING,
             SPIT_BLINDING_VENOM,
             BLINDING_VENOM_HIT_INDIVIDUAL,
+            MAGIC_BEAM_HIT_INDIVIDUAL,
+            MAGIC_MISSILE_HIT_INDIVIDUAL,
+            MAGIC_BULLET_HIT_INDIVIDUAL,
+            INDIVIDUAL_IS_HEALED,
         };
         Id id;
         uint256 individual;
+    };
+    struct TheLocationData {
+        enum Id {
+            MAGIC_BEAM_HIT_WALL,
+            BEAM_OF_DIGGING_DIGS_WALL,
+        };
+        Id id;
+        Coord location;
     };
     struct IndividualAndStatusData {
         enum Id {
@@ -106,6 +108,12 @@ struct Event {
         check_data_type(THE_INDIVIDUAL);
         return _data._the_individual;
     }
+
+    TheLocationData & the_location_data() {
+        check_data_type(THE_LOCATION);
+        return _data._the_location;
+    }
+
     IndividualAndStatusData & individual_and_status_data() {
         check_data_type(INDIVIDUAL_AND_STATUS);
         return _data._individual_and_status;
@@ -129,28 +137,6 @@ struct Event {
     IndividualAndItemData & individual_and_item_data() {
         check_data_type(INDIVIDUAL_AND_ITEM);
         return _data._individual_and_item;
-    }
-
-    struct MagicBeamHitData {
-        MagicBeamEffect observable_effect;
-        bool is_explosion;
-        uint256 target;
-        Coord location;
-    };
-    MagicBeamHitData & magic_beam_hit_data() {
-        check_data_type(MAGIC_BEAM_HIT);
-        return _data._magic_beam_hit;
-    }
-
-    struct UsePotionData {
-        uint256 item_id;
-        PotionId effect;
-        bool is_breaking;
-        uint256 target_id;
-    };
-    UsePotionData & use_potion_data() {
-        check_data_type(USE_POTION);
-        return _data._use_potion;
     }
 
     struct PolymorphData {
@@ -178,31 +164,38 @@ struct Event {
         return individual_and_location_event(IndividualAndLocationData::ATTACK_LOCATION, attacker->id, location, is_air);
     }
 
-    static inline Event zap_wand(Thing wand_wielder, Thing item) {
-        return individual_and_item_event(IndividualAndItemData::ZAP_WAND, wand_wielder->id, item->id, wand_wielder->location);
+    static inline Event zap_wand(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::ZAP_WAND, individual_id, item_id);
     }
-    static inline Event wand_zap_no_charges(Thing wand_wielder, Thing item) {
-        return individual_and_item_event(IndividualAndItemData::ZAP_WAND_NO_CHARGES, wand_wielder->id, item->id, wand_wielder->location);
+    static inline Event wand_zap_no_charges(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::ZAP_WAND_NO_CHARGES, individual_id, item_id);
     }
-    static inline Event wand_disintegrates(Thing wand_wielder, Thing item) {
-        return individual_and_item_event(IndividualAndItemData::WAND_DISINTEGRATES, wand_wielder->id, item->id, wand_wielder->location);
+    static inline Event wand_disintegrates(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::WAND_DISINTEGRATES, individual_id, item_id);
     }
     static inline Event wand_explodes(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::WAND_EXPLODES, item_id, location);
     }
-    static inline Event read_book(Thing actor, Thing item) {
-        return individual_and_item_event(IndividualAndItemData::READ_BOOK, actor->id, item->id, actor->location);
+    static inline Event read_book(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::READ_BOOK, individual_id, item_id);
     }
-    static inline Event magic_beam_hit(MagicBeamEffect observable_effect, bool is_explosion, uint256 target, Coord location) {
-        Event result;
-        result.type = MAGIC_BEAM_HIT;
-        result.magic_beam_hit_data() = {
-            observable_effect,
-            is_explosion,
-            target,
-            location,
-        };
-        return result;
+    static inline Event magic_beam_hit(uint256 target) {
+        return individual_event(TheIndividualData::MAGIC_BEAM_HIT_INDIVIDUAL, target);
+    }
+    static inline Event magic_missile_hit(uint256 target) {
+        return individual_event(TheIndividualData::MAGIC_MISSILE_HIT_INDIVIDUAL, target);
+    }
+    static inline Event magic_bullet_hit(uint256 target) {
+        return individual_event(TheIndividualData::MAGIC_BULLET_HIT_INDIVIDUAL, target);
+    }
+    static inline Event magic_beam_hit_wall(Coord location) {
+        return location_event(TheLocationData::MAGIC_BEAM_HIT_WALL, location);
+    }
+    static inline Event beam_of_digging_digs_wall(Coord location) {
+        return location_event(TheLocationData::BEAM_OF_DIGGING_DIGS_WALL, location);
+    }
+    static inline Event individual_is_healed(uint256 target) {
+        return individual_event(TheIndividualData::INDIVIDUAL_IS_HEALED, target);
     }
 
     static Event bump_into_individual(Thing actor, Thing target) {
@@ -212,29 +205,17 @@ struct Event {
         return individual_and_location_event(IndividualAndLocationData::BUMP_INTO_LOCATION, actor->id, location, is_air);
     }
 
-    static Event throw_item(Thing thrower, uint256 item_id) {
-        return individual_and_item_event(IndividualAndItemData::THROW_ITEM, thrower->id, item_id, thrower->location);
+    static Event throw_item(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::THROW_ITEM, individual_id, item_id);
     }
-    static Event item_hits_individual(uint256 item_id, Thing individual) {
-        return individual_and_item_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, individual->id, item_id, individual->location);
+    static Event item_hits_individual(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, individual_id, item_id);
     }
     static Event item_hits_wall(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_WALL, item_id, location);
     }
     static Event potion_breaks(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::POTION_BREAKS, item_id, location);
-    }
-
-    static Event use_potion(uint256 item_id, PotionId effect, bool is_breaking, uint256 target_id) {
-        Event result;
-        result.type = USE_POTION;
-        result.use_potion_data() = {
-            item_id,
-            effect,
-            is_breaking,
-            target_id,
-        };
-        return result;
     }
 
     static inline Event gain_status(uint256 individual_id, StatusEffect::Id status) {
@@ -280,11 +261,17 @@ struct Event {
     static inline Event item_drops_to_the_floor(Thing item) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
     }
-    static inline Event individual_picks_up_item(Thing individual, uint256 item_id) {
-        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual->id, item_id, individual->location);
+    static inline Event individual_picks_up_item(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual_id, item_id);
     }
-    static inline Event individual_sucks_up_item(Thing individual, Thing item) {
-        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id, individual->location);
+    static inline Event individual_sucks_up_item(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual_id, item_id);
+    }
+    static inline Event quaff_potion(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::QUAFF_POTION, individual_id, item_id);
+    }
+    static inline Event potion_hits_individual(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::POTION_HITS_INDIVIDUAL, individual_id, item_id);
     }
 
 private:
@@ -294,6 +281,15 @@ private:
         result.the_individual_data() = {
             id,
             individual_id,
+        };
+        return result;
+    }
+    static inline Event location_event(TheLocationData::Id id, Coord location) {
+        Event result;
+        result.type = THE_LOCATION;
+        result.the_location_data() = {
+            id,
+            location,
         };
         return result;
     }
@@ -338,14 +334,13 @@ private:
         };
         return result;
     }
-    static inline Event individual_and_item_event(IndividualAndItemData::Id id, uint256 individual_id, uint256 item_id, Coord location) {
+    static inline Event individual_and_item_event(IndividualAndItemData::Id id, uint256 individual_id, uint256 item_id) {
         Event result;
         result.type = INDIVIDUAL_AND_ITEM;
         result.individual_and_item_data() = {
             id,
             individual_id,
             item_id,
-            location,
         };
         return result;
     }
@@ -362,13 +357,12 @@ private:
 
     union {
         TheIndividualData _the_individual;
+        TheLocationData _the_location;
         IndividualAndStatusData _individual_and_status;
         IndividualAndLocationData _individual_and_location;
         MoveData _move;
         TwoIndividualData _two_individual;
         IndividualAndItemData _individual_and_item;
-        MagicBeamHitData _magic_beam_hit;
-        UsePotionData _use_potion;
         PolymorphData _polymorph;
         ItemAndLocationData _item_and_location;
     } _data;
@@ -381,7 +375,7 @@ private:
 bool can_see_thing(Thing observer, uint256 target_id, Coord target_location);
 bool can_see_thing(Thing observer, uint256 target_id);
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id);
+extern IdMap<uint256> observer_to_active_identifiable_item;
 void publish_event(Event event);
-void publish_event(Event event, IdMap<uint256> * observer_to_active_identifiable_item);
 
 #endif

@@ -10,7 +10,8 @@ attack -1 0
 pickup 0000000000000000000000000000000000000000000000000000000000000003
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000003
-  @expect_event "you drinks a blue potion; you is healed!"
+  @expect_event "you quaffs a blue potion."
+  @expect_event "you is healed!"
   @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
@@ -22,7 +23,8 @@ pickup 0000000000000000000000000000000000000000000000000000000000000004
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000004
     @rng 20 midpoint:2000:potion_of_cogniscopy_expiration
-  @expect_event "you drinks a yellow potion; you gains cogniscopy!"
+  @expect_event "you quaffs a yellow potion."
+  @expect_event "you is cogniscopic!"
   @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
@@ -35,7 +37,8 @@ pickup 0000000000000000000000000000000000000000000000000000000000000005
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000005
     @rng 20 midpoint:600:poison_expiriration
-  @expect_event "you drinks a green potion; you is poisoned!"
+  @expect_event "you quaffs a green potion."
+  @expect_event "you is poisoned!"
   @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
@@ -48,7 +51,8 @@ pickup 0000000000000000000000000000000000000000000000000000000000000006
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000006
     @rng 20 midpoint:2000:potion_of_ethereal_vision_expiration
-  @expect_event "you drinks a red potion; you gains ethereal vision!"
+  @expect_event "you quaffs a red potion."
+  @expect_event "you gains ethereal vision!"
   @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
@@ -61,7 +65,8 @@ pickup 0000000000000000000000000000000000000000000000000000000000000007
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000007
     @rng 20 midpoint:1000:potion_of_blindness_expiration
-  @expect_event "you drinks a orange potion; you is blinded!"
+  @expect_event "you quaffs a orange potion."
+  @expect_event "you is blind!"
   @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human
@@ -74,7 +79,8 @@ pickup 0000000000000000000000000000000000000000000000000000000000000008
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000008
     @rng 20 midpoint:2000:potion_of_invisibility_expiration
-  @expect_event "you drinks a purple potion; you turns invisible!"
+  @expect_event "you quaffs a purple potion."
+  @expect_event "you is invisible!"
   @expect_no_events
 @find_things_at 1 1
   @expect_thing individual human

@@ -53,72 +53,76 @@ Thing create_random_item() {
 // return how much extra beam length this happening requires.
 // return -1 for stop the beam.
 struct MagicBeamHandler {
-    int (*hit_air)(Thing actor, Coord location, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item);
-    int (*hit_individual)(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item);
-    int (*hit_wall)(Thing actor, Coord location, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item);
+    int (*hit_air)(Thing actor, Coord location);
+    int (*hit_individual)(Thing actor, Thing target);
+    int (*hit_wall)(Thing actor, Coord location);
 };
 
-static int pass_through_air_silently(Thing, Coord, bool, IdMap<uint256> *) {
+static int pass_through_air_silently(Thing, Coord) {
     return 0;
 }
-static int hit_individual_no_effect(Thing, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
+static int hit_individual_no_effect(Thing, Thing target) {
+    publish_event(Event::magic_beam_hit(target->id));
     return 0;
 }
-static int hit_wall_no_effect(Thing, Coord location, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, uint256::zero(), location), observer_to_active_identifiable_item);
+static int hit_wall_no_effect(Thing, Coord location) {
+    publish_event(Event::magic_beam_hit_wall(location));
     // and stop
     return -1;
 }
 
-static int confusion_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
-    bool confusable = individual_has_mind(target);
-    publish_event(Event::magic_beam_hit(confusable ? MagicBeamEffect_CONFUSION : MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
-    if (confusable)
-        confuse_individual(target);
+static int confusion_hit_individual(Thing, Thing target) {
+    publish_event(Event::magic_beam_hit(target->id));
+    publish_event(Event::gain_status(target->id, StatusEffect::CONFUSION));
+    find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = time_counter + random_int(100, 200, "confusion_duration");
     return 2;
 }
-static int magic_missile_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_MAGIC_MISSILE, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
-    magic_missile_hit_individual(actor, target);
+static int magic_missile_hit_individual(Thing actor, Thing target) {
+    publish_event(Event::magic_missile_hit(target->id));
+    int damage = random_int(4, 8, "magic_missile_damage");
+    damage_individual(target, damage, actor, false);
     return 2;
 }
-static int speed_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_SPEED, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
-    speed_up_individual(target);
+static int speed_hit_individual(Thing, Thing target) {
+    publish_event(Event::magic_beam_hit(target->id));
+    publish_event(Event::gain_status(target->id, StatusEffect::SPEED));
+    find_or_put_status(target, StatusEffect::SPEED)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
     return 2;
 }
-static int remedy_hit_individual(Thing, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
-    int confusion_index = find_status(target->status_effects, StatusEffect::CONFUSION);
-    int poison_index = find_status(target->status_effects, StatusEffect::POISON);
-    int blindness_index = find_status(target->status_effects, StatusEffect::BLINDNESS);
-    bool did_it_help = confusion_index != -1 || poison_index != -1 || blindness_index != -1;
-    publish_event(Event::magic_beam_hit(did_it_help ? MagicBeamEffect_REMEDY : MagicBeamEffect_UNKNOWN, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
-    if (confusion_index != -1)
-        target->status_effects[confusion_index].expiration_time = time_counter + 1;
-    if (poison_index != -1)
-        target->status_effects[poison_index].expiration_time = time_counter + 1;
-    if (blindness_index != -1)
-        target->status_effects[blindness_index].expiration_time = time_counter + 1;
+static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
+    int index = find_status(individual->status_effects, status);
+    if (index != -1) {
+        individual->status_effects[index].expiration_time = time_counter;
+        check_for_status_expired(individual, index);
+    }
+}
+static int remedy_hit_individual(Thing, Thing target) {
+    publish_event(Event::magic_beam_hit(target->id));
+
+    remedy_status_effect(target, StatusEffect::CONFUSION);
+    remedy_status_effect(target, StatusEffect::POISON);
+    remedy_status_effect(target, StatusEffect::BLINDNESS);
+
     return 2;
 }
-static int magic_bullet_hit_individual(Thing actor, Thing target, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_MAGIC_BULLET, is_explosion, target->id, target->location), observer_to_active_identifiable_item);
-    magic_bullet_hit_individual(actor, target);
+static int magic_bullet_hit_individual(Thing actor, Thing target) {
+    publish_event(Event::magic_bullet_hit(target->id));
+    int damage = random_inclusive(1, 2, "magic_bullet_damage");
+    damage_individual(target, damage, actor, false);
     return -1;
 }
 
-static int digging_hit_wall(Thing, Coord location, bool is_explosion, IdMap<uint256> * observer_to_active_identifiable_item) {
+static int digging_hit_wall(Thing, Coord location) {
     if (actual_map_tiles[location] == TileType_BORDER_WALL) {
         // no effect on border walls
-        publish_event(Event::magic_beam_hit(MagicBeamEffect_UNKNOWN, is_explosion, uint256::zero(), location), observer_to_active_identifiable_item);
+        publish_event(Event::magic_beam_hit_wall(location));
         return -1;
     }
-    publish_event(Event::magic_beam_hit(MagicBeamEffect_DIGGING, is_explosion, uint256::zero(), location), observer_to_active_identifiable_item);
+    publish_event(Event::beam_of_digging_digs_wall(location));
     change_map(location, TileType_DIRT_FLOOR);
     return 0;
 }
-static int digging_pass_through_air(Thing, Coord, bool, IdMap<uint256> *) {
+static int digging_pass_through_air(Thing, Coord) {
     // the digging beam doesn't travel well through air
     return 2;
 }
@@ -163,7 +167,7 @@ void init_items() {
     check_no_nulls(book_handlers);
 }
 
-static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBeamHandler & handler, IdMap<uint256> * observer_to_active_identifiable_item) {
+static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBeamHandler & handler) {
     Coord cursor = wand_wielder->location;
     int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin, "beam_length");
     for (int i = 0; i < beam_length; i++) {
@@ -174,15 +178,15 @@ static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBea
         Thing target = find_individual_at(cursor);
         int length_penalty = 0;
         if (target != nullptr)
-            length_penalty = handler.hit_individual(wand_wielder, target, false, observer_to_active_identifiable_item);
+            length_penalty = handler.hit_individual(wand_wielder, target);
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
 
         if (!is_open_space(actual_map_tiles[cursor]))
-            length_penalty = handler.hit_wall(wand_wielder, cursor, false, observer_to_active_identifiable_item);
+            length_penalty = handler.hit_wall(wand_wielder, cursor);
         else
-            length_penalty = handler.hit_air(wand_wielder, cursor, false, observer_to_active_identifiable_item);
+            length_penalty = handler.hit_air(wand_wielder, cursor);
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
@@ -193,25 +197,25 @@ static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBea
 }
 
 void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
-    IdMap<uint256> observer_to_active_identifiable_item;
-
     Thing wand = actual_things.get(item_id);
     if (wand->wand_info()->charges <= -1) {
-        publish_event(Event::wand_disintegrates(wand_wielder, wand), &observer_to_active_identifiable_item);
+        publish_event(Event::wand_disintegrates(wand_wielder->id, item_id));
 
         wand->still_exists = false;
         return;
     }
     if (wand->wand_info()->charges <= 0) {
-        publish_event(Event::wand_zap_no_charges(wand_wielder, wand), &observer_to_active_identifiable_item);
+        publish_event(Event::wand_zap_no_charges(wand_wielder->id, item_id));
         wand->wand_info()->charges--;
         return;
     }
     wand->wand_info()->charges--;
 
-    publish_event(Event::zap_wand(wand_wielder, wand), &observer_to_active_identifiable_item);
+    publish_event(Event::zap_wand(wand_wielder->id, item_id));
     MagicBeamHandler handler = wand_handlers[wand->wand_info()->wand_id];
-    shoot_magic_beam(wand_wielder, direction, handler, &observer_to_active_identifiable_item);
+    shoot_magic_beam(wand_wielder, direction, handler);
+
+    observer_to_active_identifiable_item.clear();
 }
 
 int get_mana_cost(BookId book_id) {
@@ -229,16 +233,15 @@ int get_mana_cost(BookId book_id) {
 }
 
 void read_book(Thing actor, uint256 item_id, Coord direction) {
-    IdMap<uint256> observer_to_active_identifiable_item;
+    publish_event(Event::read_book(actor->id, item_id));
 
     Thing book = actual_things.get(item_id);
-    publish_event(Event::read_book(actor, book), &observer_to_active_identifiable_item);
-
     BookId book_id = book->book_info()->book_id;
     // TODO: check for success
     int mana_cost = get_mana_cost(book_id);
     use_mana(actor, mana_cost);
-    shoot_magic_beam(actor, direction, book_handlers[book_id], &observer_to_active_identifiable_item);
+    shoot_magic_beam(actor, direction, book_handlers[book_id]);
+    observer_to_active_identifiable_item.clear();
 }
 
 // is_breaking is used in the published event
@@ -246,41 +249,14 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     uint256 target_id = target->id;
     PotionId potion_id = item->potion_info()->potion_id;
     // the potion might appear to do nothing
-    PotionId apparent_effect = potion_id;
-    switch (potion_id) {
-        case PotionId_POTION_OF_HEALING:
-            if (target->life()->hitpoints >= target->life()->max_hitpoints())
-                apparent_effect = PotionId_UNKNOWN;
-            break;
-        case PotionId_POTION_OF_POISON:
-            if (has_status(target, StatusEffect::POISON))
-                apparent_effect = PotionId_UNKNOWN;
-            break;
-        case PotionId_POTION_OF_ETHEREAL_VISION:
-            if (has_status(target, StatusEffect::ETHEREAL_VISION))
-                apparent_effect = PotionId_UNKNOWN;
-            break;
-        case PotionId_POTION_OF_COGNISCOPY:
-            if (has_status(target, StatusEffect::COGNISCOPY))
-                apparent_effect = PotionId_UNKNOWN;
-            break;
-        case PotionId_POTION_OF_BLINDNESS:
-            if (has_status(target, StatusEffect::BLINDNESS))
-                apparent_effect = PotionId_UNKNOWN;
-            break;
-        case PotionId_POTION_OF_INVISIBILITY:
-            if (has_status(target, StatusEffect::INVISIBILITY))
-                apparent_effect = PotionId_UNKNOWN;
-            break;
-
-        case PotionId_COUNT:
-        case PotionId_UNKNOWN:
-            unreachable();
-    }
-    publish_event(Event::use_potion(item->id, apparent_effect, is_breaking, target_id));
+    if (is_breaking)
+        publish_event(Event::potion_hits_individual(target_id, item->id));
+    else
+        publish_event(Event::quaff_potion(target_id, item->id));
     item->still_exists = false;
     switch (potion_id) {
         case PotionId_POTION_OF_HEALING: {
+            publish_event(Event::individual_is_healed(target_id));
             int hp = target->life()->max_hitpoints() * 2 / 3;
             heal_hp(target, hp);
             break;
@@ -289,18 +265,22 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             poison_individual(actor, target);
             break;
         case PotionId_POTION_OF_ETHEREAL_VISION:
+            publish_event(Event::gain_status(target_id, StatusEffect::ETHEREAL_VISION));
             find_or_put_status(target, StatusEffect::ETHEREAL_VISION)->expiration_time = time_counter + random_midpoint(2000, "potion_of_ethereal_vision_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_COGNISCOPY:
+            publish_event(Event::gain_status(target_id, StatusEffect::COGNISCOPY));
             find_or_put_status(target, StatusEffect::COGNISCOPY)->expiration_time = time_counter + random_midpoint(2000, "potion_of_cogniscopy_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_BLINDNESS:
+            publish_event(Event::gain_status(target_id, StatusEffect::BLINDNESS));
             find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = time_counter + random_midpoint(1000, "potion_of_blindness_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_INVISIBILITY:
+            publish_event(Event::gain_status(target_id, StatusEffect::INVISIBILITY));
             find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = time_counter + random_midpoint(2000, "potion_of_invisibility_expiration");
             break;
 
@@ -308,6 +288,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
         case PotionId_UNKNOWN:
             unreachable();
     }
+    observer_to_active_identifiable_item.clear();
 }
 
 void explode_wand(Thing actor, Thing item, Coord explosion_center) {
@@ -319,8 +300,7 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
     } else {
         apothem = 1; // 3x3
     }
-    IdMap<uint256> observer_to_active_identifiable_item;
-    publish_event(Event::wand_explodes(item->id, explosion_center), &observer_to_active_identifiable_item);
+    publish_event(Event::wand_explodes(item->id, explosion_center));
     item->still_exists = false;
 
     List<Thing> affected_individuals;
@@ -344,9 +324,11 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
 
     MagicBeamHandler handler = wand_handlers[item->wand_info()->wand_id];
     for (int i = 0; i < affected_individuals.length(); i++)
-        handler.hit_individual(actor, affected_individuals[i], true, &observer_to_active_identifiable_item);
+        handler.hit_individual(actor, affected_individuals[i]);
     for (int i = 0; i < affected_walls.length(); i++)
-        handler.hit_wall(actor, affected_walls[i], true, &observer_to_active_identifiable_item);
+        handler.hit_wall(actor, affected_walls[i]);
+
+    observer_to_active_identifiable_item.clear();
 }
 
 void break_potion(Thing actor, Thing item, Coord location) {

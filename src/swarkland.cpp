@@ -129,7 +129,7 @@ static void reset_hp_regen_timeout(Thing individual) {
     if (!test_mode && life->hitpoints < life->max_hitpoints())
         life->hp_regen_deadline = time_counter + random_midpoint(7 * 12, nullptr);
 }
-static void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) {
+void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) {
     assert_str(damage > 0, "no damage");
     target->life()->hitpoints -= damage;
     reset_hp_regen_timeout(target);
@@ -141,6 +141,8 @@ static void damage_individual(Thing target, int damage, Thing attacker, bool is_
 }
 
 void poison_individual(Thing attacker, Thing target) {
+    publish_event(Event::gain_status(target->id, StatusEffect::POISON));
+
     StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON);
     poison->who_is_responsible = attacker->id;
     poison->expiration_time = time_counter + random_midpoint(600, "poison_expiriration");
@@ -185,11 +187,11 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     if (individual != nullptr && individual->life()->species()->sucks_up_items) {
         // suck it
         pickup_item(individual, item);
-        publish_event(Event::individual_sucks_up_item(individual, item));
+        publish_event(Event::individual_sucks_up_item(individual->id, item->id));
     }
 }
 static void throw_item(Thing actor, Thing item, Coord direction) {
-    publish_event(Event::throw_item(actor, item->id));
+    publish_event(Event::throw_item(actor->id, item->id));
     // let go of the item. it's now sailing through the air.
     item->location = actor->location;
     item->container_id = uint256::zero();
@@ -221,7 +223,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
         Thing target = find_individual_at(cursor);
         if (target != nullptr) {
             // wham!
-            publish_event(Event::item_hits_individual(item->id, target));
+            publish_event(Event::item_hits_individual(target->id, item->id));
             // hurt a little
             int damage = random_inclusive(1, 2, "throw_impact_damage");
             damage_individual(target, damage, actor, false);
@@ -488,10 +490,8 @@ static void attack(Thing attacker, Thing target) {
     int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
     damage_individual(target, damage, attacker, true);
     reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4, "poison_attack") == 0) {
-        publish_event(Event::gain_status(target->id, StatusEffect::POISON));
+    if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4, "poison_attack") == 0)
         poison_individual(attacker, target);
-    }
 }
 
 static int compare_things_by_z_order(Thing a, Thing b) {
@@ -589,9 +589,40 @@ static void do_move(Thing mover, Coord new_position) {
         find_items_on_floor(new_position, &floor_items);
         for (int i = 0; i < floor_items.length(); i++) {
             pickup_item(mover, floor_items[i]);
-            publish_event(Event::individual_sucks_up_item(mover, floor_items[i]));
+            publish_event(Event::individual_sucks_up_item(mover->id, floor_items[i]->id));
         }
     }
+}
+
+// return iff expired and removed
+bool check_for_status_expired(Thing individual, int index) {
+    StatusEffect status_effect = individual->status_effects[index];
+    if (status_effect.expiration_time > time_counter)
+        return false;
+    assert(status_effect.expiration_time == time_counter);
+    individual->status_effects.swap_remove(index);
+    publish_event(Event::lose_status(individual->id, status_effect.type));
+    switch (status_effect.type) {
+        case StatusEffect::CONFUSION:
+            break;
+        case StatusEffect::SPEED:
+            break;
+        case StatusEffect::ETHEREAL_VISION:
+            compute_vision(individual);
+            break;
+        case StatusEffect::COGNISCOPY:
+            compute_vision(individual);
+            break;
+        case StatusEffect::BLINDNESS:
+            compute_vision(individual);
+            break;
+        case StatusEffect::POISON:
+            reset_hp_regen_timeout(individual);
+            break;
+        case StatusEffect::INVISIBILITY:
+            break;
+    }
+    return true;
 }
 
 static void cheatcode_kill(uint256 individual_id) {
@@ -913,7 +944,7 @@ static bool take_action(Thing actor, const Action & action) {
             break;
         case Action::PICKUP:
             pickup_item(actor, actual_things.get(action.item()));
-            publish_event(Event::individual_picks_up_item(actor, action.item()));
+            publish_event(Event::individual_picks_up_item(actor->id, action.item()));
             break;
         case Action::DROP:
             drop_item_to_the_floor(actual_things.get(action.item()), actor->location);
@@ -1102,39 +1133,8 @@ static void age_individual(Thing individual) {
     }
 
     for (int i = 0; i < individual->status_effects.length(); i++) {
-        StatusEffect status_effect = individual->status_effects[i];
-        assert(status_effect.expiration_time >= time_counter);
-        if (status_effect.expiration_time == time_counter) {
-            individual->status_effects.swap_remove(i);
+        if (check_for_status_expired(individual, i))
             i--;
-            switch (status_effect.type) {
-                case StatusEffect::CONFUSION:
-                    publish_event(Event::lose_status(individual->id, StatusEffect::CONFUSION));
-                    break;
-                case StatusEffect::SPEED:
-                    publish_event(Event::lose_status(individual->id, StatusEffect::SPEED));
-                    break;
-                case StatusEffect::ETHEREAL_VISION:
-                    publish_event(Event::lose_status(individual->id, StatusEffect::ETHEREAL_VISION));
-                    compute_vision(individual);
-                    break;
-                case StatusEffect::COGNISCOPY:
-                    publish_event(Event::lose_status(individual->id, StatusEffect::COGNISCOPY));
-                    compute_vision(individual);
-                    break;
-                case StatusEffect::BLINDNESS:
-                    publish_event(Event::lose_status(individual->id, StatusEffect::BLINDNESS));
-                    compute_vision(individual);
-                    break;
-                case StatusEffect::POISON:
-                    publish_event(Event::lose_status(individual->id, StatusEffect::POISON));
-                    reset_hp_regen_timeout(individual);
-                    break;
-                case StatusEffect::INVISIBILITY:
-                    publish_event(Event::lose_status(individual->id, StatusEffect::INVISIBILITY));
-                    break;
-            }
-        }
     }
 
     for (int i = 0; i < individual->ability_cooldowns.length(); i++) {
@@ -1244,6 +1244,8 @@ void run_the_game() {
                     return;
                 }
                 should_time_pass = take_action(individual, action);
+
+                assert(observer_to_active_identifiable_item.size() == 0);
             }
         }
         poised_individuals.clear();
@@ -1254,23 +1256,6 @@ void run_the_game() {
     tas_delete_save();
 }
 
-// you need to emit events yourself
-void confuse_individual(Thing target) {
-    find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = time_counter + random_int(100, 200, "confusion_duration");
-}
-// you need to emit events yourself
-void speed_up_individual(Thing target) {
-    find_or_put_status(target, StatusEffect::SPEED)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
-}
-
-void magic_missile_hit_individual(Thing attacker, Thing target) {
-    int damage = random_int(4, 8, "magic_missile_damage");
-    damage_individual(target, damage, attacker, false);
-}
-void magic_bullet_hit_individual(Thing attacker, Thing target) {
-    int damage = random_inclusive(1, 2, "magic_bullet_damage");
-    damage_individual(target, damage, attacker, false);
-}
 void change_map(Coord location, TileType new_tile_type) {
     actual_map_tiles[location] = new_tile_type;
     // recompute everyone's vision

@@ -9,7 +9,8 @@ attack 1 0
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000003
   wait
-  @expect_event "a lich king drinks a blue potion; a lich king is healed!"
+  @expect_event "a lich king quaffs a blue potion."
+  @expect_event "a lich king is healed!"
   @expect_no_events
 
 !wish potion poison
@@ -19,7 +20,8 @@ wait
   quaff 0000000000000000000000000000000000000000000000000000000000000004
     @rng 12 midpoint:600:poison_expiriration
   wait
-  @expect_event "a lich king drinks a green potion; a lich king is poisoned!"
+  @expect_event "a lich king quaffs a green potion."
+  @expect_event "a lich king is poisoned!"
   @expect_event "a lich king is no longer poisoned."
   @expect_no_events
 
@@ -30,7 +32,7 @@ wait
   quaff 0000000000000000000000000000000000000000000000000000000000000005
     @rng 12 midpoint:2000:potion_of_ethereal_vision_expiration
   wait
-  @expect_event "a lich king drinks a red potion, but nothing happens."
+  @expect_event "a lich king quaffs a red potion."
   @expect_no_events
 
 !wish potion cogniscopy
@@ -40,7 +42,7 @@ wait
   quaff 0000000000000000000000000000000000000000000000000000000000000006
     @rng 12 midpoint:2000:potion_of_cogniscopy_expiration
   wait
-  @expect_event "a lich king drinks a yellow potion, but nothing happens."
+  @expect_event "a lich king quaffs a yellow potion."
   @expect_no_events
 
 !wish potion blindness
@@ -50,7 +52,8 @@ wait
   quaff 0000000000000000000000000000000000000000000000000000000000000007
     @rng 12 midpoint:1000:potion_of_blindness_expiration
   wait
-  @expect_event "a lich king drinks a orange potion; a lich king is blinded!"
+  @expect_event "a lich king quaffs a orange potion."
+  @expect_event "a lich king is blind!"
   @expect_event "a lich king is no longer blind."
   @expect_no_events
 
@@ -61,6 +64,7 @@ wait
   quaff 0000000000000000000000000000000000000000000000000000000000000008
     @rng 12 midpoint:2000:potion_of_invisibility_expiration
   wait
-  @expect_event "a lich king drinks a purple potion; a lich king turns invisible!"
+  @expect_event "a lich king quaffs a purple potion."
+  @expect_event "a lich king is invisible!"
   @expect_event "a lich king is no longer invisible."
   @expect_no_events

@@ -105,10 +105,8 @@ void drop_item_to_the_floor(Thing item, Coord location);
 void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities);
 bool is_ability_ready(Thing actor, Ability::Id ability_id);
 
-void confuse_individual(Thing target);
-void speed_up_individual(Thing target);
-void magic_missile_hit_individual(Thing attacker, Thing target);
-void magic_bullet_hit_individual(Thing attacker, Thing target);
+bool check_for_status_expired(Thing individual, int index);
+void damage_individual(Thing target, int damage, Thing attacker, bool is_melee);
 void poison_individual(Thing attacker, Thing target);
 void heal_hp(Thing individual, int hp);
 void use_mana(Thing actor, int mana);

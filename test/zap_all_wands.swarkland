@@ -12,7 +12,8 @@ wait
     @rng 12 inclusive:6:12:beam_length
     @rng 20 range:100:200:confusion_duration
   @expect_event "a lich king zaps a bone wand."
-  @expect_event "a magic beam hits you; you is confused!"
+  @expect_event "a magic beam hits you."
+  @expect_event "you is confused!"
   @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
@@ -72,7 +73,7 @@ wait
     @rng 12 inclusive:6:12:beam_length
     @rng 4 range:4:8:magic_missile_damage
   @expect_event "a lich king zaps a plastic wand."
-  @expect_event "a magic beam is a magic missile and hits you!"
+  @expect_event "a magic missile hits you!"
   @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
@@ -96,7 +97,8 @@ wait
     @rng 12 inclusive:6:12:beam_length
     @rng 20 range:100:200:speed_duration
   @expect_event "a lich king zaps a copper wand."
-  @expect_event "a magic beam hits you; you speeds up!"
+  @expect_event "a magic beam hits you."
+  @expect_event "you speeds up!"
   @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
@@ -130,9 +132,9 @@ quaff 0000000000000000000000000000000000000000000000000000000000000008
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000007
     @rng 12 inclusive:6:12:beam_length
   @expect_event "a lich king zaps a purple wand."
-  @expect_event "a magic beam hits you; the magic beam soothes you."
-  @expect_event "a magic beam hits a wall."
+  @expect_event "a magic beam hits you."
   @expect_event "you is no longer poisoned."
+  @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
 @mark_events
