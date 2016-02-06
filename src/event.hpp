@@ -82,6 +82,7 @@ struct Event {
             MAGIC_MISSILE_HIT_INDIVIDUAL,
             MAGIC_BULLET_HIT_INDIVIDUAL,
             INDIVIDUAL_IS_HEALED,
+            ACTIVATED_MAPPING,
         };
         Id id;
         uint256 individual;
@@ -242,6 +243,9 @@ struct Event {
     }
     static inline Event melee_kill(Thing attacker, Thing deceased) {
         return two_individual_type_event(TwoIndividualData::MELEE_KILL, attacker->id, deceased->id);
+    }
+    static inline Event activated_mapping(uint256 individual_id) {
+        return individual_event(TheIndividualData::ACTIVATED_MAPPING, individual_id);
     }
 
     static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {

@@ -207,6 +207,12 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                         return false;
                     *output_event = event;
                     return true;
+                case Event::TheIndividualData::ACTIVATED_MAPPING:
+                    // it's all in the mind
+                    if (!can_see_thoughts(get_vision_for_thing(observer, data.individual)))
+                        return false;
+                    *output_event = event;
+                    return true;
                 case Event::TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_BEAM_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_MISSILE_HIT_INDIVIDUAL:
@@ -483,20 +489,17 @@ static void identify_active_item(Thing observer, WandId wand_id, PotionId potion
             unreachable();
         case ThingType_WAND:
             assert(wand_id != WandId_COUNT);
-            if (wand_id == WandId_UNKNOWN)
-                return;
+            assert(wand_id != WandId_UNKNOWN);
             observer->life()->knowledge.wand_identities[item->wand_info()->description_id] = wand_id;
             return;
         case ThingType_POTION:
             assert(potion_id != PotionId_COUNT);
-            if (potion_id == PotionId_UNKNOWN)
-                return;
+            assert(potion_id != PotionId_UNKNOWN);
             observer->life()->knowledge.potion_identities[item->potion_info()->description_id] = potion_id;
             return;
         case ThingType_BOOK:
             assert(book_id != BookId_COUNT);
-            if (book_id == BookId_UNKNOWN)
-                return;
+            assert(book_id != BookId_UNKNOWN);
             observer->life()->knowledge.book_identities[item->book_info()->description_id] = book_id;
             return;
 
@@ -564,6 +567,10 @@ static void observe_event(Thing observer, Event event) {
                 case Event::TheIndividualData::INDIVIDUAL_IS_HEALED:
                     remembered_event->span->format("%s is healed!", get_thing_description(observer, data.individual));
                     identify_active_item(observer, WandId_COUNT, PotionId_POTION_OF_HEALING, BookId_COUNT);
+                    break;
+                case Event::TheIndividualData::ACTIVATED_MAPPING:
+                    remembered_event->span->format("%s gets a vision of a map of the area.", get_thing_description(observer, data.individual));
+                    identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_MAPPING);
                     break;
             }
             break;

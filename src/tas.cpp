@@ -299,8 +299,7 @@ static const char * const SEED = "@seed";
 // making this a macro makes the red squiggly from the panic() show up at the call site instead of here.
 #define check_no_nulls(array) \
     for (int i = 0; i < (int)(sizeof(array) / sizeof(array[0])); i++) \
-        if (array[i] == nullptr) \
-            panic("missed a spot")
+        assert_str(array[i] != nullptr, "missed a spot")
 
 static void init_name_arrays() {
     action_names[Action::MOVE] = new_string("move");
@@ -373,6 +372,7 @@ static void init_name_arrays() {
 
     book_id_names[BookId_SPELLBOOK_OF_MAGIC_BULLET] = new_string("magic_bullet");
     book_id_names[BookId_SPELLBOOK_OF_SPEED] = new_string("speed");
+    book_id_names[BookId_SPELLBOOK_OF_MAPPING] = new_string("mapping");
     check_no_nulls(book_id_names);
 
     ability_names[Ability::SPIT_BLINDING_VENOM] = new_string("spit_blinding_venom");

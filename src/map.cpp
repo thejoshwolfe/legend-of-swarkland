@@ -68,6 +68,17 @@ static void refresh_ethereal_vision(Thing individual) {
     }
 }
 
+void record_shape_of_terrain(MapMatrix<TileType> * tiles, Coord location) {
+    if (actual_map_tiles[location] == TileType_STAIRS_DOWN) {
+        (*tiles)[location] = TileType_STAIRS_DOWN;
+    } else {
+        bool is_air = is_open_space(actual_map_tiles[location]);
+        if ((*tiles)[location] == TileType_UNKNOWN || is_open_space((*tiles)[location]) != is_air) {
+            (*tiles)[location] = is_air ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
+        }
+    }
+}
+
 void compute_vision(Thing observer) {
     Knowledge & knowledge = observer->life()->knowledge;
 
@@ -90,12 +101,7 @@ void compute_vision(Thing observer) {
         refresh_ethereal_vision(observer);
     // you can always feel just the spot you're on
     knowledge.tile_is_visible[observer->location] |= VisionTypes_TOUCH;
-    if (knowledge.tiles[observer->location] == TileType_UNKNOWN) {
-        if (actual_map_tiles[observer->location] == TileType_STAIRS_DOWN)
-            knowledge.tiles[observer->location] = TileType_STAIRS_DOWN;
-        else
-            knowledge.tiles[observer->location] = is_open_space(actual_map_tiles[observer->location]) ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
-    }
+    record_shape_of_terrain(&knowledge.tiles, observer->location);
 
     // see things
     // first clear out anything that we know is no longer where we thought

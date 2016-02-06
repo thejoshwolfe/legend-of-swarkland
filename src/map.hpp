@@ -64,6 +64,7 @@ static inline bool is_open_space(TileType tile_type) {
 bool can_spawn_at(Coord away_from_location, Coord location);
 bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatrix<TileType> map_tiles);
 
+void record_shape_of_terrain(MapMatrix<TileType> * tiles, Coord location);
 Coord random_spawn_location(Coord away_from_location);
 Coord find_stairs_down_location();
 

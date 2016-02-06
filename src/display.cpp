@@ -69,6 +69,11 @@ static RuckSackImage * find_image(const char * name) {
             return spritesheet_images[i];
     panic("sprite not found");
 }
+
+#define check_no_nulls(array) \
+    for (int i = 0; i < (int)(sizeof(array) / sizeof(array[0])); i++) \
+        assert_str(array[i] != nullptr, "missed a spot")
+
 static void load_images() {
     dirt_floor_image = find_image("img/map/dirt_floor.png");
     marble_floor_image = find_image("img/map/marble_floor.png");
@@ -90,6 +95,7 @@ static void load_images() {
     species_images[SpeciesId_SNAKE] = find_image("img/individual/snake.png");
     species_images[SpeciesId_COBRA] = find_image("img/individual/cobra.png");
     unseen_individual_image = find_image("img/individual/unseen_individual.png");
+    check_no_nulls(species_images);
 
     wand_images[WandDescriptionId_BONE_WAND] = find_image("img/wand/bone_wand.png");
     wand_images[WandDescriptionId_GOLD_WAND] = find_image("img/wand/gold_wand.png");
@@ -97,6 +103,7 @@ static void load_images() {
     wand_images[WandDescriptionId_COPPER_WAND] = find_image("img/wand/copper_wand.png");
     wand_images[WandDescriptionId_PURPLE_WAND] = find_image("img/wand/purple_wand.png");
     unseen_wand_image = find_image("img/wand/unseen_wand.png");
+    check_no_nulls(wand_images);
 
     potion_images[PotionDescriptionId_BLUE_POTION] = find_image("img/potion/blue_potion.png");
     potion_images[PotionDescriptionId_GREEN_POTION] = find_image("img/potion/green_potion.png");
@@ -105,10 +112,13 @@ static void load_images() {
     potion_images[PotionDescriptionId_ORANGE_POTION] = find_image("img/potion/orange_potion.png");
     potion_images[PotionDescriptionId_PURPLE_POTION] = find_image("img/potion/purple_potion.png");
     unseen_potion_image = find_image("img/potion/unseen_potion.png");
+    check_no_nulls(potion_images);
 
     book_images[BookDescriptionId_PURPLE_BOOK] = find_image("img/book/purple_book.png");
     book_images[BookDescriptionId_BLUE_BOOK] = find_image("img/book/blue_book.png");
+    book_images[BookDescriptionId_RED_BOOK] = find_image("img/book/red_book.png");
     unseen_book_image = find_image("img/book/unseen_book.png");
+    check_no_nulls(book_images);
 
     equipment_image = find_image("img/equipment.png");
 }
@@ -406,6 +416,8 @@ const char * get_book_id_str(BookId book_id) {
             return "spellbook of magic bullet";
         case BookId_SPELLBOOK_OF_SPEED:
             return "spellbook of speed";
+        case BookId_SPELLBOOK_OF_MAPPING:
+            return "spellbook of mapping";
 
         case BookId_COUNT:
         case BookId_UNKNOWN:
@@ -453,6 +465,8 @@ static const char * get_book_description_str(Thing observer, PerceivedThing item
                 return "purple book";
             case BookDescriptionId_BLUE_BOOK:
                 return "blue book";
+            case BookDescriptionId_RED_BOOK:
+                return "red book";
 
             case BookDescriptionId_UNSEEN:
                 return "book";

@@ -70,6 +70,7 @@ enum PotionId {
 enum BookDescriptionId {
     BookDescriptionId_PURPLE_BOOK,
     BookDescriptionId_BLUE_BOOK,
+    BookDescriptionId_RED_BOOK,
 
     BookDescriptionId_COUNT,
     BookDescriptionId_UNSEEN,
@@ -77,6 +78,7 @@ enum BookDescriptionId {
 enum BookId {
     BookId_SPELLBOOK_OF_MAGIC_BULLET,
     BookId_SPELLBOOK_OF_SPEED,
+    BookId_SPELLBOOK_OF_MAPPING,
 
     BookId_COUNT,
     BookId_UNKNOWN,
@@ -131,6 +133,7 @@ static inline bool can_see_color(VisionTypes vision) {
 }
 static inline bool can_see_thoughts(VisionTypes vision) {
     // you can only see your own thoughts.
+    // TODO: this should really be more like TELEPATHY, but that doesn't exist right now.
     return vision & VisionTypes_TOUCH;
 }
 

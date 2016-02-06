@@ -127,7 +127,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 ### 4.4.0
 
  * New items:
-   * spellbooks of: assume form, charm, fear, force, life syphon, mapping, slowing
+   * spellbooks of: assume form, charm, fear, force, life syphon, slowing
    * wands of: blinding, force, invisibility, magic bullet, slowing
    * potions of: experience, fruit juice, mana
 
@@ -135,7 +135,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
  * Spells and MP.
  * New items:
-   * spellbooks of: magic bullet, speed
+   * spellbooks of: magic bullet, mapping, speed
  * Renamed striking to magic missile.
 
 ## Version History

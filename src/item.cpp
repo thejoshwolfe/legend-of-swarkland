@@ -50,14 +50,6 @@ Thing create_random_item() {
         return create_random_item(ThingType_BOOK);
 }
 
-// return how much extra beam length this happening requires.
-// return -1 for stop the beam.
-struct MagicBeamHandler {
-    int (*hit_air)(Thing actor, Coord location);
-    int (*hit_individual)(Thing actor, Thing target);
-    int (*hit_wall)(Thing actor, Coord location);
-};
-
 static int pass_through_air_silently(Thing, Coord) {
     return 0;
 }
@@ -127,15 +119,6 @@ static int digging_pass_through_air(Thing, Coord) {
     return 2;
 }
 
-static MagicBeamHandler wand_handlers[WandId_COUNT];
-static MagicBeamHandler book_handlers[BookId_COUNT];
-
-// making this a macro makes the red squiggly from the panic() show up at the call site instead of here.
-#define check_no_nulls(array) \
-    for (int i = 0; i < (int)(sizeof(array) / sizeof(array[0])); i++) \
-        if (*(void**)&array[i] == nullptr) \
-            panic("missed a spot")
-
 void init_items() {
     assert((int)WandDescriptionId_COUNT == (int)WandId_COUNT);
     for (int i = 0; i < WandId_COUNT; i++)
@@ -154,20 +137,15 @@ void init_items() {
         actual_book_descriptions[i] = (BookDescriptionId)i;
     if (!test_mode)
         shuffle(actual_book_descriptions, BookId_COUNT);
-
-    wand_handlers[WandId_WAND_OF_CONFUSION] = {pass_through_air_silently, confusion_hit_individual, hit_wall_no_effect};
-    wand_handlers[WandId_WAND_OF_DIGGING] = {digging_pass_through_air, hit_individual_no_effect, digging_hit_wall};
-    wand_handlers[WandId_WAND_OF_MAGIC_MISSILE] = {pass_through_air_silently, magic_missile_hit_individual, hit_wall_no_effect};
-    wand_handlers[WandId_WAND_OF_SPEED] = {pass_through_air_silently, speed_hit_individual, hit_wall_no_effect};
-    wand_handlers[WandId_WAND_OF_REMEDY] = {pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect};
-    check_no_nulls(wand_handlers);
-
-    book_handlers[BookId_SPELLBOOK_OF_MAGIC_BULLET] = {pass_through_air_silently, magic_bullet_hit_individual, hit_wall_no_effect};
-    book_handlers[BookId_SPELLBOOK_OF_SPEED] = {pass_through_air_silently, speed_hit_individual, hit_wall_no_effect};
-    check_no_nulls(book_handlers);
 }
 
-static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBeamHandler & handler) {
+// functions should return how much extra beam length this happening requires.
+// return -1 for stop the beam.
+static void shoot_magic_beam(Thing wand_wielder, Coord direction,
+    int (*hit_air)(Thing actor, Coord location),
+    int (*hit_individual)(Thing actor, Thing target),
+    int (*hit_wall)(Thing actor, Coord location))
+{
     Coord cursor = wand_wielder->location;
     int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin, "beam_length");
     for (int i = 0; i < beam_length; i++) {
@@ -178,21 +156,54 @@ static void shoot_magic_beam(Thing wand_wielder, Coord direction, const MagicBea
         Thing target = find_individual_at(cursor);
         int length_penalty = 0;
         if (target != nullptr)
-            length_penalty = handler.hit_individual(wand_wielder, target);
+            length_penalty = hit_individual(wand_wielder, target);
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
 
         if (!is_open_space(actual_map_tiles[cursor]))
-            length_penalty = handler.hit_wall(wand_wielder, cursor);
+            length_penalty = hit_wall(wand_wielder, cursor);
         else
-            length_penalty = handler.hit_air(wand_wielder, cursor);
+            length_penalty = hit_air(wand_wielder, cursor);
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
 
         if (direction == Coord{0, 0})
             break; // zapping yourself
+    }
+}
+
+static const int small_mapping_radius = 20;
+static const int large_mapping_radius = 40;
+static void do_mapping(Thing actor, Coord direction) {
+    publish_event(Event::activated_mapping(actor->id));
+
+    Coord center = actor->location;
+    MapMatrix<TileType> & tiles = actor->life()->knowledge.tiles;
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+            if (direction == Coord{0, 0}) {
+                // small circle around you
+                if (euclidean_distance_squared(center, cursor) > small_mapping_radius * small_mapping_radius)
+                    continue;
+            } else if (direction.x * direction.y == 0) {
+                // large quarter circle projected from you with diagonal bounds
+                Coord vector = cursor - center + direction;
+                if (!(sign(vector.x + vector.y) == direction.x + direction.y &&
+                      sign(vector.x - vector.y) == direction.x - direction.y))
+                    continue;
+                if (euclidean_distance_squared(center, cursor) > large_mapping_radius * large_mapping_radius)
+                    continue;
+            } else {
+                // large quarter circle projected from you with orthogonal bounds
+                if (sign(cursor - center + direction) != direction)
+                    continue;
+                if (euclidean_distance_squared(center, cursor) > large_mapping_radius * large_mapping_radius)
+                    continue;
+            }
+            record_shape_of_terrain(&tiles, cursor);
+        }
     }
 }
 
@@ -212,8 +223,32 @@ void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
     wand->wand_info()->charges--;
 
     publish_event(Event::zap_wand(wand_wielder->id, item_id));
-    MagicBeamHandler handler = wand_handlers[wand->wand_info()->wand_id];
-    shoot_magic_beam(wand_wielder, direction, handler);
+    switch (wand->wand_info()->wand_id) {
+        case WandId_WAND_OF_CONFUSION:
+            shoot_magic_beam(wand_wielder, direction,
+                pass_through_air_silently, confusion_hit_individual, hit_wall_no_effect);
+            break;
+        case WandId_WAND_OF_DIGGING:
+            shoot_magic_beam(wand_wielder, direction,
+                digging_pass_through_air, hit_individual_no_effect, digging_hit_wall);
+            break;
+        case WandId_WAND_OF_MAGIC_MISSILE:
+            shoot_magic_beam(wand_wielder, direction,
+                pass_through_air_silently, magic_missile_hit_individual, hit_wall_no_effect);
+            break;
+        case WandId_WAND_OF_SPEED:
+            shoot_magic_beam(wand_wielder, direction,
+                pass_through_air_silently, speed_hit_individual, hit_wall_no_effect);
+            break;
+        case WandId_WAND_OF_REMEDY:
+            shoot_magic_beam(wand_wielder, direction,
+                pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect);
+            break;
+
+        case WandId_COUNT:
+        case WandId_UNKNOWN:
+            unreachable();
+    }
 
     observer_to_active_identifiable_item.clear();
 }
@@ -224,6 +259,8 @@ int get_mana_cost(BookId book_id) {
             return 2;
         case BookId_SPELLBOOK_OF_SPEED:
             return 4;
+        case BookId_SPELLBOOK_OF_MAPPING:
+            return 10;
 
         case BookId_COUNT:
         case BookId_UNKNOWN:
@@ -240,7 +277,23 @@ void read_book(Thing actor, uint256 item_id, Coord direction) {
     // TODO: check for success
     int mana_cost = get_mana_cost(book_id);
     use_mana(actor, mana_cost);
-    shoot_magic_beam(actor, direction, book_handlers[book_id]);
+    switch (book_id) {
+        case BookId_SPELLBOOK_OF_MAGIC_BULLET:
+            shoot_magic_beam(actor, direction,
+                pass_through_air_silently, magic_bullet_hit_individual, hit_wall_no_effect);
+            break;
+        case BookId_SPELLBOOK_OF_SPEED:
+            shoot_magic_beam(actor, direction,
+                pass_through_air_silently, speed_hit_individual, hit_wall_no_effect);
+            break;
+        case BookId_SPELLBOOK_OF_MAPPING:
+            do_mapping(actor, direction);
+            break;
+
+        case BookId_COUNT:
+        case BookId_UNKNOWN:
+            unreachable();
+    }
     observer_to_active_identifiable_item.clear();
 }
 
@@ -291,17 +344,17 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     observer_to_active_identifiable_item.clear();
 }
 
-void explode_wand(Thing actor, Thing item, Coord explosion_center) {
+void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     // boom
-    WandId wand_id = item->wand_info()->wand_id;
+    WandId wand_id = wand->wand_info()->wand_id;
     int apothem;
     if (wand_id == WandId_WAND_OF_DIGGING) {
         apothem = 2; // 5x5
     } else {
         apothem = 1; // 3x3
     }
-    publish_event(Event::wand_explodes(item->id, explosion_center));
-    item->still_exists = false;
+    publish_event(Event::wand_explodes(wand->id, explosion_center));
+    wand->still_exists = false;
 
     List<Thing> affected_individuals;
     Thing individual;
@@ -322,11 +375,33 @@ void explode_wand(Thing actor, Thing item, Coord explosion_center) {
             if (actual_map_tiles[wall_cursor] == TileType_WALL)
                 affected_walls.append(wall_cursor);
 
-    MagicBeamHandler handler = wand_handlers[item->wand_info()->wand_id];
+    int (*hit_individual)(Thing actor, Thing target) = hit_individual_no_effect;
+    int (*hit_wall)(Thing actor, Coord location) = hit_wall_no_effect;
+    switch (wand->wand_info()->wand_id) {
+        case WandId_WAND_OF_CONFUSION:
+            hit_individual = confusion_hit_individual;
+            break;
+        case WandId_WAND_OF_DIGGING:
+            hit_wall = digging_hit_wall;
+            break;
+        case WandId_WAND_OF_MAGIC_MISSILE:
+            hit_individual = magic_missile_hit_individual;
+            break;
+        case WandId_WAND_OF_SPEED:
+            hit_individual = speed_hit_individual;
+            break;
+        case WandId_WAND_OF_REMEDY:
+            hit_individual = remedy_hit_individual;
+            break;
+
+        case WandId_COUNT:
+        case WandId_UNKNOWN:
+            unreachable();
+    }
     for (int i = 0; i < affected_individuals.length(); i++)
-        handler.hit_individual(actor, affected_individuals[i]);
+        hit_individual(actor, affected_individuals[i]);
     for (int i = 0; i < affected_walls.length(); i++)
-        handler.hit_wall(actor, affected_walls[i]);
+        hit_wall(actor, affected_walls[i]);
 
     observer_to_active_identifiable_item.clear();
 }
