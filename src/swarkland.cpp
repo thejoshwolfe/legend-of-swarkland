@@ -8,7 +8,6 @@
 #include "tas.hpp"
 
 Species specieses[SpeciesId_COUNT];
-Mind specieses_mind[SpeciesId_COUNT];
 
 Ability abilities[Ability::COUNT];
 List<Ability::Id> species_abilities[SpeciesId_COUNT];
@@ -30,46 +29,39 @@ static List<PerceivedThing> test_expect_things_list;
 static List<PerceivedThing> test_expect_carrying_list;
 
 static void init_static_data() {
+    // shorthand
     VisionTypes norm = VisionTypes_NORMAL;
     VisionTypes ethe = VisionTypes_ETHEREAL;
+    Mind none = Mind_NONE;
+    Mind beas = Mind_BEAST;
+    Mind savg = Mind_SAVAGE;
+    Mind civl = Mind_CIVILIZED;
     //                                     movement cost
     //                                     |   health
     //                                     |   |  base mana
     //                                     |   |  |  base attack
     //                                     |   |  |  |  min level
     //                                     |   |  |  |  |   max level
-    //                                     |   |  |  |  |   |  vision
-    //                                     |   |  |  |  |   |  |     sucks up items
-    //                                     |   |  |  |  |   |  |     |  auto throws items
-    //                                     |   |  |  |  |   |  |     |  |  poison attack
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 3, 0, 10, norm, 0, 0, 0};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 0, 2, 4, 10, norm, 0, 0, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 4, 3, 7, 10, norm, 0, 0, 0};
-    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 0, 1, 0,  1, ethe, 1, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 0, 1, 3, 10, ethe, 1, 1, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 0, 2, 1,  2, norm, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  2, 0, 1, 0,  1, norm, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  2, 0, 3, 1,  2, norm, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 0, 1, 0,  1, norm, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 0, 1, 2,  3, norm, 0, 0, 1};
-    specieses[SpeciesId_SNAKE        ] = {18,  4, 0, 2, 1,  2, norm, 0, 0, 0};
-    specieses[SpeciesId_COBRA        ] = {18,  2, 0, 1, 2,  3, norm, 0, 0, 0};
+    //                                     |   |  |  |  |   |  mind
+    //                                     |   |  |  |  |   |  |     vision
+    //                                     |   |  |  |  |   |  |     |     sucks up items
+    //                                     |   |  |  |  |   |  |     |     |  auto throws items
+    //                                     |   |  |  |  |   |  |     |     |  |  poison attack
+    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 3, 0, 10, civl, norm, 0, 0, 0};
+    specieses[SpeciesId_OGRE         ] = {24, 15, 0, 2, 4, 10, savg, norm, 0, 0, 0};
+    specieses[SpeciesId_LICH         ] = {12, 12, 4, 3, 7, 10, civl, norm, 0, 0, 0};
+    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 0, 1, 0,  1, none, ethe, 1, 0, 0};
+    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 0, 1, 3, 10, none, ethe, 1, 1, 0};
+    specieses[SpeciesId_DOG          ] = {12,  4, 0, 2, 1,  2, beas, norm, 0, 0, 0};
+    specieses[SpeciesId_ANT          ] = {12,  2, 0, 1, 0,  1, beas, norm, 0, 0, 0};
+    specieses[SpeciesId_BEE          ] = {12,  2, 0, 3, 1,  2, beas, norm, 0, 0, 0};
+    specieses[SpeciesId_BEETLE       ] = {24,  6, 0, 1, 0,  1, beas, norm, 0, 0, 0};
+    specieses[SpeciesId_SCORPION     ] = {24,  5, 0, 1, 2,  3, beas, norm, 0, 0, 1};
+    specieses[SpeciesId_SNAKE        ] = {18,  4, 0, 2, 1,  2, beas, norm, 0, 0, 0};
+    specieses[SpeciesId_COBRA        ] = {18,  2, 0, 1, 2,  3, beas, norm, 0, 0, 0};
     for (int i = 0; i < SpeciesId_COUNT; i++)
         if (specieses[i].movement_cost == 0)
             panic("you missed a spot");
-
-    specieses_mind[SpeciesId_HUMAN        ] = Mind_CIVILIZED;
-    specieses_mind[SpeciesId_OGRE         ] = Mind_SAVAGE;
-    specieses_mind[SpeciesId_LICH         ] = Mind_CIVILIZED;
-    specieses_mind[SpeciesId_PINK_BLOB    ] = Mind_NONE;
-    specieses_mind[SpeciesId_AIR_ELEMENTAL] = Mind_NONE;
-    specieses_mind[SpeciesId_DOG          ] = Mind_BEAST;
-    specieses_mind[SpeciesId_ANT          ] = Mind_BEAST;
-    specieses_mind[SpeciesId_BEE          ] = Mind_BEAST;
-    specieses_mind[SpeciesId_BEETLE       ] = Mind_BEAST;
-    specieses_mind[SpeciesId_SCORPION     ] = Mind_BEAST;
-    specieses_mind[SpeciesId_SNAKE        ] = Mind_BEAST;
-    specieses_mind[SpeciesId_COBRA        ] = Mind_BEAST;
 
     abilities[Ability::SPIT_BLINDING_VENOM] = {Ability::SPIT_BLINDING_VENOM};
 

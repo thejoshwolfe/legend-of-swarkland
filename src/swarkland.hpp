@@ -39,7 +39,7 @@ static inline PerceivedThing get_top_level_container(const Thing & observer, Per
     return thing;
 }
 static inline bool individual_uses_items(Thing thing) {
-    switch (specieses_mind[thing->life()->species_id]) {
+    switch (thing->life()->species()->mind) {
         case Mind_NONE:
         case Mind_BEAST:
             return false;
@@ -50,7 +50,7 @@ static inline bool individual_uses_items(Thing thing) {
     unreachable();
 }
 static inline bool individual_is_clever(Thing thing) {
-    switch (specieses_mind[thing->life()->species_id]) {
+    switch (thing->life()->species()->mind) {
         case Mind_NONE:
         case Mind_BEAST:
         case Mind_SAVAGE:

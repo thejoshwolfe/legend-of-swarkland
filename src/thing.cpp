@@ -54,8 +54,3 @@ ThingImpl::ThingImpl(BookId book_id) :
     _book_info = create<BookInfo>();
     _book_info->book_id = book_id;
 }
-
-
-const Species * Life::species() const {
-    return &specieses[species_id];
-}

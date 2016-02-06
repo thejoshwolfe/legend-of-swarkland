@@ -155,14 +155,15 @@ struct Species {
     int base_hitpoints;
     int base_mana;
     int base_attack_power;
-    // this range is only for random spawning
     int min_level;
     int max_level;
+    Mind mind;
     VisionTypes vision_types;
     bool sucks_up_items;
     bool auto_throws_items;
     bool poison_attack;
 };
+extern Species specieses[SpeciesId_COUNT];
 
 struct StatusEffect {
     enum Id {
@@ -375,7 +376,8 @@ static inline int level_to_experience(int level) {
     return 1 << level;
 }
 
-struct Life : public PerceivedLife {
+struct Life {
+    SpeciesId species_id;
     int hitpoints;
     int64_t hp_regen_deadline;
     int mana;
@@ -387,7 +389,9 @@ struct Life : public PerceivedLife {
     DecisionMakerType decision_maker;
     Knowledge knowledge;
 
-    const Species * species() const;
+    const Species * species() const{
+        return &specieses[species_id];
+    }
     int experience_level() const {
         return experience_to_level(experience);
     }
@@ -504,9 +508,6 @@ static inline bool is_item(T thing) {
     return thing->thing_type != ThingType_INDIVIDUAL;
 }
 
-extern Species specieses[SpeciesId_COUNT];
-extern Mind specieses_mind[SpeciesId_COUNT];
-
 extern Ability abilities[Ability::COUNT];
 extern List<Ability::Id> species_abilities[SpeciesId_COUNT];
 
@@ -528,7 +529,7 @@ static inline int compare_things_by_id(Thing a, Thing b) {
 void compute_vision(Thing observer);
 
 static inline bool individual_has_mind(Thing thing) {
-    switch (specieses_mind[thing->life()->species_id]) {
+    switch (thing->life()->species()->mind) {
         case Mind_NONE:
             return false;
         case Mind_BEAST:
