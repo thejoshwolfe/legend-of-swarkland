@@ -499,6 +499,12 @@ static inline bool is_item(T thing) {
     return thing->thing_type != ThingType_INDIVIDUAL;
 }
 
+extern Species specieses[SpeciesId_COUNT];
+extern Mind specieses_mind[SpeciesId_COUNT];
+
+extern Ability abilities[Ability::COUNT];
+extern List<Ability::Id> species_abilities[SpeciesId_COUNT];
+
 static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> get_perceived_individuals(Thing individual) {
     return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_things.value_iterator(), is_individual);
 }
@@ -515,6 +521,32 @@ static inline int compare_things_by_id(Thing a, Thing b) {
 
 // TODO: this is in the wrong place
 void compute_vision(Thing observer);
+
+static inline bool individual_has_mind(Thing thing) {
+    switch (specieses_mind[thing->life()->species_id]) {
+        case Mind_NONE:
+            return false;
+        case Mind_BEAST:
+        case Mind_SAVAGE:
+        case Mind_CIVILIZED:
+            return true;
+    }
+    unreachable();
+}
+static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
+    switch (status) {
+        case StatusEffect::CONFUSION:
+            return individual_has_mind(individual);
+        case StatusEffect::SPEED:
+        case StatusEffect::ETHEREAL_VISION:
+        case StatusEffect::COGNISCOPY:
+        case StatusEffect::BLINDNESS:
+        case StatusEffect::INVISIBILITY:
+        case StatusEffect::POISON:
+            return true;
+    }
+    unreachable();
+}
 
 static inline int find_status(const List<StatusEffect> & status_effects, StatusEffect::Id status) {
     for (int i = 0; i < status_effects.length(); i++)
@@ -535,7 +567,7 @@ static inline bool has_status(const List<StatusEffect> & status_effects, StatusE
     return find_status(status_effects, status) != -1;
 }
 static inline bool has_status(Thing thing, StatusEffect::Id status) {
-    return has_status(thing->status_effects, status);
+    return can_have_status(thing, status) && has_status(thing->status_effects, status);
 }
 static inline int find_status(const List<StatusEffect::Id> & status_effects, StatusEffect::Id status) {
     for (int i = 0; i < status_effects.length(); i++)

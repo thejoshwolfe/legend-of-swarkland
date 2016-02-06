@@ -277,8 +277,8 @@ static void do_ability(Thing actor, Ability::Id ability_id, Coord direction) {
         Thing target = find_individual_at(cursor);
         if (target != nullptr) {
             publish_event(Event::blinding_venom_hit_individual(target->id));
-            blind_individual(actor, target);
             publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
+            blind_individual(actor, target);
             compute_vision(target);
             return;
         }
@@ -600,8 +600,8 @@ bool check_for_status_expired(Thing individual, int index) {
     if (status_effect.expiration_time > time_counter)
         return false;
     assert(status_effect.expiration_time == time_counter);
-    individual->status_effects.swap_remove(index);
     publish_event(Event::lose_status(individual->id, status_effect.type));
+    individual->status_effects.swap_remove(index);
     switch (status_effect.type) {
         case StatusEffect::CONFUSION:
             break;
@@ -1179,6 +1179,11 @@ static void delete_dead_things() {
             if (!thing->still_exists)
                 delete_things.append(thing);
     }
+    // tell everyone to forget about this stuff.
+    for (int i = 0; i < delete_things.length(); i++)
+        publish_event(Event::delete_thing(delete_things[i]->id));
+
+    // and actually delete it all
     List<uint256> fix_z_order_container_ids;
     for (int i = 0; i < delete_things.length(); i++) {
         Thing thing = delete_things[i];
@@ -1189,10 +1194,6 @@ static void delete_dead_things() {
     }
     for (int i = 0; i < fix_z_order_container_ids.length(); i++)
         fix_z_orders(fix_z_order_container_ids[i]);
-    // tell everyone to forget about this stuff.
-    // TODO: delay this a random amount of time to hide information
-    for (int i = 0; i < delete_things.length(); i++)
-        publish_event(Event::delete_thing(delete_things[i]->id));
 }
 
 List<Thing> poised_individuals;

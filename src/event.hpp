@@ -95,11 +95,7 @@ struct Event {
         Coord location;
     };
     struct IndividualAndStatusData {
-        enum Id {
-            GAIN_STATUS,
-            LOSE_STATUS,
-        };
-        Id id;
+        bool is_gain; // otherwise lose
         uint256 individual;
         StatusEffect::Id status;
     };
@@ -219,10 +215,10 @@ struct Event {
     }
 
     static inline Event gain_status(uint256 individual_id, StatusEffect::Id status) {
-        return individual_and_status_event(IndividualAndStatusData::GAIN_STATUS, individual_id, status);
+        return individual_and_status_event(true, individual_id, status);
     }
     static inline Event lose_status(uint256 individual_id, StatusEffect::Id status) {
-        return individual_and_status_event(IndividualAndStatusData::LOSE_STATUS, individual_id, status);
+        return individual_and_status_event(false, individual_id, status);
     }
 
     static inline Event spit_blinding_venom(uint256 deceased_id) {
@@ -293,11 +289,11 @@ private:
         };
         return result;
     }
-    static inline Event individual_and_status_event(IndividualAndStatusData::Id id, uint256 individual_id, StatusEffect::Id status) {
+    static inline Event individual_and_status_event(bool is_gain, uint256 individual_id, StatusEffect::Id status) {
         Event result;
         result.type = INDIVIDUAL_AND_STATUS;
         result.individual_and_status_data() = {
-            id,
+            is_gain,
             individual_id,
             status,
         };

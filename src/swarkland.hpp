@@ -7,12 +7,6 @@
 #include "thing.hpp"
 #include "action.hpp"
 
-extern Species specieses[SpeciesId_COUNT];
-extern Mind specieses_mind[SpeciesId_COUNT];
-
-extern Ability abilities[Ability::COUNT];
-extern List<Ability::Id> species_abilities[SpeciesId_COUNT];
-
 extern bool test_mode;
 extern bool headless_mode;
 
@@ -43,17 +37,6 @@ static inline PerceivedThing get_top_level_container(const Thing & observer, Per
     while (thing->container_id != uint256::zero())
         thing = observer->life()->knowledge.perceived_things.get(thing->container_id);
     return thing;
-}
-static inline bool individual_has_mind(Thing thing) {
-    switch (specieses_mind[thing->life()->species_id]) {
-        case Mind_NONE:
-            return false;
-        case Mind_BEAST:
-        case Mind_SAVAGE:
-        case Mind_CIVILIZED:
-            return true;
-    }
-    unreachable();
 }
 static inline bool individual_uses_items(Thing thing) {
     switch (specieses_mind[thing->life()->species_id]) {

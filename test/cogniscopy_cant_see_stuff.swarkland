@@ -82,3 +82,10 @@ move 1 0
     # even though you picked up a wand, i can't see that
     @expect_carrying_nothing
   @expect_nothing
+
+@mark_events
+  wait
+  !levelup
+  wait
+  # you can't see people level up through cogniscopy
+  @expect_no_events
