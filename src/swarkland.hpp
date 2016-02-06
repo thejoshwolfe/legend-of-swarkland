@@ -87,6 +87,7 @@ void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 void drop_item_to_the_floor(Thing item, Coord location);
 void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities);
 bool is_ability_ready(Thing actor, Ability::Id ability_id);
+void attempt_move(Thing actor, Coord new_position);
 
 bool check_for_status_expired(Thing individual, int index);
 void damage_individual(Thing target, int damage, Thing attacker, bool is_melee);

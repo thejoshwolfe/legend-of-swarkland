@@ -83,6 +83,7 @@ struct Event {
             MAGIC_BULLET_HIT_INDIVIDUAL,
             INDIVIDUAL_IS_HEALED,
             ACTIVATED_MAPPING,
+            MAGIC_BEAM_PUSH_INDIVIDUAL,
         };
         Id id;
         uint256 individual;
@@ -246,6 +247,9 @@ struct Event {
     }
     static inline Event activated_mapping(uint256 individual_id) {
         return individual_event(TheIndividualData::ACTIVATED_MAPPING, individual_id);
+    }
+    static inline Event magic_beam_push_individual(uint256 individual_id) {
+        return individual_event(TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL, individual_id);
     }
 
     static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {

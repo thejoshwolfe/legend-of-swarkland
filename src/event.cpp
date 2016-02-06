@@ -217,6 +217,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TheIndividualData::MAGIC_BEAM_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_MISSILE_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_BULLET_HIT_INDIVIDUAL:
+                case Event::TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL:
                     // TODO: move these events to a projectile event
                     if (!see_thing(observer, data.individual))
                         return false;
@@ -569,8 +570,12 @@ static void observe_event(Thing observer, Event event) {
                     identify_active_item(observer, WandId_COUNT, PotionId_POTION_OF_HEALING, BookId_COUNT);
                     break;
                 case Event::TheIndividualData::ACTIVATED_MAPPING:
-                    remembered_event->span->format("%s gets a vision of a map of the area.", get_thing_description(observer, data.individual));
+                    remembered_event->span->format("%s gets a vision of a map of the area!", get_thing_description(observer, data.individual));
                     identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_MAPPING);
+                    break;
+                case Event::TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL:
+                    remembered_event->span->format("a magic beam pushes %s!", get_thing_description(observer, data.individual));
+                    identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
                     break;
             }
             break;

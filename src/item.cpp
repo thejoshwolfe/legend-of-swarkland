@@ -50,20 +50,17 @@ Thing create_random_item() {
         return create_random_item(ThingType_BOOK);
 }
 
-static int pass_through_air_silently(Thing, Coord) {
-    return 0;
-}
-static int hit_individual_no_effect(Thing, Thing target) {
+static int hit_individual_no_effect(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     return 0;
 }
-static int hit_wall_no_effect(Thing, Coord location) {
+static int hit_wall_no_effect(Coord location) {
     publish_event(Event::magic_beam_hit_wall(location));
     // and stop
     return -1;
 }
 
-static int confusion_hit_individual(Thing, Thing target) {
+static int confusion_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::CONFUSION));
     find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = time_counter + random_int(100, 200, "confusion_duration");
@@ -75,7 +72,7 @@ static int magic_missile_hit_individual(Thing actor, Thing target) {
     damage_individual(target, damage, actor, false);
     return 2;
 }
-static int speed_hit_individual(Thing, Thing target) {
+static int speed_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::SPEED));
     find_or_put_status(target, StatusEffect::SPEED)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
@@ -88,7 +85,7 @@ static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
         check_for_status_expired(individual, index);
     }
 }
-static int remedy_hit_individual(Thing, Thing target) {
+static int remedy_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
 
     remedy_status_effect(target, StatusEffect::CONFUSION);
@@ -104,7 +101,7 @@ static int magic_bullet_hit_individual(Thing actor, Thing target) {
     return -1;
 }
 
-static int digging_hit_wall(Thing, Coord location) {
+static int digging_hit_wall(Coord location) {
     if (actual_map_tiles[location] == TileType_BORDER_WALL) {
         // no effect on border walls
         publish_event(Event::magic_beam_hit_wall(location));
@@ -114,9 +111,29 @@ static int digging_hit_wall(Thing, Coord location) {
     change_map(location, TileType_DIRT_FLOOR);
     return 0;
 }
-static int digging_pass_through_air(Thing, Coord) {
-    // the digging beam doesn't travel well through air
-    return 2;
+
+static int force_hit_individual(Thing target, Coord direction, int beam_length_remaining) {
+    Coord cursor = target->location;
+    List<Thing> choo_choo_train;
+    for (int push_length = 0; push_length < beam_length_remaining; push_length++) {
+        target = find_individual_at(cursor);
+        if (target != nullptr) {
+            // join the train!
+            publish_event(Event::magic_beam_push_individual(target->id));
+            choo_choo_train.append(target);
+        } else {
+            // move the train into this space
+            for (int i = choo_choo_train.length() - 1; i >= 0; i--)
+                attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
+            if (!is_open_space(actual_map_tiles[cursor])) {
+                // end of the line.
+                // we just published a bunch of bump-into events.
+                break;
+            }
+        }
+        cursor += direction;
+    }
+    return -1;
 }
 
 void init_items() {
@@ -139,14 +156,20 @@ void init_items() {
         shuffle(actual_book_descriptions, BookId_COUNT);
 }
 
+enum ProjectileId {
+    ProjectileId_BEAM_OF_CONFUSION,
+    ProjectileId_BEAM_OF_DIGGING,
+    ProjectileId_MAGIC_MISSILE,
+    ProjectileId_BEAM_OF_SPEED,
+    ProjectileId_BEAM_OF_REMEDY,
+    ProjectileId_MAGIC_BULLET,
+    ProjectileId_BEAM_OF_FORCE,
+};
+
 // functions should return how much extra beam length this happening requires.
 // return -1 for stop the beam.
-static void shoot_magic_beam(Thing wand_wielder, Coord direction,
-    int (*hit_air)(Thing actor, Coord location),
-    int (*hit_individual)(Thing actor, Thing target),
-    int (*hit_wall)(Thing actor, Coord location))
-{
-    Coord cursor = wand_wielder->location;
+static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projectile_id) {
+    Coord cursor = actor->location;
     int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin, "beam_length");
     for (int i = 0; i < beam_length; i++) {
         cursor = cursor + direction;
@@ -155,16 +178,68 @@ static void shoot_magic_beam(Thing wand_wielder, Coord direction,
 
         Thing target = find_individual_at(cursor);
         int length_penalty = 0;
-        if (target != nullptr)
-            length_penalty = hit_individual(wand_wielder, target);
+        if (target != nullptr) {
+            // hit individual
+            switch (projectile_id) {
+                case ProjectileId_BEAM_OF_CONFUSION:
+                    length_penalty = confusion_hit_individual(target);
+                    break;
+                case ProjectileId_BEAM_OF_DIGGING:
+                    length_penalty = hit_individual_no_effect(target);
+                    break;
+                case ProjectileId_MAGIC_MISSILE:
+                    length_penalty = magic_missile_hit_individual(actor, target);
+                    break;
+                case ProjectileId_BEAM_OF_SPEED:
+                    length_penalty = speed_hit_individual(target);
+                    break;
+                case ProjectileId_BEAM_OF_REMEDY:
+                    length_penalty = remedy_hit_individual(target);
+                    break;
+                case ProjectileId_MAGIC_BULLET:
+                    length_penalty = magic_bullet_hit_individual(actor, target);
+                    break;
+                case ProjectileId_BEAM_OF_FORCE:
+                    length_penalty = force_hit_individual(target, direction, beam_length - i);
+                    break;
+            }
+        }
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
 
-        if (!is_open_space(actual_map_tiles[cursor]))
-            length_penalty = hit_wall(wand_wielder, cursor);
-        else
-            length_penalty = hit_air(wand_wielder, cursor);
+        if (!is_open_space(actual_map_tiles[cursor])) {
+            // hit wall
+            switch (projectile_id) {
+                case ProjectileId_BEAM_OF_DIGGING:
+                    length_penalty = digging_hit_wall(cursor);
+                    break;
+                case ProjectileId_BEAM_OF_CONFUSION:
+                case ProjectileId_MAGIC_MISSILE:
+                case ProjectileId_BEAM_OF_SPEED:
+                case ProjectileId_BEAM_OF_REMEDY:
+                case ProjectileId_MAGIC_BULLET:
+                case ProjectileId_BEAM_OF_FORCE: // TODO: force hit wall
+                    length_penalty = hit_wall_no_effect(cursor);
+                    break;
+            }
+        } else {
+            // hit air
+            switch (projectile_id) {
+                case ProjectileId_BEAM_OF_DIGGING:
+                    // the digging beam doesn't travel well through air
+                    length_penalty = 2;
+                    break;
+                case ProjectileId_BEAM_OF_CONFUSION:
+                case ProjectileId_MAGIC_MISSILE:
+                case ProjectileId_BEAM_OF_SPEED:
+                case ProjectileId_BEAM_OF_REMEDY:
+                case ProjectileId_MAGIC_BULLET:
+                case ProjectileId_BEAM_OF_FORCE:
+                    length_penalty = 0;
+                    break;
+            }
+        }
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
@@ -207,42 +282,37 @@ static void do_mapping(Thing actor, Coord direction) {
     }
 }
 
-void zap_wand(Thing wand_wielder, uint256 item_id, Coord direction) {
+void zap_wand(Thing actor, uint256 item_id, Coord direction) {
     Thing wand = actual_things.get(item_id);
     if (wand->wand_info()->charges <= -1) {
-        publish_event(Event::wand_disintegrates(wand_wielder->id, item_id));
+        publish_event(Event::wand_disintegrates(actor->id, item_id));
 
         wand->still_exists = false;
         return;
     }
     if (wand->wand_info()->charges <= 0) {
-        publish_event(Event::wand_zap_no_charges(wand_wielder->id, item_id));
+        publish_event(Event::wand_zap_no_charges(actor->id, item_id));
         wand->wand_info()->charges--;
         return;
     }
     wand->wand_info()->charges--;
 
-    publish_event(Event::zap_wand(wand_wielder->id, item_id));
+    publish_event(Event::zap_wand(actor->id, item_id));
     switch (wand->wand_info()->wand_id) {
         case WandId_WAND_OF_CONFUSION:
-            shoot_magic_beam(wand_wielder, direction,
-                pass_through_air_silently, confusion_hit_individual, hit_wall_no_effect);
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_CONFUSION);
             break;
         case WandId_WAND_OF_DIGGING:
-            shoot_magic_beam(wand_wielder, direction,
-                digging_pass_through_air, hit_individual_no_effect, digging_hit_wall);
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_DIGGING);
             break;
         case WandId_WAND_OF_MAGIC_MISSILE:
-            shoot_magic_beam(wand_wielder, direction,
-                pass_through_air_silently, magic_missile_hit_individual, hit_wall_no_effect);
+            shoot_magic_beam(actor, direction, ProjectileId_MAGIC_MISSILE);
             break;
         case WandId_WAND_OF_SPEED:
-            shoot_magic_beam(wand_wielder, direction,
-                pass_through_air_silently, speed_hit_individual, hit_wall_no_effect);
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_SPEED);
             break;
         case WandId_WAND_OF_REMEDY:
-            shoot_magic_beam(wand_wielder, direction,
-                pass_through_air_silently, remedy_hit_individual, hit_wall_no_effect);
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_REMEDY);
             break;
 
         case WandId_COUNT:
@@ -258,9 +328,11 @@ int get_mana_cost(BookId book_id) {
         case BookId_SPELLBOOK_OF_MAGIC_BULLET:
             return 2;
         case BookId_SPELLBOOK_OF_SPEED:
-            return 4;
+            return 6;
         case BookId_SPELLBOOK_OF_MAPPING:
             return 10;
+        case BookId_SPELLBOOK_OF_FORCE:
+            return 4;
 
         case BookId_COUNT:
         case BookId_UNKNOWN:
@@ -279,15 +351,16 @@ void read_book(Thing actor, uint256 item_id, Coord direction) {
     use_mana(actor, mana_cost);
     switch (book_id) {
         case BookId_SPELLBOOK_OF_MAGIC_BULLET:
-            shoot_magic_beam(actor, direction,
-                pass_through_air_silently, magic_bullet_hit_individual, hit_wall_no_effect);
+            shoot_magic_beam(actor, direction, ProjectileId_MAGIC_BULLET);
             break;
         case BookId_SPELLBOOK_OF_SPEED:
-            shoot_magic_beam(actor, direction,
-                pass_through_air_silently, speed_hit_individual, hit_wall_no_effect);
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_SPEED);
             break;
         case BookId_SPELLBOOK_OF_MAPPING:
             do_mapping(actor, direction);
+            break;
+        case BookId_SPELLBOOK_OF_FORCE:
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_FORCE);
             break;
 
         case BookId_COUNT:
@@ -375,33 +448,32 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
             if (actual_map_tiles[wall_cursor] == TileType_WALL)
                 affected_walls.append(wall_cursor);
 
-    int (*hit_individual)(Thing actor, Thing target) = hit_individual_no_effect;
-    int (*hit_wall)(Thing actor, Coord location) = hit_wall_no_effect;
     switch (wand->wand_info()->wand_id) {
         case WandId_WAND_OF_CONFUSION:
-            hit_individual = confusion_hit_individual;
+            for (int i = 0; i < affected_individuals.length(); i++)
+                confusion_hit_individual(affected_individuals[i]);
             break;
         case WandId_WAND_OF_DIGGING:
-            hit_wall = digging_hit_wall;
+            for (int i = 0; i < affected_walls.length(); i++)
+                digging_hit_wall(affected_walls[i]);
             break;
         case WandId_WAND_OF_MAGIC_MISSILE:
-            hit_individual = magic_missile_hit_individual;
+            for (int i = 0; i < affected_individuals.length(); i++)
+                magic_missile_hit_individual(actor, affected_individuals[i]);
             break;
         case WandId_WAND_OF_SPEED:
-            hit_individual = speed_hit_individual;
+            for (int i = 0; i < affected_individuals.length(); i++)
+                speed_hit_individual(affected_individuals[i]);
             break;
         case WandId_WAND_OF_REMEDY:
-            hit_individual = remedy_hit_individual;
+            for (int i = 0; i < affected_individuals.length(); i++)
+                remedy_hit_individual(affected_individuals[i]);
             break;
 
         case WandId_COUNT:
         case WandId_UNKNOWN:
             unreachable();
     }
-    for (int i = 0; i < affected_individuals.length(); i++)
-        hit_individual(actor, affected_individuals[i]);
-    for (int i = 0; i < affected_walls.length(); i++)
-        hit_wall(actor, affected_walls[i]);
 
     observer_to_active_identifiable_item.clear();
 }

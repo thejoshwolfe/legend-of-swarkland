@@ -117,6 +117,7 @@ static void load_images() {
     book_images[BookDescriptionId_PURPLE_BOOK] = find_image("img/book/purple_book.png");
     book_images[BookDescriptionId_BLUE_BOOK] = find_image("img/book/blue_book.png");
     book_images[BookDescriptionId_RED_BOOK] = find_image("img/book/red_book.png");
+    book_images[BookDescriptionId_GREEN_BOOK] = find_image("img/book/green_book.png");
     unseen_book_image = find_image("img/book/unseen_book.png");
     check_no_nulls(book_images);
 
@@ -418,6 +419,8 @@ const char * get_book_id_str(BookId book_id) {
             return "spellbook of speed";
         case BookId_SPELLBOOK_OF_MAPPING:
             return "spellbook of mapping";
+        case BookId_SPELLBOOK_OF_FORCE:
+            return "spellbook of force";
 
         case BookId_COUNT:
         case BookId_UNKNOWN:
@@ -467,6 +470,8 @@ static const char * get_book_description_str(Thing observer, PerceivedThing item
                 return "blue book";
             case BookDescriptionId_RED_BOOK:
                 return "red book";
+            case BookDescriptionId_GREEN_BOOK:
+                return "green book";
 
             case BookDescriptionId_UNSEEN:
                 return "book";

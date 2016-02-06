@@ -373,6 +373,7 @@ static void init_name_arrays() {
     book_id_names[BookId_SPELLBOOK_OF_MAGIC_BULLET] = new_string("magic_bullet");
     book_id_names[BookId_SPELLBOOK_OF_SPEED] = new_string("speed");
     book_id_names[BookId_SPELLBOOK_OF_MAPPING] = new_string("mapping");
+    book_id_names[BookId_SPELLBOOK_OF_FORCE] = new_string("force");
     check_no_nulls(book_id_names);
 
     ability_names[Ability::SPIT_BLINDING_VENOM] = new_string("spit_blinding_venom");

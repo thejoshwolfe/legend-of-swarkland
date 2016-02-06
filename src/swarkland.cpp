@@ -593,7 +593,20 @@ static void do_move(Thing mover, Coord new_position) {
         }
     }
 }
-
+void attempt_move(Thing actor, Coord new_position) {
+    if (!is_open_space(actual_map_tiles[new_position])) {
+        publish_event(Event::bump_into_location(actor, new_position, false));
+        return;
+    }
+    Thing target = find_individual_at(new_position);
+    if (target != nullptr) {
+        // this is not attacking
+        publish_event(Event::bump_into_individual(actor, target));
+        return;
+    }
+    // clear to move
+    do_move(actor, new_position);
+}
 // return iff expired and removed
 bool check_for_status_expired(Thing individual, int index) {
     StatusEffect status_effect = individual->status_effects[index];
@@ -905,23 +918,8 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::WAIT:
             break;
         case Action::MOVE: {
-            // normally, we'd be sure that this was valid, but if you use cheatcodes,
-            // monsters can try to walk into you while you're invisible.
             Coord new_position = actor->location + confuse_direction(actor, action.coord());
-            if (!is_open_space(actual_map_tiles[new_position])) {
-                // this can only happen if your direction was changed.
-                // (attempting to move into a wall deliberately is an invalid move).
-                publish_event(Event::bump_into_location(actor, new_position, false));
-                break;
-            }
-            Thing target = find_individual_at(new_position);
-            if (target != nullptr) {
-                // this is not attacking
-                publish_event(Event::bump_into_individual(actor, target));
-                break;
-            }
-            // clear to move
-            do_move(actor, new_position);
+            attempt_move(actor, new_position);
             break;
         }
         case Action::ATTACK: {
