@@ -45,14 +45,14 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
         *output_stop_for_other_reasons = true;
     } else if (life->hitpoints > previous_waiting_hp) {
         // that's what i like to see
-        if (life->hitpoints == life->max_hitpoints()) {
+        if (life->hitpoints == player_actor->max_hitpoints()) {
             // this calls for a celebration.
             // even if there's more stuff going on, like blindness, break now.
             *output_stop_for_other_reasons = true;
         }
     }
     if (life->mana > previous_waiting_mp) {
-        if (life->mana == life->max_mana()) {
+        if (life->mana == player_actor->max_mana()) {
             *output_stop_for_other_reasons = true;
         }
     }
@@ -63,9 +63,9 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
     }
 
     // is there any reason to wait any longer?
-    if (life->hitpoints < life->max_hitpoints())
+    if (life->hitpoints < player_actor->max_hitpoints())
         output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low hp" or something
-    if (life->mana < life->max_mana())
+    if (life->mana < player_actor->max_mana())
         output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low mp" or something
     if (has_status(self, StatusEffect::POISON))
         output_annoying_status_effects->append(StatusEffect::POISON);
@@ -73,6 +73,7 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
         output_annoying_status_effects->append(StatusEffect::CONFUSION);
     if (has_status(self, StatusEffect::BLINDNESS))
         output_annoying_status_effects->append(StatusEffect::BLINDNESS);
+    // TODO: wait for polymorph
 }
 static int auto_wait_animation_index = 0;
 static Action get_player_decision(Thing actor) {
@@ -283,7 +284,7 @@ static Action get_ai_decision(Thing actor) {
                         case ThingType_POTION:
                             switch (actor->life()->knowledge.potion_identities[item->potion_info()->description_id]) {
                                 case PotionId_POTION_OF_HEALING:
-                                    if (actor->life()->hitpoints < actor->life()->max_hitpoints() / 2)
+                                    if (actor->life()->hitpoints < actor->max_hitpoints() / 2)
                                         defense_actions.append(Action::quaff(item->id));
                                     break;
                                 case PotionId_POTION_OF_POISON:

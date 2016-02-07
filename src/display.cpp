@@ -570,7 +570,7 @@ static RuckSackImage * get_image_for_thing(PerceivedThing thing) {
 static RuckSackImage * get_image_for_thing(Thing thing) {
     switch (thing->thing_type) {
         case ThingType_INDIVIDUAL:
-            return species_images[thing->life()->species_id];
+            return species_images[thing->physical_species_id()];
         case ThingType_WAND:
             return wand_images[actual_wand_descriptions[thing->wand_info()->wand_id]];
         case ThingType_POTION:
@@ -1186,7 +1186,7 @@ void render() {
     // status box
     {
         int hp = spectate_from->life()->hitpoints;
-        int max_hp = spectate_from->life()->max_hitpoints();
+        int max_hp = spectate_from->max_hitpoints();
         String hp_string = new_string();
         hp_string->format("HP: %d/%d", hp, max_hp);
         Span hp_span = new_span(hp_string);
@@ -1199,7 +1199,7 @@ void render() {
         hp_div->set_content(hp_span);
 
         int mana = spectate_from->life()->mana;
-        int max_mana = spectate_from->life()->max_mana();
+        int max_mana = spectate_from->max_mana();
         if (max_mana > 0) {
             String mp_string = new_string();
             mp_string->format("MP: %d/%d", mana, max_mana);
@@ -1218,11 +1218,11 @@ void render() {
     {
         Div div = new_div();
         String string = new_string();
-        string->format("XP Level: %d", spectate_from->life()->experience_level());
+        string->format("XP Level: %d", spectate_from->experience_level());
         div->append(new_span(string));
         div->append_newline();
         string->clear();
-        string->format("XP:       %d/%d", spectate_from->life()->experience, spectate_from->life()->next_level_up());
+        string->format("XP:       %d/%d", spectate_from->life()->experience, spectate_from->next_level_up());
         div->append(new_span(string));
         xp_div->set_content(div);
         render_div(xp_div, xp_area, 1, 1);

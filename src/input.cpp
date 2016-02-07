@@ -447,10 +447,6 @@ static Action on_key_down_cheatcode_polymorph_choose_species(const SDL_Event & e
             // accept
             input_mode = InputMode_MAIN;
             SpeciesId species_id = (SpeciesId)cheatcode_polymorph_choose_species_menu_cursor;
-            if (player_actor->life()->species_id == species_id) {
-                // ok. you're already that species.
-                return Action::undecided();
-            }
             return Action::cheatcode_polymorph(species_id);
         }
 

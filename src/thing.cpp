@@ -26,10 +26,10 @@ ThingImpl::ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType dec
 {
     id = random_id();
     _life = create<Life>();
-    _life->species_id = species_id;
+    _life->original_species_id = species_id;
     _life->decision_maker = decision_maker;
-    _life->hitpoints = _life->max_hitpoints();
-    _life->mana = _life->max_mana();
+    _life->hitpoints = max_hitpoints();
+    _life->mana = max_mana();
     _life->initiative = random_initiative();
 }
 ThingImpl::ThingImpl(WandId wand_id, int charges) :

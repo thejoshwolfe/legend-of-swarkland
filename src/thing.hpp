@@ -174,15 +174,19 @@ struct StatusEffect {
         BLINDNESS,
         INVISIBILITY,
         POISON,
+        POLYMORPH,
     };
     Id type;
     // this is never in the past
     int64_t expiration_time;
 
+    // TODO: union
     // currently only used for poison
     int64_t poison_next_damage_time;
     // used for awarding experience for poison damage kills
     uint256 who_is_responsible;
+    // used for polymorph
+    SpeciesId species_id;
 };
 
 static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vision) {
@@ -197,7 +201,10 @@ static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vi
             return (vision & VisionTypes_NORMAL);
         case StatusEffect::ETHEREAL_VISION:
         case StatusEffect::COGNISCOPY:
-            // you'd have to see things through my eyes
+            // you'd have to see things through my eyes.
+        case StatusEffect::POLYMORPH:
+            // the polymorphed status is unknown unless you can see the original mind.
+            // otherwise, you just look like the new species.
             return can_see_thoughts(vision);
     }
     unreachable();
@@ -377,7 +384,7 @@ static inline int level_to_experience(int level) {
 }
 
 struct Life {
-    SpeciesId species_id;
+    SpeciesId original_species_id;
     int hitpoints;
     int64_t hp_regen_deadline;
     int mana;
@@ -388,26 +395,14 @@ struct Life {
     uint256 initiative;
     DecisionMakerType decision_maker;
     Knowledge knowledge;
-
-    const Species * species() const{
-        return &specieses[species_id];
-    }
-    int experience_level() const {
-        return experience_to_level(experience);
-    }
-    int next_level_up() const {
-        return level_to_experience(experience_level() + 1);
-    }
-    int attack_power() const {
-        return max(1, species()->base_attack_power + experience_level() / 2);
-    }
-    int max_hitpoints() const {
-        return species()->base_hitpoints + 2 * experience_level();
-    }
-    int max_mana() const {
-        return species()->base_mana * (experience_level() + 1);
-    }
 };
+
+static inline int find_status(const List<StatusEffect> & status_effects, StatusEffect::Id status) {
+    for (int i = 0; i < status_effects.length(); i++)
+        if (status_effects[i].type == status)
+            return i;
+    return -1;
+}
 
 struct WandInfo {
     WandId wand_id;
@@ -464,27 +459,54 @@ public:
     }
 
     Life * life() {
-        assert_str(thing_type == ThingType_INDIVIDUAL, "wrong type");
+        assert(thing_type == ThingType_INDIVIDUAL);
         return _life;
     }
     const Life * life() const {
-        assert_str(thing_type == ThingType_INDIVIDUAL, "wrong type");
+        assert(thing_type == ThingType_INDIVIDUAL);
         return _life;
     }
     WandInfo * wand_info() {
-        if (thing_type != ThingType_WAND)
-            panic("wrong type");
+        assert(thing_type == ThingType_WAND);
         return _wand_info;
     }
     PotionInfo * potion_info() {
-        if (thing_type != ThingType_POTION)
-            panic("wrong type");
+        assert(thing_type == ThingType_POTION);
         return _potion_info;
     }
     BookInfo * book_info() {
-        if (thing_type != ThingType_BOOK)
-            panic("wrong type");
+        assert(thing_type == ThingType_BOOK);
         return _book_info;
+    }
+
+    // these are only valid for individuals
+    const Species * mental_species() const {
+        return &specieses[life()->original_species_id];
+    }
+    SpeciesId physical_species_id() const {
+        const Life * life = this->life(); // assert now
+        int index = find_status(status_effects, StatusEffect::POLYMORPH);
+        if (index == -1)
+            return life->original_species_id;
+        return status_effects[index].species_id;
+    }
+    const Species * physical_species() const {
+        return &specieses[physical_species_id()];
+    }
+    int experience_level() const {
+        return experience_to_level(life()->experience);
+    }
+    int next_level_up() const {
+        return level_to_experience(experience_level() + 1);
+    }
+    int attack_power() const {
+        return max(1, physical_species()->base_attack_power + experience_level() / 2);
+    }
+    int max_hitpoints() const {
+        return physical_species()->base_hitpoints + 2 * experience_level();
+    }
+    int max_mana() const {
+        return mental_species()->base_mana * (experience_level() + 1);
     }
 private:
     union {
@@ -529,7 +551,7 @@ static inline int compare_things_by_id(Thing a, Thing b) {
 void compute_vision(Thing observer);
 
 static inline bool individual_has_mind(Thing thing) {
-    switch (thing->life()->species()->mind) {
+    switch (thing->mental_species()->mind) {
         case Mind_NONE:
             return false;
         case Mind_BEAST:
@@ -549,22 +571,17 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
         case StatusEffect::BLINDNESS:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::POISON:
+        case StatusEffect::POLYMORPH:
             return true;
     }
     unreachable();
 }
 
-static inline int find_status(const List<StatusEffect> & status_effects, StatusEffect::Id status) {
-    for (int i = 0; i < status_effects.length(); i++)
-        if (status_effects[i].type == status)
-            return i;
-    return -1;
-}
 static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::Id status) {
     int index = find_status(thing->status_effects, status);
     if (index == -1) {
         index = thing->status_effects.length();
-        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero() });
+        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero(), SpeciesId_COUNT });
     }
     return &thing->status_effects[index];
 }

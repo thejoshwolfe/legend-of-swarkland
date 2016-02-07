@@ -94,11 +94,11 @@ static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
 
 static void level_up(Thing individual, bool publish) {
     Life * life = individual->life();
-    int old_max_hitpoints = life->max_hitpoints();
-    int old_max_mana = life->max_mana();
-    life->experience = life->next_level_up();
-    int new_max_hitpoints = life->max_hitpoints();
-    int new_max_mana = life->max_mana();
+    int old_max_hitpoints = individual->max_hitpoints();
+    int old_max_mana = individual->max_mana();
+    life->experience = individual->next_level_up();
+    int new_max_hitpoints = individual->max_hitpoints();
+    int new_max_mana = individual->max_mana();
     life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
     if (old_max_mana > 0)
         life->mana = life->mana * new_max_mana / old_max_mana;
@@ -111,14 +111,14 @@ static void level_up(Thing individual, bool publish) {
 static void gain_experience(Thing individual, int delta, bool publish) {
     Life * life = individual->life();
     int new_expderience = life->experience + delta;
-    while (new_expderience >= life->next_level_up())
+    while (new_expderience >= individual->next_level_up())
         level_up(individual, publish);
     life->experience = new_expderience;
 }
 
 static void reset_hp_regen_timeout(Thing individual) {
     Life * life = individual->life();
-    if (!test_mode && life->hitpoints < life->max_hitpoints())
+    if (!test_mode && life->hitpoints < individual->max_hitpoints())
         life->hp_regen_deadline = time_counter + random_midpoint(7 * 12, nullptr);
 }
 void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) {
@@ -176,7 +176,7 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     publish_event(Event::item_drops_to_the_floor(item));
 
     Thing individual = find_individual_at(location);
-    if (individual != nullptr && individual->life()->species()->sucks_up_items) {
+    if (individual != nullptr && individual->physical_species()->sucks_up_items) {
         // suck it
         pickup_item(individual, item);
         publish_event(Event::individual_sucks_up_item(individual->id, item->id));
@@ -414,7 +414,7 @@ void heal_hp(Thing individual, int hp) {
         // no can do.
         return;
     }
-    life->hitpoints = min(life->hitpoints + hp, life->max_hitpoints());
+    life->hitpoints = min(life->hitpoints + hp, individual->max_hitpoints());
     reset_hp_regen_timeout(individual);
 }
 static void regen_hp(Thing individual) {
@@ -433,20 +433,20 @@ static void regen_hp(Thing individual) {
         }
     } else if (life->hp_regen_deadline == time_counter) {
         // hp regen
-        int hp_heal = random_inclusive(1, max(1, life->max_hitpoints() / 5), nullptr);
+        int hp_heal = random_inclusive(1, max(1, individual->max_hitpoints() / 5), nullptr);
         heal_hp(individual, hp_heal);
     }
 }
 
 static void reset_mp_regen_timeout(Thing individual) {
     Life * life = individual->life();
-    if (!test_mode && life->mana < life->max_mana())
+    if (!test_mode && life->mana < individual->max_mana())
         life->mp_regen_deadline = time_counter + random_midpoint(7 * 12, nullptr);
 }
 void gain_mp(Thing individual, int mp) {
     Life * life = individual->life();
     bool was_negative = life->mana < 0;
-    life->mana = min(life->mana + mp, life->max_mana());
+    life->mana = min(life->mana + mp, individual->max_mana());
     reset_mp_regen_timeout(individual);
 
     if (was_negative && life->mana >= 0) {
@@ -457,7 +457,7 @@ void gain_mp(Thing individual, int mp) {
 static void regen_mp(Thing individual) {
     Life * life = individual->life();
     if (life->mp_regen_deadline == time_counter) {
-        int mp_gain = random_inclusive(1, max(1, life->max_mana() / 5), nullptr);
+        int mp_gain = random_inclusive(1, max(1, individual->max_mana() / 5), nullptr);
         gain_mp(individual, mp_gain);
     }
 }
@@ -477,12 +477,12 @@ void use_mana(Thing actor, int mana) {
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
     publish_event(Event::attack_individual(attacker, target));
-    int attack_power = attacker->life()->attack_power();
+    int attack_power = attacker->attack_power();
     int min_damage = (attack_power + 1) / 2;
     int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
     damage_individual(target, damage, attacker, true);
     reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->life()->species()->poison_attack && random_int(4, "poison_attack") == 0)
+    if (target->still_exists && attacker->physical_species()->poison_attack && random_int(4, "poison_attack") == 0)
         poison_individual(attacker, target);
 }
 
@@ -548,7 +548,7 @@ void find_items_in_inventory(Thing observer, uint256 container_id, List<Perceive
     sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities) {
-    output_sorted_abilities->append_all(species_abilities[individual->life()->species_id]);
+    output_sorted_abilities->append_all(species_abilities[individual->physical_species_id()]);
 }
 bool is_ability_ready(Thing actor, Ability::Id ability_id) {
     const List<AbilityCooldown> & ability_cooldowns = actor->ability_cooldowns;
@@ -575,7 +575,7 @@ static void do_move(Thing mover, Coord new_position) {
     // notify other individuals who could see that move
     publish_event(Event::move(mover, old_position));
 
-    if (mover->life()->species()->sucks_up_items) {
+    if (mover->physical_species()->sucks_up_items) {
         // pick up items for free
         List<Thing> floor_items;
         find_items_on_floor(new_position, &floor_items);
@@ -605,7 +605,21 @@ bool check_for_status_expired(Thing individual, int index) {
     if (status_effect.expiration_time > time_counter)
         return false;
     assert(status_effect.expiration_time == time_counter);
-    publish_event(Event::lose_status(individual->id, status_effect.type));
+    switch (status_effect.type) {
+        case StatusEffect::CONFUSION:
+        case StatusEffect::SPEED:
+        case StatusEffect::ETHEREAL_VISION:
+        case StatusEffect::COGNISCOPY:
+        case StatusEffect::BLINDNESS:
+        case StatusEffect::POISON:
+        case StatusEffect::INVISIBILITY:
+            publish_event(Event::lose_status(individual->id, status_effect.type));
+            break;
+        case StatusEffect::POLYMORPH:
+            // we've got a function for removing this status
+            polymorph_individual(individual, individual->life()->original_species_id);
+            return true;
+    }
     individual->status_effects.swap_remove(index);
     switch (status_effect.type) {
         case StatusEffect::CONFUSION:
@@ -626,6 +640,9 @@ bool check_for_status_expired(Thing individual, int index) {
             break;
         case StatusEffect::INVISIBILITY:
             break;
+        case StatusEffect::POLYMORPH:
+            compute_vision(individual);
+            break;
     }
     return true;
 }
@@ -634,20 +651,33 @@ static void cheatcode_kill(uint256 individual_id) {
     Thing individual = actual_things.get(individual_id);
     kill_individual(individual, nullptr, false);
 }
-static void cheatcode_polymorph(SpeciesId species_id) {
-    publish_event(Event::polymorph(player_actor, species_id));
-    Life * life = player_actor->life();
-    int old_max_hitpoints = life->max_hitpoints();
-    int old_max_mana = life->max_mana();
-    life->species_id = species_id;
-    int new_max_hitpoints = life->max_hitpoints();
-    int new_max_mana = life->max_mana();
+void polymorph_individual(Thing individual, SpeciesId species_id) {
+    int old_max_hitpoints = individual->max_hitpoints();
+
+    int index = find_status(individual->status_effects, StatusEffect::POLYMORPH);
+    if (species_id == individual->life()->original_species_id) {
+        // undo any polymorph
+        if (index == -1)
+            return; // polymorphing into what you are does nothing
+
+        publish_event(Event::polymorph(individual, species_id));
+        individual->status_effects.swap_remove(index);
+    } else {
+        // add a update/polymorph status
+        if (index != -1 && individual->status_effects[index].species_id != species_id)
+            publish_event(Event::polymorph(individual, species_id));
+
+        StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH);
+        polymorph_effect->expiration_time = time_counter + random_midpoint(2000, "polymorph_expiration");
+        if (polymorph_effect->species_id == species_id)
+            return; // already polymorphed into that.
+        polymorph_effect->species_id = species_id;
+    }
+
+    int new_max_hitpoints = individual->max_hitpoints();
+    Life * life = individual->life();
     life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
-    if (old_max_mana > 0)
-        life->mana = life->mana * new_max_mana / old_max_mana;
-    else
-        life->mana = new_max_mana;
-    compute_vision(player_actor);
+    compute_vision(individual);
 }
 Thing cheatcode_spectator;
 void cheatcode_spectate() {
@@ -735,7 +765,7 @@ bool validate_action(Thing actor, const Action & action) {
             return actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN;
         case Action::ABILITY: {
             const Action::AbilityData & data = action.ability();
-            if (species_abilities[actor->life()->species_id].index_of(data.ability_id) == -1)
+            if (species_abilities[actor->physical_species_id()].index_of(data.ability_id) == -1)
                 return false;
             if (!is_ability_ready(actor, data.ability_id))
                 return false;
@@ -964,7 +994,7 @@ static bool take_action(Thing actor, const Action & action) {
             cheatcode_kill(action.item());
             return false;
         case Action::CHEATCODE_POLYMORPH:
-            cheatcode_polymorph(action.species());
+            polymorph_individual(player_actor, action.species());
             // this one does take time, because your movement cost may have changed
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {
@@ -1110,7 +1140,7 @@ static void age_individual(Thing individual) {
         regen_mp(individual);
     }
 
-    if (individual->life()->species()->auto_throws_items) {
+    if (individual->physical_species()->auto_throws_items) {
         // there's a chance per item they're carrying
         List<Thing> inventory;
         find_items_in_inventory(individual->id, &inventory);

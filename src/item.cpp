@@ -383,7 +383,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     switch (potion_id) {
         case PotionId_POTION_OF_HEALING: {
             publish_event(Event::individual_is_healed(target_id));
-            int hp = target->life()->max_hitpoints() * 2 / 3;
+            int hp = target->max_hitpoints() * 2 / 3;
             heal_hp(target, hp);
             break;
         }

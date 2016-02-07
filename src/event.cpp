@@ -408,7 +408,7 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL:
             if (can_see_shape(vision))
-                target->life()->species_id = actual_target->life()->species_id;
+                target->life()->species_id = actual_target->physical_species_id();
             break;
         case ThingType_WAND:
             if (can_see_color(vision))
@@ -658,6 +658,9 @@ static void observe_event(Thing observer, Event event) {
                     status_description = "invisible";
                     gain_potion_id = PotionId_POTION_OF_INVISIBILITY;
                     break;
+                case StatusEffect::POLYMORPH:
+                    // there's a different event for polymorph since you can't tell if someone is gaining it or losing it.
+                    unreachable();
             }
             if (status_description != nullptr) {
                 // TODO: we should be able to pass const char * to span->format()

@@ -88,7 +88,7 @@ void compute_vision(Thing observer) {
         no_vision_yet |= VisionTypes_COGNISCOPY;
     }
     knowledge.tile_is_visible.set_all(no_vision_yet);
-    VisionTypes has_vision = observer->life()->species()->vision_types;
+    VisionTypes has_vision = observer->physical_species()->vision_types;
     if (has_status(observer, StatusEffect::ETHEREAL_VISION)) {
         has_vision &= ~VisionTypes_NORMAL;
         has_vision |= VisionTypes_ETHEREAL;

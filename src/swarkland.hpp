@@ -39,7 +39,7 @@ static inline PerceivedThing get_top_level_container(const Thing & observer, Per
     return thing;
 }
 static inline bool individual_uses_items(Thing thing) {
-    switch (thing->life()->species()->mind) {
+    switch (thing->mental_species()->mind) {
         case Mind_NONE:
         case Mind_BEAST:
             return false;
@@ -50,7 +50,7 @@ static inline bool individual_uses_items(Thing thing) {
     unreachable();
 }
 static inline bool individual_is_clever(Thing thing) {
-    switch (thing->life()->species()->mind) {
+    switch (thing->mental_species()->mind) {
         case Mind_NONE:
         case Mind_BEAST:
         case Mind_SAVAGE:
@@ -72,7 +72,7 @@ bool can_move(Thing actor);
 static inline int get_movement_cost(Thing actor) {
     if (has_status(actor, StatusEffect::SPEED))
         return 3;
-    return actor->life()->species()->movement_cost;
+    return actor->physical_species()->movement_cost;
 }
 
 void run_the_game();
@@ -90,6 +90,7 @@ bool is_ability_ready(Thing actor, Ability::Id ability_id);
 void attempt_move(Thing actor, Coord new_position);
 
 bool check_for_status_expired(Thing individual, int index);
+void polymorph_individual(Thing individual, SpeciesId species_id);
 void damage_individual(Thing target, int damage, Thing attacker, bool is_melee);
 void poison_individual(Thing attacker, Thing target);
 void heal_hp(Thing individual, int hp);
