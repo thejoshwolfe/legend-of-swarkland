@@ -790,9 +790,13 @@ static void observe_event(Thing observer, Event event) {
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
                     remembered_event->span->format("%s hits %s!", item_description, individual_description);
                     break;
-                case Event::IndividualAndItemData::POTION_HITS_INDIVIDUAL:
+                case Event::IndividualAndItemData::POTION_HITS_INDIVIDUAL: {
                     remembered_event->span->format("%s shatters and splashes on %s!", item_description, individual_description);
+                    PerceivedThing potion = observer->life()->knowledge.perceived_things.get(data.item);
+                    if (potion->potion_info()->description_id != PotionDescriptionId_UNSEEN)
+                        observer_to_active_identifiable_item.put(observer->id, potion->id);
                     break;
+                }
                 case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
                 case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM: {
                     const char * fmt = data.id == Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM ? "%s picks up %s." : "%s sucks up %s.";
@@ -820,7 +824,8 @@ static void observe_event(Thing observer, Event event) {
             switch (data.id) {
                 case Event::ItemAndLocationData::WAND_EXPLODES:
                     remembered_event->span->format("%s explodes!", item_description);
-                    observer_to_active_identifiable_item.put(observer->id, data.item);
+                    if (item->wand_info()->description_id != WandDescriptionId_UNSEEN)
+                        observer_to_active_identifiable_item.put(observer->id, data.item);
                     item->location = Coord::nowhere();
                     item->container_id = uint256::zero();
                     break;
