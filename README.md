@@ -131,14 +131,14 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
    * wands of: blinding, force, invisibility, magic bullet, slowing
    * potions of: experience, fruit juice, mana
 
+## Version History
+
 ### 4.3.0
 
  * Spells and MP.
  * New items:
    * spellbooks of: assume form, magic bullet, force, mapping, speed
  * Renamed striking to magic missile.
-
-## Version History
 
 ### 4.2.0
  * New monster: cobra that spits blinding venom.
