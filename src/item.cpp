@@ -164,6 +164,7 @@ enum ProjectileId {
     ProjectileId_BEAM_OF_REMEDY,
     ProjectileId_MAGIC_BULLET,
     ProjectileId_BEAM_OF_FORCE,
+    ProjectileId_BEAM_OF_ASSUME_FORM,
 };
 
 // functions should return how much extra beam length this happening requires.
@@ -202,6 +203,10 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                 case ProjectileId_BEAM_OF_FORCE:
                     length_penalty = force_hit_individual(target, direction, beam_length - i);
                     break;
+                case ProjectileId_BEAM_OF_ASSUME_FORM:
+                    polymorph_individual(actor, target->physical_species_id());
+                    length_penalty = -1;
+                    break;
             }
         }
         if (length_penalty == -1)
@@ -220,6 +225,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                 case ProjectileId_BEAM_OF_REMEDY:
                 case ProjectileId_MAGIC_BULLET:
                 case ProjectileId_BEAM_OF_FORCE: // TODO: force hit wall
+                case ProjectileId_BEAM_OF_ASSUME_FORM:
                     length_penalty = hit_wall_no_effect(cursor);
                     break;
             }
@@ -236,6 +242,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                 case ProjectileId_BEAM_OF_REMEDY:
                 case ProjectileId_MAGIC_BULLET:
                 case ProjectileId_BEAM_OF_FORCE:
+                case ProjectileId_BEAM_OF_ASSUME_FORM:
                     length_penalty = 0;
                     break;
             }
@@ -333,6 +340,8 @@ int get_mana_cost(BookId book_id) {
             return 10;
         case BookId_SPELLBOOK_OF_FORCE:
             return 4;
+        case BookId_SPELLBOOK_OF_ASSUME_FORM:
+            return 15;
 
         case BookId_COUNT:
         case BookId_UNKNOWN:
@@ -346,26 +355,34 @@ void read_book(Thing actor, uint256 item_id, Coord direction) {
 
     Thing book = actual_things.get(item_id);
     BookId book_id = book->book_info()->book_id;
-    // TODO: check for success
     int mana_cost = get_mana_cost(book_id);
-    use_mana(actor, mana_cost);
-    switch (book_id) {
-        case BookId_SPELLBOOK_OF_MAGIC_BULLET:
-            shoot_magic_beam(actor, direction, ProjectileId_MAGIC_BULLET);
-            break;
-        case BookId_SPELLBOOK_OF_SPEED:
-            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_SPEED);
-            break;
-        case BookId_SPELLBOOK_OF_MAPPING:
-            do_mapping(actor, direction);
-            break;
-        case BookId_SPELLBOOK_OF_FORCE:
-            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_FORCE);
-            break;
+    if (mana_cost * 2 < actor->max_mana() * 3) {
+        // success
+        use_mana(actor, mana_cost);
+        switch (book_id) {
+            case BookId_SPELLBOOK_OF_MAGIC_BULLET:
+                shoot_magic_beam(actor, direction, ProjectileId_MAGIC_BULLET);
+                break;
+            case BookId_SPELLBOOK_OF_SPEED:
+                shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_SPEED);
+                break;
+            case BookId_SPELLBOOK_OF_MAPPING:
+                do_mapping(actor, direction);
+                break;
+            case BookId_SPELLBOOK_OF_FORCE:
+                shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_FORCE);
+                break;
+            case BookId_SPELLBOOK_OF_ASSUME_FORM:
+                shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_ASSUME_FORM);
+                break;
 
-        case BookId_COUNT:
-        case BookId_UNKNOWN:
-            unreachable();
+            case BookId_COUNT:
+            case BookId_UNKNOWN:
+                unreachable();
+        }
+    } else {
+        // failure
+        publish_event(Event::fail_to_cast_spell(actor->id));
     }
     observer_to_active_identifiable_item.clear();
 }

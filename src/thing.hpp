@@ -72,6 +72,7 @@ enum BookDescriptionId {
     BookDescriptionId_BLUE_BOOK,
     BookDescriptionId_RED_BOOK,
     BookDescriptionId_GREEN_BOOK,
+    BookDescriptionId_YELLOW_BOOK,
 
     BookDescriptionId_COUNT,
     BookDescriptionId_UNSEEN,
@@ -81,6 +82,7 @@ enum BookId {
     BookId_SPELLBOOK_OF_SPEED,
     BookId_SPELLBOOK_OF_MAPPING,
     BookId_SPELLBOOK_OF_FORCE,
+    BookId_SPELLBOOK_OF_ASSUME_FORM,
 
     BookId_COUNT,
     BookId_UNKNOWN,

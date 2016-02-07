@@ -664,7 +664,7 @@ void polymorph_individual(Thing individual, SpeciesId species_id) {
         individual->status_effects.swap_remove(index);
     } else {
         // add a update/polymorph status
-        if (index != -1 && individual->status_effects[index].species_id != species_id)
+        if (index == -1 || individual->status_effects[index].species_id != species_id)
             publish_event(Event::polymorph(individual, species_id));
 
         StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH);

@@ -208,6 +208,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     *output_event = event;
                     return true;
                 case Event::TheIndividualData::ACTIVATED_MAPPING:
+                case Event::TheIndividualData::FAIL_TO_CAST_SPELL:
                     // it's all in the mind
                     if (!can_see_thoughts(get_vision_for_thing(observer, data.individual)))
                         return false;
@@ -577,6 +578,9 @@ static void observe_event(Thing observer, Event event) {
                     remembered_event->span->format("a magic beam pushes %s!", get_thing_description(observer, data.individual));
                     identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
                     break;
+                case Event::TheIndividualData::FAIL_TO_CAST_SPELL:
+                    remembered_event->span->format("%s must not understand how to cast that spell.", get_thing_description(observer, data.individual));
+                    break;
             }
             break;
         }
@@ -806,6 +810,7 @@ static void observe_event(Thing observer, Event event) {
             const Event::PolymorphData & data = event.polymorph_data();
             remembered_event->span->format("%s transforms into a %s!", get_thing_description(observer, data.individual), get_species_name(data.new_species));
             record_perception_of_thing(observer, data.individual);
+            identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_ASSUME_FORM);
             break;
         }
         case Event::ITEM_AND_LOCATION: {

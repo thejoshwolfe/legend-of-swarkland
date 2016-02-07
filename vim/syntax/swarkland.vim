@@ -38,7 +38,7 @@ syn keyword swarklandBareword human ogre lich pink_blob air_elemenetal dog ant b
 syn keyword swarklandBareword player ai
 syn keyword swarklandBareword confusion digging striking speed remedy unknown
 syn keyword swarklandBareword healing poison ethereal_vision cogniscopy blindness invisibility
-syn keyword swarklandBareword magic_bullet mapping force
+syn keyword swarklandBareword magic_bullet mapping force assume_form
 
 " patterns
 syn match   swarklandNumber /-\?\<\d\{1,10\}\>/
