@@ -102,6 +102,11 @@ static void load_images() {
     wand_images[WandDescriptionId_PLASTIC_WAND] = find_image("img/wand/plastic_wand.png");
     wand_images[WandDescriptionId_COPPER_WAND] = find_image("img/wand/copper_wand.png");
     wand_images[WandDescriptionId_PURPLE_WAND] = find_image("img/wand/purple_wand.png");
+    wand_images[WandDescriptionId_SHINY_BONE_WAND] = find_image("img/wand/shiny_bone_wand.png");
+    wand_images[WandDescriptionId_SHINY_GOLD_WAND] = find_image("img/wand/shiny_gold_wand.png");
+    wand_images[WandDescriptionId_SHINY_PLASTIC_WAND] = find_image("img/wand/shiny_plastic_wand.png");
+    wand_images[WandDescriptionId_SHINY_COPPER_WAND] = find_image("img/wand/shiny_copper_wand.png");
+    wand_images[WandDescriptionId_SHINY_PURPLE_WAND] = find_image("img/wand/shiny_purple_wand.png");
     unseen_wand_image = find_image("img/wand/unseen_wand.png");
     check_no_nulls(wand_images);
 
@@ -346,6 +351,16 @@ const char * get_wand_id_str(WandId wand_id) {
             return "wand of speed";
         case WandId_WAND_OF_REMEDY:
             return "wand of remedy";
+        case WandId_WAND_OF_BLINDING:
+            return "wand of blinding";
+        case WandId_WAND_OF_FORCE:
+            return "wand of force";
+        case WandId_WAND_OF_INVISIBILITY:
+            return "wand of invisibility";
+        case WandId_WAND_OF_MAGIC_BULLET:
+            return "wand of magic bullet";
+        case WandId_WAND_OF_SLOWING:
+            return "wand of slowing";
 
         case WandId_UNKNOWN:
             return "wand";
@@ -372,6 +387,16 @@ static const char * get_wand_description_str(Thing observer, PerceivedThing item
                 return "copper wand";
             case WandDescriptionId_PURPLE_WAND:
                 return "purple wand";
+            case WandDescriptionId_SHINY_BONE_WAND:
+                return "shiny bone wand";
+            case WandDescriptionId_SHINY_GOLD_WAND:
+                return "shiny gold wand";
+            case WandDescriptionId_SHINY_PLASTIC_WAND:
+                return "shiny plastic wand";
+            case WandDescriptionId_SHINY_COPPER_WAND:
+                return "shiny copper wand";
+            case WandDescriptionId_SHINY_PURPLE_WAND:
+                return "shiny purple wand";
 
             case WandDescriptionId_UNSEEN:
                 return "wand";

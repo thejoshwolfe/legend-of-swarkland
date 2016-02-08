@@ -613,6 +613,7 @@ bool check_for_status_expired(Thing individual, int index) {
         case StatusEffect::BLINDNESS:
         case StatusEffect::POISON:
         case StatusEffect::INVISIBILITY:
+        case StatusEffect::SLOWING:
             publish_event(Event::lose_status(individual->id, status_effect.type));
             break;
         case StatusEffect::POLYMORPH:
@@ -625,6 +626,7 @@ bool check_for_status_expired(Thing individual, int index) {
         case StatusEffect::CONFUSION:
             break;
         case StatusEffect::SPEED:
+        case StatusEffect::SLOWING:
             break;
         case StatusEffect::ETHEREAL_VISION:
             compute_vision(individual);

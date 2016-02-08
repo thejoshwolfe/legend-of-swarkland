@@ -564,7 +564,7 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case Event::TheIndividualData::MAGIC_BULLET_HIT_INDIVIDUAL:
                     remembered_event->span->format("a magic bullet hits %s!", get_thing_description(observer, data.individual));
-                    identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_MAGIC_BULLET);
+                    identify_active_item(observer, WandId_WAND_OF_MAGIC_BULLET, PotionId_COUNT, BookId_SPELLBOOK_OF_MAGIC_BULLET);
                     break;
                 case Event::TheIndividualData::INDIVIDUAL_IS_HEALED:
                     remembered_event->span->format("%s is healed!", get_thing_description(observer, data.individual));
@@ -576,7 +576,7 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case Event::TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL:
                     remembered_event->span->format("a magic beam pushes %s!", get_thing_description(observer, data.individual));
-                    identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
+                    identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
                     break;
                 case Event::TheIndividualData::FAIL_TO_CAST_SPELL:
                     remembered_event->span->format("%s must not understand how to cast that spell.", get_thing_description(observer, data.individual));
@@ -635,6 +635,7 @@ static void observe_event(Thing observer, Event event) {
                     }
                     gain_wand_id = WandId_WAND_OF_SPEED;
                     gain_book_id = BookId_SPELLBOOK_OF_SPEED;
+                    lose_wand_id = WandId_WAND_OF_SLOWING;
                     break;
                 case StatusEffect::ETHEREAL_VISION:
                     if (data.is_gain) {
@@ -650,6 +651,7 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case StatusEffect::BLINDNESS:
                     status_description = "blind";
+                    gain_wand_id = WandId_WAND_OF_BLINDING;
                     gain_potion_id = PotionId_POTION_OF_BLINDNESS;
                     lose_wand_id = WandId_WAND_OF_REMEDY;
                     break;
@@ -660,11 +662,18 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case StatusEffect::INVISIBILITY:
                     status_description = "invisible";
+                    gain_wand_id = WandId_WAND_OF_INVISIBILITY;
                     gain_potion_id = PotionId_POTION_OF_INVISIBILITY;
                     break;
                 case StatusEffect::POLYMORPH:
                     // there's a different event for polymorph since you can't tell if someone is gaining it or losing it.
                     unreachable();
+                case StatusEffect::SLOWING:
+                    status_description = "slow";
+                    gain_wand_id = WandId_WAND_OF_SLOWING;
+                    lose_wand_id = WandId_WAND_OF_SPEED;
+                    lose_book_id = BookId_SPELLBOOK_OF_SPEED;
+                    break;
             }
             if (status_description != nullptr) {
                 // TODO: we should be able to pass const char * to span->format()

@@ -71,7 +71,9 @@ bool validate_action(Thing actor, const Action & action);
 bool can_move(Thing actor);
 static inline int get_movement_cost(Thing actor) {
     if (has_status(actor, StatusEffect::SPEED))
-        return 3;
+        return speedy_movement_cost;
+    if (has_status(actor, StatusEffect::SLOWING))
+        return slow_movement_cost;
     return actor->physical_species()->movement_cost;
 }
 

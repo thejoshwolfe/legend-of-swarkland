@@ -29,6 +29,11 @@ enum WandDescriptionId {
     WandDescriptionId_PLASTIC_WAND,
     WandDescriptionId_COPPER_WAND,
     WandDescriptionId_PURPLE_WAND,
+    WandDescriptionId_SHINY_BONE_WAND,
+    WandDescriptionId_SHINY_GOLD_WAND,
+    WandDescriptionId_SHINY_PLASTIC_WAND,
+    WandDescriptionId_SHINY_COPPER_WAND,
+    WandDescriptionId_SHINY_PURPLE_WAND,
 
     WandDescriptionId_COUNT,
     WandDescriptionId_UNSEEN,
@@ -39,6 +44,11 @@ enum WandId {
     WandId_WAND_OF_MAGIC_MISSILE,
     WandId_WAND_OF_SPEED,
     WandId_WAND_OF_REMEDY,
+    WandId_WAND_OF_BLINDING,
+    WandId_WAND_OF_FORCE,
+    WandId_WAND_OF_INVISIBILITY,
+    WandId_WAND_OF_MAGIC_BULLET,
+    WandId_WAND_OF_SLOWING,
 
     WandId_COUNT,
     WandId_UNKNOWN,
@@ -150,6 +160,8 @@ enum Mind {
 
 // everyone has the same action cost
 static const int action_cost = 12;
+static const int speedy_movement_cost = 3;
+static const int slow_movement_cost = 48;
 
 struct Species {
     // how many ticks does it cost to move one space? average human is 12.
@@ -177,6 +189,7 @@ struct StatusEffect {
         INVISIBILITY,
         POISON,
         POLYMORPH,
+        SLOWING,
     };
     Id type;
     // this is never in the past
@@ -195,6 +208,7 @@ static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vi
     switch (effect) {
         case StatusEffect::CONFUSION: // the derpy look on your face
         case StatusEffect::SPEED:     // the twitchy motion of your body
+        case StatusEffect::SLOWING:   // the baywatchy motion of your body
         case StatusEffect::BLINDNESS: // the empty look in your eyes
         case StatusEffect::POISON:    // the sick look on your face
             return can_see_shape(vision);
@@ -567,6 +581,9 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
     switch (status) {
         case StatusEffect::CONFUSION:
             return individual_has_mind(individual);
+        case StatusEffect::SLOWING:
+            // if you're already moving at the slow speed, you can't tell if it gets worse
+            return individual->physical_species()->movement_cost != slow_movement_cost;
         case StatusEffect::SPEED:
         case StatusEffect::ETHEREAL_VISION:
         case StatusEffect::COGNISCOPY:

@@ -14,7 +14,27 @@ static Thing register_item(Thing item) {
     return item;
 }
 Thing create_wand(WandId wand_id) {
-    int charges = random_int(4, 8, "wand_charges");
+    int charges;
+    switch (wand_id) {
+        case WandId_WAND_OF_CONFUSION:
+        case WandId_WAND_OF_DIGGING:
+        case WandId_WAND_OF_MAGIC_MISSILE:
+        case WandId_WAND_OF_SPEED:
+        case WandId_WAND_OF_REMEDY:
+        case WandId_WAND_OF_BLINDING:
+        case WandId_WAND_OF_FORCE:
+        case WandId_WAND_OF_INVISIBILITY:
+        case WandId_WAND_OF_SLOWING:
+            charges = random_int(4, 8, "wand_charges");
+            break;
+        case WandId_WAND_OF_MAGIC_BULLET:
+            charges = random_int(15, 30, "wand_of_magic_bullet_charges");
+            break;
+
+        case WandId_COUNT:
+        case WandId_UNKNOWN:
+            unreachable();
+    }
     return register_item(create<ThingImpl>(wand_id, charges));
 }
 Thing create_potion(PotionId potion_id) {
@@ -50,33 +70,56 @@ Thing create_random_item() {
         return create_random_item(ThingType_BOOK);
 }
 
-static int hit_individual_no_effect(Thing target) {
+static void hit_individual_no_effect(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
-    return 0;
 }
-static int hit_wall_no_effect(Coord location) {
+static void hit_wall_no_effect(Coord location) {
     publish_event(Event::magic_beam_hit_wall(location));
-    // and stop
-    return -1;
 }
 
-static int confusion_hit_individual(Thing target) {
+static void confusion_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::CONFUSION));
     find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = time_counter + random_int(100, 200, "confusion_duration");
-    return 2;
 }
-static int magic_missile_hit_individual(Thing actor, Thing target) {
+static void magic_missile_hit_individual(Thing actor, Thing target) {
     publish_event(Event::magic_missile_hit(target->id));
     int damage = random_int(4, 8, "magic_missile_damage");
     damage_individual(target, damage, actor, false);
-    return 2;
 }
-static int speed_hit_individual(Thing target) {
+static void speed_hit_individual(Thing target) {
+    int slowing_index = find_status(target->status_effects, StatusEffect::SLOWING);
+    if (slowing_index != -1) {
+        // dispel slowing instead
+        target->status_effects[slowing_index].expiration_time = time_counter;
+        check_for_status_expired(target, slowing_index);
+        return;
+    }
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::SPEED));
     find_or_put_status(target, StatusEffect::SPEED)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
-    return 2;
+}
+static void invisibility_hit_individual(Thing target) {
+    publish_event(Event::magic_beam_hit(target->id));
+    publish_event(Event::gain_status(target->id, StatusEffect::INVISIBILITY));
+    find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
+}
+static void slowing_hit_individual(Thing target) {
+    publish_event(Event::magic_beam_hit(target->id));
+    int speed_index = find_status(target->status_effects, StatusEffect::SPEED);
+    if (speed_index != -1) {
+        // dispel speed instead
+        target->status_effects[speed_index].expiration_time = time_counter;
+        check_for_status_expired(target, speed_index);
+        return;
+    }
+    publish_event(Event::gain_status(target->id, StatusEffect::SLOWING));
+    find_or_put_status(target, StatusEffect::SLOWING)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
+}
+static void blinding_hit_individual(Thing target) {
+    publish_event(Event::magic_beam_hit(target->id));
+    publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
+    find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
 }
 static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
     int index = find_status(individual->status_effects, status);
@@ -85,20 +128,17 @@ static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
         check_for_status_expired(individual, index);
     }
 }
-static int remedy_hit_individual(Thing target) {
+static void remedy_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
 
     remedy_status_effect(target, StatusEffect::CONFUSION);
     remedy_status_effect(target, StatusEffect::POISON);
     remedy_status_effect(target, StatusEffect::BLINDNESS);
-
-    return 2;
 }
-static int magic_bullet_hit_individual(Thing actor, Thing target) {
+static void magic_bullet_hit_individual(Thing actor, Thing target) {
     publish_event(Event::magic_bullet_hit(target->id));
     int damage = random_inclusive(1, 2, "magic_bullet_damage");
     damage_individual(target, damage, actor, false);
-    return -1;
 }
 
 static int digging_hit_wall(Coord location) {
@@ -112,11 +152,11 @@ static int digging_hit_wall(Coord location) {
     return 0;
 }
 
-static int force_hit_individual(Thing target, Coord direction, int beam_length_remaining) {
+static void force_hit_individual(Thing target, Coord direction, int beam_length_remaining) {
     if (direction == Coord{0, 0}) {
         // no effect with no direction
         publish_event(Event::magic_beam_hit(target->id));
-        return -1;
+        return;
     }
     Coord cursor = target->location;
     List<Thing> choo_choo_train;
@@ -138,7 +178,6 @@ static int force_hit_individual(Thing target, Coord direction, int beam_length_r
         }
         cursor += direction;
     }
-    return -1;
 }
 
 void init_items() {
@@ -168,8 +207,11 @@ enum ProjectileId {
     ProjectileId_BEAM_OF_SPEED,
     ProjectileId_BEAM_OF_REMEDY,
     ProjectileId_MAGIC_BULLET,
+    ProjectileId_BEAM_OF_BLINDING,
     ProjectileId_BEAM_OF_FORCE,
     ProjectileId_BEAM_OF_ASSUME_FORM,
+    ProjectileId_BEAM_OF_INVISIBILITY,
+    ProjectileId_BEAM_OF_SLOWING,
 };
 
 // functions should return how much extra beam length this happening requires.
@@ -195,29 +237,48 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
             // hit individual
             switch (projectile_id) {
                 case ProjectileId_BEAM_OF_CONFUSION:
-                    length_penalty = confusion_hit_individual(target);
+                    confusion_hit_individual(target);
+                    length_penalty = 2;
                     break;
                 case ProjectileId_BEAM_OF_DIGGING:
-                    length_penalty = hit_individual_no_effect(target);
+                    hit_individual_no_effect(target);
+                    length_penalty = 2;
                     break;
                 case ProjectileId_MAGIC_MISSILE:
-                    length_penalty = magic_missile_hit_individual(actor, target);
+                    magic_missile_hit_individual(actor, target);
+                    length_penalty = 2;
                     break;
                 case ProjectileId_BEAM_OF_SPEED:
-                    length_penalty = speed_hit_individual(target);
+                    speed_hit_individual(target);
+                    length_penalty = 2;
                     break;
                 case ProjectileId_BEAM_OF_REMEDY:
-                    length_penalty = remedy_hit_individual(target);
+                    remedy_hit_individual(target);
+                    length_penalty = 2;
                     break;
                 case ProjectileId_MAGIC_BULLET:
-                    length_penalty = magic_bullet_hit_individual(actor, target);
+                    magic_bullet_hit_individual(actor, target);
+                    length_penalty = -1;
+                    break;
+                case ProjectileId_BEAM_OF_BLINDING:
+                    blinding_hit_individual(target);
+                    length_penalty = 2;
                     break;
                 case ProjectileId_BEAM_OF_FORCE:
-                    length_penalty = force_hit_individual(target, direction, beam_length - i);
+                    force_hit_individual(target, direction, beam_length - i);
+                    length_penalty = -1;
                     break;
                 case ProjectileId_BEAM_OF_ASSUME_FORM:
                     polymorph_individual(actor, target->physical_species_id());
                     length_penalty = -1;
+                    break;
+                case ProjectileId_BEAM_OF_INVISIBILITY:
+                    invisibility_hit_individual(target);
+                    length_penalty = 2;
+                    break;
+                case ProjectileId_BEAM_OF_SLOWING:
+                    slowing_hit_individual(target);
+                    length_penalty = 2;
                     break;
             }
         }
@@ -236,9 +297,13 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                 case ProjectileId_BEAM_OF_SPEED:
                 case ProjectileId_BEAM_OF_REMEDY:
                 case ProjectileId_MAGIC_BULLET:
+                case ProjectileId_BEAM_OF_BLINDING:
                 case ProjectileId_BEAM_OF_FORCE: // TODO: force hit wall
                 case ProjectileId_BEAM_OF_ASSUME_FORM:
-                    length_penalty = hit_wall_no_effect(cursor);
+                case ProjectileId_BEAM_OF_INVISIBILITY:
+                case ProjectileId_BEAM_OF_SLOWING:
+                    hit_wall_no_effect(cursor);
+                    length_penalty = -1;
                     break;
             }
         } else {
@@ -253,8 +318,11 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                 case ProjectileId_BEAM_OF_SPEED:
                 case ProjectileId_BEAM_OF_REMEDY:
                 case ProjectileId_MAGIC_BULLET:
+                case ProjectileId_BEAM_OF_BLINDING:
                 case ProjectileId_BEAM_OF_FORCE:
                 case ProjectileId_BEAM_OF_ASSUME_FORM:
+                case ProjectileId_BEAM_OF_INVISIBILITY:
+                case ProjectileId_BEAM_OF_SLOWING:
                     length_penalty = 0;
                     break;
             }
@@ -329,6 +397,21 @@ void zap_wand(Thing actor, uint256 item_id, Coord direction) {
             break;
         case WandId_WAND_OF_REMEDY:
             shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_REMEDY);
+            break;
+        case WandId_WAND_OF_BLINDING:
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_BLINDING);
+            break;
+        case WandId_WAND_OF_FORCE:
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_FORCE);
+            break;
+        case WandId_WAND_OF_INVISIBILITY:
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_INVISIBILITY);
+            break;
+        case WandId_WAND_OF_MAGIC_BULLET:
+            shoot_magic_beam(actor, direction, ProjectileId_MAGIC_BULLET);
+            break;
+        case WandId_WAND_OF_SLOWING:
+            shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_SLOWING);
             break;
 
         case WandId_COUNT:
@@ -494,6 +577,32 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
         case WandId_WAND_OF_REMEDY:
             for (int i = 0; i < affected_individuals.length(); i++)
                 remedy_hit_individual(affected_individuals[i]);
+            break;
+        case WandId_WAND_OF_BLINDING:
+            for (int i = 0; i < affected_individuals.length(); i++)
+                blinding_hit_individual(affected_individuals[i]);
+            break;
+        case WandId_WAND_OF_FORCE:
+            for (int i = 0; i < affected_individuals.length(); i++) {
+                Coord direction = affected_individuals[i]->location - explosion_center;
+                int beam_length = random_inclusive(
+                    (beam_length_average - beam_length_error_margin) / 3,
+                    (beam_length_average + beam_length_error_margin) / 3,
+                    "force_explosion_push_distance");
+                force_hit_individual(affected_individuals[i], direction, beam_length);
+            }
+            break;
+        case WandId_WAND_OF_INVISIBILITY:
+            for (int i = 0; i < affected_individuals.length(); i++)
+                invisibility_hit_individual(affected_individuals[i]);
+            break;
+        case WandId_WAND_OF_MAGIC_BULLET:
+            for (int i = 0; i < affected_individuals.length(); i++)
+                magic_bullet_hit_individual(actor, affected_individuals[i]);
+            break;
+        case WandId_WAND_OF_SLOWING:
+            for (int i = 0; i < affected_individuals.length(); i++)
+                slowing_hit_individual(affected_individuals[i]);
             break;
 
         case WandId_COUNT:

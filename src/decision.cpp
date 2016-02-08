@@ -250,10 +250,28 @@ static Action get_ai_decision(Thing actor) {
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
                                     break;
+                                case WandId_WAND_OF_SLOWING:
+                                    if (has_status(target, StatusEffect::SLOWING))
+                                        break; // already confused.
+                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                        // get him!
+                                        range_attack_actions.append(Action::zap(item->id, direction));
+                                    }
+                                    break;
+                                case WandId_WAND_OF_BLINDING:
+                                    if (has_status(target, StatusEffect::BLINDNESS))
+                                        break; // already confused.
+                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                        // get him!
+                                        range_attack_actions.append(Action::zap(item->id, direction));
+                                    }
+                                    break;
                                 case WandId_WAND_OF_DIGGING:
-                                    // i don't understand digging.
+                                case WandId_WAND_OF_FORCE:
+                                    // idk how to use these well
                                     break;
                                 case WandId_WAND_OF_MAGIC_MISSILE:
+                                case WandId_WAND_OF_MAGIC_BULLET:
                                     if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
                                         // get him!
                                         range_attack_actions.append(Action::zap(item->id, direction));
@@ -262,6 +280,11 @@ static Action get_ai_decision(Thing actor) {
                                 case WandId_WAND_OF_SPEED:
                                     if (!has_status(actor, StatusEffect::SPEED)) {
                                         // gotta go fast!
+                                        buff_actions.append(Action::zap(item->id, {0, 0}));
+                                    }
+                                    break;
+                                case WandId_WAND_OF_INVISIBILITY:
+                                    if (!has_status(actor, StatusEffect::INVISIBILITY)) {
                                         buff_actions.append(Action::zap(item->id, {0, 0}));
                                     }
                                     break;

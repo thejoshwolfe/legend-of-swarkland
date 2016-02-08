@@ -360,6 +360,11 @@ static void init_name_arrays() {
     wand_id_names[WandId_WAND_OF_MAGIC_MISSILE] = new_string("magic_missile");
     wand_id_names[WandId_WAND_OF_SPEED] = new_string("speed");
     wand_id_names[WandId_WAND_OF_REMEDY] = new_string("remedy");
+    wand_id_names[WandId_WAND_OF_BLINDING] = new_string("blinding");
+    wand_id_names[WandId_WAND_OF_FORCE] = new_string("force");
+    wand_id_names[WandId_WAND_OF_INVISIBILITY] = new_string("invisibility");
+    wand_id_names[WandId_WAND_OF_MAGIC_BULLET] = new_string("magic_bullet");
+    wand_id_names[WandId_WAND_OF_SLOWING] = new_string("slowing");
     check_no_nulls(wand_id_names);
 
     potion_id_names[PotionId_POTION_OF_HEALING] = new_string("healing");
