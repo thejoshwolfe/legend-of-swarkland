@@ -146,3 +146,126 @@ wait
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000007
   @expect_event "a lich king tries to zap a wand of remedy, but a wand of remedy disintegrates."
   @expect_no_events
+wait
+
+!wish wand blinding
+  @rng 1 range:4:8:wand_charges
+pickup 0000000000000000000000000000000000000000000000000000000000000009
+wait
+@mark_events
+  zap -1 -1 0000000000000000000000000000000000000000000000000000000000000009
+    @rng 6 inclusive:6:12:beam_length
+    @rng 12 midpoint:200:blinding_duration
+  @expect_event "a lich king zaps a shiny bone wand."
+  @expect_event "a magic beam hits you."
+  @expect_event "you is blind!"
+  @expect_event "a magic beam hits a wall."
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 0000000000000000000000000000000000000000000000000000000000000009
+  @expect_event "a lich king zaps a wand of blinding, but a wand of blinding just sputters."
+  @expect_no_events
+wait
+@mark_events
+zap -1 -1 0000000000000000000000000000000000000000000000000000000000000009
+  @expect_event "a lich king tries to zap a wand of blinding, but a wand of blinding disintegrates."
+  @expect_no_events
+wait
+
+!wish wand force
+  @rng 1 range:4:8:wand_charges
+pickup 000000000000000000000000000000000000000000000000000000000000000a
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000a
+    @rng 6 inclusive:6:12:beam_length
+  @expect_event "a lich king zaps a shiny gold wand."
+  @expect_event "a magic beam pushes you!"
+  @expect_event "you bumps into a wall."
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000a
+  @expect_event "a lich king zaps a wand of force, but a wand of force just sputters."
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000a
+  @expect_event "a lich king tries to zap a wand of force, but a wand of force disintegrates."
+  @expect_no_events
+wait
+
+!wish wand invisibility
+  @rng 1 range:4:8:wand_charges
+pickup 000000000000000000000000000000000000000000000000000000000000000b
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000b
+    @rng 6 inclusive:6:12:beam_length
+    @rng 12 midpoint:500:invisibility_duration
+  @expect_event "a lich king zaps a shiny plastic wand."
+  @expect_event "a magic beam hits you."
+  @expect_event "you is invisible!"
+  @expect_event "a magic beam hits a wall."
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000b
+  @expect_event "a lich king zaps a wand of invisibility, but a wand of invisibility just sputters."
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000b
+  @expect_event "a lich king tries to zap a wand of invisibility, but a wand of invisibility disintegrates."
+  @expect_no_events
+wait
+
+!wish wand magic_bullet
+  @rng 1 range:15:30:wand_of_magic_bullet_charges
+pickup 000000000000000000000000000000000000000000000000000000000000000c
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000c
+    @rng 6 inclusive:6:12:beam_length
+    @rng 1 inclusive:1:2:magic_bullet_damage
+  @expect_event "a lich king zaps a shiny copper wand."
+  @expect_event "a magic bullet hits you!"
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000c
+  @expect_event "a lich king zaps a wand of magic bullet, but a wand of magic bullet just sputters."
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000c
+  @expect_event "a lich king tries to zap a wand of magic bullet, but a wand of magic bullet disintegrates."
+  @expect_no_events
+wait
+
+!wish wand slowing
+  @rng 1 range:4:8:wand_charges
+pickup 000000000000000000000000000000000000000000000000000000000000000d
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000d
+    @rng 6 inclusive:6:12:beam_length
+    @rng 12 midpoint:200:slowing_duration
+  @expect_event "a lich king zaps a shiny purple wand."
+  @expect_event "a magic beam hits you."
+  @expect_event "you is slow!"
+  @expect_event "a magic beam hits a wall."
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000d
+  @expect_event "a lich king zaps a wand of slowing, but a wand of slowing just sputters."
+  @expect_no_events
+wait
+@mark_events
+  zap -1 -1 000000000000000000000000000000000000000000000000000000000000000d
+  @expect_event "a lich king tries to zap a wand of slowing, but a wand of slowing disintegrates."
+  @expect_no_events
+wait
+

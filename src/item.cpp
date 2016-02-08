@@ -102,7 +102,7 @@ static void speed_hit_individual(Thing target) {
 static void invisibility_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::INVISIBILITY));
-    find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
+    find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = time_counter + random_midpoint(500, "invisibility_duration");
 }
 static void slowing_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
@@ -114,12 +114,12 @@ static void slowing_hit_individual(Thing target) {
         return;
     }
     publish_event(Event::gain_status(target->id, StatusEffect::SLOWING));
-    find_or_put_status(target, StatusEffect::SLOWING)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
+    find_or_put_status(target, StatusEffect::SLOWING)->expiration_time = time_counter + random_midpoint(200, "slowing_duration");
 }
 static void blinding_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
-    find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
+    find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = time_counter + random_midpoint(200, "blinding_duration");
 }
 static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
     int index = find_status(individual->status_effects, status);
