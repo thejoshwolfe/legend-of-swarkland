@@ -63,7 +63,7 @@ static Thing create_random_item(int min_offset, int max_offset) {
     while (true) {
         assert(item_index < max_offset);
         multiset_index -= item_pool[item_index];
-        if (multiset_index <= 0)
+        if (multiset_index < 0)
             break;
         item_index++;
     }
