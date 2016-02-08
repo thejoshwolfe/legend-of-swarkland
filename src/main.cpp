@@ -51,6 +51,9 @@ static void help(const char * error_message, const char * argument) {
         "  --headless\n"
         "    run the input script and exit without creating a window. implies --replay.\n"
         "\n"
+        "  --print-diagnostics\n"
+        "    print some boring stuff that the developers care about.\n"
+        "\n"
         //                                                                              |80
         "");
     exit(1);
@@ -83,6 +86,8 @@ static void process_argv(int argc, char * argv[]) {
             } else if (strcmp(argv[i], "--headless") == 0) {
                 mode = TasScriptMode_READ;
                 headless_mode = true;
+            } else if (strcmp(argv[i], "--print-diagnostics") == 0) {
+                print_diagnostics = true;
             } else {
                 help("unrecognized argument:", argv[i]);
             }

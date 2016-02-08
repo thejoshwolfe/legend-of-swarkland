@@ -13,6 +13,7 @@ Ability abilities[Ability::COUNT];
 List<Ability::Id> species_abilities[SpeciesId_COUNT];
 
 bool test_mode;
+bool print_diagnostics;
 bool headless_mode;
 
 IdMap<Thing> actual_things;

@@ -8,6 +8,7 @@
 #include "action.hpp"
 
 extern bool test_mode;
+extern bool print_diagnostics;
 extern bool headless_mode;
 
 extern IdMap<Thing> actual_things;
