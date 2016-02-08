@@ -631,7 +631,7 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     Coord lower_right = clamp(explosion_center + Coord{apothem, apothem}, {0, 0}, map_size - Coord{1, 1});
     for (Coord wall_cursor = upper_left; wall_cursor.y <= lower_right.y; wall_cursor.y++)
         for (wall_cursor.x = upper_left.x; wall_cursor.x <= lower_right.x; wall_cursor.x++)
-            if (actual_map_tiles[wall_cursor] == TileType_WALL)
+            if (is_diggable_wall(actual_map_tiles[wall_cursor]))
                 affected_walls.append(wall_cursor);
 
     switch (wand->wand_info()->wand_id) {

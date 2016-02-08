@@ -18,7 +18,8 @@ enum TileType {
     TileType_UNKNOWN,
     TileType_DIRT_FLOOR,
     TileType_MARBLE_FLOOR,
-    TileType_WALL,
+    TileType_BROWN_BRICK_WALL,
+    TileType_GRAY_BRICK_WALL,
     TileType_BORDER_WALL,
     TileType_STAIRS_DOWN,
     TileType_UNKNOWN_FLOOR,
@@ -50,16 +51,35 @@ static inline bool is_open_space(TileType tile_type) {
         case TileType_MARBLE_FLOOR:
         case TileType_UNKNOWN_FLOOR:
             return true;
-        case TileType_WALL:
+        case TileType_BROWN_BRICK_WALL:
+        case TileType_GRAY_BRICK_WALL:
         case TileType_BORDER_WALL:
         case TileType_UNKNOWN_WALL:
             return false;
         case TileType_STAIRS_DOWN:
             return true;
         case TileType_COUNT:
-            panic("not a tile type");
+            unreachable();
     }
-    panic("tile type");
+    unreachable();
+}
+static inline bool is_diggable_wall(TileType tile_type) {
+    switch (tile_type) {
+        case TileType_BROWN_BRICK_WALL:
+        case TileType_GRAY_BRICK_WALL:
+            return true;
+        case TileType_UNKNOWN:
+        case TileType_DIRT_FLOOR:
+        case TileType_MARBLE_FLOOR:
+        case TileType_UNKNOWN_FLOOR:
+        case TileType_BORDER_WALL:
+        case TileType_UNKNOWN_WALL:
+        case TileType_STAIRS_DOWN:
+            return false;
+        case TileType_COUNT:
+            unreachable();
+    }
+    unreachable();
 }
 bool can_spawn_at(Coord away_from_location, Coord location);
 bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatrix<TileType> map_tiles);

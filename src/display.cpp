@@ -46,6 +46,7 @@ static RuckSackImage * dirt_floor_image;
 static RuckSackImage * marble_floor_image;
 static RuckSackImage * unknown_floor_image;
 static RuckSackImage * brown_brick_wall_image;
+static RuckSackImage * gray_brick_wall_image;
 static RuckSackImage * unknown_wall_image;
 static RuckSackImage * stairs_down_image;
 static RuckSackImage * species_images[SpeciesId_COUNT];
@@ -78,7 +79,8 @@ static void load_images() {
     dirt_floor_image = find_image("img/map/dirt_floor.png");
     marble_floor_image = find_image("img/map/marble_floor.png");
     unknown_floor_image = find_image("img/map/unknown_floor.png");
-    brown_brick_wall_image = find_image("img/map/brick_brown.png");
+    brown_brick_wall_image = find_image("img/map/brown_brick.png");
+    gray_brick_wall_image = find_image("img/map/gray_brick.png");
     unknown_wall_image = find_image("img/map/unknown_wall.png");
     stairs_down_image = find_image("img/map/stairs_down.png");
 
@@ -629,9 +631,11 @@ static RuckSackImage * get_image_for_tile(TileType tile_type) {
             return marble_floor_image;
         case TileType_UNKNOWN_FLOOR:
             return unknown_floor_image;
-        case TileType_WALL:
+        case TileType_BROWN_BRICK_WALL:
         case TileType_BORDER_WALL:
             return brown_brick_wall_image;
+        case TileType_GRAY_BRICK_WALL:
+            return gray_brick_wall_image;
         case TileType_UNKNOWN_WALL:
             return unknown_wall_image;
         case TileType_STAIRS_DOWN:

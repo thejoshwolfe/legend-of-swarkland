@@ -138,10 +138,10 @@ void generate_map() {
     dungeon_level++;
 
     spawn_zone.set_all(true);
-    // randomize the appearance of every tile, even if it doesn't matter.
+    // randomize the appearance of every tile, even though it doesn't matter.
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            actual_map_tiles[cursor] = TileType_WALL;
+            actual_map_tiles[cursor] = TileType_BROWN_BRICK_WALL;
             if (!test_mode)
                 aesthetic_indexes[cursor] = random_uint32();
             else
@@ -174,9 +174,10 @@ void generate_map() {
 
     // create rooms
     List<SDL_Rect> rooms;
+    List<Coord> room_floor_spaces;
     for (int i = 0; i < 50; i++) {
-        int width = random_int(4, 10, nullptr);
-        int height = random_int(4, 10, nullptr);
+        int width = random_int(3, 10, nullptr);
+        int height = random_int(3, 10, nullptr);
         int x = random_int(0, map_size.x - width, nullptr);
         int y = random_int(0, map_size.y - height, nullptr);
         SDL_Rect room = SDL_Rect{x, y, width, height};
@@ -191,7 +192,6 @@ void generate_map() {
         rooms.append(room);
         next_room:;
     }
-    List<Coord> room_floor_spaces;
     for (int i = 0; i < rooms.length(); i++) {
         SDL_Rect room = rooms[i];
         Coord cursor;
@@ -267,57 +267,65 @@ void generate_map() {
     }
 
     // throw some items around
-    int wand_count = random_inclusive(1, 2, nullptr);
-    for (int i = 0; i < wand_count; i++) {
+    if (dungeon_level == 1) {
+        // first level always has a wand of digging and a potion of ethereal vision to make finding vaults less random.
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        Thing item;
-        if (dungeon_level == 1 && i == 0) {
-            // first level always has a wand of digging to make finding vaults less random.
-            create_wand(WandId_WAND_OF_DIGGING)->location = location;
-        } else {
-            create_random_item()->location = location;
-        }
+        create_wand(WandId_WAND_OF_DIGGING)->location = location;
+        location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
+        create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = location;
     }
-    int potion_count = random_inclusive(2, 4, nullptr);
-    for (int i = 0; i < potion_count; i++) {
+    int item_count = random_inclusive(3, 6, nullptr);
+    for (int i = 0; i < item_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        if (dungeon_level == 1 && i == 0) {
-            // first level always has a potion of ethereal vision to make finding vaults less random.
-            create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = location;
-        } else {
-            create_random_item()->location = location;
-        }
+        create_random_item()->location = location;
     }
 
     // place some vaults
     int vault_count = random_inclusive(1, 2, nullptr);
-    for (int i = 0; i < 10; i++) {
-        int width = 4;
-        int height = 4;
-        int x = random_int(0, map_size.x - width, nullptr);
-        int y = random_int(0, map_size.y - height, nullptr);
-        SDL_Rect room = SDL_Rect{x, y, width, height};
-
-        Coord cursor;
-        for (cursor.y = room.y; cursor.y < room.y + room.h; cursor.y++)
-            for (cursor.x = room.x; cursor.x < room.x + room.w; cursor.x++)
-                if (actual_map_tiles[cursor] != TileType_WALL)
-                    goto next_vault;
-        // this location is secluded
-
-        for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
-            for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
-                actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
-                spawn_zone[cursor] = false;
-                create_random_item()->location = cursor;
+    int width = 6;
+    int height = 6;
+    for (int i = 0; i < vault_count; i++) {
+        List<Coord> available_locations;
+        Coord position;
+        for (position.y = 1; position.y < map_size.y - 1; position.y++) {
+            for (position.x = 1; position.x < map_size.x - 1; position.x++) {
+                Coord cursor;
+                for (cursor.y = position.y; cursor.y < position.y + height; cursor.y++)
+                    for (cursor.x = position.x; cursor.x < position.x + width; cursor.x++)
+                        if (actual_map_tiles[cursor] != TileType_BROWN_BRICK_WALL)
+                            goto next_position;
+                // this location is secluded
+                available_locations.append(position);
+                next_position:;
             }
         }
-
-        vault_count--;
-        if (vault_count == 0)
-            break;
-
-        next_vault:;
+        if (available_locations.length() > 0) {
+            position = available_locations[random_int(available_locations.length(), nullptr)];
+            SDL_Rect room = SDL_Rect{position.x, position.y, width, height};
+            // line the border with a different color wall
+            for (int x = room.x + 1; x < room.x + room.w - 1; x++) {
+                actual_map_tiles[Coord{x, room.y + 1}] = TileType_GRAY_BRICK_WALL;
+                actual_map_tiles[Coord{x, room.y + room.h - 2}] = TileType_GRAY_BRICK_WALL;
+            }
+            for (int y = room.y + 1; y < room.y + room.h - 1; y++) {
+                actual_map_tiles[Coord{room.x + 1, y}] = TileType_GRAY_BRICK_WALL;
+                actual_map_tiles[Coord{room.x + room.w - 2, y}] = TileType_GRAY_BRICK_WALL;
+            }
+            Coord cursor;
+            for (cursor.y = room.y + 2; cursor.y < room.y + room.h - 2; cursor.y++) {
+                for (cursor.x = room.x + 2; cursor.x < room.x + room.w - 2; cursor.x++) {
+                    actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
+                    spawn_zone[cursor] = false;
+                    create_random_item()->location = cursor;
+                }
+            }
+        } else {
+            // throw what items would be in the vault around in the rooms
+            for (int i = 0; i < 4; i++) {
+                Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
+                create_random_item()->location = location;
+            }
+        }
     }
 }
 
