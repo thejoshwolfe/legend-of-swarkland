@@ -581,13 +581,19 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
     switch (status) {
         case StatusEffect::CONFUSION:
             return individual_has_mind(individual);
+        case StatusEffect::SPEED:
+            // if you're already moving at the slow speed, you can't tell if it gets worse
+            return individual->physical_species()->movement_cost != speedy_movement_cost;
         case StatusEffect::SLOWING:
             // if you're already moving at the slow speed, you can't tell if it gets worse
             return individual->physical_species()->movement_cost != slow_movement_cost;
-        case StatusEffect::SPEED:
-        case StatusEffect::ETHEREAL_VISION:
-        case StatusEffect::COGNISCOPY:
         case StatusEffect::BLINDNESS:
+            // you need normal vision to be blind
+            return individual->physical_species()->vision_types & VisionTypes_NORMAL;
+        case StatusEffect::ETHEREAL_VISION:
+            // if you have ethereal vision anyway, you can't get it again
+            return !(individual->physical_species()->vision_types & VisionTypes_ETHEREAL);
+        case StatusEffect::COGNISCOPY:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::POISON:
         case StatusEffect::POLYMORPH:
@@ -627,10 +633,13 @@ static inline void put_status(PerceivedThing thing, StatusEffect::Id status) {
     if (!has_status(thing, status))
         thing->status_effects.append(status);
 }
-static inline void maybe_remove_status(PerceivedThing thing, StatusEffect::Id status) {
-    int index = find_status(thing->status_effects, status);
-    if (index != -1)
-        thing->status_effects.swap_remove(index);
+static inline bool maybe_remove_status(List<StatusEffect::Id> * status_effects, StatusEffect::Id status) {
+    int index = find_status(*status_effects, status);
+    if (index != -1) {
+        status_effects->swap_remove(index);
+        return true;
+    }
+    return false;
 }
 
 DEFINE_GDB_PY_SCRIPT("debug-scripts/vision_types.py")

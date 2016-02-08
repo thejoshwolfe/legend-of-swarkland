@@ -521,7 +521,7 @@ static void observe_event(Thing observer, Event event) {
             switch (data.id) {
                 case Event::TheIndividualData::APPEAR:
                     individual = record_perception_of_thing(observer, data.individual);
-                    maybe_remove_status(individual, StatusEffect::INVISIBILITY);
+                    maybe_remove_status(&individual->status_effects, StatusEffect::INVISIBILITY);
                     remembered_event->span->format("%s appears out of nowhere!", get_thing_description(observer, data.individual));
                     break;
                 case Event::TheIndividualData::LEVEL_UP:
@@ -611,7 +611,7 @@ static void observe_event(Thing observer, Event event) {
             } else {
                 is_no_longer = "is no longer";
                 punctuation = ".";
-                maybe_remove_status(individual, data.status);
+                maybe_remove_status(&individual->status_effects, data.status);
                 individual_description = get_thing_description(observer, data.individual);
             }
             const char * status_description = nullptr;

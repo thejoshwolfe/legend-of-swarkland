@@ -320,22 +320,28 @@ Span get_species_name(SpeciesId species_id) {
 // ends with " " if non-blank
 static Span get_status_description(const List<StatusEffect::Id> & status_effects) {
     Span result = new_span();
-    // this algorithmic complexity is a little derpy,
-    // but we need the order of words to be consistent.
-    if (has_status(status_effects, StatusEffect::CONFUSION))
+    // we need the order of words to be consistent.
+    List<StatusEffect::Id> remaining_status_effects;
+    remaining_status_effects.append_all(status_effects);
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::CONFUSION))
         result->append("confused ");
-    if (has_status(status_effects, StatusEffect::SPEED))
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::SPEED))
         result->append("fast ");
-    if (has_status(status_effects, StatusEffect::ETHEREAL_VISION))
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::SLOWING))
+        result->append("slow ");
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::ETHEREAL_VISION))
         result->append("ethereal-visioned ");
-    if (has_status(status_effects, StatusEffect::COGNISCOPY))
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::COGNISCOPY))
         result->append("cogniscopic ");
-    if (has_status(status_effects, StatusEffect::BLINDNESS))
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::BLINDNESS))
         result->append("blind ");
-    if (has_status(status_effects, StatusEffect::POISON))
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::POISON))
         result->append("poisoned ");
-    if (has_status(status_effects, StatusEffect::INVISIBILITY))
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::INVISIBILITY))
         result->append("invisible ");
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::POLYMORPH))
+        result->append("polymorphed ");
+    assert_str(remaining_status_effects.length() == 0, "missed a spot");
     result->set_color(pink, black);
     return result;
 }
