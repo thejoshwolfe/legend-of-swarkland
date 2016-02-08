@@ -113,6 +113,11 @@ static int digging_hit_wall(Coord location) {
 }
 
 static int force_hit_individual(Thing target, Coord direction, int beam_length_remaining) {
+    if (direction == Coord{0, 0}) {
+        // no effect with no direction
+        publish_event(Event::magic_beam_hit(target->id));
+        return -1;
+    }
     Coord cursor = target->location;
     List<Thing> choo_choo_train;
     for (int push_length = 0; push_length < beam_length_remaining; push_length++) {
@@ -171,7 +176,14 @@ enum ProjectileId {
 // return -1 for stop the beam.
 static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projectile_id) {
     Coord cursor = actor->location;
-    int beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin, "beam_length");
+    int beam_length;
+    if (direction == Coord{0, 0}) {
+        // directed at yourself
+        beam_length = 1;
+    } else {
+        // random beam length
+        beam_length = random_inclusive(beam_length_average - beam_length_error_margin, beam_length_average + beam_length_error_margin, "beam_length");
+    }
     for (int i = 0; i < beam_length; i++) {
         cursor = cursor + direction;
         if (!is_in_bounds(cursor))
@@ -250,9 +262,6 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
         if (length_penalty == -1)
             break;
         beam_length -= length_penalty;
-
-        if (direction == Coord{0, 0})
-            break; // zapping yourself
     }
 }
 
