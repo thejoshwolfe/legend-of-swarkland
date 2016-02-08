@@ -620,8 +620,6 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     List<Thing> affected_individuals;
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);) {
-        if (!individual->still_exists)
-            continue;
         Coord abs_vector = abs(individual->location - explosion_center);
         if (max(abs_vector.x, abs_vector.y) <= apothem)
             affected_individuals.append(individual);

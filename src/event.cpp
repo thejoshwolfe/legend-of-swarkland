@@ -861,8 +861,6 @@ IdMap<uint256> observer_to_active_identifiable_item;
 void publish_event(Event actual_event) {
     Thing observer;
     for (auto iterator = actual_individuals(); iterator.next(&observer);) {
-        if (!observer->still_exists)
-            continue;
         Event event;
         if (!true_event_to_observed_event(observer, actual_event, &event))
             continue;

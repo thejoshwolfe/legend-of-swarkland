@@ -221,6 +221,9 @@ static Action get_ai_decision(Thing actor) {
     }
 
     if (things_of_interest.length() > 0) {
+        // sort and then chose randomly. why?
+        // because we don't want hashtable traversal order to be part of what makes a replay deterministic.
+        sort<PerceivedThing, compare_perceived_things_by_id>(things_of_interest.raw(), things_of_interest.length());
         PerceivedThing target = things_of_interest[random_int(things_of_interest.length(), nullptr)];
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL: {

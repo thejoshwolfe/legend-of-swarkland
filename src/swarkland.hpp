@@ -23,11 +23,11 @@ extern bool cheatcode_full_visibility;
 extern Thing cheatcode_spectator;
 void cheatcode_spectate();
 
-static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals() {
-    return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_individual);
+static inline bool is_actual_individual(Thing thing) {
+    return thing->still_exists && thing->thing_type == ThingType_INDIVIDUAL;
 }
-static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_items() {
-    return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_item);
+static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals() {
+    return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_actual_individual);
 }
 static inline Thing get_top_level_container(Thing thing) {
     while (thing->container_id != uint256::zero())

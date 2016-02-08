@@ -504,8 +504,8 @@ int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThin
 
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
     PerceivedThing individual;
-    for (auto iterator = get_perceived_individuals(observer); iterator.next(&individual);)
-        if (individual->location == location)
+    for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&individual);)
+        if (individual->thing_type == ThingType_INDIVIDUAL && individual->location == location)
             return individual;
     return nullptr;
 }
@@ -526,8 +526,6 @@ void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing
 Thing find_individual_at(Coord location) {
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);) {
-        if (!individual->still_exists)
-            continue;
         if (individual->location.x == location.x && individual->location.y == location.y)
             return individual;
     }
@@ -536,15 +534,15 @@ Thing find_individual_at(Coord location) {
 
 void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list) {
     Thing item;
-    for (auto iterator = actual_items(); iterator.next(&item);)
-        if (item->container_id == container_id)
+    for (auto iterator = actual_things.value_iterator(); iterator.next(&item);)
+        if (item->thing_type != ThingType_INDIVIDUAL && item->container_id == container_id)
             output_sorted_list->append(item);
     sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void find_items_in_inventory(Thing observer, uint256 container_id, List<PerceivedThing> * output_sorted_list) {
     PerceivedThing item;
-    for (auto iterator = get_perceived_items(observer); iterator.next(&item);)
-        if (item->container_id == container_id)
+    for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&item);)
+        if (item->thing_type != ThingType_INDIVIDUAL && item->container_id == container_id)
             output_sorted_list->append(item);
     sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
@@ -561,8 +559,8 @@ bool is_ability_ready(Thing actor, Ability::Id ability_id) {
 
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     Thing item;
-    for (auto iterator = actual_items(); iterator.next(&item);)
-        if (item->location == location)
+    for (auto iterator = actual_things.value_iterator(); iterator.next(&item);)
+        if (item->thing_type != ThingType_INDIVIDUAL && item->location == location)
             output_sorted_list->append(item);
     sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }

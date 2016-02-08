@@ -537,29 +537,16 @@ private:
 };
 typedef Reference<ThingImpl> Thing;
 
-template<typename T>
-static inline bool is_individual(T thing) {
-    return thing->thing_type == ThingType_INDIVIDUAL;
-}
-template<typename T>
-static inline bool is_item(T thing) {
-    return thing->thing_type != ThingType_INDIVIDUAL;
-}
-
 extern Ability abilities[Ability::COUNT];
 extern List<Ability::Id> species_abilities[SpeciesId_COUNT];
-
-static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> get_perceived_individuals(Thing individual) {
-    return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_things.value_iterator(), is_individual);
-}
-static inline FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing> get_perceived_items(Thing individual) {
-    return FilteredIterator<IdMap<PerceivedThing>::Iterator, PerceivedThing>(individual->life()->knowledge.perceived_things.value_iterator(), is_item);
-}
 
 static inline int compare_individuals_by_initiative(Thing a, Thing b) {
     return compare(a->life()->initiative, b->life()->initiative);
 }
 static inline int compare_things_by_id(Thing a, Thing b) {
+    return compare(a->id, b->id);
+}
+static inline int compare_perceived_things_by_id(PerceivedThing a, PerceivedThing b) {
     return compare(a->id, b->id);
 }
 
