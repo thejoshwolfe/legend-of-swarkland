@@ -217,9 +217,18 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_BEAM_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_MISSILE_HIT_INDIVIDUAL:
-                case Event::TheIndividualData::MAGIC_BULLET_HIT_INDIVIDUAL:
+                case Event::TheIndividualData::MAGIC_BULLET_HIT_INDIVIDUAL: {
+                    Coord location = actual_things.get(data.individual)->location;
+                    if (!can_see_shape(observer->life()->knowledge.tile_is_visible[location]))
+                        return false;
+                    *output_event = event;
+                    // the individual might be invisible
+                    if (!can_see_thing(observer, data.individual))
+                        output_event->the_individual_data().individual = make_placeholder_individual(observer, data.individual);
+                    return true;
+                }
                 case Event::TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL:
-                    // TODO: move these events to a projectile event
+                    // TODO: consider when this individual is unseen
                     if (!see_thing(observer, data.individual))
                         return false;
                     *output_event = event;
@@ -233,6 +242,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             switch (data.id) {
                 case Event::TheLocationData::MAGIC_BEAM_HIT_WALL:
                 case Event::TheLocationData::BEAM_OF_DIGGING_DIGS_WALL:
+                case Event::TheLocationData::MAGIC_BEAM_PASS_THROUGH_AIR:
                     if (!can_see_shape(vision))
                         return false;
                     break;
@@ -593,6 +603,11 @@ static void observe_event(Thing observer, Event event) {
                 case Event::TheLocationData::BEAM_OF_DIGGING_DIGS_WALL:
                     remembered_event->span->format("a magic beam digs away a wall!");
                     identify_active_item(observer, WandId_WAND_OF_DIGGING, PotionId_COUNT, BookId_COUNT);
+                    break;
+                case Event::TheLocationData::MAGIC_BEAM_PASS_THROUGH_AIR:
+                    remembered_event = nullptr;
+                    // we know there's no one here
+                    clear_placeholder_individual_at(observer, data.location);
                     break;
             }
             break;

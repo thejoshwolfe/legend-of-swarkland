@@ -387,6 +387,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
             }
         } else {
             // hit air
+            publish_event(Event::magic_beam_pass_through_air(cursor));
             switch (projectile_id) {
                 case ProjectileId_BEAM_OF_DIGGING:
                     // the digging beam doesn't travel well through air

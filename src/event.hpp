@@ -93,6 +93,7 @@ struct Event {
         enum Id {
             MAGIC_BEAM_HIT_WALL,
             BEAM_OF_DIGGING_DIGS_WALL,
+            MAGIC_BEAM_PASS_THROUGH_AIR,
         };
         Id id;
         Coord location;
@@ -192,6 +193,9 @@ struct Event {
     }
     static inline Event beam_of_digging_digs_wall(Coord location) {
         return location_event(TheLocationData::BEAM_OF_DIGGING_DIGS_WALL, location);
+    }
+    static inline Event magic_beam_pass_through_air(Coord location) {
+        return location_event(TheLocationData::MAGIC_BEAM_PASS_THROUGH_AIR, location);
     }
     static inline Event individual_is_healed(uint256 target) {
         return individual_event(TheIndividualData::INDIVIDUAL_IS_HEALED, target);
