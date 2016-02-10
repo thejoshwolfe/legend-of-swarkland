@@ -682,7 +682,7 @@ static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -
 
 static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, bool has_abilities) {
     List<const char *> lines;
-    if (!youre_still_alive) {
+    if (!you->still_exists) {
         lines.append("Alt+F4: quit");
     } else {
         switch (input_mode) {

@@ -19,7 +19,6 @@ bool headless_mode;
 IdMap<Thing> actual_things;
 
 Thing you;
-bool youre_still_alive = true;
 int64_t time_counter = 0;
 Thing player_actor;
 
@@ -85,8 +84,6 @@ static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     for (int i = 0; i < inventory.length(); i++)
         drop_item_to_the_floor(inventory[i], individual->location);
 
-    if (individual == you)
-        youre_still_alive = false;
     if (individual == cheatcode_spectator) {
         // our fun looking through the eyes of a dying man has ended. back to normal.
         cheatcode_spectator = nullptr;
@@ -1221,7 +1218,7 @@ List<Thing> poised_individuals;
 int poised_individuals_index = 0;
 // this function will return only when we're expecting player input
 void run_the_game() {
-    while (youre_still_alive) {
+    while (you->still_exists) {
         if (poised_individuals.length() == 0) {
             time_counter++;
 

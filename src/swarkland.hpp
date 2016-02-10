@@ -14,7 +14,6 @@ extern bool headless_mode;
 extern IdMap<Thing> actual_things;
 // the good guy
 extern Thing you;
-extern bool youre_still_alive;
 extern int64_t time_counter;
 // usually just you, but cheatcodes can allow you to control several monsters in rotation.
 extern Thing player_actor;
