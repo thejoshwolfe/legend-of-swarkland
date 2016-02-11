@@ -7,32 +7,10 @@
 #include "item.hpp"
 #include "tas.hpp"
 
-bool test_mode;
 bool print_diagnostics;
 bool headless_mode;
 
-IdMap<Thing> actual_things;
-
-Thing you;
-int64_t time_counter = 0;
-Thing player_actor;
-
-bool cheatcode_full_visibility;
-
-Thing cheatcode_spectator;
-IdMap<uint256> observer_to_active_identifiable_item;
-
-// starts at 1
-int dungeon_level = 0;
-MapMatrix<TileType> actual_map_tiles;
-MapMatrix<uint32_t> aesthetic_indexes;
-MapMatrix<bool> spawn_zone;
-
-RandomState the_random_state;
-uint256 random_arbitrary_large_number_count;
-uint256 random_initiative_count;
-
-int item_pool[TOTAL_ITEMS];
+Game * game;
 
 static int test_you_events_mark;
 static List<PerceivedThing> test_expect_things_list;
@@ -61,9 +39,9 @@ static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     for (int i = 0; i < inventory.length(); i++)
         drop_item_to_the_floor(inventory[i], individual->location);
 
-    if (individual == cheatcode_spectator) {
+    if (individual == game->cheatcode_spectator) {
         // our fun looking through the eyes of a dying man has ended. back to normal.
-        cheatcode_spectator = nullptr;
+        game->cheatcode_spectator = nullptr;
     }
 }
 
@@ -93,8 +71,8 @@ static void gain_experience(Thing individual, int delta, bool publish) {
 
 static void reset_hp_regen_timeout(Thing individual) {
     Life * life = individual->life();
-    if (!test_mode && life->hitpoints < individual->max_hitpoints())
-        life->hp_regen_deadline = time_counter + random_midpoint(7 * 12, nullptr);
+    if (!game->test_mode && life->hitpoints < individual->max_hitpoints())
+        life->hp_regen_deadline = game->time_counter + random_midpoint(7 * 12, nullptr);
 }
 void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) {
     assert_str(damage > 0, "no damage");
@@ -112,13 +90,13 @@ void poison_individual(Thing attacker, Thing target) {
 
     StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON);
     poison->who_is_responsible = attacker->id;
-    poison->expiration_time = time_counter + random_midpoint(600, "poison_expiriration");
-    poison->poison_next_damage_time = time_counter + 12 * 3;
+    poison->expiration_time = game->time_counter + random_midpoint(600, "poison_expiriration");
+    poison->poison_next_damage_time = game->time_counter + 12 * 3;
 }
 static void blind_individual(Thing attacker, Thing target) {
     StatusEffect * effect = find_or_put_status(target, StatusEffect::BLINDNESS);
     effect->who_is_responsible = attacker->id;
-    effect->expiration_time = time_counter + random_midpoint(600, "blindness_expiriration");
+    effect->expiration_time = game->time_counter + random_midpoint(600, "blindness_expiriration");
 }
 
 // publish the event yourself
@@ -175,7 +153,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     bool impacts_in_wall = item->thing_type == ThingType_WAND && item->wand_info()->wand_id == WandId_WAND_OF_DIGGING;
     for (int i = 0; i < range; i++) {
         cursor += direction;
-        if (!is_open_space(actual_map_tiles[cursor])) {
+        if (!is_open_space(game->actual_map_tiles[cursor])) {
             if (!(item_breaks && impacts_in_wall)) {
                 // impact just in front of the wall
                 cursor -= direction;
@@ -227,7 +205,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 
 static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
     int cooldown_time = random_midpoint(1000, "ability_cooldown");
-    actor->ability_cooldowns.append(AbilityCooldown{ability_id, time_counter + cooldown_time});
+    actor->ability_cooldowns.append(AbilityCooldown{ability_id, game->time_counter + cooldown_time});
 
     int range;
     switch (ability_id) {
@@ -249,7 +227,7 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
             compute_vision(target);
             return;
         }
-        if (!is_open_space(actual_map_tiles[cursor])) {
+        if (!is_open_space(game->actual_map_tiles[cursor])) {
             // hit wall
             // TODO: publish event
             return;
@@ -259,11 +237,11 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
 }
 
 static Coord find_stairs_down_location() {
-    if (dungeon_level == final_dungeon_level)
+    if (game->dungeon_level == final_dungeon_level)
         return Coord::nowhere();
     for (Coord location = {0, 0}; location.y < map_size.y; location.y++)
         for (location.x = 0; location.x < map_size.x; location.x++)
-            if (actual_map_tiles[location] == TileType_STAIRS_DOWN)
+            if (game->actual_map_tiles[location] == TileType_STAIRS_DOWN)
                 return location;
     unreachable();
 }
@@ -272,8 +250,8 @@ static Coord find_stairs_down_location() {
 // location = Coord::nowhere() => random
 static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
     if (species_id == SpeciesId_COUNT) {
-        int difficulty = dungeon_level - random_triangle_distribution(dungeon_level);
-        assert(0 <= difficulty && difficulty < dungeon_level);
+        int difficulty = game->dungeon_level - random_triangle_distribution(game->dungeon_level);
+        assert(0 <= difficulty && difficulty < game->dungeon_level);
         List<SpeciesId> available_specieses;
         for (int i = 0; i < SpeciesId_COUNT; i++) {
             if (i == SpeciesId_HUMAN)
@@ -288,7 +266,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
 
     if (location == Coord::nowhere()) {
         // don't spawn monsters near you.
-        Coord away_from_location = you != nullptr ? you->location : find_stairs_down_location();
+        Coord away_from_location = game->you != nullptr ? game->you->location : find_stairs_down_location();
         location = random_spawn_location(away_from_location);
         if (location == Coord::nowhere()) {
             // it must be pretty crowded in here
@@ -300,7 +278,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
 
     gain_experience(individual, level_to_experience(specieses[species_id].min_level + 1) - 1, false);
 
-    actual_things.put(individual->id, individual);
+    game->actual_things.put(individual->id, individual);
     compute_vision(individual);
     publish_event(Event::appear(individual));
     return individual;
@@ -320,21 +298,21 @@ static void spawn_random_individual() {
     spawn_a_monster(SpeciesId_COUNT, DecisionMakerType_AI, Coord::nowhere());
 }
 static void init_individuals() {
-    if (test_mode) {
-        you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord{1, 1});
+    if (game->test_mode) {
+        game->you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord{1, 1});
         return;
     }
 
-    if (you == nullptr) {
-        you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord::nowhere());
+    if (game->you == nullptr) {
+        game->you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord::nowhere());
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far apart.
-        you->location = random_spawn_location(find_stairs_down_location());
-        compute_vision(you);
+        game->you->location = random_spawn_location(find_stairs_down_location());
+        compute_vision(game->you);
     }
 
-    if (dungeon_level == final_dungeon_level) {
+    if (game->dungeon_level == final_dungeon_level) {
         // boss
         Thing boss = spawn_a_monster(SpeciesId_LICH, DecisionMakerType_AI, Coord::nowhere());
         // arm him!
@@ -344,19 +322,19 @@ static void init_individuals() {
         }
         // teach him everything about magic.
         for (int i = 0; i < WandId_COUNT; i++)
-            boss->life()->knowledge.wand_identities[actual_wand_descriptions[i]] = (WandId)i;
+            boss->life()->knowledge.wand_identities[game->actual_wand_descriptions[i]] = (WandId)i;
         for (int i = 0; i < PotionId_COUNT; i++)
-            boss->life()->knowledge.potion_identities[actual_potion_descriptions[i]] = (PotionId)i;
+            boss->life()->knowledge.potion_identities[game->actual_potion_descriptions[i]] = (PotionId)i;
         for (int i = 0; i < BookId_COUNT; i++)
-            boss->life()->knowledge.book_identities[actual_book_descriptions[i]] = (BookId)i;
+            boss->life()->knowledge.book_identities[game->actual_book_descriptions[i]] = (BookId)i;
     } else {
         // spawn a "miniboss", which is just a specific monster on the stairs.
-        SpeciesId miniboss_species_id = get_miniboss_species(dungeon_level);
+        SpeciesId miniboss_species_id = get_miniboss_species(game->dungeon_level);
         spawn_a_monster(miniboss_species_id, DecisionMakerType_AI, find_stairs_down_location());
     }
 
     // random monsters
-    for (int i = 0; i < 4 + 3 * dungeon_level; i++)
+    for (int i = 0; i < 4 + 3 * game->dungeon_level; i++)
         spawn_a_monster(SpeciesId_COUNT, DecisionMakerType_AI, Coord::nowhere());
 }
 
@@ -372,22 +350,22 @@ void swarkland_init() {
 void go_down() {
     // goodbye everyone
     Thing thing;
-    for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);) {
-        if (thing == you)
+    for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);) {
+        if (thing == game->you)
             continue; // you're cool
-        if (thing->container_id == you->id)
+        if (thing->container_id == game->you->id)
             continue; // take it with you
         // leave this behind us
         thing->still_exists = false;
     }
 
-    you->life()->knowledge.reset_map();
+    game->you->life()->knowledge.reset_map();
     generate_map();
     init_individuals();
 }
 
 static void maybe_spawn_monsters() {
-    if (test_mode)
+    if (game->test_mode)
         return;
     if (random_int(2000, nullptr) == 0)
         spawn_random_individual();
@@ -408,15 +386,15 @@ static void regen_hp(Thing individual) {
     if ((index = find_status(individual->status_effects, StatusEffect::POISON)) != -1) {
         // poison damage instead
         StatusEffect * poison = &individual->status_effects[index];
-        if (poison->poison_next_damage_time == time_counter) {
+        if (poison->poison_next_damage_time == game->time_counter) {
             // ouch
-            Thing attacker = actual_things.get(poison->who_is_responsible, nullptr);
+            Thing attacker = game->actual_things.get(poison->who_is_responsible, nullptr);
             if (attacker != nullptr && !attacker->still_exists)
                 attacker = nullptr;
             damage_individual(individual, 1, attacker, false);
-            poison->poison_next_damage_time = time_counter + random_midpoint(7 * 12, "poison_damage");
+            poison->poison_next_damage_time = game->time_counter + random_midpoint(7 * 12, "poison_damage");
         }
-    } else if (life->hp_regen_deadline == time_counter) {
+    } else if (life->hp_regen_deadline == game->time_counter) {
         // hp regen
         int hp_heal = random_inclusive(1, max(1, individual->max_hitpoints() / 5), nullptr);
         heal_hp(individual, hp_heal);
@@ -425,8 +403,8 @@ static void regen_hp(Thing individual) {
 
 static void reset_mp_regen_timeout(Thing individual) {
     Life * life = individual->life();
-    if (!test_mode && life->mana < individual->max_mana())
-        life->mp_regen_deadline = time_counter + random_midpoint(7 * 12, nullptr);
+    if (!game->test_mode && life->mana < individual->max_mana())
+        life->mp_regen_deadline = game->time_counter + random_midpoint(7 * 12, nullptr);
 }
 void gain_mp(Thing individual, int mp) {
     Life * life = individual->life();
@@ -441,7 +419,7 @@ void gain_mp(Thing individual, int mp) {
 }
 static void regen_mp(Thing individual) {
     Life * life = individual->life();
-    if (life->mp_regen_deadline == time_counter) {
+    if (life->mp_regen_deadline == game->time_counter) {
         int mp_gain = random_inclusive(1, max(1, individual->max_mana() / 5), nullptr);
         gain_mp(individual, mp_gain);
     }
@@ -518,7 +496,7 @@ Thing find_individual_at(Coord location) {
 
 void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list) {
     Thing item;
-    for (auto iterator = actual_things.value_iterator(); iterator.next(&item);)
+    for (auto iterator = game->actual_things.value_iterator(); iterator.next(&item);)
         if (item->thing_type != ThingType_INDIVIDUAL && item->container_id == container_id)
             output_sorted_list->append(item);
     sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
@@ -564,7 +542,7 @@ bool is_ability_ready(Thing actor, AbilityId ability_id) {
 
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     Thing item;
-    for (auto iterator = actual_things.value_iterator(); iterator.next(&item);)
+    for (auto iterator = game->actual_things.value_iterator(); iterator.next(&item);)
         if (item->thing_type != ThingType_INDIVIDUAL && item->location == location)
             output_sorted_list->append(item);
     sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
@@ -590,7 +568,7 @@ static void do_move(Thing mover, Coord new_position) {
     }
 }
 void attempt_move(Thing actor, Coord new_position) {
-    if (!is_open_space(actual_map_tiles[new_position])) {
+    if (!is_open_space(game->actual_map_tiles[new_position])) {
         publish_event(Event::bump_into_location(actor, new_position, false));
         return;
     }
@@ -606,9 +584,9 @@ void attempt_move(Thing actor, Coord new_position) {
 // return iff expired and removed
 bool check_for_status_expired(Thing individual, int index) {
     StatusEffect status_effect = individual->status_effects[index];
-    if (status_effect.expiration_time > time_counter)
+    if (status_effect.expiration_time > game->time_counter)
         return false;
-    assert(status_effect.expiration_time == time_counter);
+    assert(status_effect.expiration_time == game->time_counter);
     switch (status_effect.type) {
         case StatusEffect::CONFUSION:
         case StatusEffect::SPEED:
@@ -654,7 +632,7 @@ bool check_for_status_expired(Thing individual, int index) {
 }
 
 static void cheatcode_kill(uint256 individual_id) {
-    Thing individual = actual_things.get(individual_id);
+    Thing individual = game->actual_things.get(individual_id);
     kill_individual(individual, nullptr, false);
 }
 void polymorph_individual(Thing individual, SpeciesId species_id) {
@@ -674,7 +652,7 @@ void polymorph_individual(Thing individual, SpeciesId species_id) {
             publish_event(Event::polymorph(individual, species_id));
 
         StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH);
-        polymorph_effect->expiration_time = time_counter + random_midpoint(2000, "polymorph_expiration");
+        polymorph_effect->expiration_time = game->time_counter + random_midpoint(2000, "polymorph_expiration");
         if (polymorph_effect->species_id == species_id)
             return; // already polymorphed into that.
         polymorph_effect->species_id = species_id;
@@ -686,14 +664,14 @@ void polymorph_individual(Thing individual, SpeciesId species_id) {
     compute_vision(individual);
 }
 void cheatcode_spectate(Coord location) {
-    cheatcode_spectator = find_individual_at(location);
+    game->cheatcode_spectator = find_individual_at(location);
 }
 
 bool can_move(Thing actor) {
-    return actor->life()->last_movement_time + get_movement_cost(actor) <= time_counter;
+    return actor->life()->last_movement_time + get_movement_cost(actor) <= game->time_counter;
 }
 static bool can_act(Thing actor) {
-    return actor->life()->last_action_time + action_cost <= time_counter;
+    return actor->life()->last_action_time + action_cost <= game->time_counter;
 }
 static bool is_direction(Coord direction, bool allow_self) {
     // has to be made of 0's, 1's, and -1's, but not all 0's
@@ -783,27 +761,27 @@ bool validate_action(Thing actor, const Action & action) {
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
-            if (actor != player_actor)
+            if (actor != game->player_actor)
                 return false;
             return true;
         case Action::CHEATCODE_KILL:
-            if (actor != player_actor)
+            if (actor != game->player_actor)
                 return false;
-            if (actual_things.get(action.item()) == nullptr)
+            if (game->actual_things.get(action.item()) == nullptr)
                 return false;
             return true;
         case Action::CHEATCODE_WISH:
-            if (actor != player_actor)
+            if (actor != game->player_actor)
                 return false;
             if (action.thing().thing_type == ThingType_INDIVIDUAL)
                 return false;
             return true;
         case Action::CHEATCODE_GENERATE_MONSTER: {
-            if (actor != player_actor)
+            if (actor != game->player_actor)
                 return false;
             const Action::GenerateMonster & data = action.generate_monster();
             Coord location = data.location;
-            if (!(is_in_bounds(location) && is_open_space(actual_map_tiles[location])))
+            if (!(is_in_bounds(location) && is_open_space(game->actual_map_tiles[location])))
                 return false;
             if (find_individual_at(location) != nullptr)
                 return false;
@@ -818,7 +796,7 @@ bool validate_action(Thing actor, const Action & action) {
         case Action::DIRECTIVE_EXPECT_NOTHING:
         case Action::DIRECTIVE_EXPECT_CARRYING:
         case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
-            if (!test_mode)
+            if (!game->test_mode)
                 return false;
             return true;
 
@@ -893,7 +871,7 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
                     if (expected_thing.wand_id != WandId_UNKNOWN)
                         continue;
                 } else {
-                    if (thing->wand_info()->description_id != actual_wand_descriptions[expected_thing.wand_id])
+                    if (thing->wand_info()->description_id != game->actual_wand_descriptions[expected_thing.wand_id])
                         continue;
                 }
                 break;
@@ -902,7 +880,7 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
                     if (expected_thing.potion_id != PotionId_UNKNOWN)
                         continue;
                 } else {
-                    if (thing->potion_info()->description_id != actual_potion_descriptions[expected_thing.potion_id])
+                    if (thing->potion_info()->description_id != game->actual_potion_descriptions[expected_thing.potion_id])
                         continue;
                 }
                 break;
@@ -911,7 +889,7 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
                     if (expected_thing.book_id != BookId_UNKNOWN)
                         continue;
                 } else {
-                    if (thing->book_info()->description_id != actual_book_descriptions[expected_thing.book_id])
+                    if (thing->book_info()->description_id != game->actual_book_descriptions[expected_thing.book_id])
                         continue;
                 }
                 break;
@@ -929,7 +907,7 @@ static void expect_nothing(const List<PerceivedThing> & things) {
     if (things.length() == 0)
         return;
     String thing_description = new_string();
-    Span span = get_thing_description(you, things[0]->id);
+    Span span = get_thing_description(game->you, things[0]->id);
     span->to_string(thing_description);
     test_expect_fail("expected nothing. found at least: %s.", thing_description);
 }
@@ -957,7 +935,7 @@ static bool take_action(Thing actor, const Action & action) {
                 attack(actor, target);
                 break;
             } else {
-                bool is_air = is_open_space(actual_map_tiles[new_position]);
+                bool is_air = is_open_space(game->actual_map_tiles[new_position]);
                 publish_event(Event::attack_location(actor, new_position, is_air));
                 break;
             }
@@ -969,19 +947,19 @@ static bool take_action(Thing actor, const Action & action) {
             read_book(actor, action.coord_and_item().item, confuse_direction(actor, action.coord_and_item().coord));
             break;
         case Action::PICKUP:
-            pickup_item(actor, actual_things.get(action.item()));
+            pickup_item(actor, game->actual_things.get(action.item()));
             publish_event(Event::individual_picks_up_item(actor->id, action.item()));
             break;
         case Action::DROP:
-            drop_item_to_the_floor(actual_things.get(action.item()), actor->location);
+            drop_item_to_the_floor(game->actual_things.get(action.item()), actor->location);
             break;
         case Action::QUAFF: {
-            Thing item = actual_things.get(action.item());
+            Thing item = game->actual_things.get(action.item());
             use_potion(actor, actor, item, false);
             break;
         }
         case Action::THROW:
-            throw_item(actor, actual_things.get(action.coord_and_item().item), confuse_direction(actor, action.coord_and_item().coord));
+            throw_item(actor, game->actual_things.get(action.coord_and_item().item), confuse_direction(actor, action.coord_and_item().coord));
             break;
 
         case Action::GO_DOWN:
@@ -1000,7 +978,7 @@ static bool take_action(Thing actor, const Action & action) {
             cheatcode_kill(action.item());
             return false;
         case Action::CHEATCODE_POLYMORPH:
-            polymorph_individual(player_actor, action.species());
+            polymorph_individual(game->player_actor, action.species());
             // this one does take time, because your movement cost may have changed
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {
@@ -1030,14 +1008,14 @@ static bool take_action(Thing actor, const Action & action) {
         }
         case Action::CHEATCODE_IDENTIFY:
             for (int i = 0; i < WandId_COUNT; i++)
-                player_actor->life()->knowledge.wand_identities[actual_wand_descriptions[i]] = (WandId)i;
+                game->player_actor->life()->knowledge.wand_identities[game->actual_wand_descriptions[i]] = (WandId)i;
             for (int i = 0; i < PotionId_COUNT; i++)
-                player_actor->life()->knowledge.potion_identities[actual_potion_descriptions[i]] = (PotionId)i;
+                game->player_actor->life()->knowledge.potion_identities[game->actual_potion_descriptions[i]] = (PotionId)i;
             for (int i = 0; i < BookId_COUNT; i++)
-                player_actor->life()->knowledge.book_identities[actual_book_descriptions[i]] = (BookId)i;
+                game->player_actor->life()->knowledge.book_identities[game->actual_book_descriptions[i]] = (BookId)i;
             return false;
         case Action::CHEATCODE_GO_DOWN:
-            if (dungeon_level < final_dungeon_level)
+            if (game->dungeon_level < final_dungeon_level)
                 go_down();
             break;
         case Action::CHEATCODE_GAIN_LEVEL:
@@ -1045,10 +1023,10 @@ static bool take_action(Thing actor, const Action & action) {
             return false;
 
         case Action::DIRECTIVE_MARK_EVENTS:
-            test_you_events_mark = you->life()->knowledge.remembered_events.length();
+            test_you_events_mark = game->you->life()->knowledge.remembered_events.length();
             return false;
         case Action::DIRECTIVE_EXPECT_EVENT: {
-            const List<RememberedEvent> & events = you->life()->knowledge.remembered_events;
+            const List<RememberedEvent> & events = game->you->life()->knowledge.remembered_events;
             skip_blank_events(events);
             if (test_you_events_mark >= events.length())
                 test_expect_fail("no new events.");
@@ -1062,7 +1040,7 @@ static bool take_action(Thing actor, const Action & action) {
             return false;
         }
         case Action::DIRECTIVE_EXPECT_NO_EVENTS: {
-            const List<RememberedEvent> & events = you->life()->knowledge.remembered_events;
+            const List<RememberedEvent> & events = game->you->life()->knowledge.remembered_events;
             skip_blank_events(events);
             if (test_you_events_mark < events.length()) {
                 String event_text = new_string();
@@ -1073,12 +1051,12 @@ static bool take_action(Thing actor, const Action & action) {
         }
         case Action::DIRECTIVE_FIND_THINGS_AT:
             test_expect_things_list.clear();
-            find_perceived_things_at(you, action.coord(), &test_expect_things_list);
+            find_perceived_things_at(game->you, action.coord(), &test_expect_things_list);
             return false;
         case Action::DIRECTIVE_EXPECT_THING: {
             PerceivedThing thing = expect_thing(action.thing(), &test_expect_things_list);
             test_expect_carrying_list.clear();
-            find_items_in_inventory(you, thing->id, &test_expect_carrying_list);
+            find_items_in_inventory(game->you, thing->id, &test_expect_carrying_list);
             return false;
         }
         case Action::DIRECTIVE_EXPECT_NOTHING:
@@ -1103,24 +1081,24 @@ static bool take_action(Thing actor, const Action & action) {
     if (action.id == Action::WAIT) {
         if (can_move(actor) && can_act(actor)) {
             int lowest_cost = min(movement_cost, action_cost);
-            life->last_movement_time = time_counter + lowest_cost - movement_cost;
-            life->last_action_time = time_counter + lowest_cost - action_cost;
+            life->last_movement_time = game->time_counter + lowest_cost - movement_cost;
+            life->last_action_time = game->time_counter + lowest_cost - action_cost;
         } else if (can_move(actor)) {
-            int lowest_cost = min(movement_cost, action_cost - (int)(time_counter - life->last_action_time));
+            int lowest_cost = min(movement_cost, action_cost - (int)(game->time_counter - life->last_action_time));
             life->last_movement_time += lowest_cost;
         } else {
             // can act
-            int lowest_cost = min(action_cost, movement_cost - (int)(time_counter - life->last_movement_time));
+            int lowest_cost = min(action_cost, movement_cost - (int)(game->time_counter - life->last_movement_time));
             life->last_action_time += lowest_cost;
         }
     } else if (action.id == Action::MOVE) {
-        life->last_movement_time = time_counter;
+        life->last_movement_time = game->time_counter;
         if (movement_cost == action_cost) {
-            life->last_action_time = time_counter;
+            life->last_action_time = game->time_counter;
         } else if (movement_cost > action_cost) {
             // slow individual.
             // wait action_cost until you can act, and even longer before you can move again.
-            life->last_action_time = time_counter;
+            life->last_action_time = game->time_counter;
         } else {
             // fast individual
             if (life->last_action_time < life->last_movement_time + movement_cost - action_cost)
@@ -1130,7 +1108,7 @@ static bool take_action(Thing actor, const Action & action) {
         if (!can_act(actor))
             panic("can't act");
         // action
-        life->last_action_time = time_counter;
+        life->last_action_time = game->time_counter;
         // you have to wait for the action before you can move again.
         if (life->last_movement_time < life->last_action_time + action_cost - movement_cost)
             life->last_movement_time = life->last_action_time + action_cost - movement_cost;
@@ -1141,7 +1119,7 @@ static bool take_action(Thing actor, const Action & action) {
 
 // advance time for an individual
 static void age_individual(Thing individual) {
-    if (!test_mode) {
+    if (!game->test_mode) {
         regen_hp(individual);
         regen_mp(individual);
     }
@@ -1151,7 +1129,7 @@ static void age_individual(Thing individual) {
         List<Thing> inventory;
         find_items_in_inventory(individual->id, &inventory);
         for (int i = 0; i < inventory.length(); i++) {
-            if (!test_mode && random_int(100, nullptr) == 0) {
+            if (!game->test_mode && random_int(100, nullptr) == 0) {
                 // throw item in random direction
                 throw_item(individual, inventory[i], directions[random_int(8, nullptr)]);
             }
@@ -1164,8 +1142,8 @@ static void age_individual(Thing individual) {
     }
 
     for (int i = 0; i < individual->ability_cooldowns.length(); i++) {
-        assert(individual->ability_cooldowns[i].expiration_time >= time_counter);
-        if (individual->ability_cooldowns[i].expiration_time == time_counter) {
+        assert(individual->ability_cooldowns[i].expiration_time >= game->time_counter);
+        if (individual->ability_cooldowns[i].expiration_time == game->time_counter) {
             individual->ability_cooldowns.swap_remove(i);
             i--;
         }
@@ -1184,7 +1162,7 @@ static void age_individual(Thing individual) {
     PerceivedThing thing;
     for (auto iterator = individual->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
         if (thing->thing_type == ThingType_INDIVIDUAL && thing->is_placeholder) {
-            if (time_counter - thing->last_seen_time >= 12 * 20) {
+            if (game->time_counter - thing->last_seen_time >= 12 * 20) {
                 delete_ids.append(thing->id);
                 List<PerceivedThing> inventory;
                 find_items_in_inventory(individual, thing->id, &inventory);
@@ -1201,7 +1179,7 @@ static void delete_dead_things() {
     List<Thing> delete_things;
     {
         Thing thing;
-        for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);)
+        for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);)
             if (!thing->still_exists)
                 delete_things.append(thing);
     }
@@ -1213,7 +1191,7 @@ static void delete_dead_things() {
     List<uint256> fix_z_order_container_ids;
     for (int i = 0; i < delete_things.length(); i++) {
         Thing thing = delete_things[i];
-        actual_things.remove(thing->id);
+        game->actual_things.remove(thing->id);
         if (thing->container_id != uint256::zero())
             if (fix_z_order_container_ids.index_of(thing->container_id) == -1)
                 fix_z_order_container_ids.append(thing->container_id);
@@ -1226,9 +1204,9 @@ List<Thing> poised_individuals;
 int poised_individuals_index = 0;
 // this function will return only when we're expecting player input
 void run_the_game() {
-    while (you->still_exists) {
+    while (game->you->still_exists) {
         if (poised_individuals.length() == 0) {
-            time_counter++;
+            game->time_counter++;
 
             maybe_spawn_monsters();
 
@@ -1272,7 +1250,7 @@ void run_the_game() {
                 }
                 should_time_pass = take_action(individual, action);
 
-                assert(observer_to_active_identifiable_item.size() == 0);
+                assert(game->observer_to_active_identifiable_item.size() == 0);
             }
         }
         poised_individuals.clear();
@@ -1284,7 +1262,7 @@ void run_the_game() {
 }
 
 void change_map(Coord location, TileType new_tile_type) {
-    actual_map_tiles[location] = new_tile_type;
+    game->actual_map_tiles[location] = new_tile_type;
     // recompute everyone's vision
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);)

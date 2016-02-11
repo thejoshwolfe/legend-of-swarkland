@@ -37,10 +37,10 @@ static void refresh_normal_vision(Thing individual) {
     Coord you_location = individual->location;
     for (Coord target = {0, 0}; target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
-            if (!is_open_line_of_sight(you_location, target, actual_map_tiles))
+            if (!is_open_line_of_sight(you_location, target, game->actual_map_tiles))
                 continue;
             individual->life()->knowledge.tile_is_visible[target] |= VisionTypes_NORMAL;
-            individual->life()->knowledge.tiles[target] = actual_map_tiles[target];
+            individual->life()->knowledge.tiles[target] = game->actual_map_tiles[target];
         }
     }
 }
@@ -55,16 +55,16 @@ static void refresh_ethereal_vision(Thing individual) {
             if (euclidean_distance_squared(target, you_location) > ethereal_radius * ethereal_radius)
                 continue;
             individual->life()->knowledge.tile_is_visible[target] |= VisionTypes_ETHEREAL;
-            individual->life()->knowledge.tiles[target] = actual_map_tiles[target];
+            individual->life()->knowledge.tiles[target] = game->actual_map_tiles[target];
         }
     }
 }
 
 void record_shape_of_terrain(MapMatrix<TileType> * tiles, Coord location) {
-    if (actual_map_tiles[location] == TileType_STAIRS_DOWN) {
+    if (game->actual_map_tiles[location] == TileType_STAIRS_DOWN) {
         (*tiles)[location] = TileType_STAIRS_DOWN;
     } else {
-        bool is_air = is_open_space(actual_map_tiles[location]);
+        bool is_air = is_open_space(game->actual_map_tiles[location]);
         if ((*tiles)[location] == TileType_UNKNOWN || is_open_space((*tiles)[location]) != is_air) {
             (*tiles)[location] = is_air ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
         }
@@ -118,7 +118,7 @@ void compute_vision(Thing observer) {
 
     // now see anything that's in our line of vision
     Thing actual_target;
-    for (auto iterator = actual_things.value_iterator(); iterator.next(&actual_target);) {
+    for (auto iterator = game->actual_things.value_iterator(); iterator.next(&actual_target);) {
         if (!actual_target->still_exists)
             continue;
         if (can_see_thing(observer, actual_target->id))
@@ -127,38 +127,38 @@ void compute_vision(Thing observer) {
 }
 
 void generate_map() {
-    dungeon_level++;
+    game->dungeon_level++;
 
-    spawn_zone.set_all(true);
+    game->spawn_zone.set_all(true);
     // randomize the appearance of every tile, even though it doesn't matter.
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            actual_map_tiles[cursor] = TileType_BROWN_BRICK_WALL;
-            if (!test_mode)
-                aesthetic_indexes[cursor] = random_uint32();
+            game->actual_map_tiles[cursor] = TileType_BROWN_BRICK_WALL;
+            if (!game->test_mode)
+                game->aesthetic_indexes[cursor] = random_uint32();
             else
-                aesthetic_indexes[cursor] = (cursor.x / 5 + cursor.y / 5);
+                game->aesthetic_indexes[cursor] = (cursor.x / 5 + cursor.y / 5);
         }
     }
     // line the border with special undiggable walls
     for (int x = 0; x < map_size.x; x++) {
-        actual_map_tiles[Coord{x, 0}] = TileType_BORDER_WALL;
-        actual_map_tiles[Coord{x, map_size.y - 1}] = TileType_BORDER_WALL;
+        game->actual_map_tiles[Coord{x, 0}] = TileType_BORDER_WALL;
+        game->actual_map_tiles[Coord{x, map_size.y - 1}] = TileType_BORDER_WALL;
     }
     for (int y = 0; y < map_size.y; y++) {
-        actual_map_tiles[Coord{0, y}] = TileType_BORDER_WALL;
-        actual_map_tiles[Coord{map_size.x - 1, y}] = TileType_BORDER_WALL;
+        game->actual_map_tiles[Coord{0, y}] = TileType_BORDER_WALL;
+        game->actual_map_tiles[Coord{map_size.x - 1, y}] = TileType_BORDER_WALL;
     }
 
-    if (test_mode) {
+    if (game->test_mode) {
         // basic test map
         // a room
         for (int y = 1; y < 5; y++)
             for (int x = 1; x < 5; x++)
-                actual_map_tiles[Coord{x, y}] = TileType_DIRT_FLOOR;
+                game->actual_map_tiles[Coord{x, y}] = TileType_DIRT_FLOOR;
         // a hallway, so there's a "just around the corner"
         for (int x = 5; x < 10; x++)
-            actual_map_tiles[Coord{x, 4}] = TileType_DIRT_FLOOR;
+            game->actual_map_tiles[Coord{x, 4}] = TileType_DIRT_FLOOR;
         // no stairs
         return;
     }
@@ -189,7 +189,7 @@ void generate_map() {
         for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
                 room_floor_spaces.append(cursor);
-                actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+                game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
             }
         }
     }
@@ -244,21 +244,21 @@ void generate_map() {
         Coord delta = sign(b - a);
         Coord cursor = a;
         for (; cursor.x * delta.x < b.x * delta.x; cursor.x += delta.x) {
-            actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+            game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
         }
         for (; cursor.y * delta.y < b.y * delta.y; cursor.y += delta.y) {
-            actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+            game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
         }
     }
 
     // place the stairs down
-    if (dungeon_level < final_dungeon_level) {
+    if (game->dungeon_level < final_dungeon_level) {
         Coord stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        actual_map_tiles[stairs_down_location] = TileType_STAIRS_DOWN;
+        game->actual_map_tiles[stairs_down_location] = TileType_STAIRS_DOWN;
     }
 
     // throw some items around
-    if (dungeon_level == 1) {
+    if (game->dungeon_level == 1) {
         // first level always has a wand of digging and a potion of ethereal vision to make finding vaults less random.
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
         create_wand(WandId_WAND_OF_DIGGING)->location = location;
@@ -283,7 +283,7 @@ void generate_map() {
                 Coord cursor;
                 for (cursor.y = position.y; cursor.y < position.y + height; cursor.y++)
                     for (cursor.x = position.x; cursor.x < position.x + width; cursor.x++)
-                        if (actual_map_tiles[cursor] != TileType_BROWN_BRICK_WALL)
+                        if (game->actual_map_tiles[cursor] != TileType_BROWN_BRICK_WALL)
                             goto next_position;
                 // this location is secluded
                 available_locations.append(position);
@@ -295,18 +295,18 @@ void generate_map() {
             SDL_Rect room = SDL_Rect{position.x, position.y, width, height};
             // line the border with a different color wall
             for (int x = room.x + 1; x < room.x + room.w - 1; x++) {
-                actual_map_tiles[Coord{x, room.y + 1}] = TileType_GRAY_BRICK_WALL;
-                actual_map_tiles[Coord{x, room.y + room.h - 2}] = TileType_GRAY_BRICK_WALL;
+                game->actual_map_tiles[Coord{x, room.y + 1}] = TileType_GRAY_BRICK_WALL;
+                game->actual_map_tiles[Coord{x, room.y + room.h - 2}] = TileType_GRAY_BRICK_WALL;
             }
             for (int y = room.y + 1; y < room.y + room.h - 1; y++) {
-                actual_map_tiles[Coord{room.x + 1, y}] = TileType_GRAY_BRICK_WALL;
-                actual_map_tiles[Coord{room.x + room.w - 2, y}] = TileType_GRAY_BRICK_WALL;
+                game->actual_map_tiles[Coord{room.x + 1, y}] = TileType_GRAY_BRICK_WALL;
+                game->actual_map_tiles[Coord{room.x + room.w - 2, y}] = TileType_GRAY_BRICK_WALL;
             }
             Coord cursor;
             for (cursor.y = room.y + 2; cursor.y < room.y + room.h - 2; cursor.y++) {
                 for (cursor.x = room.x + 2; cursor.x < room.x + room.w - 2; cursor.x++) {
-                    actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
-                    spawn_zone[cursor] = false;
+                    game->actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
+                    game->spawn_zone[cursor] = false;
                     create_random_item()->location = cursor;
                 }
             }
@@ -322,9 +322,9 @@ void generate_map() {
 
 static const int no_spawn_radius = 10;
 bool can_spawn_at(Coord away_from_location, Coord location) {
-    if (!is_open_space(actual_map_tiles[location]))
+    if (!is_open_space(game->actual_map_tiles[location]))
         return false;
-    if (!spawn_zone[location])
+    if (!game->spawn_zone[location])
         return false;
     if (away_from_location != Coord::nowhere() && euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
         return false;

@@ -10,9 +10,9 @@ enum TasScriptMode {
     TasScriptMode_IGNORE,
 };
 
-void set_tas_script(TasScriptMode mode, const char * file_path);
+void set_tas_script(TasScriptMode mode, const char * file_path, bool cli_syas_test_mode);
 void set_tas_delay(int n);
-uint32_t tas_get_seed();
+void init_random();
 Action tas_get_decision();
 void tas_record_decision(const Action & action);
 int tas_get_rng_input(const ByteBuffer & tag);

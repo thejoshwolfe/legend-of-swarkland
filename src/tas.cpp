@@ -10,6 +10,7 @@ int tas_delay;
 static const char * script_path;
 static FILE * script_file;
 static uint32_t tas_seed;
+static bool lets_do_test_mode;
 static int replay_delay_frame_counter;
 static TasScriptMode current_mode;
 
@@ -22,8 +23,11 @@ static void exit_with_error() {
 void set_tas_delay(int n) {
     tas_delay = n;
 }
-uint32_t tas_get_seed() {
-    return tas_seed;
+void init_random() {
+    if (lets_do_test_mode)
+        game->test_mode = true;
+    else
+        init_random_state(&game->the_random_state, tas_seed);
 }
 
 static void write_line(const String & line) {
@@ -515,14 +519,14 @@ static void read_header() {
             fprintf(stderr, "%s:%d:1: error: expected no arguments", script_path, line_number);
             exit_with_error();
         }
-        test_mode = true;
+        lets_do_test_mode = true;
     } else {
         fprintf(stderr, "%s:%d:1: error: expected swarkland header", script_path, line_number);
         exit_with_error();
     }
 }
 
-void set_tas_script(TasScriptMode mode, const char * file_path) {
+void set_tas_script(TasScriptMode mode, const char * file_path, bool cli_syas_test_mode) {
     init_name_arrays();
     script_path = file_path;
 
@@ -574,16 +578,21 @@ void set_tas_script(TasScriptMode mode, const char * file_path) {
             break;
         }
         case TasScriptMode_WRITE: {
-            if (!test_mode) {
+            if (cli_syas_test_mode) {
+                write_test_mode_header();
+                lets_do_test_mode = true;
+            } else {
                 tas_seed = get_random_seed();
                 write_seed(tas_seed);
-            } else {
-                write_test_mode_header();
             }
             break;
         }
         case TasScriptMode_IGNORE:
-            tas_seed = get_random_seed();
+            if (cli_syas_test_mode) {
+                lets_do_test_mode = true;
+            } else {
+                tas_seed = get_random_seed();
+            }
             break;
     }
 }
@@ -676,7 +685,7 @@ static Action read_action() {
         }
     }
     // this can catch outdated tests
-    if (!validate_action(player_actor, action)) {
+    if (!validate_action(game->player_actor, action)) {
         fprintf(stderr, "%s:%d:1: error: invalid action\n", script_path, line_number);
         exit_with_error();
     }

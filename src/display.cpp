@@ -610,11 +610,11 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
         case ThingType_INDIVIDUAL:
             return species_images[thing->physical_species_id()];
         case ThingType_WAND:
-            return wand_images[actual_wand_descriptions[thing->wand_info()->wand_id]];
+            return wand_images[game->actual_wand_descriptions[thing->wand_info()->wand_id]];
         case ThingType_POTION:
-            return potion_images[actual_potion_descriptions[thing->potion_info()->potion_id]];
+            return potion_images[game->actual_potion_descriptions[thing->potion_info()->potion_id]];
         case ThingType_BOOK:
-            return book_images[actual_book_descriptions[thing->book_info()->book_id]];
+            return book_images[game->actual_book_descriptions[thing->book_info()->book_id]];
 
         case ThingType_COUNT:
             unreachable();
@@ -682,7 +682,7 @@ static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -
 
 static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, bool has_abilities) {
     List<const char *> lines;
-    if (!you->still_exists) {
+    if (!game->you->still_exists) {
         lines.append("Alt+F4: quit");
     } else {
         switch (input_mode) {
@@ -824,15 +824,15 @@ static Div get_time_display(Thing spectate_from) {
     Div result = new_div();
     Life * life = spectate_from->life();
     int movement_cost = get_movement_cost(spectate_from);
-    if (!(movement_cost <= action_cost && life->last_movement_time + movement_cost <= time_counter)) {
+    if (!(movement_cost <= action_cost && life->last_movement_time + movement_cost <= game->time_counter)) {
         Span movement_span = new_span();
-        movement_span->format("move: %s", render_percent(time_counter - life->last_movement_time, movement_cost));
+        movement_span->format("move: %s", render_percent(game->time_counter - life->last_movement_time, movement_cost));
         result->append(movement_span);
     }
     result->append_newline();
     {
         String time_string = new_string();
-        time_string->format("time: %d", time_counter / 12);
+        time_string->format("time: %d", game->time_counter / 12);
         result->append(new_span(time_string));
     }
 
@@ -843,7 +843,7 @@ static Uint8 get_thing_alpha(Thing observer, PerceivedThing thing) {
     if (has_status(thing, StatusEffect::INVISIBILITY))
         return 0x7f;
     if (!can_see_thing(observer, thing->id)) {
-        int64_t knowledge_age = time_counter - thing->last_seen_time;
+        int64_t knowledge_age = game->time_counter - thing->last_seen_time;
         if (knowledge_age < 12 * 10) {
             // fresh
             return 0x7f;
@@ -964,19 +964,19 @@ static Span render_thing_type(ThingType thing_type) {
 }
 static Span render_wand_id(WandId wand_id) {
     Span result = new_span();
-    WandDescriptionId description_id = actual_wand_descriptions[wand_id];
+    WandDescriptionId description_id = game->actual_wand_descriptions[wand_id];
     result->format("%g%s", wand_images[description_id], new_span(get_wand_id_str((WandId)wand_id)));
     return result;
 }
 static Span render_potion_id(PotionId potion_id) {
     Span result = new_span();
-    PotionDescriptionId description_id = actual_potion_descriptions[potion_id];
+    PotionDescriptionId description_id = game->actual_potion_descriptions[potion_id];
     result->format("%g%s", potion_images[description_id], new_span(get_potion_id_str((PotionId)potion_id)));
     return result;
 }
 static Span render_book_id(BookId book_id) {
     Span result = new_span();
-    BookDescriptionId description_id = actual_book_descriptions[book_id];
+    BookDescriptionId description_id = game->actual_book_descriptions[book_id];
     result->format("%g%s", book_images[description_id], new_span(get_book_id_str((BookId)book_id)));
     return result;
 }
@@ -1020,12 +1020,12 @@ static Span get_ability_description(AbilityId ability_id, bool is_ready) {
 void render() {
     assert(!headless_mode);
 
-    Thing spectate_from = cheatcode_spectator != nullptr ? cheatcode_spectator : player_actor;
+    Thing spectate_from = game->cheatcode_spectator != nullptr ? game->cheatcode_spectator : game->player_actor;
     PerceivedThing perceived_self = spectate_from->life()->knowledge.perceived_things.get(spectate_from->id);
     List<PerceivedThing> my_inventory;
-    find_items_in_inventory(player_actor, player_actor->id, &my_inventory);
+    find_items_in_inventory(game->player_actor, game->player_actor->id, &my_inventory);
     List<AbilityId> my_abilities;
-    get_abilities(player_actor, &my_abilities);
+    get_abilities(game->player_actor, &my_abilities);
 
     set_color(black);
     SDL_RenderClear(renderer);
@@ -1124,7 +1124,7 @@ void render() {
     }
 
     // tutorial
-    tutorial_div->set_content(get_tutorial_div_content(player_actor, my_inventory.length() > 0, my_abilities.length() > 0));
+    tutorial_div->set_content(get_tutorial_div_content(game->player_actor, my_inventory.length() > 0, my_abilities.length() > 0));
     render_div(tutorial_div, tutorial_area, 1, 1);
     {
         Span blurb_span = new_span("v", gray, black);
@@ -1138,8 +1138,8 @@ void render() {
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             TileType tile = spectate_from->life()->knowledge.tiles[cursor];
-            if (cheatcode_full_visibility)
-                tile = actual_map_tiles[cursor];
+            if (game->cheatcode_full_visibility)
+                tile = game->actual_map_tiles[cursor];
             RuckSackImage * image = get_image_for_tile(tile);
             if (image == nullptr)
                 continue;
@@ -1167,12 +1167,12 @@ void render() {
             } else {
                 alpha = 0x7f;
             }
-            render_tile(image, aesthetic_indexes[cursor], alpha, cursor);
+            render_tile(image, game->aesthetic_indexes[cursor], alpha, cursor);
         }
     }
 
     // render the things
-    if (!cheatcode_full_visibility) {
+    if (!game->cheatcode_full_visibility) {
         // not cheating
         List<PerceivedThing> things;
         PerceivedThing thing;
@@ -1203,7 +1203,7 @@ void render() {
     } else {
         // full visibility
         Thing thing;
-        for (auto iterator = actual_things.value_iterator(); iterator.next(&thing);) {
+        for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);) {
             // this exposes hashtable iteration order, but it's a cheatcode, so whatever.
             if (!thing->still_exists)
                 continue;
@@ -1269,7 +1269,7 @@ void render() {
     }
     {
         String string = new_string();
-        string->format("Dungeon Level: %d", dungeon_level);
+        string->format("Dungeon Level: %d", game->dungeon_level);
         dungeon_level_div->set_content(new_span(string));
         render_div(dungeon_level_div, dungeon_level_area, 1, 1);
     }
@@ -1345,7 +1345,7 @@ void render() {
         render_tile(get_image_for_thing(item), 0, 0xff, location);
     }
     if (show_inventory_cursor_help) {
-        keyboard_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_cursor]->id, true));
+        keyboard_hover_div->set_content(get_thing_description(game->player_actor, my_inventory[inventory_cursor]->id, true));
         popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
     }
     if (show_inventory_action_menu) {
@@ -1382,12 +1382,12 @@ void render() {
     for (int i = 0; i < my_abilities.length(); i++) {
         Coord location = inventory_index_to_location(i) + Coord{map_size.x, inventory_area.h / tile_size};
         int alpha = 0xff;
-        if (!is_ability_ready(player_actor, my_abilities[i]))
+        if (!is_ability_ready(game->player_actor, my_abilities[i]))
             alpha = 0x44;
         render_tile(species_images[SpeciesId_COBRA], 0, alpha, location);
     }
     if (show_ability_cursor_help) {
-        bool is_ready = is_ability_ready(player_actor, my_abilities[ability_cursor]);
+        bool is_ready = is_ability_ready(game->player_actor, my_abilities[ability_cursor]);
         keyboard_hover_div->set_content(get_ability_description(my_abilities[ability_cursor], is_ready));
         popup_help(ability_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
     }
@@ -1574,7 +1574,7 @@ void render() {
         if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
             int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
             if (inventory_index < my_inventory.length()) {
-                mouse_hover_div->set_content(get_thing_description(player_actor, my_inventory[inventory_index]->id, true));
+                mouse_hover_div->set_content(get_thing_description(game->player_actor, my_inventory[inventory_index]->id, true));
                 popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
             }
         }

@@ -97,7 +97,6 @@ static inline void destroy(T * ptr, size_t count) {
     free(ptr);
 }
 
-void init_random();
 uint32_t random_uint32();
 int random_int(int less_than_this, const char * comment);
 int random_int(int at_least_this, int less_than_this, const char * comment);

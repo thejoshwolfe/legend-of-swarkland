@@ -5,12 +5,8 @@
 #include "swarkland.hpp"
 #include "event.hpp"
 
-WandDescriptionId actual_wand_descriptions[WandId_COUNT];
-PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
-BookDescriptionId actual_book_descriptions[BookId_COUNT];
-
 static Thing register_item(Thing item) {
-    actual_things.put(item->id, item);
+    game->actual_things.put(item->id, item);
     return item;
 }
 Thing create_wand(WandId wand_id) {
@@ -48,25 +44,25 @@ static Thing create_random_item(int min_offset, int max_offset) {
     // select from the pool
     int total_pool_size = 0;
     for (int i = min_offset; i < max_offset; i++)
-        total_pool_size += item_pool[i];
+        total_pool_size += game->item_pool[i];
     int multiset_index = random_int(total_pool_size, nullptr);
 
     // find what item we chose
     int item_index = min_offset;
     while (true) {
         assert(item_index < max_offset);
-        multiset_index -= item_pool[item_index];
+        multiset_index -= game->item_pool[item_index];
         if (multiset_index < 0)
             break;
         item_index++;
     }
 
     // remove it from the pool
-    item_pool[item_index] -= 1;
-    if (item_pool[item_index] == 0) {
+    game->item_pool[item_index] -= 1;
+    if (game->item_pool[item_index] == 0) {
         // restock the pool
         for (int i = 0; i < TOTAL_ITEMS; i++)
-            item_pool[i] += item_rarities[i].value;
+            game->item_pool[i] += item_rarities[i].value;
     }
 
     if (WAND_OFFSET <= item_index && item_index < WAND_OFFSET + WandId_COUNT)
@@ -107,7 +103,7 @@ static void hit_wall_no_effect(Coord location) {
 static void confusion_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::CONFUSION));
-    find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = time_counter + random_int(100, 200, "confusion_duration");
+    find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = game->time_counter + random_int(100, 200, "confusion_duration");
 }
 static void magic_missile_hit_individual(Thing actor, Thing target) {
     publish_event(Event::magic_missile_hit(target->id));
@@ -118,40 +114,40 @@ static void speed_hit_individual(Thing target) {
     int slowing_index = find_status(target->status_effects, StatusEffect::SLOWING);
     if (slowing_index != -1) {
         // dispel slowing instead
-        target->status_effects[slowing_index].expiration_time = time_counter;
+        target->status_effects[slowing_index].expiration_time = game->time_counter;
         check_for_status_expired(target, slowing_index);
         return;
     }
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::SPEED));
-    find_or_put_status(target, StatusEffect::SPEED)->expiration_time = time_counter + random_int(100, 200, "speed_duration");
+    find_or_put_status(target, StatusEffect::SPEED)->expiration_time = game->time_counter + random_int(100, 200, "speed_duration");
 }
 static void invisibility_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::INVISIBILITY));
-    find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = time_counter + random_midpoint(500, "invisibility_duration");
+    find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = game->time_counter + random_midpoint(500, "invisibility_duration");
 }
 static void slowing_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     int speed_index = find_status(target->status_effects, StatusEffect::SPEED);
     if (speed_index != -1) {
         // dispel speed instead
-        target->status_effects[speed_index].expiration_time = time_counter;
+        target->status_effects[speed_index].expiration_time = game->time_counter;
         check_for_status_expired(target, speed_index);
         return;
     }
     publish_event(Event::gain_status(target->id, StatusEffect::SLOWING));
-    find_or_put_status(target, StatusEffect::SLOWING)->expiration_time = time_counter + random_midpoint(200, "slowing_duration");
+    find_or_put_status(target, StatusEffect::SLOWING)->expiration_time = game->time_counter + random_midpoint(200, "slowing_duration");
 }
 static void blinding_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
-    find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = time_counter + random_midpoint(200, "blinding_duration");
+    find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = game->time_counter + random_midpoint(200, "blinding_duration");
 }
 static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
     int index = find_status(individual->status_effects, status);
     if (index != -1) {
-        individual->status_effects[index].expiration_time = time_counter;
+        individual->status_effects[index].expiration_time = game->time_counter;
         check_for_status_expired(individual, index);
     }
 }
@@ -169,7 +165,7 @@ static void magic_bullet_hit_individual(Thing actor, Thing target) {
 }
 
 static int digging_hit_wall(Coord location) {
-    if (actual_map_tiles[location] == TileType_BORDER_WALL) {
+    if (game->actual_map_tiles[location] == TileType_BORDER_WALL) {
         // no effect on border walls
         publish_event(Event::magic_beam_hit_wall(location));
         return -1;
@@ -197,7 +193,7 @@ static void force_hit_individual(Thing target, Coord direction, int beam_length_
             // move the train into this space
             for (int i = choo_choo_train.length() - 1; i >= 0; i--)
                 attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
-            if (!is_open_space(actual_map_tiles[cursor])) {
+            if (!is_open_space(game->actual_map_tiles[cursor])) {
                 // end of the line.
                 // we just published a bunch of bump-into events.
                 break;
@@ -210,25 +206,25 @@ static void force_hit_individual(Thing target, Coord direction, int beam_length_
 void init_items() {
     assert((int)WandDescriptionId_COUNT == (int)WandId_COUNT);
     for (int i = 0; i < WandId_COUNT; i++)
-        actual_wand_descriptions[i] = (WandDescriptionId)i;
-    if (!test_mode)
-        shuffle(actual_wand_descriptions, WandId_COUNT);
+        game->actual_wand_descriptions[i] = (WandDescriptionId)i;
+    if (!game->test_mode)
+        shuffle(game->actual_wand_descriptions, WandId_COUNT);
 
     assert((int)PotionDescriptionId_COUNT == (int)PotionId_COUNT);
     for (int i = 0; i < PotionId_COUNT; i++)
-        actual_potion_descriptions[i] = (PotionDescriptionId)i;
-    if (!test_mode)
-        shuffle(actual_potion_descriptions, PotionId_COUNT);
+        game->actual_potion_descriptions[i] = (PotionDescriptionId)i;
+    if (!game->test_mode)
+        shuffle(game->actual_potion_descriptions, PotionId_COUNT);
 
     assert((int)BookDescriptionId_COUNT == (int)BookId_COUNT);
     for (int i = 0; i < BookId_COUNT; i++)
-        actual_book_descriptions[i] = (BookDescriptionId)i;
-    if (!test_mode)
-        shuffle(actual_book_descriptions, BookId_COUNT);
+        game->actual_book_descriptions[i] = (BookDescriptionId)i;
+    if (!game->test_mode)
+        shuffle(game->actual_book_descriptions, BookId_COUNT);
 
     int statistics = 0;
     for (int i = 0; i < TOTAL_ITEMS; i++) {
-        item_pool[i] = item_rarities[i].value;
+        game->item_pool[i] = item_rarities[i].value;
         if (print_diagnostics) {
             statistics += item_rarities[i].value;
             if (i == WAND_OFFSET + WandId_COUNT - 1) {
@@ -333,7 +329,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
             break;
         beam_length -= length_penalty;
 
-        if (!is_open_space(actual_map_tiles[cursor])) {
+        if (!is_open_space(game->actual_map_tiles[cursor])) {
             // hit wall
             switch (projectile_id) {
                 case ProjectileId_BEAM_OF_DIGGING:
@@ -415,7 +411,7 @@ static void do_mapping(Thing actor, Coord direction) {
 }
 
 void zap_wand(Thing actor, uint256 item_id, Coord direction) {
-    Thing wand = actual_things.get(item_id);
+    Thing wand = game->actual_things.get(item_id);
     if (wand->wand_info()->charges <= -1) {
         publish_event(Event::wand_disintegrates(actor->id, item_id));
 
@@ -467,7 +463,7 @@ void zap_wand(Thing actor, uint256 item_id, Coord direction) {
             unreachable();
     }
 
-    observer_to_active_identifiable_item.clear();
+    game->observer_to_active_identifiable_item.clear();
 }
 
 int get_mana_cost(BookId book_id) {
@@ -493,7 +489,7 @@ int get_mana_cost(BookId book_id) {
 void read_book(Thing actor, uint256 item_id, Coord direction) {
     publish_event(Event::read_book(actor->id, item_id));
 
-    Thing book = actual_things.get(item_id);
+    Thing book = game->actual_things.get(item_id);
     BookId book_id = book->book_info()->book_id;
     int mana_cost = get_mana_cost(book_id);
     if (mana_cost * 2 < actor->max_mana() * 3) {
@@ -524,7 +520,7 @@ void read_book(Thing actor, uint256 item_id, Coord direction) {
         // failure
         publish_event(Event::fail_to_cast_spell(actor->id));
     }
-    observer_to_active_identifiable_item.clear();
+    game->observer_to_active_identifiable_item.clear();
 }
 
 // is_breaking is used in the published event
@@ -549,29 +545,29 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             break;
         case PotionId_POTION_OF_ETHEREAL_VISION:
             publish_event(Event::gain_status(target_id, StatusEffect::ETHEREAL_VISION));
-            find_or_put_status(target, StatusEffect::ETHEREAL_VISION)->expiration_time = time_counter + random_midpoint(2000, "potion_of_ethereal_vision_expiration");
+            find_or_put_status(target, StatusEffect::ETHEREAL_VISION)->expiration_time = game->time_counter + random_midpoint(2000, "potion_of_ethereal_vision_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_COGNISCOPY:
             publish_event(Event::gain_status(target_id, StatusEffect::COGNISCOPY));
-            find_or_put_status(target, StatusEffect::COGNISCOPY)->expiration_time = time_counter + random_midpoint(2000, "potion_of_cogniscopy_expiration");
+            find_or_put_status(target, StatusEffect::COGNISCOPY)->expiration_time = game->time_counter + random_midpoint(2000, "potion_of_cogniscopy_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_BLINDNESS:
             publish_event(Event::gain_status(target_id, StatusEffect::BLINDNESS));
-            find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = time_counter + random_midpoint(1000, "potion_of_blindness_expiration");
+            find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = game->time_counter + random_midpoint(1000, "potion_of_blindness_expiration");
             compute_vision(target);
             break;
         case PotionId_POTION_OF_INVISIBILITY:
             publish_event(Event::gain_status(target_id, StatusEffect::INVISIBILITY));
-            find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = time_counter + random_midpoint(2000, "potion_of_invisibility_expiration");
+            find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = game->time_counter + random_midpoint(2000, "potion_of_invisibility_expiration");
             break;
 
         case PotionId_COUNT:
         case PotionId_UNKNOWN:
             unreachable();
     }
-    observer_to_active_identifiable_item.clear();
+    game->observer_to_active_identifiable_item.clear();
 }
 
 void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
@@ -600,7 +596,7 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     Coord lower_right = clamp(explosion_center + Coord{apothem, apothem}, {0, 0}, map_size - Coord{1, 1});
     for (Coord wall_cursor = upper_left; wall_cursor.y <= lower_right.y; wall_cursor.y++)
         for (wall_cursor.x = upper_left.x; wall_cursor.x <= lower_right.x; wall_cursor.x++)
-            if (is_diggable_wall(actual_map_tiles[wall_cursor]))
+            if (is_diggable_wall(game->actual_map_tiles[wall_cursor]))
                 affected_walls.append(wall_cursor);
 
     switch (wand->wand_info()->wand_id) {
@@ -656,7 +652,7 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
             unreachable();
     }
 
-    observer_to_active_identifiable_item.clear();
+    game->observer_to_active_identifiable_item.clear();
 }
 
 void break_potion(Thing actor, Thing item, Coord location) {

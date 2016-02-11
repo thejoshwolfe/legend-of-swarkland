@@ -4,7 +4,7 @@
 #include "swarkland.hpp"
 
 static VisionTypes get_vision_for_thing(Thing observer, uint256 target_id, bool ignore_invisibility) {
-    Thing target = actual_things.get(target_id);
+    Thing target = game->actual_things.get(target_id);
     Thing container = get_top_level_container(target);
     VisionTypes vision = observer->life()->knowledge.tile_is_visible[container->location];
     if (!ignore_invisibility && has_status(container, StatusEffect::INVISIBILITY))
@@ -24,7 +24,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
     // you can't see anything else while dead
     if (!observer->still_exists)
         return false;
-    Thing actual_target = actual_things.get(target_id);
+    Thing actual_target = game->actual_things.get(target_id);
     // you can't see dead things
     if (!actual_target->still_exists)
         return false;
@@ -37,7 +37,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
         // we're looking right at it
         Thing container = actual_target;
         if (actual_target->container_id != uint256::zero())
-            container = actual_things.get(actual_target->container_id);
+            container = game->actual_things.get(actual_target->container_id);
         if (!has_status(container, StatusEffect::INVISIBILITY)) {
             // see normally
             return true;
@@ -57,7 +57,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
 }
 bool can_see_thing(Thing observer, uint256 target_id) {
     assert(target_id != uint256::zero());
-    Thing thing = actual_things.get(target_id, nullptr);
+    Thing thing = game->actual_things.get(target_id, nullptr);
     if (thing == nullptr || !thing->still_exists) {
         // i'm sure you can't see it, because it doesn't exist anymore.
         return false;
@@ -65,7 +65,7 @@ bool can_see_thing(Thing observer, uint256 target_id) {
     Coord location = thing->location;
     if (thing->container_id != uint256::zero()) {
         // it's being carried
-        location = actual_things.get(thing->container_id)->location;
+        location = game->actual_things.get(thing->container_id)->location;
     }
 
     return can_see_thing(observer, target_id, location);
@@ -81,13 +81,13 @@ static bool see_thing(Thing observer, uint256 target_id, Coord location) {
 }
 static bool see_thing(Thing observer, uint256 target_id) {
     assert(target_id != uint256::zero());
-    Thing thing = actual_things.get(target_id, nullptr);
+    Thing thing = game->actual_things.get(target_id, nullptr);
     if (thing == nullptr || !thing->still_exists)
         return false;
     Coord location = thing->location;
     if (thing->container_id != uint256::zero()) {
         // it's being carried
-        location = actual_things.get(thing->container_id)->location;
+        location = game->actual_things.get(thing->container_id)->location;
     }
     return see_thing(observer, target_id, location);
 }
@@ -111,7 +111,7 @@ static void clear_placeholder_individual_at(Thing observer, Coord location) {
 }
 
 static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uint256 supposed_container_id) {
-    Thing actual_item = actual_things.get(actual_item_id);
+    Thing actual_item = game->actual_things.get(actual_item_id);
     ThingType thing_type = actual_item->thing_type;
     PerceivedThing container = observer->life()->knowledge.perceived_things.get(supposed_container_id);
     List<PerceivedThing> inventory;
@@ -147,13 +147,13 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
         case ThingType_INDIVIDUAL:
             unreachable();
         case ThingType_WAND:
-            thing = create<PerceivedThingImpl>(id, true, WandDescriptionId_UNSEEN, time_counter);
+            thing = create<PerceivedThingImpl>(id, true, WandDescriptionId_UNSEEN, game->time_counter);
             break;
         case ThingType_POTION:
-            thing = create<PerceivedThingImpl>(id, true, PotionDescriptionId_UNSEEN, time_counter);
+            thing = create<PerceivedThingImpl>(id, true, PotionDescriptionId_UNSEEN, game->time_counter);
             break;
         case ThingType_BOOK:
-            thing = create<PerceivedThingImpl>(id, true, BookDescriptionId_UNSEEN, time_counter);
+            thing = create<PerceivedThingImpl>(id, true, BookDescriptionId_UNSEEN, game->time_counter);
             break;
 
         case ThingType_COUNT:
@@ -165,12 +165,12 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
     return id;
 }
 static uint256 make_placeholder_individual(Thing observer, uint256 actual_target_id) {
-    Thing actual_target = actual_things.get(actual_target_id);
+    Thing actual_target = game->actual_things.get(actual_target_id);
     PerceivedThing thing = find_placeholder_individual(observer, actual_target->location);
     if (thing == nullptr) {
         // invent a placeholder here
         uint256 id = random_id();
-        thing = create<PerceivedThingImpl>(id, true, SpeciesId_UNSEEN, time_counter);
+        thing = create<PerceivedThingImpl>(id, true, SpeciesId_UNSEEN, game->time_counter);
         thing->location = actual_target->location;
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
@@ -218,7 +218,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TheIndividualData::MAGIC_BEAM_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_MISSILE_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_BULLET_HIT_INDIVIDUAL: {
-                    Coord location = actual_things.get(data.individual)->location;
+                    Coord location = game->actual_things.get(data.individual)->location;
                     if (!can_see_shape(observer->life()->knowledge.tile_is_visible[location]))
                         return false;
                     *output_event = event;
@@ -252,7 +252,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
         }
         case Event::INDIVIDUAL_AND_STATUS: {
             const Event::IndividualAndStatusData & data = event.individual_and_status_data();
-            Thing actual_individual = actual_things.get(data.individual);
+            Thing actual_individual = game->actual_things.get(data.individual);
             if (!can_have_status(actual_individual, data.status))
                 return false; // not even you can tell you have this status
             bool had_status = has_status(actual_individual, data.status);
@@ -321,7 +321,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 *output_event = event;
                 return true;
             }
-            Coord location = actual_things.get(data.individual)->location;
+            Coord location = game->actual_things.get(data.individual)->location;
             switch (data.id) {
                 case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
                 case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
@@ -395,13 +395,13 @@ static void record_solidity_of_location(Thing observer, Coord location, bool is_
 static PerceivedThing new_perceived_thing(uint256 id, ThingType thing_type) {
     switch (thing_type) {
         case ThingType_INDIVIDUAL:
-            return create<PerceivedThingImpl>(id, false, SpeciesId_UNSEEN, time_counter);
+            return create<PerceivedThingImpl>(id, false, SpeciesId_UNSEEN, game->time_counter);
         case ThingType_WAND:
-            return create<PerceivedThingImpl>(id, false, WandDescriptionId_UNSEEN, time_counter);
+            return create<PerceivedThingImpl>(id, false, WandDescriptionId_UNSEEN, game->time_counter);
         case ThingType_POTION:
-            return create<PerceivedThingImpl>(id, false, PotionDescriptionId_UNSEEN, time_counter);
+            return create<PerceivedThingImpl>(id, false, PotionDescriptionId_UNSEEN, game->time_counter);
         case ThingType_BOOK:
-            return create<PerceivedThingImpl>(id, false, BookDescriptionId_UNSEEN, time_counter);
+            return create<PerceivedThingImpl>(id, false, BookDescriptionId_UNSEEN, game->time_counter);
 
         case ThingType_COUNT:
             unreachable();
@@ -409,12 +409,12 @@ static PerceivedThing new_perceived_thing(uint256 id, ThingType thing_type) {
     unreachable();
 }
 static void update_perception_of_thing(PerceivedThing target, VisionTypes vision) {
-    Thing actual_target = actual_things.get(target->id);
+    Thing actual_target = game->actual_things.get(target->id);
 
     target->location = actual_target->location;
     target->container_id = actual_target->container_id;
     target->z_order = actual_target->z_order;
-    target->last_seen_time = time_counter;
+    target->last_seen_time = game->time_counter;
 
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL:
@@ -423,15 +423,15 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
             break;
         case ThingType_WAND:
             if (can_see_color(vision))
-                target->wand_info()->description_id = actual_wand_descriptions[actual_target->wand_info()->wand_id];
+                target->wand_info()->description_id = game->actual_wand_descriptions[actual_target->wand_info()->wand_id];
             break;
         case ThingType_POTION:
             if (can_see_color(vision))
-                target->potion_info()->description_id = actual_potion_descriptions[actual_target->potion_info()->potion_id];
+                target->potion_info()->description_id = game->actual_potion_descriptions[actual_target->potion_info()->potion_id];
             break;
         case ThingType_BOOK:
             if (can_see_color(vision))
-                target->book_info()->description_id = actual_book_descriptions[actual_target->book_info()->book_id];
+                target->book_info()->description_id = game->actual_book_descriptions[actual_target->book_info()->book_id];
             break;
 
         case ThingType_COUNT:
@@ -452,7 +452,7 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
 static PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id, VisionTypes vision) {
     PerceivedThing target =  observer->life()->knowledge.perceived_things.get(target_id, nullptr);
     if (target == nullptr) {
-        target = new_perceived_thing(target_id, actual_things.get(target_id)->thing_type);
+        target = new_perceived_thing(target_id, game->actual_things.get(target_id)->thing_type);
         observer->life()->knowledge.perceived_things.put(target_id, target);
     }
     update_perception_of_thing(target, vision);
@@ -475,14 +475,14 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
     PerceivedThing target = knowledge.perceived_things.get(target_id, nullptr);
     if (target != nullptr && target->is_placeholder) {
         // still looking at an unseen marker at this location
-        target->last_seen_time = time_counter;
+        target->last_seen_time = game->time_counter;
         return target;
     }
 
-    Thing actual_target = actual_things.get(target_id);
+    Thing actual_target = game->actual_things.get(target_id);
     Coord location = actual_target->location;
     if (actual_target->container_id != uint256::zero())
-        location = actual_things.get(actual_target->container_id)->location;
+        location = game->actual_things.get(actual_target->container_id)->location;
     VisionTypes vision = knowledge.tile_is_visible[location];
     if (vision == 0)
         return nullptr;
@@ -492,7 +492,7 @@ PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id) {
 
 // passing in COUNT means it's impossible for the active thing to be that thing type
 static void identify_active_item(Thing observer, WandId wand_id, PotionId potion_id, BookId book_id) {
-    uint256 item_id = observer_to_active_identifiable_item.get(observer->id, uint256::zero());
+    uint256 item_id = game->observer_to_active_identifiable_item.get(observer->id, uint256::zero());
     if (item_id == uint256::zero())
         return; // don't know what item is responsible
     PerceivedThing item = observer->life()->knowledge.perceived_things.get(item_id);
@@ -780,7 +780,7 @@ static void observe_event(Thing observer, Event event) {
                     PerceivedThing wand = observer->life()->knowledge.perceived_things.get(data.item);
                     WandDescriptionId wand_description = wand->wand_info()->description_id;
                     if (wand_description != WandDescriptionId_UNSEEN)
-                        observer_to_active_identifiable_item.put(observer->id, wand->id);
+                        game->observer_to_active_identifiable_item.put(observer->id, wand->id);
                     remembered_event->span->format("%s zaps %s.", individual_description, item_description);
                     wand->wand_info()->used_count += 1;
                     break;
@@ -797,14 +797,14 @@ static void observe_event(Thing observer, Event event) {
                 case Event::IndividualAndItemData::READ_BOOK: {
                     PerceivedThing book = observer->life()->knowledge.perceived_things.get(data.item);
                     if (book->book_info()->description_id != BookDescriptionId_UNSEEN)
-                        observer_to_active_identifiable_item.put(observer->id, book->id);
+                        game->observer_to_active_identifiable_item.put(observer->id, book->id);
                     remembered_event->span->format("%s reads %s.", individual_description, item_description);
                     break;
                 }
                 case Event::IndividualAndItemData::QUAFF_POTION: {
                     PerceivedThing potion = observer->life()->knowledge.perceived_things.get(data.item);
                     if (potion->potion_info()->description_id != PotionDescriptionId_UNSEEN)
-                        observer_to_active_identifiable_item.put(observer->id, potion->id);
+                        game->observer_to_active_identifiable_item.put(observer->id, potion->id);
                     remembered_event->span->format("%s quaffs %s.", individual_description, item_description);
                     break;
                 }
@@ -818,7 +818,7 @@ static void observe_event(Thing observer, Event event) {
                     remembered_event->span->format("%s shatters and splashes on %s!", item_description, individual_description);
                     PerceivedThing potion = observer->life()->knowledge.perceived_things.get(data.item);
                     if (potion->potion_info()->description_id != PotionDescriptionId_UNSEEN)
-                        observer_to_active_identifiable_item.put(observer->id, potion->id);
+                        game->observer_to_active_identifiable_item.put(observer->id, potion->id);
                     break;
                 }
                 case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
@@ -849,7 +849,7 @@ static void observe_event(Thing observer, Event event) {
                 case Event::ItemAndLocationData::WAND_EXPLODES:
                     remembered_event->span->format("%s explodes!", item_description);
                     if (item->wand_info()->description_id != WandDescriptionId_UNSEEN)
-                        observer_to_active_identifiable_item.put(observer->id, data.item);
+                        game->observer_to_active_identifiable_item.put(observer->id, data.item);
                     item->location = Coord::nowhere();
                     item->container_id = uint256::zero();
                     break;

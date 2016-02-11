@@ -58,10 +58,12 @@ static void help(const char * error_message, const char * argument) {
         "");
     exit(1);
 }
+
 static void process_argv(int argc, char * argv[]) {
     const char * save_name = nullptr;
     int tas_delay = 0;
     TasScriptMode mode = TasScriptMode_READ_WRITE;
+    bool cli_says_test_mode = false;
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
@@ -82,7 +84,7 @@ static void process_argv(int argc, char * argv[]) {
                 sscanf(delay_str, "%d", &tas_delay);
             } else if (strcmp(argv[i], "--record-test") == 0) {
                 mode = TasScriptMode_WRITE;
-                test_mode = true;
+                cli_says_test_mode = true;
             } else if (strcmp(argv[i], "--headless") == 0) {
                 mode = TasScriptMode_READ;
                 headless_mode = true;
@@ -103,13 +105,15 @@ static void process_argv(int argc, char * argv[]) {
         save_name = "save.swarkland";
 
     set_tas_delay(tas_delay);
-    set_tas_script(mode, save_name);
+    set_tas_script(mode, save_name, cli_says_test_mode);
 }
 
 int main(int argc, char * argv[]) {
     process_argv(argc, argv);
-    init_random();
 
+    game = create<Game>();
+
+    init_random();
     if (!headless_mode)
         init_display();
     swarkland_init();

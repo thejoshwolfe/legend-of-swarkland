@@ -9,50 +9,54 @@
 #include "action.hpp"
 #include "random.hpp"
 
-extern WandDescriptionId actual_wand_descriptions[WandId_COUNT];
-extern PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
-extern BookDescriptionId actual_book_descriptions[BookId_COUNT];
-
-extern bool test_mode;
 extern bool print_diagnostics;
 extern bool headless_mode;
 
-extern IdMap<Thing> actual_things;
-// the good guy
-extern Thing you;
-extern int64_t time_counter;
-// usually just you, but cheatcodes can allow you to control several monsters in rotation.
-extern Thing player_actor;
+struct Game {
+    WandDescriptionId actual_wand_descriptions[WandId_COUNT];
+    PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
+    BookDescriptionId actual_book_descriptions[BookId_COUNT];
 
-extern bool cheatcode_full_visibility;
-extern Thing cheatcode_spectator;
+    bool test_mode;
 
-extern IdMap<uint256> observer_to_active_identifiable_item;
+    IdMap<Thing> actual_things;
 
-extern int dungeon_level;
-extern MapMatrix<TileType> actual_map_tiles;
-extern MapMatrix<uint32_t> aesthetic_indexes;
-extern MapMatrix<bool> spawn_zone;
+    Thing you;
+    int64_t time_counter = 0;
+    Thing player_actor;
 
-extern RandomState the_random_state;
-extern uint256 random_arbitrary_large_number_count;
-extern uint256 random_initiative_count;
+    bool cheatcode_full_visibility;
 
-extern int item_pool[TOTAL_ITEMS];
+    Thing cheatcode_spectator;
+    IdMap<uint256> observer_to_active_identifiable_item;
 
+    // starts at 1
+    int dungeon_level = 0;
+    MapMatrix<TileType> actual_map_tiles;
+    MapMatrix<uint32_t> aesthetic_indexes;
+    MapMatrix<bool> spawn_zone;
+
+    RandomState the_random_state;
+    uint256 random_arbitrary_large_number_count;
+    uint256 random_initiative_count;
+
+    int item_pool[TOTAL_ITEMS];
+};
+
+extern Game * game;
 static inline uint256 random_id() {
-    if (test_mode) {
+    if (game->test_mode) {
         // just increment a counter
-        random_arbitrary_large_number_count.values[3]++;
-        return random_arbitrary_large_number_count;
+        game->random_arbitrary_large_number_count.values[3]++;
+        return game->random_arbitrary_large_number_count;
     }
     return random_uint256();
 }
 static inline uint256 random_initiative() {
-    if (test_mode) {
+    if (game->test_mode) {
         // just increment a counter
-        random_initiative_count.values[3]++;
-        return random_initiative_count;
+        game->random_initiative_count.values[3]++;
+        return game->random_initiative_count;
     }
     return random_uint256();
 }
@@ -63,11 +67,11 @@ static inline bool is_actual_individual(Thing thing) {
     return thing->still_exists && thing->thing_type == ThingType_INDIVIDUAL;
 }
 static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals() {
-    return FilteredIterator<IdMap<Thing>::Iterator, Thing>(actual_things.value_iterator(), is_actual_individual);
+    return FilteredIterator<IdMap<Thing>::Iterator, Thing>(game->actual_things.value_iterator(), is_actual_individual);
 }
 static inline Thing get_top_level_container(Thing thing) {
     while (thing->container_id != uint256::zero())
-        thing = actual_things.get(thing->container_id);
+        thing = game->actual_things.get(thing->container_id);
     return thing;
 }
 static inline PerceivedThing get_top_level_container(const Thing & observer, PerceivedThing thing) {
