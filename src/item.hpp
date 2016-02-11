@@ -9,6 +9,48 @@ const int beam_length_error_margin = 3;
 const int throw_distance_average = 5;
 const int throw_distance_error_margin = 1;
 
+static const int WAND_OFFSET = 0;
+static const int POTION_OFFSET = WAND_OFFSET + WandId_COUNT;
+static const int BOOK_OFFSET = POTION_OFFSET + PotionId_COUNT;
+static const int TOTAL_ITEMS = BOOK_OFFSET + BookId_COUNT;
+template<typename T>
+struct IndexAndValue {
+    int index;
+    T value;
+};
+static constexpr IndexAndValue<int> item_rarities[TOTAL_ITEMS] = {
+    {WAND_OFFSET + WandId_WAND_OF_CONFUSION    , 3},
+    {WAND_OFFSET + WandId_WAND_OF_DIGGING      , 5},
+    {WAND_OFFSET + WandId_WAND_OF_MAGIC_MISSILE, 3},
+    {WAND_OFFSET + WandId_WAND_OF_SPEED        , 3},
+    {WAND_OFFSET + WandId_WAND_OF_REMEDY       , 6},
+    {WAND_OFFSET + WandId_WAND_OF_BLINDING     , 2},
+    {WAND_OFFSET + WandId_WAND_OF_FORCE        , 3},
+    {WAND_OFFSET + WandId_WAND_OF_INVISIBILITY , 2},
+    {WAND_OFFSET + WandId_WAND_OF_MAGIC_BULLET , 3},
+    {WAND_OFFSET + WandId_WAND_OF_SLOWING      , 3},
+
+    {POTION_OFFSET + PotionId_POTION_OF_HEALING        , 20},
+    {POTION_OFFSET + PotionId_POTION_OF_POISON         , 13},
+    {POTION_OFFSET + PotionId_POTION_OF_ETHEREAL_VISION, 16},
+    {POTION_OFFSET + PotionId_POTION_OF_COGNISCOPY     , 8},
+    {POTION_OFFSET + PotionId_POTION_OF_BLINDNESS      , 9},
+    {POTION_OFFSET + PotionId_POTION_OF_INVISIBILITY   , 9},
+
+    {BOOK_OFFSET + BookId_SPELLBOOK_OF_MAGIC_BULLET, 4},
+    {BOOK_OFFSET + BookId_SPELLBOOK_OF_SPEED       , 3},
+    {BOOK_OFFSET + BookId_SPELLBOOK_OF_MAPPING     , 2},
+    {BOOK_OFFSET + BookId_SPELLBOOK_OF_FORCE       , 4},
+    {BOOK_OFFSET + BookId_SPELLBOOK_OF_ASSUME_FORM , 1},
+};
+static constexpr bool _check_item_rarities() {
+    for (int i = 0; i < TOTAL_ITEMS; i++)
+        if (item_rarities[i].index != i)
+            return false;
+    return true;
+}
+static_assert(_check_item_rarities(), "missed a spot");
+
 void init_items();
 Thing create_random_item();
 Thing create_random_item(ThingType thing_type);

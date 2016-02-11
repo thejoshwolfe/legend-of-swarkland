@@ -5,7 +5,13 @@
 #include "geometry.hpp"
 #include "list.hpp"
 #include "thing.hpp"
+#include "item.hpp"
 #include "action.hpp"
+#include "random.hpp"
+
+extern WandDescriptionId actual_wand_descriptions[WandId_COUNT];
+extern PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
+extern BookDescriptionId actual_book_descriptions[BookId_COUNT];
 
 extern bool test_mode;
 extern bool print_diagnostics;
@@ -20,7 +26,38 @@ extern Thing player_actor;
 
 extern bool cheatcode_full_visibility;
 extern Thing cheatcode_spectator;
-void cheatcode_spectate();
+
+extern IdMap<uint256> observer_to_active_identifiable_item;
+
+extern int dungeon_level;
+extern MapMatrix<TileType> actual_map_tiles;
+extern MapMatrix<uint32_t> aesthetic_indexes;
+extern MapMatrix<bool> spawn_zone;
+
+extern RandomState the_random_state;
+extern uint256 random_arbitrary_large_number_count;
+extern uint256 random_initiative_count;
+
+extern int item_pool[TOTAL_ITEMS];
+
+static inline uint256 random_id() {
+    if (test_mode) {
+        // just increment a counter
+        random_arbitrary_large_number_count.values[3]++;
+        return random_arbitrary_large_number_count;
+    }
+    return random_uint256();
+}
+static inline uint256 random_initiative() {
+    if (test_mode) {
+        // just increment a counter
+        random_initiative_count.values[3]++;
+        return random_initiative_count;
+    }
+    return random_uint256();
+}
+
+void cheatcode_spectate(Coord location);
 
 static inline bool is_actual_individual(Thing thing) {
     return thing->still_exists && thing->thing_type == ThingType_INDIVIDUAL;
@@ -87,8 +124,8 @@ void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_l
 void find_items_in_inventory(Thing observer, uint256 container_id, List<PerceivedThing> * output_sorted_list);
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 void drop_item_to_the_floor(Thing item, Coord location);
-void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities);
-bool is_ability_ready(Thing actor, Ability::Id ability_id);
+void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities);
+bool is_ability_ready(Thing actor, AbilityId ability_id);
 void attempt_move(Thing actor, Coord new_position);
 
 bool check_for_status_expired(Thing individual, int index);

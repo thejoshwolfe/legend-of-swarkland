@@ -1001,13 +1001,13 @@ static Span render_decision_maker(DecisionMakerType decision_maker) {
     return result;
 }
 
-static Span get_ability_description(Ability::Id ability_id, bool is_ready) {
+static Span get_ability_description(AbilityId ability_id, bool is_ready) {
     Span span = new_span();
     switch (ability_id) {
-        case Ability::SPIT_BLINDING_VENOM:
+        case AbilityId_SPIT_BLINDING_VENOM:
             span->format("spit blinding venom");
             break;
-        case Ability::COUNT:
+        case AbilityId_COUNT:
             unreachable();
     }
     if (!is_ready) {
@@ -1024,7 +1024,7 @@ void render() {
     PerceivedThing perceived_self = spectate_from->life()->knowledge.perceived_things.get(spectate_from->id);
     List<PerceivedThing> my_inventory;
     find_items_in_inventory(player_actor, player_actor->id, &my_inventory);
-    List<Ability::Id> my_abilities;
+    List<AbilityId> my_abilities;
     get_abilities(player_actor, &my_abilities);
 
     set_color(black);

@@ -872,7 +872,6 @@ static void observe_event(Thing observer, Event event) {
         observer->life()->knowledge.remembered_events.append(remembered_event);
 }
 
-IdMap<uint256> observer_to_active_identifiable_item;
 void publish_event(Event actual_event) {
     Thing observer;
     for (auto iterator = actual_individuals(); iterator.next(&observer);) {

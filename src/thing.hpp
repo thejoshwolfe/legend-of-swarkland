@@ -12,8 +12,6 @@
 
 #include <stdbool.h>
 
-uint256 random_id();
-
 enum ThingType {
     ThingType_INDIVIDUAL,
     ThingType_WAND,
@@ -98,10 +96,6 @@ enum BookId {
     BookId_UNKNOWN,
 };
 
-extern WandDescriptionId actual_wand_descriptions[WandId_COUNT];
-extern PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
-extern BookDescriptionId actual_book_descriptions[BookId_COUNT];
-
 enum SpeciesId {
     SpeciesId_HUMAN,
     SpeciesId_OGRE,
@@ -164,6 +158,7 @@ static const int speedy_movement_cost = 3;
 static const int slow_movement_cost = 48;
 
 struct Species {
+    SpeciesId species_id;
     // how many ticks does it cost to move one space? average human is 12.
     int movement_cost;
     int base_hitpoints;
@@ -177,7 +172,44 @@ struct Species {
     bool auto_throws_items;
     bool poison_attack;
 };
-extern Species specieses[SpeciesId_COUNT];
+static const VisionTypes _norm = VisionTypes_NORMAL;
+static const VisionTypes _ethe = VisionTypes_ETHEREAL;
+static const Mind _none = Mind_NONE;
+static const Mind _beas = Mind_BEAST;
+static const Mind _savg = Mind_SAVAGE;
+static const Mind _civl = Mind_CIVILIZED;
+static constexpr Species specieses[SpeciesId_COUNT] = {
+    //                         movement cost
+    //                         |   health
+    //                         |   |  base mana
+    //                         |   |  |  base attack
+    //                         |   |  |  |  min level
+    //                         |   |  |  |  |   max level
+    //                         |   |  |  |  |   |  mind
+    //                         |   |  |  |  |   |  |     vision
+    //                         |   |  |  |  |   |  |     |     sucks up items
+    //                         |   |  |  |  |   |  |     |     |  auto throws items
+    //                         |   |  |  |  |   |  |     |     |  |  poison attack
+    {SpeciesId_HUMAN        , 12, 10, 3, 3, 0, 10,_civl,_norm, 0, 0, 0},
+    {SpeciesId_OGRE         , 24, 15, 0, 2, 4, 10,_savg,_norm, 0, 0, 0},
+    {SpeciesId_LICH         , 12, 12, 4, 3, 7, 10,_civl,_norm, 0, 0, 0},
+    {SpeciesId_PINK_BLOB    , 48,  4, 0, 1, 0,  1,_none,_ethe, 1, 0, 0},
+    {SpeciesId_AIR_ELEMENTAL,  6,  6, 0, 1, 3, 10,_none,_ethe, 1, 1, 0},
+    {SpeciesId_DOG          , 12,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0},
+    {SpeciesId_ANT          , 12,  2, 0, 1, 0,  1,_beas,_norm, 0, 0, 0},
+    {SpeciesId_BEE          , 12,  2, 0, 3, 1,  2,_beas,_norm, 0, 0, 0},
+    {SpeciesId_BEETLE       , 24,  6, 0, 1, 0,  1,_beas,_norm, 0, 0, 0},
+    {SpeciesId_SCORPION     , 24,  5, 0, 1, 2,  3,_beas,_norm, 0, 0, 1},
+    {SpeciesId_SNAKE        , 18,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0},
+    {SpeciesId_COBRA        , 18,  2, 0, 1, 2,  3,_beas,_norm, 0, 0, 0},
+};
+static constexpr bool _check_specieses() {
+    for (int i = 0; i < SpeciesId_COUNT; i++)
+        if (specieses[i].species_id != i)
+            return false;
+    return true;
+}
+static_assert(_check_specieses(), "missed a spot");
 
 struct StatusEffect {
     enum Id {
@@ -248,17 +280,14 @@ static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
     unreachable();
 }
 
-struct Ability {
-    enum Id {
-        SPIT_BLINDING_VENOM,
+enum AbilityId {
+    AbilityId_SPIT_BLINDING_VENOM,
 
-        COUNT,
-    };
-    Id id;
+    AbilityId_COUNT,
 };
 
 struct AbilityCooldown {
-    Ability::Id ability_id;
+    AbilityId ability_id;
     int64_t expiration_time;
 };
 
@@ -536,9 +565,6 @@ private:
     ThingImpl & operator=(ThingImpl &) = delete;
 };
 typedef Reference<ThingImpl> Thing;
-
-extern Ability abilities[Ability::COUNT];
-extern List<Ability::Id> species_abilities[SpeciesId_COUNT];
 
 static inline int compare_individuals_by_initiative(Thing a, Thing b) {
     return compare(a->life()->initiative, b->life()->initiative);

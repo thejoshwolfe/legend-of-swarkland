@@ -113,7 +113,6 @@ int main(int argc, char * argv[]) {
     if (!headless_mode)
         init_display();
     swarkland_init();
-    init_decisions();
 
     while (!request_shutdown) {
         if (!headless_mode)

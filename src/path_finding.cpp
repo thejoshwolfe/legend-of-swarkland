@@ -19,18 +19,6 @@ bool do_i_think_i_can_move_here(Thing individual, Coord location) {
     return get_movement_cost_for_location(individual, location) == 1;
 }
 
-// start with the cardinal directions, because these are more "direct"
-const Coord directions[] = {
-    {-1,  0},
-    { 0, -1},
-    { 1,  0},
-    { 0,  1},
-    {-1, -1},
-    { 1, -1},
-    { 1,  1},
-    {-1,  1},
-};
-
 struct Node {
     Coord coord;
     int f;

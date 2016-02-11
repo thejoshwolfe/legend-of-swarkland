@@ -10,7 +10,7 @@ static PerceivedThing chosen_item;
 List<Action::Id> inventory_menu_items;
 int inventory_menu_cursor;
 int ability_cursor;
-static Ability::Id chosen_ability;
+static AbilityId chosen_ability;
 int floor_menu_cursor;
 int cheatcode_polymorph_choose_species_menu_cursor;
 int cheatcode_wish_choose_thing_type_menu_cursor;
@@ -21,6 +21,7 @@ int cheatcode_generate_monster_choose_species_menu_cursor;
 int cheatcode_generate_monster_choose_decision_maker_menu_cursor;
 Coord cheatcode_generate_monster_choose_location_cursor = {map_size.x / 2, map_size.y / 2};
 
+Action current_player_decision = Action::undecided();
 bool request_shutdown = false;
 
 static bool seen_the_mouse_for_realz = false;
@@ -108,9 +109,11 @@ static Action on_key_down_main(const SDL_Event & event) {
             case SDLK_p:
                 input_mode = InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES;
                 break;
-            case SDLK_s:
-                cheatcode_spectate();
+            case SDLK_s: {
+                Coord location = get_mouse_tile(main_map_area);
+                cheatcode_spectate(location);
                 break;
+            }
             case SDLK_g:
                 input_mode = InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES;
                 break;
@@ -166,7 +169,7 @@ static Action on_key_down_main(const SDL_Event & event) {
                 // this can cancel auto wait
                 return Action::undecided();
             case SDL_SCANCODE_V: {
-                List<Ability::Id> abilities;
+                List<AbilityId> abilities;
                 get_abilities(player_actor, &abilities);
                 if (abilities.length() > 0) {
                     ability_cursor = clamp(ability_cursor, 0, abilities.length() - 1);
@@ -288,7 +291,7 @@ static Action on_key_down_choose_ability(const SDL_Event & event) {
         case SDL_SCANCODE_KP_3:
         case SDL_SCANCODE_C: {
             // move the cursor
-            List<Ability::Id> abilities;
+            List<AbilityId> abilities;
             get_abilities(player_actor, &abilities);
             Coord location = inventory_index_to_location(ability_cursor) + get_direction_from_event(event);
             if (0 <= location.x && location.x < inventory_layout_width && 0 <= location.y) {
@@ -303,7 +306,7 @@ static Action on_key_down_choose_ability(const SDL_Event & event) {
         case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_S: {
             // accept
-            List<Ability::Id> abilities;
+            List<AbilityId> abilities;
             get_abilities(player_actor, &abilities);
             chosen_ability = abilities[ability_cursor];
             if (is_ability_ready(player_actor, chosen_ability)) {

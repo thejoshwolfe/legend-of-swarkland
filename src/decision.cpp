@@ -4,9 +4,7 @@
 #include "tas.hpp"
 #include "item.hpp"
 #include "event.hpp"
-
-Action (*decision_makers[DecisionMakerType_COUNT])(Thing);
-Action current_player_decision = Action::undecided();
+#include "input.hpp"
 
 static int start_waiting_event_count = -1;
 static int previous_waiting_hp;
@@ -76,7 +74,7 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
     // TODO: wait for polymorph
 }
 static int auto_wait_animation_index = 0;
-static Action get_player_decision(Thing actor) {
+Action get_player_decision(Thing actor) {
     player_actor = actor;
     Action action = tas_get_decision();
     if (action.id == Action::UNDECIDED) {
@@ -129,8 +127,8 @@ static int rate_interest_in_target(Thing actor, PerceivedThing target) {
     return score;
 }
 
-static int confident_zap_distance = beam_length_average - beam_length_error_margin + 1;
-static int confident_throw_distance = throw_distance_average - throw_distance_error_margin;
+static const int confident_zap_distance = beam_length_average - beam_length_error_margin + 1;
+static const int confident_throw_distance = throw_distance_average - throw_distance_error_margin;
 static bool is_clear_projectile_shot(Thing actor, Coord location, int confident_distance) {
     int distnace = ordinal_distance(location, actor->location);
     if (distnace > confident_distance)
@@ -153,14 +151,14 @@ static inline Action move_or_wait(Thing actor, Coord direction) {
     return Action::move(direction);
 }
 
-static Action get_ai_decision(Thing actor) {
+Action get_ai_decision(Thing actor) {
     bool uses_items = individual_uses_items(actor);
     bool advanced_strategy = individual_is_clever(actor);
     List<PerceivedThing> inventory;
     // only care about inventory if we use items
     if (uses_items)
         find_items_in_inventory(actor, actor->id, &inventory);
-    List<Ability::Id> abilities;
+    List<AbilityId> abilities;
     get_abilities(actor, &abilities);
 
     List<PerceivedThing> things_of_interest;
@@ -377,18 +375,18 @@ static Action get_ai_decision(Thing actor) {
                     }
                 }
                 for (int i = 0; i < abilities.length(); i++){
-                    Ability::Id ability_id = abilities[i];
+                    AbilityId ability_id = abilities[i];
                     if (!is_ability_ready(actor, ability_id))
                         continue;
                     switch (ability_id) {
-                        case Ability::SPIT_BLINDING_VENOM:
+                        case AbilityId_SPIT_BLINDING_VENOM:
                             if (advanced_strategy && has_status(target, StatusEffect::BLINDNESS))
                                 break; // already blind
                             if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
-                        case Ability::COUNT:
+                        case AbilityId_COUNT:
                             unreachable();
                     }
                 }
@@ -463,9 +461,4 @@ static Action get_ai_decision(Thing actor) {
         return Action::move(open_directions[random_int(open_directions.length(), nullptr)]);
     // we must be stuck in a crowd
     return Action::wait();
-}
-
-void init_decisions() {
-    decision_makers[DecisionMakerType_AI] = get_ai_decision;
-    decision_makers[DecisionMakerType_PLAYER] = get_player_decision;
 }

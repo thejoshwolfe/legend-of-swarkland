@@ -24,6 +24,8 @@ enum InputMode {
     InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION,
 };
 
+extern Action current_player_decision;
+
 extern bool request_shutdown;
 
 extern InputMode input_mode;

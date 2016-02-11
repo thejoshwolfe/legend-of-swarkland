@@ -10,7 +10,7 @@ int tas_delay;
 static const char * script_path;
 static FILE * script_file;
 static uint32_t tas_seed;
-static int frame_counter;
+static int replay_delay_frame_counter;
 static TasScriptMode current_mode;
 
 __attribute__((noreturn))
@@ -291,7 +291,7 @@ static String thing_type_names[ThingType_COUNT];
 static String wand_id_names[WandId_COUNT];
 static String potion_id_names[PotionId_COUNT];
 static String book_id_names[BookId_COUNT];
-static String ability_names[Ability::COUNT];
+static String ability_names[AbilityId_COUNT];
 
 static const char * const RNG_DIRECTIVE = "@rng";
 static const char * const SEED = "@seed";
@@ -382,7 +382,7 @@ static void init_name_arrays() {
     book_id_names[BookId_SPELLBOOK_OF_ASSUME_FORM] = new_string("assume_form");
     check_no_nulls(book_id_names);
 
-    ability_names[Ability::SPIT_BLINDING_VENOM] = new_string("spit_blinding_venom");
+    ability_names[AbilityId_SPIT_BLINDING_VENOM] = new_string("spit_blinding_venom");
     check_no_nulls(ability_names);
 }
 
@@ -445,10 +445,10 @@ static BookId parse_book_id(const Token & token) {
         return BookId_UNKNOWN;
     report_error(token, 0, "undefined book id");
 }
-static Ability::Id parse_ability_id(const Token & token) {
-    for (int i = 0; i < Ability::COUNT; i++) {
+static AbilityId parse_ability_id(const Token & token) {
+    for (int i = 0; i < AbilityId_COUNT; i++) {
         if (*ability_names[i] == *token.string)
-            return (Ability::Id)i;
+            return (AbilityId)i;
     }
     report_error(token, 0, "undefined ability id");
 }
@@ -768,11 +768,11 @@ static String action_to_string(const Action & action) {
 
 Action tas_get_decision() {
     if (!headless_mode && tas_delay > 0) {
-        if (frame_counter < tas_delay) {
-            frame_counter++;
+        if (replay_delay_frame_counter < tas_delay) {
+            replay_delay_frame_counter++;
             return Action::undecided(); // let the screen draw
         }
-        frame_counter = 0;
+        replay_delay_frame_counter = 0;
     }
     switch (current_mode) {
         case TasScriptMode_READ_WRITE: {

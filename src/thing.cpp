@@ -2,25 +2,6 @@
 
 #include "swarkland.hpp"
 
-static uint256 random_arbitrary_large_number_count;
-uint256 random_id() {
-    if (test_mode) {
-        // just increment a counter
-        random_arbitrary_large_number_count.values[3]++;
-        return random_arbitrary_large_number_count;
-    }
-    return random_uint256();
-}
-static uint256 random_initiative_count;
-uint256 random_initiative() {
-    if (test_mode) {
-        // just increment a counter
-        random_initiative_count.values[3]++;
-        return random_initiative_count;
-    }
-    return random_uint256();
-}
-
 ThingImpl::ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType decision_maker) :
         thing_type(ThingType_INDIVIDUAL), location(location)
 {

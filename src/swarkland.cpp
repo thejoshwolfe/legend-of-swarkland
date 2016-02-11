@@ -7,11 +7,6 @@
 #include "item.hpp"
 #include "tas.hpp"
 
-Species specieses[SpeciesId_COUNT];
-
-Ability abilities[Ability::COUNT];
-List<Ability::Id> species_abilities[SpeciesId_COUNT];
-
 bool test_mode;
 bool print_diagnostics;
 bool headless_mode;
@@ -24,48 +19,30 @@ Thing player_actor;
 
 bool cheatcode_full_visibility;
 
+Thing cheatcode_spectator;
+IdMap<uint256> observer_to_active_identifiable_item;
+
+// starts at 1
+int dungeon_level = 0;
+MapMatrix<TileType> actual_map_tiles;
+MapMatrix<uint32_t> aesthetic_indexes;
+MapMatrix<bool> spawn_zone;
+
+RandomState the_random_state;
+uint256 random_arbitrary_large_number_count;
+uint256 random_initiative_count;
+
+int item_pool[TOTAL_ITEMS];
+
 static int test_you_events_mark;
 static List<PerceivedThing> test_expect_things_list;
 static List<PerceivedThing> test_expect_carrying_list;
 
 static void init_static_data() {
     // shorthand
-    VisionTypes norm = VisionTypes_NORMAL;
-    VisionTypes ethe = VisionTypes_ETHEREAL;
-    Mind none = Mind_NONE;
-    Mind beas = Mind_BEAST;
-    Mind savg = Mind_SAVAGE;
-    Mind civl = Mind_CIVILIZED;
-    //                                     movement cost
-    //                                     |   health
-    //                                     |   |  base mana
-    //                                     |   |  |  base attack
-    //                                     |   |  |  |  min level
-    //                                     |   |  |  |  |   max level
-    //                                     |   |  |  |  |   |  mind
-    //                                     |   |  |  |  |   |  |     vision
-    //                                     |   |  |  |  |   |  |     |     sucks up items
-    //                                     |   |  |  |  |   |  |     |     |  auto throws items
-    //                                     |   |  |  |  |   |  |     |     |  |  poison attack
-    specieses[SpeciesId_HUMAN        ] = {12, 10, 3, 3, 0, 10, civl, norm, 0, 0, 0};
-    specieses[SpeciesId_OGRE         ] = {24, 15, 0, 2, 4, 10, savg, norm, 0, 0, 0};
-    specieses[SpeciesId_LICH         ] = {12, 12, 4, 3, 7, 10, civl, norm, 0, 0, 0};
-    specieses[SpeciesId_PINK_BLOB    ] = {48,  4, 0, 1, 0,  1, none, ethe, 1, 0, 0};
-    specieses[SpeciesId_AIR_ELEMENTAL] = { 6,  6, 0, 1, 3, 10, none, ethe, 1, 1, 0};
-    specieses[SpeciesId_DOG          ] = {12,  4, 0, 2, 1,  2, beas, norm, 0, 0, 0};
-    specieses[SpeciesId_ANT          ] = {12,  2, 0, 1, 0,  1, beas, norm, 0, 0, 0};
-    specieses[SpeciesId_BEE          ] = {12,  2, 0, 3, 1,  2, beas, norm, 0, 0, 0};
-    specieses[SpeciesId_BEETLE       ] = {24,  6, 0, 1, 0,  1, beas, norm, 0, 0, 0};
-    specieses[SpeciesId_SCORPION     ] = {24,  5, 0, 1, 2,  3, beas, norm, 0, 0, 1};
-    specieses[SpeciesId_SNAKE        ] = {18,  4, 0, 2, 1,  2, beas, norm, 0, 0, 0};
-    specieses[SpeciesId_COBRA        ] = {18,  2, 0, 1, 2,  3, beas, norm, 0, 0, 0};
     for (int i = 0; i < SpeciesId_COUNT; i++)
         if (specieses[i].movement_cost == 0)
             panic("you missed a spot");
-
-    abilities[Ability::SPIT_BLINDING_VENOM] = {Ability::SPIT_BLINDING_VENOM};
-
-    species_abilities[SpeciesId_COBRA].append(Ability::SPIT_BLINDING_VENOM);
 }
 
 static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
@@ -248,17 +225,17 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
     }
 }
 
-static void do_ability(Thing actor, Ability::Id ability_id, Coord direction) {
+static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
     int cooldown_time = random_midpoint(1000, "ability_cooldown");
     actor->ability_cooldowns.append(AbilityCooldown{ability_id, time_counter + cooldown_time});
 
     int range;
     switch (ability_id) {
-        case Ability::SPIT_BLINDING_VENOM:
+        case AbilityId_SPIT_BLINDING_VENOM:
             publish_event(Event::spit_blinding_venom(actor->id));
             range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "spit_distance");
             break;
-        case Ability::COUNT:
+        case AbilityId_COUNT:
             unreachable();
     }
     Coord cursor = actor->location;
@@ -281,6 +258,16 @@ static void do_ability(Thing actor, Ability::Id ability_id, Coord direction) {
     // falls on the floor
 }
 
+static Coord find_stairs_down_location() {
+    if (dungeon_level == final_dungeon_level)
+        return Coord::nowhere();
+    for (Coord location = {0, 0}; location.y < map_size.y; location.y++)
+        for (location.x = 0; location.x < map_size.x; location.x++)
+            if (actual_map_tiles[location] == TileType_STAIRS_DOWN)
+                return location;
+    unreachable();
+}
+
 // SpeciesId_COUNT => random
 // location = Coord::nowhere() => random
 static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
@@ -300,8 +287,8 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
     }
 
     if (location == Coord::nowhere()) {
-        // don't spawn monsters near you. don't spawn you near the stairs.
-        Coord away_from_location = you != nullptr ? you->location : stairs_down_location;
+        // don't spawn monsters near you.
+        Coord away_from_location = you != nullptr ? you->location : find_stairs_down_location();
         location = random_spawn_location(away_from_location);
         if (location == Coord::nowhere()) {
             // it must be pretty crowded in here
@@ -343,7 +330,7 @@ static void init_individuals() {
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far apart.
-        you->location = random_spawn_location(stairs_down_location);
+        you->location = random_spawn_location(find_stairs_down_location());
         compute_vision(you);
     }
 
@@ -543,10 +530,31 @@ void find_items_in_inventory(Thing observer, uint256 container_id, List<Perceive
             output_sorted_list->append(item);
     sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
-void get_abilities(Thing individual, List<Ability::Id> * output_sorted_abilities) {
-    output_sorted_abilities->append_all(species_abilities[individual->physical_species_id()]);
+void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities) {
+    switch (individual->physical_species_id()) {
+        case SpeciesId_HUMAN:
+        case SpeciesId_OGRE:
+        case SpeciesId_LICH:
+        case SpeciesId_PINK_BLOB:
+        case SpeciesId_AIR_ELEMENTAL:
+        case SpeciesId_DOG:
+        case SpeciesId_ANT:
+        case SpeciesId_BEE:
+        case SpeciesId_BEETLE:
+        case SpeciesId_SCORPION:
+        case SpeciesId_SNAKE:
+            return;
+        case SpeciesId_COBRA:
+            output_sorted_abilities->append(AbilityId_SPIT_BLINDING_VENOM);
+            return;
+
+        case SpeciesId_COUNT:
+        case SpeciesId_UNSEEN:
+            unreachable();
+    }
+    unreachable();
 }
-bool is_ability_ready(Thing actor, Ability::Id ability_id) {
+bool is_ability_ready(Thing actor, AbilityId ability_id) {
     const List<AbilityCooldown> & ability_cooldowns = actor->ability_cooldowns;
     for (int i = 0; ability_cooldowns.length(); i++)
         if (ability_cooldowns[i].ability_id == ability_id)
@@ -677,10 +685,8 @@ void polymorph_individual(Thing individual, SpeciesId species_id) {
     life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
     compute_vision(individual);
 }
-Thing cheatcode_spectator;
-void cheatcode_spectate() {
-    Coord individual_at = get_mouse_tile(main_map_area);
-    cheatcode_spectator = find_individual_at(individual_at);
+void cheatcode_spectate(Coord location) {
+    cheatcode_spectator = find_individual_at(location);
 }
 
 bool can_move(Thing actor) {
@@ -763,7 +769,9 @@ bool validate_action(Thing actor, const Action & action) {
             return actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN;
         case Action::ABILITY: {
             const Action::AbilityData & data = action.ability();
-            if (species_abilities[actor->physical_species_id()].index_of(data.ability_id) == -1)
+            List<AbilityId> valid_abilities;
+            get_abilities(actor, &valid_abilities);
+            if (valid_abilities.index_of(data.ability_id) == -1)
                 return false;
             if (!is_ability_ready(actor, data.ability_id))
                 return false;

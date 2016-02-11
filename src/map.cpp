@@ -5,13 +5,6 @@
 #include "item.hpp"
 #include "event.hpp"
 
-// starts at 1
-int dungeon_level = 0;
-MapMatrix<TileType> actual_map_tiles;
-MapMatrix<uint32_t> aesthetic_indexes;
-MapMatrix<bool> spawn_zone;
-Coord stairs_down_location;
-
 bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatrix<TileType> map_tiles) {
     if (from_location == to_location)
         return true;
@@ -52,7 +45,6 @@ static void refresh_normal_vision(Thing individual) {
     }
 }
 
-const int ethereal_radius = 5;
 static void refresh_ethereal_vision(Thing individual) {
     Coord you_location = individual->location;
     Coord etheral_radius_diagonal = {ethereal_radius, ethereal_radius};
@@ -168,7 +160,6 @@ void generate_map() {
         for (int x = 5; x < 10; x++)
             actual_map_tiles[Coord{x, 4}] = TileType_DIRT_FLOOR;
         // no stairs
-        stairs_down_location = Coord::nowhere();
         return;
     }
 
@@ -262,7 +253,7 @@ void generate_map() {
 
     // place the stairs down
     if (dungeon_level < final_dungeon_level) {
-        stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
+        Coord stairs_down_location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
         actual_map_tiles[stairs_down_location] = TileType_STAIRS_DOWN;
     }
 
@@ -353,10 +344,3 @@ Coord random_spawn_location(Coord away_from_location) {
     return available_spawn_locations[random_int(available_spawn_locations.length(), nullptr)];
 }
 
-Coord find_stairs_down_location() {
-    for (Coord location = {0, 0}; location.y < map_size.y; location.y++)
-        for (location.x = 0; location.x < map_size.x; location.x++)
-            if (actual_map_tiles[location] == TileType_STAIRS_DOWN)
-                return location;
-    unreachable();
-}

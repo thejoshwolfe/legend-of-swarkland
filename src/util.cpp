@@ -6,8 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static RandomState the_random_state;
-
 void _panic(const char * str, const char * file_name, int line_number) {
     fprintf(stderr, "%s:%d: panic: %s\n", file_name, line_number, str);
     abort();

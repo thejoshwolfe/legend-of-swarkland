@@ -387,7 +387,6 @@ private:
 bool can_see_thing(Thing observer, uint256 target_id, Coord target_location);
 bool can_see_thing(Thing observer, uint256 target_id);
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id);
-extern IdMap<uint256> observer_to_active_identifiable_item;
 void publish_event(Event event);
 
 #endif

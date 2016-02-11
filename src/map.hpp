@@ -9,7 +9,7 @@ enum {
     MAP_SIZE_X = 50,
     MAP_SIZE_Y = 25,
 };
-static const Coord map_size = { MAP_SIZE_X, MAP_SIZE_Y };
+static constexpr Coord map_size = { MAP_SIZE_X, MAP_SIZE_Y };
 
 template <typename T>
 using MapMatrix = Matrix<T, MAP_SIZE_X, MAP_SIZE_Y>;
@@ -29,12 +29,7 @@ enum TileType {
 };
 
 static const int final_dungeon_level = 5;
-extern const int ethereal_radius;
-
-extern int dungeon_level;
-extern MapMatrix<TileType> actual_map_tiles;
-extern MapMatrix<uint32_t> aesthetic_indexes;
-extern Coord stairs_down_location;
+static const int ethereal_radius = 5;
 
 void generate_map();
 
@@ -86,6 +81,5 @@ bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatr
 
 void record_shape_of_terrain(MapMatrix<TileType> * tiles, Coord location);
 Coord random_spawn_location(Coord away_from_location);
-Coord find_stairs_down_location();
 
 #endif

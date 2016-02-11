@@ -9,13 +9,6 @@ WandDescriptionId actual_wand_descriptions[WandId_COUNT];
 PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
 BookDescriptionId actual_book_descriptions[BookId_COUNT];
 
-static const int WAND_OFFSET = 0;
-static const int POTION_OFFSET = WAND_OFFSET + WandId_COUNT;
-static const int BOOK_OFFSET = POTION_OFFSET + PotionId_COUNT;
-static const int TOTAL_ITEMS = BOOK_OFFSET + BookId_COUNT;
-static int item_rarities[TOTAL_ITEMS];
-static int item_pool[TOTAL_ITEMS];
-
 static Thing register_item(Thing item) {
     actual_things.put(item->id, item);
     return item;
@@ -73,7 +66,7 @@ static Thing create_random_item(int min_offset, int max_offset) {
     if (item_pool[item_index] == 0) {
         // restock the pool
         for (int i = 0; i < TOTAL_ITEMS; i++)
-            item_pool[i] += item_rarities[i];
+            item_pool[i] += item_rarities[i].value;
     }
 
     if (WAND_OFFSET <= item_index && item_index < WAND_OFFSET + WandId_COUNT)
@@ -233,36 +226,11 @@ void init_items() {
     if (!test_mode)
         shuffle(actual_book_descriptions, BookId_COUNT);
 
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_CONFUSION    ] = 3;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_DIGGING      ] = 5;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_MAGIC_MISSILE] = 3;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_SPEED        ] = 3;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_REMEDY       ] = 6;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_BLINDING     ] = 2;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_FORCE        ] = 3;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_INVISIBILITY ] = 2;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_MAGIC_BULLET ] = 3;
-    item_rarities[WAND_OFFSET + WandId_WAND_OF_SLOWING      ] = 3;
-
-    item_rarities[POTION_OFFSET + PotionId_POTION_OF_HEALING        ] = 20;
-    item_rarities[POTION_OFFSET + PotionId_POTION_OF_POISON         ] = 13;
-    item_rarities[POTION_OFFSET + PotionId_POTION_OF_ETHEREAL_VISION] = 16;
-    item_rarities[POTION_OFFSET + PotionId_POTION_OF_COGNISCOPY     ] = 8;
-    item_rarities[POTION_OFFSET + PotionId_POTION_OF_BLINDNESS      ] = 9;
-    item_rarities[POTION_OFFSET + PotionId_POTION_OF_INVISIBILITY   ] = 9;
-
-    item_rarities[BOOK_OFFSET + BookId_SPELLBOOK_OF_MAGIC_BULLET] = 4;
-    item_rarities[BOOK_OFFSET + BookId_SPELLBOOK_OF_SPEED       ] = 3;
-    item_rarities[BOOK_OFFSET + BookId_SPELLBOOK_OF_MAPPING     ] = 2;
-    item_rarities[BOOK_OFFSET + BookId_SPELLBOOK_OF_FORCE       ] = 4;
-    item_rarities[BOOK_OFFSET + BookId_SPELLBOOK_OF_ASSUME_FORM ] = 1;
-
     int statistics = 0;
     for (int i = 0; i < TOTAL_ITEMS; i++) {
-        assert_str(item_rarities[i] != 0, "missed a spot");
-        item_pool[i] = item_rarities[i];
+        item_pool[i] = item_rarities[i].value;
         if (print_diagnostics) {
-            statistics += item_rarities[i];
+            statistics += item_rarities[i].value;
             if (i == WAND_OFFSET + WandId_COUNT - 1) {
                 printf("wands: %d\n", statistics);
                 statistics = 0;
