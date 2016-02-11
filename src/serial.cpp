@@ -1,18 +1,17 @@
-#include "tas.hpp"
-
 #include "random.hpp"
 
 #include <stdio.h>
 #include <errno.h>
+#include <serial.hpp>
 
-int tas_delay;
+static int replay_delay;
 
 static const char * script_path;
 static FILE * script_file;
-static uint32_t tas_seed;
+static uint32_t rng_seed;
 static bool lets_do_test_mode;
 static int replay_delay_frame_counter;
-static TasScriptMode current_mode;
+static SaveFileMode current_mode;
 
 __attribute__((noreturn))
 static void exit_with_error() {
@@ -20,14 +19,14 @@ static void exit_with_error() {
     exit(1);
 }
 
-void set_tas_delay(int n) {
-    tas_delay = n;
+void set_replay_delay(int n) {
+    replay_delay = n;
 }
 void init_random() {
     if (lets_do_test_mode)
         game->test_mode = true;
     else
-        init_random_state(&game->the_random_state, tas_seed);
+        init_random_state(&game->the_random_state, rng_seed);
 }
 
 static void write_line(const String & line) {
@@ -513,7 +512,7 @@ static void read_header() {
             fprintf(stderr, "%s:%d:1: error: expected 1 argument", script_path, line_number);
             exit_with_error();
         }
-        tas_seed = parse_uint32(tokens[1]);
+        rng_seed = parse_uint32(tokens[1]);
     } else if (*tokens[0].string == *new_string(TEST_MODE_HEADER)) {
         if (tokens.length() != 1) {
             fprintf(stderr, "%s:%d:1: error: expected no arguments", script_path, line_number);
@@ -526,32 +525,32 @@ static void read_header() {
     }
 }
 
-void set_tas_script(TasScriptMode mode, const char * file_path, bool cli_syas_test_mode) {
+void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test_mode) {
     init_name_arrays();
     script_path = file_path;
 
     switch (mode) {
-        case TasScriptMode_WRITE:
+        case SaveFileMode_WRITE:
             script_file = fopen(script_path, "wb");
             if (script_file == nullptr) {
                 fprintf(stderr, "ERROR: could not create file: %s\n", script_path);
                 exit_with_error();
             }
-            current_mode = TasScriptMode_WRITE;
+            current_mode = SaveFileMode_WRITE;
             break;
-        case TasScriptMode_READ:
+        case SaveFileMode_READ:
             script_file = fopen(script_path, "rb");
             if (script_file == nullptr) {
                 fprintf(stderr, "ERROR: could not read file: %s\n", script_path);
                 exit_with_error();
             }
-            current_mode = TasScriptMode_READ;
+            current_mode = SaveFileMode_READ;
             break;
-        case TasScriptMode_READ_WRITE:
+        case SaveFileMode_READ_WRITE:
             script_file = fopen(script_path, "r+b");
             if (script_file != nullptr) {
                 // first read, then write
-                current_mode = TasScriptMode_READ_WRITE;
+                current_mode = SaveFileMode_READ_WRITE;
             } else {
                 if (errno != ENOENT) {
                     fprintf(stderr, "ERROR: could not read/create file: %s\n", script_path);
@@ -563,35 +562,35 @@ void set_tas_script(TasScriptMode mode, const char * file_path, bool cli_syas_te
                     fprintf(stderr, "ERROR: could not create file: %s\n", script_path);
                     exit_with_error();
                 }
-                current_mode = TasScriptMode_WRITE;
+                current_mode = SaveFileMode_WRITE;
             }
             break;
-        case TasScriptMode_IGNORE:
-            current_mode = TasScriptMode_IGNORE;
+        case SaveFileMode_IGNORE:
+            current_mode = SaveFileMode_IGNORE;
             break;
     }
 
     switch (current_mode) {
-        case TasScriptMode_READ:
-        case TasScriptMode_READ_WRITE: {
+        case SaveFileMode_READ:
+        case SaveFileMode_READ_WRITE: {
             read_header();
             break;
         }
-        case TasScriptMode_WRITE: {
+        case SaveFileMode_WRITE: {
             if (cli_syas_test_mode) {
                 write_test_mode_header();
                 lets_do_test_mode = true;
             } else {
-                tas_seed = get_random_seed();
-                write_seed(tas_seed);
+                rng_seed = get_random_seed();
+                write_seed(rng_seed);
             }
             break;
         }
-        case TasScriptMode_IGNORE:
+        case SaveFileMode_IGNORE:
             if (cli_syas_test_mode) {
                 lets_do_test_mode = true;
             } else {
-                tas_seed = get_random_seed();
+                rng_seed = get_random_seed();
             }
             break;
     }
@@ -775,64 +774,64 @@ static String action_to_string(const Action & action) {
     return result;
 }
 
-Action tas_get_decision() {
-    if (!headless_mode && tas_delay > 0) {
-        if (replay_delay_frame_counter < tas_delay) {
+Action read_decision_from_save_file() {
+    if (!headless_mode && replay_delay > 0) {
+        if (replay_delay_frame_counter < replay_delay) {
             replay_delay_frame_counter++;
             return Action::undecided(); // let the screen draw
         }
         replay_delay_frame_counter = 0;
     }
     switch (current_mode) {
-        case TasScriptMode_READ_WRITE: {
+        case SaveFileMode_READ_WRITE: {
             Action result = read_action();
             if (result.id == Action::UNDECIDED) {
                 // end of file
-                current_mode = TasScriptMode_WRITE;
+                current_mode = SaveFileMode_WRITE;
             }
             return result;
         }
-        case TasScriptMode_READ: {
+        case SaveFileMode_READ: {
             Action result = read_action();
             if (result.id == Action::UNDECIDED) {
                 // end of file
                 fclose(script_file);
-                current_mode = TasScriptMode_IGNORE;
+                current_mode = SaveFileMode_IGNORE;
             }
             return result;
         }
-        case TasScriptMode_WRITE:
-        case TasScriptMode_IGNORE:
+        case SaveFileMode_WRITE:
+        case SaveFileMode_IGNORE:
             // no, you decide.
             return Action::undecided();
     }
     unreachable();
 }
 
-void tas_record_decision(const Action & action) {
+void record_decision_to_save_file(const Action & action) {
     switch (current_mode) {
-        case TasScriptMode_READ_WRITE:
-        case TasScriptMode_READ:
-        case TasScriptMode_IGNORE:
+        case SaveFileMode_READ_WRITE:
+        case SaveFileMode_READ:
+        case SaveFileMode_IGNORE:
             // don't write
             break;
-        case TasScriptMode_WRITE:
+        case SaveFileMode_WRITE:
             write_line(action_to_string(action));
             break;
     }
 }
-int tas_get_rng_input(const ByteBuffer & tag) {
+int read_rng_input_from_save_file(const ByteBuffer & tag) {
     assert(tag.index_of_rev(' ') == -1);
     int value;
 
     switch (current_mode) {
-        case TasScriptMode_READ_WRITE:
-        case TasScriptMode_READ:
+        case SaveFileMode_READ_WRITE:
+        case SaveFileMode_READ:
             // read from script
             value = read_rng_input(tag);
             break;
-        case TasScriptMode_IGNORE:
-        case TasScriptMode_WRITE:
+        case SaveFileMode_IGNORE:
+        case SaveFileMode_WRITE:
             // read from stdio
             printf("%s\n", tag.raw());
             if (scanf("%d", &value) != 1)
@@ -841,12 +840,12 @@ int tas_get_rng_input(const ByteBuffer & tag) {
     }
 
     switch (current_mode) {
-        case TasScriptMode_READ_WRITE:
-        case TasScriptMode_READ:
-        case TasScriptMode_IGNORE:
+        case SaveFileMode_READ_WRITE:
+        case SaveFileMode_READ:
+        case SaveFileMode_IGNORE:
             // don't write
             break;
-        case TasScriptMode_WRITE: {
+        case SaveFileMode_WRITE: {
             write_line(rng_input_to_string(tag, value));
             break;
         }
@@ -881,17 +880,17 @@ void test_expect_fail(const char * fmt, String s1, String s2) {
     exit_with_error();
 }
 
-void tas_delete_save() {
+void delete_save_file() {
     switch (current_mode) {
-        case TasScriptMode_READ_WRITE:
-        case TasScriptMode_READ:
-        case TasScriptMode_IGNORE:
+        case SaveFileMode_READ_WRITE:
+        case SaveFileMode_READ:
+        case SaveFileMode_IGNORE:
             // don't delete it
             break;
-        case TasScriptMode_WRITE:
+        case SaveFileMode_WRITE:
             fclose(script_file);
             remove(script_path);
-            current_mode = TasScriptMode_IGNORE;
+            current_mode = SaveFileMode_IGNORE;
             break;
     }
 }

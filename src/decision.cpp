@@ -1,7 +1,7 @@
+#include <serial.hpp>
 #include "decision.hpp"
 
 #include "path_finding.hpp"
-#include "tas.hpp"
 #include "item.hpp"
 #include "event.hpp"
 #include "input.hpp"
@@ -76,7 +76,7 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
 static int auto_wait_animation_index = 0;
 Action get_player_decision(Thing actor) {
     game->player_actor = actor;
-    Action action = tas_get_decision();
+    Action action = read_decision_from_save_file();
     if (action.id == Action::UNDECIDED) {
         if (headless_mode) {
             // that's all folks
@@ -115,7 +115,7 @@ Action get_player_decision(Thing actor) {
         }
     }
     if (action.id != Action::UNDECIDED)
-        tas_record_decision(action);
+        record_decision_to_save_file(action);
     return action;
 }
 

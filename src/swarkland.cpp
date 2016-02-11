@@ -1,3 +1,4 @@
+#include <serial.hpp>
 #include "swarkland.hpp"
 
 #include "path_finding.hpp"
@@ -5,7 +6,6 @@
 #include "display.hpp"
 #include "event.hpp"
 #include "item.hpp"
-#include "tas.hpp"
 
 bool print_diagnostics;
 bool headless_mode;
@@ -1258,7 +1258,7 @@ void run_the_game() {
 
         delete_dead_things();
     }
-    tas_delete_save();
+    delete_save_file();
 }
 
 void change_map(Coord location, TileType new_tile_type) {

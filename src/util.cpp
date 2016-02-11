@@ -1,8 +1,7 @@
+#include <serial.hpp>
 #include "util.hpp"
 
 #include "random.hpp"
-#include "tas.hpp"
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -20,12 +19,12 @@ uint32_t random_uint32() {
 static int get_rng_input(const char * type_str, int value, const char * comment) {
     ByteBuffer tag;
     tag.format("%s:%d:%s", type_str, value, comment);
-    return tas_get_rng_input(tag);
+    return read_rng_input_from_save_file(tag);
 }
 static int get_rng_input(const char * type_str, int value1, int value2, const char * comment) {
     ByteBuffer tag;
     tag.format("%s:%d:%d:%s", type_str, value1, value2, comment);
-    return tas_get_rng_input(tag);
+    return read_rng_input_from_save_file(tag);
 }
 
 int random_int(int less_than_this, const char * comment) {
