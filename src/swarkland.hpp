@@ -17,7 +17,6 @@ struct Game {
     int dungeon_level = 0;
     MapMatrix<TileType> actual_map_tiles;
     MapMatrix<uint32_t> aesthetic_indexes;
-    MapMatrix<bool> spawn_zone;
 
     WandDescriptionId actual_wand_descriptions[WandId_COUNT];
     PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];

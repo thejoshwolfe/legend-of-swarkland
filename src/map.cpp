@@ -129,7 +129,6 @@ void compute_vision(Thing observer) {
 void generate_map() {
     game->dungeon_level++;
 
-    game->spawn_zone.set_all(true);
     // randomize the appearance of every tile, even though it doesn't matter.
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
@@ -306,7 +305,6 @@ void generate_map() {
             for (cursor.y = room.y + 2; cursor.y < room.y + room.h - 2; cursor.y++) {
                 for (cursor.x = room.x + 2; cursor.x < room.x + room.w - 2; cursor.x++) {
                     game->actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
-                    game->spawn_zone[cursor] = false;
                     create_random_item()->location = cursor;
                 }
             }
@@ -322,10 +320,11 @@ void generate_map() {
 
 static const int no_spawn_radius = 10;
 bool can_spawn_at(Coord away_from_location, Coord location) {
-    if (!is_open_space(game->actual_map_tiles[location]))
+    TileType tile = game->actual_map_tiles[location];
+    if (!is_open_space(tile))
         return false;
-    if (!game->spawn_zone[location])
-        return false;
+    if (tile == TileType_MARBLE_FLOOR)
+        return false; // don't spawn in vaults
     if (away_from_location != Coord::nowhere() && euclidean_distance_squared(location, away_from_location) < no_spawn_radius * no_spawn_radius)
         return false;
     if (find_individual_at(location) != nullptr)
