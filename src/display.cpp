@@ -682,7 +682,7 @@ static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -
 
 static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, bool has_abilities) {
     List<const char *> lines;
-    if (!game->you->still_exists) {
+    if (!you()->still_exists) {
         lines.append("Alt+F4: quit");
     } else {
         switch (input_mode) {
@@ -1020,12 +1020,12 @@ static Span get_ability_description(AbilityId ability_id, bool is_ready) {
 void render() {
     assert(!headless_mode);
 
-    Thing spectate_from = game->cheatcode_spectator != nullptr ? game->cheatcode_spectator : game->player_actor;
+    Thing spectate_from = cheatcode_spectator != nullptr ? cheatcode_spectator : player_actor();
     PerceivedThing perceived_self = spectate_from->life()->knowledge.perceived_things.get(spectate_from->id);
     List<PerceivedThing> my_inventory;
-    find_items_in_inventory(game->player_actor, game->player_actor->id, &my_inventory);
+    find_items_in_inventory(player_actor(), player_actor()->id, &my_inventory);
     List<AbilityId> my_abilities;
-    get_abilities(game->player_actor, &my_abilities);
+    get_abilities(player_actor(), &my_abilities);
 
     set_color(black);
     SDL_RenderClear(renderer);
@@ -1124,7 +1124,7 @@ void render() {
     }
 
     // tutorial
-    tutorial_div->set_content(get_tutorial_div_content(game->player_actor, my_inventory.length() > 0, my_abilities.length() > 0));
+    tutorial_div->set_content(get_tutorial_div_content(player_actor(), my_inventory.length() > 0, my_abilities.length() > 0));
     render_div(tutorial_div, tutorial_area, 1, 1);
     {
         Span blurb_span = new_span("v", gray, black);
@@ -1138,7 +1138,7 @@ void render() {
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             TileType tile = spectate_from->life()->knowledge.tiles[cursor];
-            if (game->cheatcode_full_visibility)
+            if (cheatcode_full_visibility)
                 tile = game->actual_map_tiles[cursor];
             RuckSackImage * image = get_image_for_tile(tile);
             if (image == nullptr)
@@ -1172,7 +1172,7 @@ void render() {
     }
 
     // render the things
-    if (!game->cheatcode_full_visibility) {
+    if (!cheatcode_full_visibility) {
         // not cheating
         List<PerceivedThing> things;
         PerceivedThing thing;
@@ -1345,7 +1345,7 @@ void render() {
         render_tile(get_image_for_thing(item), 0, 0xff, location);
     }
     if (show_inventory_cursor_help) {
-        keyboard_hover_div->set_content(get_thing_description(game->player_actor, my_inventory[inventory_cursor]->id, true));
+        keyboard_hover_div->set_content(get_thing_description(player_actor(), my_inventory[inventory_cursor]->id, true));
         popup_help(inventory_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
     }
     if (show_inventory_action_menu) {
@@ -1382,12 +1382,12 @@ void render() {
     for (int i = 0; i < my_abilities.length(); i++) {
         Coord location = inventory_index_to_location(i) + Coord{map_size.x, inventory_area.h / tile_size};
         int alpha = 0xff;
-        if (!is_ability_ready(game->player_actor, my_abilities[i]))
+        if (!is_ability_ready(player_actor(), my_abilities[i]))
             alpha = 0x44;
         render_tile(species_images[SpeciesId_COBRA], 0, alpha, location);
     }
     if (show_ability_cursor_help) {
-        bool is_ready = is_ability_ready(game->player_actor, my_abilities[ability_cursor]);
+        bool is_ready = is_ability_ready(player_actor(), my_abilities[ability_cursor]);
         keyboard_hover_div->set_content(get_ability_description(my_abilities[ability_cursor], is_ready));
         popup_help(ability_area, inventory_index_to_location(inventory_cursor), keyboard_hover_div);
     }
@@ -1574,7 +1574,7 @@ void render() {
         if (0 <= mouse_hover_inventory_tile.x && mouse_hover_inventory_tile.x <= inventory_layout_width && 0 <= mouse_hover_inventory_tile.y) {
             int inventory_index = inventory_location_to_index(mouse_hover_inventory_tile);
             if (inventory_index < my_inventory.length()) {
-                mouse_hover_div->set_content(get_thing_description(game->player_actor, my_inventory[inventory_index]->id, true));
+                mouse_hover_div->set_content(get_thing_description(player_actor(), my_inventory[inventory_index]->id, true));
                 popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
             }
         }

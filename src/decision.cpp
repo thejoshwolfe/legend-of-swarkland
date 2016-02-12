@@ -10,15 +10,16 @@ static int start_waiting_event_count = -1;
 static int previous_waiting_hp;
 static int previous_waiting_mp;
 void start_auto_wait() {
-    assert_str(game->player_actor == game->you, "TODO: implement auto wait for multiple player actors");
-    start_waiting_event_count = game->you->life()->knowledge.remembered_events.length();
-    previous_waiting_hp = game->you->life()->hitpoints;
-    previous_waiting_mp = game->you->life()->mana;
+    assert_str(player_actor() == you(), "TODO: implement auto wait for multiple player actors");
+    start_waiting_event_count = you()->life()->knowledge.remembered_events.length();
+    previous_waiting_hp = you()->life()->hitpoints;
+    previous_waiting_mp = you()->life()->mana;
 }
 
 void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<StatusEffect::Id> * output_annoying_status_effects, bool * output_stop_for_other_reasons) {
-    Life * life = game->player_actor->life();
-    PerceivedThing self = life->knowledge.perceived_things.get(game->player_actor->id);
+    Thing actor = player_actor();
+    Life * life = actor->life();
+    PerceivedThing self = life->knowledge.perceived_things.get(actor->id);
     // we're scared of people who can see us
     PerceivedThing target;
     for (auto iterator = life->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
@@ -30,10 +31,10 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
             continue; // don't know where you are
         // even if we don't have normal vision,
         // if we think they're in a position where they can see us, we should be afraid.
-        bool they_can_see_us = is_open_line_of_sight(target->location, game->player_actor->location, life->knowledge.tiles);
+        bool they_can_see_us = is_open_line_of_sight(target->location, actor->location, life->knowledge.tiles);
         // also, if they've just come around a corner, and we have an advantageous position to see them first,
         // let's jump at that opportunity.
-        bool we_can_see_them = is_open_line_of_sight(game->player_actor->location, target->location, life->knowledge.tiles);
+        bool we_can_see_them = is_open_line_of_sight(actor->location, target->location, life->knowledge.tiles);
         if (they_can_see_us || we_can_see_them)
             output_scary_individuals->append(target->id);
     }
@@ -43,14 +44,14 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
         *output_stop_for_other_reasons = true;
     } else if (life->hitpoints > previous_waiting_hp) {
         // that's what i like to see
-        if (life->hitpoints == game->player_actor->max_hitpoints()) {
+        if (life->hitpoints == actor->max_hitpoints()) {
             // this calls for a celebration.
             // even if there's more stuff going on, like blindness, break now.
             *output_stop_for_other_reasons = true;
         }
     }
     if (life->mana > previous_waiting_mp) {
-        if (life->mana == game->player_actor->max_mana()) {
+        if (life->mana == actor->max_mana()) {
             *output_stop_for_other_reasons = true;
         }
     }
@@ -61,9 +62,9 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
     }
 
     // is there any reason to wait any longer?
-    if (life->hitpoints < game->player_actor->max_hitpoints())
+    if (life->hitpoints < actor->max_hitpoints())
         output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low hp" or something
-    if (life->mana < game->player_actor->max_mana())
+    if (life->mana < actor->max_mana())
         output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low mp" or something
     if (has_status(self, StatusEffect::POISON))
         output_annoying_status_effects->append(StatusEffect::POISON);
@@ -75,7 +76,7 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
 }
 static int auto_wait_animation_index = 0;
 Action get_player_decision(Thing actor) {
-    game->player_actor = actor;
+    game->player_actor_id = actor->id;
     Action action = read_decision_from_save_file();
     if (action.id == Action::UNDECIDED) {
         if (headless_mode) {
@@ -89,7 +90,6 @@ Action get_player_decision(Thing actor) {
             List<StatusEffect::Id> annoying_status_effects;
             bool stop_for_other_reasons;
             assess_auto_wait_situation(&scary_individuals, &annoying_status_effects, &stop_for_other_reasons);
-            previous_waiting_hp = game->player_actor->life()->hitpoints;
             if (scary_individuals.length() == 0 && annoying_status_effects.length() > 0 && !stop_for_other_reasons) {
                 // auto-wait has decided
                 auto_wait_animation_index = 1 - auto_wait_animation_index;
@@ -168,7 +168,7 @@ Action get_ai_decision(Thing actor) {
             continue; // can't access you
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL:
-                if (target->id == game->you->id)
+                if (target->id == game->you_id)
                     break; // get him!
                 if (target->is_placeholder)
                     break; // uh... get him?

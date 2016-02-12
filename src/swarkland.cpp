@@ -11,6 +11,8 @@ bool print_diagnostics;
 bool headless_mode;
 
 Game * game;
+bool cheatcode_full_visibility;
+Thing cheatcode_spectator;
 
 static int test_you_events_mark;
 static List<PerceivedThing> test_expect_things_list;
@@ -39,9 +41,9 @@ static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     for (int i = 0; i < inventory.length(); i++)
         drop_item_to_the_floor(inventory[i], individual->location);
 
-    if (individual == game->cheatcode_spectator) {
+    if (individual == cheatcode_spectator) {
         // our fun looking through the eyes of a dying man has ended. back to normal.
-        game->cheatcode_spectator = nullptr;
+        cheatcode_spectator = nullptr;
     }
 }
 
@@ -266,7 +268,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
 
     if (location == Coord::nowhere()) {
         // don't spawn monsters near you.
-        Coord away_from_location = game->you != nullptr ? game->you->location : find_stairs_down_location();
+        Coord away_from_location = game->you_id != uint256::zero() ? you()->location : find_stairs_down_location();
         location = random_spawn_location(away_from_location);
         if (location == Coord::nowhere()) {
             // it must be pretty crowded in here
@@ -299,17 +301,17 @@ static void spawn_random_individual() {
 }
 static void init_individuals() {
     if (game->test_mode) {
-        game->you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord{1, 1});
+        game->you_id = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord{1, 1})->id;
         return;
     }
 
-    if (game->you == nullptr) {
-        game->you = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord::nowhere());
+    if (game->you_id == uint256::zero()) {
+        game->you_id = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord::nowhere())->id;
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far apart.
-        game->you->location = random_spawn_location(find_stairs_down_location());
-        compute_vision(game->you);
+        you()->location = random_spawn_location(find_stairs_down_location());
+        compute_vision(you());
     }
 
     if (game->dungeon_level == final_dungeon_level) {
@@ -351,15 +353,15 @@ void go_down() {
     // goodbye everyone
     Thing thing;
     for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);) {
-        if (thing == game->you)
+        if (thing == you())
             continue; // you're cool
-        if (thing->container_id == game->you->id)
+        if (thing->container_id == you()->id)
             continue; // take it with you
         // leave this behind us
         thing->still_exists = false;
     }
 
-    game->you->life()->knowledge.reset_map();
+    you()->life()->knowledge.reset_map();
     generate_map();
     init_individuals();
 }
@@ -664,7 +666,7 @@ void polymorph_individual(Thing individual, SpeciesId species_id) {
     compute_vision(individual);
 }
 void cheatcode_spectate(Coord location) {
-    game->cheatcode_spectator = find_individual_at(location);
+    cheatcode_spectator = find_individual_at(location);
 }
 
 bool can_move(Thing actor) {
@@ -761,23 +763,23 @@ bool validate_action(Thing actor, const Action & action) {
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
         case Action::CHEATCODE_GAIN_LEVEL:
-            if (actor != game->player_actor)
+            if (actor != player_actor())
                 return false;
             return true;
         case Action::CHEATCODE_KILL:
-            if (actor != game->player_actor)
+            if (actor != player_actor())
                 return false;
             if (game->actual_things.get(action.item()) == nullptr)
                 return false;
             return true;
         case Action::CHEATCODE_WISH:
-            if (actor != game->player_actor)
+            if (actor != player_actor())
                 return false;
             if (action.thing().thing_type == ThingType_INDIVIDUAL)
                 return false;
             return true;
         case Action::CHEATCODE_GENERATE_MONSTER: {
-            if (actor != game->player_actor)
+            if (actor != player_actor())
                 return false;
             const Action::GenerateMonster & data = action.generate_monster();
             Coord location = data.location;
@@ -907,7 +909,7 @@ static void expect_nothing(const List<PerceivedThing> & things) {
     if (things.length() == 0)
         return;
     String thing_description = new_string();
-    Span span = get_thing_description(game->you, things[0]->id);
+    Span span = get_thing_description(you(), things[0]->id);
     span->to_string(thing_description);
     test_expect_fail("expected nothing. found at least: %s.", thing_description);
 }
@@ -978,7 +980,7 @@ static bool take_action(Thing actor, const Action & action) {
             cheatcode_kill(action.item());
             return false;
         case Action::CHEATCODE_POLYMORPH:
-            polymorph_individual(game->player_actor, action.species());
+            polymorph_individual(player_actor(), action.species());
             // this one does take time, because your movement cost may have changed
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {
@@ -1008,11 +1010,11 @@ static bool take_action(Thing actor, const Action & action) {
         }
         case Action::CHEATCODE_IDENTIFY:
             for (int i = 0; i < WandId_COUNT; i++)
-                game->player_actor->life()->knowledge.wand_identities[game->actual_wand_descriptions[i]] = (WandId)i;
+                player_actor()->life()->knowledge.wand_identities[game->actual_wand_descriptions[i]] = (WandId)i;
             for (int i = 0; i < PotionId_COUNT; i++)
-                game->player_actor->life()->knowledge.potion_identities[game->actual_potion_descriptions[i]] = (PotionId)i;
+                player_actor()->life()->knowledge.potion_identities[game->actual_potion_descriptions[i]] = (PotionId)i;
             for (int i = 0; i < BookId_COUNT; i++)
-                game->player_actor->life()->knowledge.book_identities[game->actual_book_descriptions[i]] = (BookId)i;
+                player_actor()->life()->knowledge.book_identities[game->actual_book_descriptions[i]] = (BookId)i;
             return false;
         case Action::CHEATCODE_GO_DOWN:
             if (game->dungeon_level < final_dungeon_level)
@@ -1023,10 +1025,10 @@ static bool take_action(Thing actor, const Action & action) {
             return false;
 
         case Action::DIRECTIVE_MARK_EVENTS:
-            test_you_events_mark = game->you->life()->knowledge.remembered_events.length();
+            test_you_events_mark = you()->life()->knowledge.remembered_events.length();
             return false;
         case Action::DIRECTIVE_EXPECT_EVENT: {
-            const List<RememberedEvent> & events = game->you->life()->knowledge.remembered_events;
+            const List<RememberedEvent> & events = you()->life()->knowledge.remembered_events;
             skip_blank_events(events);
             if (test_you_events_mark >= events.length())
                 test_expect_fail("no new events.");
@@ -1040,7 +1042,7 @@ static bool take_action(Thing actor, const Action & action) {
             return false;
         }
         case Action::DIRECTIVE_EXPECT_NO_EVENTS: {
-            const List<RememberedEvent> & events = game->you->life()->knowledge.remembered_events;
+            const List<RememberedEvent> & events = you()->life()->knowledge.remembered_events;
             skip_blank_events(events);
             if (test_you_events_mark < events.length()) {
                 String event_text = new_string();
@@ -1051,12 +1053,12 @@ static bool take_action(Thing actor, const Action & action) {
         }
         case Action::DIRECTIVE_FIND_THINGS_AT:
             test_expect_things_list.clear();
-            find_perceived_things_at(game->you, action.coord(), &test_expect_things_list);
+            find_perceived_things_at(you(), action.coord(), &test_expect_things_list);
             return false;
         case Action::DIRECTIVE_EXPECT_THING: {
             PerceivedThing thing = expect_thing(action.thing(), &test_expect_things_list);
             test_expect_carrying_list.clear();
-            find_items_in_inventory(game->you, thing->id, &test_expect_carrying_list);
+            find_items_in_inventory(you(), thing->id, &test_expect_carrying_list);
             return false;
         }
         case Action::DIRECTIVE_EXPECT_NOTHING:
@@ -1204,7 +1206,7 @@ List<Thing> poised_individuals;
 int poised_individuals_index = 0;
 // this function will return only when we're expecting player input
 void run_the_game() {
-    while (game->you->still_exists) {
+    while (you()->still_exists) {
         if (poised_individuals.length() == 0) {
             game->time_counter++;
 

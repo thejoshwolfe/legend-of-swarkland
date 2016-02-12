@@ -53,7 +53,7 @@ void get_floor_actions(Thing actor, List<Action> * actions) {
 
 static Action move_or_attack(Coord direction) {
     // convert moving into attacking if it's pointed at an observed monster.
-    if (find_perceived_individual_at(game->player_actor, game->player_actor->location + direction) != nullptr)
+    if (find_perceived_individual_at(player_actor(), player_actor()->location + direction) != nullptr)
         return Action::attack(direction);
     return Action::move(direction);
 }
@@ -96,7 +96,7 @@ static Action on_key_down_main(const SDL_Event & event) {
         // cheatcodes
         switch (event.key.keysym.sym) {
             case SDLK_v:
-                game->cheatcode_full_visibility = !game->cheatcode_full_visibility;
+                cheatcode_full_visibility = !cheatcode_full_visibility;
                 break;
             case SDLK_h:
                 return Action::cheatcode_health_boost();
@@ -154,7 +154,7 @@ static Action on_key_down_main(const SDL_Event & event) {
                 return Action::wait();
             case SDL_SCANCODE_TAB: {
                 List<PerceivedThing> inventory;
-                find_items_in_inventory(game->player_actor, game->player_actor->id, &inventory);
+                find_items_in_inventory(player_actor(), player_actor()->id, &inventory);
                 if (inventory.length() > 0) {
                     inventory_cursor = clamp(inventory_cursor, 0, inventory.length() - 1);
                     input_mode = InputMode_INVENTORY_CHOOSE_ITEM;
@@ -170,7 +170,7 @@ static Action on_key_down_main(const SDL_Event & event) {
                 return Action::undecided();
             case SDL_SCANCODE_V: {
                 List<AbilityId> abilities;
-                get_abilities(game->player_actor, &abilities);
+                get_abilities(player_actor(), &abilities);
                 if (abilities.length() > 0) {
                     ability_cursor = clamp(ability_cursor, 0, abilities.length() - 1);
                     input_mode = InputMode_CHOOSE_ABILITY;
@@ -180,7 +180,7 @@ static Action on_key_down_main(const SDL_Event & event) {
             case SDL_SCANCODE_KP_5:
             case SDL_SCANCODE_S: {
                 List<Action> actions;
-                get_floor_actions(game->player_actor, &actions);
+                get_floor_actions(player_actor(), &actions);
                 if (actions.length() == 0)
                     break;
                 if (actions.length() == 1)
@@ -221,7 +221,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_C: {
             // move the cursor
             List<PerceivedThing> inventory;
-            find_items_in_inventory(game->player_actor, game->player_actor->id, &inventory);
+            find_items_in_inventory(player_actor(), player_actor()->id, &inventory);
             Coord location = inventory_index_to_location(inventory_cursor) + get_direction_from_event(event);
             if (0 <= location.x && location.x < inventory_layout_width && 0 <= location.y) {
                 int new_index = inventory_location_to_index(location);
@@ -235,7 +235,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_S: {
             // accept
             List<PerceivedThing> inventory;
-            find_items_in_inventory(game->player_actor, game->player_actor->id, &inventory);
+            find_items_in_inventory(player_actor(), player_actor()->id, &inventory);
             chosen_item = inventory[inventory_cursor];
 
             assert(inventory_menu_items.length() == 0);
@@ -292,7 +292,7 @@ static Action on_key_down_choose_ability(const SDL_Event & event) {
         case SDL_SCANCODE_C: {
             // move the cursor
             List<AbilityId> abilities;
-            get_abilities(game->player_actor, &abilities);
+            get_abilities(player_actor(), &abilities);
             Coord location = inventory_index_to_location(ability_cursor) + get_direction_from_event(event);
             if (0 <= location.x && location.x < inventory_layout_width && 0 <= location.y) {
                 int new_index = inventory_location_to_index(location);
@@ -307,9 +307,9 @@ static Action on_key_down_choose_ability(const SDL_Event & event) {
         case SDL_SCANCODE_S: {
             // accept
             List<AbilityId> abilities;
-            get_abilities(game->player_actor, &abilities);
+            get_abilities(player_actor(), &abilities);
             chosen_ability = abilities[ability_cursor];
-            if (is_ability_ready(game->player_actor, chosen_ability)) {
+            if (is_ability_ready(player_actor(), chosen_ability)) {
                 input_mode = InputMode_ABILITY_CHOOSE_DIRECTION;
             }
             break;
@@ -412,7 +412,7 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
         case SDL_SCANCODE_X: {
             // move the cursor
             List<Action> actions;
-            get_floor_actions(game->player_actor, &actions);
+            get_floor_actions(player_actor(), &actions);
             floor_menu_cursor = (floor_menu_cursor + get_direction_from_event(event).y + actions.length()) % actions.length();
             break;
         }
@@ -421,7 +421,7 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
         case SDL_SCANCODE_S: {
             // accept
             List<Action> actions;
-            get_floor_actions(game->player_actor, &actions);
+            get_floor_actions(player_actor(), &actions);
             input_mode = InputMode_MAIN;
             return actions[floor_menu_cursor];
         }

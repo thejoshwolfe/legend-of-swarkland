@@ -23,6 +23,7 @@ syn match   swarklandCheat     /!levelup\>/
 syn match   swarklandDirective /@test\>/
 syn match   swarklandDirective /@seed\>/
 syn match   swarklandDirective /@rng\>/
+syn match   swarklandDirective /@snapshot\>/
 syn match   swarklandDirective /@mark_events\>/
 syn match   swarklandDirective /@expect_event\>/
 syn match   swarklandDirective /@expect_no_events\>/

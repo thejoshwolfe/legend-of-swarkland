@@ -29,14 +29,17 @@ void init_random() {
         init_random_state(&game->the_random_state, rng_seed);
 }
 
-static void write_line(const String & line) {
-    ByteBuffer buffer;
-    line->encode(&buffer);
+static void write_buffer(const ByteBuffer & buffer) {
     if (fwrite(buffer.raw(), buffer.length(), 1, script_file) < 1) {
         fprintf(stderr, "ERROR: IO error when writing to file: %s\n", script_path);
         exit_with_error();
     }
     fflush(script_file);
+}
+static void write_line(const String & line) {
+    ByteBuffer buffer;
+    line->encode(&buffer);
+    write_buffer(buffer);
 }
 // line_number starts at 1
 int line_number = 0;
@@ -297,7 +300,9 @@ static String book_id_names[BookId_COUNT];
 static String ability_names[AbilityId_COUNT];
 
 static const char * const RNG_DIRECTIVE = "@rng";
-static const char * const SEED = "@seed";
+static const char * const SEED_DIRECTIVE = "@seed";
+static const char * const TEST_MODE_HEADER = "@test";
+static const char * const SNAPSHOT_DIRECTIVE = "@snapshot";
 
 // making this a macro makes the red squiggly from the panic() show up at the call site instead of here.
 #define check_no_nulls(array) \
@@ -486,10 +491,9 @@ static int read_rng_input(const ByteBuffer & tag) {
 
 static void write_seed(uint32_t seed) {
     String line = new_string();
-    line->format("%s %s\n", SEED, uint32_to_string(seed));
+    line->format("%s %s\n", SEED_DIRECTIVE, uint32_to_string(seed));
     write_line(line);
 }
-static const char * const TEST_MODE_HEADER = "@test";
 static void write_test_mode_header() {
     String line = new_string();
     line->format("%s\n", TEST_MODE_HEADER);
@@ -507,7 +511,7 @@ static void read_header() {
         fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
         exit_with_error();
     }
-    if (*tokens[0].string == *new_string(SEED)) {
+    if (*tokens[0].string == *new_string(SEED_DIRECTIVE)) {
         if (tokens.length() != 2) {
             fprintf(stderr, "%s:%d:1: error: expected 1 argument", script_path, line_number);
             exit_with_error();
@@ -684,7 +688,7 @@ static Action read_action() {
         }
     }
     // this can catch outdated tests
-    if (!validate_action(game->player_actor, action)) {
+    if (!validate_action(player_actor(), action)) {
         fprintf(stderr, "%s:%d:1: error: invalid action\n", script_path, line_number);
         exit_with_error();
     }
@@ -774,6 +778,15 @@ static String action_to_string(const Action & action) {
     return result;
 }
 
+static void write_snapshot(Game * game) {
+    ByteBuffer buffer;
+    buffer.format("%s ", SNAPSHOT_DIRECTIVE);
+    buffer.format("%d", game->dungeon_level);
+    // TODO: more serialization
+    buffer.append("\n");
+    write_buffer(buffer);
+}
+
 Action read_decision_from_save_file() {
     if (!headless_mode && replay_delay > 0) {
         if (replay_delay_frame_counter < replay_delay) {
@@ -816,6 +829,8 @@ void record_decision_to_save_file(const Action & action) {
             // don't write
             break;
         case SaveFileMode_WRITE:
+            if (!game->test_mode)
+                write_snapshot(game);
             write_line(action_to_string(action));
             break;
     }

@@ -13,29 +13,25 @@ extern bool print_diagnostics;
 extern bool headless_mode;
 
 struct Game {
-    WandDescriptionId actual_wand_descriptions[WandId_COUNT];
-    PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
-    BookDescriptionId actual_book_descriptions[BookId_COUNT];
-
-    bool test_mode;
-
-    IdMap<Thing> actual_things;
-
-    Thing you;
-    int64_t time_counter = 0;
-    Thing player_actor;
-
-    bool cheatcode_full_visibility;
-
-    Thing cheatcode_spectator;
-    IdMap<uint256> observer_to_active_identifiable_item;
-
     // starts at 1
     int dungeon_level = 0;
     MapMatrix<TileType> actual_map_tiles;
     MapMatrix<uint32_t> aesthetic_indexes;
     MapMatrix<bool> spawn_zone;
 
+    WandDescriptionId actual_wand_descriptions[WandId_COUNT];
+    PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
+    BookDescriptionId actual_book_descriptions[BookId_COUNT];
+
+    IdMap<Thing> actual_things;
+    int64_t time_counter = 0;
+
+    uint256 you_id;
+    uint256 player_actor_id;
+
+    IdMap<uint256> observer_to_active_identifiable_item;
+
+    bool test_mode;
     RandomState the_random_state;
     uint256 random_arbitrary_large_number_count;
     uint256 random_initiative_count;
@@ -43,7 +39,14 @@ struct Game {
     int item_pool[TOTAL_ITEMS];
 };
 
+extern bool cheatcode_full_visibility;
+extern Thing cheatcode_spectator;
+
 extern Game * game;
+
+static inline Thing you()          { return game->actual_things.get(game->you_id); }
+static inline Thing player_actor() { return game->actual_things.get(game->player_actor_id); }
+
 static inline uint256 random_id() {
     if (game->test_mode) {
         // just increment a counter
