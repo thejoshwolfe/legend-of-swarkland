@@ -801,6 +801,8 @@ bool validate_action(Thing actor, const Action & action) {
             if (!game->test_mode)
                 return false;
             return true;
+        case Action::DIRECTIVE_SNAPSHOT:
+            return true;
 
         case Action::COUNT:
         case Action::UNDECIDED:
@@ -1070,6 +1072,10 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
             expect_nothing(test_expect_carrying_list);
             return false;
+        case Action::DIRECTIVE_SNAPSHOT:
+            // verify the snapshot is correct
+            assert_str(*game == *action.snapshot(), "corrupt save file");
+            return false;
 
         case Action::COUNT:
         case Action::UNDECIDED:
@@ -1289,4 +1295,31 @@ void fix_z_orders(Coord location) {
     find_items_on_floor(location, &inventory);
     for (int i = 0; i < inventory.length(); i++)
         inventory[i]->z_order = i;
+}
+
+bool operator==(const Game & a, const Game & b) {
+    if (a.dungeon_level != b.dungeon_level)
+        return false;
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+            if (a.actual_map_tiles[cursor] != b.actual_map_tiles[cursor])
+                return false;
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+            if (a.aesthetic_indexes[cursor] != b.aesthetic_indexes[cursor])
+                return false;
+    for (int i = 0; i < WandId_COUNT; i++)
+        if (a.actual_wand_descriptions[i] != b.actual_wand_descriptions[i])
+            return false;
+    for (int i = 0; i < PotionId_COUNT; i++)
+        if (a.actual_potion_descriptions[i] != b.actual_potion_descriptions[i])
+            return false;
+    for (int i = 0; i < BookId_COUNT; i++)
+        if (a.actual_book_descriptions[i] != b.actual_book_descriptions[i])
+            return false;
+
+    if (a.time_counter != b.time_counter)
+        return false;
+    // TODO: more checks
+    return true;
 }

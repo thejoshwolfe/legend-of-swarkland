@@ -162,7 +162,7 @@ void sort(T * in_place_list, int size) {
     // insertion sort, cuz whatever.
     for (int top = 1; top < size; top++) {
         T where_do_i_go = in_place_list[top];
-        for (int falling_index = top - 1; falling_index >= 0; falling_index--){
+        for (int falling_index = top - 1; falling_index >= 0; falling_index--) {
             T do_you_want_my_spot = in_place_list[falling_index];
             if (Comparator(do_you_want_my_spot, where_do_i_go) <= 0) {
                 // no one out of order here, officer
@@ -202,5 +202,18 @@ private:
     InnerIterator iterator;
     bool (*filter)(ValueType);
 };
+
+template<typename T>
+struct IndexAndValue {
+    int index;
+    T value;
+};
+template<typename T>
+static constexpr bool _check_indexed_array(const IndexAndValue<T> array[], int size) {
+    for (int i = 0; i < size; i++)
+        if (array[i].index != i)
+            return false;
+    return true;
+}
 
 #endif

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <serial.hpp>
+#include <inttypes.h>
 
 static int replay_delay;
 
@@ -49,10 +50,6 @@ static String read_line() {
     while (true) {
         // look for an EOL
         for (; index < read_buffer.length(); index++) {
-            if (index >= 256) {
-                fprintf(stderr, "ERROR: line length too long: %s\n", script_path);
-                exit_with_error();
-            }
             if (read_buffer[index] != '\n')
                 continue;
             line_number++;
@@ -147,30 +144,34 @@ static void report_error(const Token & token, int start, const char * msg1, cons
     exit_with_error();
 }
 
+static char nibble_to_char(uint32_t nibble) {
+    assert(nibble < 0x10);
+    return "0123456789abcdef"[nibble];
+}
 static String uint32_to_string(uint32_t n) {
     // python: hex(n)[2:].zfill(8)
     String string = new_string();
     for (int i = 0; i < 8; i++) {
         uint32_t nibble = (n >> (32 - (i + 1) * 4)) & 0xf;
-        char c = nibble <= 9 ? nibble + '0' : (nibble - 0xa) + 'a';
+        char c = nibble_to_char(nibble);
         string->append(c);
     }
     return string;
 }
 template<int Size64>
-static String uint_oversized_to_string(uint_oversized<Size64> n) {
-    String string = new_string();
+static void write_uint_oversized_to_buffer(uint_oversized<Size64> n, ByteBuffer * output_buffer) {
     for (int j = 0; j < Size64; j++) {
         for (int i = 0; i < 16; i++) {
             uint32_t nibble = (n.values[j] >> (64 - (i + 1) * 4)) & 0xf;
-            char c = nibble <= 9 ? nibble + '0' : (nibble - 0xa) + 'a';
-            string->append(c);
+            char c = nibble_to_char(nibble);
+            output_buffer->append(c);
         }
     }
-    return string;
 }
 static String uint256_to_string(uint256 n) {
-    return uint_oversized_to_string(n);
+    ByteBuffer buffer;
+    write_uint_oversized_to_buffer(n, &buffer);
+    return new_string(buffer);
 }
 static String int_to_string(int n) {
     String result = new_string();
@@ -248,6 +249,13 @@ static uint32_t parse_uint32(const Token & token) {
     }
     return n;
 }
+static int64_t parse_int64(const Token & token) {
+    ByteBuffer buffer;
+    token.string->encode(&buffer);
+    int64_t value;
+    sscanf("%" PRIi64, buffer.raw(), &value);
+    return value;
+}
 template <int Size64>
 static uint_oversized<Size64> parse_uint_oversized(const Token & token) {
     if (token.string->length() != 16 * Size64) {
@@ -289,6 +297,10 @@ static String string_to_string(const String & string) {
     result->format("\"%s\"", string);
     return result;
 }
+static void expect_token(const Token & token, const char * expected_text) {
+    if (*token.string != *new_string(expected_text))
+        report_error(token, 1, "unexpected token");
+}
 
 static String action_names[Action::COUNT];
 static String species_names[SpeciesId_COUNT];
@@ -298,6 +310,25 @@ static String wand_id_names[WandId_COUNT];
 static String potion_id_names[PotionId_COUNT];
 static String book_id_names[BookId_COUNT];
 static String ability_names[AbilityId_COUNT];
+static constexpr IndexAndValue<char> tile_type_short_names[TileType_COUNT] = {
+    {TileType_UNKNOWN, '_'},
+    {TileType_DIRT_FLOOR, 'a'},
+    {TileType_MARBLE_FLOOR, 'b'},
+    {TileType_BROWN_BRICK_WALL, 'c'},
+    {TileType_GRAY_BRICK_WALL, 'd'},
+    {TileType_BORDER_WALL, 'e'},
+    {TileType_STAIRS_DOWN, 'f'},
+    {TileType_UNKNOWN_FLOOR, '1'},
+    {TileType_UNKNOWN_WALL, '2'},
+};
+static_assert(_check_indexed_array(tile_type_short_names, TileType_COUNT), "missed a spot");
+static constexpr IndexAndValue<char> thing_type_short_names[ThingType_COUNT] = {
+    {ThingType_INDIVIDUAL, 'i'},
+    {ThingType_WAND, 'w'},
+    {ThingType_POTION, 'p'},
+    {ThingType_BOOK, 'b'},
+};
+static_assert(_check_indexed_array(thing_type_short_names, ThingType_COUNT), "missed a spot");
 
 static const char * const RNG_DIRECTIVE = "@rng";
 static const char * const SEED_DIRECTIVE = "@seed";
@@ -337,6 +368,7 @@ static void init_name_arrays() {
     action_names[Action::DIRECTIVE_EXPECT_NOTHING] = new_string("@expect_nothing");
     action_names[Action::DIRECTIVE_EXPECT_CARRYING] = new_string("@expect_carrying");
     action_names[Action::DIRECTIVE_EXPECT_CARRYING_NOTHING] = new_string("@expect_carrying_nothing");
+    action_names[Action::DIRECTIVE_SNAPSHOT] = new_string(SNAPSHOT_DIRECTIVE);
     check_no_nulls(action_names);
 
     species_names[SpeciesId_HUMAN] = new_string("human");
@@ -394,7 +426,7 @@ static void init_name_arrays() {
     check_no_nulls(ability_names);
 }
 
-static Action::Id parse_action_type(const Token & token) {
+static Action::Id parse_action_id(const Token & token) {
     for (int i = 0; i < Action::COUNT; i++) {
         if (*action_names[i] == *token.string)
             return (Action::Id)i;
@@ -459,6 +491,13 @@ static AbilityId parse_ability_id(const Token & token) {
             return (AbilityId)i;
     }
     report_error(token, 0, "undefined ability id");
+}
+static TileType parse_tile_type_short_name(const Token & token, char c) {
+    for (int i = 0; i < TileType_COUNT; i++) {
+        if (tile_type_short_names[i].value == c)
+            return (TileType)i;
+    }
+    report_error(token, 0, "undefined tile type");
 }
 
 static String rng_input_to_string(const ByteBuffer & tag, int value) {
@@ -600,6 +639,132 @@ void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test
     }
 }
 
+static void write_snapshot(Game * game) {
+    ByteBuffer buffer;
+    buffer.append(SNAPSHOT_DIRECTIVE);
+    buffer.format(" %d", game->dungeon_level);
+    buffer.format(" %" PRIi64, game->time_counter);
+
+    buffer.append(' ');
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+            buffer.append(tile_type_short_names[game->actual_map_tiles[cursor]].value);
+
+    buffer.append(' ');
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+            buffer.append(nibble_to_char(game->aesthetic_indexes[cursor] >> 4));
+            buffer.append(nibble_to_char(game->aesthetic_indexes[cursor] & 0xf));
+        }
+    }
+
+    for (int i = 0; i < WandId_COUNT; i++)
+        buffer.format(" %d", game->actual_wand_descriptions[i]);
+    buffer.append(" .");
+    for (int i = 0; i < PotionId_COUNT; i++)
+        buffer.format(" %d", game->actual_potion_descriptions[i]);
+    buffer.append(" .");
+    for (int i = 0; i < BookId_COUNT; i++)
+        buffer.format(" %d", game->actual_book_descriptions[i]);
+    buffer.append(" .");
+
+    {
+        List<Thing> things;
+        Thing thing;
+        for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);)
+            things.append(thing);
+        sort<Thing, compare_things_by_id>(things.raw(), things.length());
+
+        buffer.format(" %d", things.length());
+        for (int i = 0; i < things.length(); i++) {
+            thing = things[i];
+            assert(thing->still_exists);
+
+            buffer.append(' ');
+            write_uint_oversized_to_buffer(thing->id, &buffer);
+
+            buffer.append(' ');
+            buffer.append(thing_type_short_names[thing->thing_type].value);
+
+            // TODO: location, container_id, z_order
+            // TODO: status_effects, ability_cooldowns
+
+            switch (thing->thing_type) {
+                case ThingType_INDIVIDUAL:
+                    buffer.append(' ');
+                    species_names[thing->life()->original_species_id]->encode(&buffer);
+                    // TODO: everything else in life
+                    break;
+                case ThingType_WAND:
+                    buffer.append(' ');
+                    wand_id_names[thing->wand_info()->wand_id]->encode(&buffer);
+                    // TODO: charges
+                    break;
+                case ThingType_POTION:
+                    buffer.append(' ');
+                    potion_id_names[thing->potion_info()->potion_id]->encode(&buffer);
+                    break;
+                case ThingType_BOOK:
+                    buffer.append(' ');
+                    book_id_names[thing->book_info()->book_id]->encode(&buffer);
+                    break;
+
+                case ThingType_COUNT:
+                    unreachable();
+            }
+
+            buffer.append(" .");
+        }
+    }
+
+    assert(game->observer_to_active_identifiable_item.size() == 0);
+
+    // TODO: you_id, player_actor_id
+    // TODO: test_mode, rng stuff
+
+    buffer.append('\n');
+    write_buffer(buffer);
+}
+static Game * parse_snapshot(const List<Token> & tokens) {
+    Game * game = create<Game>();
+    int token_cursor = 1; // skip the directive
+    game->dungeon_level = parse_int(tokens[token_cursor++]);
+    game->time_counter = parse_int64(tokens[token_cursor++]);
+
+    {
+        const Token & tiles_token = tokens[token_cursor++];
+        int i = 0;
+        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+                game->actual_map_tiles[cursor] = parse_tile_type_short_name(tiles_token, (*tiles_token.string)[i++]);
+    }
+
+    {
+        const Token & aesthetic_indexes_token = tokens[token_cursor++];
+        int i = 0;
+        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
+            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+                uint32_t high = parse_nibble(aesthetic_indexes_token, i++);
+                uint32_t low = parse_nibble(aesthetic_indexes_token, i++);
+                game->aesthetic_indexes[cursor] = (high << 4) | low;
+            }
+        }
+    }
+
+    for (int i = 0; i < WandId_COUNT; i++)
+        game->actual_wand_descriptions[i] = (WandDescriptionId)parse_int(tokens[token_cursor++]);
+    expect_token(tokens[token_cursor++], ".");
+    for (int i = 0; i < PotionId_COUNT; i++)
+        game->actual_potion_descriptions[i] = (PotionDescriptionId)parse_int(tokens[token_cursor++]);
+    expect_token(tokens[token_cursor++], ".");
+    for (int i = 0; i < BookId_COUNT; i++)
+        game->actual_book_descriptions[i] = (BookDescriptionId)parse_int(tokens[token_cursor++]);
+    expect_token(tokens[token_cursor++], ".");
+
+    // TODO: more parsing
+    return game;
+}
+
 static Action read_action() {
     List<Token> tokens;
     while (tokens.length() == 0) {
@@ -609,7 +774,7 @@ static Action read_action() {
         tokenize_line(line, &tokens);
     }
     Action action;
-    action.id = parse_action_type(tokens[0]);
+    action.id = parse_action_id(tokens[0]);
     switch (action.get_layout()) {
         case Action::Layout_VOID:
             if (tokens.length() != 1)
@@ -684,6 +849,10 @@ static Action read_action() {
             if (tokens.length() != 2)
                 report_error(tokens[0], 0, "expected 1 argument");
             action.string() = parse_string(tokens[1]);
+            break;
+        }
+        case Action::Layout_SNAPSHOT: {
+            action.snapshot() = parse_snapshot(tokens);
             break;
         }
     }
@@ -774,17 +943,10 @@ static String action_to_string(const Action & action) {
             result->format("%s %s\n", action_type_string, string_string);
             break;
         }
+        case Action::Layout_SNAPSHOT:
+            unreachable();
     }
     return result;
-}
-
-static void write_snapshot(Game * game) {
-    ByteBuffer buffer;
-    buffer.format("%s ", SNAPSHOT_DIRECTIVE);
-    buffer.format("%d", game->dungeon_level);
-    // TODO: more serialization
-    buffer.append("\n");
-    write_buffer(buffer);
 }
 
 Action read_decision_from_save_file() {

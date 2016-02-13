@@ -13,11 +13,7 @@ static const int WAND_OFFSET = 0;
 static const int POTION_OFFSET = WAND_OFFSET + WandId_COUNT;
 static const int BOOK_OFFSET = POTION_OFFSET + PotionId_COUNT;
 static const int TOTAL_ITEMS = BOOK_OFFSET + BookId_COUNT;
-template<typename T>
-struct IndexAndValue {
-    int index;
-    T value;
-};
+
 static constexpr IndexAndValue<int> item_rarities[TOTAL_ITEMS] = {
     {WAND_OFFSET + WandId_WAND_OF_CONFUSION    , 3},
     {WAND_OFFSET + WandId_WAND_OF_DIGGING      , 5},
@@ -43,13 +39,7 @@ static constexpr IndexAndValue<int> item_rarities[TOTAL_ITEMS] = {
     {BOOK_OFFSET + BookId_SPELLBOOK_OF_FORCE       , 4},
     {BOOK_OFFSET + BookId_SPELLBOOK_OF_ASSUME_FORM , 1},
 };
-static constexpr bool _check_item_rarities() {
-    for (int i = 0; i < TOTAL_ITEMS; i++)
-        if (item_rarities[i].index != i)
-            return false;
-    return true;
-}
-static_assert(_check_item_rarities(), "missed a spot");
+static_assert(_check_indexed_array(item_rarities, TOTAL_ITEMS), "missed a spot");
 
 void init_items();
 Thing create_random_item();

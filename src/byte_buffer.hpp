@@ -32,9 +32,15 @@ public:
         assert(end <= length());
         _buffer.remove_range(start, end);
     }
-    void append(const ByteBuffer & other);
+    void append(const ByteBuffer & other) {
+        append(other.raw(), other.length());
+    }
     void append(const char * str);
     void append(const char * str, int length);
+    void append(char c) {
+        _buffer[length()] = c;
+        _buffer.append(0);
+    }
 
     int index_of_rev(char c) const;
     int index_of_rev(char c, int start) const;

@@ -134,7 +134,7 @@ void generate_map() {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             game->actual_map_tiles[cursor] = TileType_BROWN_BRICK_WALL;
             if (!game->test_mode)
-                game->aesthetic_indexes[cursor] = random_uint32();
+                game->aesthetic_indexes[cursor] = (uint8_t)random_uint32() & 0xff;
             else
                 game->aesthetic_indexes[cursor] = (cursor.x / 5 + cursor.y / 5);
         }

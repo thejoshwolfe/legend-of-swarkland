@@ -388,6 +388,7 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                 case Action::DIRECTIVE_EXPECT_NOTHING:
                 case Action::DIRECTIVE_EXPECT_CARRYING:
                 case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
+                case Action::DIRECTIVE_SNAPSHOT:
                 case Action::COUNT:
                 case Action::UNDECIDED:
                 case Action::AUTO_WAIT:

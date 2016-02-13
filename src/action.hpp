@@ -4,6 +4,8 @@
 #include "hashtable.hpp"
 #include "geometry.hpp"
 
+struct Game;
+
 struct Action {
     enum Id {
         MOVE,
@@ -35,6 +37,8 @@ struct Action {
         DIRECTIVE_EXPECT_NOTHING,
         DIRECTIVE_EXPECT_CARRYING,
         DIRECTIVE_EXPECT_CARRYING_NOTHING,
+
+        DIRECTIVE_SNAPSHOT,
 
         COUNT,
         // only a player can be undecided
@@ -75,6 +79,7 @@ struct Action {
         Layout_GENERATE_MONSTER,
         Layout_ABILITY,
         Layout_STRING,
+        Layout_SNAPSHOT,
     };
 
     Id id;
@@ -82,22 +87,24 @@ struct Action {
     Layout get_layout() const {
         return get_layout(id);
     }
-    const Coord           & coord()            const { assert(get_layout() == Layout_COORD);            return _coord; }
-          Coord           & coord()                  { assert(get_layout() == Layout_COORD);            return _coord; }
-    const uint256         & item()             const { assert(get_layout() == Layout_ITEM);             return _item; }
-          uint256         & item()                   { assert(get_layout() == Layout_ITEM);             return _item; }
-    const CoordAndItem    & coord_and_item()   const { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
-          CoordAndItem    & coord_and_item()         { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
-    const Thing           & thing()            const { assert(get_layout() == Layout_THING);            return _thing; }
-          Thing           & thing()                  { assert(get_layout() == Layout_THING);            return _thing; }
-    const SpeciesId       & species()          const { assert(get_layout() == Layout_SPECIES);          return _species; }
-          SpeciesId       & species()                { assert(get_layout() == Layout_SPECIES);          return _species; }
-    const GenerateMonster & generate_monster() const { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
-          GenerateMonster & generate_monster()       { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
-    const AbilityData     & ability()          const { assert(get_layout() == Layout_ABILITY);          return _ability; }
-          AbilityData     & ability()                { assert(get_layout() == Layout_ABILITY);          return _ability; }
-    const String          & string()           const { assert(get_layout() == Layout_STRING);           return _string; }
-          String          & string()                 { assert(get_layout() == Layout_STRING);           return _string; }
+    Coord           const & coord()            const { assert(get_layout() == Layout_COORD);            return _coord; }
+    Coord                 & coord()                  { assert(get_layout() == Layout_COORD);            return _coord; }
+    uint256         const & item()             const { assert(get_layout() == Layout_ITEM);             return _item; }
+    uint256               & item()                   { assert(get_layout() == Layout_ITEM);             return _item; }
+    CoordAndItem    const & coord_and_item()   const { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
+    CoordAndItem          & coord_and_item()         { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
+    Thing           const & thing()            const { assert(get_layout() == Layout_THING);            return _thing; }
+    Thing                 & thing()                  { assert(get_layout() == Layout_THING);            return _thing; }
+    SpeciesId       const & species()          const { assert(get_layout() == Layout_SPECIES);          return _species; }
+    SpeciesId             & species()                { assert(get_layout() == Layout_SPECIES);          return _species; }
+    GenerateMonster const & generate_monster() const { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
+    GenerateMonster       & generate_monster()       { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
+    AbilityData     const & ability()          const { assert(get_layout() == Layout_ABILITY);          return _ability; }
+    AbilityData           & ability()                { assert(get_layout() == Layout_ABILITY);          return _ability; }
+    String          const & string()           const { assert(get_layout() == Layout_STRING);           return _string; }
+    String                & string()                 { assert(get_layout() == Layout_STRING);           return _string; }
+    Game *          const & snapshot()         const { assert(get_layout() == Layout_SNAPSHOT);         return _snapshot; }
+    Game *                & snapshot()               { assert(get_layout() == Layout_SNAPSHOT);         return _snapshot; }
 
     static Action move(Coord direction) {
         return init(MOVE, direction);
@@ -257,6 +264,7 @@ private:
         SpeciesId _species;
         GenerateMonster _generate_monster;
         AbilityData _ability;
+        Game * _snapshot;
     };
     // this can't go in the union because of constructor/destructor nonsense.
     String _string = nullptr;
@@ -310,6 +318,8 @@ private:
             case DIRECTIVE_EXPECT_NOTHING:
             case DIRECTIVE_EXPECT_CARRYING_NOTHING:
                 return Layout_VOID;
+            case DIRECTIVE_SNAPSHOT:
+                return Layout_SNAPSHOT;
 
             case COUNT:
                 unreachable();
@@ -400,6 +410,8 @@ static inline bool operator==(const Action & a, const Action &  b) {
                 return false;
             return true;
         }
+        case Action::Layout_SNAPSHOT:
+            return a.snapshot() == b.snapshot();
     }
     unreachable();
 }

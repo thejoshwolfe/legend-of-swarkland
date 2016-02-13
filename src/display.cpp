@@ -765,6 +765,7 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
                     case Action::DIRECTIVE_EXPECT_NOTHING:
                     case Action::DIRECTIVE_EXPECT_CARRYING:
                     case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
+                    case Action::DIRECTIVE_SNAPSHOT:
                     case Action::COUNT:
                     case Action::UNDECIDED:
                     case Action::AUTO_WAIT:
@@ -890,6 +891,7 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::DIRECTIVE_EXPECT_NOTHING:
         case Action::DIRECTIVE_EXPECT_CARRYING:
         case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
+        case Action::DIRECTIVE_SNAPSHOT:
         case Action::COUNT:
         case Action::UNDECIDED:
         case Action::AUTO_WAIT:
@@ -935,6 +937,7 @@ static Span render_action(Thing actor, const Action & action) {
         case Action::DIRECTIVE_EXPECT_NOTHING:
         case Action::DIRECTIVE_EXPECT_CARRYING:
         case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
+        case Action::DIRECTIVE_SNAPSHOT:
         case Action::COUNT:
         case Action::UNDECIDED:
         case Action::AUTO_WAIT:

@@ -10,10 +10,6 @@ ByteBuffer::ByteBuffer() {
     _buffer.append(0);
 }
 
-void ByteBuffer::append(const ByteBuffer & other) {
-    append(other.raw(), other.length());
-}
-
 void ByteBuffer::append(const char * str) {
     append(str, strlen(str));
 }
