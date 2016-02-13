@@ -18,11 +18,4 @@ void record_decision_to_save_file(const Action & action);
 int read_rng_input_from_save_file(const ByteBuffer & tag);
 void delete_save_file();
 
-__attribute__((noreturn))
-void test_expect_fail(const char * message);
-__attribute__((noreturn))
-void test_expect_fail(const char * fmt, String s);
-__attribute__((noreturn))
-void test_expect_fail(const char * fmt, String s1, String s2);
-
 #endif

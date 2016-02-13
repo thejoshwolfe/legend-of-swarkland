@@ -14,10 +14,6 @@ Game * game;
 bool cheatcode_full_visibility;
 Thing cheatcode_spectator;
 
-static int test_you_events_mark;
-static List<PerceivedThing> test_expect_things_list;
-static List<PerceivedThing> test_expect_carrying_list;
-
 static void init_static_data() {
     // shorthand
     for (int i = 0; i < SpeciesId_COUNT; i++)
@@ -790,20 +786,6 @@ bool validate_action(Thing actor, const Action & action) {
             return true;
         }
 
-        case Action::DIRECTIVE_MARK_EVENTS:
-        case Action::DIRECTIVE_EXPECT_EVENT:
-        case Action::DIRECTIVE_EXPECT_NO_EVENTS:
-        case Action::DIRECTIVE_FIND_THINGS_AT:
-        case Action::DIRECTIVE_EXPECT_THING:
-        case Action::DIRECTIVE_EXPECT_NOTHING:
-        case Action::DIRECTIVE_EXPECT_CARRYING:
-        case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
-            if (!game->test_mode)
-                return false;
-            return true;
-        case Action::DIRECTIVE_SNAPSHOT:
-            return true;
-
         case Action::COUNT:
         case Action::UNDECIDED:
         case Action::AUTO_WAIT:
@@ -838,87 +820,6 @@ Coord confuse_direction(Thing individual, Coord direction) {
     return direction; // not confused
 }
 
-static String get_thing_description(const Action::Thing & thing) {
-    String result = new_string();
-    switch (thing.thing_type) {
-        case ThingType_INDIVIDUAL:
-            result->format("individual %s", get_species_name_str(thing.species_id));
-            return result;
-        case ThingType_WAND:
-            result->append(get_wand_id_str(thing.wand_id));
-            return result;
-        case ThingType_POTION:
-            result->append(get_potion_id_str(thing.potion_id));
-            return result;
-        case ThingType_BOOK:
-            result->append(get_book_id_str(thing.book_id));
-            return result;
-        case ThingType_COUNT:
-            unreachable();
-    }
-    unreachable();
-}
-static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<PerceivedThing> * things_list) {
-    if (things_list->length() == 0)
-        test_expect_fail("expected %s, found nothing.", get_thing_description(expected_thing));
-    for (int i = 0; i < things_list->length(); i++) {
-        PerceivedThing thing = (*things_list)[i];
-        if (thing->thing_type != expected_thing.thing_type)
-            continue;
-        switch (thing->thing_type) {
-            case ThingType_INDIVIDUAL:
-                if (thing->life()->species_id != expected_thing.species_id)
-                    continue;
-                break;
-            case ThingType_WAND:
-                if (thing->wand_info()->description_id == WandDescriptionId_UNSEEN) {
-                    if (expected_thing.wand_id != WandId_UNKNOWN)
-                        continue;
-                } else {
-                    if (thing->wand_info()->description_id != game->actual_wand_descriptions[expected_thing.wand_id])
-                        continue;
-                }
-                break;
-            case ThingType_POTION:
-                if (thing->potion_info()->description_id == PotionDescriptionId_UNSEEN) {
-                    if (expected_thing.potion_id != PotionId_UNKNOWN)
-                        continue;
-                } else {
-                    if (thing->potion_info()->description_id != game->actual_potion_descriptions[expected_thing.potion_id])
-                        continue;
-                }
-                break;
-            case ThingType_BOOK:
-                if (thing->book_info()->description_id == BookDescriptionId_UNSEEN) {
-                    if (expected_thing.book_id != BookId_UNKNOWN)
-                        continue;
-                } else {
-                    if (thing->book_info()->description_id != game->actual_book_descriptions[expected_thing.book_id])
-                        continue;
-                }
-                break;
-            case ThingType_COUNT:
-                unreachable();
-        }
-        // found it
-        things_list->swap_remove(i);
-        return thing;
-    }
-    // didn't find it
-    test_expect_fail("expected %s, found other things.", get_thing_description(expected_thing));
-}
-static void expect_nothing(const List<PerceivedThing> & things) {
-    if (things.length() == 0)
-        return;
-    String thing_description = new_string();
-    Span span = get_thing_description(you(), things[0]->id);
-    span->to_string(thing_description);
-    test_expect_fail("expected nothing. found at least: %s.", thing_description);
-}
-static void skip_blank_events(const List<RememberedEvent> & events) {
-    while (test_you_events_mark < events.length() && events[test_you_events_mark] == nullptr)
-        test_you_events_mark++;
-}
 // return true if time should pass, false if we used an instantaneous cheatcode.
 static bool take_action(Thing actor, const Action & action) {
     assert(validate_action(actor, action));
@@ -1026,57 +927,6 @@ static bool take_action(Thing actor, const Action & action) {
             level_up(actor, true);
             return false;
 
-        case Action::DIRECTIVE_MARK_EVENTS:
-            test_you_events_mark = you()->life()->knowledge.remembered_events.length();
-            return false;
-        case Action::DIRECTIVE_EXPECT_EVENT: {
-            const List<RememberedEvent> & events = you()->life()->knowledge.remembered_events;
-            skip_blank_events(events);
-            if (test_you_events_mark >= events.length())
-                test_expect_fail("no new events.");
-            const RememberedEvent & event = events[test_you_events_mark];
-            String actual_text = new_string();
-            event->span->to_string(actual_text);
-            String expected_text = action.string();
-            if (*actual_text != *expected_text)
-                test_expect_fail("expected event text \"%s\". got \"%s\".", expected_text, actual_text);
-            test_you_events_mark++;
-            return false;
-        }
-        case Action::DIRECTIVE_EXPECT_NO_EVENTS: {
-            const List<RememberedEvent> & events = you()->life()->knowledge.remembered_events;
-            skip_blank_events(events);
-            if (test_you_events_mark < events.length()) {
-                String event_text = new_string();
-                events[test_you_events_mark]->span->to_string(event_text);
-                test_expect_fail("expected no events. got \"%s\".", event_text);
-            }
-            return false;
-        }
-        case Action::DIRECTIVE_FIND_THINGS_AT:
-            test_expect_things_list.clear();
-            find_perceived_things_at(you(), action.coord(), &test_expect_things_list);
-            return false;
-        case Action::DIRECTIVE_EXPECT_THING: {
-            PerceivedThing thing = expect_thing(action.thing(), &test_expect_things_list);
-            test_expect_carrying_list.clear();
-            find_items_in_inventory(you(), thing->id, &test_expect_carrying_list);
-            return false;
-        }
-        case Action::DIRECTIVE_EXPECT_NOTHING:
-            expect_nothing(test_expect_things_list);
-            return false;
-        case Action::DIRECTIVE_EXPECT_CARRYING:
-            expect_thing(action.thing(), &test_expect_carrying_list);
-            return false;
-        case Action::DIRECTIVE_EXPECT_CARRYING_NOTHING:
-            expect_nothing(test_expect_carrying_list);
-            return false;
-        case Action::DIRECTIVE_SNAPSHOT:
-            // verify the snapshot is correct
-            assert_str(*game == *action.snapshot(), "corrupt save file");
-            return false;
-
         case Action::COUNT:
         case Action::UNDECIDED:
         case Action::AUTO_WAIT:
@@ -1161,8 +1011,6 @@ static void age_individual(Thing individual) {
     if (remembered_events.length() >= 1000) {
         remembered_events.remove_range(0, 500);
         individual->life()->knowledge.event_forget_counter++;
-        if (test_you_events_mark != 0)
-            panic("events overflowed during mark/expect");
     }
 
     // clean up stale placeholders

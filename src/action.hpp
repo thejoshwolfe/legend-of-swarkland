@@ -29,17 +29,6 @@ struct Action {
         CHEATCODE_GO_DOWN,
         CHEATCODE_GAIN_LEVEL,
 
-        DIRECTIVE_MARK_EVENTS,
-        DIRECTIVE_EXPECT_EVENT,
-        DIRECTIVE_EXPECT_NO_EVENTS,
-        DIRECTIVE_FIND_THINGS_AT,
-        DIRECTIVE_EXPECT_THING,
-        DIRECTIVE_EXPECT_NOTHING,
-        DIRECTIVE_EXPECT_CARRYING,
-        DIRECTIVE_EXPECT_CARRYING_NOTHING,
-
-        DIRECTIVE_SNAPSHOT,
-
         COUNT,
         // only a player can be undecided
         UNDECIDED,
@@ -78,8 +67,6 @@ struct Action {
         Layout_SPECIES,
         Layout_GENERATE_MONSTER,
         Layout_ABILITY,
-        Layout_STRING,
-        Layout_SNAPSHOT,
     };
 
     Id id;
@@ -101,10 +88,6 @@ struct Action {
     GenerateMonster       & generate_monster()       { assert(get_layout() == Layout_GENERATE_MONSTER); return _generate_monster; }
     AbilityData     const & ability()          const { assert(get_layout() == Layout_ABILITY);          return _ability; }
     AbilityData           & ability()                { assert(get_layout() == Layout_ABILITY);          return _ability; }
-    String          const & string()           const { assert(get_layout() == Layout_STRING);           return _string; }
-    String                & string()                 { assert(get_layout() == Layout_STRING);           return _string; }
-    Game *          const & snapshot()         const { assert(get_layout() == Layout_SNAPSHOT);         return _snapshot; }
-    Game *                & snapshot()               { assert(get_layout() == Layout_SNAPSHOT);         return _snapshot; }
 
     static Action move(Coord direction) {
         return init(MOVE, direction);
@@ -264,10 +247,7 @@ private:
         SpeciesId _species;
         GenerateMonster _generate_monster;
         AbilityData _ability;
-        Game * _snapshot;
     };
-    // this can't go in the union because of constructor/destructor nonsense.
-    String _string = nullptr;
 
     static Layout get_layout(Id id) {
         switch (id) {
@@ -303,23 +283,6 @@ private:
                 return Layout_THING;
             case CHEATCODE_GENERATE_MONSTER:
                 return Layout_GENERATE_MONSTER;
-
-            case DIRECTIVE_MARK_EVENTS:
-                return Layout_VOID;
-            case DIRECTIVE_EXPECT_EVENT:
-                return Layout_STRING;
-            case DIRECTIVE_EXPECT_NO_EVENTS:
-                return Layout_VOID;
-            case DIRECTIVE_FIND_THINGS_AT:
-                return Layout_COORD;
-            case DIRECTIVE_EXPECT_THING:
-            case DIRECTIVE_EXPECT_CARRYING:
-                return Layout_THING;
-            case DIRECTIVE_EXPECT_NOTHING:
-            case DIRECTIVE_EXPECT_CARRYING_NOTHING:
-                return Layout_VOID;
-            case DIRECTIVE_SNAPSHOT:
-                return Layout_SNAPSHOT;
 
             case COUNT:
                 unreachable();
@@ -399,19 +362,6 @@ static inline bool operator==(const Action & a, const Action &  b) {
                 return false;
             return true;
         }
-        case Action::Layout_STRING: {
-            const String & a_data = a.string();
-            const String & b_data = b.string();
-            if (a_data == b_data)
-                return true;
-            if (a_data == nullptr || b_data == nullptr)
-                return false;
-            if (*a_data != *b_data)
-                return false;
-            return true;
-        }
-        case Action::Layout_SNAPSHOT:
-            return a.snapshot() == b.snapshot();
     }
     unreachable();
 }

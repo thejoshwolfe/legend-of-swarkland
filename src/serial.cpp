@@ -1,5 +1,7 @@
 #include "random.hpp"
 
+#include "display.hpp"
+
 #include <stdio.h>
 #include <errno.h>
 #include <serial.hpp>
@@ -14,10 +16,38 @@ static bool lets_do_test_mode;
 static int replay_delay_frame_counter;
 static SaveFileMode current_mode;
 
+// line_number starts at 1
+static int line_number = 0;
+
 __attribute__((noreturn))
 static void exit_with_error() {
     // put a breakpoint here
     exit(1);
+}
+__attribute__((noreturn))
+static void test_expect_fail(const char * message) {
+    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, message);
+    exit_with_error();
+}
+__attribute__((noreturn))
+static void test_expect_fail(const char * fmt, String s) {
+    ByteBuffer buffer;
+    s->encode(&buffer);
+    ByteBuffer msg;
+    msg.format(fmt, buffer.raw());
+    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
+    exit_with_error();
+}
+__attribute__((noreturn))
+static void test_expect_fail(const char * fmt, String s1, String s2) {
+    ByteBuffer buffer1;
+    s1->encode(&buffer1);
+    ByteBuffer buffer2;
+    s2->encode(&buffer2);
+    ByteBuffer msg;
+    msg.format(fmt, buffer1.raw(), buffer2.raw());
+    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
+    exit_with_error();
 }
 
 void set_replay_delay(int n) {
@@ -42,8 +72,6 @@ static void write_line(const String & line) {
     line->encode(&buffer);
     write_buffer(buffer);
 }
-// line_number starts at 1
-int line_number = 0;
 ByteBuffer read_buffer;
 static String read_line() {
     int index = 0;
@@ -141,6 +169,12 @@ __attribute__((noreturn))
 static void report_error(const Token & token, int start, const char * msg1, const char * msg2) {
     int col = token.col + start;
     fprintf(stderr, "%s:%d:%d: error: %s%s\n", script_path, line_number, col, msg1, msg2);
+    exit_with_error();
+}
+static void expect_extra_token_count(const List<Token> & tokens, int extra_token_count) {
+    if (tokens.length() - 1 == extra_token_count)
+        return;
+    fprintf(stderr, "%s:%d:1: error: expected %d arguments. got %d arguments.\n", script_path, line_number, extra_token_count, tokens.length());
     exit_with_error();
 }
 
@@ -288,21 +322,27 @@ static String parse_string(const Token & token) {
         report_error(token, 0, "expected quoted string");
     return token.string->substring(1, token.string->length() - 1);
 }
-static String string_to_string(const String & string) {
-    for (int i = 0; i < string->length(); i++) {
-        if ((*string)[i] == '"')
-            panic("TODO: escape literal quotes in quoted strings");
-    }
-    String result = new_string();
-    result->format("\"%s\"", string);
-    return result;
-}
 static void expect_token(const Token & token, const char * expected_text) {
     if (*token.string != *new_string(expected_text))
         report_error(token, 1, "unexpected token");
 }
 
+enum DirectiveId {
+    DirectiveId_MARK_EVENTS,
+    DirectiveId_EXPECT_EVENT,
+    DirectiveId_EXPECT_NO_EVENTS,
+    DirectiveId_FIND_THINGS_AT,
+    DirectiveId_EXPECT_THING,
+    DirectiveId_EXPECT_NOTHING,
+    DirectiveId_EXPECT_CARRYING,
+    DirectiveId_EXPECT_CARRYING_NOTHING,
+    DirectiveId_SNAPSHOT,
+
+    DirectiveId_COUNT,
+};
+
 static String action_names[Action::COUNT];
+static String directive_names[DirectiveId_COUNT];
 static String species_names[SpeciesId_COUNT];
 static String decision_maker_names[DecisionMakerType_COUNT];
 static String thing_type_names[ThingType_COUNT];
@@ -360,16 +400,18 @@ static void init_name_arrays() {
     action_names[Action::CHEATCODE_IDENTIFY] = new_string("!identify");
     action_names[Action::CHEATCODE_GO_DOWN] = new_string("!down");
     action_names[Action::CHEATCODE_GAIN_LEVEL] = new_string("!levelup");
-    action_names[Action::DIRECTIVE_MARK_EVENTS] = new_string("@mark_events");
-    action_names[Action::DIRECTIVE_EXPECT_EVENT] = new_string("@expect_event");
-    action_names[Action::DIRECTIVE_EXPECT_NO_EVENTS] = new_string("@expect_no_events");
-    action_names[Action::DIRECTIVE_FIND_THINGS_AT] = new_string("@find_things_at");
-    action_names[Action::DIRECTIVE_EXPECT_THING] = new_string("@expect_thing");
-    action_names[Action::DIRECTIVE_EXPECT_NOTHING] = new_string("@expect_nothing");
-    action_names[Action::DIRECTIVE_EXPECT_CARRYING] = new_string("@expect_carrying");
-    action_names[Action::DIRECTIVE_EXPECT_CARRYING_NOTHING] = new_string("@expect_carrying_nothing");
-    action_names[Action::DIRECTIVE_SNAPSHOT] = new_string(SNAPSHOT_DIRECTIVE);
     check_no_nulls(action_names);
+
+    directive_names[DirectiveId_MARK_EVENTS] = new_string("@mark_events");
+    directive_names[DirectiveId_EXPECT_EVENT] = new_string("@expect_event");
+    directive_names[DirectiveId_EXPECT_NO_EVENTS] = new_string("@expect_no_events");
+    directive_names[DirectiveId_FIND_THINGS_AT] = new_string("@find_things_at");
+    directive_names[DirectiveId_EXPECT_THING] = new_string("@expect_thing");
+    directive_names[DirectiveId_EXPECT_NOTHING] = new_string("@expect_nothing");
+    directive_names[DirectiveId_EXPECT_CARRYING] = new_string("@expect_carrying");
+    directive_names[DirectiveId_EXPECT_CARRYING_NOTHING] = new_string("@expect_carrying_nothing");
+    directive_names[DirectiveId_SNAPSHOT] = new_string(SNAPSHOT_DIRECTIVE);
+    check_no_nulls(directive_names);
 
     species_names[SpeciesId_HUMAN] = new_string("human");
     species_names[SpeciesId_OGRE] = new_string("ogre");
@@ -426,6 +468,14 @@ static void init_name_arrays() {
     check_no_nulls(ability_names);
 }
 
+static DirectiveId parse_directive_id(const String & string) {
+    for (int i = 0; i < DirectiveId_COUNT; i++) {
+        if (*directive_names[i] == *string)
+            return (DirectiveId)i;
+    }
+    // nope
+    return DirectiveId_COUNT;
+}
 static Action::Id parse_action_id(const Token & token) {
     for (int i = 0; i < Action::COUNT; i++) {
         if (*action_names[i] == *token.string)
@@ -484,6 +534,28 @@ static BookId parse_book_id(const Token & token) {
     if (*token.string == *new_string("unknown"))
         return BookId_UNKNOWN;
     report_error(token, 0, "undefined book id");
+}
+static Action::Thing parse_thing_signature(const Token & token1, const Token & token2) {
+    Action::Thing thing;
+    thing.thing_type = parse_thing_type(token1);
+    switch (thing.thing_type) {
+        case ThingType_INDIVIDUAL:
+            thing.species_id = parse_species_id(token2);
+            break;
+        case ThingType_WAND:
+            thing.wand_id = parse_wand_id(token2);
+            break;
+        case ThingType_POTION:
+            thing.potion_id = parse_potion_id(token2);
+            break;
+        case ThingType_BOOK:
+            thing.book_id = parse_book_id(token2);
+            break;
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    return thing;
 }
 static AbilityId parse_ability_id(const Token & token) {
     for (int i = 0; i < AbilityId_COUNT; i++) {
@@ -765,14 +837,177 @@ static Game * parse_snapshot(const List<Token> & tokens) {
     return game;
 }
 
+static int test_you_events_mark;
+static List<PerceivedThing> test_expect_things_list;
+static List<PerceivedThing> test_expect_carrying_list;
+static String get_thing_description(const Action::Thing & thing) {
+    String result = new_string();
+    switch (thing.thing_type) {
+        case ThingType_INDIVIDUAL:
+            result->format("individual %s", get_species_name_str(thing.species_id));
+            return result;
+        case ThingType_WAND:
+            result->append(get_wand_id_str(thing.wand_id));
+            return result;
+        case ThingType_POTION:
+            result->append(get_potion_id_str(thing.potion_id));
+            return result;
+        case ThingType_BOOK:
+            result->append(get_book_id_str(thing.book_id));
+            return result;
+        case ThingType_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<PerceivedThing> * things_list) {
+    if (things_list->length() == 0)
+        test_expect_fail("expected %s, found nothing.", get_thing_description(expected_thing));
+    for (int i = 0; i < things_list->length(); i++) {
+        PerceivedThing thing = (*things_list)[i];
+        if (thing->thing_type != expected_thing.thing_type)
+            continue;
+        switch (thing->thing_type) {
+            case ThingType_INDIVIDUAL:
+                if (thing->life()->species_id != expected_thing.species_id)
+                    continue;
+                break;
+            case ThingType_WAND:
+                if (thing->wand_info()->description_id == WandDescriptionId_UNSEEN) {
+                    if (expected_thing.wand_id != WandId_UNKNOWN)
+                        continue;
+                } else {
+                    if (thing->wand_info()->description_id != game->actual_wand_descriptions[expected_thing.wand_id])
+                        continue;
+                }
+                break;
+            case ThingType_POTION:
+                if (thing->potion_info()->description_id == PotionDescriptionId_UNSEEN) {
+                    if (expected_thing.potion_id != PotionId_UNKNOWN)
+                        continue;
+                } else {
+                    if (thing->potion_info()->description_id != game->actual_potion_descriptions[expected_thing.potion_id])
+                        continue;
+                }
+                break;
+            case ThingType_BOOK:
+                if (thing->book_info()->description_id == BookDescriptionId_UNSEEN) {
+                    if (expected_thing.book_id != BookId_UNKNOWN)
+                        continue;
+                } else {
+                    if (thing->book_info()->description_id != game->actual_book_descriptions[expected_thing.book_id])
+                        continue;
+                }
+                break;
+            case ThingType_COUNT:
+                unreachable();
+        }
+        // found it
+        things_list->swap_remove(i);
+        return thing;
+    }
+    // didn't find it
+    test_expect_fail("expected %s, found other things.", get_thing_description(expected_thing));
+}
+static void expect_nothing(const List<PerceivedThing> & things) {
+    if (things.length() == 0)
+        return;
+    String thing_description = new_string();
+    Span span = get_thing_description(you(), things[0]->id);
+    span->to_string(thing_description);
+    test_expect_fail("expected nothing. found at least: %s.", thing_description);
+}
+static void skip_blank_events(const List<RememberedEvent> & events) {
+    while (test_you_events_mark < events.length() && events[test_you_events_mark] == nullptr)
+        test_you_events_mark++;
+}
+
+static void handle_directive(DirectiveId directive_id, const List<Token> & tokens) {
+    switch (directive_id) {
+        case DirectiveId_MARK_EVENTS:
+            expect_extra_token_count(tokens, 0);
+            test_you_events_mark = you()->life()->knowledge.remembered_events.length();
+            break;
+        case DirectiveId_EXPECT_EVENT: {
+            expect_extra_token_count(tokens, 1);
+            const List<RememberedEvent> & events = you()->life()->knowledge.remembered_events;
+            skip_blank_events(events);
+            if (test_you_events_mark >= events.length())
+                test_expect_fail("no new events.");
+            const RememberedEvent & event = events[test_you_events_mark];
+            String actual_text = new_string();
+            event->span->to_string(actual_text);
+            String expected_text = parse_string(tokens[1]);
+            if (*actual_text != *expected_text)
+                test_expect_fail("expected event text \"%s\". got \"%s\".", expected_text, actual_text);
+            test_you_events_mark++;
+            break;
+        }
+        case DirectiveId_EXPECT_NO_EVENTS: {
+            expect_extra_token_count(tokens, 0);
+            const List<RememberedEvent> & events = you()->life()->knowledge.remembered_events;
+            skip_blank_events(events);
+            if (test_you_events_mark < events.length()) {
+                String event_text = new_string();
+                events[test_you_events_mark]->span->to_string(event_text);
+                test_expect_fail("expected no events. got \"%s\".", event_text);
+            }
+            break;
+        }
+        case DirectiveId_FIND_THINGS_AT:
+            expect_extra_token_count(tokens, 2);
+            test_expect_things_list.clear();
+            find_perceived_things_at(you(), parse_coord(tokens[1], tokens[2]), &test_expect_things_list);
+            break;
+        case DirectiveId_EXPECT_THING: {
+            expect_extra_token_count(tokens, 2);
+            PerceivedThing thing = expect_thing(parse_thing_signature(tokens[1], tokens[2]), &test_expect_things_list);
+            test_expect_carrying_list.clear();
+            find_items_in_inventory(you(), thing->id, &test_expect_carrying_list);
+            break;
+        }
+        case DirectiveId_EXPECT_NOTHING:
+            expect_extra_token_count(tokens, 0);
+            expect_nothing(test_expect_things_list);
+            break;
+        case DirectiveId_EXPECT_CARRYING:
+            expect_extra_token_count(tokens, 2);
+            expect_thing(parse_thing_signature(tokens[1], tokens[2]), &test_expect_carrying_list);
+            break;
+        case DirectiveId_EXPECT_CARRYING_NOTHING:
+            expect_extra_token_count(tokens, 0);
+            expect_nothing(test_expect_carrying_list);
+            break;
+        case DirectiveId_SNAPSHOT:
+            // verify the snapshot is correct
+            assert_str(*game == *parse_snapshot(tokens), "corrupt save file");
+            break;
+
+        case DirectiveId_COUNT:
+            unreachable();
+    }
+}
+
 static Action read_action() {
     List<Token> tokens;
-    while (tokens.length() == 0) {
-        String line = read_line();
-        if (line == nullptr)
-            return Action::undecided(); // EOF
-        tokenize_line(line, &tokens);
+    while (true) {
+        while (tokens.length() == 0) {
+            String line = read_line();
+            if (line == nullptr)
+                return Action::undecided(); // EOF
+            tokenize_line(line, &tokens);
+        }
+
+        DirectiveId directive_id = parse_directive_id(tokens[0].string);
+        if (directive_id != DirectiveId_COUNT) {
+            handle_directive(directive_id, tokens);
+            tokens.clear();
+            continue;
+        } else {
+            break;
+        }
     }
+
     Action action;
     action.id = parse_action_id(tokens[0]);
     switch (action.get_layout()) {
@@ -807,25 +1042,7 @@ static Action read_action() {
         case Action::Layout_THING: {
             if (tokens.length() != 3)
                 report_error(tokens[0], 0, "expected 2 arguments");
-            Action::Thing & data = action.thing();
-            data.thing_type = parse_thing_type(tokens[1]);
-            switch (data.thing_type) {
-                case ThingType_INDIVIDUAL:
-                    data.species_id = parse_species_id(tokens[2]);
-                    break;
-                case ThingType_WAND:
-                    data.wand_id = parse_wand_id(tokens[2]);
-                    break;
-                case ThingType_POTION:
-                    data.potion_id = parse_potion_id(tokens[2]);
-                    break;
-                case ThingType_BOOK:
-                    data.book_id = parse_book_id(tokens[2]);
-                    break;
-
-                case ThingType_COUNT:
-                    unreachable();
-            }
+            action.thing() = parse_thing_signature(tokens[1], tokens[2]);
             break;
         }
         case Action::Layout_GENERATE_MONSTER: {
@@ -843,16 +1060,6 @@ static Action read_action() {
             Action::AbilityData & data = action.ability();
             data.ability_id = parse_ability_id(tokens[1]);
             data.direction = parse_coord(tokens[2], tokens[3]);
-            break;
-        }
-        case Action::Layout_STRING: {
-            if (tokens.length() != 2)
-                report_error(tokens[0], 0, "expected 1 argument");
-            action.string() = parse_string(tokens[1]);
-            break;
-        }
-        case Action::Layout_SNAPSHOT: {
-            action.snapshot() = parse_snapshot(tokens);
             break;
         }
     }
@@ -938,13 +1145,6 @@ static String action_to_string(const Action & action) {
             result->format("%s %s %s %s", action_type_string, ability_name,  direction_string1, direction_string2);
             break;
         }
-        case Action::Layout_STRING: {
-            const String & string_string = string_to_string(action.string());
-            result->format("%s %s\n", action_type_string, string_string);
-            break;
-        }
-        case Action::Layout_SNAPSHOT:
-            unreachable();
     }
     return result;
 }
@@ -1029,32 +1229,6 @@ int read_rng_input_from_save_file(const ByteBuffer & tag) {
     }
 
     return value;
-}
-
-__attribute__((noreturn))
-void test_expect_fail(const char * message) {
-    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, message);
-    exit_with_error();
-}
-__attribute__((noreturn))
-void test_expect_fail(const char * fmt, String s) {
-    ByteBuffer buffer;
-    s->encode(&buffer);
-    ByteBuffer msg;
-    msg.format(fmt, buffer.raw());
-    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
-    exit_with_error();
-}
-__attribute__((noreturn))
-void test_expect_fail(const char * fmt, String s1, String s2) {
-    ByteBuffer buffer1;
-    s1->encode(&buffer1);
-    ByteBuffer buffer2;
-    s2->encode(&buffer2);
-    ByteBuffer msg;
-    msg.format(fmt, buffer1.raw(), buffer2.raw());
-    fprintf(stderr, "%s:%d:1: error: %s\n", script_path, line_number, msg.raw());
-    exit_with_error();
 }
 
 void delete_save_file() {
