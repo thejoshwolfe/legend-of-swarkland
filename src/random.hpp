@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-// don't look in this structure
 struct RandomState {
     static const int ARRAY_SIZE = 624;
     uint32_t array[ARRAY_SIZE];

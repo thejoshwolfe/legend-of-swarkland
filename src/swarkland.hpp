@@ -13,30 +13,30 @@ extern bool print_diagnostics;
 extern bool headless_mode;
 
 struct Game {
-    // starts at 1
-    int dungeon_level = 0;
-    int64_t time_counter = 0;
-    MapMatrix<TileType> actual_map_tiles;
-    MapMatrix<uint8_t> aesthetic_indexes;
-
     WandDescriptionId actual_wand_descriptions[WandId_COUNT];
     PotionDescriptionId actual_potion_descriptions[PotionId_COUNT];
     BookDescriptionId actual_book_descriptions[BookId_COUNT];
-
-    IdMap<Thing> actual_things;
     uint256 you_id = uint256::zero();
     uint256 player_actor_id;
 
-    IdMap<uint256> observer_to_active_identifiable_item;
+    int64_t time_counter = 0;
+
+    // starts at 1
+    int dungeon_level = 0;
+    MapMatrix<TileType> actual_map_tiles;
+    MapMatrix<uint8_t> aesthetic_indexes;
 
     bool test_mode;
-    RandomState the_random_state;
+    // for test mode
     uint256 random_arbitrary_large_number_count = uint256::zero();
     uint256 random_initiative_count = uint256::zero();
-
+    // for normal mode
+    RandomState the_random_state;
     int item_pool[TOTAL_ITEMS];
+
+    IdMap<Thing> actual_things;
+    IdMap<uint256> observer_to_active_identifiable_item;
 };
-bool operator==(const Game & a, const Game & b);
 
 extern bool cheatcode_full_visibility;
 extern Thing cheatcode_spectator;

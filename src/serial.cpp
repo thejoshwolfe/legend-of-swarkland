@@ -836,6 +836,59 @@ static Game * parse_snapshot(const List<Token> & tokens) {
     // TODO: more parsing
     return game;
 }
+static bool game_states_equal(Game * a, Game * b) {
+    for (int i = 0; i < WandId_COUNT; i++)
+        if (a->actual_wand_descriptions[i] != b->actual_wand_descriptions[i])
+            return false;
+    for (int i = 0; i < PotionId_COUNT; i++)
+        if (a->actual_potion_descriptions[i] != b->actual_potion_descriptions[i])
+            return false;
+    for (int i = 0; i < BookId_COUNT; i++)
+        if (a->actual_book_descriptions[i] != b->actual_book_descriptions[i])
+            return false;
+
+    if (a->you_id != b->you_id)
+        return false;
+    if (a->player_actor_id != b->player_actor_id)
+        return false;
+    if (a->time_counter != b->time_counter)
+        return false;
+
+    if (a->dungeon_level != b->dungeon_level)
+        return false;
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+            if (a->actual_map_tiles[cursor] != b->actual_map_tiles[cursor])
+                return false;
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+            if (a->aesthetic_indexes[cursor] != b->aesthetic_indexes[cursor])
+                return false;
+
+    if (a->test_mode != b->test_mode)
+        return false;
+    if (a->test_mode) {
+        if (a->random_arbitrary_large_number_count != b->random_arbitrary_large_number_count)
+            return false;
+        if (a->random_initiative_count != b->random_initiative_count)
+            return false;
+    } else {
+        if (a->the_random_state.index != b->the_random_state.index)
+            return false;
+        for (int i = 0; i < RandomState::ARRAY_SIZE; i++)
+            if (a->the_random_state.array[i] != b->the_random_state.array[i])
+                return false;
+        for (int i = 0; i < TOTAL_ITEMS; i++)
+            if (a->item_pool[i] != b->item_pool[i])
+                return false;
+    }
+
+    if (a->actual_things.size() != b->actual_things.size())
+        return false;
+
+    // TODO: more checks
+    return true;
+}
 
 static int test_you_events_mark;
 static List<PerceivedThing> test_expect_things_list;
@@ -980,7 +1033,7 @@ static void handle_directive(DirectiveId directive_id, const List<Token> & token
             break;
         case DirectiveId_SNAPSHOT:
             // verify the snapshot is correct
-            assert_str(*game == *parse_snapshot(tokens), "corrupt save file");
+            assert_str(game_states_equal(game, parse_snapshot(tokens)), "corrupt save file");
             break;
 
         case DirectiveId_COUNT:
