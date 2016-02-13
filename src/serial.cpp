@@ -711,34 +711,33 @@ void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test
     }
 }
 
-static void write_snapshot(Game * game) {
-    ByteBuffer buffer;
-    buffer.append(SNAPSHOT_DIRECTIVE);
-    buffer.format(" %d", game->dungeon_level);
-    buffer.format(" %" PRIi64, game->time_counter);
+static void write_snapshot_to_buffer(Game * game, ByteBuffer * buffer) {
+    buffer->append(SNAPSHOT_DIRECTIVE);
+    buffer->format(" %d", game->dungeon_level);
+    buffer->format(" %" PRIi64, game->time_counter);
 
-    buffer.append(' ');
+    buffer->append(' ');
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
-            buffer.append(tile_type_short_names[game->actual_map_tiles[cursor]].value);
+            buffer->append(tile_type_short_names[game->actual_map_tiles[cursor]].value);
 
-    buffer.append(' ');
+    buffer->append(' ');
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            buffer.append(nibble_to_char(game->aesthetic_indexes[cursor] >> 4));
-            buffer.append(nibble_to_char(game->aesthetic_indexes[cursor] & 0xf));
+            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] >> 4));
+            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] & 0xf));
         }
     }
 
     for (int i = 0; i < WandId_COUNT; i++)
-        buffer.format(" %d", game->actual_wand_descriptions[i]);
-    buffer.append(" .");
+        buffer->format(" %d", game->actual_wand_descriptions[i]);
+    buffer->append(" .");
     for (int i = 0; i < PotionId_COUNT; i++)
-        buffer.format(" %d", game->actual_potion_descriptions[i]);
-    buffer.append(" .");
+        buffer->format(" %d", game->actual_potion_descriptions[i]);
+    buffer->append(" .");
     for (int i = 0; i < BookId_COUNT; i++)
-        buffer.format(" %d", game->actual_book_descriptions[i]);
-    buffer.append(" .");
+        buffer->format(" %d", game->actual_book_descriptions[i]);
+    buffer->append(" .");
 
     {
         List<Thing> things;
@@ -747,45 +746,45 @@ static void write_snapshot(Game * game) {
             things.append(thing);
         sort<Thing, compare_things_by_id>(things.raw(), things.length());
 
-        buffer.format(" %d", things.length());
+        buffer->format(" %d", things.length());
         for (int i = 0; i < things.length(); i++) {
             thing = things[i];
             assert(thing->still_exists);
 
-            buffer.append(' ');
-            write_uint_oversized_to_buffer(thing->id, &buffer);
+            buffer->append(' ');
+            write_uint_oversized_to_buffer(thing->id, buffer);
 
-            buffer.append(' ');
-            buffer.append(thing_type_short_names[thing->thing_type].value);
+            buffer->append(' ');
+            buffer->append(thing_type_short_names[thing->thing_type].value);
 
             // TODO: location, container_id, z_order
             // TODO: status_effects, ability_cooldowns
 
             switch (thing->thing_type) {
                 case ThingType_INDIVIDUAL:
-                    buffer.append(' ');
-                    species_names[thing->life()->original_species_id]->encode(&buffer);
+                    buffer->append(' ');
+                    species_names[thing->life()->original_species_id]->encode(buffer);
                     // TODO: everything else in life
                     break;
                 case ThingType_WAND:
-                    buffer.append(' ');
-                    wand_id_names[thing->wand_info()->wand_id]->encode(&buffer);
+                    buffer->append(' ');
+                    wand_id_names[thing->wand_info()->wand_id]->encode(buffer);
                     // TODO: charges
                     break;
                 case ThingType_POTION:
-                    buffer.append(' ');
-                    potion_id_names[thing->potion_info()->potion_id]->encode(&buffer);
+                    buffer->append(' ');
+                    potion_id_names[thing->potion_info()->potion_id]->encode(buffer);
                     break;
                 case ThingType_BOOK:
-                    buffer.append(' ');
-                    book_id_names[thing->book_info()->book_id]->encode(&buffer);
+                    buffer->append(' ');
+                    book_id_names[thing->book_info()->book_id]->encode(buffer);
                     break;
 
                 case ThingType_COUNT:
                     unreachable();
             }
 
-            buffer.append(" .");
+            buffer->append(" .");
         }
     }
 
@@ -794,7 +793,11 @@ static void write_snapshot(Game * game) {
     // TODO: you_id, player_actor_id
     // TODO: test_mode, rng stuff
 
-    buffer.append('\n');
+    buffer->append('\n');
+}
+static void write_snapshot(Game * game) {
+    ByteBuffer buffer;
+    write_snapshot_to_buffer(game, &buffer);
     write_buffer(buffer);
 }
 static Game * parse_snapshot(const List<Token> & tokens) {
@@ -837,57 +840,11 @@ static Game * parse_snapshot(const List<Token> & tokens) {
     return game;
 }
 static bool game_states_equal(Game * a, Game * b) {
-    for (int i = 0; i < WandId_COUNT; i++)
-        if (a->actual_wand_descriptions[i] != b->actual_wand_descriptions[i])
-            return false;
-    for (int i = 0; i < PotionId_COUNT; i++)
-        if (a->actual_potion_descriptions[i] != b->actual_potion_descriptions[i])
-            return false;
-    for (int i = 0; i < BookId_COUNT; i++)
-        if (a->actual_book_descriptions[i] != b->actual_book_descriptions[i])
-            return false;
-
-    if (a->you_id != b->you_id)
-        return false;
-    if (a->player_actor_id != b->player_actor_id)
-        return false;
-    if (a->time_counter != b->time_counter)
-        return false;
-
-    if (a->dungeon_level != b->dungeon_level)
-        return false;
-    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
-        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
-            if (a->actual_map_tiles[cursor] != b->actual_map_tiles[cursor])
-                return false;
-    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
-        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
-            if (a->aesthetic_indexes[cursor] != b->aesthetic_indexes[cursor])
-                return false;
-
-    if (a->test_mode != b->test_mode)
-        return false;
-    if (a->test_mode) {
-        if (a->random_arbitrary_large_number_count != b->random_arbitrary_large_number_count)
-            return false;
-        if (a->random_initiative_count != b->random_initiative_count)
-            return false;
-    } else {
-        if (a->the_random_state.index != b->the_random_state.index)
-            return false;
-        for (int i = 0; i < RandomState::ARRAY_SIZE; i++)
-            if (a->the_random_state.array[i] != b->the_random_state.array[i])
-                return false;
-        for (int i = 0; i < TOTAL_ITEMS; i++)
-            if (a->item_pool[i] != b->item_pool[i])
-                return false;
-    }
-
-    if (a->actual_things.size() != b->actual_things.size())
-        return false;
-
-    // TODO: more checks
-    return true;
+    ByteBuffer buffer_a;
+    write_snapshot_to_buffer(a, &buffer_a);
+    ByteBuffer buffer_b;
+    write_snapshot_to_buffer(b, &buffer_b);
+    return buffer_a == buffer_b;
 }
 
 static int test_you_events_mark;

@@ -55,6 +55,11 @@ public:
     void fill(char value) {
         memset(_buffer.raw(), value, length());
     }
+
+    inline bool operator==(ByteBuffer const& other) const {
+        return this->_buffer == other._buffer;
+    }
+
 private:
     List<char> _buffer;
 
