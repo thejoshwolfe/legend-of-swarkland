@@ -488,7 +488,7 @@ public:
     List<AbilityCooldown> ability_cooldowns;
 
     // individual
-    ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker);
+    ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker, uint256 initiative);
     // wand
     ThingImpl(uint256 id, WandId wand_id, int charges);
     // potion

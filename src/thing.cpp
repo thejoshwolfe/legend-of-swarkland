@@ -1,8 +1,6 @@
 #include "thing.hpp"
 
-#include "swarkland.hpp"
-
-ThingImpl::ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker) :
+ThingImpl::ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker, uint256 initiative) :
         id(id), thing_type(ThingType_INDIVIDUAL)
 {
     _life = create<Life>();
@@ -10,7 +8,7 @@ ThingImpl::ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decisio
     _life->decision_maker = decision_maker;
     _life->hitpoints = max_hitpoints();
     _life->mana = max_mana();
-    _life->initiative = random_initiative();
+    _life->initiative = initiative;
 }
 ThingImpl::ThingImpl(uint256 id, WandId wand_id, int charges) :
         id(id), thing_type(ThingType_WAND)

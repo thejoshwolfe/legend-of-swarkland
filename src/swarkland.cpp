@@ -244,6 +244,15 @@ static Coord find_stairs_down_location() {
     unreachable();
 }
 
+static inline uint256 random_initiative() {
+    if (game->test_mode) {
+        // just increment a counter
+        game->random_initiative_count.values[3]++;
+        return game->random_initiative_count;
+    }
+    return random_uint256();
+}
+
 // SpeciesId_COUNT => random
 // location = Coord::nowhere() => random
 static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
@@ -272,7 +281,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
         }
     }
 
-    Thing individual = create<ThingImpl>(random_id(), species_id, decision_maker);
+    Thing individual = create<ThingImpl>(random_id(), species_id, decision_maker, random_initiative());
     individual->location = location;
 
     gain_experience(individual, level_to_experience(specieses[species_id].min_level + 1) - 1, false);

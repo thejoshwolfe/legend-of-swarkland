@@ -54,14 +54,6 @@ static inline uint256 random_id() {
     }
     return random_uint256();
 }
-static inline uint256 random_initiative() {
-    if (game->test_mode) {
-        // just increment a counter
-        game->random_initiative_count.values[3]++;
-        return game->random_initiative_count;
-    }
-    return random_uint256();
-}
 
 void cheatcode_spectate(Coord location);
 

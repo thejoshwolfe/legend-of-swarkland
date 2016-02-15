@@ -878,7 +878,7 @@ static Game * parse_snapshot(const List<Token> & first_line_tokens) {
             case ThingType_INDIVIDUAL: {
                 SpeciesId species_id = parse_species_id(tokens[token_cursor++]);
                 DecisionMakerType decision_maker = parse_decision_maker(tokens[token_cursor++]);
-                thing = create<ThingImpl>(id, species_id, decision_maker);
+                thing = create<ThingImpl>(id, species_id, decision_maker, uint256::zero());
                 expect_extra_token_count(tokens, token_cursor - 1);
 
                 tokens.clear();
@@ -1043,6 +1043,7 @@ static Game * parse_snapshot(const List<Token> & first_line_tokens) {
                         perceived_thing->location = location;
                         perceived_thing->container_id = container_id;
                         perceived_thing->z_order = z_order;
+                        knowledge.perceived_things.put(id, perceived_thing);
                     }
                 }
 
@@ -1081,7 +1082,7 @@ static Game * parse_snapshot(const List<Token> & first_line_tokens) {
     }
     return game;
 }
-static void write_snapshot_to_buffer(Game * game, ByteBuffer * buffer) {
+static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
     buffer->append(SNAPSHOT_DIRECTIVE);
     for (int i = 0; i < WandId_COUNT; i++)
         buffer->format(" %d", game->actual_wand_descriptions[i]);
@@ -1304,7 +1305,7 @@ static void write_snapshot(Game * game) {
     write_snapshot_to_buffer(game, &buffer);
     write_buffer(buffer);
 }
-static void expect_state(Game * expected_state, Game * actual_state) {
+static void expect_state(Game const* expected_state, Game const* actual_state) {
     ByteBuffer expected_buffer;
     write_snapshot_to_buffer(expected_state, &expected_buffer);
     ByteBuffer actual_buffer;
@@ -1314,8 +1315,14 @@ static void expect_state(Game * expected_state, Game * actual_state) {
     fprintf(stderr, "error: corrupt save file\n");
     fprintf(stderr, "\nexpected:\n");
     fprintf(stderr, "%s", expected_buffer.raw());
+    FILE * expected_file = fopen(".expected.swarkland", "wb");
+    fwrite(expected_buffer.raw(), expected_buffer.length(), 1, expected_file);
+    fclose(expected_file);
     fprintf(stderr, "\ngot:\n");
     fprintf(stderr, "%s", actual_buffer.raw());
+    FILE * actual_file = fopen(".actual.swarkland", "wb");
+    fwrite(actual_buffer.raw(), actual_buffer.length(), 1, actual_file);
+    fclose(actual_file);
     exit_with_error();
 }
 
