@@ -287,15 +287,18 @@ static int parse_int(const Token & token) {
     }
     return x;
 }
-static uint32_t parse_uint32(const Token & token) {
-    if (token.string->length() != 8)
-        report_error(token, 0, "expected hex uint32");
+static uint32_t parse_uint32(const Token & token, int start) {
     uint32_t n = 0;
     for (int i = 0; i < 8; i++) {
-        uint32_t nibble = parse_nibble(token, i);
+        uint32_t nibble = parse_nibble(token, start + i);
         n |= nibble << ((8 - i - 1) * 4);
     }
     return n;
+}
+static uint32_t parse_uint32(const Token & token) {
+    if (token.string->length() != 8)
+        report_error(token, 0, "expected hex uint32");
+    return parse_uint32(token, 0);
 }
 static int64_t parse_int64(const Token & token) {
     ByteBuffer buffer;
@@ -422,6 +425,14 @@ static IndexAndValue<char const*> constexpr book_description_names[BookDescripti
     {BookDescriptionId_GREEN_BOOK, "green"},
     {BookDescriptionId_YELLOW_BOOK, "yellow"},
 }; static_assert(_check_indexed_array(book_description_names, BookDescriptionId_COUNT), "missed a spot");
+
+template<typename T>
+static inline T parse_string_id(IndexAndValue<char const*> const* array, int array_length, Token const& token) {
+    for (int i = 0; i < array_length; i++)
+        if (*token.string == *new_string(array[i].value))
+            return (T)i;
+    report_error(token, 0, "undefined identifier");
+}
 
 static char const* const RNG_DIRECTIVE = "@rng";
 static char const* const SEED_DIRECTIVE = "@seed";
@@ -797,7 +808,7 @@ static Game * parse_snapshot(const List<Token> & first_line_tokens) {
         expect_extra_token_count(tokens, 1);
         token_cursor = 0;
         if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_MAP_TILES)
-            report_error(tokens[token_cursor -1], 0, "expected map tiles directive");
+            report_error(tokens[token_cursor - 1], 0, "expected map tiles directive");
         const Token & tiles_token = tokens[token_cursor++];
         int i = 0;
         for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
@@ -812,7 +823,7 @@ static Game * parse_snapshot(const List<Token> & first_line_tokens) {
         expect_extra_token_count(tokens, 1);
         token_cursor = 0;
         if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_AESTHETIC_INDEXES)
-            report_error(tokens[token_cursor -1], 0, "expected aesthetic indexes directive");
+            report_error(tokens[token_cursor - 1], 0, "expected aesthetic indexes directive");
 
         const Token & aesthetic_indexes_token = tokens[token_cursor++];
         int i = 0;
@@ -825,12 +836,36 @@ static Game * parse_snapshot(const List<Token> & first_line_tokens) {
         }
     }
 
+    // rng state
+    {
+        tokens.clear();
+        read_tokens(&tokens, false);
+        expect_extra_token_count(tokens, 3);
+        token_cursor = 0;
+        if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_RNG_STATE)
+            report_error(tokens[token_cursor - 1], 0, "expected rng state directive");
+
+        game->test_mode = parse_int(tokens[token_cursor++]) != 0;
+        if (game->test_mode) {
+            game->random_arbitrary_large_number_count = parse_uint256(tokens[token_cursor++]);
+            game->random_initiative_count = parse_uint256(tokens[token_cursor++]);
+        } else {
+            game->the_random_state.index = parse_int(tokens[token_cursor++]);
+            const Token & rng_state_array_token = tokens[token_cursor++];
+            int char_cursor = 0;
+            for (int array_cursor = 0; array_cursor < RandomState::ARRAY_SIZE; array_cursor++) {
+                game->the_random_state.array[array_cursor] = parse_uint32(rng_state_array_token, char_cursor);
+                char_cursor += 8;
+            }
+        }
+    }
+
     for (int i = 0; i < thing_count; i++) {
         tokens.clear();
         read_tokens(&tokens, false);
         token_cursor = 0;
         if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_THING)
-            report_error(tokens[token_cursor -1], 0, "expected thing directive");
+            report_error(tokens[token_cursor - 1], 0, "expected thing directive");
 
         uint256 id = parse_uint256(tokens[token_cursor++]);
         uint256 container_id = parse_uint256(tokens[token_cursor++]);
@@ -844,22 +879,195 @@ static Game * parse_snapshot(const List<Token> & first_line_tokens) {
                 SpeciesId species_id = parse_species_id(tokens[token_cursor++]);
                 DecisionMakerType decision_maker = parse_decision_maker(tokens[token_cursor++]);
                 thing = create<ThingImpl>(id, species_id, decision_maker);
+                expect_extra_token_count(tokens, token_cursor - 1);
+
+                tokens.clear();
+                read_tokens(&tokens, false);
+                token_cursor = 0;
+                if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_LIFE)
+                    report_error(tokens[token_cursor - 1], 0, "expected life directive");
+
+                Life * life = thing->life();
+                life->hitpoints = parse_int(tokens[token_cursor++]);
+                life->hp_regen_deadline = parse_int64(tokens[token_cursor++]);
+                life->mana = parse_int(tokens[token_cursor++]);
+                life->mp_regen_deadline = parse_int64(tokens[token_cursor++]);
+                life->experience = parse_int(tokens[token_cursor++]);
+                life->last_movement_time = parse_int64(tokens[token_cursor++]);
+                life->last_action_time = parse_int64(tokens[token_cursor++]);
+                life->initiative = parse_uint256(tokens[token_cursor++]);
+                int status_effect_count = parse_int(tokens[token_cursor++]);
+                int ability_cooldowns_count = parse_int(tokens[token_cursor++]);
+                expect_extra_token_count(tokens, token_cursor - 1);
+
+                for (int i = 0; i < status_effect_count; i++) {
+                    tokens.clear();
+                    read_tokens(&tokens, false);
+                    token_cursor = 0;
+                    if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_STATUS_EFFECT)
+                        report_error(tokens[token_cursor - 1], 0, "expected status effect directive");
+
+                    StatusEffect status_effect;
+                    status_effect.type = parse_string_id<StatusEffect::Id>(status_effect_names, StatusEffect::COUNT, tokens[token_cursor++]);
+                    status_effect.expiration_time = parse_int64(tokens[token_cursor++]);
+                    switch (status_effect.type) {
+                        case StatusEffect::CONFUSION:
+                        case StatusEffect::SPEED:
+                        case StatusEffect::ETHEREAL_VISION:
+                        case StatusEffect::COGNISCOPY:
+                        case StatusEffect::BLINDNESS:
+                        case StatusEffect::INVISIBILITY:
+                        case StatusEffect::SLOWING:
+                            break;
+                        case StatusEffect::POISON:
+                            status_effect.poison_next_damage_time = parse_int64(tokens[token_cursor++]);
+                            status_effect.who_is_responsible = parse_uint256(tokens[token_cursor++]);
+                            break;
+                        case StatusEffect::POLYMORPH:
+                            status_effect.species_id = parse_species_id(tokens[token_cursor++]);;
+                            break;
+
+                        case StatusEffect::COUNT:
+                            unreachable();
+                    }
+
+                    thing->status_effects.append(status_effect);
+                    expect_extra_token_count(tokens, token_cursor - 1);
+                }
+
+                for (int i = 0; i < ability_cooldowns_count; i++) {
+                    tokens.clear();
+                    read_tokens(&tokens, false);
+                    expect_extra_token_count(tokens, 2);
+                    token_cursor = 0;
+                    if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_ABILITY_COOLDOWN)
+                        report_error(tokens[token_cursor - 1], 0, "expected ability cooldown directive");
+
+                    AbilityCooldown ability_cooldown;
+                    ability_cooldown.ability_id = parse_ability_id(tokens[token_cursor++]);
+                    ability_cooldown.expiration_time = parse_int64(tokens[token_cursor++]);
+                    thing->ability_cooldowns.append(ability_cooldown);
+                }
+
+                // knowledge
+                {
+                    tokens.clear();
+                    read_tokens(&tokens, false);
+                    token_cursor = 0;
+                    if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_KNOWLEDGE)
+                        report_error(tokens[token_cursor - 1], 0, "expected knowledge directive");
+
+                    Knowledge & knowledge = life->knowledge;
+
+                    for (int i = 0; i < WandDescriptionId_COUNT; i++)
+                        knowledge.wand_identities[i] = (WandId)parse_int(tokens[token_cursor++]);
+                    expect_token(tokens[token_cursor++], ".");
+                    for (int i = 0; i < PotionDescriptionId_COUNT; i++)
+                        knowledge.potion_identities[i] = (PotionId)parse_int(tokens[token_cursor++]);
+                    expect_token(tokens[token_cursor++], ".");
+                    for (int i = 0; i < BookDescriptionId_COUNT; i++)
+                        knowledge.book_identities[i] = (BookId)parse_int(tokens[token_cursor++]);
+                    expect_token(tokens[token_cursor++], ".");
+
+                    int perceived_things_count = parse_int(tokens[token_cursor++]);
+
+                    expect_extra_token_count(tokens, token_cursor - 1);
+
+                    // map tiles
+                    {
+                        tokens.clear();
+                        read_tokens(&tokens, false);
+                        expect_extra_token_count(tokens, 1);
+                        token_cursor = 0;
+                        if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_MAP_TILES)
+                            report_error(tokens[token_cursor - 1], 0, "expected map tiles directive");
+                        const Token & tiles_token = tokens[token_cursor++];
+                        int i = 0;
+                        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+                            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+                                knowledge.tiles[cursor] = parse_tile_type_short_name(tiles_token, (*tiles_token.string)[i++]);
+                    }
+
+                    for (int i = 0; i < perceived_things_count; i++) {
+                        tokens.clear();
+                        read_tokens(&tokens, false);
+                        token_cursor = 0;
+                        if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_PERCEIVED_THING)
+                            report_error(tokens[token_cursor - 1], 0, "expected perceived thing directive");
+
+                        uint256 id = parse_uint256(tokens[token_cursor++]);
+                        bool is_place_holder = parse_int(tokens[token_cursor++]) != 0;
+                        int64_t last_seen_time = parse_int64(tokens[token_cursor++]);
+                        uint256 container_id = parse_uint256(tokens[token_cursor++]);
+                        int z_order = parse_int(tokens[token_cursor++]);
+                        Coord location = parse_coord(tokens[token_cursor], tokens[token_cursor + 1]);
+                        token_cursor += 2;
+                        ThingType thing_type = parse_thing_type(tokens[token_cursor++]);
+                        PerceivedThing perceived_thing;
+                        switch (thing_type) {
+                            case ThingType_INDIVIDUAL: {
+                                SpeciesId species_id = parse_species_id(tokens[token_cursor++]);
+                                perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, species_id, last_seen_time);
+
+                                expect_extra_token_count(tokens, token_cursor - 1);
+                                // TODO: perceived status effects
+                                break;
+                            }
+                            case ThingType_WAND: {
+                                WandDescriptionId description_id = parse_string_id<WandDescriptionId>(wand_description_names, WandDescriptionId_COUNT, tokens[token_cursor++]);
+                                int used_count = parse_int(tokens[token_cursor++]);
+                                perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, description_id, last_seen_time);
+                                perceived_thing->wand_info()->used_count = used_count;
+
+                                expect_extra_token_count(tokens, token_cursor - 1);
+                                break;
+                            }
+                            case ThingType_POTION: {
+                                PotionDescriptionId description_id = parse_string_id<PotionDescriptionId>(potion_description_names, PotionDescriptionId_COUNT, tokens[token_cursor++]);
+                                perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, description_id, last_seen_time);
+
+                                expect_extra_token_count(tokens, token_cursor - 1);
+                                break;
+                            }
+                            case ThingType_BOOK: {
+                                BookDescriptionId description_id = parse_string_id<BookDescriptionId>(book_description_names, BookDescriptionId_COUNT, tokens[token_cursor++]);
+                                perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, description_id, last_seen_time);
+
+                                expect_extra_token_count(tokens, token_cursor - 1);
+                                break;
+                            }
+
+                            case ThingType_COUNT:
+                                unreachable();
+                        }
+                        perceived_thing->location = location;
+                        perceived_thing->container_id = container_id;
+                        perceived_thing->z_order = z_order;
+                    }
+                }
+
                 break;
             }
             case ThingType_WAND: {
                 WandId wand_id = parse_wand_id(tokens[token_cursor++]);
                 int charges = parse_int(tokens[token_cursor++]);
                 thing = create<ThingImpl>(id, wand_id, charges);
+
+                expect_extra_token_count(tokens, token_cursor - 1);
                 break;
             }
             case ThingType_POTION: {
                 PotionId potion_id = parse_potion_id(tokens[token_cursor++]);
                 thing = create<ThingImpl>(id, potion_id);
+
+                expect_extra_token_count(tokens, token_cursor - 1);
                 break;
             }
             case ThingType_BOOK: {
                 BookId book_id = parse_book_id(tokens[token_cursor++]);
                 thing = create<ThingImpl>(id, book_id);
+
+                expect_extra_token_count(tokens, token_cursor - 1);
                 break;
             }
 
@@ -870,8 +1078,6 @@ static Game * parse_snapshot(const List<Token> & first_line_tokens) {
         thing->container_id = container_id;
         thing->z_order = z_order;
         game->actual_things.put(id, thing);
-
-        expect_extra_token_count(tokens, token_cursor - 1);
     }
     return game;
 }
@@ -952,8 +1158,8 @@ static void write_snapshot_to_buffer(Game * game, ByteBuffer * buffer) {
                 decision_maker_names[life->decision_maker]->encode(buffer);
 
                 buffer->format("\n    %s", LIFE_DIRECTIVE);
-                buffer->format(" %d %" PRIu64 " %d %" PRIu64, life->hitpoints, life->hp_regen_deadline, life->mana, life->mp_regen_deadline);
-                buffer->format(" %d %" PRIu64 " %" PRIu64, life->experience, life->last_movement_time, life->last_action_time);
+                buffer->format(" %d %" PRIi64 " %d %" PRIi64, life->hitpoints, life->hp_regen_deadline, life->mana, life->mp_regen_deadline);
+                buffer->format(" %d %" PRIi64 " %" PRIi64, life->experience, life->last_movement_time, life->last_action_time);
                 buffer->append(' ');
                 write_uint_oversized_to_buffer(life->initiative, buffer);
 
@@ -1035,7 +1241,7 @@ static void write_snapshot_to_buffer(Game * game, ByteBuffer * buffer) {
                     buffer->format("\n      %s", PERCEIVED_THING_DIRECTIVE);
                     buffer->append(' ');
                     write_uint_oversized_to_buffer(perceived_thing->id, buffer);
-                    buffer->format(" %d", !!perceived_thing->is_placeholder);
+                    buffer->format(" %d %" PRIi64, !!perceived_thing->is_placeholder, perceived_thing->last_seen_time);
                     buffer->append(' ');
                     write_uint_oversized_to_buffer(perceived_thing->container_id, buffer);
                     buffer->format(" %d %d %d", perceived_thing->z_order, perceived_thing->location.x, perceived_thing->location.y);
