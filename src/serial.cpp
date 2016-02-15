@@ -1641,7 +1641,7 @@ static String action_to_string(const Action & action) {
             String ability_name = ability_names[data.ability_id];
             String direction_string1 = int_to_string(data.direction.x);
             String direction_string2 = int_to_string(data.direction.y);
-            result->format("%s %s %s %s", action_type_string, ability_name,  direction_string1, direction_string2);
+            result->format("%s %s %s %s\n", action_type_string, ability_name,  direction_string1, direction_string2);
             break;
         }
     }
