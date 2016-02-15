@@ -59,6 +59,9 @@ public:
     inline bool operator==(ByteBuffer const& other) const {
         return this->_buffer == other._buffer;
     }
+    inline bool operator!=(ByteBuffer const& other) const {
+        return !(*this == other);
+    }
 
 private:
     List<char> _buffer;

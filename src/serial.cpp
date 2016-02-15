@@ -159,6 +159,20 @@ static void tokenize_line(const String & line, List<Token> * tokens) {
         tokens->append(current_token);
     }
 }
+static void read_tokens(List<Token> * tokens, bool tolerate_eof) {
+    while (tokens->length() == 0) {
+        String line = read_line();
+        if (line == nullptr) {
+            // EOF
+            if (!tolerate_eof) {
+                fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
+                exit_with_error();
+            }
+            return;
+        }
+        tokenize_line(line, tokens);
+    }
+}
 __attribute__((noreturn))
 static void report_error(const Token & token, int start, const char * msg) {
     int col = token.col + start;
@@ -174,7 +188,7 @@ static void report_error(const Token & token, int start, const char * msg1, cons
 static void expect_extra_token_count(const List<Token> & tokens, int extra_token_count) {
     if (tokens.length() - 1 == extra_token_count)
         return;
-    fprintf(stderr, "%s:%d:1: error: expected %d arguments. got %d arguments.\n", script_path, line_number, extra_token_count, tokens.length());
+    fprintf(stderr, "%s:%d:1: error: expected %d arguments. got %d arguments.\n", script_path, line_number, extra_token_count, tokens.length() - 1);
     exit_with_error();
 }
 
@@ -287,7 +301,7 @@ static int64_t parse_int64(const Token & token) {
     ByteBuffer buffer;
     token.string->encode(&buffer);
     int64_t value;
-    sscanf("%" PRIi64, buffer.raw(), &value);
+    sscanf(buffer.raw(), "%" PRIi64, &value);
     return value;
 }
 template <int Size64>
@@ -337,6 +351,15 @@ enum DirectiveId {
     DirectiveId_EXPECT_CARRYING,
     DirectiveId_EXPECT_CARRYING_NOTHING,
     DirectiveId_SNAPSHOT,
+    DirectiveId_MAP_TILES,
+    DirectiveId_AESTHETIC_INDEXES,
+    DirectiveId_RNG_STATE,
+    DirectiveId_THING,
+    DirectiveId_LIFE,
+    DirectiveId_STATUS_EFFECT,
+    DirectiveId_ABILITY_COOLDOWN,
+    DirectiveId_KNOWLEDGE,
+    DirectiveId_PERCEIVED_THING,
 
     DirectiveId_COUNT,
 };
@@ -350,7 +373,7 @@ static String wand_id_names[WandId_COUNT];
 static String potion_id_names[PotionId_COUNT];
 static String book_id_names[BookId_COUNT];
 static String ability_names[AbilityId_COUNT];
-static constexpr IndexAndValue<char> tile_type_short_names[TileType_COUNT] = {
+static IndexAndValue<char> constexpr tile_type_short_names[TileType_COUNT] = {
     {TileType_UNKNOWN, '_'},
     {TileType_DIRT_FLOOR, 'a'},
     {TileType_MARBLE_FLOOR, 'b'},
@@ -360,20 +383,59 @@ static constexpr IndexAndValue<char> tile_type_short_names[TileType_COUNT] = {
     {TileType_STAIRS_DOWN, 'f'},
     {TileType_UNKNOWN_FLOOR, '1'},
     {TileType_UNKNOWN_WALL, '2'},
-};
-static_assert(_check_indexed_array(tile_type_short_names, TileType_COUNT), "missed a spot");
-static constexpr IndexAndValue<char> thing_type_short_names[ThingType_COUNT] = {
-    {ThingType_INDIVIDUAL, 'i'},
-    {ThingType_WAND, 'w'},
-    {ThingType_POTION, 'p'},
-    {ThingType_BOOK, 'b'},
-};
-static_assert(_check_indexed_array(thing_type_short_names, ThingType_COUNT), "missed a spot");
+}; static_assert(_check_indexed_array(tile_type_short_names, TileType_COUNT), "missed a spot");
+static IndexAndValue<char const*> constexpr status_effect_names[StatusEffect::COUNT] = {
+    {StatusEffect::CONFUSION, "confusion"},
+    {StatusEffect::SPEED, "speed"},
+    {StatusEffect::ETHEREAL_VISION, "ethereal_vision"},
+    {StatusEffect::COGNISCOPY, "cogniscopy"},
+    {StatusEffect::BLINDNESS, "blindness"},
+    {StatusEffect::INVISIBILITY, "invisibility"},
+    {StatusEffect::POISON, "poison"},
+    {StatusEffect::POLYMORPH, "polymorph"},
+    {StatusEffect::SLOWING, "slowing"},
+}; static_assert(_check_indexed_array(status_effect_names, StatusEffect::COUNT), "missed a spot");
+static IndexAndValue<char const*> constexpr wand_description_names[WandDescriptionId_COUNT] = {
+    {WandDescriptionId_BONE_WAND, "bone"},
+    {WandDescriptionId_GOLD_WAND, "gold"},
+    {WandDescriptionId_PLASTIC_WAND, "plastic"},
+    {WandDescriptionId_COPPER_WAND, "copper"},
+    {WandDescriptionId_PURPLE_WAND, "purple"},
+    {WandDescriptionId_SHINY_BONE_WAND, "shiny_bone"},
+    {WandDescriptionId_SHINY_GOLD_WAND, "shiny_gold"},
+    {WandDescriptionId_SHINY_PLASTIC_WAND, "shiny_plastic"},
+    {WandDescriptionId_SHINY_COPPER_WAND, "shiny_copper"},
+    {WandDescriptionId_SHINY_PURPLE_WAND, "shiny_purple"},
+}; static_assert(_check_indexed_array(wand_description_names, WandDescriptionId_COUNT), "missed a spot");
+static IndexAndValue<char const*> constexpr potion_description_names[PotionDescriptionId_COUNT] = {
+    {PotionDescriptionId_BLUE_POTION, "blue"},
+    {PotionDescriptionId_GREEN_POTION, "green"},
+    {PotionDescriptionId_RED_POTION, "red"},
+    {PotionDescriptionId_YELLOW_POTION, "yellow"},
+    {PotionDescriptionId_ORANGE_POTION, "orange"},
+    {PotionDescriptionId_PURPLE_POTION, "purple"},
+}; static_assert(_check_indexed_array(potion_description_names, PotionDescriptionId_COUNT), "missed a spot");
+static IndexAndValue<char const*> constexpr book_description_names[BookDescriptionId_COUNT] = {
+    {BookDescriptionId_PURPLE_BOOK, "purple"},
+    {BookDescriptionId_BLUE_BOOK, "blue"},
+    {BookDescriptionId_RED_BOOK, "red"},
+    {BookDescriptionId_GREEN_BOOK, "green"},
+    {BookDescriptionId_YELLOW_BOOK, "yellow"},
+}; static_assert(_check_indexed_array(book_description_names, BookDescriptionId_COUNT), "missed a spot");
 
-static const char * const RNG_DIRECTIVE = "@rng";
-static const char * const SEED_DIRECTIVE = "@seed";
-static const char * const TEST_MODE_HEADER = "@test";
-static const char * const SNAPSHOT_DIRECTIVE = "@snapshot";
+static char const* const RNG_DIRECTIVE = "@rng";
+static char const* const SEED_DIRECTIVE = "@seed";
+static char const* const TEST_MODE_HEADER = "@test";
+static char const* const SNAPSHOT_DIRECTIVE = "@snapshot";
+static char const* const MAP_TILES_DIRECTIVE = "@map_tiles";
+static char const* const AESTHETIC_INDEXES_DIRECTIVE = "@aesthetics";
+static char const* const RNG_STATE_DIRECTIVE = "@rng_state";
+static char const* const THING_DIRECTIVE = "@thing";
+static char const* const LIFE_DIRECTIVE = "@life";
+static char const* const STATUS_EFFECT_DIRECTIVE = "@status_effect";
+static char const* const ABILITY_COOLDOWN_DIRECTIVE = "@ability_cooldown";
+static char const* const KNOWLEDGE_DIRECTIVE = "@knowledge";
+static char const* const PERCEIVED_THING_DIRECTIVE = "@perceived_thing";
 
 // making this a macro makes the red squiggly from the panic() show up at the call site instead of here.
 #define check_no_nulls(array) \
@@ -411,6 +473,15 @@ static void init_name_arrays() {
     directive_names[DirectiveId_EXPECT_CARRYING] = new_string("@expect_carrying");
     directive_names[DirectiveId_EXPECT_CARRYING_NOTHING] = new_string("@expect_carrying_nothing");
     directive_names[DirectiveId_SNAPSHOT] = new_string(SNAPSHOT_DIRECTIVE);
+    directive_names[DirectiveId_MAP_TILES] = new_string(MAP_TILES_DIRECTIVE);
+    directive_names[DirectiveId_AESTHETIC_INDEXES] = new_string(AESTHETIC_INDEXES_DIRECTIVE);
+    directive_names[DirectiveId_RNG_STATE] = new_string(RNG_STATE_DIRECTIVE);
+    directive_names[DirectiveId_THING] = new_string(THING_DIRECTIVE);
+    directive_names[DirectiveId_LIFE] = new_string(LIFE_DIRECTIVE);
+    directive_names[DirectiveId_STATUS_EFFECT] = new_string(STATUS_EFFECT_DIRECTIVE);
+    directive_names[DirectiveId_ABILITY_COOLDOWN] = new_string(ABILITY_COOLDOWN_DIRECTIVE);
+    directive_names[DirectiveId_KNOWLEDGE] = new_string(KNOWLEDGE_DIRECTIVE);
+    directive_names[DirectiveId_PERCEIVED_THING] = new_string(PERCEIVED_THING_DIRECTIVE);
     check_no_nulls(directive_names);
 
     species_names[SpeciesId_HUMAN] = new_string("human");
@@ -581,16 +652,7 @@ static String rng_input_to_string(const ByteBuffer & tag, int value) {
 }
 static int read_rng_input(const ByteBuffer & tag) {
     List<Token> tokens;
-    while (tokens.length() == 0) {
-        String line = read_line();
-        if (line == nullptr)
-            break; // and error
-        tokenize_line(line, &tokens);
-    }
-    if (tokens.length() == 0) {
-        fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
-        exit_with_error();
-    }
+    read_tokens(&tokens, false);
     if (*tokens[0].string != *new_string(RNG_DIRECTIVE))
         report_error(tokens[0], 0, "expected rng directive with tag: ", tag.raw());
     if (tokens.length() != 3)
@@ -612,16 +674,7 @@ static void write_test_mode_header() {
 }
 static void read_header() {
     List<Token> tokens;
-    while (tokens.length() == 0) {
-        String line = read_line();
-        if (line == nullptr)
-            break; // and error
-        tokenize_line(line, &tokens);
-    }
-    if (tokens.length() == 0) {
-        fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
-        exit_with_error();
-    }
+    read_tokens(&tokens, false);
     if (*tokens[0].string == *new_string(SEED_DIRECTIVE)) {
         if (tokens.length() != 2) {
             fprintf(stderr, "%s:%d:1: error: expected 1 argument", script_path, line_number);
@@ -711,120 +764,12 @@ void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test
     }
 }
 
-static void write_snapshot_to_buffer(Game * game, ByteBuffer * buffer) {
-    buffer->append(SNAPSHOT_DIRECTIVE);
-    buffer->format(" %d", game->dungeon_level);
-    buffer->format(" %" PRIi64, game->time_counter);
+static Game * parse_snapshot(const List<Token> & first_line_tokens) {
+    List<Token> tokens;
+    tokens.append_all(first_line_tokens);
 
-    buffer->append(' ');
-    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
-        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
-            buffer->append(tile_type_short_names[game->actual_map_tiles[cursor]].value);
-
-    buffer->append(' ');
-    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
-        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] >> 4));
-            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] & 0xf));
-        }
-    }
-
-    for (int i = 0; i < WandId_COUNT; i++)
-        buffer->format(" %d", game->actual_wand_descriptions[i]);
-    buffer->append(" .");
-    for (int i = 0; i < PotionId_COUNT; i++)
-        buffer->format(" %d", game->actual_potion_descriptions[i]);
-    buffer->append(" .");
-    for (int i = 0; i < BookId_COUNT; i++)
-        buffer->format(" %d", game->actual_book_descriptions[i]);
-    buffer->append(" .");
-
-    {
-        List<Thing> things;
-        Thing thing;
-        for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);)
-            things.append(thing);
-        sort<Thing, compare_things_by_id>(things.raw(), things.length());
-
-        buffer->format(" %d", things.length());
-        for (int i = 0; i < things.length(); i++) {
-            thing = things[i];
-            assert(thing->still_exists);
-
-            buffer->append(' ');
-            write_uint_oversized_to_buffer(thing->id, buffer);
-
-            buffer->append(' ');
-            buffer->append(thing_type_short_names[thing->thing_type].value);
-
-            // TODO: location, container_id, z_order
-            // TODO: status_effects, ability_cooldowns
-
-            switch (thing->thing_type) {
-                case ThingType_INDIVIDUAL:
-                    buffer->append(' ');
-                    species_names[thing->life()->original_species_id]->encode(buffer);
-                    // TODO: everything else in life
-                    break;
-                case ThingType_WAND:
-                    buffer->append(' ');
-                    wand_id_names[thing->wand_info()->wand_id]->encode(buffer);
-                    // TODO: charges
-                    break;
-                case ThingType_POTION:
-                    buffer->append(' ');
-                    potion_id_names[thing->potion_info()->potion_id]->encode(buffer);
-                    break;
-                case ThingType_BOOK:
-                    buffer->append(' ');
-                    book_id_names[thing->book_info()->book_id]->encode(buffer);
-                    break;
-
-                case ThingType_COUNT:
-                    unreachable();
-            }
-
-            buffer->append(" .");
-        }
-    }
-
-    assert(game->observer_to_active_identifiable_item.size() == 0);
-
-    // TODO: you_id, player_actor_id
-    // TODO: test_mode, rng stuff
-
-    buffer->append('\n');
-}
-static void write_snapshot(Game * game) {
-    ByteBuffer buffer;
-    write_snapshot_to_buffer(game, &buffer);
-    write_buffer(buffer);
-}
-static Game * parse_snapshot(const List<Token> & tokens) {
     Game * game = create<Game>();
     int token_cursor = 1; // skip the directive
-    game->dungeon_level = parse_int(tokens[token_cursor++]);
-    game->time_counter = parse_int64(tokens[token_cursor++]);
-
-    {
-        const Token & tiles_token = tokens[token_cursor++];
-        int i = 0;
-        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
-            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
-                game->actual_map_tiles[cursor] = parse_tile_type_short_name(tiles_token, (*tiles_token.string)[i++]);
-    }
-
-    {
-        const Token & aesthetic_indexes_token = tokens[token_cursor++];
-        int i = 0;
-        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
-            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-                uint32_t high = parse_nibble(aesthetic_indexes_token, i++);
-                uint32_t low = parse_nibble(aesthetic_indexes_token, i++);
-                game->aesthetic_indexes[cursor] = (high << 4) | low;
-            }
-        }
-    }
 
     for (int i = 0; i < WandId_COUNT; i++)
         game->actual_wand_descriptions[i] = (WandDescriptionId)parse_int(tokens[token_cursor++]);
@@ -836,15 +781,336 @@ static Game * parse_snapshot(const List<Token> & tokens) {
         game->actual_book_descriptions[i] = (BookDescriptionId)parse_int(tokens[token_cursor++]);
     expect_token(tokens[token_cursor++], ".");
 
-    // TODO: more parsing
+    game->you_id = parse_uint256(tokens[token_cursor++]);
+    game->player_actor_id = parse_uint256(tokens[token_cursor++]);
+
+    game->time_counter = parse_int64(tokens[token_cursor++]);
+    int thing_count = parse_int(tokens[token_cursor++]);
+    game->dungeon_level = parse_int(tokens[token_cursor++]);
+
+    expect_extra_token_count(tokens, token_cursor - 1);
+
+    // map tiles
+    {
+        tokens.clear();
+        read_tokens(&tokens, false);
+        expect_extra_token_count(tokens, 1);
+        token_cursor = 0;
+        if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_MAP_TILES)
+            report_error(tokens[token_cursor -1], 0, "expected map tiles directive");
+        const Token & tiles_token = tokens[token_cursor++];
+        int i = 0;
+        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+                game->actual_map_tiles[cursor] = parse_tile_type_short_name(tiles_token, (*tiles_token.string)[i++]);
+    }
+
+    // aesthetic indexes
+    {
+        tokens.clear();
+        read_tokens(&tokens, false);
+        expect_extra_token_count(tokens, 1);
+        token_cursor = 0;
+        if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_AESTHETIC_INDEXES)
+            report_error(tokens[token_cursor -1], 0, "expected aesthetic indexes directive");
+
+        const Token & aesthetic_indexes_token = tokens[token_cursor++];
+        int i = 0;
+        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
+            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+                uint32_t high = parse_nibble(aesthetic_indexes_token, i++);
+                uint32_t low = parse_nibble(aesthetic_indexes_token, i++);
+                game->aesthetic_indexes[cursor] = (high << 4) | low;
+            }
+        }
+    }
+
+    for (int i = 0; i < thing_count; i++) {
+        tokens.clear();
+        read_tokens(&tokens, false);
+        token_cursor = 0;
+        if (parse_directive_id(tokens[token_cursor++].string) != DirectiveId_THING)
+            report_error(tokens[token_cursor -1], 0, "expected thing directive");
+
+        uint256 id = parse_uint256(tokens[token_cursor++]);
+        uint256 container_id = parse_uint256(tokens[token_cursor++]);
+        int z_order = parse_int(tokens[token_cursor++]);
+        Coord location = parse_coord(tokens[token_cursor], tokens[token_cursor + 1]);
+        token_cursor += 2;
+        ThingType thing_type = parse_thing_type(tokens[token_cursor++]);
+        Thing thing;
+        switch (thing_type) {
+            case ThingType_INDIVIDUAL: {
+                SpeciesId species_id = parse_species_id(tokens[token_cursor++]);
+                DecisionMakerType decision_maker = parse_decision_maker(tokens[token_cursor++]);
+                thing = create<ThingImpl>(id, species_id, decision_maker);
+                break;
+            }
+            case ThingType_WAND: {
+                WandId wand_id = parse_wand_id(tokens[token_cursor++]);
+                int charges = parse_int(tokens[token_cursor++]);
+                thing = create<ThingImpl>(id, wand_id, charges);
+                break;
+            }
+            case ThingType_POTION: {
+                PotionId potion_id = parse_potion_id(tokens[token_cursor++]);
+                thing = create<ThingImpl>(id, potion_id);
+                break;
+            }
+            case ThingType_BOOK: {
+                BookId book_id = parse_book_id(tokens[token_cursor++]);
+                thing = create<ThingImpl>(id, book_id);
+                break;
+            }
+
+            case ThingType_COUNT:
+                unreachable();
+        }
+        thing->location = location;
+        thing->container_id = container_id;
+        thing->z_order = z_order;
+        game->actual_things.put(id, thing);
+
+        expect_extra_token_count(tokens, token_cursor - 1);
+    }
     return game;
 }
-static bool game_states_equal(Game * a, Game * b) {
-    ByteBuffer buffer_a;
-    write_snapshot_to_buffer(a, &buffer_a);
-    ByteBuffer buffer_b;
-    write_snapshot_to_buffer(b, &buffer_b);
-    return buffer_a == buffer_b;
+static void write_snapshot_to_buffer(Game * game, ByteBuffer * buffer) {
+    buffer->append(SNAPSHOT_DIRECTIVE);
+    for (int i = 0; i < WandId_COUNT; i++)
+        buffer->format(" %d", game->actual_wand_descriptions[i]);
+    buffer->append(" .");
+    for (int i = 0; i < PotionId_COUNT; i++)
+        buffer->format(" %d", game->actual_potion_descriptions[i]);
+    buffer->append(" .");
+    for (int i = 0; i < BookId_COUNT; i++)
+        buffer->format(" %d", game->actual_book_descriptions[i]);
+    buffer->append(" .");
+
+    buffer->append(' ');
+    write_uint_oversized_to_buffer(game->you_id, buffer);
+    buffer->append(' ');
+    write_uint_oversized_to_buffer(game->player_actor_id, buffer);
+
+    buffer->format(" %" PRIi64, game->time_counter);
+
+    List<Thing> things;
+    {
+        Thing thing;
+        for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);)
+            things.append(thing);
+    }
+    sort<Thing, compare_things_by_id>(things.raw(), things.length());
+    buffer->format(" %d", things.length());
+
+    buffer->format(" %d", game->dungeon_level);
+    buffer->format("\n  %s ", MAP_TILES_DIRECTIVE);
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+            buffer->append(tile_type_short_names[game->actual_map_tiles[cursor]].value);
+    buffer->format("\n  %s ", AESTHETIC_INDEXES_DIRECTIVE);
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] >> 4));
+            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] & 0xf));
+        }
+    }
+
+    buffer->format("\n  %s %d", RNG_STATE_DIRECTIVE, !!game->test_mode);
+    if (game->test_mode) {
+        buffer->append(' ');
+        write_uint_oversized_to_buffer(game->random_arbitrary_large_number_count, buffer);
+        buffer->append(' ');
+        write_uint_oversized_to_buffer(game->random_initiative_count, buffer);
+    } else {
+        buffer->format(" %d", game->the_random_state.index);
+        buffer->append(' ');
+        for (int i = 0; i < RandomState::ARRAY_SIZE; i++)
+            uint32_to_string(game->the_random_state.array[i])->encode(buffer);
+    }
+
+    for (int i = 0; i < things.length(); i++) {
+        Thing thing = things[i];
+        assert(thing->still_exists);
+
+        buffer->format("\n  %s ", THING_DIRECTIVE);
+        write_uint_oversized_to_buffer(thing->id, buffer);
+
+        buffer->append(' ');
+        write_uint_oversized_to_buffer(thing->container_id, buffer);
+        buffer->format(" %d %d %d", thing->z_order, thing->location.x, thing->location.y);
+
+        buffer->append(' ');
+        thing_type_names[thing->thing_type]->encode(buffer);
+
+        switch (thing->thing_type) {
+            case ThingType_INDIVIDUAL: {
+                Life * life = thing->life();
+                buffer->append(' ');
+                species_names[life->original_species_id]->encode(buffer);
+                buffer->append(' ');
+                decision_maker_names[life->decision_maker]->encode(buffer);
+
+                buffer->format("\n    %s", LIFE_DIRECTIVE);
+                buffer->format(" %d %" PRIu64 " %d %" PRIu64, life->hitpoints, life->hp_regen_deadline, life->mana, life->mp_regen_deadline);
+                buffer->format(" %d %" PRIu64 " %" PRIu64, life->experience, life->last_movement_time, life->last_action_time);
+                buffer->append(' ');
+                write_uint_oversized_to_buffer(life->initiative, buffer);
+
+                List<StatusEffect> status_effects;
+                status_effects.append_all(thing->status_effects);
+                sort<StatusEffect, compare_status_effects_by_type>(status_effects.raw(), status_effects.length());
+
+                List<AbilityCooldown> ability_cooldowns;
+                ability_cooldowns.append_all(thing->ability_cooldowns);
+                sort<AbilityCooldown, compare_ability_cooldowns_by_type>(ability_cooldowns.raw(), ability_cooldowns.length());
+
+                buffer->format(" %d %d", status_effects.length(), ability_cooldowns.length());
+
+                for (int i = 0; i < status_effects.length(); i++) {
+                    StatusEffect status_effect = status_effects[i];
+                    buffer->format("\n      %s %s", STATUS_EFFECT_DIRECTIVE, status_effect_names[status_effect.type].value);
+                    buffer->format(" %" PRIi64, status_effect.expiration_time);
+                    switch (status_effect.type) {
+                        case StatusEffect::CONFUSION:
+                        case StatusEffect::SPEED:
+                        case StatusEffect::ETHEREAL_VISION:
+                        case StatusEffect::COGNISCOPY:
+                        case StatusEffect::BLINDNESS:
+                        case StatusEffect::INVISIBILITY:
+                        case StatusEffect::SLOWING:
+                            break;
+                        case StatusEffect::POISON:
+                            buffer->format(" %" PRIi64, status_effect.poison_next_damage_time);
+                            buffer->append(' ');
+                            write_uint_oversized_to_buffer(status_effect.who_is_responsible, buffer);
+                            break;
+                        case StatusEffect::POLYMORPH:
+                            buffer->append(' ');
+                            species_names[status_effect.species_id]->encode(buffer);
+                            break;
+
+                        case StatusEffect::COUNT:
+                            unreachable();
+                    }
+                }
+                for (int i = 0; i < ability_cooldowns.length(); i++) {
+                    AbilityCooldown ability_cooldown = ability_cooldowns[i];
+                    buffer->format("\n      %s", ABILITY_COOLDOWN_DIRECTIVE);
+                    buffer->append(' ');
+                    ability_names[ability_cooldown.ability_id]->encode(buffer);
+                    buffer->format(" %" PRIi64, ability_cooldown.expiration_time);
+                }
+
+                Knowledge const& knowledge = life->knowledge;
+                buffer->format("\n    %s", KNOWLEDGE_DIRECTIVE);
+                for (int i = 0; i < WandDescriptionId_COUNT; i++)
+                    buffer->format(" %d", knowledge.wand_identities[i]);
+                buffer->append(" .");
+                for (int i = 0; i < PotionDescriptionId_COUNT; i++)
+                    buffer->format(" %d", knowledge.potion_identities[i]);
+                buffer->append(" .");
+                for (int i = 0; i < BookDescriptionId_COUNT; i++)
+                    buffer->format(" %d", knowledge.book_identities[i]);
+                buffer->append(" .");
+
+                List<PerceivedThing> perceived_things;
+                {
+                    PerceivedThing perceived_thing;
+                    for (auto iterator = life->knowledge.perceived_things.value_iterator(); iterator.next(&perceived_thing);)
+                        perceived_things.append(perceived_thing);
+                }
+                sort<PerceivedThing, compare_perceived_things_by_id>(perceived_things.raw(), perceived_things.length());
+
+                buffer->format(" %d", perceived_things.length());
+
+                buffer->format("\n      %s ", MAP_TILES_DIRECTIVE);
+                for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+                    for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+                        buffer->append(tile_type_short_names[knowledge.tiles[cursor]].value);
+
+                for (int i = 0; i < perceived_things.length(); i++) {
+                    PerceivedThing perceived_thing = perceived_things[i];
+
+                    buffer->format("\n      %s", PERCEIVED_THING_DIRECTIVE);
+                    buffer->append(' ');
+                    write_uint_oversized_to_buffer(perceived_thing->id, buffer);
+                    buffer->format(" %d", !!perceived_thing->is_placeholder);
+                    buffer->append(' ');
+                    write_uint_oversized_to_buffer(perceived_thing->container_id, buffer);
+                    buffer->format(" %d %d %d", perceived_thing->z_order, perceived_thing->location.x, perceived_thing->location.y);
+
+                    buffer->append(' ');
+                    thing_type_names[perceived_thing->thing_type]->encode(buffer);
+                    switch (perceived_thing->thing_type) {
+                        case ThingType_INDIVIDUAL: {
+                            buffer->append(' ');
+                            species_names[perceived_thing->life()->species_id]->encode(buffer);
+                            // TODO: perceived status effects
+                            break;
+                        }
+                        case ThingType_WAND:
+                            buffer->append(' ');
+                            buffer->append(wand_description_names[perceived_thing->wand_info()->description_id].value);
+                            buffer->format(" %d", perceived_thing->wand_info()->used_count);
+                            break;
+                        case ThingType_POTION:
+                            buffer->append(' ');
+                            buffer->append(potion_description_names[perceived_thing->potion_info()->description_id].value);
+                            break;
+                        case ThingType_BOOK:
+                            buffer->append(' ');
+                            buffer->append(book_description_names[perceived_thing->book_info()->description_id].value);
+                            break;
+
+                        case ThingType_COUNT:
+                            unreachable();
+                    }
+                }
+                // TODO: rememberd_events
+                break;
+            }
+            case ThingType_WAND:
+                buffer->append(' ');
+                wand_id_names[thing->wand_info()->wand_id]->encode(buffer);
+                buffer->format(" %d", thing->wand_info()->charges);
+                break;
+            case ThingType_POTION:
+                buffer->append(' ');
+                potion_id_names[thing->potion_info()->potion_id]->encode(buffer);
+                break;
+            case ThingType_BOOK:
+                buffer->append(' ');
+                book_id_names[thing->book_info()->book_id]->encode(buffer);
+                break;
+
+            case ThingType_COUNT:
+                unreachable();
+        }
+    }
+
+    assert(game->observer_to_active_identifiable_item.size() == 0);
+
+    buffer->append('\n');
+}
+static void write_snapshot(Game * game) {
+    ByteBuffer buffer;
+    write_snapshot_to_buffer(game, &buffer);
+    write_buffer(buffer);
+}
+static void expect_state(Game * expected_state, Game * actual_state) {
+    ByteBuffer expected_buffer;
+    write_snapshot_to_buffer(expected_state, &expected_buffer);
+    ByteBuffer actual_buffer;
+    write_snapshot_to_buffer(actual_state, &actual_buffer);
+    if (expected_buffer == actual_buffer)
+        return;
+    fprintf(stderr, "error: corrupt save file\n");
+    fprintf(stderr, "\nexpected:\n");
+    fprintf(stderr, "%s", expected_buffer.raw());
+    fprintf(stderr, "\ngot:\n");
+    fprintf(stderr, "%s", actual_buffer.raw());
+    exit_with_error();
 }
 
 static int test_you_events_mark;
@@ -988,11 +1254,24 @@ static void handle_directive(DirectiveId directive_id, const List<Token> & token
             expect_extra_token_count(tokens, 0);
             expect_nothing(test_expect_carrying_list);
             break;
-        case DirectiveId_SNAPSHOT:
+        case DirectiveId_SNAPSHOT: {
             // verify the snapshot is correct
-            assert_str(game_states_equal(game, parse_snapshot(tokens)), "corrupt save file");
+            Game * saved_game = parse_snapshot(tokens);
+            expect_state(game, saved_game);
+            destroy(saved_game, 1);
             break;
+        }
 
+        case DirectiveId_MAP_TILES:
+        case DirectiveId_AESTHETIC_INDEXES:
+        case DirectiveId_RNG_STATE:
+        case DirectiveId_THING:
+        case DirectiveId_LIFE:
+        case DirectiveId_STATUS_EFFECT:
+        case DirectiveId_ABILITY_COOLDOWN:
+        case DirectiveId_KNOWLEDGE:
+        case DirectiveId_PERCEIVED_THING:
+            report_error(tokens[0], 0, "directive used out of context");
         case DirectiveId_COUNT:
             unreachable();
     }
@@ -1001,12 +1280,9 @@ static void handle_directive(DirectiveId directive_id, const List<Token> & token
 static Action read_action() {
     List<Token> tokens;
     while (true) {
-        while (tokens.length() == 0) {
-            String line = read_line();
-            if (line == nullptr)
-                return Action::undecided(); // EOF
-            tokenize_line(line, &tokens);
-        }
+        read_tokens(&tokens, true);
+        if (tokens.length() == 0)
+            return Action::undecided(); // EOF
 
         DirectiveId directive_id = parse_directive_id(tokens[0].string);
         if (directive_id != DirectiveId_COUNT) {

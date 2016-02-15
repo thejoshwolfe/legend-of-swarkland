@@ -222,6 +222,8 @@ struct StatusEffect {
         POISON,
         POLYMORPH,
         SLOWING,
+
+        COUNT,
     };
     Id type;
     // this is never in the past
@@ -235,6 +237,10 @@ struct StatusEffect {
     // used for polymorph
     SpeciesId species_id;
 };
+static inline int compare_status_effects_by_type(StatusEffect a, StatusEffect b) {
+    assert_str(a.type != b.type, "status effect list contains duplicates");
+    return a.type - b.type;
+}
 
 static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vision) {
     switch (effect) {
@@ -254,6 +260,9 @@ static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vi
             // the polymorphed status is unknown unless you can see the original mind.
             // otherwise, you just look like the new species.
             return can_see_thoughts(vision);
+
+        case StatusEffect::COUNT:
+            unreachable();
     }
     unreachable();
 }
@@ -290,6 +299,10 @@ struct AbilityCooldown {
     AbilityId ability_id;
     int64_t expiration_time;
 };
+static inline int compare_ability_cooldowns_by_type(AbilityCooldown a, AbilityCooldown b) {
+    assert_str(a.ability_id != b.ability_id, "ability cooldown list contains duplicates");
+    return a.ability_id - b.ability_id;
+}
 
 struct PerceivedWandInfo {
     WandDescriptionId description_id;
@@ -462,7 +475,7 @@ struct BookInfo {
 
 class ThingImpl : public ReferenceCounted {
 public:
-    uint256 id;
+    const uint256 id;
     const ThingType thing_type;
     // this is set to false in the time between actually being destroyed and being removed from the master list
     bool still_exists = true;
@@ -475,13 +488,13 @@ public:
     List<AbilityCooldown> ability_cooldowns;
 
     // individual
-    ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType decision_maker);
+    ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker);
     // wand
-    ThingImpl(WandId wand_id, int charges);
+    ThingImpl(uint256 id, WandId wand_id, int charges);
     // potion
-    ThingImpl(PotionId potion_id);
+    ThingImpl(uint256 id, PotionId potion_id);
     // book
-    ThingImpl(BookId book_id);
+    ThingImpl(uint256 id, BookId book_id);
 
     ~ThingImpl() {
         switch (thing_type) {
@@ -611,6 +624,9 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
         case StatusEffect::POISON:
         case StatusEffect::POLYMORPH:
             return true;
+
+        case StatusEffect::COUNT:
+            unreachable();
     }
     unreachable();
 }

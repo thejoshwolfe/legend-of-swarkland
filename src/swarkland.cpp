@@ -272,7 +272,8 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
         }
     }
 
-    Thing individual = create<ThingImpl>(species_id, location, decision_maker);
+    Thing individual = create<ThingImpl>(random_id(), species_id, decision_maker);
+    individual->location = location;
 
     gain_experience(individual, level_to_experience(specieses[species_id].min_level + 1) - 1, false);
 
@@ -600,6 +601,9 @@ bool check_for_status_expired(Thing individual, int index) {
             // we've got a function for removing this status
             polymorph_individual(individual, individual->life()->original_species_id);
             return true;
+
+        case StatusEffect::COUNT:
+            unreachable();
     }
     individual->status_effects.swap_remove(index);
     switch (status_effect.type) {
@@ -625,6 +629,9 @@ bool check_for_status_expired(Thing individual, int index) {
         case StatusEffect::POLYMORPH:
             compute_vision(individual);
             break;
+
+        case StatusEffect::COUNT:
+            unreachable();
     }
     return true;
 }

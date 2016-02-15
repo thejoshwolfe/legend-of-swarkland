@@ -24,6 +24,15 @@ syn match   swarklandDirective /@test\>/
 syn match   swarklandDirective /@seed\>/
 syn match   swarklandDirective /@rng\>/
 syn match   swarklandDirective /@snapshot\>/
+syn match   swarklandDirective /@map_tiles\>/
+syn match   swarklandDirective /@aesthetics\>/
+syn match   swarklandDirective /@rng_state\>/
+syn match   swarklandDirective /@thing\>/
+syn match   swarklandDirective /@life\>/
+syn match   swarklandDirective /@status_effect\>/
+syn match   swarklandDirective /@ability_cooldown\>/
+syn match   swarklandDirective /@knowledge\>/
+syn match   swarklandDirective /@perceived_thing\>/
 syn match   swarklandDirective /@mark_events\>/
 syn match   swarklandDirective /@expect_event\>/
 syn match   swarklandDirective /@expect_no_events\>/
@@ -40,10 +49,17 @@ syn keyword swarklandBareword player ai
 syn keyword swarklandBareword confusion digging striking speed remedy unknown
 syn keyword swarklandBareword healing poison ethereal_vision cogniscopy blindness invisibility
 syn keyword swarklandBareword magic_bullet mapping force assume_form blinding slowing
+syn keyword swarklandBareword red blue green yellow orange purple
+syn keyword swarklandBareword       bone       gold       plastic       copper       purple
+syn keyword swarklandBareword shiny_bone shiny_gold shiny_plastic shiny_copper shiny_purple
 
 " patterns
-syn match   swarklandNumber /-\?\<\d\{1,10\}\>/
-syn match   swarklandNumber /\<\x\{64\}\>/
+syn match   swarklandNumber /-\?\<\d\{1,10\}\>/         " int
+syn match   swarklandNumber /\<\x\{8\}\>/               " seed
+syn match   swarklandNumber /\<\x\{64\}\>/              " id
+syn match   swarklandNumber /\<\x\{2500\}\>/            " aesthetics
+syn match   swarklandNumber /\<\x\{4992\}\>/            " rng_state (although my gvim seems to only color the first 3000 characaters of a line)
+syn match   swarklandNumber /\<[a-zA-Z_0-9]\{1250\}\>/  " map_tiles
 syn match   swarklandTag    /\<[^ ]\+:[^ ]\+:\S\+/
 
 " regions

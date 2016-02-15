@@ -689,6 +689,9 @@ static void observe_event(Thing observer, Event event) {
                     lose_wand_id = WandId_WAND_OF_SPEED;
                     lose_book_id = BookId_SPELLBOOK_OF_SPEED;
                     break;
+
+                case StatusEffect::COUNT:
+                    unreachable();
             }
             if (status_description != nullptr) {
                 // TODO: we should be able to pass const char * to span->format()

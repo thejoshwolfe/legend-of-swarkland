@@ -123,16 +123,6 @@ private:
     List<T> & operator= (const List<T> & other) = delete;
 };
 
-template<typename T>
-static inline bool operator==(List<T> const& a, List<T> const& b) {
-    if (a.length() != b.length())
-        return false;
-    for (int i = 0; i < a.length(); i++)
-        if (a[i] != b[i])
-            return false;
-    return true;
-}
-
 DEFINE_GDB_PY_SCRIPT("debug-scripts/list.py")
 
 #endif

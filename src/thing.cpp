@@ -2,10 +2,9 @@
 
 #include "swarkland.hpp"
 
-ThingImpl::ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType decision_maker) :
-        thing_type(ThingType_INDIVIDUAL), location(location)
+ThingImpl::ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker) :
+        id(id), thing_type(ThingType_INDIVIDUAL)
 {
-    id = random_id();
     _life = create<Life>();
     _life->original_species_id = species_id;
     _life->decision_maker = decision_maker;
@@ -13,25 +12,22 @@ ThingImpl::ThingImpl(SpeciesId species_id, Coord location, DecisionMakerType dec
     _life->mana = max_mana();
     _life->initiative = random_initiative();
 }
-ThingImpl::ThingImpl(WandId wand_id, int charges) :
-        thing_type(ThingType_WAND)
+ThingImpl::ThingImpl(uint256 id, WandId wand_id, int charges) :
+        id(id), thing_type(ThingType_WAND)
 {
-    id = random_id();
     _wand_info = create<WandInfo>();
     _wand_info->wand_id = wand_id;
     _wand_info->charges = charges;
 }
-ThingImpl::ThingImpl(PotionId potion_id) :
-    thing_type(ThingType_POTION)
+ThingImpl::ThingImpl(uint256 id, PotionId potion_id) :
+        id(id), thing_type(ThingType_POTION)
 {
-    id = random_id();
     _potion_info = create<PotionInfo>();
     _potion_info->potion_id = potion_id;
 }
-ThingImpl::ThingImpl(BookId book_id) :
-    thing_type(ThingType_BOOK)
+ThingImpl::ThingImpl(uint256 id, BookId book_id) :
+        id(id), thing_type(ThingType_BOOK)
 {
-    id = random_id();
     _book_info = create<BookInfo>();
     _book_info->book_id = book_id;
 }

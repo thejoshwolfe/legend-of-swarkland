@@ -31,13 +31,13 @@ Thing create_wand(WandId wand_id) {
         case WandId_UNKNOWN:
             unreachable();
     }
-    return register_item(create<ThingImpl>(wand_id, charges));
+    return register_item(create<ThingImpl>(random_id(), wand_id, charges));
 }
 Thing create_potion(PotionId potion_id) {
-    return register_item(create<ThingImpl>(potion_id));
+    return register_item(create<ThingImpl>(random_id(), potion_id));
 }
 Thing create_book(BookId book_id) {
-    return register_item(create<ThingImpl>(book_id));
+    return register_item(create<ThingImpl>(random_id(), book_id));
 }
 
 static Thing create_random_item(int min_offset, int max_offset) {
