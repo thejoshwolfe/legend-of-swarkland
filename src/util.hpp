@@ -203,6 +203,8 @@ private:
     bool (*filter)(ValueType);
 };
 
+#define get_array_length(array) (sizeof(array) / sizeof((array)[0]))
+
 template<typename T>
 struct IndexAndValue {
     int index;
@@ -215,5 +217,6 @@ static constexpr bool _check_indexed_array(const IndexAndValue<T> array[], int s
             return false;
     return true;
 }
+#define check_indexed_array(array) static_assert(_check_indexed_array(array, get_array_length(array)), "missed a spot")
 
 #endif

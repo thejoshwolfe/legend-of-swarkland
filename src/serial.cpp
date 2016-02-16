@@ -381,7 +381,7 @@ static IndexAndValue<ConstStr> constexpr directive_names[DirectiveId_COUNT] {
     {DirectiveId_KNOWLEDGE, KNOWLEDGE_DIRECTIVE},
     {DirectiveId_PERCEIVED_THING, PERCEIVED_THING_DIRECTIVE},
 };
-static_assert(_check_indexed_array(directive_names, DirectiveId_COUNT), "missed a spot");
+check_indexed_array(directive_names);
 
 static IndexAndValue<ConstStr> constexpr action_names[Action::COUNT] = {
     {Action::MOVE, "move"},
@@ -404,7 +404,7 @@ static IndexAndValue<ConstStr> constexpr action_names[Action::COUNT] = {
     {Action::CHEATCODE_GO_DOWN, "!down"},
     {Action::CHEATCODE_GAIN_LEVEL, "!levelup"},
 };
-static_assert(_check_indexed_array(action_names, Action::COUNT), "missed a spot");
+check_indexed_array(action_names);
 
 static IndexAndValue<ConstStr> constexpr species_names[SpeciesId_COUNT] = {
     {SpeciesId_HUMAN, "human"},
@@ -420,13 +420,13 @@ static IndexAndValue<ConstStr> constexpr species_names[SpeciesId_COUNT] = {
     {SpeciesId_SNAKE, "snake"},
     {SpeciesId_COBRA, "cobra"},
 };
-static_assert(_check_indexed_array(species_names, SpeciesId_COUNT), "missed a spot");
+check_indexed_array(species_names);
 
 static IndexAndValue<ConstStr> constexpr decision_maker_names[DecisionMakerType_COUNT] = {
     {DecisionMakerType_AI, "ai"},
     {DecisionMakerType_PLAYER, "player"},
 };
-static_assert(_check_indexed_array(decision_maker_names, DecisionMakerType_COUNT), "missed a spot");
+check_indexed_array(decision_maker_names);
 
 static IndexAndValue<ConstStr> constexpr thing_type_names[ThingType_COUNT] = {
     {ThingType_INDIVIDUAL, "individual"},
@@ -434,7 +434,7 @@ static IndexAndValue<ConstStr> constexpr thing_type_names[ThingType_COUNT] = {
     {ThingType_POTION, "potion"},
     {ThingType_BOOK, "book"},
 };
-static_assert(_check_indexed_array(thing_type_names, ThingType_COUNT), "missed a spot");
+check_indexed_array(thing_type_names);
 
 static IndexAndValue<ConstStr> constexpr wand_id_names[WandId_COUNT] = {
     {WandId_WAND_OF_CONFUSION, "confusion"},
@@ -448,7 +448,7 @@ static IndexAndValue<ConstStr> constexpr wand_id_names[WandId_COUNT] = {
     {WandId_WAND_OF_MAGIC_BULLET, "magic_bullet"},
     {WandId_WAND_OF_SLOWING, "slowing"},
 };
-static_assert(_check_indexed_array(wand_id_names, WandId_COUNT), "missed a spot");
+check_indexed_array(wand_id_names);
 
 static IndexAndValue<ConstStr> constexpr potion_id_names[PotionId_COUNT] = {
     {PotionId_POTION_OF_HEALING, "healing"},
@@ -458,7 +458,7 @@ static IndexAndValue<ConstStr> constexpr potion_id_names[PotionId_COUNT] = {
     {PotionId_POTION_OF_BLINDNESS, "blindness"},
     {PotionId_POTION_OF_INVISIBILITY, "invisibility"},
 };
-static_assert(_check_indexed_array(potion_id_names, PotionId_COUNT), "missed a spot");
+check_indexed_array(potion_id_names);
 
 static IndexAndValue<ConstStr> constexpr book_id_names[BookId_COUNT] = {
     {BookId_SPELLBOOK_OF_MAGIC_BULLET, "magic_bullet"},
@@ -467,12 +467,12 @@ static IndexAndValue<ConstStr> constexpr book_id_names[BookId_COUNT] = {
     {BookId_SPELLBOOK_OF_FORCE, "force"},
     {BookId_SPELLBOOK_OF_ASSUME_FORM, "assume_form"},
 };
-static_assert(_check_indexed_array(book_id_names, BookId_COUNT), "missed a spot");
+check_indexed_array(book_id_names);
 
 static IndexAndValue<ConstStr> constexpr ability_names[AbilityId_COUNT] = {
     {AbilityId_SPIT_BLINDING_VENOM, "spit_blinding_venom"},
 };
-static_assert(_check_indexed_array(ability_names, AbilityId_COUNT), "missed a spot");
+check_indexed_array(ability_names);
 
 static IndexAndValue<char> constexpr tile_type_short_names[TileType_COUNT] = {
     {TileType_UNKNOWN, '_'},

@@ -72,7 +72,7 @@ static RuckSackImage * find_image(const char * name) {
 }
 
 #define check_no_nulls(array) \
-    for (int i = 0; i < (int)(sizeof(array) / sizeof(array[0])); i++) \
+    for (int i = 0; i < (int)(get_array_length(array)); i++) \
         assert_str(array[i] != nullptr, "missed a spot")
 
 static void load_images() {
