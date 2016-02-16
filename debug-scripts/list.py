@@ -4,7 +4,7 @@ import re
 
 list_regex = re.compile("List<.*>")
 
-def list_matcher(value):
+def matcher(value):
   tag = value.type.tag
   if tag == None: return None
   if list_regex.match(value.type.tag): return ListPrinter(value)
@@ -25,5 +25,4 @@ class ListPrinter(object):
   def to_string(self):
     return "List[" + str(self.value["_length"]) + "/" + str(self.value["_capacity"]) + "]"
 
-
-gdb.current_objfile().pretty_printers.append(list_matcher)
+gdb.current_objfile().pretty_printers.append(matcher)

@@ -4,7 +4,7 @@ import re
 
 uint_oversized_regex = re.compile("uint_oversized<(\d+)>")
 
-def uint_oversized_matcher(value):
+def matcher(value):
   type = value.type.strip_typedefs()
   if type.tag == None: return None
   match = uint_oversized_regex.match(type.tag)
@@ -22,4 +22,4 @@ class UintOversizedPrinter(object):
       result += hex(n)[2:].zfill(16)
     return result
 
-gdb.current_objfile().pretty_printers.append(uint_oversized_matcher)
+gdb.current_objfile().pretty_printers.append(matcher)

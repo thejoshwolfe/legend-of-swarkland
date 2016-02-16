@@ -1,9 +1,8 @@
 print("loaded " + __file__)
 
-VisionTypesBits = gdb.lookup_type("VisionTypesBits")
 field_values = []
 def init():
-  for field in VisionTypesBits.fields():
+  for field in gdb.lookup_type("VisionTypesBits").fields():
     name = field.name
     if name.startswith("VisionTypes_"):
       # this should always be the case
@@ -12,7 +11,7 @@ def init():
   field_values.sort()
 init()
 
-def string_matcher(value):
+def matcher(value):
   if value.type.name == "VisionTypes":
     return VisionTypesPrinter(value)
   return None
@@ -34,4 +33,4 @@ class VisionTypesPrinter(object):
       names.append(hex(value))
     return " | ".join(names)
 
-gdb.current_objfile().pretty_printers.append(string_matcher)
+gdb.current_objfile().pretty_printers.append(matcher)

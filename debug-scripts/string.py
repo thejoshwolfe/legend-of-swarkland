@@ -1,6 +1,6 @@
 print("loaded " + __file__)
 
-def string_matcher(value):
+def matcher(value):
   if value.type.code == gdb.TYPE_CODE_PTR:
     type = value.type.target().strip_typedefs()
     if type.tag == "StringImpl":
@@ -21,4 +21,4 @@ class StringPrinter(object):
     # TODO: we should be using unichr() instead of chr(), but I get a NameError 'unichr' is not defined.
     return u"".join(chr(int((chars_pointer + x).dereference())) for x in range(length))
 
-gdb.current_objfile().pretty_printers.append(string_matcher)
+gdb.current_objfile().pretty_printers.append(matcher)
