@@ -327,7 +327,7 @@ public:
     uint256 container_id = uint256::zero();
     int z_order = 0;
     int64_t last_seen_time;
-    List<StatusEffect::Id> status_effects;
+    List<StatusEffect> status_effects;
     // individual
     PerceivedThingImpl(uint256 id, bool is_placeholder, SpeciesId species_id, int64_t last_seen_time) :
             id(id), is_placeholder(is_placeholder), thing_type(ThingType_INDIVIDUAL), last_seen_time(last_seen_time) {
@@ -646,23 +646,18 @@ static inline bool has_status(const List<StatusEffect> & status_effects, StatusE
 static inline bool has_status(Thing thing, StatusEffect::Id status) {
     return can_have_status(thing, status) && has_status(thing->status_effects, status);
 }
-static inline int find_status(const List<StatusEffect::Id> & status_effects, StatusEffect::Id status) {
-    for (int i = 0; i < status_effects.length(); i++)
-        if (status_effects[i] == status)
-            return i;
-    return -1;
-}
-static inline bool has_status(const List<StatusEffect::Id> & status_effects, StatusEffect::Id status) {
-    return find_status(status_effects, status) != -1;
-}
 static inline bool has_status(PerceivedThing thing, StatusEffect::Id status) {
     return has_status(thing->status_effects, status);
 }
-static inline void put_status(PerceivedThing thing, StatusEffect::Id status) {
-    if (!has_status(thing, status))
-        thing->status_effects.append(status);
+static inline StatusEffect * find_or_put_status(PerceivedThing thing, StatusEffect::Id status) {
+    int index = find_status(thing->status_effects, status);
+    if (index == -1) {
+        index = thing->status_effects.length();
+        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero(), SpeciesId_COUNT });
+    }
+    return &thing->status_effects[index];
 }
-static inline bool maybe_remove_status(List<StatusEffect::Id> * status_effects, StatusEffect::Id status) {
+static inline bool maybe_remove_status(List<StatusEffect> * status_effects, StatusEffect::Id status) {
     int index = find_status(*status_effects, status);
     if (index != -1) {
         status_effects->swap_remove(index);

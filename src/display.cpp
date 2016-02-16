@@ -320,10 +320,10 @@ Span get_species_name(SpeciesId species_id) {
     return new_span(get_species_name_str(species_id), light_brown, black);
 }
 // ends with " " if non-blank
-static Span get_status_description(const List<StatusEffect::Id> & status_effects) {
+static Span get_status_description(const List<StatusEffect> & status_effects) {
     Span result = new_span();
     // we need the order of words to be consistent.
-    List<StatusEffect::Id> remaining_status_effects;
+    List<StatusEffect> remaining_status_effects;
     remaining_status_effects.append_all(status_effects);
     if (maybe_remove_status(&remaining_status_effects, StatusEffect::CONFUSION))
         result->append("confused ");

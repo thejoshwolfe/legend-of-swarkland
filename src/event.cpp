@@ -178,7 +178,7 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
     if (vision & VisionTypes_NORMAL) {
         // hmmm. this guy is probably invisible
         assert(!can_see_invisible(vision));
-        put_status(thing, StatusEffect::INVISIBILITY);
+        find_or_put_status(thing, StatusEffect::INVISIBILITY);
     }
     return thing->id;
 }
@@ -439,14 +439,14 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
     }
 
     for (int i = target->status_effects.length() - 1; i >= 0; i--) {
-        StatusEffect::Id effect = target->status_effects[i];
-        if (!can_have_status(actual_target, effect) || can_see_status_effect(effect, vision))
+        StatusEffect effect = target->status_effects[i];
+        if (!can_have_status(actual_target, effect.type) || can_see_status_effect(effect.type, vision))
             target->status_effects.swap_remove(i);
     }
     for (int i = 0; i < actual_target->status_effects.length(); i++) {
         StatusEffect::Id effect = actual_target->status_effects[i].type;
         if (can_have_status(actual_target, effect) && can_see_status_effect(effect, vision))
-            target->status_effects.append(effect);
+            target->status_effects.append(StatusEffect { effect, -1, -1, uint256::zero(), SpeciesId_COUNT });
     }
 }
 static PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id, VisionTypes vision) {
@@ -622,7 +622,7 @@ static void observe_event(Thing observer, Event event) {
                 is_no_longer = "is";
                 punctuation = "!";
                 individual_description = get_thing_description(observer, data.individual);
-                put_status(individual, data.status);
+                find_or_put_status(individual, data.status);
             } else {
                 is_no_longer = "is no longer";
                 punctuation = ".";

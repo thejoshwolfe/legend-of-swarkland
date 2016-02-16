@@ -5,6 +5,23 @@
 #include <stdio.h>
 #include <string.h>
 
+constexpr int strlen_constexpr(char const* str) {
+    int i = 0;
+    while (str[i] != '\0')
+        i++;
+    return i;
+}
+
+class ConstStr {
+public:
+    char const* const ptr;
+    int const len;
+
+    constexpr ConstStr(char const* str) :
+        ptr(str), len(strlen_constexpr(str)) {
+    }
+};
+
 class ByteBuffer {
 public:
     ByteBuffer();
@@ -37,6 +54,9 @@ public:
     }
     void append(const char * str);
     void append(const char * str, int length);
+    void append(ConstStr str) {
+        append(str.ptr, str.len);
+    }
     void append(char c) {
         _buffer[length()] = c;
         _buffer.append(0);
@@ -69,5 +89,7 @@ private:
     ByteBuffer(const ByteBuffer & copy) = delete;
     ByteBuffer & operator=(const ByteBuffer & other) = delete;
 };
+
+DEFINE_GDB_PY_SCRIPT("debug-scripts/byte_buffer.py")
 
 #endif
