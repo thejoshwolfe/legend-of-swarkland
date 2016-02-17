@@ -97,7 +97,9 @@ Action get_player_decision(Thing actor) {
                     // hold that thought. let's draw the screen first.
                     return Action::undecided();
                 }
-                return Action::wait();
+                action = Action::wait();
+                record_decision_to_save_file(action);
+                return action;
             }
             // auto-wait has finished
             action = Action::undecided();
