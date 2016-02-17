@@ -210,13 +210,21 @@ struct IndexAndValue {
     int index;
     T value;
 };
+#if __cpp_constexpr >= 201304
 template<typename T>
-static constexpr bool _check_indexed_array(const IndexAndValue<T> array[], int size) {
+static bool constexpr _check_indexed_array(const IndexAndValue<T> array[], int size) {
     for (int i = 0; i < size; i++)
         if (array[i].index != i)
             return false;
     return true;
 }
+#else
+template<typename T>
+static bool constexpr _check_indexed_array(const IndexAndValue<T>[], int) {
+    // congratulations. your compiler sucks.
+    return true;
+}
+#endif
 #define check_indexed_array(array) static_assert(_check_indexed_array(array, get_array_length(array)), "missed a spot")
 
 #endif

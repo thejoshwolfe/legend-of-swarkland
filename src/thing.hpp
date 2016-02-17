@@ -203,10 +203,12 @@ static constexpr Species specieses[SpeciesId_COUNT] = {
     {SpeciesId_SNAKE        , 18,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0},
     {SpeciesId_COBRA        , 18,  2, 0, 1, 2,  3,_beas,_norm, 0, 0, 0},
 };
-static constexpr bool _check_specieses() {
+static bool constexpr _check_specieses() {
+#if __cpp_constexpr >= 201304
     for (int i = 0; i < SpeciesId_COUNT; i++)
         if (specieses[i].species_id != i)
             return false;
+#endif
     return true;
 }
 static_assert(_check_specieses(), "missed a spot");

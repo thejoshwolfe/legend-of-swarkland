@@ -5,11 +5,17 @@
 #include <stdio.h>
 #include <string.h>
 
-constexpr int strlen_constexpr(char const* str) {
+static int constexpr strlen_constexpr(char const* str) {
+#if __cpp_constexpr >= 201304
+    // we prefer not to rely on strlen() being magically allowed to be constexpr by some compilers
     int i = 0;
     while (str[i] != '\0')
         i++;
     return i;
+#else
+    // ok, let's see if this works.
+    return strlen(str);
+#endif
 }
 
 class ConstStr {
