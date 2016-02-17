@@ -8,6 +8,7 @@
 #include "item.hpp"
 
 bool print_diagnostics;
+int snapshot_interval = 1;
 bool headless_mode;
 
 Game * game;

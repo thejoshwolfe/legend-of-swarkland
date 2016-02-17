@@ -10,6 +10,7 @@
 #include "random.hpp"
 
 extern bool print_diagnostics;
+extern int snapshot_interval;
 extern bool headless_mode;
 
 struct Game {

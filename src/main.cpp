@@ -54,6 +54,10 @@ static void help(const char * error_message, const char * argument) {
         "  --print-diagnostics\n"
         "    print some boring stuff that the developers care about.\n"
         "\n"
+        "  --snapshot-interval N\n"
+        "    every N actions, a snapshot of the entire game state will be recorded in\n"
+        "    the save file. 0 means never. set to 1 to debug save file corruption issues.\n"
+        "\n"
         //                                                                              |80
         "");
     exit(1);
@@ -82,6 +86,7 @@ static void process_argv(int argc, char * argv[]) {
                 i++;
                 const char * delay_str = argv[i];
                 sscanf(delay_str, "%d", &replay_delay);
+                // TODO: error chechking
             } else if (strcmp(argv[i], "--record-test") == 0) {
                 mode = SaveFileMode_WRITE;
                 cli_says_test_mode = true;
@@ -90,6 +95,13 @@ static void process_argv(int argc, char * argv[]) {
                 headless_mode = true;
             } else if (strcmp(argv[i], "--print-diagnostics") == 0) {
                 print_diagnostics = true;
+            } else if (strcmp(argv[i], "--snapshot-interval") == 0) {
+                if (i + 1 >= argc)
+                    help("expected argument", argv[i]);
+                i++;
+                const char * delay_str = argv[i];
+                sscanf(delay_str, "%d", &snapshot_interval);
+                // TODO: error chechking
             } else {
                 help("unrecognized argument:", argv[i]);
             }

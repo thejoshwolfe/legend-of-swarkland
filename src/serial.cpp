@@ -1708,6 +1708,7 @@ Action read_decision_from_save_file() {
     unreachable();
 }
 
+static int snapshot_counter = 0;
 void record_decision_to_save_file(const Action & action) {
     switch (current_mode) {
         case SaveFileMode_READ_WRITE:
@@ -1716,7 +1717,13 @@ void record_decision_to_save_file(const Action & action) {
             // don't write
             break;
         case SaveFileMode_WRITE: {
-            write_snapshot(game);
+            if (snapshot_interval > 0) {
+                snapshot_counter++;
+                if (snapshot_counter == snapshot_interval) {
+                    write_snapshot(game);
+                    snapshot_counter = 0;
+                }
+            }
             ByteBuffer line;
             write_action(&line, action);
             write_buffer(line);
