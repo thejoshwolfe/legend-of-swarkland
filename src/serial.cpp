@@ -943,6 +943,7 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
         int z_order = parse_int(line, tokens[token_cursor++]);
         Coord location = parse_coord(line, tokens[token_cursor], tokens[token_cursor + 1]);
         token_cursor += 2;
+        bool still_exists = parse_int(line, tokens[token_cursor++]) != 0;
         ThingType thing_type = parse_thing_type(line, tokens[token_cursor++]);
         Thing thing;
         switch (thing_type) {
@@ -1125,6 +1126,7 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
         thing->location = location;
         thing->container_id = container_id;
         thing->z_order = z_order;
+        thing->still_exists = still_exists;
         game->actual_things.put(id, thing);
     }
     return game;
@@ -1185,7 +1187,6 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
 
     for (int i = 0; i < things.length(); i++) {
         Thing thing = things[i];
-        assert(thing->still_exists);
 
         buffer->format("\n  %s ", THING_DIRECTIVE);
         write_uint_oversized_to_buffer(buffer, thing->id);
@@ -1193,6 +1194,8 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
         buffer->append(' ');
         write_uint_oversized_to_buffer(buffer, thing->container_id);
         buffer->format(" %d %d %d", thing->z_order, thing->location.x, thing->location.y);
+
+        buffer->format(" %d", !!thing->still_exists);
 
         buffer->append(' ');
         buffer->append(thing_type_names[thing->thing_type].value);
