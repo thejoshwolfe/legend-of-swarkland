@@ -785,7 +785,7 @@ static StatusEffect parse_status_effect() {
         report_error(tokens[token_cursor - 1], 0, "expected status effect directive");
 
     StatusEffect status_effect;
-    status_effect.type = parse_string_id<StatusEffect::Id>(status_effect_names, StatusEffect::COUNT, line, tokens[token_cursor++]);
+    status_effect.type = parse_string_id<StatusEffect::Id>(status_effect_names, get_array_length(status_effect_names), line, tokens[token_cursor++]);
     status_effect.expiration_time = parse_int64(line, tokens[token_cursor++]);
     switch (status_effect.type) {
         case StatusEffect::CONFUSION:
@@ -1061,7 +1061,7 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                                 break;
                             }
                             case ThingType_WAND: {
-                                WandDescriptionId description_id = parse_string_id<WandDescriptionId>(wand_description_names, WandDescriptionId_COUNT, line, tokens[token_cursor++]);
+                                WandDescriptionId description_id = parse_string_id<WandDescriptionId>(wand_description_names, get_array_length(wand_description_names), line, tokens[token_cursor++]);
                                 int used_count = parse_int(line, tokens[token_cursor++]);
                                 perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, description_id, last_seen_time);
                                 perceived_thing->wand_info()->used_count = used_count;
@@ -1070,14 +1070,14 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                                 break;
                             }
                             case ThingType_POTION: {
-                                PotionDescriptionId description_id = parse_string_id<PotionDescriptionId>(potion_description_names, PotionDescriptionId_COUNT, line, tokens[token_cursor++]);
+                                PotionDescriptionId description_id = parse_string_id<PotionDescriptionId>(potion_description_names, get_array_length(potion_description_names), line, tokens[token_cursor++]);
                                 perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, description_id, last_seen_time);
 
                                 expect_extra_token_count(tokens, token_cursor - 1);
                                 break;
                             }
                             case ThingType_BOOK: {
-                                BookDescriptionId description_id = parse_string_id<BookDescriptionId>(book_description_names, BookDescriptionId_COUNT, line, tokens[token_cursor++]);
+                                BookDescriptionId description_id = parse_string_id<BookDescriptionId>(book_description_names, get_array_length(book_description_names), line, tokens[token_cursor++]);
                                 perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, description_id, last_seen_time);
 
                                 expect_extra_token_count(tokens, token_cursor - 1);

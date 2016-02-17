@@ -1053,7 +1053,7 @@ static void delete_dead_things() {
     {
         Thing thing;
         for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);)
-            if (!thing->still_exists)
+            if (!thing->still_exists && thing->id != game->you_id)
                 delete_things.append(thing);
     }
     // tell everyone to forget about this stuff.

@@ -72,6 +72,8 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
         output_annoying_status_effects->append(StatusEffect::CONFUSION);
     if (has_status(self, StatusEffect::BLINDNESS))
         output_annoying_status_effects->append(StatusEffect::BLINDNESS);
+    if (has_status(self, StatusEffect::SLOWING))
+        output_annoying_status_effects->append(StatusEffect::SLOWING);
     // TODO: wait for polymorph
 }
 static int auto_wait_animation_index = 0;
