@@ -347,10 +347,10 @@ enum DirectiveId {
     DirectiveId_COUNT,
 };
 
-// TODO: inline these constants
 static char const* const RNG_DIRECTIVE = "@rng";
 static char const* const SEED_DIRECTIVE = "@seed";
 static char const* const TEST_MODE_HEADER = "@test";
+// TODO: inline these constants
 static char const* const SNAPSHOT_DIRECTIVE = "@snapshot";
 static char const* const MAP_TILES_DIRECTIVE = "@map_tiles";
 static char const* const AESTHETIC_INDEXES_DIRECTIVE = "@aesthetics";
@@ -769,6 +769,70 @@ void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test
     }
 }
 
+static StatusEffect parse_status_effect() {
+    ByteBuffer line;
+    List<Token> tokens;
+    read_tokens(&line, &tokens, false);
+    int token_cursor = 0;
+    if (parse_directive_id(line, tokens[token_cursor++]) != DirectiveId_STATUS_EFFECT)
+        report_error(tokens[token_cursor - 1], 0, "expected status effect directive");
+
+    StatusEffect status_effect;
+    status_effect.type = parse_string_id<StatusEffect::Id>(status_effect_names, StatusEffect::COUNT, line, tokens[token_cursor++]);
+    status_effect.expiration_time = parse_int64(line, tokens[token_cursor++]);
+    switch (status_effect.type) {
+        case StatusEffect::CONFUSION:
+        case StatusEffect::SPEED:
+        case StatusEffect::ETHEREAL_VISION:
+        case StatusEffect::COGNISCOPY:
+        case StatusEffect::BLINDNESS:
+        case StatusEffect::INVISIBILITY:
+        case StatusEffect::SLOWING:
+            break;
+        case StatusEffect::POISON:
+            status_effect.poison_next_damage_time = parse_int64(line, tokens[token_cursor++]);
+            status_effect.who_is_responsible = parse_uint256(line, tokens[token_cursor++]);
+            break;
+        case StatusEffect::POLYMORPH:
+            status_effect.species_id = parse_species_id(line, tokens[token_cursor++]);;
+            break;
+
+        case StatusEffect::COUNT:
+            unreachable();
+    }
+    expect_extra_token_count(tokens, token_cursor - 1);
+
+    return status_effect;
+}
+static void write_status_effect(ByteBuffer * output_buffer, StatusEffect status_effect) {
+    output_buffer->append(STATUS_EFFECT_DIRECTIVE);
+    output_buffer->append(' ');
+    output_buffer->append(status_effect_names[status_effect.type].value);
+    output_buffer->format(" %" PRIi64, status_effect.expiration_time);
+    switch (status_effect.type) {
+        case StatusEffect::CONFUSION:
+        case StatusEffect::SPEED:
+        case StatusEffect::ETHEREAL_VISION:
+        case StatusEffect::COGNISCOPY:
+        case StatusEffect::BLINDNESS:
+        case StatusEffect::INVISIBILITY:
+        case StatusEffect::SLOWING:
+            break;
+        case StatusEffect::POISON:
+            output_buffer->format(" %" PRIi64, status_effect.poison_next_damage_time);
+            output_buffer->append(' ');
+            write_uint_oversized_to_buffer(output_buffer, status_effect.who_is_responsible);
+            break;
+        case StatusEffect::POLYMORPH:
+            output_buffer->append(' ');
+            output_buffer->append(species_names[status_effect.species_id].value);
+            break;
+
+        case StatusEffect::COUNT:
+            unreachable();
+    }
+}
+
 static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & first_line_tokens) {
     ByteBuffer line;
     line.append(first_line);
@@ -901,41 +965,8 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                 int ability_cooldowns_count = parse_int(line, tokens[token_cursor++]);
                 expect_extra_token_count(tokens, token_cursor - 1);
 
-                for (int i = 0; i < status_effect_count; i++) {
-                    line.resize(0);
-                    tokens.clear();
-                    read_tokens(&line, &tokens, false);
-                    token_cursor = 0;
-                    if (parse_directive_id(line, tokens[token_cursor++]) != DirectiveId_STATUS_EFFECT)
-                        report_error(tokens[token_cursor - 1], 0, "expected status effect directive");
-
-                    StatusEffect status_effect;
-                    status_effect.type = parse_string_id<StatusEffect::Id>(status_effect_names, StatusEffect::COUNT, line, tokens[token_cursor++]);
-                    status_effect.expiration_time = parse_int64(line, tokens[token_cursor++]);
-                    switch (status_effect.type) {
-                        case StatusEffect::CONFUSION:
-                        case StatusEffect::SPEED:
-                        case StatusEffect::ETHEREAL_VISION:
-                        case StatusEffect::COGNISCOPY:
-                        case StatusEffect::BLINDNESS:
-                        case StatusEffect::INVISIBILITY:
-                        case StatusEffect::SLOWING:
-                            break;
-                        case StatusEffect::POISON:
-                            status_effect.poison_next_damage_time = parse_int64(line, tokens[token_cursor++]);
-                            status_effect.who_is_responsible = parse_uint256(line, tokens[token_cursor++]);
-                            break;
-                        case StatusEffect::POLYMORPH:
-                            status_effect.species_id = parse_species_id(line, tokens[token_cursor++]);;
-                            break;
-
-                        case StatusEffect::COUNT:
-                            unreachable();
-                    }
-
-                    thing->status_effects.append(status_effect);
-                    expect_extra_token_count(tokens, token_cursor - 1);
-                }
+                for (int i = 0; i < status_effect_count; i++)
+                    thing->status_effects.append(parse_status_effect());
 
                 for (int i = 0; i < ability_cooldowns_count; i++) {
                     line.resize(0);
@@ -1015,8 +1046,11 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                                 SpeciesId species_id = parse_species_id(line, tokens[token_cursor++]);
                                 perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, species_id, last_seen_time);
 
+                                int perceived_status_effect_count = parse_int(line, tokens[token_cursor++]);
                                 expect_extra_token_count(tokens, token_cursor - 1);
-                                // TODO: perceived status effects
+
+                                for (int i = 0; i < perceived_status_effect_count; i++)
+                                    perceived_thing->status_effects.append(parse_status_effect());
                                 break;
                             }
                             case ThingType_WAND: {
@@ -1182,32 +1216,8 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
 
                 for (int i = 0; i < status_effects.length(); i++) {
                     StatusEffect status_effect = status_effects[i];
-                    buffer->format("\n      %s", STATUS_EFFECT_DIRECTIVE);
-                    buffer->append(' ');
-                    buffer->append(status_effect_names[status_effect.type].value);
-                    buffer->format(" %" PRIi64, status_effect.expiration_time);
-                    switch (status_effect.type) {
-                        case StatusEffect::CONFUSION:
-                        case StatusEffect::SPEED:
-                        case StatusEffect::ETHEREAL_VISION:
-                        case StatusEffect::COGNISCOPY:
-                        case StatusEffect::BLINDNESS:
-                        case StatusEffect::INVISIBILITY:
-                        case StatusEffect::SLOWING:
-                            break;
-                        case StatusEffect::POISON:
-                            buffer->format(" %" PRIi64, status_effect.poison_next_damage_time);
-                            buffer->append(' ');
-                            write_uint_oversized_to_buffer(buffer, status_effect.who_is_responsible);
-                            break;
-                        case StatusEffect::POLYMORPH:
-                            buffer->append(' ');
-                            buffer->append(species_names[status_effect.species_id].value);
-                            break;
-
-                        case StatusEffect::COUNT:
-                            unreachable();
-                    }
+                    buffer->append("\n      ");
+                    write_status_effect(buffer, status_effect);
                 }
                 for (int i = 0; i < ability_cooldowns.length(); i++) {
                     AbilityCooldown ability_cooldown = ability_cooldowns[i];
@@ -1261,7 +1271,16 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                         case ThingType_INDIVIDUAL: {
                             buffer->append(' ');
                             buffer->append(species_names[perceived_thing->life()->species_id].value);
-                            // TODO: perceived status effects
+
+                            List<StatusEffect> perceived_status_effects;
+                            perceived_status_effects.append_all(perceived_thing->status_effects);
+                            sort<StatusEffect, compare_status_effects_by_type>(perceived_status_effects.raw(), perceived_status_effects.length());
+                            buffer->format(" %d", perceived_status_effects.length());
+
+                            for (int i = 0; i < perceived_status_effects.length(); i++) {
+                                buffer->append("\n        ");
+                                write_status_effect(buffer, perceived_status_effects[i]);
+                            }
                             break;
                         }
                         case ThingType_WAND:
@@ -1690,8 +1709,7 @@ void record_decision_to_save_file(const Action & action) {
             // don't write
             break;
         case SaveFileMode_WRITE: {
-            if (!game->test_mode)
-                write_snapshot(game);
+            write_snapshot(game);
             ByteBuffer line;
             write_action(&line, action);
             write_buffer(line);
