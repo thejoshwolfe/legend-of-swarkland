@@ -1,7 +1,8 @@
 #ifndef UTIL_HPP
 #define UTIL_HPP
 
-#include <stdint.h>
+#include "config.hpp"
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <new>

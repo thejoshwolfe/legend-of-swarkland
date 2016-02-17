@@ -1,11 +1,10 @@
-#include "random.hpp"
+#include "serial.hpp"
 
+#include "random.hpp"
 #include "display.hpp"
 
 #include <stdio.h>
 #include <errno.h>
-#include <serial.hpp>
-#include <inttypes.h>
 
 static int replay_delay;
 
@@ -267,7 +266,7 @@ static int64_t parse_int64(ByteBuffer const& line, const Token & token) {
     ByteBuffer buffer;
     buffer.append(line.raw() + token.start, token.end - token.start);
     int64_t value;
-    sscanf(buffer.raw(), "%" PRIi64, &value);
+    sscanf(buffer.raw(), int64_format, &value);
     return value;
 }
 template <int Size64>
@@ -815,7 +814,8 @@ static void write_status_effect(ByteBuffer * output_buffer, StatusEffect status_
     output_buffer->append(STATUS_EFFECT_DIRECTIVE);
     output_buffer->append(' ');
     output_buffer->append(status_effect_names[status_effect.type].value);
-    output_buffer->format(" %" PRIi64, status_effect.expiration_time);
+    output_buffer->append(' ');
+    output_buffer->format(int64_format, status_effect.expiration_time);
     switch (status_effect.type) {
         case StatusEffect::CONFUSION:
         case StatusEffect::SPEED:
@@ -826,7 +826,8 @@ static void write_status_effect(ByteBuffer * output_buffer, StatusEffect status_
         case StatusEffect::SLOWING:
             break;
         case StatusEffect::POISON:
-            output_buffer->format(" %" PRIi64, status_effect.poison_next_damage_time);
+            output_buffer->append(' ');
+            output_buffer->format(int64_format, status_effect.poison_next_damage_time);
             output_buffer->append(' ');
             write_uint_oversized_to_buffer(output_buffer, status_effect.who_is_responsible);
             break;
@@ -1148,7 +1149,8 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
     buffer->append(' ');
     write_uint_oversized_to_buffer(buffer, game->player_actor_id);
 
-    buffer->format(" %" PRIi64, game->time_counter);
+    buffer->append(' ');
+    buffer->format(int64_format, game->time_counter);
 
     List<Thing> things;
     {
@@ -1209,8 +1211,17 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                 buffer->append(decision_maker_names[life->decision_maker].value);
 
                 buffer->format("\n    %s", LIFE_DIRECTIVE);
-                buffer->format(" %d %" PRIi64 " %d %" PRIi64, life->hitpoints, life->hp_regen_deadline, life->mana, life->mp_regen_deadline);
-                buffer->format(" %d %" PRIi64 " %" PRIi64, life->experience, life->last_movement_time, life->last_action_time);
+                buffer->format(" %d", life->hitpoints);
+                buffer->append(' ');
+                buffer->format(int64_format, life->hp_regen_deadline);
+                buffer->format(" %d", life->mana);
+                buffer->append(' ');
+                buffer->format(int64_format, life->mp_regen_deadline);
+                buffer->format(" %d", life->experience);
+                buffer->append(' ');
+                buffer->format(int64_format, life->last_movement_time);
+                buffer->append(' ');
+                buffer->format(int64_format, life->last_action_time);
                 buffer->append(' ');
                 write_uint_oversized_to_buffer(buffer, life->initiative);
 
@@ -1234,7 +1245,8 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                     buffer->format("\n      %s", ABILITY_COOLDOWN_DIRECTIVE);
                     buffer->append(' ');
                     buffer->append(ability_names[ability_cooldown.ability_id].value);
-                    buffer->format(" %" PRIi64, ability_cooldown.expiration_time);
+                    buffer->append(' ');
+                    buffer->format(int64_format, ability_cooldown.expiration_time);
                 }
 
                 Knowledge const& knowledge = life->knowledge;
@@ -1270,7 +1282,9 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                     buffer->format("\n      %s", PERCEIVED_THING_DIRECTIVE);
                     buffer->append(' ');
                     write_uint_oversized_to_buffer(buffer, perceived_thing->id);
-                    buffer->format(" %d %" PRIi64, !!perceived_thing->is_placeholder, perceived_thing->last_seen_time);
+                    buffer->format(" %d", !!perceived_thing->is_placeholder);
+                    buffer->append(' ');
+                    buffer->format(int64_format, perceived_thing->last_seen_time);
                     buffer->append(' ');
                     write_uint_oversized_to_buffer(buffer, perceived_thing->container_id);
                     buffer->format(" %d %d %d", perceived_thing->z_order, perceived_thing->location.x, perceived_thing->location.y);
