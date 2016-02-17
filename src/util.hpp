@@ -203,7 +203,7 @@ private:
     bool (*filter)(ValueType);
 };
 
-#define get_array_length(array) (sizeof(array) / sizeof((array)[0]))
+#define get_array_length(array) ((int)(sizeof(array) / sizeof((array)[0])))
 
 template<typename T>
 struct IndexAndValue {

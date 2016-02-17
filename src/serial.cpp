@@ -406,7 +406,7 @@ static IndexAndValue<ConstStr> constexpr action_names[Action::COUNT] = {
 };
 check_indexed_array(action_names);
 
-static IndexAndValue<ConstStr> constexpr species_names[SpeciesId_COUNT] = {
+static IndexAndValue<ConstStr> constexpr species_names[SpeciesId_COUNT + 2] = {
     {SpeciesId_HUMAN, "human"},
     {SpeciesId_OGRE, "ogre"},
     {SpeciesId_LICH, "lich"},
@@ -419,6 +419,8 @@ static IndexAndValue<ConstStr> constexpr species_names[SpeciesId_COUNT] = {
     {SpeciesId_SCORPION, "scorpion"},
     {SpeciesId_SNAKE, "snake"},
     {SpeciesId_COBRA, "cobra"},
+    {SpeciesId_COUNT, ""},
+    {SpeciesId_UNSEEN, "unseen"},
 };
 check_indexed_array(species_names);
 
@@ -436,7 +438,7 @@ static IndexAndValue<ConstStr> constexpr thing_type_names[ThingType_COUNT] = {
 };
 check_indexed_array(thing_type_names);
 
-static IndexAndValue<ConstStr> constexpr wand_id_names[WandId_COUNT] = {
+static IndexAndValue<ConstStr> constexpr wand_id_names[WandId_COUNT + 2] = {
     {WandId_WAND_OF_CONFUSION, "confusion"},
     {WandId_WAND_OF_DIGGING, "digging"},
     {WandId_WAND_OF_MAGIC_MISSILE, "magic_missile"},
@@ -447,25 +449,31 @@ static IndexAndValue<ConstStr> constexpr wand_id_names[WandId_COUNT] = {
     {WandId_WAND_OF_INVISIBILITY, "invisibility"},
     {WandId_WAND_OF_MAGIC_BULLET, "magic_bullet"},
     {WandId_WAND_OF_SLOWING, "slowing"},
+    {WandId_COUNT, ""},
+    {WandId_UNKNOWN, "unknown"},
 };
 check_indexed_array(wand_id_names);
 
-static IndexAndValue<ConstStr> constexpr potion_id_names[PotionId_COUNT] = {
+static IndexAndValue<ConstStr> constexpr potion_id_names[PotionId_COUNT + 2] = {
     {PotionId_POTION_OF_HEALING, "healing"},
     {PotionId_POTION_OF_POISON, "poison"},
     {PotionId_POTION_OF_ETHEREAL_VISION, "ethereal_vision"},
     {PotionId_POTION_OF_COGNISCOPY, "cogniscopy"},
     {PotionId_POTION_OF_BLINDNESS, "blindness"},
     {PotionId_POTION_OF_INVISIBILITY, "invisibility"},
+    {PotionId_COUNT, ""},
+    {PotionId_UNKNOWN, "unknown"},
 };
 check_indexed_array(potion_id_names);
 
-static IndexAndValue<ConstStr> constexpr book_id_names[BookId_COUNT] = {
+static IndexAndValue<ConstStr> constexpr book_id_names[BookId_COUNT + 2] = {
     {BookId_SPELLBOOK_OF_MAGIC_BULLET, "magic_bullet"},
     {BookId_SPELLBOOK_OF_SPEED, "speed"},
     {BookId_SPELLBOOK_OF_MAPPING, "mapping"},
     {BookId_SPELLBOOK_OF_FORCE, "force"},
     {BookId_SPELLBOOK_OF_ASSUME_FORM, "assume_form"},
+    {BookId_COUNT, ""},
+    {BookId_UNKNOWN, "unknown"},
 };
 check_indexed_array(book_id_names);
 
@@ -500,7 +508,7 @@ static IndexAndValue<ConstStr> constexpr status_effect_names[StatusEffect::COUNT
 };
 static_assert(_check_indexed_array(status_effect_names, StatusEffect::COUNT), "missed a spot");
 
-static IndexAndValue<ConstStr> constexpr wand_description_names[WandDescriptionId_COUNT] = {
+static IndexAndValue<ConstStr> constexpr wand_description_names[WandDescriptionId_COUNT + 2] = {
     {WandDescriptionId_BONE_WAND, "bone"},
     {WandDescriptionId_GOLD_WAND, "gold"},
     {WandDescriptionId_PLASTIC_WAND, "plastic"},
@@ -511,25 +519,31 @@ static IndexAndValue<ConstStr> constexpr wand_description_names[WandDescriptionI
     {WandDescriptionId_SHINY_PLASTIC_WAND, "shiny_plastic"},
     {WandDescriptionId_SHINY_COPPER_WAND, "shiny_copper"},
     {WandDescriptionId_SHINY_PURPLE_WAND, "shiny_purple"},
+    {WandDescriptionId_COUNT, ""},
+    {WandDescriptionId_UNSEEN, "unseen"},
 };
 static_assert(_check_indexed_array(wand_description_names, WandDescriptionId_COUNT), "missed a spot");
 
-static IndexAndValue<ConstStr> constexpr potion_description_names[PotionDescriptionId_COUNT] = {
+static IndexAndValue<ConstStr> constexpr potion_description_names[PotionDescriptionId_COUNT + 2] = {
     {PotionDescriptionId_BLUE_POTION, "blue"},
     {PotionDescriptionId_GREEN_POTION, "green"},
     {PotionDescriptionId_RED_POTION, "red"},
     {PotionDescriptionId_YELLOW_POTION, "yellow"},
     {PotionDescriptionId_ORANGE_POTION, "orange"},
     {PotionDescriptionId_PURPLE_POTION, "purple"},
+    {PotionDescriptionId_COUNT, ""},
+    {PotionDescriptionId_UNSEEN, "unseen"},
 };
 static_assert(_check_indexed_array(potion_description_names, PotionDescriptionId_COUNT), "missed a spot");
 
-static IndexAndValue<ConstStr> constexpr book_description_names[BookDescriptionId_COUNT] = {
+static IndexAndValue<ConstStr> constexpr book_description_names[BookDescriptionId_COUNT + 2] = {
     {BookDescriptionId_PURPLE_BOOK, "purple"},
     {BookDescriptionId_BLUE_BOOK, "blue"},
     {BookDescriptionId_RED_BOOK, "red"},
     {BookDescriptionId_GREEN_BOOK, "green"},
     {BookDescriptionId_YELLOW_BOOK, "yellow"},
+    {BookDescriptionId_COUNT, ""},
+    {BookDescriptionId_UNSEEN, "unseen"},
 };
 static_assert(_check_indexed_array(book_description_names, BookDescriptionId_COUNT), "missed a spot");
 
@@ -542,7 +556,7 @@ static inline T parse_string_id(IndexAndValue<ConstStr> const* array, int array_
 }
 
 static DirectiveId parse_directive_id(ByteBuffer const& line, Token const& token) {
-    for (int i = 0; i < DirectiveId_COUNT; i++) {
+    for (int i = 0; i < get_array_length(directive_names); i++) {
         if (token_equals(line, token, directive_names[i].value))
             return (DirectiveId)i;
     }
@@ -554,58 +568,51 @@ static Action::Id parse_action_id(ByteBuffer const& line, const Token & token) {
         if (token_equals(line, token, action_names[i].value))
             return (Action::Id)i;
     }
+    // this might be a common mistake. special case this i guess
     if (token_equals(line, token, RNG_DIRECTIVE))
         report_error(token, 0, "unexpected rng directive");
     report_error(token, 0, "undefined action name");
 }
 static SpeciesId parse_species_id(ByteBuffer const& line, const Token & token) {
-    for (int i = 0; i < SpeciesId_COUNT; i++) {
+    for (int i = 0; i < get_array_length(species_names); i++) {
         if (token_equals(line, token, species_names[i].value))
             return (SpeciesId)i;
     }
-    if (token_equals(line, token, "unseen"))
-        return SpeciesId_UNSEEN;
     report_error(token, 0, "undefined species id");
 }
 static DecisionMakerType parse_decision_maker(ByteBuffer const& line, const Token & token) {
-    for (int i = 0; i < DecisionMakerType_COUNT; i++) {
+    for (int i = 0; i < get_array_length(decision_maker_names); i++) {
         if (token_equals(line, token, decision_maker_names[i].value))
             return (DecisionMakerType)i;
     }
     report_error(token, 0, "undefined decision maker");
 }
 static ThingType parse_thing_type(ByteBuffer const& line, const Token & token) {
-    for (int i = 0; i < ThingType_COUNT; i++) {
+    for (int i = 0; i < get_array_length(thing_type_names); i++) {
         if (token_equals(line, token, thing_type_names[i].value))
             return (ThingType)i;
     }
     report_error(token, 0, "undefined thing type");
 }
 static WandId parse_wand_id(ByteBuffer const& line, const Token & token) {
-    for (int i = 0; i < WandId_COUNT; i++) {
+    for (int i = 0; i < get_array_length(wand_id_names); i++) {
         if (token_equals(line, token, wand_id_names[i].value))
             return (WandId)i;
     }
-    if (token_equals(line, token, "unknown"))
-        return WandId_UNKNOWN;
     report_error(token, 0, "undefined wand id");
 }
 static PotionId parse_potion_id(ByteBuffer const& line, const Token & token) {
-    for (int i = 0; i < PotionId_COUNT; i++) {
+    for (int i = 0; i < get_array_length(potion_id_names); i++) {
         if (token_equals(line, token, potion_id_names[i].value))
             return (PotionId)i;
     }
-    if (token_equals(line, token, "unknown"))
-        return PotionId_UNKNOWN;
     report_error(token, 0, "undefined potion id");
 }
 static BookId parse_book_id(ByteBuffer const& line, const Token & token) {
-    for (int i = 0; i < BookId_COUNT; i++) {
+    for (int i = 0; i < get_array_length(book_id_names); i++) {
         if (token_equals(line, token, book_id_names[i].value))
             return (BookId)i;
     }
-    if (token_equals(line, token, "unknown"))
-        return BookId_UNKNOWN;
     report_error(token, 0, "undefined book id");
 }
 static Action::Thing parse_thing_signature(ByteBuffer const& line, const Token & token1, const Token & token2) {
@@ -631,15 +638,15 @@ static Action::Thing parse_thing_signature(ByteBuffer const& line, const Token &
     return thing;
 }
 static AbilityId parse_ability_id(ByteBuffer const& line, const Token & token) {
-    for (int i = 0; i < AbilityId_COUNT; i++) {
+    for (int i = 0; i < get_array_length(ability_names); i++) {
         if (token_equals(line, token, ability_names[i].value))
             return (AbilityId)i;
     }
     report_error(token, 0, "undefined ability id");
 }
 static TileType parse_tile_type_short_name(ByteBuffer const& line, const Token & token, int offset) {
-    for (int i = 0; i < TileType_COUNT; i++) {
-        if (tile_type_short_names[i].value == line[token.start + offset])
+    for (int i = 0; i < get_array_length(tile_type_short_names); i++) {
+        if (line[token.start + offset] == tile_type_short_names[i].value)
             return (TileType)i;
     }
     report_error(token, 0, "undefined tile type");
