@@ -1346,17 +1346,17 @@ static void expect_state(Game const* expected_state, Game const* actual_state) {
     write_snapshot_to_buffer(actual_state, &actual_buffer);
     if (expected_buffer == actual_buffer)
         return;
-    fprintf(stderr, "error: corrupt save file\n");
-    fprintf(stderr, "\nexpected:\n");
-    fprintf(stderr, "%s", expected_buffer.raw());
+    fprintf(stderr, "%s:%d:1: error: corrupt save file\n", script_path, line_number);
     FILE * expected_file = fopen(".expected.swarkland", "wb");
     fwrite(expected_buffer.raw(), expected_buffer.length(), 1, expected_file);
     fclose(expected_file);
-    fprintf(stderr, "\ngot:\n");
-    fprintf(stderr, "%s", actual_buffer.raw());
+    fprintf(stderr, "expected written to .expected.swarkland\n");
+
     FILE * actual_file = fopen(".actual.swarkland", "wb");
     fwrite(actual_buffer.raw(), actual_buffer.length(), 1, actual_file);
     fclose(actual_file);
+    fprintf(stderr, "actual written to .actual.swarkland\n");
+
     exit_with_error();
 }
 
