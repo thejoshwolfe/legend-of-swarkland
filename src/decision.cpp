@@ -27,14 +27,14 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
             continue;
         if (target == self)
             continue; // i'm not afraid of myself
-        if (target->location == Coord::nowhere())
+        if (target->location.kind != Location::MAP)
             continue; // don't know where you are
         // even if we don't have normal vision,
         // if we think they're in a position where they can see us, we should be afraid.
-        bool they_can_see_us = is_open_line_of_sight(target->location, actor->location, life->knowledge.tiles);
+        bool they_can_see_us = is_open_line_of_sight(target->location.coord, self->location.coord, life->knowledge.tiles);
         // also, if they've just come around a corner, and we have an advantageous position to see them first,
         // let's jump at that opportunity.
-        bool we_can_see_them = is_open_line_of_sight(actor->location, target->location, life->knowledge.tiles);
+        bool we_can_see_them = is_open_line_of_sight(self->location.coord, target->location.coord, life->knowledge.tiles);
         if (they_can_see_us || we_can_see_them)
             output_scary_individuals->append(target->id);
     }
@@ -123,8 +123,8 @@ Action get_player_decision(Thing actor) {
     return action;
 }
 
-static int rate_interest_in_target(Thing actor, PerceivedThing target) {
-    int score = ordinal_distance(actor->location, target->location);
+static int rate_interest_in_target(PerceivedThing self, PerceivedThing target) {
+    int score = ordinal_distance(self->location.coord, target->location.coord);
     // picking up items is less attractive if there are hostiles nearby
     if (target->thing_type != ThingType_INDIVIDUAL)
         score += 1;
@@ -133,17 +133,17 @@ static int rate_interest_in_target(Thing actor, PerceivedThing target) {
 
 static const int confident_zap_distance = beam_length_average - beam_length_error_margin + 1;
 static const int confident_throw_distance = throw_distance_average - throw_distance_error_margin;
-static bool is_clear_projectile_shot(Thing actor, Coord location, int confident_distance) {
-    int distnace = ordinal_distance(location, actor->location);
+static bool is_clear_projectile_shot(Thing actor, PerceivedThing target, int confident_distance) {
+    int distnace = ordinal_distance(target->location.coord, actor->location.coord);
     if (distnace > confident_distance)
         return false; // out of range
-    Coord vector = location - actor->location;
+    Coord vector = target->location.coord - actor->location.coord;
     Coord abs_vector = abs(vector);
     if (!(vector.x * vector.y == 0 || abs_vector.x == abs_vector.y))
         return false; // not a straight line
     Coord step = sign(vector);
     const MapMatrix<TileType> & tiles = actor->life()->knowledge.tiles;
-    for (Coord cursor = actor->location + step; cursor != location; cursor += step)
+    for (Coord cursor = actor->location.coord + step; cursor != target->location.coord; cursor += step)
         if (!is_open_space(tiles[cursor]))
             return false;
     return true;
@@ -156,6 +156,7 @@ static inline Action move_or_wait(Thing actor, Coord direction) {
 }
 
 Action get_ai_decision(Thing actor) {
+    PerceivedThing self = actor->life()->knowledge.perceived_things.get(actor->id);
     bool uses_items = individual_uses_items(actor);
     bool advanced_strategy = individual_is_clever(actor);
     List<PerceivedThing> inventory;
@@ -168,7 +169,7 @@ Action get_ai_decision(Thing actor) {
     List<PerceivedThing> things_of_interest;
     PerceivedThing target;
     for (auto iterator = actor->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
-        if (target->location == Coord::nowhere())
+        if (target->location.kind != Location::MAP)
             continue; // can't access you
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL:
@@ -181,22 +182,16 @@ Action get_ai_decision(Thing actor) {
             case ThingType_WAND:
                 if (!uses_items)
                     continue; // don't care
-                if (target->location == Coord::nowhere())
-                    continue; // not available to pick up
                 if (target->wand_info()->used_count == -1)
                     continue; // pshhh. dead wands are no use.
                 break;
             case ThingType_POTION:
                 if (!uses_items)
                     continue; // don't care
-                if (target->location == Coord::nowhere())
-                    continue; // not available to pick up
                 break;
             case ThingType_BOOK:
                 if (!advanced_strategy)
                     continue; // can't read
-                if (target->location == Coord::nowhere())
-                    continue; // not available to pick up
                 break;
 
             case ThingType_COUNT:
@@ -206,8 +201,8 @@ Action get_ai_decision(Thing actor) {
             // found something to do
             things_of_interest.append(target);
         } else {
-            int beat_this_distance = rate_interest_in_target(actor, things_of_interest[0]);
-            int how_about_this = rate_interest_in_target(actor, target);
+            int beat_this_distance = rate_interest_in_target(self, things_of_interest[0]);
+            int how_about_this = rate_interest_in_target(self, target);
             if (how_about_this < beat_this_distance) {
                 // this target is better
                 things_of_interest.clear();
@@ -236,7 +231,7 @@ Action get_ai_decision(Thing actor) {
                 List<Action> buff_actions;
                 List<Action> low_priority_buff_actions;
                 List<Action> range_attack_actions;
-                Coord vector = target->location - actor->location;
+                Coord vector = target->location.coord - actor->location.coord;
                 Coord direction = sign(vector);
                 for (int i = 0; i < inventory.length(); i++) {
                     PerceivedThing item = inventory[i];
@@ -250,7 +245,7 @@ Action get_ai_decision(Thing actor) {
                                 case WandId_WAND_OF_CONFUSION:
                                     if (has_status(target, StatusEffect::CONFUSION))
                                         break; // already confused.
-                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                    if (is_clear_projectile_shot(actor, target, confident_zap_distance)) {
                                         // get him!
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
@@ -258,7 +253,7 @@ Action get_ai_decision(Thing actor) {
                                 case WandId_WAND_OF_SLOWING:
                                     if (has_status(target, StatusEffect::SLOWING))
                                         break; // already confused.
-                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                    if (is_clear_projectile_shot(actor, target, confident_zap_distance)) {
                                         // get him!
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
@@ -266,7 +261,7 @@ Action get_ai_decision(Thing actor) {
                                 case WandId_WAND_OF_BLINDING:
                                     if (has_status(target, StatusEffect::BLINDNESS))
                                         break; // already confused.
-                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                    if (is_clear_projectile_shot(actor, target, confident_zap_distance)) {
                                         // get him!
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
@@ -277,7 +272,7 @@ Action get_ai_decision(Thing actor) {
                                     break;
                                 case WandId_WAND_OF_MAGIC_MISSILE:
                                 case WandId_WAND_OF_MAGIC_BULLET:
-                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                    if (is_clear_projectile_shot(actor, target, confident_zap_distance)) {
                                         // get him!
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
@@ -300,7 +295,7 @@ Action get_ai_decision(Thing actor) {
                                     }
                                     break;
                                 case WandId_UNKNOWN:
-                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                    if (is_clear_projectile_shot(actor, target, confident_zap_distance)) {
                                         // um. sure.
                                         range_attack_actions.append(Action::zap(item->id, direction));
                                     }
@@ -318,7 +313,7 @@ Action get_ai_decision(Thing actor) {
                                 case PotionId_POTION_OF_POISON:
                                     if (has_status(target, StatusEffect::POISON))
                                         break; // already poisoned
-                                    if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
+                                    if (!is_clear_projectile_shot(actor, target, confident_throw_distance))
                                         break; // too far
                                     range_attack_actions.append(Action::throw_(item->id, direction));
                                     break;
@@ -351,7 +346,7 @@ Action get_ai_decision(Thing actor) {
                                 case PotionId_POTION_OF_BLINDNESS:
                                     if (has_status(target, StatusEffect::BLINDNESS))
                                         break; // already blind
-                                    if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
+                                    if (!is_clear_projectile_shot(actor, target, confident_throw_distance))
                                         break; // too far
                                     range_attack_actions.append(Action::throw_(item->id, direction));
                                     break;
@@ -386,7 +381,7 @@ Action get_ai_decision(Thing actor) {
                         case AbilityId_SPIT_BLINDING_VENOM:
                             if (advanced_strategy && has_status(target, StatusEffect::BLINDNESS))
                                 break; // already blind
-                            if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
+                            if (!is_clear_projectile_shot(actor, target, confident_throw_distance))
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
@@ -409,10 +404,10 @@ Action get_ai_decision(Thing actor) {
 
                 // move/attack
                 List<Coord> path;
-                find_path(actor->location, target->location, actor, &path);
+                find_path(actor->location.coord, target->location.coord, actor, &path);
                 if (path.length() > 0) {
-                    Coord direction = path[0] - actor->location;
-                    if (path[0] == target->location) {
+                    Coord direction = path[0] - actor->location.coord;
+                    if (path[0] == target->location.coord) {
                         return Action::attack(direction);
                     } else {
                         if (find_perceived_individual_at(actor, path[0]) != nullptr) {
@@ -430,15 +425,15 @@ Action get_ai_decision(Thing actor) {
             case ThingType_POTION:
             case ThingType_BOOK: {
                 // gimme that
-                if (target->location == actor->location)
+                if (target->location.coord == actor->location.coord)
                     return Action::pickup(target->id);
 
                 List<Coord> path;
-                find_path(actor->location, target->location, actor, &path);
+                find_path(actor->location.coord, target->location.coord, actor, &path);
                 if (path.length() > 0) {
                     Coord next_location = path[0];
                     if (do_i_think_i_can_move_here(actor, next_location)) {
-                        Coord direction = next_location - actor->location;
+                        Coord direction = next_location - actor->location.coord;
                         return move_or_wait(actor, direction);
                     }
                     // someone friendly is in the way, or something.
@@ -459,7 +454,7 @@ Action get_ai_decision(Thing actor) {
         return Action::wait();
     List<Coord> open_directions;
     for (int i = 0; i < 8; i++)
-        if (do_i_think_i_can_move_here(actor, actor->location + directions[i]))
+        if (do_i_think_i_can_move_here(actor, actor->location.coord + directions[i]))
             open_directions.append(directions[i]);
     if (open_directions.length() > 0)
         return Action::move(open_directions[random_int(open_directions.length(), nullptr)]);

@@ -154,7 +154,7 @@ struct Event {
     }
 
     static inline Event move(Thing mover, Coord from) {
-        return move_event(mover->id, from, mover->location);
+        return move_event(mover->id, from, mover->location.coord);
     }
 
     static inline Event attack_individual(Thing attacker, Thing target) {
@@ -271,7 +271,7 @@ struct Event {
 
 
     static inline Event item_drops_to_the_floor(Thing item) {
-        return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
+        return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location.coord);
     }
     static inline Event individual_picks_up_item(uint256 individual_id, uint256 item_id) {
         return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual_id, item_id);

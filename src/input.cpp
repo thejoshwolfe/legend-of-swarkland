@@ -39,21 +39,23 @@ Coord get_mouse_pixels() {
     return result;
 }
 
-void get_floor_actions(Thing actor, List<Action> * actions) {
+void get_floor_actions(List<Action> * actions) {
+    Thing actor = player_actor();
+    PerceivedThing self = actor->life()->knowledge.perceived_things.get(actor->id);
     // pick up
     List<PerceivedThing> items;
-    find_perceived_items_at(actor, actor->location, &items);
+    find_perceived_items_at(actor, self->location.coord, &items);
     for (int i = 0; i < items.length(); i++)
         actions->append(Action::pickup(items[i]->id));
 
     // go down
-    if (actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN)
+    if (actor->life()->knowledge.tiles[self->location.coord] == TileType_STAIRS_DOWN)
         actions->append(Action::go_down());
 }
 
 static Action move_or_attack(Coord direction) {
     // convert moving into attacking if it's pointed at an observed monster.
-    if (find_perceived_individual_at(player_actor(), player_actor()->location + direction) != nullptr)
+    if (find_perceived_individual_at(player_actor(), player_actor()->location.coord + direction) != nullptr)
         return Action::attack(direction);
     return Action::move(direction);
 }
@@ -180,7 +182,7 @@ static Action on_key_down_main(const SDL_Event & event) {
             case SDL_SCANCODE_KP_5:
             case SDL_SCANCODE_S: {
                 List<Action> actions;
-                get_floor_actions(player_actor(), &actions);
+                get_floor_actions(&actions);
                 if (actions.length() == 0)
                     break;
                 if (actions.length() == 1)
@@ -404,7 +406,7 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
         case SDL_SCANCODE_X: {
             // move the cursor
             List<Action> actions;
-            get_floor_actions(player_actor(), &actions);
+            get_floor_actions(&actions);
             floor_menu_cursor = (floor_menu_cursor + get_direction_from_event(event).y + actions.length()) % actions.length();
             break;
         }
@@ -413,7 +415,7 @@ static Action on_key_down_floor_choose_action(const SDL_Event & event) {
         case SDL_SCANCODE_S: {
             // accept
             List<Action> actions;
-            get_floor_actions(player_actor(), &actions);
+            get_floor_actions(&actions);
             input_mode = InputMode_MAIN;
             return actions[floor_menu_cursor];
         }

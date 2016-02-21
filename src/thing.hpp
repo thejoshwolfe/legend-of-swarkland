@@ -152,6 +152,30 @@ enum Mind {
     Mind_CIVILIZED,
 };
 
+struct Location {
+    enum Kind {
+        UNKNOWN,
+        MAP,
+        CONTAINED,
+
+        COUNT,
+    };
+    Kind kind;
+    Coord coord;
+    uint256 container_id;
+    int z_order;
+
+    static Location unknown() {
+        return Location { UNKNOWN, Coord::nowhere(), uint256::zero(), 0};
+    }
+    static Location map(Coord coord, int z_order) {
+        return Location { MAP, coord, uint256::zero(), z_order};
+    }
+    static Location contained(uint256 container_id, int z_order) {
+        return Location { CONTAINED, Coord::nowhere(), container_id, z_order};
+    }
+};
+
 // everyone has the same action cost
 static const int action_cost = 12;
 static const int speedy_movement_cost = 3;
@@ -325,9 +349,7 @@ public:
     uint256 id;
     bool is_placeholder;
     ThingType thing_type;
-    Coord location = Coord::nowhere();
-    uint256 container_id = uint256::zero();
-    int z_order = 0;
+    Location location = Location::unknown();
     int64_t last_seen_time;
     List<StatusEffect> status_effects;
     // individual
@@ -482,9 +504,7 @@ public:
     // this is set to false in the time between actually being destroyed and being removed from the master list
     bool still_exists = true;
 
-    Coord location = Coord::nowhere();
-    uint256 container_id = uint256::zero();
-    int z_order = 0;
+    Location location = Location::unknown();
 
     List<StatusEffect> status_effects;
     List<AbilityCooldown> ability_cooldowns;

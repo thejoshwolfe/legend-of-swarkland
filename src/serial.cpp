@@ -651,6 +651,57 @@ static TileType parse_tile_type_short_name(ByteBuffer const& line, const Token &
     report_error(token, 0, "undefined tile type");
 }
 
+static constexpr IndexAndValue<ConstStr> const location_kind_short_names[Location::COUNT] = {
+    {Location::UNKNOWN, "?"},
+    {Location::MAP, "m"},
+    {Location::CONTAINED, "c"},
+};
+check_indexed_array(location_kind_short_names);
+
+static Location::Kind parse_location_kind(ByteBuffer const& line, Token const& token) {
+    return parse_string_id<Location::Kind>(location_kind_short_names, get_array_length(location_kind_short_names), line, token);
+}
+static Location parse_location(ByteBuffer const& line, List<Token> const& tokens, int * token_cursor) {
+    Location::Kind kind = parse_location_kind(line, tokens[(*token_cursor)++]);
+    switch (kind) {
+        case Location::UNKNOWN:
+            return Location::unknown();
+        case Location::MAP: {
+            Coord coord = parse_coord(line, tokens[*token_cursor], tokens[*token_cursor + 1]);
+            (*token_cursor) += 2;
+            int z_order = parse_int(line, tokens[(*token_cursor)++]);
+            return Location::map(coord, z_order);
+        }
+        case Location::CONTAINED: {
+            uint256 container_id = parse_uint256(line, tokens[(*token_cursor)++]);
+            int z_order = parse_int(line, tokens[(*token_cursor)++]);
+            return Location::contained(container_id, z_order);
+        }
+        case Location::COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+static void write_location(ByteBuffer * output_buffer, Location const& location) {
+    output_buffer->append(location_kind_short_names[location.kind].value);
+    switch (location.kind) {
+        case Location::UNKNOWN:
+            break;
+        case Location::MAP:
+            output_buffer->format(" %d %d", location.coord.x, location.coord.y);
+            output_buffer->format(" %d", location.z_order);
+            break;
+        case Location::CONTAINED:
+            output_buffer->append(' ');
+            write_uint_oversized_to_buffer(output_buffer, location.container_id);
+            output_buffer->format(" %d", location.z_order);
+            break;
+        case Location::COUNT:
+            unreachable();
+    }
+}
+
+
 static void write_rng_input(ByteBuffer * output_buffer, const ByteBuffer & tag, int value) {
     output_buffer->format("  %s %d ", RNG_DIRECTIVE, value);
     output_buffer->append(tag);
@@ -940,10 +991,7 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
             report_error(tokens[token_cursor - 1], 0, "expected thing directive");
 
         uint256 id = parse_uint256(line, tokens[token_cursor++]);
-        uint256 container_id = parse_uint256(line, tokens[token_cursor++]);
-        int z_order = parse_int(line, tokens[token_cursor++]);
-        Coord location = parse_coord(line, tokens[token_cursor], tokens[token_cursor + 1]);
-        token_cursor += 2;
+        Location location = parse_location(line, tokens, &token_cursor);
         bool still_exists = parse_int(line, tokens[token_cursor++]) != 0;
         ThingType thing_type = parse_thing_type(line, tokens[token_cursor++]);
         Thing thing;
@@ -1044,10 +1092,7 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                         uint256 id = parse_uint256(line, tokens[token_cursor++]);
                         bool is_place_holder = parse_int(line, tokens[token_cursor++]) != 0;
                         int64_t last_seen_time = parse_int64(line, tokens[token_cursor++]);
-                        uint256 container_id = parse_uint256(line, tokens[token_cursor++]);
-                        int z_order = parse_int(line, tokens[token_cursor++]);
-                        Coord location = parse_coord(line, tokens[token_cursor], tokens[token_cursor + 1]);
-                        token_cursor += 2;
+                        Location location = parse_location(line, tokens, &token_cursor);
                         ThingType thing_type = parse_thing_type(line, tokens[token_cursor++]);
                         PerceivedThing perceived_thing;
                         switch (thing_type) {
@@ -1090,8 +1135,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                                 unreachable();
                         }
                         perceived_thing->location = location;
-                        perceived_thing->container_id = container_id;
-                        perceived_thing->z_order = z_order;
                         knowledge.perceived_things.put(id, perceived_thing);
                     }
                 }
@@ -1125,8 +1168,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                 unreachable();
         }
         thing->location = location;
-        thing->container_id = container_id;
-        thing->z_order = z_order;
         thing->still_exists = still_exists;
         game->actual_things.put(id, thing);
     }
@@ -1194,8 +1235,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
         write_uint_oversized_to_buffer(buffer, thing->id);
 
         buffer->append(' ');
-        write_uint_oversized_to_buffer(buffer, thing->container_id);
-        buffer->format(" %d %d %d", thing->z_order, thing->location.x, thing->location.y);
+        write_location(buffer, thing->location);
 
         buffer->format(" %d", !!thing->still_exists);
 
@@ -1286,8 +1326,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                     buffer->append(' ');
                     buffer->format(int64_format, perceived_thing->last_seen_time);
                     buffer->append(' ');
-                    write_uint_oversized_to_buffer(buffer, perceived_thing->container_id);
-                    buffer->format(" %d %d %d", perceived_thing->z_order, perceived_thing->location.x, perceived_thing->location.y);
+                    write_location(buffer, perceived_thing->location);
 
                     buffer->append(' ');
                     buffer->append(thing_type_names[perceived_thing->thing_type].value);

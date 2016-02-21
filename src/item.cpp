@@ -181,7 +181,7 @@ static void force_hit_individual(Thing target, Coord direction, int beam_length_
         publish_event(Event::magic_beam_hit(target->id));
         return;
     }
-    Coord cursor = target->location;
+    Coord cursor = target->location.coord;
     List<Thing> choo_choo_train;
     for (int push_length = 0; push_length < beam_length_remaining; push_length++) {
         target = find_individual_at(cursor);
@@ -192,7 +192,7 @@ static void force_hit_individual(Thing target, Coord direction, int beam_length_
         } else {
             // move the train into this space
             for (int i = choo_choo_train.length() - 1; i >= 0; i--)
-                attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
+                attempt_move(choo_choo_train[i], choo_choo_train[i]->location.coord + direction);
             if (!is_open_space(game->actual_map_tiles[cursor])) {
                 // end of the line.
                 // we just published a bunch of bump-into events.
@@ -260,7 +260,7 @@ enum ProjectileId {
 // functions should return how much extra beam length this happening requires.
 // return -1 for stop the beam.
 static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projectile_id) {
-    Coord cursor = actor->location;
+    Coord cursor = actor->location.coord;
     int beam_length;
     if (direction == Coord{0, 0}) {
         // directed at yourself
@@ -382,7 +382,7 @@ static const int large_mapping_radius = 40;
 static void do_mapping(Thing actor, Coord direction) {
     publish_event(Event::activated_mapping(actor->id));
 
-    Coord center = actor->location;
+    Coord center = actor->location.coord;
     MapMatrix<TileType> & tiles = actor->life()->knowledge.tiles;
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
@@ -585,7 +585,7 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     List<Thing> affected_individuals;
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);) {
-        Coord abs_vector = abs(individual->location - explosion_center);
+        Coord abs_vector = abs(individual->location.coord - explosion_center);
         if (max(abs_vector.x, abs_vector.y) <= apothem)
             affected_individuals.append(individual);
     }
@@ -626,7 +626,7 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
             break;
         case WandId_WAND_OF_FORCE:
             for (int i = 0; i < affected_individuals.length(); i++) {
-                Coord direction = affected_individuals[i]->location - explosion_center;
+                Coord direction = affected_individuals[i]->location.coord - explosion_center;
                 int beam_length = random_inclusive(
                     (beam_length_average - beam_length_error_margin) / 3,
                     (beam_length_average + beam_length_error_margin) / 3,

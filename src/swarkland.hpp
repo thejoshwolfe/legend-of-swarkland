@@ -65,13 +65,14 @@ static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals
     return FilteredIterator<IdMap<Thing>::Iterator, Thing>(game->actual_things.value_iterator(), is_actual_individual);
 }
 static inline Thing get_top_level_container(Thing thing) {
-    while (thing->container_id != uint256::zero())
-        thing = game->actual_things.get(thing->container_id);
+    while (thing->location.kind == Location::CONTAINED)
+        thing = game->actual_things.get(thing->location.container_id);
+    assert(thing->location.kind == Location::MAP);
     return thing;
 }
 static inline PerceivedThing get_top_level_container(const Thing & observer, PerceivedThing thing) {
-    while (thing->container_id != uint256::zero())
-        thing = observer->life()->knowledge.perceived_things.get(thing->container_id);
+    while (thing->location.kind == Location::CONTAINED)
+        thing = observer->life()->knowledge.perceived_things.get(thing->location.container_id);
     return thing;
 }
 static inline bool individual_uses_items(Thing thing) {

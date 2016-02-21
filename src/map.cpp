@@ -34,7 +34,7 @@ bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatr
 }
 
 static void refresh_normal_vision(Thing individual) {
-    Coord you_location = individual->location;
+    Coord you_location = individual->location.coord;
     for (Coord target = {0, 0}; target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
             if (!is_open_line_of_sight(you_location, target, game->actual_map_tiles))
@@ -46,7 +46,7 @@ static void refresh_normal_vision(Thing individual) {
 }
 
 static void refresh_ethereal_vision(Thing individual) {
-    Coord you_location = individual->location;
+    Coord you_location = individual->location.coord;
     Coord etheral_radius_diagonal = {ethereal_radius, ethereal_radius};
     Coord upper_left = clamp(you_location - etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
     Coord lower_right= clamp(you_location + etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
@@ -92,17 +92,18 @@ void compute_vision(Thing observer) {
     if (has_vision & VisionTypes_ETHEREAL)
         refresh_ethereal_vision(observer);
     // you can always feel just the spot you're on
-    knowledge.tile_is_visible[observer->location] |= VisionTypes_TOUCH;
-    record_shape_of_terrain(&knowledge.tiles, observer->location);
+    knowledge.tile_is_visible[observer->location.coord] |= VisionTypes_TOUCH;
+    record_shape_of_terrain(&knowledge.tiles, observer->location.coord);
 
     // see things
     // first clear out anything that we know is no longer where we thought
     PerceivedThing target;
     for (auto iterator = knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
-        Coord target_location = get_top_level_container(observer, target)->location;
-        if (target_location == Coord::nowhere())
+        Location target_location = get_top_level_container(observer, target)->location;
+        if (target_location.kind == Location::UNKNOWN)
             continue;
-        VisionTypes vision = knowledge.tile_is_visible[target_location];
+        assert(target_location.kind == Location::MAP);
+        VisionTypes vision = knowledge.tile_is_visible[target_location.coord];
         // TODO: allow cogniscopy to clear some markers
         vision &= ~VisionTypes_COGNISCOPY;
 
@@ -113,7 +114,7 @@ void compute_vision(Thing observer) {
             // leave the marker.
             continue;
         }
-        target->location = Coord::nowhere();
+        target->location = Location::unknown();
     }
 
     // now see anything that's in our line of vision
@@ -257,17 +258,21 @@ void generate_map() {
     }
 
     // throw some items around
+    int z_order = 0;
     if (game->dungeon_level == 1) {
         // first level always has a wand of digging and a potion of ethereal vision to make finding vaults less random.
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_wand(WandId_WAND_OF_DIGGING)->location = location;
+        create_wand(WandId_WAND_OF_DIGGING)->location = Location::map(location, z_order++);
+        fix_z_orders(location);
         location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = location;
+        create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = Location::map(location, z_order++);
+        fix_z_orders(location);
     }
     int item_count = random_inclusive(3, 6, nullptr);
     for (int i = 0; i < item_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_random_item()->location = location;
+        create_random_item()->location = Location::map(location, z_order++);
+        fix_z_orders(location);
     }
 
     // place some vaults
@@ -305,14 +310,16 @@ void generate_map() {
             for (cursor.y = room.y + 2; cursor.y < room.y + room.h - 2; cursor.y++) {
                 for (cursor.x = room.x + 2; cursor.x < room.x + room.w - 2; cursor.x++) {
                     game->actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
-                    create_random_item()->location = cursor;
+                    create_random_item()->location = Location::map(cursor, z_order++);
+                    fix_z_orders(cursor);
                 }
             }
         } else {
             // throw what items would be in the vault around in the rooms
             for (int i = 0; i < 4; i++) {
                 Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-                create_random_item()->location = location;
+                create_random_item()->location = Location::map(location, z_order++);
+                fix_z_orders(location);
             }
         }
     }

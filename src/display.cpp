@@ -680,7 +680,7 @@ static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -1;
 
-static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, bool has_abilities) {
+static Div get_tutorial_div_content(bool has_inventory, bool has_abilities) {
     List<const char *> lines;
     if (!you()->still_exists) {
         lines.append("Alt+F4: quit");
@@ -688,7 +688,7 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
         switch (input_mode) {
             case InputMode_MAIN: {
                 List<Action> floor_actions;
-                get_floor_actions(spectate_from, &floor_actions);
+                get_floor_actions(&floor_actions);
 
                 lines.append("qweadzxc: move/hit");
                 if (has_inventory)
@@ -1100,7 +1100,7 @@ void render() {
     }
 
     // tutorial
-    tutorial_div->set_content(get_tutorial_div_content(player_actor(), my_inventory.length() > 0, my_abilities.length() > 0));
+    tutorial_div->set_content(get_tutorial_div_content(my_inventory.length() > 0, my_abilities.length() > 0));
     render_div(tutorial_div, tutorial_area, 1, 1);
     {
         Span blurb_span = new_span("v", gray, black);
@@ -1124,10 +1124,10 @@ void render() {
                 // it's in our direct line of sight
                 if (direction_distance_min != -1) {
                     // actually, let's only show the 8 directions
-                    Coord vector = spectate_from->location - cursor;
+                    Coord vector = spectate_from->location.coord - cursor;
                     if (vector.x * vector.y == 0 || abs(vector.x) == abs(vector.y)) {
                         // ordinal aligned
-                        int distance = ordinal_distance(spectate_from->location, cursor);
+                        int distance = ordinal_distance(spectate_from->location.coord, cursor);
                         if (distance <= direction_distance_min)
                             alpha = 0xff;
                         else if (distance <= direction_distance_max)
@@ -1152,11 +1152,9 @@ void render() {
         // not cheating
         List<PerceivedThing> things;
         PerceivedThing thing;
-        for (auto iterator = spectate_from->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
-            if (thing->location == Coord::nowhere())
-                continue;
-            things.append(thing);
-        }
+        for (auto iterator = spectate_from->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);)
+            if (thing->location.kind == Location::MAP)
+                things.append(thing);
         sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(things.raw(), things.length());
         // only render 1 of each type of thing in each location on the map
         MapMatrix<bool> item_pile_rendered;
@@ -1164,17 +1162,17 @@ void render() {
         for (int i = 0; i < things.length(); i++) {
             PerceivedThing thing = things[i];
             if (thing->thing_type != ThingType_INDIVIDUAL) {
-                if (item_pile_rendered[thing->location])
+                if (item_pile_rendered[thing->location.coord])
                     continue;
-                item_pile_rendered[thing->location] = true;
+                item_pile_rendered[thing->location.coord] = true;
             }
             Uint8 alpha = get_thing_alpha(spectate_from, thing);
-            render_tile(get_image_for_thing(thing), 0, alpha, thing->location);
+            render_tile(get_image_for_thing(thing), 0, alpha, thing->location.coord);
 
             List<PerceivedThing> inventory;
             find_items_in_inventory(spectate_from, thing->id, &inventory);
             if (inventory.length() > 0)
-                render_tile(equipment_image, 0, alpha, thing->location);
+                render_tile(equipment_image, 0, alpha, thing->location.coord);
         }
     } else {
         // full visibility
@@ -1183,19 +1181,19 @@ void render() {
             // this exposes hashtable iteration order, but it's a cheatcode, so whatever.
             if (!thing->still_exists)
                 continue;
-            if (thing->location == Coord::nowhere())
+            if (thing->location.kind != Location::MAP)
                 continue;
             Uint8 alpha;
-            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_shape(spectate_from->life()->knowledge.tile_is_visible[thing->location]))
+            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_shape(spectate_from->life()->knowledge.tile_is_visible[thing->location.coord]))
                 alpha = 0x7f;
             else
                 alpha = 0xff;
-            render_tile(get_image_for_thing(thing), 0, alpha, thing->location);
+            render_tile(get_image_for_thing(thing), 0, alpha, thing->location.coord);
 
             List<Thing> inventory;
             find_items_in_inventory(thing->id, &inventory);
             if (inventory.length() > 0)
-                render_tile(equipment_image, 0, alpha, thing->location);
+                render_tile(equipment_image, 0, alpha, thing->location.coord);
         }
     }
 
@@ -1370,7 +1368,7 @@ void render() {
 
     if (show_floor_menu) {
         List<Action> floor_actions;
-        get_floor_actions(spectate_from, &floor_actions);
+        get_floor_actions(&floor_actions);
         if (!(last_floor_menu_actions == floor_actions && last_floor_menu_cursor == floor_menu_cursor)) {
             // rerender floor menu div
             last_floor_menu_actions.clear();
@@ -1388,7 +1386,7 @@ void render() {
                 floor_menu_div->append(item_span);
             }
         }
-        popup_help(main_map_area, spectate_from->location, floor_menu_div);
+        popup_help(main_map_area, spectate_from->location.coord, floor_menu_div);
     }
     if (show_cheatcode_polymorph_choose_species_menu) {
         if (last_cheatcode_polymorph_choose_species_menu_cursor != cheatcode_polymorph_choose_species_menu_cursor) {

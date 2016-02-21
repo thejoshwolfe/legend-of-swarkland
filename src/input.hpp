@@ -46,6 +46,6 @@ extern Coord cheatcode_generate_monster_choose_location_cursor;
 Coord get_mouse_pixels();
 void on_mouse_motion();
 void read_input();
-void get_floor_actions(Thing actor, List<Action> * actions);
+void get_floor_actions(List<Action> * actions);
 
 #endif
