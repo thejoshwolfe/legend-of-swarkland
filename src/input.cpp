@@ -3,6 +3,7 @@
 #include "display.hpp"
 #include "swarkland.hpp"
 #include "decision.hpp"
+#include "serial.hpp"
 
 InputMode input_mode = InputMode_MAIN;
 int inventory_cursor;
@@ -192,6 +193,52 @@ static Action on_key_down_main(const SDL_Event & event) {
                 floor_menu_cursor = clamp(floor_menu_cursor, 0, actions.length() - 1);
                 break;
             }
+
+            default:
+                break;
+        }
+    }
+    return Action::undecided();
+}
+static Action on_key_down_replay(const SDL_Event & event) {
+    if (event.key.keysym.mod & KMOD_CTRL) {
+        // cheatcodes
+        switch (event.key.keysym.sym) {
+            case SDLK_v:
+                cheatcode_full_visibility = !cheatcode_full_visibility;
+                break;
+            case SDLK_s: {
+                Coord location = get_mouse_tile(main_map_area);
+                cheatcode_spectate(location);
+                break;
+            }
+
+            default:
+                break;
+        }
+    } else {
+        // normal
+        switch (event.key.keysym.scancode) {
+            case SDL_SCANCODE_LEFT:
+                if (!replay_paused) {
+                    // slower
+                    replay_adjust_delay(1);
+                }
+                break;
+            case SDL_SCANCODE_RIGHT:
+                if (replay_paused) {
+                    replay_advance = true;
+                } else {
+                    // faster
+                    replay_adjust_delay(-1);
+                }
+                break;
+            case SDL_SCANCODE_UP:
+                replay_resume();
+                break;
+            case SDL_SCANCODE_DOWN:
+                replay_pause();
+                break;
 
             default:
                 break;
@@ -699,6 +746,7 @@ static Action on_key_down_choose_direction(const SDL_Event & event) {
                     input_mode = InputMode_MAIN;
                     return Action::ability(chosen_ability, get_direction_from_event(event));
                 case InputMode_MAIN:
+                case InputMode_REPLAY:
                 case InputMode_INVENTORY_CHOOSE_ITEM:
                 case InputMode_CHOOSE_ABILITY:
                 case InputMode_INVENTORY_CHOOSE_ACTION:
@@ -725,6 +773,8 @@ static Action on_key_down(const SDL_Event & event) {
     switch (input_mode) {
         case InputMode_MAIN:
             return on_key_down_main(event);
+        case InputMode_REPLAY:
+            return on_key_down_replay(event);
         case InputMode_INVENTORY_CHOOSE_ITEM:
             return on_key_down_choose_item(event);
         case InputMode_CHOOSE_ABILITY:

@@ -11,6 +11,7 @@
 #include "resources.hpp"
 #include "event.hpp"
 #include "decision.hpp"
+#include "serial.hpp"
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -724,6 +725,16 @@ static Div get_tutorial_div_content(bool has_inventory, bool has_abilities) {
                 }
                 break;
             }
+            case InputMode_REPLAY:
+                if (replay_paused) {
+                    lines.append("up: resume");
+                    lines.append("right: step");
+                } else {
+                    lines.append("down: pause");
+                    lines.append("left: slower");
+                    lines.append("right: faster");
+                }
+                break;
             case InputMode_INVENTORY_CHOOSE_ITEM:
             case InputMode_CHOOSE_ABILITY:
                 lines.append("qweadzxc: move cursor");
@@ -1028,6 +1039,7 @@ void render() {
 
     switch (input_mode) {
         case InputMode_MAIN:
+        case InputMode_REPLAY:
             show_map_popup_help = true;
             break;
         case InputMode_INVENTORY_CHOOSE_ITEM:

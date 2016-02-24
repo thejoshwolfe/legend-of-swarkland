@@ -2,11 +2,14 @@
 
 #include "random.hpp"
 #include "display.hpp"
+#include "input.hpp"
 
 #include <stdio.h>
 #include <errno.h>
 
 static int replay_delay;
+bool replay_paused = false;
+bool replay_advance = false;
 
 static const char * script_path;
 static FILE * script_file;
@@ -52,6 +55,20 @@ static void test_expect_fail(const char * fmt, String s1, String s2) {
 void set_replay_delay(int n) {
     replay_delay = n;
 }
+void replay_adjust_delay(int delta) {
+    replay_delay += delta;
+    if (replay_delay <= 0)
+        replay_delay = 1;
+}
+void replay_resume() {
+    replay_paused = false;
+    // resume immediately
+    replay_delay_frame_counter = replay_delay;
+}
+void replay_pause() {
+    replay_paused = true;
+}
+
 void init_random() {
     if (lets_do_test_mode)
         game->test_mode = true;
@@ -756,7 +773,7 @@ static void read_header() {
     }
 }
 
-void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test_mode) {
+void set_save_file(SaveFileMode mode, const char * file_path, bool cli_says_test_mode) {
     script_path = file_path;
 
     switch (mode) {
@@ -803,11 +820,13 @@ void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test
     switch (current_mode) {
         case SaveFileMode_READ:
         case SaveFileMode_READ_WRITE: {
+            input_mode = InputMode_REPLAY;
             read_header();
             break;
         }
         case SaveFileMode_WRITE: {
-            if (cli_syas_test_mode) {
+            input_mode = InputMode_MAIN;
+            if (cli_says_test_mode) {
                 write_test_mode_header();
                 lets_do_test_mode = true;
             } else {
@@ -817,7 +836,8 @@ void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test
             break;
         }
         case SaveFileMode_IGNORE:
-            if (cli_syas_test_mode) {
+            input_mode = InputMode_MAIN;
+            if (cli_says_test_mode) {
                 lets_do_test_mode = true;
             } else {
                 rng_seed = get_random_seed();
@@ -1731,11 +1751,17 @@ static void write_action(ByteBuffer * output_buffer, const Action & action) {
 
 Action read_decision_from_save_file() {
     if (!headless_mode && replay_delay > 0) {
-        if (replay_delay_frame_counter < replay_delay) {
-            replay_delay_frame_counter++;
-            return Action::undecided(); // let the screen draw
+        if (replay_paused) {
+            if (!replay_advance)
+                return Action::undecided();
+            replay_advance = false;
+        } else {
+            if (replay_delay_frame_counter < replay_delay) {
+                replay_delay_frame_counter++;
+                return Action::undecided(); // let the screen draw
+            }
+            replay_delay_frame_counter = 0;
         }
-        replay_delay_frame_counter = 0;
     }
     switch (current_mode) {
         case SaveFileMode_READ_WRITE: {
@@ -1743,6 +1769,7 @@ Action read_decision_from_save_file() {
             if (result.id == Action::UNDECIDED) {
                 // end of file
                 current_mode = SaveFileMode_WRITE;
+                input_mode = InputMode_MAIN;
             }
             return result;
         }
@@ -1752,6 +1779,7 @@ Action read_decision_from_save_file() {
                 // end of file
                 fclose(script_file);
                 current_mode = SaveFileMode_IGNORE;
+                input_mode = InputMode_MAIN;
             }
             return result;
         }

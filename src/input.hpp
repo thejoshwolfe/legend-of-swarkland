@@ -6,6 +6,7 @@
 
 enum InputMode {
     InputMode_MAIN,
+    InputMode_REPLAY,
     InputMode_INVENTORY_CHOOSE_ITEM,
     InputMode_CHOOSE_ABILITY,
     InputMode_INVENTORY_CHOOSE_ACTION,
