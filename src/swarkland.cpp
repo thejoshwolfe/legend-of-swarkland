@@ -1145,6 +1145,7 @@ void change_map(Coord location, TileType new_tile_type) {
 }
 
 void fix_perceived_z_orders(Thing observer, uint256 container_id) {
+    // TODO: this function shouldn't exist
     List<PerceivedThing> inventory;
     find_items_in_inventory(observer, container_id, &inventory);
     for (int i = 0; i < inventory.length(); i++)

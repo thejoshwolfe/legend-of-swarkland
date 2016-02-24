@@ -111,14 +111,17 @@ void forget_location_of_thing(Thing observer, PerceivedThing target, List<uint25
         target->location = Location::unknown();
     }
 }
+static void forget_location_of_thing(Thing observer, PerceivedThing target) {
+    List<uint256> delete_ids;
+    forget_location_of_thing(observer, target, &delete_ids);
+    for (int i = 0; i < delete_ids.length(); i++)
+        observer->life()->knowledge.perceived_things.remove(delete_ids[i]);
+}
 static void clear_placeholder_individual_at(Thing observer, Coord location) {
     PerceivedThing thing = find_placeholder_individual(observer, location);
     if (thing == nullptr)
         return;
-    List<uint256> delete_ids;
-    forget_location_of_thing(observer, thing, &delete_ids);
-    for (int i = 0; i < delete_ids.length(); i++)
-        observer->life()->knowledge.perceived_things.remove(delete_ids[i]);
+    forget_location_of_thing(observer, thing);
 }
 
 static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uint256 supposed_container_id) {
@@ -563,6 +566,7 @@ static void observe_event(Thing observer, Event event) {
                 case Event::TheIndividualData::DIE:
                     remembered_event->span->format("%s dies.", get_thing_description(observer, data.individual));
                     individual->location = Location::unknown();
+                    assert(!individual->is_placeholder);
                     break;
                 case Event::TheIndividualData::DELETE_THING: {
                     remembered_event = nullptr;
@@ -578,6 +582,7 @@ static void observe_event(Thing observer, Event event) {
                             } else {
                                 // well i don't know where it is, but at least i know this thing isn't holding it anymore.
                                 inventory[i]->location = Location::unknown();
+                                assert(!inventory[i]->is_placeholder);
                             }
                         }
                     }
@@ -736,11 +741,17 @@ static void observe_event(Thing observer, Event event) {
             const Event::IndividualAndLocationData & data = event.individual_and_location_data();
             record_solidity_of_location(observer, data.location, data.is_air);
             // there's no individual there to attack
+            clear_placeholder_individual_at(observer, data.location);
+            // TODO: the following code could probably be moved into the above call
             List<PerceivedThing> perceived_things;
             find_perceived_things_at(observer, data.location, &perceived_things);
-            for (int i = 0; i < perceived_things.length(); i++)
-                if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
-                    perceived_things[i]->location = Location::unknown();
+            for (int i = 0; i < perceived_things.length(); i++) {
+                if (perceived_things[i]->thing_type != ThingType_INDIVIDUAL)
+                    continue;
+                perceived_things[i]->location = Location::unknown();
+                assert(!perceived_things[i]->is_placeholder);
+            }
+
             Span actor_description = get_thing_description(observer, data.actor);
             Span bumpee_description;
             if (!is_open_space(observer->life()->knowledge.tiles[data.location]))
@@ -791,8 +802,10 @@ static void observe_event(Thing observer, Event event) {
                             break;
                     }
                     remembered_event->span->format(fmt, actor_description, bumpee_description);
-                    if (data.id == Event::TwoIndividualData::MELEE_KILL)
-                        observer->life()->knowledge.perceived_things.get(data.target)->location = Location::unknown();
+                    if (data.id == Event::TwoIndividualData::MELEE_KILL) {
+                        PerceivedThing target = observer->life()->knowledge.perceived_things.get(data.target);
+                        forget_location_of_thing(observer, target);
+                    }
                     break;
                 }
             }
@@ -821,6 +834,7 @@ static void observe_event(Thing observer, Event event) {
                 case Event::IndividualAndItemData::WAND_DISINTEGRATES:
                     remembered_event->span->format("%s tries to zap %s, but %s disintegrates.", individual_description, item_description, item_description);
                     item->location = Location::unknown();
+                    assert(!item->is_placeholder);
                     break;
                 case Event::IndividualAndItemData::READ_BOOK: {
                     PerceivedThing book = observer->life()->knowledge.perceived_things.get(data.item);
@@ -877,7 +891,8 @@ static void observe_event(Thing observer, Event event) {
                     remembered_event->span->format("%s explodes!", item_description);
                     if (item->wand_info()->description_id != WandDescriptionId_UNSEEN)
                         game->observer_to_active_identifiable_item.put(observer->id, data.item);
-                    item->location.kind = Location::UNKNOWN;
+                    item->location = Location::unknown();
+                    assert(!item->is_placeholder);
                     break;
                 case Event::ItemAndLocationData::ITEM_HITS_WALL:
                     // the item may have been thrown from out of view, so make sure we know what it is.
