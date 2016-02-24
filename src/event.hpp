@@ -386,6 +386,7 @@ private:
 
 bool can_see_thing(Thing observer, uint256 target_id, Coord target_location);
 bool can_see_thing(Thing observer, uint256 target_id);
+void forget_location_of_thing(Thing observer, PerceivedThing target, List<uint256> * delete_ids);
 PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id);
 void publish_event(Event event);
 

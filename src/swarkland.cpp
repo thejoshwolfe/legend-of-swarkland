@@ -15,13 +15,6 @@ Game * game;
 bool cheatcode_full_visibility;
 Thing cheatcode_spectator;
 
-static void init_static_data() {
-    // shorthand
-    for (int i = 0; i < SpeciesId_COUNT; i++)
-        if (specieses[i].movement_cost == 0)
-            panic("you missed a spot");
-}
-
 static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     individual->life()->hitpoints = 0;
 
@@ -272,8 +265,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
         }
     }
 
-    Thing individual = create<ThingImpl>(random_id(), species_id, decision_maker, random_initiative());
-    individual->location = Location::map(location, 0);
+    Thing individual = create<ThingImpl>(random_id(), Location::map(location, 0), species_id, decision_maker, random_initiative());
 
     gain_experience(individual, level_to_experience(specieses[species_id].min_level + 1) - 1, false);
 
@@ -316,8 +308,8 @@ static void init_individuals() {
         Thing boss = spawn_a_monster(SpeciesId_LICH, DecisionMakerType_AI, Coord::nowhere());
         // arm him!
         for (int i = 0; i < 5; i++) {
-            pickup_item(boss, create_random_item(ThingType_WAND));
-            pickup_item(boss, create_random_item(ThingType_POTION));
+            create_random_item(ThingType_WAND, Location::contained(boss->id, 0x7fffffff));
+            create_random_item(ThingType_POTION, Location::contained(boss->id, 0x7fffffff));
         }
         // teach him everything about magic.
         for (int i = 0; i < WandId_COUNT; i++)
@@ -338,7 +330,6 @@ static void init_individuals() {
 }
 
 void swarkland_init() {
-    init_static_data();
     init_items();
 
     generate_map();
@@ -925,13 +916,13 @@ static bool take_action(Thing actor, const Action & action) {
                 case ThingType_INDIVIDUAL:
                     unreachable();
                 case ThingType_WAND:
-                    drop_item_to_the_floor(create_wand(data.wand_id), actor->location.coord);
+                    publish_event(Event::appear(create_wand(data.wand_id, Location::map(actor->location.coord, -1))));
                     return false;
                 case ThingType_POTION:
-                    drop_item_to_the_floor(create_potion(data.potion_id), actor->location.coord);
+                    publish_event(Event::appear(create_potion(data.potion_id, Location::map(actor->location.coord, -1))));
                     return false;
                 case ThingType_BOOK:
-                    drop_item_to_the_floor(create_book(data.book_id), actor->location.coord);
+                    publish_event(Event::appear(create_book(data.book_id, Location::map(actor->location.coord, -1))));
                     return false;
 
                 case ThingType_COUNT:

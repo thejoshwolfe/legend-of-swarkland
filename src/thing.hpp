@@ -504,19 +504,19 @@ public:
     // this is set to false in the time between actually being destroyed and being removed from the master list
     bool still_exists = true;
 
-    Location location = Location::unknown();
+    Location location;
 
     List<StatusEffect> status_effects;
     List<AbilityCooldown> ability_cooldowns;
 
     // individual
-    ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker, uint256 initiative);
+    ThingImpl(uint256 id, Location location, SpeciesId species_id, DecisionMakerType decision_maker, uint256 initiative);
     // wand
-    ThingImpl(uint256 id, WandId wand_id, int charges);
+    ThingImpl(uint256 id, Location location, WandId wand_id, int charges);
     // potion
-    ThingImpl(uint256 id, PotionId potion_id);
+    ThingImpl(uint256 id, Location location, PotionId potion_id);
     // book
-    ThingImpl(uint256 id, BookId book_id);
+    ThingImpl(uint256 id, Location location, BookId book_id);
 
     ~ThingImpl() {
         switch (thing_type) {

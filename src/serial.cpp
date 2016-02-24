@@ -999,7 +999,7 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
             case ThingType_INDIVIDUAL: {
                 SpeciesId species_id = parse_species_id(line, tokens[token_cursor++]);
                 DecisionMakerType decision_maker = parse_decision_maker(line, tokens[token_cursor++]);
-                thing = create<ThingImpl>(id, species_id, decision_maker, uint256::zero());
+                thing = create<ThingImpl>(id, location, species_id, decision_maker, uint256::zero());
                 expect_extra_token_count(tokens, token_cursor - 1);
 
                 line.resize(0);
@@ -1144,21 +1144,21 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
             case ThingType_WAND: {
                 WandId wand_id = parse_wand_id(line, tokens[token_cursor++]);
                 int charges = parse_int(line, tokens[token_cursor++]);
-                thing = create<ThingImpl>(id, wand_id, charges);
+                thing = create<ThingImpl>(id, location, wand_id, charges);
 
                 expect_extra_token_count(tokens, token_cursor - 1);
                 break;
             }
             case ThingType_POTION: {
                 PotionId potion_id = parse_potion_id(line, tokens[token_cursor++]);
-                thing = create<ThingImpl>(id, potion_id);
+                thing = create<ThingImpl>(id, location, potion_id);
 
                 expect_extra_token_count(tokens, token_cursor - 1);
                 break;
             }
             case ThingType_BOOK: {
                 BookId book_id = parse_book_id(line, tokens[token_cursor++]);
-                thing = create<ThingImpl>(id, book_id);
+                thing = create<ThingImpl>(id, location, book_id);
 
                 expect_extra_token_count(tokens, token_cursor - 1);
                 break;
@@ -1167,7 +1167,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
             case ThingType_COUNT:
                 unreachable();
         }
-        thing->location = location;
         thing->still_exists = still_exists;
         game->actual_things.put(id, thing);
     }

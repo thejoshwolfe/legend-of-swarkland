@@ -42,11 +42,11 @@ static constexpr IndexAndValue<int> item_rarities[TOTAL_ITEMS] = {
 static_assert(_check_indexed_array(item_rarities, TOTAL_ITEMS), "missed a spot");
 
 void init_items();
-Thing create_random_item();
-Thing create_random_item(ThingType thing_type);
-Thing create_wand(WandId wand_id);
-Thing create_potion(PotionId potion_id);
-Thing create_book(BookId book_id);
+Thing create_random_item(Location location);
+Thing create_random_item(ThingType thing_type, Location location);
+Thing create_wand(WandId wand_id, Location location);
+Thing create_potion(PotionId potion_id, Location location);
+Thing create_book(BookId book_id, Location location);
 void delete_item(Thing item);
 int get_mana_cost(BookId book_id);
 void zap_wand(Thing individual, uint256 item_id, Coord direction);

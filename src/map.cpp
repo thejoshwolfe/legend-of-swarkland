@@ -97,6 +97,7 @@ void compute_vision(Thing observer) {
 
     // see things
     // first clear out anything that we know is no longer where we thought
+    List<uint256> delete_ids;
     PerceivedThing target;
     for (auto iterator = knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
         Location target_location = get_top_level_container(observer, target)->location;
@@ -114,8 +115,11 @@ void compute_vision(Thing observer) {
             // leave the marker.
             continue;
         }
-        target->location = Location::unknown();
+        // we know this thing isn't here anymore
+        forget_location_of_thing(observer, target, &delete_ids);
     }
+    for (int i = 0; i < delete_ids.length(); i++)
+        observer->life()->knowledge.perceived_things.remove(delete_ids[i]);
 
     // now see anything that's in our line of vision
     Thing actual_target;
@@ -262,17 +266,14 @@ void generate_map() {
     if (game->dungeon_level == 1) {
         // first level always has a wand of digging and a potion of ethereal vision to make finding vaults less random.
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_wand(WandId_WAND_OF_DIGGING)->location = Location::map(location, z_order++);
-        fix_z_orders(location);
+        create_wand(WandId_WAND_OF_DIGGING, Location::map(location, z_order++));
         location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = Location::map(location, z_order++);
-        fix_z_orders(location);
+        create_potion(PotionId_POTION_OF_ETHEREAL_VISION, Location::map(location, z_order++));
     }
     int item_count = random_inclusive(3, 6, nullptr);
     for (int i = 0; i < item_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_random_item()->location = Location::map(location, z_order++);
-        fix_z_orders(location);
+        create_random_item(Location::map(location, z_order++));
     }
 
     // place some vaults
@@ -310,7 +311,7 @@ void generate_map() {
             for (cursor.y = room.y + 2; cursor.y < room.y + room.h - 2; cursor.y++) {
                 for (cursor.x = room.x + 2; cursor.x < room.x + room.w - 2; cursor.x++) {
                     game->actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
-                    create_random_item()->location = Location::map(cursor, z_order++);
+                    create_random_item(Location::map(cursor, z_order++));
                     fix_z_orders(cursor);
                 }
             }
@@ -318,8 +319,7 @@ void generate_map() {
             // throw what items would be in the vault around in the rooms
             for (int i = 0; i < 4; i++) {
                 Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-                create_random_item()->location = Location::map(location, z_order++);
-                fix_z_orders(location);
+                create_random_item(Location::map(location, z_order++));
             }
         }
     }

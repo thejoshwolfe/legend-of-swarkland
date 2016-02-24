@@ -95,15 +95,30 @@ static PerceivedThing find_placeholder_individual(Thing observer, Coord location
     }
     return nullptr;
 }
+void forget_location_of_thing(Thing observer, PerceivedThing target, List<uint256> * delete_ids) {
+    if (target->is_placeholder) {
+        // delete the placeholder
+        delete_ids->append(target->id);
+        if (target->thing_type == ThingType_INDIVIDUAL) {
+            // lose track of inventory as well
+            List<PerceivedThing> inventory;
+            find_items_in_inventory(observer, target->id, &inventory);
+            for (int i = 0; i < inventory.length(); i++)
+                forget_location_of_thing(observer, inventory[i], delete_ids);
+        }
+    } else {
+        // we don't know where it went
+        target->location = Location::unknown();
+    }
+}
 static void clear_placeholder_individual_at(Thing observer, Coord location) {
     PerceivedThing thing = find_placeholder_individual(observer, location);
-    if (thing != nullptr) {
-        observer->life()->knowledge.perceived_things.remove(thing->id);
-        List<PerceivedThing> inventory;
-        find_items_in_inventory(observer, thing->id, &inventory);
-        for (int i = 0; i < inventory.length(); i++)
-            observer->life()->knowledge.perceived_things.remove(inventory[i]->id);
-    }
+    if (thing == nullptr)
+        return;
+    List<uint256> delete_ids;
+    forget_location_of_thing(observer, thing, &delete_ids);
+    for (int i = 0; i < delete_ids.length(); i++)
+        observer->life()->knowledge.perceived_things.remove(delete_ids[i]);
 }
 
 static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uint256 supposed_container_id) {
@@ -407,16 +422,14 @@ static PerceivedThing new_perceived_thing(uint256 id, ThingType thing_type) {
 static void update_perception_of_thing(PerceivedThing target, VisionTypes vision) {
     Thing actual_target = game->actual_things.get(target->id);
 
-    target->location.kind = actual_target->location.kind;
     switch (actual_target->location.kind) {
         case Location::UNKNOWN:
             unreachable();
         case Location::MAP:
-            target->location.coord = actual_target->location.coord;
+            target->location = Location::map(actual_target->location.coord, actual_target->location.z_order);
             break;
         case Location::CONTAINED:
-            target->location.container_id = actual_target->location.container_id;
-            target->location.z_order = actual_target->location.z_order;
+            target->location = Location::contained(actual_target->location.container_id, actual_target->location.z_order);
             break;
 
         case Location::COUNT:

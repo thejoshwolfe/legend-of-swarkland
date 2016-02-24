@@ -2,7 +2,7 @@
 
 @mark_events
 !wish potion blindness
-@expect_event "a orange potion drops to the floor."
+@expect_event "a orange potion appears out of nowhere!"
 
 pickup 0000000000000000000000000000000000000000000000000000000000000002
 quaff 0000000000000000000000000000000000000000000000000000000000000002
@@ -10,4 +10,4 @@ quaff 0000000000000000000000000000000000000000000000000000000000000002
 
 @mark_events
 !wish potion blindness
-@expect_event "a potion drops to the floor."
+@expect_event "a potion appears out of nowhere!"

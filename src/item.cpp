@@ -5,11 +5,24 @@
 #include "swarkland.hpp"
 #include "event.hpp"
 
-static Thing register_item(Thing item) {
-    game->actual_things.put(item->id, item);
-    return item;
+static Thing register_thing(Thing thing) {
+    game->actual_things.put(thing->id, thing);
+    switch (thing->location.kind) {
+        case Location::UNKNOWN:
+            unreachable();
+        case Location::MAP:
+            fix_z_orders(thing->location.coord);
+            break;
+        case Location::CONTAINED:
+            fix_z_orders(thing->id);
+            break;
+        case Location::COUNT:
+            unreachable();
+    }
+    return thing;
 }
-Thing create_wand(WandId wand_id) {
+
+Thing create_wand(WandId wand_id, Location location) {
     int charges;
     switch (wand_id) {
         case WandId_WAND_OF_CONFUSION:
@@ -31,16 +44,16 @@ Thing create_wand(WandId wand_id) {
         case WandId_UNKNOWN:
             unreachable();
     }
-    return register_item(create<ThingImpl>(random_id(), wand_id, charges));
+    return register_thing(create<ThingImpl>(random_id(), location, wand_id, charges));
 }
-Thing create_potion(PotionId potion_id) {
-    return register_item(create<ThingImpl>(random_id(), potion_id));
+Thing create_potion(PotionId potion_id, Location location) {
+    return register_thing(create<ThingImpl>(random_id(), location, potion_id));
 }
-Thing create_book(BookId book_id) {
-    return register_item(create<ThingImpl>(random_id(), book_id));
+Thing create_book(BookId book_id, Location location) {
+    return register_thing(create<ThingImpl>(random_id(), location, book_id));
 }
 
-static Thing create_random_item(int min_offset, int max_offset) {
+static Thing create_random_item(int min_offset, int max_offset, Location location) {
     // select from the pool
     int total_pool_size = 0;
     for (int i = min_offset; i < max_offset; i++)
@@ -66,26 +79,26 @@ static Thing create_random_item(int min_offset, int max_offset) {
     }
 
     if (WAND_OFFSET <= item_index && item_index < WAND_OFFSET + WandId_COUNT)
-        return create_wand((WandId)(item_index - WAND_OFFSET));
+        return create_wand((WandId)(item_index - WAND_OFFSET), location);
     if (POTION_OFFSET <= item_index && item_index < POTION_OFFSET + PotionId_COUNT)
-        return create_potion((PotionId)(item_index - POTION_OFFSET));
+        return create_potion((PotionId)(item_index - POTION_OFFSET), location);
     if (BOOK_OFFSET <= item_index && item_index < BOOK_OFFSET + BookId_COUNT)
-        return create_book((BookId)(item_index - BOOK_OFFSET));
+        return create_book((BookId)(item_index - BOOK_OFFSET), location);
     unreachable();
 }
-Thing create_random_item() {
-    return create_random_item(0, TOTAL_ITEMS);
+Thing create_random_item(Location location) {
+    return create_random_item(0, TOTAL_ITEMS, location);
 }
-Thing create_random_item(ThingType thing_type) {
+Thing create_random_item(ThingType thing_type, Location location) {
     switch (thing_type) {
         case ThingType_INDIVIDUAL:
             unreachable();
         case ThingType_WAND:
-            return create_random_item(WAND_OFFSET, WAND_OFFSET + WandId_COUNT);
+            return create_random_item(WAND_OFFSET, WAND_OFFSET + WandId_COUNT, location);
         case ThingType_POTION:
-            return create_random_item(POTION_OFFSET, POTION_OFFSET + PotionId_COUNT);
+            return create_random_item(POTION_OFFSET, POTION_OFFSET + PotionId_COUNT, location);
         case ThingType_BOOK:
-            return create_random_item(BOOK_OFFSET, BOOK_OFFSET + BookId_COUNT);
+            return create_random_item(BOOK_OFFSET, BOOK_OFFSET + BookId_COUNT, location);
 
         case ThingType_COUNT:
             unreachable();
