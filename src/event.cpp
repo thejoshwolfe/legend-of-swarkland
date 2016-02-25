@@ -173,9 +173,8 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
         case ThingType_COUNT:
             unreachable();
     }
-    thing->location = Location::contained(supposed_container_id, 0);
+    thing->location = Location::contained(supposed_container_id);
     observer->life()->knowledge.perceived_things.put(id, thing);
-    fix_perceived_z_orders(observer, container->id);
     return id;
 }
 static uint256 make_placeholder_individual(Thing observer, uint256 actual_target_id) {
@@ -185,7 +184,7 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
         // invent a placeholder here
         uint256 id = random_id();
         thing = create<PerceivedThingImpl>(id, true, SpeciesId_UNSEEN, game->time_counter);
-        thing->location = Location::map(actual_target->location.coord, 0);
+        thing->location = Location::map(actual_target->location.coord);
         observer->life()->knowledge.perceived_things.put(id, thing);
     }
     VisionTypes vision = observer->life()->knowledge.tile_is_visible[actual_target->location.coord];
@@ -429,10 +428,10 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
         case Location::UNKNOWN:
             unreachable();
         case Location::MAP:
-            target->location = Location::map(actual_target->location.coord, actual_target->location.z_order);
+            target->location = Location::map(actual_target->location.coord);
             break;
         case Location::CONTAINED:
-            target->location = Location::contained(actual_target->location.container_id, actual_target->location.z_order);
+            target->location = Location::contained(actual_target->location.container_id);
             break;
 
         case Location::COUNT:
@@ -578,7 +577,7 @@ static void observe_event(Thing observer, Event event) {
                         for (int i = 0; i < inventory.length(); i++) {
                             if (thing->location.kind == Location::MAP) {
                                 // assume everything drops to the floor
-                                inventory[i]->location = Location::map(thing->location.coord, i);
+                                inventory[i]->location = Location::map(thing->location.coord);
                             } else {
                                 // well i don't know where it is, but at least i know this thing isn't holding it anymore.
                                 inventory[i]->location = Location::unknown();
@@ -868,8 +867,7 @@ static void observe_event(Thing observer, Event event) {
                     const char * fmt = data.id == Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM ? "%s picks up %s." : "%s sucks up %s.";
                     remembered_event->span->format(fmt, individual_description, item_description);
                     PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
-                    item->location = Location::contained(data.individual, 0);
-                    fix_perceived_z_orders(observer, data.individual);
+                    item->location = Location::contained(data.individual);
                     break;
                 }
             }

@@ -94,21 +94,11 @@ static void blind_individual(Thing attacker, Thing target) {
 // publish the event yourself
 static void pickup_item(Thing individual, Thing item) {
     assert(item->location.kind == Location::MAP);
-    // put it at the end of the inventory
-    int z_order = 0x7fffffff;
-    item->location = Location::contained(individual->id, z_order);
-    fix_z_orders(individual->id);
-    fix_z_orders(individual->location.coord);
+    item->location = Location::contained(individual->id);
 }
 void drop_item_to_the_floor(Thing item, Coord location) {
     assert(item->location.kind == Location::CONTAINED);
-    uint256 old_container_id = item->location.container_id;
-
-    // put it on the top of pile
-    int z_order = -0x80000000;
-    item->location = Location::map(location, z_order);
-    fix_z_orders(old_container_id);
-    fix_z_orders(location);
+    item->location = Location::map(location);
 
     publish_event(Event::item_drops_to_the_floor(item));
 
@@ -122,8 +112,7 @@ void drop_item_to_the_floor(Thing item, Coord location) {
 static void throw_item(Thing actor, Thing item, Coord direction) {
     publish_event(Event::throw_item(actor->id, item->id));
     // let go of the item. it's now sailing through the air.
-    item->location = Location::map(actor->location.coord, -1);
-    fix_z_orders(actor->id);
+    item->location = Location::map(actor->location.coord);
 
     // find the hit target
     int range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "throw_distance");
@@ -144,7 +133,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
             publish_event(Event::item_hits_wall(item->id, cursor));
             break;
         } else {
-            item->location = Location::map(cursor, -1);
+            item->location = Location::map(cursor);
             publish_event(Event::move(item, cursor - direction));
         }
         Thing target = find_individual_at(cursor);
@@ -265,7 +254,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
         }
     }
 
-    Thing individual = create<ThingImpl>(random_id(), Location::map(location, 0), species_id, decision_maker, random_initiative());
+    Thing individual = create<ThingImpl>(random_id(), Location::map(location), species_id, decision_maker, random_initiative());
 
     gain_experience(individual, level_to_experience(specieses[species_id].min_level + 1) - 1, false);
 
@@ -299,7 +288,7 @@ static void init_individuals() {
     } else {
         // you just landed from upstairs
         // make sure the up and down stairs are sufficiently far apart.
-        you()->location = Location::map(random_spawn_location(find_stairs_down_location()), 0);
+        you()->location = Location::map(random_spawn_location(find_stairs_down_location()));
         compute_vision(you());
     }
 
@@ -308,8 +297,8 @@ static void init_individuals() {
         Thing boss = spawn_a_monster(SpeciesId_LICH, DecisionMakerType_AI, Coord::nowhere());
         // arm him!
         for (int i = 0; i < 5; i++) {
-            create_random_item(ThingType_WAND, Location::contained(boss->id, 0x7fffffff));
-            create_random_item(ThingType_POTION, Location::contained(boss->id, 0x7fffffff));
+            create_random_item(ThingType_WAND, Location::contained(boss->id));
+            create_random_item(ThingType_POTION, Location::contained(boss->id));
         }
         // teach him everything about magic.
         for (int i = 0; i < WandId_COUNT; i++)
@@ -439,19 +428,65 @@ static void attack(Thing attacker, Thing target) {
         poison_individual(attacker, target);
 }
 
-static int compare_things_by_z_order(Thing a, Thing b) {
-    return a->location.z_order < b->location.z_order ? -1 : a->location.z_order > b->location.z_order ? 1 : 0;
-}
-static int compare_perceived_things_by_z_order(PerceivedThing a, PerceivedThing b) {
-    return a->location.z_order < b->location.z_order ? -1 : a->location.z_order > b->location.z_order ? 1 : 0;
-}
-int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b) {
-    int is_individual_a = a->thing_type == ThingType_INDIVIDUAL;
-    int is_individual_b = b->thing_type == ThingType_INDIVIDUAL;
-    int result = is_individual_a - is_individual_b;
-    if (result != 0)
+int compare_things(Thing a, Thing b) {
+    // only use obvious observable information here.
+    int result;
+    ThingType thing_type_a = a->thing_type;
+    ThingType thing_type_b = b->thing_type;
+    if ((result = thing_type_a - thing_type_b) != 0)
         return result;
-    return compare_perceived_things_by_z_order(a, b);
+    switch (thing_type_a) {
+        case ThingType_INDIVIDUAL:
+            // physical species is observable
+            if ((result = a->physical_species_id() - b->physical_species_id()) != 0)
+                return result;
+            break;
+        case ThingType_WAND:
+            if ((result = game->actual_wand_descriptions[a->wand_info()->wand_id] - game->actual_wand_descriptions[b->wand_info()->wand_id]) != 0)
+                return result;
+            break;
+        case ThingType_POTION:
+            if ((result = game->actual_potion_descriptions[a->potion_info()->potion_id] - game->actual_potion_descriptions[b->potion_info()->potion_id]) != 0)
+                return result;
+            break;
+        case ThingType_BOOK:
+            if ((result = game->actual_book_descriptions[a->book_info()->book_id] - game->actual_book_descriptions[b->book_info()->book_id]) != 0)
+                return result;
+            break;
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    return compare(a->id, b->id);
+}
+int compare_perceived_things(PerceivedThing a, PerceivedThing b) {
+    int result;
+    ThingType thing_type_a = a->thing_type;
+    ThingType thing_type_b = b->thing_type;
+    if ((result = thing_type_a - thing_type_b) != 0)
+        return result;
+    switch (thing_type_a) {
+        case ThingType_INDIVIDUAL:
+            if ((result = a->life()->species_id - b->life()->species_id) != 0)
+                return result;
+            break;
+        case ThingType_WAND:
+            if ((result = a->wand_info()->description_id - b->wand_info()->description_id) != 0)
+                return result;
+            break;
+        case ThingType_POTION:
+            if ((result = a->potion_info()->description_id - b->potion_info()->description_id) != 0)
+                return result;
+            break;
+        case ThingType_BOOK:
+            if ((result = a->book_info()->description_id - b->book_info()->description_id) != 0)
+                return result;
+            break;
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    return compare(a->id, b->id);
 }
 
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location) {
@@ -476,7 +511,7 @@ void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThin
             continue;
         output_sorted_list->append(thing);
     }
-    sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<PerceivedThing, compare_perceived_things>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list) {
     PerceivedThing thing;
@@ -489,7 +524,7 @@ void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing
             continue;
         output_sorted_list->append(thing);
     }
-    sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<PerceivedThing, compare_perceived_things>(output_sorted_list->raw(), output_sorted_list->length());
 }
 Thing find_individual_at(Coord location) {
     Thing individual;
@@ -504,7 +539,7 @@ void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_l
     for (auto iterator = game->actual_things.value_iterator(); iterator.next(&item);)
         if (item->location.kind == Location::CONTAINED && item->location.container_id == container_id)
             output_sorted_list->append(item);
-    sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<Thing, compare_things>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void find_items_in_inventory(Thing observer, uint256 container_id, List<PerceivedThing> * output_sorted_list) {
     PerceivedThing item;
@@ -517,7 +552,7 @@ void find_items_in_inventory(Thing observer, uint256 container_id, List<Perceive
             continue;
         output_sorted_list->append(item);
     }
-    sort<PerceivedThing, compare_perceived_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<PerceivedThing, compare_perceived_things>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities) {
     switch (individual->physical_species_id()) {
@@ -556,12 +591,12 @@ void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     for (auto iterator = game->actual_things.value_iterator(); iterator.next(&item);)
         if (item->thing_type != ThingType_INDIVIDUAL && item->location.kind == Location::MAP && item->location.coord == location)
             output_sorted_list->append(item);
-    sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<Thing, compare_things>(output_sorted_list->raw(), output_sorted_list->length());
 }
 
 static void do_move(Thing mover, Coord new_position) {
     Coord old_position = mover->location.coord;
-    mover->location = Location::map(new_position, 0);
+    mover->location = Location::map(new_position);
 
     compute_vision(mover);
 
@@ -916,13 +951,13 @@ static bool take_action(Thing actor, const Action & action) {
                 case ThingType_INDIVIDUAL:
                     unreachable();
                 case ThingType_WAND:
-                    publish_event(Event::appear(create_wand(data.wand_id, Location::map(actor->location.coord, -1))));
+                    publish_event(Event::appear(create_wand(data.wand_id, Location::map(actor->location.coord))));
                     return false;
                 case ThingType_POTION:
-                    publish_event(Event::appear(create_potion(data.potion_id, Location::map(actor->location.coord, -1))));
+                    publish_event(Event::appear(create_potion(data.potion_id, Location::map(actor->location.coord))));
                     return false;
                 case ThingType_BOOK:
-                    publish_event(Event::appear(create_book(data.book_id, Location::map(actor->location.coord, -1))));
+                    publish_event(Event::appear(create_book(data.book_id, Location::map(actor->location.coord))));
                     return false;
 
                 case ThingType_COUNT:
@@ -1063,16 +1098,8 @@ static void delete_dead_things() {
         publish_event(Event::delete_thing(delete_things[i]->id));
 
     // and actually delete it all
-    List<uint256> fix_z_order_container_ids;
-    for (int i = 0; i < delete_things.length(); i++) {
-        Thing thing = delete_things[i];
-        game->actual_things.remove(thing->id);
-        if (thing->location.kind == Location::CONTAINED)
-            if (fix_z_order_container_ids.index_of(thing->location.container_id) == -1)
-                fix_z_order_container_ids.append(thing->location.container_id);
-    }
-    for (int i = 0; i < fix_z_order_container_ids.length(); i++)
-        fix_z_orders(fix_z_order_container_ids[i]);
+    for (int i = 0; i < delete_things.length(); i++)
+        game->actual_things.remove(delete_things[i]->id);
 }
 
 List<Thing> poised_individuals;
@@ -1142,25 +1169,4 @@ void change_map(Coord location, TileType new_tile_type) {
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);)
         compute_vision(individual);
-}
-
-void fix_perceived_z_orders(Thing observer, uint256 container_id) {
-    // TODO: this function shouldn't exist
-    List<PerceivedThing> inventory;
-    find_items_in_inventory(observer, container_id, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
-        inventory[i]->location.z_order = i;
-}
-// it's ok to call this with a bogus/deleted id
-void fix_z_orders(uint256 container_id) {
-    List<Thing> inventory;
-    find_items_in_inventory(container_id, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
-        inventory[i]->location.z_order = i;
-}
-void fix_z_orders(Coord location) {
-    List<Thing> inventory;
-    find_items_on_floor(location, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
-        inventory[i]->location.z_order = i;
 }

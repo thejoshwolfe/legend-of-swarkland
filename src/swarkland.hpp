@@ -115,7 +115,8 @@ static inline int get_movement_cost(Thing actor) {
 }
 
 void run_the_game();
-int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b);
+int compare_things(Thing a, Thing b);
+int compare_perceived_things(PerceivedThing a, PerceivedThing b);
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location);
 void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
 void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
@@ -137,9 +138,5 @@ void use_mana(Thing actor, int mana);
 void gain_mp(Thing individual, int mp);
 
 void change_map(Coord location, TileType new_tile_type);
-
-void fix_perceived_z_orders(Thing observer, uint256 container_id);
-void fix_z_orders(uint256 container_id);
-void fix_z_orders(Coord location);
 
 #endif

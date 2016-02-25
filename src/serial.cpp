@@ -686,13 +686,11 @@ static Location parse_location(ByteBuffer const& line, List<Token> const& tokens
         case Location::MAP: {
             Coord coord = parse_coord(line, tokens[*token_cursor], tokens[*token_cursor + 1]);
             (*token_cursor) += 2;
-            int z_order = parse_int(line, tokens[(*token_cursor)++]);
-            return Location::map(coord, z_order);
+            return Location::map(coord);
         }
         case Location::CONTAINED: {
             uint256 container_id = parse_uint256(line, tokens[(*token_cursor)++]);
-            int z_order = parse_int(line, tokens[(*token_cursor)++]);
-            return Location::contained(container_id, z_order);
+            return Location::contained(container_id);
         }
         case Location::COUNT:
             unreachable();
@@ -706,12 +704,10 @@ static void write_location(ByteBuffer * output_buffer, Location const& location)
             break;
         case Location::MAP:
             output_buffer->format(" %d %d", location.coord.x, location.coord.y);
-            output_buffer->format(" %d", location.z_order);
             break;
         case Location::CONTAINED:
             output_buffer->append(' ');
             write_uint_oversized_to_buffer(output_buffer, location.container_id);
-            output_buffer->format(" %d", location.z_order);
             break;
         case Location::COUNT:
             unreachable();
@@ -1218,7 +1214,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
         for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);)
             things.append(thing);
     }
-    sort<Thing, compare_things_by_id>(things.raw(), things.length());
+    sort<Thing, compare_things>(things.raw(), things.length());
     buffer->format(" %d", things.length());
 
     buffer->format(" %d", game->dungeon_level);
@@ -1326,7 +1322,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                     for (auto iterator = life->knowledge.perceived_things.value_iterator(); iterator.next(&perceived_thing);)
                         perceived_things.append(perceived_thing);
                 }
-                sort<PerceivedThing, compare_perceived_things_by_id>(perceived_things.raw(), perceived_things.length());
+                sort<PerceivedThing, compare_perceived_things>(perceived_things.raw(), perceived_things.length());
 
                 buffer->format(" %d", perceived_things.length());
 

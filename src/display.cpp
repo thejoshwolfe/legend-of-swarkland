@@ -1167,17 +1167,25 @@ void render() {
         for (auto iterator = spectate_from->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);)
             if (thing->location.kind == Location::MAP)
                 things.append(thing);
-        sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(things.raw(), things.length());
-        // only render 1 of each type of thing in each location on the map
+        sort<PerceivedThing, compare_perceived_things>(things.raw(), things.length());
+        // only render the image for the top item item of each pile
         MapMatrix<bool> item_pile_rendered;
         item_pile_rendered.set_all(false);
         for (int i = 0; i < things.length(); i++) {
             PerceivedThing thing = things[i];
-            if (thing->thing_type != ThingType_INDIVIDUAL) {
-                if (item_pile_rendered[thing->location.coord])
-                    continue;
-                item_pile_rendered[thing->location.coord] = true;
-            }
+            if (thing->thing_type == ThingType_INDIVIDUAL)
+                continue;
+            if (item_pile_rendered[thing->location.coord])
+                continue;
+            item_pile_rendered[thing->location.coord] = true;
+            Uint8 alpha = get_thing_alpha(spectate_from, thing);
+            render_tile(get_image_for_thing(thing), 0, alpha, thing->location.coord);
+        }
+        // render individuals on top of items
+        for (int i = things.length() - 1; i >= 0; i--) {
+            PerceivedThing thing = things[i];
+            if (thing->thing_type != ThingType_INDIVIDUAL)
+                continue;
             Uint8 alpha = get_thing_alpha(spectate_from, thing);
             render_tile(get_image_for_thing(thing), 0, alpha, thing->location.coord);
 

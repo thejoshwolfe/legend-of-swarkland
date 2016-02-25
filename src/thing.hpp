@@ -163,16 +163,15 @@ struct Location {
     Kind kind;
     Coord coord;
     uint256 container_id;
-    int z_order;
 
     static Location unknown() {
-        return Location { UNKNOWN, Coord::nowhere(), uint256::zero(), 0};
+        return Location { UNKNOWN, Coord::nowhere(), uint256::zero()};
     }
-    static Location map(Coord coord, int z_order) {
-        return Location { MAP, coord, uint256::zero(), z_order};
+    static Location map(Coord coord) {
+        return Location { MAP, coord, uint256::zero()};
     }
-    static Location contained(uint256 container_id, int z_order) {
-        return Location { CONTAINED, Coord::nowhere(), container_id, z_order};
+    static Location contained(uint256 container_id) {
+        return Location { CONTAINED, Coord::nowhere(), container_id};
     }
 };
 
@@ -603,12 +602,6 @@ typedef Reference<ThingImpl> Thing;
 
 static inline int compare_individuals_by_initiative(Thing a, Thing b) {
     return compare(a->life()->initiative, b->life()->initiative);
-}
-static inline int compare_things_by_id(Thing a, Thing b) {
-    return compare(a->id, b->id);
-}
-static inline int compare_perceived_things_by_id(PerceivedThing a, PerceivedThing b) {
-    return compare(a->id, b->id);
 }
 
 // TODO: this is in the wrong place

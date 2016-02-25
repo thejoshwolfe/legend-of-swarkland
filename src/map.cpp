@@ -262,18 +262,17 @@ void generate_map() {
     }
 
     // throw some items around
-    int z_order = 0;
     if (game->dungeon_level == 1) {
         // first level always has a wand of digging and a potion of ethereal vision to make finding vaults less random.
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_wand(WandId_WAND_OF_DIGGING, Location::map(location, z_order++));
+        create_wand(WandId_WAND_OF_DIGGING, Location::map(location));
         location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_potion(PotionId_POTION_OF_ETHEREAL_VISION, Location::map(location, z_order++));
+        create_potion(PotionId_POTION_OF_ETHEREAL_VISION, Location::map(location));
     }
     int item_count = random_inclusive(3, 6, nullptr);
     for (int i = 0; i < item_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_random_item(Location::map(location, z_order++));
+        create_random_item(Location::map(location));
     }
 
     // place some vaults
@@ -311,15 +310,14 @@ void generate_map() {
             for (cursor.y = room.y + 2; cursor.y < room.y + room.h - 2; cursor.y++) {
                 for (cursor.x = room.x + 2; cursor.x < room.x + room.w - 2; cursor.x++) {
                     game->actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
-                    create_random_item(Location::map(cursor, z_order++));
-                    fix_z_orders(cursor);
+                    create_random_item(Location::map(cursor));
                 }
             }
         } else {
             // throw what items would be in the vault around in the rooms
             for (int i = 0; i < 4; i++) {
                 Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-                create_random_item(Location::map(location, z_order++));
+                create_random_item(Location::map(location));
             }
         }
     }

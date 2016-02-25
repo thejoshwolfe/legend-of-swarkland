@@ -7,18 +7,6 @@
 
 static Thing register_thing(Thing thing) {
     game->actual_things.put(thing->id, thing);
-    switch (thing->location.kind) {
-        case Location::UNKNOWN:
-            unreachable();
-        case Location::MAP:
-            fix_z_orders(thing->location.coord);
-            break;
-        case Location::CONTAINED:
-            fix_z_orders(thing->id);
-            break;
-        case Location::COUNT:
-            unreachable();
-    }
     return thing;
 }
 
@@ -602,7 +590,7 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
         if (max(abs_vector.x, abs_vector.y) <= apothem)
             affected_individuals.append(individual);
     }
-    sort<Thing, compare_things_by_id>(affected_individuals.raw(), affected_individuals.length());
+    sort<Thing, compare_things>(affected_individuals.raw(), affected_individuals.length());
 
     List<Coord> affected_walls;
     Coord upper_left  = clamp(explosion_center - Coord{apothem, apothem}, {0, 0}, map_size - Coord{1, 1});
