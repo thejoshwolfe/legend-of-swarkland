@@ -94,7 +94,7 @@ static void blind_individual(Thing attacker, Thing target) {
 // publish the event yourself
 static void pickup_item(Thing individual, Thing item) {
     assert(item->location.kind == Location::MAP);
-    item->location = Location::contained(individual->id);
+    item->location = Location::contained(individual->id, InventorySlot_INSIDE);
 }
 void drop_item_to_the_floor(Thing item, Coord location) {
     assert(item->location.kind == Location::CONTAINED);
@@ -297,8 +297,8 @@ static void init_individuals() {
         Thing boss = spawn_a_monster(SpeciesId_LICH, DecisionMakerType_AI, Coord::nowhere());
         // arm him!
         for (int i = 0; i < 5; i++) {
-            create_random_item(ThingType_WAND, Location::contained(boss->id));
-            create_random_item(ThingType_POTION, Location::contained(boss->id));
+            create_random_item(ThingType_WAND, Location::contained(boss->id, InventorySlot_INSIDE));
+            create_random_item(ThingType_POTION, Location::contained(boss->id, InventorySlot_INSIDE));
         }
         // teach him everything about magic.
         for (int i = 0; i < WandId_COUNT; i++)

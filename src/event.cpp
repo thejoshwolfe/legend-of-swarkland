@@ -173,7 +173,7 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
         case ThingType_COUNT:
             unreachable();
     }
-    thing->location = Location::contained(supposed_container_id);
+    thing->location = Location::contained(supposed_container_id, InventorySlot_INSIDE);
     observer->life()->knowledge.perceived_things.put(id, thing);
     return id;
 }
@@ -431,7 +431,7 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
             target->location = Location::map(actual_target->location.coord);
             break;
         case Location::CONTAINED:
-            target->location = Location::contained(actual_target->location.container_id);
+            target->location = Location::contained(actual_target->location.container_id, actual_target->location.slot);
             break;
 
         case Location::COUNT:
@@ -867,7 +867,7 @@ static void observe_event(Thing observer, Event event) {
                     const char * fmt = data.id == Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM ? "%s picks up %s." : "%s sucks up %s.";
                     remembered_event->span->format(fmt, individual_description, item_description);
                     PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
-                    item->location = Location::contained(data.individual);
+                    item->location = Location::contained(data.individual, InventorySlot_INSIDE);
                     break;
                 }
             }

@@ -46,6 +46,7 @@ syn match   swarklandDirective /@expect_carrying_nothing\>/
 syn keyword swarklandBareword individual potion wand book
 syn keyword swarklandBareword human ogre lich pink_blob air_elemenetal dog ant bee beetle scorpion snake cobra unseen
 syn keyword swarklandBareword player ai
+syn keyword swarklandBareword inside left_hand right_hand
 syn keyword swarklandBareword confusion digging magic_missile speed remedy unknown
 syn keyword swarklandBareword healing poison ethereal_vision cogniscopy blindness invisibility
 syn keyword swarklandBareword polymorph

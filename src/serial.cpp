@@ -675,8 +675,19 @@ static constexpr IndexAndValue<ConstStr> const location_kind_short_names[Locatio
 };
 check_indexed_array(location_kind_short_names);
 
+static constexpr IndexAndValue<ConstStr> const inventory_slot_names[InventorySlot_COUNT] = {
+    {InventorySlot_INSIDE, "inside"},
+    {InventorySlot_LEFT_HAND, "left_hand"},
+    {InventorySlot_RIGHT_HAND, "right_hand"},
+};
+check_indexed_array(inventory_slot_names);
+
+
 static Location::Kind parse_location_kind(ByteBuffer const& line, Token const& token) {
     return parse_string_id<Location::Kind>(location_kind_short_names, get_array_length(location_kind_short_names), line, token);
+}
+static InventorySlot parse_inventory_slot(ByteBuffer const& line, Token const& token) {
+    return parse_string_id<InventorySlot>(inventory_slot_names, get_array_length(inventory_slot_names), line, token);
 }
 static Location parse_location(ByteBuffer const& line, List<Token> const& tokens, int * token_cursor) {
     Location::Kind kind = parse_location_kind(line, tokens[(*token_cursor)++]);
@@ -690,7 +701,8 @@ static Location parse_location(ByteBuffer const& line, List<Token> const& tokens
         }
         case Location::CONTAINED: {
             uint256 container_id = parse_uint256(line, tokens[(*token_cursor)++]);
-            return Location::contained(container_id);
+            InventorySlot slot = parse_inventory_slot(line, tokens[(*token_cursor)++]);
+            return Location::contained(container_id, slot);
         }
         case Location::COUNT:
             unreachable();
@@ -708,6 +720,8 @@ static void write_location(ByteBuffer * output_buffer, Location const& location)
         case Location::CONTAINED:
             output_buffer->append(' ');
             write_uint_oversized_to_buffer(output_buffer, location.container_id);
+            output_buffer->append(' ');
+            output_buffer->append(inventory_slot_names[location.slot].value);
             break;
         case Location::COUNT:
             unreachable();

@@ -152,6 +152,15 @@ enum Mind {
     Mind_CIVILIZED,
 };
 
+enum InventorySlot {
+    InventorySlot_INSIDE,
+    InventorySlot_LEFT_HAND,
+    InventorySlot_RIGHT_HAND,
+
+    InventorySlot_COUNT,
+    InventorySlot_OUTSIDE,
+};
+
 struct Location {
     enum Kind {
         UNKNOWN,
@@ -163,15 +172,16 @@ struct Location {
     Kind kind;
     Coord coord;
     uint256 container_id;
+    InventorySlot slot;
 
     static Location unknown() {
-        return Location { UNKNOWN, Coord::nowhere(), uint256::zero()};
+        return Location{UNKNOWN, Coord::nowhere(), uint256::zero(), InventorySlot_OUTSIDE};
     }
     static Location map(Coord coord) {
-        return Location { MAP, coord, uint256::zero()};
+        return Location{MAP, coord, uint256::zero(), InventorySlot_OUTSIDE};
     }
-    static Location contained(uint256 container_id) {
-        return Location { CONTAINED, Coord::nowhere(), container_id};
+    static Location contained(uint256 container_id, InventorySlot slot) {
+        return Location{CONTAINED, Coord::nowhere(), container_id, slot};
     }
 };
 
