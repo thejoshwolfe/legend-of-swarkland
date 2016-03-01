@@ -7,6 +7,7 @@ struct Event {
     enum Type {
         THE_INDIVIDUAL,
         THE_LOCATION,
+        POSITION_ITEM,
         INDIVIDUAL_AND_STATUS,
         INDIVIDUAL_AND_LOCATION,
         MOVE,
@@ -50,8 +51,6 @@ struct Event {
             READ_BOOK,
             THROW_ITEM,
             ITEM_HITS_INDIVIDUAL,
-            INDIVIDUAL_PICKS_UP_ITEM,
-            INDIVIDUAL_SUCKS_UP_ITEM,
             QUAFF_POTION,
             POTION_HITS_INDIVIDUAL,
         };
@@ -98,6 +97,12 @@ struct Event {
         Id id;
         Coord location;
     };
+    struct PositionItemData {
+        uint256 individual;
+        uint256 item;
+        InventorySlot slot;
+        bool sucks;
+    };
     struct IndividualAndStatusData {
         bool is_gain; // otherwise lose
         uint256 individual;
@@ -112,6 +117,11 @@ struct Event {
     TheLocationData & the_location_data() {
         check_data_type(THE_LOCATION);
         return _data._the_location;
+    }
+
+    PositionItemData & position_item_data() {
+        check_data_type(POSITION_ITEM);
+        return _data._position_item;
     }
 
     IndividualAndStatusData & individual_and_status_data() {
@@ -221,6 +231,10 @@ struct Event {
         return item_and_location_type_event(ItemAndLocationData::POTION_BREAKS, item_id, location);
     }
 
+    static inline Event position_item(uint256 individual_id, uint256 item_id, InventorySlot slot, bool sucks) {
+        return position_item_event(individual_id, item_id, slot, sucks);
+    }
+
     static inline Event gain_status(uint256 individual_id, StatusEffect::Id status) {
         return individual_and_status_event(true, individual_id, status);
     }
@@ -273,12 +287,6 @@ struct Event {
     static inline Event item_drops_to_the_floor(Thing item) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location.coord);
     }
-    static inline Event individual_picks_up_item(uint256 individual_id, uint256 item_id) {
-        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM, individual_id, item_id);
-    }
-    static inline Event individual_sucks_up_item(uint256 individual_id, uint256 item_id) {
-        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM, individual_id, item_id);
-    }
     static inline Event quaff_potion(uint256 individual_id, uint256 item_id) {
         return individual_and_item_event(IndividualAndItemData::QUAFF_POTION, individual_id, item_id);
     }
@@ -302,6 +310,17 @@ private:
         result.the_location_data() = {
             id,
             location,
+        };
+        return result;
+    }
+    static inline Event position_item_event(uint256 individual_id, uint256 item_id, InventorySlot slot, bool sucks) {
+        Event result;
+        result.type = POSITION_ITEM;
+        result.position_item_data() = {
+            individual_id,
+            item_id,
+            slot,
+            sucks,
         };
         return result;
     }
@@ -370,6 +389,7 @@ private:
     union {
         TheIndividualData _the_individual;
         TheLocationData _the_location;
+        PositionItemData _position_item;
         IndividualAndStatusData _individual_and_status;
         IndividualAndLocationData _individual_and_location;
         MoveData _move;

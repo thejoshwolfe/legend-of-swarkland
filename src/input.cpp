@@ -8,7 +8,7 @@
 InputMode input_mode = InputMode_MAIN;
 int inventory_cursor;
 static PerceivedThing chosen_item;
-List<Action::Id> inventory_menu_items;
+List<Action> inventory_menu_items;
 int inventory_menu_cursor;
 int ability_cursor;
 static AbilityId chosen_ability;
@@ -46,8 +46,15 @@ void get_floor_actions(List<Action> * actions) {
     // pick up
     List<PerceivedThing> items;
     find_perceived_items_at(actor, self->location.coord, &items);
-    for (int i = 0; i < items.length(); i++)
-        actions->append(Action::pickup(items[i]->id));
+    PerceivedThing equipment[InventorySlot_COUNT];
+    find_equipment(actor, self->id, equipment);
+    for (int i = 0; i < items.length(); i++) {
+        // INSIDE is always available
+        actions->append(Action::position_item(items[i]->id, InventorySlot_INSIDE));
+        for (int j = 1; j < InventorySlot_COUNT; j++)
+            if (equipment[j] == nullptr)
+                actions->append(Action::position_item(items[i]->id, (InventorySlot)j));
+    }
 
     // go down
     if (actor->life()->knowledge.tiles[self->location.coord] == TileType_STAIRS_DOWN)
@@ -283,8 +290,9 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
         case SDL_SCANCODE_KP_5:
         case SDL_SCANCODE_S: {
             // accept
+            Thing actor = player_actor();
             List<PerceivedThing> inventory;
-            find_items_in_inventory(player_actor(), player_actor()->id, &inventory);
+            find_items_in_inventory(actor, actor->id, &inventory);
             chosen_item = inventory[inventory_cursor];
 
             assert(inventory_menu_items.length() == 0);
@@ -292,20 +300,29 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
                 case ThingType_INDIVIDUAL:
                     unreachable();
                 case ThingType_WAND:
-                    inventory_menu_items.append(Action::ZAP);
+                    inventory_menu_items.append(Action::zap(chosen_item->id, Coord::nowhere()));
                     break;
                 case ThingType_POTION:
-                    inventory_menu_items.append(Action::QUAFF);
+                    inventory_menu_items.append(Action::quaff(chosen_item->id));
                     break;
                 case ThingType_BOOK:
-                    inventory_menu_items.append(Action::READ_BOOK);
+                    inventory_menu_items.append(Action::read_book(chosen_item->id, Coord::nowhere()));
                     break;
 
                 case ThingType_COUNT:
                     unreachable();
             }
-            inventory_menu_items.append(Action::THROW);
-            inventory_menu_items.append(Action::DROP);
+            inventory_menu_items.append(Action::throw_(chosen_item->id, Coord::nowhere()));
+            PerceivedThing equipment[InventorySlot_COUNT];
+            find_equipment(actor, actor->id, equipment);
+            for (int i = 0; i < InventorySlot_COUNT; i++) {
+                if (chosen_item->location.slot == i)
+                    continue; // it's already there
+                if (equipment[i] != nullptr)
+                    continue; // something's in the way
+                inventory_menu_items.append(Action::position_item(chosen_item->id, (InventorySlot)i));
+            }
+            inventory_menu_items.append(Action::position_item(chosen_item->id, InventorySlot_OUTSIDE));
             inventory_menu_cursor = 0;
 
             input_mode = InputMode_INVENTORY_CHOOSE_ACTION;
@@ -385,15 +402,15 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
             break;
         case SDL_SCANCODE_TAB:
         case SDL_SCANCODE_KP_5:
-        case SDL_SCANCODE_S:
+        case SDL_SCANCODE_S: {
             // accept
-            switch (inventory_menu_items[inventory_menu_cursor]) {
-                case Action::DROP: {
-                    uint256 id = chosen_item->id;
+            Action action = inventory_menu_items[inventory_menu_cursor];
+            switch (action.id) {
+                case Action::POSITION_ITEM: {
                     chosen_item = nullptr;
                     input_mode = InputMode_MAIN;
                     inventory_menu_items.clear();
-                    return Action::drop(id);
+                    return action;
                 }
                 case Action::QUAFF: {
                     uint256 id = chosen_item->id;
@@ -418,7 +435,6 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                 case Action::WAIT:
                 case Action::MOVE:
                 case Action::ATTACK:
-                case Action::PICKUP:
                 case Action::GO_DOWN:
                 case Action::ABILITY:
                 case Action::CHEATCODE_HEALTH_BOOST:
@@ -435,6 +451,7 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                     unreachable();
             }
             break;
+        }
 
         default:
             break;

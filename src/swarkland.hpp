@@ -123,6 +123,7 @@ void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing
 Thing find_individual_at(Coord location);
 void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list);
 void find_items_in_inventory(Thing observer, uint256 container_id, List<PerceivedThing> * output_sorted_list);
+void find_equipment(Thing observer, uint256 container_id, PerceivedThing output_equipment[]);
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 void drop_item_to_the_floor(Thing item, Coord location);
 void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities);

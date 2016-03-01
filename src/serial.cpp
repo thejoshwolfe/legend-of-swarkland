@@ -404,8 +404,7 @@ static IndexAndValue<ConstStr> constexpr action_names[Action::COUNT] = {
     {Action::WAIT, "wait"},
     {Action::ATTACK, "attack"},
     {Action::ZAP, "zap"},
-    {Action::PICKUP, "pickup"},
-    {Action::DROP, "drop"},
+    {Action::POSITION_ITEM, "position_item"},
     {Action::QUAFF, "quaff"},
     {Action::READ_BOOK, "read_book"},
     {Action::THROW, "throw"},
@@ -675,10 +674,12 @@ static constexpr IndexAndValue<ConstStr> const location_kind_short_names[Locatio
 };
 check_indexed_array(location_kind_short_names);
 
-static constexpr IndexAndValue<ConstStr> const inventory_slot_names[InventorySlot_COUNT] = {
+static constexpr IndexAndValue<ConstStr> const inventory_slot_names[InventorySlot_COUNT + 2] = {
     {InventorySlot_INSIDE, "inside"},
     {InventorySlot_LEFT_HAND, "left_hand"},
     {InventorySlot_RIGHT_HAND, "right_hand"},
+    {InventorySlot_COUNT, ""},
+    {InventorySlot_OUTSIDE, "outside"},
 };
 check_indexed_array(inventory_slot_names);
 
@@ -1646,6 +1647,12 @@ static Action read_action() {
                 report_error(tokens[0], 0, "expected 1 argument");
             action.item() = parse_uint256(line, tokens[1]);
             break;
+        case Action::Layout_ITEM_AND_SLOT: {
+            expect_extra_token_count(tokens, 2);
+            action.item_and_slot().item = parse_uint256(line, tokens[1]);
+            action.item_and_slot().slot = parse_inventory_slot(line, tokens[2]);
+            break;
+        }
         case Action::Layout_COORD_AND_ITEM: {
             if (tokens.length() != 4)
                 report_error(tokens[0], 0, "expected 3 arguments");
@@ -1702,6 +1709,11 @@ static void write_action(ByteBuffer * output_buffer, const Action & action) {
         case Action::Layout_ITEM:
             output_buffer->append(' ');
             write_uint_oversized_to_buffer(output_buffer, action.item());
+            break;
+        case Action::Layout_ITEM_AND_SLOT:
+            write_uint_oversized_to_buffer(output_buffer, action.item_and_slot().item);
+            output_buffer->append(' ');
+            output_buffer->append(inventory_slot_names[action.item_and_slot().slot].value);
             break;
         case Action::Layout_COORD_AND_ITEM:
             output_buffer->format(" %d %d", action.coord_and_item().coord.x, action.coord_and_item().coord.y);

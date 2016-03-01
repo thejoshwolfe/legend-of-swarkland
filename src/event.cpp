@@ -336,8 +336,6 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             }
             Coord location = game->actual_things.get(data.individual)->location.coord;
             switch (data.id) {
-                case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
-                case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
                 case Event::IndividualAndItemData::POTION_HITS_INDIVIDUAL:
                 case Event::IndividualAndItemData::THROW_ITEM:
@@ -380,6 +378,23 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     return true;
             }
             unreachable();
+        }
+        case Event::POSITION_ITEM: {
+            Event::PositionItemData const& data = event.position_item_data();
+            Thing item = game->actual_things.get(data.item);
+            bool outside = data.slot == InventorySlot_OUTSIDE || item->location.kind == Location::MAP;
+            if (outside) {
+                Coord coord = get_top_level_container(item)->location.coord;
+                if (!see_thing(observer, data.item, coord))
+                    return false;
+            } else {
+                if (!see_thing(observer, data.item))
+                    return false;
+            }
+            *output_event = event;
+            if (!see_thing(observer, data.individual))
+                output_event->position_item_data().individual = make_placeholder_individual(observer, data.individual);
+            return true;
         }
         case Event::POLYMORPH: {
             if (!can_see_thing(observer, event.polymorph_data().individual))
@@ -862,15 +877,35 @@ static void observe_event(Thing observer, Event event) {
                         game->observer_to_active_identifiable_item.put(observer->id, potion->id);
                     break;
                 }
-                case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
-                case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM: {
-                    const char * fmt = data.id == Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM ? "%s picks up %s." : "%s sucks up %s.";
-                    remembered_event->span->format(fmt, individual_description, item_description);
-                    PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
-                    item->location = Location::contained(data.individual, InventorySlot_INSIDE);
-                    break;
-                }
             }
+            break;
+        }
+        case Event::POSITION_ITEM: {
+            Event::PositionItemData const& data = event.position_item_data();
+            Span individual_description = get_thing_description(observer, data.individual);
+            Span item_description = get_thing_description(observer, data.item);
+            PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
+            PerceivedThing individual = observer->life()->knowledge.perceived_things.get(data.individual);
+            char const* fmt;
+            if (data.sucks) {
+                assert(data.slot == InventorySlot_INSIDE);
+                fmt = "%s sucks up %s.";
+                item->location = Location::contained(data.individual, data.slot);
+            } else if (data.slot == InventorySlot_OUTSIDE) {
+                fmt = "%s drops %s.";
+                item->location = Location::map(individual->location.coord);
+            } else if (data.slot == InventorySlot_INSIDE) {
+                if (item->location.kind == Location::MAP) {
+                    fmt = "%s picks up %s.";
+                } else {
+                    fmt = "%s puts away %s.";
+                }
+                item->location = Location::contained(data.individual, data.slot);
+            } else {
+                fmt = "%s equips %s.";
+                item->location = Location::contained(data.individual, data.slot);
+            }
+            remembered_event->span->format(fmt, individual_description, item_description);
             break;
         }
         case Event::POLYMORPH: {

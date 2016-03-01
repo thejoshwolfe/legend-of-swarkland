@@ -12,8 +12,7 @@ struct Action {
         WAIT,
         ATTACK,
         ZAP,
-        PICKUP,
-        DROP,
+        POSITION_ITEM,
         QUAFF,
         READ_BOOK,
         THROW,
@@ -35,6 +34,10 @@ struct Action {
         // this is a pseudo-action that activates an intermediate AI
         // that waits until something interesting happens.
         AUTO_WAIT,
+    };
+    struct ItemAndSlot {
+        uint256 item;
+        InventorySlot slot;
     };
     struct CoordAndItem {
         uint256 item;
@@ -62,6 +65,7 @@ struct Action {
         Layout_VOID,
         Layout_COORD,
         Layout_ITEM,
+        Layout_ITEM_AND_SLOT,
         Layout_COORD_AND_ITEM,
         Layout_THING,
         Layout_SPECIES,
@@ -78,6 +82,8 @@ struct Action {
     Coord                 & coord()                  { assert(get_layout() == Layout_COORD);            return _coord; }
     uint256         const & item()             const { assert(get_layout() == Layout_ITEM);             return _item; }
     uint256               & item()                   { assert(get_layout() == Layout_ITEM);             return _item; }
+    ItemAndSlot     const & item_and_slot()    const { assert(get_layout() == Layout_ITEM_AND_SLOT);    return _item_and_slot; }
+    ItemAndSlot           & item_and_slot()          { assert(get_layout() == Layout_ITEM_AND_SLOT);    return _item_and_slot; }
     CoordAndItem    const & coord_and_item()   const { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
     CoordAndItem          & coord_and_item()         { assert(get_layout() == Layout_COORD_AND_ITEM);   return _coord_and_item; }
     Thing           const & thing()            const { assert(get_layout() == Layout_THING);            return _thing; }
@@ -110,11 +116,8 @@ struct Action {
     static Action read_book(uint256 item_id, Coord direction) {
         return init(READ_BOOK, direction, item_id);
     }
-    static Action pickup(uint256 item_id) {
-        return init(PICKUP, item_id);
-    }
-    static Action drop(uint256 item_id) {
-        return init(DROP, item_id);
+    static Action position_item(uint256 item_id, InventorySlot slot) {
+        return init(POSITION_ITEM, item_id, slot);
     }
     static Action quaff(uint256 item_id) {
         return init(QUAFF, item_id);
@@ -181,6 +184,14 @@ struct Action {
         result._item = item;
         return result;
     }
+    static Action init(Id id, uint256 item, InventorySlot slot) {
+        assert(get_layout(id) == Layout_ITEM_AND_SLOT);
+        Action result;
+        result.id = id;
+        result._item_and_slot.item = item;
+        result._item_and_slot.slot = slot;
+        return result;
+    }
     static Action init(Id id, Coord coord, uint256 item) {
         assert(get_layout(id) == Layout_COORD_AND_ITEM);
         Action result;
@@ -242,6 +253,7 @@ private:
     union {
         uint256 _item;
         Coord _coord;
+        ItemAndSlot _item_and_slot;
         CoordAndItem _coord_and_item;
         Thing _thing;
         SpeciesId _species;
@@ -259,8 +271,8 @@ private:
             case MOVE:
             case ATTACK:
                 return Layout_COORD;
-            case PICKUP:
-            case DROP:
+            case POSITION_ITEM:
+                return Layout_ITEM_AND_SLOT;
             case QUAFF:
                 return Layout_ITEM;
             case ZAP:
@@ -303,6 +315,12 @@ static inline bool operator==(const Action & a, const Action &  b) {
             return a.coord() == b.coord();
         case Action::Layout_ITEM:
             return a.item() == b.item();
+        case Action::Layout_ITEM_AND_SLOT:
+            if (a.item_and_slot().item != b.item_and_slot().item)
+                return false;
+            if (a.item_and_slot().slot != b.item_and_slot().slot)
+                return false;
+            return true;
         case Action::Layout_COORD_AND_ITEM:
             if (a.coord_and_item().coord != b.coord_and_item().coord)
                 return false;

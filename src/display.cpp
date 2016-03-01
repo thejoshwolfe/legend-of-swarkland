@@ -661,7 +661,7 @@ static Div time_div = new_div();
 static Div keyboard_hover_div = new_div();
 static Div mouse_hover_div = new_div();
 static Div inventory_menu_div = new_div();
-static List<Action::Id> last_inventory_menu_items;
+static List<Action> last_inventory_menu_items;
 static int last_inventory_menu_cursor;
 static Div floor_menu_div = new_div();
 static List<Action> last_floor_menu_actions;
@@ -699,7 +699,8 @@ static Div get_tutorial_div_content(bool has_inventory, bool has_abilities) {
                 if (floor_actions.length() == 0) {
                 } else if (floor_actions.length() == 1) {
                     Action::Id action_id = floor_actions[0].id;
-                    if (action_id == Action::PICKUP) {
+                    if (action_id == Action::POSITION_ITEM) {
+                        // inside is the only slot that's always available
                         lines.append("s: pick up");
                     } else if (action_id == Action::GO_DOWN) {
                         lines.append("s: go down");
@@ -741,10 +742,13 @@ static Div get_tutorial_div_content(bool has_inventory, bool has_abilities) {
                 lines.append("Tab/s: action...");
                 lines.append("Esc: cancel");
                 break;
-            case InputMode_INVENTORY_CHOOSE_ACTION:
+            case InputMode_INVENTORY_CHOOSE_ACTION: {
                 lines.append("w/x: move cursor");
-                switch (inventory_menu_items[inventory_menu_cursor]) {
-                    case Action::DROP:
+                Action action = inventory_menu_items[inventory_menu_cursor];
+                switch (action.id) {
+                    case Action::POSITION_ITEM:
+                        lines.append("Tab/s: accept");
+                        break;
                     case Action::QUAFF:
                         lines.append("Tab/s: accept");
                         break;
@@ -757,7 +761,6 @@ static Div get_tutorial_div_content(bool has_inventory, bool has_abilities) {
                     case Action::WAIT:
                     case Action::MOVE:
                     case Action::ATTACK:
-                    case Action::PICKUP:
                     case Action::GO_DOWN:
                     case Action::ABILITY:
                     case Action::CHEATCODE_HEALTH_BOOST:
@@ -775,6 +778,7 @@ static Div get_tutorial_div_content(bool has_inventory, bool has_abilities) {
                 }
                 lines.append("Esc: back");
                 break;
+            }
             case InputMode_FLOOR_CHOOSE_ACTION:
             case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_WISH_CHOOSE_THING_TYPE:
@@ -858,10 +862,25 @@ static Uint8 get_thing_alpha(Thing observer, PerceivedThing thing) {
     return 0xff;
 }
 
-static const char * get_action_text(Action::Id action_id) {
-    switch (action_id) {
-        case Action::DROP:
-            return "drop";
+static const char * get_inventory_action_text(Action const& action) {
+    switch (action.id) {
+        case Action::POSITION_ITEM: {
+            Action::ItemAndSlot const& data = action.item_and_slot();
+            switch (data.slot) {
+                case InventorySlot_INSIDE:
+                    return "put away";
+                case InventorySlot_LEFT_HAND:
+                    return "equip to left hand";
+                case InventorySlot_RIGHT_HAND:
+                    return "equip to right hand";
+
+                case InventorySlot_COUNT:
+                    unreachable();
+                case InventorySlot_OUTSIDE:
+                    return "drop";
+            }
+            unreachable();
+        }
         case Action::QUAFF:
             return "quaff";
         case Action::THROW:
@@ -874,7 +893,6 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::WAIT:
         case Action::MOVE:
         case Action::ATTACK:
-        case Action::PICKUP:
         case Action::GO_DOWN:
         case Action::ABILITY:
         case Action::CHEATCODE_HEALTH_BOOST:
@@ -893,19 +911,35 @@ static const char * get_action_text(Action::Id action_id) {
     unreachable();
 }
 
-static Span render_action(Thing actor, const Action & action) {
+static Span render_floor_action(Thing actor, const Action & action) {
     Span result = new_span();
     switch (action.id) {
-        case Action::PICKUP: {
-            RuckSackImage * image = get_image_for_thing(actor->life()->knowledge.perceived_things.get(action.item()));
-            result->format("pick up %g%s", image, get_thing_description(actor, action.item(), true));
+        case Action::POSITION_ITEM: {
+            Action::ItemAndSlot const& data = action.item_and_slot();
+            RuckSackImage * image = get_image_for_thing(actor->life()->knowledge.perceived_things.get(data.item));
+            char const* fmt;
+            switch (data.slot) {
+                case InventorySlot_INSIDE:
+                    fmt = "pick up %g%s";
+                    break;
+                case InventorySlot_LEFT_HAND:
+                    fmt = "equip to left hand %g%s";
+                    break;
+                case InventorySlot_RIGHT_HAND:
+                    fmt = "equip to left hand %g%s";
+                    break;
+
+                case InventorySlot_COUNT:
+                case InventorySlot_OUTSIDE:
+                    unreachable();
+            }
+            result->format(fmt, image, get_thing_description(actor, data.item, true));
             return result;
         }
         case Action::GO_DOWN:
             result->format("go down %g", stairs_down_image);
             return result;
 
-        case Action::DROP:
         case Action::QUAFF:
         case Action::THROW:
         case Action::ZAP:
@@ -1353,7 +1387,7 @@ void render() {
             for (int i = 0; i < inventory_menu_items.length(); i++) {
                 if (i > 0)
                     inventory_menu_div->append_newline();
-                Span item_span = new_span(get_action_text(inventory_menu_items[i]));
+                Span item_span = new_span(get_inventory_action_text(inventory_menu_items[i]));
                 if (i == inventory_menu_cursor) {
                     item_span->set_color_recursive(black, amber);
                 }
@@ -1399,7 +1433,7 @@ void render() {
             for (int i = 0; i < floor_actions.length(); i++) {
                 if (i > 0)
                     floor_menu_div->append_newline();
-                Span item_span = render_action(spectate_from, floor_actions[i]);
+                Span item_span = render_floor_action(spectate_from, floor_actions[i]);
                 if (i == floor_menu_cursor) {
                     item_span->set_color_recursive(black, amber);
                 }

@@ -91,23 +91,34 @@ static void blind_individual(Thing attacker, Thing target) {
     effect->expiration_time = game->time_counter + random_midpoint(600, "blindness_expiriration");
 }
 
-// publish the event yourself
-static void pickup_item(Thing individual, Thing item) {
-    assert(item->location.kind == Location::MAP);
-    item->location = Location::contained(individual->id, InventorySlot_INSIDE);
+static void position_item(Thing individual, Thing item, InventorySlot slot, bool sucks) {
+    if (slot == InventorySlot_OUTSIDE) {
+        // drop
+        assert(item->location.kind == Location::CONTAINED);
+        assert(item->location.container_id == individual->id);
+        item->location = Location::map(individual->location.coord);
+    } else {
+        if (item->location.kind == Location::CONTAINED) {
+            // reequip
+            assert(item->location.container_id == individual->id);
+            assert(item->location.slot != slot);
+        } else {
+            // pick up
+            assert(item->location.kind == Location::MAP);
+            assert(item->location.coord == individual->location.coord);
+        }
+        item->location = Location::contained(individual->id, slot);
+    }
+    publish_event(Event::position_item(individual->id, item->id, slot, sucks));
 }
 void drop_item_to_the_floor(Thing item, Coord location) {
-    assert(item->location.kind == Location::CONTAINED);
     item->location = Location::map(location);
 
     publish_event(Event::item_drops_to_the_floor(item));
 
     Thing individual = find_individual_at(location);
-    if (individual != nullptr && individual->physical_species()->sucks_up_items) {
-        // suck it
-        pickup_item(individual, item);
-        publish_event(Event::individual_sucks_up_item(individual->id, item->id));
-    }
+    if (individual != nullptr)
+        assert(!individual->physical_species()->sucks_up_items);
 }
 static void throw_item(Thing actor, Thing item, Coord direction) {
     publish_event(Event::throw_item(actor->id, item->id));
@@ -544,15 +555,21 @@ void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_l
 void find_items_in_inventory(Thing observer, uint256 container_id, List<PerceivedThing> * output_sorted_list) {
     PerceivedThing item;
     for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&item);) {
-        if (item->thing_type == ThingType_INDIVIDUAL)
-            continue;
-        if (item->location.kind != Location::CONTAINED)
-            continue;
-        if (item->location.container_id != container_id)
+        if (!(item->location.kind == Location::CONTAINED && item->location.container_id == container_id))
             continue;
         output_sorted_list->append(item);
     }
     sort<PerceivedThing, compare_perceived_things>(output_sorted_list->raw(), output_sorted_list->length());
+}
+void find_equipment(Thing observer, uint256 container_id, PerceivedThing output_equipment[]) {
+    PerceivedThing item;
+    for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&item);) {
+        if (!(item->location.kind == Location::CONTAINED && item->location.container_id == container_id))
+            continue;
+        if (item->location.slot == InventorySlot_INSIDE)
+            continue;
+        output_equipment[item->location.slot] = item;
+    }
 }
 void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities) {
     switch (individual->physical_species_id()) {
@@ -607,10 +624,8 @@ static void do_move(Thing mover, Coord new_position) {
         // pick up items for free
         List<Thing> floor_items;
         find_items_on_floor(new_position, &floor_items);
-        for (int i = 0; i < floor_items.length(); i++) {
-            pickup_item(mover, floor_items[i]);
-            publish_event(Event::individual_sucks_up_item(mover->id, floor_items[i]->id));
-        }
+        for (int i = 0; i < floor_items.length(); i++)
+            position_item(mover, floor_items[i], InventorySlot_INSIDE, true);
     }
 }
 void attempt_move(Thing actor, Coord new_position) {
@@ -735,10 +750,7 @@ static bool is_direction(Coord direction, bool allow_self) {
         return false;
     return true;
 }
-static bool is_in_my_inventory(Thing actor, uint256 item_id) {
-    PerceivedThing item = actor->life()->knowledge.perceived_things.get(item_id, nullptr);
-    if (item == nullptr)
-        return false;
+static bool is_in_my_inventory(Thing actor, PerceivedThing item) {
     return item->location.kind == Location::CONTAINED && item->location.container_id == actor->id;
 }
 bool validate_action(Thing actor, const Action & action) {
@@ -750,22 +762,44 @@ bool validate_action(Thing actor, const Action & action) {
         case Action::ATTACK:
             // you can try to move/attack any direction
             return is_direction(action.coord(), false);
-        case Action::PICKUP: {
+        case Action::POSITION_ITEM: {
+            Action::ItemAndSlot const& data = action.item_and_slot();
+            PerceivedThing item = actor->life()->knowledge.perceived_things.get(data.item, nullptr);
+            if (item == nullptr)
+                return false;
+            if (data.slot == InventorySlot_OUTSIDE) {
+                // drop
+                if (!is_in_my_inventory(actor, item))
+                    return false;
+            } else if (item->location.kind == Location::CONTAINED) {
+                // reequip
+                if (!(item->location.container_id == actor->id && item->location.slot != data.slot))
+                    return false;
+            } else {
+                // pick up
+                if (!(item->location.kind == Location::MAP && item->location.coord == actor->location.coord))
+                    return false;
+            }
+            return true;
+        }
+        case Action::QUAFF: {
             PerceivedThing item = actor->life()->knowledge.perceived_things.get(action.item(), nullptr);
             if (item == nullptr)
                 return false;
-            if (!(item->location.kind == Location::MAP && item->location.coord == actor->location.coord))
+            if (!is_in_my_inventory(actor, item))
+                return false;
+            if (item->thing_type != ThingType_POTION)
                 return false;
             return true;
         }
-        case Action::DROP:
-        case Action::QUAFF:
-            return is_in_my_inventory(actor, action.item());
         case Action::THROW: {
             const Action::CoordAndItem & data = action.coord_and_item();
             if (!is_direction(data.coord, false))
                 return false;
-            if (!is_in_my_inventory(actor, data.item))
+            PerceivedThing item = actor->life()->knowledge.perceived_things.get(data.item, nullptr);
+            if (item == nullptr)
+                return false;
+            if (!is_in_my_inventory(actor, item))
                 return false;
             return true;
         }
@@ -776,7 +810,7 @@ bool validate_action(Thing actor, const Action & action) {
             PerceivedThing item = actor->life()->knowledge.perceived_things.get(data.item, nullptr);
             if (item == nullptr)
                 return false;
-            if (item->location.kind == Location::CONTAINED && item->location.container_id != actor->id)
+            if (!is_in_my_inventory(actor, item))
                 return false;
             if (item->thing_type != ThingType_WAND)
                 return false;
@@ -789,7 +823,7 @@ bool validate_action(Thing actor, const Action & action) {
             PerceivedThing item = actor->life()->knowledge.perceived_things.get(data.item, nullptr);
             if (item == nullptr)
                 return false;
-            if (item->location.kind == Location::CONTAINED && item->location.container_id != actor->id)
+            if (!is_in_my_inventory(actor, item))
                 return false;
             if (item->thing_type != ThingType_BOOK)
                 return false;
@@ -905,13 +939,11 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::READ_BOOK:
             read_book(actor, action.coord_and_item().item, confuse_direction(actor, action.coord_and_item().coord));
             break;
-        case Action::PICKUP:
-            pickup_item(actor, game->actual_things.get(action.item()));
-            publish_event(Event::individual_picks_up_item(actor->id, action.item()));
+        case Action::POSITION_ITEM: {
+            Action::ItemAndSlot const& data = action.item_and_slot();
+            position_item(actor, game->actual_things.get(data.item), data.slot, false);
             break;
-        case Action::DROP:
-            drop_item_to_the_floor(game->actual_things.get(action.item()), actor->location.coord);
-            break;
+        }
         case Action::QUAFF: {
             Thing item = game->actual_things.get(action.item());
             use_potion(actor, actor, item, false);

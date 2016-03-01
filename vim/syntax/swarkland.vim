@@ -11,7 +11,7 @@ syn case match
 
 
 " actions/directives
-syn keyword swarklandAction move wait attack zap pickup drop quaff read_book throw down ability
+syn keyword swarklandAction move wait attack zap position_item quaff read_book throw down ability
 syn match   swarklandCheat     /!health\>/
 syn match   swarklandCheat     /!kill\>/
 syn match   swarklandCheat     /!polymorph\>/

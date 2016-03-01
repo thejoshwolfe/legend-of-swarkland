@@ -426,7 +426,7 @@ Action get_ai_decision(Thing actor) {
             case ThingType_BOOK: {
                 // gimme that
                 if (target->location.coord == actor->location.coord)
-                    return Action::pickup(target->id);
+                    return Action::position_item(target->id, InventorySlot_INSIDE);
 
                 List<Coord> path;
                 find_path(actor->location.coord, target->location.coord, actor, &path);
