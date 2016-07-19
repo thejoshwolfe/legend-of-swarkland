@@ -7,7 +7,7 @@ void init_random_state(RandomState * state, uint32_t seed) {
     state->array[0] = seed;
     for (int i = 1; i < RandomState::ARRAY_SIZE; i++) {
         uint64_t previous_value = state->array[i - 1];
-        state->array[i] = ((previous_value ^ (previous_value << 30)) * 0x6c078965UL + i) & 0x00000000ffffffffULL;
+        state->array[i] = ((previous_value ^ (previous_value >> 30)) * 0x6c078965UL + i) & 0x00000000ffffffffULL;
     }
 }
 
