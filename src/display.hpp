@@ -6,7 +6,6 @@
 #include "thing.hpp"
 #include "string.hpp"
 #include "text.hpp"
-#include "image.hpp"
 
 #include <SDL.h>
 #include <SDL_ttf.h>

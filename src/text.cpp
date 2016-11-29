@@ -39,10 +39,10 @@ SDL_Surface * SpanImpl::get_surface() {
             SDL_Surface * tmp_surface = TTF_RenderUTF8_Blended(status_box_font, utf8.raw(), _foreground);
             render_surfaces.append(tmp_surface);
             delete_surfaces.append(tmp_surface);
-        } else if (_items[i].image != nullptr) {
-            const SwarklandImage * image = _items[i].image;
-            SDL_Surface * tmp_surface = create_surface(image->width, image->height);
-            SDL_Rect src_rect = { image->x, image->y, image->width, image->height };
+        } else if (_items[i].image != SwarklandImage_::nowhere()) {
+            SwarklandImage_ image = _items[i].image;
+            SDL_Surface * tmp_surface = create_surface(tile_size, tile_size);
+            SDL_Rect src_rect = { image.x, image.y, tile_size, tile_size };
             SDL_BlitSurface(sprite_sheet_surface, &src_rect, tmp_surface, nullptr);
             flip_vertical_surface(tmp_surface);
             render_surfaces.append(tmp_surface);

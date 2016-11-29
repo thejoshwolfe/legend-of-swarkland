@@ -10,6 +10,7 @@ struct Coord {
         return {-1, -1};
     }
 };
+typedef Coord SwarklandImage_; // TODO: rename and delete this
 static inline bool operator==(Coord a, Coord b) {
     return a.x == b.x && a.y == b.y;
 }

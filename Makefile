@@ -5,7 +5,7 @@ RESOURCE_NAMES = version_resource font_resource spritesheet_resource
 OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o serial.o byte_buffer.o item.o input.o event.o string.o text.o $(foreach f,$(RESOURCE_NAMES),$f.o)
 
 CPP_FLAGS += $(TARGET_SPECIFIC_CPP_FLAGS) -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
-COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++14 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --cflags SDL2_ttf sdl2 libpng) $<
+COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++14 -o $@ -MMD -MP -MF $@.d -I$(dir $@) $(CPP_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --cflags SDL2_ttf sdl2 libpng) $<
 
 LINK_FLAGS += $(TARGET_SPECIFIC_LINK_FLAGS) -lm
 LINK = $(CROSS_PREFIX)gcc -o $@ $^ $(LINK_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --libs SDL2_ttf sdl2 libpng)
@@ -28,14 +28,16 @@ build/full_version.txt: $(VERSION_FILE)
 	cp "$<" $@
 %/font_resource: assets/font/DejaVuSansMono.ttf
 	cp "$<" $@
-%/spritesheet_resource: assets/img/individual/human.png
-	cp "$<" $@
+%/spritesheet_resource:
+	PYTHONPATH=deps/simplepng.py/ ./tools/compile_spritesheet.py assets/img/ --glob='*.png' --tilesize=32 --spritesheet=$@ --header=$(dir $@)spritesheet.hpp --deps=$@.d
+%/spritesheet.hpp: %/spritesheet_resource
+	@# the spritesheet generation might update the .hpp
 
 %_resource.o: %_resource
 	@# the name of the file, e.g. "version_resource", is where these symbol names come from:
-	@#   _binary_version_resource_start _binary_version_resource_end _binary_version_resource_size
+	@#   _binary_version_resource_start _binary_version_resource_end
 	@# but wait, in windows, the leading underscore is not present, resulting in these names:
-	@#    binary_version_resource_start  binary_version_resource_end  binary_version_resource_size
+	@#    binary_version_resource_start  binary_version_resource_end
 	cd $(dir $@) && $(CROSS_PREFIX)ld -r -b binary $(notdir $<) -o $(notdir $@)
 
 .PHONY: native
@@ -43,6 +45,7 @@ all: native
 -include $(wildcard build/native/*.d)
 OBJECTS_native = $(foreach f,$(OBJECT_NAMES),build/native/$f)
 RAW_RESOURCES_native = $(foreach f,$(RESOURCE_NAMES),build/native/$f)
+$(OBJECTS_native) build/native/main.o: build/native/spritesheet.hpp
 $(OBJECTS_native) build/native/main.o: TARGET_SPECIFIC_CPP_FLAGS = -fsanitize=address
 $(OBJECTS_native) build/native/main.o: CROSS_PREFIX =
 build/native/%.o: src/%.cpp
@@ -66,6 +69,7 @@ build/native:
 CROSS_windows = $(MXE_HOME)/usr/bin/i686-w64-mingw32.static-
 OBJECTS_windows = $(foreach f,$(OBJECT_NAMES),build/windows/$f)
 RAW_RESOURCES_windows= $(foreach f,$(RESOURCE_NAMES),build/windows/$f)
+$(OBJECTS_windows) build/windows/main.o: build/windows/spritesheet.hpp
 $(OBJECTS_windows) build/windows/main.o: TARGET_SPECIFIC_CPP_FLAGS =
 $(OBJECTS_windows) build/windows/main.o: CROSS_PREFIX = $(CROSS_windows)
 build/windows/%.o: src/%.cpp
