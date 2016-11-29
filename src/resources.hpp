@@ -4,25 +4,23 @@
 // see Makefile invocation of `ld -r -b binary` for where these symbols are defined and where their names come from.
 
 #if defined(__linux__)
- // everthing's fine
 #elif defined(__MINGW32__)
  // in windows, the underscore isn't there for some reason.
- #define _binary_resources_start binary_resources_start
- #define _binary_resources_end binary_resources_end
- #define _binary_resources_size binary_resources_size
+ #error "TODO: remove _ prefix for binary resources on windows"
 #else
  #error "compiler"
 #endif
-extern unsigned char _binary_resources_start;
-extern unsigned char _binary_resources_end;
-extern unsigned char _binary_resources_size;
 
-// this is the rucksack bundle for the project
-static inline unsigned char * get_binary_resources_start() {
-    return &_binary_resources_start;
+#define BINARY_RESOURCE(name) \
+extern unsigned char _binary_##name##_start; \
+extern unsigned char _binary_##name##_end; \
+static inline unsigned char * get_binary_##name##_start() { \
+    return &_binary_##name##_start; \
+} \
+static inline long get_binary_##name##_size() { \
+    return &_binary_##name##_end - &_binary_##name##_start; \
 }
-static inline long get_binary_resources_size() {
-    return &_binary_resources_end - &_binary_resources_start;
-}
+BINARY_RESOURCE(version_resource)
+BINARY_RESOURCE(font_resource)
 
 #endif

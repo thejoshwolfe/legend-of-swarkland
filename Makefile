@@ -1,12 +1,13 @@
 .PHONY: all
 all:
 
-OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o serial.o byte_buffer.o item.o input.o event.o string.o text.o resources.o
+RESOURCE_NAMES = version_resource font_resource
+OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o serial.o byte_buffer.o item.o input.o event.o string.o text.o $(foreach f,$(RESOURCE_NAMES),$f.o)
 
 CPP_FLAGS += $(TARGET_SPECIFIC_CPP_FLAGS) -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
 COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++14 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --cflags SDL2_ttf sdl2 libpng) $<
 
-LINK_FLAGS += $(TARGET_SPECIFIC_LINK_FLAGS) -lm -lrucksack
+LINK_FLAGS += $(TARGET_SPECIFIC_LINK_FLAGS) -lm
 LINK = $(CROSS_PREFIX)gcc -o $@ $^ $(LINK_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --libs SDL2_ttf sdl2 libpng)
 
 # ld is not allowed to omit functions and global variables defined in .o files,
@@ -23,20 +24,23 @@ $(VERSION_FILE): version.txt | build
 	touch "$@"
 build/full_version.txt: $(VERSION_FILE)
 	echo -n "$(THE_VERSION)" > $@
-%/resources: build/full_version.txt
-	rucksack bundle assets/assets.json $(dir $@)resources --deps $@.d
-	rucksack strip $(dir $@)resources
-%/resources.o: %/resources
-	@# the name "resources" is where these symbol names come from:
-	@#   _binary_resources_start _binary_resources_end _binary_resources_size
+%/version_resource: build/full_version.txt
+	cp "$<" $@
+%/font_resource: assets/font/DejaVuSansMono.ttf
+	cp "$<" $@
+
+%_resource.o: %_resource
+	@# the name of the file, e.g. "version_resource", is where these symbol names come from:
+	@#   _binary_version_resource_start _binary_version_resource_end _binary_version_resource_size
 	@# but wait, in windows, the leading underscore is not present, resulting in these names:
-	@#    binary_resources_start  binary_resources_end  binary_resources_size
-	cd $(dir $@) && $(CROSS_PREFIX)ld -r -b binary resources -o $(notdir $@)
+	@#    binary_version_resource_start  binary_version_resource_end  binary_version_resource_size
+	cd $(dir $@) && $(CROSS_PREFIX)ld -r -b binary $(notdir $<) -o $(notdir $@)
 
 .PHONY: native
 all: native
 -include $(wildcard build/native/*.d)
 OBJECTS_native = $(foreach f,$(OBJECT_NAMES),build/native/$f)
+RAW_RESOURCES_native = $(foreach f,$(RESOURCE_NAMES),build/native/$f)
 $(OBJECTS_native) build/native/main.o: TARGET_SPECIFIC_CPP_FLAGS = -fsanitize=address
 $(OBJECTS_native) build/native/main.o: CROSS_PREFIX =
 build/native/%.o: src/%.cpp
@@ -48,7 +52,7 @@ build/native/legend-of-swarkland: $(OBJECTS_native) build/native/main.o
 	$(LINK)
 native: build/native/legend-of-swarkland
 
-$(OBJECTS_native) build/native/resources: | build/native
+$(OBJECTS_native) $(RAW_RESOURCES_native): | build/native
 build/native:
 	mkdir -p $@
 
@@ -59,6 +63,7 @@ build/native:
 -include $(wildcard build/windows/*.d)
 CROSS_windows = $(MXE_HOME)/usr/bin/i686-w64-mingw32.static-
 OBJECTS_windows = $(foreach f,$(OBJECT_NAMES),build/windows/$f)
+RAW_RESOURCES_windows= $(foreach f,$(RESOURCE_NAMES),build/windows/$f)
 $(OBJECTS_windows) build/windows/main.o: TARGET_SPECIFIC_CPP_FLAGS =
 $(OBJECTS_windows) build/windows/main.o: CROSS_PREFIX = $(CROSS_windows)
 build/windows/%.o: src/%.cpp
@@ -71,7 +76,7 @@ build/windows/legend-of-swarkland.exe: $(OBJECTS_windows) build/windows/main.o
 	$(LINK)
 windows: build/windows/legend-of-swarkland.exe
 
-$(OBJECTS_windows) build/windows/resources: | build/windows
+$(OBJECTS_windows) $(RAW_RESOURCES_windows): | build/windows
 build/windows:
 	mkdir -p $@
 

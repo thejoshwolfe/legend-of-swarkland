@@ -37,37 +37,34 @@ static SDL_Texture * sprite_sheet_texture;
 SDL_Surface * sprite_sheet_surface;
 static SDL_Renderer * renderer;
 
-static RuckSackBundle * bundle;
-static RuckSackTexture * rs_texture;
-static RuckSackImage ** spritesheet_images;
-static long spritesheet_image_count;
+static SwarklandImage ** spritesheet_images;
 
-static RuckSackImage * dirt_floor_image;
-static RuckSackImage * marble_floor_image;
-static RuckSackImage * unknown_floor_image;
-static RuckSackImage * brown_brick_wall_image;
-static RuckSackImage * gray_brick_wall_image;
-static RuckSackImage * unknown_wall_image;
-static RuckSackImage * stairs_down_image;
-static RuckSackImage * species_images[SpeciesId_COUNT];
-static RuckSackImage * unseen_individual_image;
-static RuckSackImage * wand_images[WandDescriptionId_COUNT];
-static RuckSackImage * unseen_wand_image;
-static RuckSackImage * potion_images[PotionDescriptionId_COUNT];
-static RuckSackImage * unseen_potion_image;
-static RuckSackImage * book_images[BookDescriptionId_COUNT];
-static RuckSackImage * unseen_book_image;
-static RuckSackImage * equipment_image;
+static SwarklandImage * dirt_floor_image;
+static SwarklandImage * marble_floor_image;
+static SwarklandImage * unknown_floor_image;
+static SwarklandImage * brown_brick_wall_image;
+static SwarklandImage * gray_brick_wall_image;
+static SwarklandImage * unknown_wall_image;
+static SwarklandImage * stairs_down_image;
+static SwarklandImage * species_images[SpeciesId_COUNT];
+static SwarklandImage * unseen_individual_image;
+static SwarklandImage * wand_images[WandDescriptionId_COUNT];
+static SwarklandImage * unseen_wand_image;
+static SwarklandImage * potion_images[PotionDescriptionId_COUNT];
+static SwarklandImage * unseen_potion_image;
+static SwarklandImage * book_images[BookDescriptionId_COUNT];
+static SwarklandImage * unseen_book_image;
+static SwarklandImage * equipment_image;
 
 TTF_Font * status_box_font;
-static unsigned char *font_buffer;
 static SDL_RWops *font_rw_ops;
 static String version_string = new_string();
 
-static RuckSackImage * find_image(const char * name) {
-    for (int i = 0; i < spritesheet_image_count; i++)
-        if (strcmp(spritesheet_images[i]->key, name) == 0)
-            return spritesheet_images[i];
+static SwarklandImage * find_image(const char * name) {
+    (void)name;
+//    for (int i = 0; i < spritesheet_image_count; i++)
+//        if (strcmp(spritesheet_images[i]->key, name) == 0)
+//            return spritesheet_images[i];
     panic("sprite not found");
 }
 
@@ -145,42 +142,33 @@ void init_display() {
     if (renderer == nullptr)
         panic("renderer create failed");
 
-    if (rucksack_bundle_open_read_mem(get_binary_resources_start(), get_binary_resources_size(), &bundle) != RuckSackErrorNone)
-        panic("error opening resource bundle");
-    RuckSackFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
-    if (entry == nullptr)
-        panic("spritesheet not found in bundle");
-
-    if (rucksack_file_open_texture(entry, &rs_texture) != RuckSackErrorNone)
-        panic("open texture failed");
-
-    load_texture(renderer, rs_texture, &sprite_sheet_texture, &sprite_sheet_surface);
-
-    spritesheet_image_count = rucksack_texture_image_count(rs_texture);
-    spritesheet_images = allocate<RuckSackImage*>(spritesheet_image_count);
-    rucksack_texture_get_images(rs_texture, spritesheet_images);
-    load_images();
+//    if (rucksack_bundle_open_read_mem(get_binary_resources_start(), get_binary_resources_size(), &bundle) != SwarklandErrorNone)
+//        panic("error opening resource bundle");
+//    SwarklandFileEntry * entry = rucksack_bundle_find_file(bundle, "spritesheet", -1);
+//    if (entry == nullptr)
+//        panic("spritesheet not found in bundle");
+//
+//    if (rucksack_file_open_texture(entry, &rs_texture) != SwarklandErrorNone)
+//        panic("open texture failed");
+//
+//    load_texture(renderer, rs_texture, &sprite_sheet_texture, &sprite_sheet_surface);
+//
+//    spritesheet_image_count = rucksack_texture_image_count(rs_texture);
+//    spritesheet_images = allocate<SwarklandImage*>(spritesheet_image_count);
+//    rucksack_texture_get_images(rs_texture, spritesheet_images);
+//    load_images();
+    if (false) load_images();
 
     TTF_Init();
 
-    RuckSackFileEntry * font_entry = rucksack_bundle_find_file(bundle, "font/DejaVuSansMono.ttf", -1);
-    if (font_entry == nullptr)
-        panic("font not found in bundle");
-    long font_file_size = rucksack_file_size(font_entry);
-    font_buffer = allocate<unsigned char>(font_file_size);
-    rucksack_file_read(font_entry, font_buffer);
-    font_rw_ops = SDL_RWFromMem(font_buffer, font_file_size);
+    font_rw_ops = SDL_RWFromMem((void *)get_binary_font_resource_start(), (int)get_binary_font_resource_size());
     if (font_rw_ops == nullptr)
         panic("sdl rwops fail");
     status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
     TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
 
-    RuckSackFileEntry * version_entry = rucksack_bundle_find_file(bundle, "version", -1);
-    if (version_entry == nullptr)
-        panic("version not found in bundle");
     ByteBuffer buffer;
-    buffer.resize(rucksack_file_size(version_entry));
-    rucksack_file_read(version_entry, (unsigned char *)buffer.raw());
+    buffer.append((const char *)get_binary_version_resource_start(), (int)get_binary_version_resource_size());
     version_string->decode(buffer);
 }
 
@@ -190,18 +178,17 @@ void display_finish() {
     TTF_Quit();
 
     SDL_RWclose(font_rw_ops);
-    destroy(font_buffer, 0);
 
     destroy(spritesheet_images, 0);
-    rucksack_texture_close(rs_texture);
+//    rucksack_texture_close(rs_texture);
 
     SDL_DestroyTexture(sprite_sheet_texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 
-    if (rucksack_bundle_close(bundle) != RuckSackErrorNone) {
-        panic("error closing resource bundle");
-    }
+//    if (rucksack_bundle_close(bundle) != SwarklandErrorNone) {
+//        panic("error closing resource bundle");
+//    }
     SDL_Quit();
 }
 
@@ -210,7 +197,7 @@ static inline bool rect_contains(SDL_Rect rect, Coord point) {
            rect.y <= point.y && point.y < rect.y + rect.h;
 }
 
-static void render_tile(RuckSackImage * image, uint32_t aesthetic_index, int alpha, Coord dest_coord) {
+static void render_tile(SwarklandImage * image, uint32_t aesthetic_index, int alpha, Coord dest_coord) {
     SDL_Rect source_rect;
     source_rect.x = image->x;
     source_rect.y = image->y;
@@ -581,7 +568,7 @@ static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
     render_div(div, rect, horizontal_align, vertical_align);
 }
 
-static RuckSackImage * get_image_for_thing(PerceivedThing thing) {
+static SwarklandImage * get_image_for_thing(PerceivedThing thing) {
     switch (thing->thing_type) {
         case ThingType_INDIVIDUAL:
             if (thing->life()->species_id == SpeciesId_UNSEEN)
@@ -605,7 +592,7 @@ static RuckSackImage * get_image_for_thing(PerceivedThing thing) {
     }
     panic("thing type");
 }
-static RuckSackImage * get_image_for_thing(Thing thing) {
+static SwarklandImage * get_image_for_thing(Thing thing) {
     switch (thing->thing_type) {
         case ThingType_INDIVIDUAL:
             return species_images[thing->physical_species_id()];
@@ -621,7 +608,7 @@ static RuckSackImage * get_image_for_thing(Thing thing) {
     }
     panic("thing type");
 }
-static RuckSackImage * get_image_for_tile(TileType tile_type) {
+static SwarklandImage * get_image_for_tile(TileType tile_type) {
     switch (tile_type) {
         case TileType_UNKNOWN:
             return nullptr;
@@ -886,7 +873,7 @@ static Span render_action(Thing actor, const Action & action) {
     Span result = new_span();
     switch (action.id) {
         case Action::PICKUP: {
-            RuckSackImage * image = get_image_for_thing(actor->life()->knowledge.perceived_things.get(action.item()));
+            SwarklandImage * image = get_image_for_thing(actor->life()->knowledge.perceived_things.get(action.item()));
             result->format("pick up %g%s", image, get_thing_description(actor, action.item(), true));
             return result;
         }
@@ -1006,6 +993,15 @@ void render() {
     set_color(black);
     SDL_RenderClear(renderer);
 
+    if (true) {
+        Span blurb_span = new_span("v", gray, black);
+        blurb_span->append(version_string);
+        version_div->set_content(blurb_span);
+        render_div(version_div, version_area, -1, -1);
+        SDL_RenderPresent(renderer);
+        return;
+    }
+
     int direction_distance_min = -1;
     int direction_distance_max = -1;
     bool show_inventory_cursor_help = false;
@@ -1116,7 +1112,7 @@ void render() {
             TileType tile = spectate_from->life()->knowledge.tiles[cursor];
             if (cheatcode_full_visibility)
                 tile = game->actual_map_tiles[cursor];
-            RuckSackImage * image = get_image_for_tile(tile);
+            SwarklandImage * image = get_image_for_tile(tile);
             if (image == nullptr)
                 continue;
             Uint8 alpha;
@@ -1511,7 +1507,7 @@ void render() {
     }
     if (show_cheatcode_generate_monster_location_cursor) {
         SpeciesId species_id = (SpeciesId)cheatcode_generate_monster_choose_species_menu_cursor;
-        RuckSackImage * image = species_images[species_id];
+        SwarklandImage * image = species_images[species_id];
         render_tile(image, 0, 0x7f, cheatcode_generate_monster_choose_location_cursor);
     }
     // popup help for hovering over things
