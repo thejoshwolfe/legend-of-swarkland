@@ -40,7 +40,7 @@ SDL_Surface * SpanImpl::get_surface() {
             render_surfaces.append(tmp_surface);
             delete_surfaces.append(tmp_surface);
         } else if (_items[i].image != nullptr) {
-            SwarklandImage * image = _items[i].image;
+            const SwarklandImage * image = _items[i].image;
             SDL_Surface * tmp_surface = create_surface(image->width, image->height);
             SDL_Rect src_rect = { image->x, image->y, image->width, image->height };
             SDL_BlitSurface(sprite_sheet_surface, &src_rect, tmp_surface, nullptr);

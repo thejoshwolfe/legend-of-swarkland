@@ -1,7 +1,7 @@
 .PHONY: all
 all:
 
-RESOURCE_NAMES = version_resource font_resource
+RESOURCE_NAMES = version_resource font_resource spritesheet_resource
 OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o serial.o byte_buffer.o item.o input.o event.o string.o text.o $(foreach f,$(RESOURCE_NAMES),$f.o)
 
 CPP_FLAGS += $(TARGET_SPECIFIC_CPP_FLAGS) -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
@@ -27,6 +27,8 @@ build/full_version.txt: $(VERSION_FILE)
 %/version_resource: build/full_version.txt
 	cp "$<" $@
 %/font_resource: assets/font/DejaVuSansMono.ttf
+	cp "$<" $@
+%/spritesheet_resource: assets/img/individual/human.png
 	cp "$<" $@
 
 %_resource.o: %_resource

@@ -22,5 +22,6 @@ static inline long get_binary_##name##_size() { \
 }
 BINARY_RESOURCE(version_resource)
 BINARY_RESOURCE(font_resource)
+BINARY_RESOURCE(spritesheet_resource)
 
 #endif

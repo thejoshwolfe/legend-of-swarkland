@@ -65,7 +65,7 @@ private:
     struct ChildElement {
         String string;
         Span span;
-        SwarklandImage * image;
+        const SwarklandImage * image;
         bool operator==(const ChildElement & other) const {
             return *string == *other.string &&
                    *span == *other.span &&
@@ -138,7 +138,7 @@ public:
         _items.append(ChildElement{nullptr, span, nullptr});
         dispose_resources();
     }
-    void append(SwarklandImage * image) {
+    void append(const SwarklandImage * image) {
         _items.append(ChildElement{nullptr, nullptr, image});
         dispose_resources();
     }
@@ -150,7 +150,7 @@ public:
     template<typename ...Args>
     void format(const char * fmt, Span span1, Args... args);
     template<typename ...Args>
-    void format(const char * fmt, SwarklandImage * image, Args... args);
+    void format(const char * fmt, const SwarklandImage * image, Args... args);
 
     void to_string(String output_string) const {
         for (int i = 0; i < _items.length(); i++) {
@@ -205,7 +205,7 @@ void SpanImpl::format(const char * fmt, Span span1, Args... args) {
     format(fmt + i, args...);
 }
 template<typename ...Args>
-void SpanImpl::format(const char * fmt, SwarklandImage * image, Args... args) {
+void SpanImpl::format(const char * fmt, const SwarklandImage * image, Args... args) {
     int i = find_percent_something(fmt, 'g');
     ByteBuffer prefix;
     prefix.append(fmt, i - 2);
