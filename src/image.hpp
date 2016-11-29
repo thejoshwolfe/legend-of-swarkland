@@ -8,9 +8,4 @@ struct SwarklandImage {
     int width;
 };
 
-struct SwarklandTexture {
-    int height;
-    int width;
-};
-
 #endif

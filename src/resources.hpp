@@ -12,16 +12,18 @@
 #endif
 
 #define BINARY_RESOURCE(name) \
-extern unsigned char _binary_##name##_start; \
-extern unsigned char _binary_##name##_end; \
-static inline unsigned char * get_binary_##name##_start() { \
-    return &_binary_##name##_start; \
-} \
-static inline long get_binary_##name##_size() { \
-    return &_binary_##name##_end - &_binary_##name##_start; \
-}
+ extern unsigned char _binary_##name##_start; \
+ extern unsigned char _binary_##name##_end; \
+ static constexpr unsigned char * get_binary_##name##_start() { \
+     return &_binary_##name##_start; \
+ } \
+ static constexpr long get_binary_##name##_size() { \
+     return &_binary_##name##_end - &_binary_##name##_start; \
+ }
+
 BINARY_RESOURCE(version_resource)
 BINARY_RESOURCE(font_resource)
 BINARY_RESOURCE(spritesheet_resource)
+#undef BINARY_RESOURCE
 
 #endif
