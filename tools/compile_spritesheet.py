@@ -54,9 +54,7 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   header_items = []
   for item_path in item_paths:
     with open(os.path.join(source_dir, item_path), "rb") as f:
-      try: item_image = simplepng.read_png(f)
-      except:
-        print("skipping: " + item_path)
+      item_image = simplepng.read_png(f)
     if not (item_image.width == tilesize and item_image.height == tilesize):
       sys.exit("ERROR: {}: expected {}x{}. found {}x{}".format(item_path, tilesize, tilesize, item_image.width, item_image.height))
     spritesheet_image.paste(item_image, dx=x*tilesize, dy=y*tilesize)

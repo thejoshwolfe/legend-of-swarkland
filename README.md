@@ -2,7 +2,7 @@
 
 ## Status
 
-Basic turn-based, hack-n-slash survival game.
+Very short (5 levels) turn-based roguelike with a final boss and randomized items.
 
 ## How Do I Run It?
 
@@ -15,6 +15,7 @@ Basic turn-based, hack-n-slash survival game.
 install dependencies:
 
 ```
+git submodule init && git submodule update
 sudo apt-get install libsdl2-dev libsdl2-ttf-dev libpng12-dev upx-ucl
 ```
 
