@@ -1,0 +1,3 @@
+[submodule "deps/simplepng.py"]
+	path = deps/simplepng.py
+	url = git@github.com:thejoshwolfe/simplepng.py

@@ -2,7 +2,7 @@
 
 ## Status
 
-Basic turn-based, hack-n-slash survival game.
+Very short (5 levels) turn-based roguelike with a final boss and randomized items.
 
 ## How Do I Run It?
 
@@ -12,17 +12,11 @@ Basic turn-based, hack-n-slash survival game.
 
 ### Ubuntu
 
-add ppa for rucksack:
-
-```
-sudo apt-add-repository ppa:andrewrk/rucksack
-sudo apt-get update
-```
-
 install dependencies:
 
 ```
-sudo apt-get install librucksack-dev rucksack libsdl2-dev libsdl2-ttf-dev libpng12-dev upx-ucl
+git submodule init && git submodule update
+sudo apt-get install libsdl2-dev libsdl2-ttf-dev libpng12-dev upx-ucl
 ```
 
 build:
@@ -47,7 +41,7 @@ gdb -iex "add-auto-load-safe-path ./" -ex run -ex quit ./build/native/legend-of-
 
  0. `git clone https://github.com/mxe/mxe`
  0. Follow these instructions: http://mxe.cc/#requirements-debian
- 0. In the mxe directory: `make gcc sdl2 sdl2_ttf libpng rucksack`
+ 0. In the mxe directory: `make gcc sdl2 sdl2_ttf libpng`
  0. In legend-of-swarkland directory: `make MXE_HOME=/path/to/mxe windows`
 
 (You can build for both Windows and native Linux at the same time by appending `native` to the above.)

@@ -2,6 +2,7 @@
 
 #include "util.hpp"
 #include "text.hpp"
+#include "resources.hpp"
 
 #include <png.h>
 
@@ -20,11 +21,9 @@ static void read_png_data(png_structp png_ptr, png_bytep data, png_size_t length
     png_io->index = new_index;
 }
 
-void load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture, SDL_Texture ** output_texture, SDL_Surface ** output_surface) {
-    size_t size = rucksack_texture_size(rs_texture);
-    unsigned char * image_buffer = allocate<unsigned char>(size);
-    if (rucksack_texture_read(rs_texture, image_buffer) != RuckSackErrorNone)
-        panic("read texture failed");
+void load_texture(SDL_Renderer * renderer, SDL_Texture ** output_texture, SDL_Surface ** output_surface) {
+    size_t size = get_binary_spritesheet_resource_size();
+    unsigned char * image_buffer = get_binary_spritesheet_resource_start();
 
     if (png_sig_cmp(image_buffer, 0, 8))
         panic("not png file");
@@ -104,7 +103,6 @@ void load_texture(SDL_Renderer * renderer, struct RuckSackTexture * rs_texture, 
     png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
     destroy(row_ptrs, 0);
     destroy(decoded_image, 0);
-    destroy(image_buffer, 0);
 
     *output_texture = texture;
     *output_surface = surface;

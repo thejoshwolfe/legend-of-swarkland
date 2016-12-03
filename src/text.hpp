@@ -2,7 +2,7 @@
 #define TEXT_HPP
 
 #include "string.hpp"
-#include <rucksack/rucksack.h>
+#include "geometry.hpp"
 
 #include <SDL.h>
 
@@ -65,7 +65,7 @@ private:
     struct ChildElement {
         String string;
         Span span;
-        RuckSackImage * image;
+        SwarklandImage_ image;
         bool operator==(const ChildElement & other) const {
             return *string == *other.string &&
                    *span == *other.span &&
@@ -109,7 +109,7 @@ public:
         if (!(_items.length() == 1 &&_items[0].string != nullptr)) {
             // no, make it plain text.
             _items.clear();
-            _items.append(ChildElement{new_string(), nullptr, nullptr});
+            _items.append(ChildElement{new_string(), nullptr, SwarklandImage_::nowhere()});
             dispose_resources();
         } else {
             // there's already some plain text here.
@@ -130,15 +130,15 @@ public:
         if (text->length() == 0)
             return;
         if (_items.length() == 0 || _items[_items.length() - 1].string == nullptr)
-            _items.append(ChildElement{new_string(), nullptr, nullptr});
+            _items.append(ChildElement{new_string(), nullptr, SwarklandImage_::nowhere()});
         _items[_items.length() - 1].string->append(text);
         dispose_resources();
     }
     void append(const Span & span) {
-        _items.append(ChildElement{nullptr, span, nullptr});
+        _items.append(ChildElement{nullptr, span, SwarklandImage_::nowhere()});
         dispose_resources();
     }
-    void append(RuckSackImage * image) {
+    void append(SwarklandImage_ image) {
         _items.append(ChildElement{nullptr, nullptr, image});
         dispose_resources();
     }
@@ -150,7 +150,7 @@ public:
     template<typename ...Args>
     void format(const char * fmt, Span span1, Args... args);
     template<typename ...Args>
-    void format(const char * fmt, RuckSackImage * image, Args... args);
+    void format(const char * fmt, SwarklandImage_ image, Args... args);
 
     void to_string(String output_string) const {
         for (int i = 0; i < _items.length(); i++) {
@@ -158,7 +158,7 @@ public:
                 output_string->append(_items[i].string);
             } else if (_items[i].span != nullptr) {
                 _items[i].span->to_string(output_string);
-            } else if (_items[i].image != nullptr) {
+            } else if (_items[i].image != SwarklandImage_::nowhere()) {
                 // sorry.
             } else unreachable();
         }
@@ -205,7 +205,7 @@ void SpanImpl::format(const char * fmt, Span span1, Args... args) {
     format(fmt + i, args...);
 }
 template<typename ...Args>
-void SpanImpl::format(const char * fmt, RuckSackImage * image, Args... args) {
+void SpanImpl::format(const char * fmt, SwarklandImage_ image, Args... args) {
     int i = find_percent_something(fmt, 'g');
     ByteBuffer prefix;
     prefix.append(fmt, i - 2);

@@ -7,7 +7,6 @@
 #include "string.hpp"
 #include "text.hpp"
 
-#include <rucksack/rucksack.h>
 #include <SDL.h>
 #include <SDL_ttf.h>
 
