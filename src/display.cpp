@@ -200,7 +200,7 @@ static void render_tile(SwarklandImage_ image, int alpha, Coord dest_coord) {
     dest_rect.h = tile_size;
 
     SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-    SDL_RenderCopyEx(renderer, sprite_sheet_texture, &source_rect, &dest_rect, 0.0, nullptr, SDL_FLIP_VERTICAL);
+    SDL_RenderCopyEx(renderer, sprite_sheet_texture, &source_rect, &dest_rect, 0.0, nullptr, SDL_FLIP_NONE);
 }
 
 // {0, 0, w, h}

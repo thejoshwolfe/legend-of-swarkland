@@ -7,17 +7,6 @@
 static SDL_Surface * create_surface(int w, int h) {
     return SDL_CreateRGBSurface(0, w, h, 32, color_rmask, color_gmask, color_bmask, color_amask);
 }
-static void flip_vertical_surface(SDL_Surface * surface) {
-    assert(surface->format->BytesPerPixel == 4);
-    uint32_t * pixels = reinterpret_cast<uint32_t*>(surface->pixels);
-    for (int x = 0; x < surface->w; x++) {
-        for (int y = 0, ry = surface->h - 1; y < ry; y++, ry--) {
-            uint32_t tmp = pixels[x + y * surface->w];
-            pixels[x + y * surface->w] = pixels[x + ry * surface->w];
-            pixels[x + ry * surface->w] = tmp;
-        }
-    }
-}
 
 SDL_Surface * SpanImpl::get_surface() {
     if (_surface != nullptr)
@@ -44,7 +33,6 @@ SDL_Surface * SpanImpl::get_surface() {
             SDL_Surface * tmp_surface = create_surface(tile_size, tile_size);
             SDL_Rect src_rect = { image.x, image.y, tile_size, tile_size };
             SDL_BlitSurface(sprite_sheet_surface, &src_rect, tmp_surface, nullptr);
-            flip_vertical_surface(tmp_surface);
             render_surfaces.append(tmp_surface);
             delete_surfaces.append(tmp_surface);
         } else {

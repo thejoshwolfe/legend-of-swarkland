@@ -19,15 +19,15 @@ static const SDL_Color light_brown = {0xff, 0xa8, 0x00, 0xff};
 
 // i wonder if this difference even matters
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
-static const Uint32 color_rmask = 0xff000000;
-static const Uint32 color_gmask = 0x00ff0000;
-static const Uint32 color_bmask = 0x0000ff00;
-static const Uint32 color_amask = 0x000000ff;
-#else
 static const Uint32 color_rmask = 0x000000ff;
 static const Uint32 color_gmask = 0x0000ff00;
 static const Uint32 color_bmask = 0x00ff0000;
 static const Uint32 color_amask = 0xff000000;
+#else
+static const Uint32 color_rmask = 0xff000000;
+static const Uint32 color_gmask = 0x00ff0000;
+static const Uint32 color_bmask = 0x0000ff00;
+static const Uint32 color_amask = 0x000000ff;
 #endif
 static constexpr Uint32 pack_color(SDL_Color color) {
     struct LocalFunctionPlease {

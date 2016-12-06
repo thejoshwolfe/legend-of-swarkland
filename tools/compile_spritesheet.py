@@ -4,6 +4,7 @@ import os
 import sys
 import math
 import time
+import struct
 
 # make sure you call this script with the right PYTHONPATH
 import simplepng
@@ -59,22 +60,28 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
       sys.exit("ERROR: {}: expected {}x{}. found {}x{}".format(item_path, tilesize, tilesize, item_image.width, item_image.height))
     spritesheet_image.paste(item_image, dx=x*tilesize, dy=y*tilesize)
 
-    header_items.append((mangle_item_name(item_path), x * tilesize, (sprites_per_row - y - 1) * tilesize))
+    header_items.append((mangle_item_name(item_path), x * tilesize, y * tilesize))
 
     x += 1
     if x == sprites_per_row:
       x = 0
       y += 1
 
-  # output spritesheet
+  # output spritesheet in RGBA8888 format
   with open(spritesheet_path + ".tmp", "wb") as f:
+    f.write(b"".join(struct.pack("<I", pixel) for pixel in spritesheet_image.data))
+  with open(spritesheet_path + "_reference.png", "wb") as f:
     simplepng.write_png(f, spritesheet_image)
 
   # check header
   header_item_format = "static constexpr Coord %s = {%i, %i};";
-  header_contents = header_format.format("\n".join(
-    header_item_format % header_item for header_item in header_items
-  ))
+  header_contents = header_format.format(
+    sprites_per_row * tilesize,
+    sprites_per_row * tilesize,
+    "\n".join(
+      header_item_format % header_item for header_item in header_items
+    )
+  )
   def maybe_update_header():
     try:
       with open(header_path, "r") as f:
@@ -99,6 +106,9 @@ header_format = """\
 #define SPRITESHEET_HPP
 
 #include "geometry.hpp"
+
+static const int spritesheet_width = {};
+static const int spritesheet_height = {};
 
 {}
 

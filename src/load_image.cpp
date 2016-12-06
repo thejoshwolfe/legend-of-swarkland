@@ -3,92 +3,24 @@
 #include "util.hpp"
 #include "text.hpp"
 #include "resources.hpp"
-
-#include <png.h>
-
-struct PngIo {
-    size_t index;
-    unsigned char *buffer;
-    size_t size;
-};
-
-static void read_png_data(png_structp png_ptr, png_bytep data, png_size_t length) {
-    PngIo *png_io = reinterpret_cast<PngIo*>(png_get_io_ptr(png_ptr));
-    size_t new_index = png_io->index + length;
-    if (new_index > png_io->size)
-        panic("libpng trying to read beyond buffer");
-    memcpy(data, png_io->buffer + png_io->index, length);
-    png_io->index = new_index;
-}
+#include "spritesheet.hpp"
 
 void load_texture(SDL_Renderer * renderer, SDL_Texture ** output_texture, SDL_Surface ** output_surface) {
     size_t size = get_binary_spritesheet_resource_size();
     unsigned char * image_buffer = get_binary_spritesheet_resource_start();
 
-    if (png_sig_cmp(image_buffer, 0, 8))
-        panic("not png file");
+    assert(spritesheet_width * spritesheet_height * 4 == (int)size);
 
-    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-
-    if (!png_ptr)
-        panic("unable to create png read struct");
-
-    png_infop info_ptr = png_create_info_struct(png_ptr);
-
-    if (!info_ptr)
-        panic("unable to create png info struct");
-
-    // don't call any png_* functions outside of this function D:
-    if (setjmp(png_jmpbuf(png_ptr)))
-        panic("libpng has jumped the shark");
-
-    png_set_sig_bytes(png_ptr, 8);
-
-    PngIo png_io = {8, image_buffer, size};
-    png_set_read_fn(png_ptr, &png_io, read_png_data);
-
-    png_read_info(png_ptr, info_ptr);
-
-    uint32_t spritesheet_width  =  png_get_image_width(png_ptr, info_ptr);
-    uint32_t spritesheet_height = png_get_image_height(png_ptr, info_ptr);
-
-    if (spritesheet_width <= 0 || spritesheet_height <= 0)
-        panic("spritesheet image has no pixels");
-
-    SDL_Texture * texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+    SDL_Texture * texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
             SDL_TEXTUREACCESS_STATIC, spritesheet_width, spritesheet_height);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
-    // bits per channel (not per pixel)
-    uint32_t bits_per_channel = png_get_bit_depth(png_ptr, info_ptr);
-    if (bits_per_channel != 8)
-        panic("expected 8 bits per channel");
+    uint32_t pitch = spritesheet_width * 4;
 
-    uint32_t channel_count = png_get_channels(png_ptr, info_ptr);
-    if (channel_count != 4)
-        panic("expected 4 channels");
-
-    uint32_t color_type = png_get_color_type(png_ptr, info_ptr);
-    if (color_type != PNG_COLOR_TYPE_RGBA)
-        panic("expected RGBA");
-
-    uint32_t pitch = spritesheet_width * bits_per_channel * channel_count / 8;
-
-    char *decoded_image = allocate<char>(spritesheet_height * pitch);
-
-    png_bytep *row_ptrs = allocate<png_bytep>(spritesheet_height);
-
-    for (size_t i = 0; i < spritesheet_height; i++) {
-        png_uint_32 q = (spritesheet_height - i - 1) * pitch;
-        row_ptrs[i] = (png_bytep)decoded_image + q;
-    }
-
-    png_read_image(png_ptr, row_ptrs);
-
-    SDL_UpdateTexture(texture, nullptr, decoded_image, pitch);
+    SDL_UpdateTexture(texture, nullptr, image_buffer, pitch);
 
     // this surface does not copy the pixels
-    SDL_Surface * tmp_surface = SDL_CreateRGBSurfaceFrom(decoded_image,
+    SDL_Surface * tmp_surface = SDL_CreateRGBSurfaceFrom(image_buffer,
         spritesheet_width, spritesheet_height,
         32, pitch,
         color_rmask, color_gmask, color_bmask, color_amask);
@@ -99,10 +31,6 @@ void load_texture(SDL_Renderer * renderer, SDL_Texture ** output_texture, SDL_Su
         color_rmask, color_gmask, color_bmask, color_amask);
     SDL_BlitSurface(tmp_surface, nullptr, surface, nullptr);
     SDL_FreeSurface(tmp_surface);
-
-    png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-    destroy(row_ptrs, 0);
-    destroy(decoded_image, 0);
 
     *output_texture = texture;
     *output_surface = surface;
