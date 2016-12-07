@@ -127,7 +127,7 @@ static void invisibility_hit_individual(Thing target) {
     publish_event(Event::gain_status(target->id, StatusEffect::INVISIBILITY));
     find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = game->time_counter + random_midpoint(500, "invisibility_duration");
 }
-static void slowing_hit_individual(Thing target) {
+static void slowing_hit_individual(Thing actor, Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     int speed_index = find_status(target->status_effects, StatusEffect::SPEED);
     if (speed_index != -1) {
@@ -137,7 +137,7 @@ static void slowing_hit_individual(Thing target) {
         return;
     }
     publish_event(Event::gain_status(target->id, StatusEffect::SLOWING));
-    find_or_put_status(target, StatusEffect::SLOWING)->expiration_time = game->time_counter + random_midpoint(200, "slowing_duration");
+    slow_individual(actor, target);
 }
 static void blinding_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
@@ -320,7 +320,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                     length_penalty = 2;
                     break;
                 case ProjectileId_BEAM_OF_SLOWING:
-                    slowing_hit_individual(target);
+                    slowing_hit_individual(actor, target);
                     length_penalty = 2;
                     break;
             }
@@ -644,7 +644,7 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
             break;
         case WandId_WAND_OF_SLOWING:
             for (int i = 0; i < affected_individuals.length(); i++)
-                slowing_hit_individual(affected_individuals[i]);
+                slowing_hit_individual(actor, affected_individuals[i]);
             break;
 
         case WandId_COUNT:

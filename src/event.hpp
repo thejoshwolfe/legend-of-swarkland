@@ -78,6 +78,8 @@ struct Event {
             DELETE_THING,
             SPIT_BLINDING_VENOM,
             BLINDING_VENOM_HIT_INDIVIDUAL,
+            THROW_TAR,
+            TAR_HIT_INDIVIDUAL,
             MAGIC_BEAM_HIT_INDIVIDUAL,
             MAGIC_MISSILE_HIT_INDIVIDUAL,
             MAGIC_BULLET_HIT_INDIVIDUAL,
@@ -228,11 +230,17 @@ struct Event {
         return individual_and_status_event(false, individual_id, status);
     }
 
-    static inline Event spit_blinding_venom(uint256 deceased_id) {
-        return individual_event(TheIndividualData::SPIT_BLINDING_VENOM, deceased_id);
+    static inline Event spit_blinding_venom(uint256 actor_id) {
+        return individual_event(TheIndividualData::SPIT_BLINDING_VENOM, actor_id);
     }
-    static inline Event blinding_venom_hit_individual(uint256 deceased_id) {
-        return individual_event(TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL, deceased_id);
+    static inline Event blinding_venom_hit_individual(uint256 target_id) {
+        return individual_event(TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL, target_id);
+    }
+    static inline Event throw_tar(uint256 actor_id) {
+        return individual_event(TheIndividualData::THROW_TAR, actor_id);
+    }
+    static inline Event tar_hit_individual(uint256 target_id) {
+        return individual_event(TheIndividualData::TAR_HIT_INDIVIDUAL, target_id);
     }
 
     static inline Event appear(Thing new_guy) {

@@ -118,11 +118,15 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
  * Stairs up.
 
-### 4.4.0
+### 4.5.0
 
  * New items:
    * spellbooks of: charm, fear, life syphon, slowing
    * potions of: experience, fruit juice, mana
+
+### 4.4.0
+
+ * New monster: tar elemental.
 
 ## Version History
 

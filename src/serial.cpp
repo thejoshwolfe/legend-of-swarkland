@@ -411,6 +411,7 @@ static IndexAndValue<ConstStr> constexpr species_names[SpeciesId_COUNT + 2] = {
     {SpeciesId_LICH, "lich"},
     {SpeciesId_PINK_BLOB, "pink_blob"},
     {SpeciesId_AIR_ELEMENTAL, "air_elemenetal"},
+    {SpeciesId_TAR_ELEMENTAL, "tar_elemenetal"},
     {SpeciesId_DOG, "dog"},
     {SpeciesId_ANT, "ant"},
     {SpeciesId_BEE, "bee"},
@@ -478,6 +479,7 @@ check_indexed_array(book_id_names);
 
 static IndexAndValue<ConstStr> constexpr ability_names[AbilityId_COUNT] = {
     {AbilityId_SPIT_BLINDING_VENOM, "spit_blinding_venom"},
+    {AbilityId_THROW_TAR, "throw_tar"},
 };
 check_indexed_array(ability_names);
 

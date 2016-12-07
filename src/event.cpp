@@ -202,6 +202,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     return true;
                 case Event::TheIndividualData::LEVEL_UP:
                 case Event::TheIndividualData::SPIT_BLINDING_VENOM:
+                case Event::TheIndividualData::THROW_TAR:
                 case Event::TheIndividualData::INDIVIDUAL_IS_HEALED:
                     if (!can_see_shape(vision))
                         return false;
@@ -215,6 +216,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     *output_event = event;
                     return true;
                 case Event::TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL:
+                case Event::TheIndividualData::TAR_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_BEAM_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_MISSILE_HIT_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_BULLET_HIT_INDIVIDUAL: {
@@ -562,6 +564,13 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case Event::TheIndividualData::BLINDING_VENOM_HIT_INDIVIDUAL:
                     remembered_event->span->format("%s is hit by blinding venom!", get_thing_description(observer, data.individual));
+                    // status is included in a different event
+                    break;
+                case Event::TheIndividualData::THROW_TAR:
+                    remembered_event->span->format("%s throws tar!", get_thing_description(observer, data.individual));
+                    break;
+                case Event::TheIndividualData::TAR_HIT_INDIVIDUAL:
+                    remembered_event->span->format("%s is hit by tar!", get_thing_description(observer, data.individual));
                     // status is included in a different event
                     break;
                 case Event::TheIndividualData::MAGIC_BEAM_HIT_INDIVIDUAL:

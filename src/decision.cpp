@@ -385,7 +385,14 @@ Action get_ai_decision(Thing actor) {
                     switch (ability_id) {
                         case AbilityId_SPIT_BLINDING_VENOM:
                             if (advanced_strategy && has_status(target, StatusEffect::BLINDNESS))
-                                break; // already blind
+                                break; // already affected
+                            if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
+                                break; // too far
+                            range_attack_actions.append(Action::ability(ability_id, direction));
+                            break;
+                        case AbilityId_THROW_TAR:
+                            if (advanced_strategy && has_status(target, StatusEffect::SLOWING))
+                                break; // already affected
                             if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));

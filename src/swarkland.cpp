@@ -97,6 +97,11 @@ static void blind_individual(Thing attacker, Thing target) {
     effect->who_is_responsible = attacker->id;
     effect->expiration_time = game->time_counter + random_midpoint(600, "blindness_expiriration");
 }
+void slow_individual(Thing actor, Thing target) {
+    StatusEffect * effect = find_or_put_status(target, StatusEffect::SLOWING);
+    effect->who_is_responsible = actor->id;
+    effect->expiration_time = game->time_counter + random_midpoint(200, "slowing_duration");
+}
 
 // publish the event yourself
 static void pickup_item(Thing individual, Thing item) {
@@ -203,7 +208,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 }
 
 static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
-    int cooldown_time = random_midpoint(1000, "ability_cooldown");
+    int cooldown_time = random_midpoint(150, "ability_cooldown");
     actor->ability_cooldowns.append(AbilityCooldown{ability_id, game->time_counter + cooldown_time});
 
     int range;
@@ -211,6 +216,10 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
         case AbilityId_SPIT_BLINDING_VENOM:
             publish_event(Event::spit_blinding_venom(actor->id));
             range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "spit_distance");
+            break;
+        case AbilityId_THROW_TAR:
+            publish_event(Event::throw_tar(actor->id));
+            range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "throw_tar_distance");
             break;
         case AbilityId_COUNT:
             unreachable();
@@ -220,10 +229,21 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
         cursor += direction;
         Thing target = find_individual_at(cursor);
         if (target != nullptr) {
-            publish_event(Event::blinding_venom_hit_individual(target->id));
-            publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
-            blind_individual(actor, target);
-            compute_vision(target);
+            switch (ability_id) {
+                case AbilityId_SPIT_BLINDING_VENOM:
+                    publish_event(Event::blinding_venom_hit_individual(target->id));
+                    publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
+                    blind_individual(actor, target);
+                    compute_vision(target);
+                    break;
+                case AbilityId_THROW_TAR:
+                    publish_event(Event::tar_hit_individual(target->id));
+                    publish_event(Event::gain_status(target->id, StatusEffect::SLOWING));
+                    slow_individual(actor, target);
+                    break;
+                case AbilityId_COUNT:
+                    unreachable();
+            }
             return;
         }
         if (!is_open_space(game->actual_map_tiles[cursor])) {
@@ -530,6 +550,9 @@ void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities) 
         case SpeciesId_BEETLE:
         case SpeciesId_SCORPION:
         case SpeciesId_SNAKE:
+            return;
+        case SpeciesId_TAR_ELEMENTAL:
+            output_sorted_abilities->append(AbilityId_THROW_TAR);
             return;
         case SpeciesId_COBRA:
             output_sorted_abilities->append(AbilityId_SPIT_BLINDING_VENOM);

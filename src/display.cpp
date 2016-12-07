@@ -97,6 +97,7 @@ static void load_images() {
     species_images[SpeciesId_DOG] = sprite_location_dog;
     species_images[SpeciesId_PINK_BLOB] = sprite_location_pink_blob;
     species_images[SpeciesId_AIR_ELEMENTAL] = sprite_location_air_elemental;
+    species_images[SpeciesId_TAR_ELEMENTAL] = sprite_location_tar_elemental;
     species_images[SpeciesId_ANT] = sprite_location_ant;
     species_images[SpeciesId_BEE] = sprite_location_bee;
     species_images[SpeciesId_BEETLE] = sprite_location_beetle;
@@ -265,6 +266,8 @@ const char * get_species_name_str(SpeciesId species_id) {
             return "pink blob";
         case SpeciesId_AIR_ELEMENTAL:
             return "air elemental";
+        case SpeciesId_TAR_ELEMENTAL:
+            return "tar elemental";
         case SpeciesId_DOG:
             return "dog";
         case SpeciesId_ANT:
@@ -954,6 +957,9 @@ static Span get_ability_description(AbilityId ability_id, bool is_ready) {
     switch (ability_id) {
         case AbilityId_SPIT_BLINDING_VENOM:
             span->format("spit blinding venom");
+            break;
+        case AbilityId_THROW_TAR:
+            span->format("throw tar");
             break;
         case AbilityId_COUNT:
             unreachable();

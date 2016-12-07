@@ -131,6 +131,7 @@ bool check_for_status_expired(Thing individual, int index);
 void polymorph_individual(Thing individual, SpeciesId species_id);
 void damage_individual(Thing target, int damage, Thing attacker, bool is_melee);
 void poison_individual(Thing attacker, Thing target);
+void slow_individual(Thing attacker, Thing target);
 void heal_hp(Thing individual, int hp);
 void use_mana(Thing actor, int mana);
 void gain_mp(Thing individual, int mp);
