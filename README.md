@@ -16,7 +16,7 @@ install dependencies:
 
 ```
 git submodule init && git submodule update
-sudo apt-get install libsdl2-dev libsdl2-ttf-dev libpng12-dev upx-ucl
+sudo apt-get install libsdl2-dev libsdl2-ttf-dev upx-ucl
 ```
 
 build:
@@ -41,7 +41,7 @@ gdb -iex "add-auto-load-safe-path ./" -ex run -ex quit ./build/native/legend-of-
 
  0. `git clone https://github.com/mxe/mxe`
  0. Follow these instructions: http://mxe.cc/#requirements-debian
- 0. In the mxe directory: `make gcc sdl2 sdl2_ttf libpng`
+ 0. In the mxe directory: `make gcc sdl2 sdl2_ttf`
  0. In legend-of-swarkland directory: `make MXE_HOME=/path/to/mxe windows`
 
 (You can build for both Windows and native Linux at the same time by appending `native` to the above.)
