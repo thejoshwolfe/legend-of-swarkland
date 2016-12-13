@@ -1,6 +1,8 @@
 #ifndef SDL_GRAPHICS_H
 #define SDL_GRAPHICS_H
 
+#include "geometry.hpp"
+
 #include <SDL.h>
 
 static const SDL_Color white       = {0xff, 0xff, 0xff, 0xff};
@@ -47,14 +49,18 @@ static constexpr bool operator!=(SDL_Color a, SDL_Color b) {
     return !(a == b);
 }
 
+static inline Coord get_texture_size(SDL_Texture * texture) {
+    SDL_Rect result = {0, 0, 0, 0};
+    Uint32 format;
+    int access;
+    SDL_QueryTexture(texture, &format, &access, &result.w, &result.h);
+    return Coord{result.w, result.h};
+}
+
 static inline bool renderer_is_alive(SDL_Renderer * renderer) {
     SDL_RendererInfo info;
     int error_code = SDL_GetRendererInfo(renderer, &info);
     return error_code == 0;
-}
-
-static inline SDL_Surface * create_surface(int w, int h) {
-    return SDL_CreateRGBSurface(0, w, h, 32, color_rmask, color_gmask, color_bmask, color_amask);
 }
 
 #endif

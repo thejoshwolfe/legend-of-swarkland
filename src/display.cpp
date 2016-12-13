@@ -33,9 +33,9 @@ static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_
 
 
 static SDL_Window * window;
-SDL_Surface * sprite_sheet_surface;
+SDL_Texture * sprite_sheet_texture;
 static SDL_Renderer * renderer;
-static SDL_Surface * screen_buffer;
+static SDL_Texture * screen_buffer;
 
 static const SwarklandImage_ dirt_floor_images[] = {
     sprite_location_dirt_floor0,
@@ -148,11 +148,15 @@ void init_display() {
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == nullptr)
         panic("renderer create failed");
-    screen_buffer = create_surface(entire_window_area.w, entire_window_area.h);
-    SDL_SetSurfaceBlendMode(screen_buffer, SDL_BLENDMODE_BLEND);
 
-    sprite_sheet_surface = load_texture();
-    SDL_SetSurfaceBlendMode(sprite_sheet_surface, SDL_BLENDMODE_BLEND);
+    SDL_RendererInfo renderer_info;
+    SDL_GetRendererInfo(renderer, &renderer_info);
+    if (!(renderer_info.flags & SDL_RENDERER_TARGETTEXTURE))
+        panic("rendering to a temporary texture is not supported");
+
+    screen_buffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, entire_window_area.w, entire_window_area.h);
+
+    sprite_sheet_texture = load_texture(renderer);
 
     load_images();
     if (false) load_images();
@@ -177,7 +181,8 @@ void display_finish() {
 
     SDL_RWclose(font_rw_ops);
 
-    SDL_FreeSurface(sprite_sheet_surface);
+    SDL_DestroyTexture(sprite_sheet_texture);
+    SDL_DestroyTexture(screen_buffer);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 
@@ -202,38 +207,29 @@ static void render_tile(SwarklandImage_ image, int alpha, Coord dest_coord) {
     dest_rect.w = tile_size;
     dest_rect.h = tile_size;
 
-    SDL_SetSurfaceAlphaMod(sprite_sheet_surface, alpha);
-    SDL_BlitSurface(sprite_sheet_surface, &source_rect, screen_buffer, &dest_rect);
-    SDL_SetSurfaceAlphaMod(sprite_sheet_surface, 0xff);
+    SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
+    SDL_RenderCopy(renderer, sprite_sheet_texture, &source_rect, &dest_rect);
 }
 
 static void fill_rect(SDL_Color color, SDL_Rect * dest_rect) {
-    SDL_FillRect(screen_buffer, dest_rect, pack_color(color));
-}
-static void render_surface(SDL_Surface * surface, SDL_Rect source_rect, SDL_Rect output_area, int horizontal_align, int vertical_align) {
-    SDL_Rect dest_rect;
-    if (horizontal_align < 0) {
-        dest_rect.x = output_area.x + output_area.w - source_rect.w;
-    } else {
-        dest_rect.x = output_area.x;
-    }
-    if (vertical_align < 0) {
-        dest_rect.y = output_area.y + output_area.h - source_rect.h;
-    } else {
-        dest_rect.y = output_area.y;
-    }
-    dest_rect.w = source_rect.w;
-    dest_rect.h = source_rect.h;
-    fill_rect(black, &dest_rect);
-    SDL_BlitSurface(surface, &source_rect, screen_buffer, &dest_rect);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(renderer, dest_rect);
 }
 static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int vertical_align) {
-    div->set_max_size(output_area.w, output_area.h);
-    SDL_Surface * surface = div->get_surface();
-    if (surface == nullptr)
-        return;
-    SDL_Rect source_rect = {0, 0, surface->w, surface->h};
-    render_surface(surface, source_rect, output_area, horizontal_align, vertical_align);
+    div->set_max_width(output_area.w);
+    Coord size = div->compute_size(renderer);
+    Coord dest_position;
+    if (horizontal_align < 0) {
+        dest_position.x = output_area.x + output_area.w - size.x;
+    } else {
+        dest_position.x = output_area.x;
+    }
+    if (vertical_align < 0) {
+        dest_position.y = output_area.y + output_area.h - size.y;
+    } else {
+        dest_position.y = output_area.y;
+    }
+    div->render(renderer, dest_position);
 }
 
 Coord get_mouse_tile(SDL_Rect area) {
@@ -974,7 +970,9 @@ void render() {
     List<AbilityId> my_abilities;
     get_abilities(player_actor(), &my_abilities);
 
-    SDL_FillRect(screen_buffer, &entire_window_area, 0);
+    SDL_SetRenderTarget(renderer, screen_buffer);
+    SDL_SetRenderDrawColor(renderer, black.r, black.g, black.b, black.a);
+    SDL_RenderClear(renderer);
 
     int direction_distance_min = -1;
     int direction_distance_max = -1;
@@ -1256,17 +1254,12 @@ void render() {
         previous_events_length = events.length();
         if (expand_message_box) {
             // truncate from the bottom
-            events_div->set_max_size(entire_window_area.w, entire_window_area.h);
-            SDL_Surface * surface = events_div->get_surface();
-            if (surface != nullptr) {
-                SDL_Rect source_rect = {0, 0, surface->w, surface->h};
-                int overflow = source_rect.h - entire_window_area.h;
-                if (overflow > 0) {
-                    source_rect.y += overflow;
-                    source_rect.h -= overflow;
-                }
-                render_surface(surface, source_rect, entire_window_area, 1, 1);
-            }
+            events_div->set_max_width(entire_window_area.w);
+            Coord events_div_size = events_div->compute_size(renderer);
+            Coord position = {0, entire_window_area.h - events_div_size.y};
+            if (position.y > 0)
+                position.y = 0;
+            events_div->render(renderer, position);
         } else {
             render_div(events_div, message_area, 1, -1);
         }
@@ -1525,8 +1518,7 @@ void render() {
     }
 
     {
-        SDL_Texture * screen_texture = SDL_CreateTextureFromSurface(renderer, screen_buffer);
-        SDL_SetTextureBlendMode(screen_texture, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderTarget(renderer, NULL);
         SDL_Rect dest_rect = {0, 0, -1, -1};
         SDL_GetRendererOutputSize(renderer, &dest_rect.w, &dest_rect.h);
         // preserve aspect ratio
@@ -1546,8 +1538,7 @@ void render() {
 
         SDL_SetRenderDrawColor(renderer, black.r, black.g, black.b, black.a);
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, screen_texture, &entire_window_area, &dest_rect);
-        SDL_DestroyTexture(screen_texture);
+        SDL_RenderCopy(renderer, screen_buffer, &entire_window_area, &dest_rect);
     }
 
     SDL_RenderPresent(renderer);

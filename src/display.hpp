@@ -14,7 +14,7 @@ static const int tile_size = 32;
 extern const SDL_Rect main_map_area;
 
 extern TTF_Font * status_box_font;
-extern SDL_Surface * sprite_sheet_surface;
+extern SDL_Texture * sprite_sheet_texture;
 
 void init_display();
 void display_finish();

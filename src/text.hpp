@@ -11,14 +11,46 @@ class DivImpl;
 typedef Reference<SpanImpl> Span;
 class SpanImpl : public ReferenceCounted {
 private:
-    struct ChildElement {
+    class ChildElement {
+    public:
         String string;
+        SDL_Texture * string_texture = nullptr;
         Span span;
         SwarklandImage_ image;
+
+        ChildElement() :
+            image(Coord::nowhere()) {
+        }
+        ChildElement(String string) :
+            string(string), image(Coord::nowhere()) {
+        }
+        ChildElement(Span span) :
+            span(span), image(Coord::nowhere()) {
+        }
+        ChildElement(SwarklandImage_ image) :
+            image(image) {
+        }
+        ~ChildElement() {
+            clear_cached_texture();
+        }
+        void clear_cached_texture() {
+            if (string_texture != nullptr)
+                SDL_DestroyTexture(string_texture);
+        }
+        ChildElement & operator=(const ChildElement & other) {
+            if (this != &other) {
+                clear_cached_texture();
+                this->string = other.string;
+                this->string_texture = other.string_texture;
+                this->span = other.span;
+                this->image = other.image;
+            }
+            return *this;
+        }
         bool operator==(const ChildElement & other) const {
             return *string == *other.string &&
-                   *span == *other.span &&
-                   image == other.image;
+                *span == *other.span &&
+                image == other.image;
         }
         bool operator!=(const ChildElement & other) const {
             return !(*this == other);
@@ -28,16 +60,13 @@ private:
 public:
     SpanImpl() {
     }
-    ~SpanImpl() {
-        dispose_resources();
-    }
 
     void set_color(SDL_Color foreground, SDL_Color background) {
         if (_foreground == foreground && _background == background)
             return;
         _foreground = foreground;
         _background = background;
-        dispose_resources();
+        clear_cache();
     }
     void set_color_recursive(SDL_Color foreground, SDL_Color background) {
         set_color(foreground, background);
@@ -51,15 +80,13 @@ public:
             if (_items.length() == 0)
                 return; // already blank
             _items.clear();
-            dispose_resources();
             return;
         }
         // set to non blank
         if (!(_items.length() == 1 &&_items[0].string != nullptr)) {
             // no, make it plain text.
             _items.clear();
-            _items.append(ChildElement{new_string(), nullptr, SwarklandImage_::nowhere()});
-            dispose_resources();
+            _items.append(ChildElement(new_string()));
         } else {
             // there's already some plain text here.
             if (*_items[0].string == *new_text) {
@@ -70,31 +97,33 @@ public:
             _items[0].string->clear();
         }
         _items[0].string->append(new_text);
-        dispose_resources();
+        clear_cache();
     }
     void append(const char * str) {
         append(new_string(str));
+        _size = Coord::nowhere();
     }
     void append(const String & text) {
         if (text->length() == 0)
             return;
         if (_items.length() == 0 || _items[_items.length() - 1].string == nullptr)
-            _items.append(ChildElement{new_string(), nullptr, SwarklandImage_::nowhere()});
+            _items.append(ChildElement(new_string()));
         _items[_items.length() - 1].string->append(text);
-        dispose_resources();
+        _size = Coord::nowhere();
     }
     void append(const Span & span) {
-        _items.append(ChildElement{nullptr, span, SwarklandImage_::nowhere()});
-        dispose_resources();
+        _items.append(ChildElement(span));
+        _size = Coord::nowhere();
     }
     void append(SwarklandImage_ image) {
-        _items.append(ChildElement{nullptr, nullptr, image});
-        dispose_resources();
+        _items.append(ChildElement(image));
+        _size = Coord::nowhere();
     }
     void format(const char * fmt) {
         // check for too many %s
         find_percent_something(fmt, '\0');
         append(fmt);
+        _size = Coord::nowhere();
     }
     template<typename ...Args>
     void format(const char * fmt, Span span1, Args... args);
@@ -125,21 +154,24 @@ public:
     bool operator!=(const SpanImpl & other) const {
         return !(*this == other);
     }
+
+    Coord compute_size(SDL_Renderer * renderer);
+    void render(SDL_Renderer * renderer, Coord position);
 private:
     List<ChildElement> _items;
     SDL_Color _foreground = white;
     SDL_Color _background = black;
-    SDL_Surface * _surface = nullptr;
-    SDL_Surface * get_surface();
-    void dispose_resources() {
-        if (_surface != nullptr)
-            SDL_FreeSurface(_surface);
-        _surface = nullptr;
+    Coord _size = Coord::nowhere();
+    void clear_cache() {
+        for (int i = 0; i < _items.length(); i++)
+            _items[i].clear_cached_texture();
+        _size = Coord::nowhere();
     }
 
     friend class DivImpl;
     SpanImpl(SpanImpl & copy) = delete;
     SpanImpl & operator=(SpanImpl & other) = delete;
+    SDL_Texture * render_string_item(SDL_Renderer * renderer, SpanImpl::ChildElement * element);
 };
 
 template<typename ...Args>
@@ -199,40 +231,29 @@ private:
 public:
     DivImpl() {
     }
-    ~DivImpl() {
-        dispose_resources();
-    }
 
     void set_content(Span span) {
         if (_items.length() == 1 && *_items[0].span == *span)
             return;
         _items.clear();
         _items.append(SpanOrSpace{span, 0});
-        dispose_resources();
+        clear_cache();
     }
     void append(Span span) {
         _items.append(SpanOrSpace{span, 0});
-        dispose_resources();
+        clear_cache();
     }
     void append_newline() {
         _items.append(SpanOrSpace{nullptr, -1});
-        dispose_resources();
+        clear_cache();
     }
     void append_spaces(int count) {
         _items.append(SpanOrSpace{nullptr, count});
-        dispose_resources();
+        clear_cache();
     }
     void clear() {
         _items.clear();
-        dispose_resources();
-    }
-
-    void set_max_size(int max_width, int max_height) {
-        if (_max_width == max_width && _max_height == max_height)
-            return;
-        _max_width = max_width;
-        _max_height = max_height;
-        dispose_resources();
+        clear_cache();
     }
 
     void set_content(const Div & copy_this_guy) {
@@ -240,29 +261,30 @@ public:
             return;
         _items.clear();
         _items.append_all(copy_this_guy->_items);
-        dispose_resources();
+        clear_cache();
     }
 
-    SDL_Surface * get_surface() {
-        if (_surface == nullptr) {
-            render_surface();
-        }
-        return _surface;
+    void set_max_width(int max_width) {
+        if (_max_width == max_width)
+            return;
+        _max_width = max_width;
+        clear_cache();
     }
+
+    Coord compute_size(SDL_Renderer * renderer);
+
+    void render(SDL_Renderer * renderer, Coord position);
 private:
     static const int text_width = 8;
     static const int text_height = 16;
     List<SpanOrSpace> _items;
     SDL_Color _background = black;
-    SDL_Surface * _surface = nullptr;
-    SDL_Renderer * _renderer = nullptr;
     int _max_width = 0;
-    int _max_height = 0;
-    void render_surface();
-    void dispose_resources() {
-        if (_surface != nullptr)
-            SDL_FreeSurface(_surface);
-        _surface = nullptr;
+    List<SpanOrSpace> _cached_wrapped_items;
+
+    void compute_wrapped_items(SDL_Renderer * renderer);
+    void clear_cache() {
+        _cached_wrapped_items.clear();
     }
 
     DivImpl(DivImpl & copy) = delete;

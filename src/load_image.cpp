@@ -5,7 +5,7 @@
 #include "resources.hpp"
 #include "spritesheet.hpp"
 
-SDL_Surface * load_texture() {
+SDL_Texture * load_texture(SDL_Renderer * renderer) {
     size_t size = get_binary_spritesheet_resource_size();
     unsigned char * image_buffer = get_binary_spritesheet_resource_start();
 
@@ -13,16 +13,11 @@ SDL_Surface * load_texture() {
 
     uint32_t pitch = spritesheet_width * 4;
 
-    // this surface does not copy the pixels
-    SDL_Surface * tmp_surface = SDL_CreateRGBSurfaceFrom(image_buffer,
-        spritesheet_width, spritesheet_height,
-        32, pitch,
-        color_rmask, color_gmask, color_bmask, color_amask);
-    // this surface will hold a copy of the pixels
-    SDL_Surface * surface = create_surface(spritesheet_width, spritesheet_height);
-    SDL_BlitSurface(tmp_surface, nullptr, surface, nullptr);
-    SDL_FreeSurface(tmp_surface);
+    SDL_Texture * texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+            SDL_TEXTUREACCESS_STATIC, spritesheet_width, spritesheet_height);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    SDL_UpdateTexture(texture, nullptr, image_buffer, pitch);
 
-    return surface;
+    return texture;
 }
 
