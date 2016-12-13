@@ -4,10 +4,6 @@
 
 #include <SDL_ttf.h>
 
-static SDL_Surface * create_surface(int w, int h) {
-    return SDL_CreateRGBSurface(0, w, h, 32, color_rmask, color_gmask, color_bmask, color_amask);
-}
-
 SDL_Surface * SpanImpl::get_surface() {
     if (_surface != nullptr)
         return _surface;

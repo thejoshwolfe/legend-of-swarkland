@@ -33,10 +33,9 @@ static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_
 
 
 static SDL_Window * window;
-static SDL_Texture * sprite_sheet_texture;
-// everything in this surface needs to be vertical flipped after clipping the x,y,w,h subimage
 SDL_Surface * sprite_sheet_surface;
 static SDL_Renderer * renderer;
+static SDL_Surface * screen_buffer;
 
 static const SwarklandImage_ dirt_floor_images[] = {
     sprite_location_dirt_floor0,
@@ -143,14 +142,17 @@ void init_display() {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
         panic("unable to init SDL");
 
-    window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, entire_window_area.w, entire_window_area.h, 0);
+    window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, entire_window_area.w, entire_window_area.h, SDL_WINDOW_RESIZABLE);
     if (window == nullptr)
         panic("window create failed");
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == nullptr)
         panic("renderer create failed");
+    screen_buffer = create_surface(entire_window_area.w, entire_window_area.h);
+    SDL_SetSurfaceBlendMode(screen_buffer, SDL_BLENDMODE_BLEND);
 
-    load_texture(renderer, &sprite_sheet_texture, &sprite_sheet_surface);
+    sprite_sheet_surface = load_texture();
+    SDL_SetSurfaceBlendMode(sprite_sheet_surface, SDL_BLENDMODE_BLEND);
 
     load_images();
     if (false) load_images();
@@ -175,7 +177,7 @@ void display_finish() {
 
     SDL_RWclose(font_rw_ops);
 
-    SDL_DestroyTexture(sprite_sheet_texture);
+    SDL_FreeSurface(sprite_sheet_surface);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 
@@ -200,23 +202,15 @@ static void render_tile(SwarklandImage_ image, int alpha, Coord dest_coord) {
     dest_rect.w = tile_size;
     dest_rect.h = tile_size;
 
-    SDL_SetTextureAlphaMod(sprite_sheet_texture, alpha);
-    SDL_RenderCopyEx(renderer, sprite_sheet_texture, &source_rect, &dest_rect, 0.0, nullptr, SDL_FLIP_NONE);
+    SDL_SetSurfaceAlphaMod(sprite_sheet_surface, alpha);
+    SDL_BlitSurface(sprite_sheet_surface, &source_rect, screen_buffer, &dest_rect);
+    SDL_SetSurfaceAlphaMod(sprite_sheet_surface, 0xff);
 }
 
-// {0, 0, w, h}
-static inline SDL_Rect get_texture_bounds(SDL_Texture * texture) {
-    SDL_Rect result = {0, 0, 0, 0};
-    Uint32 format;
-    int access;
-    SDL_QueryTexture(texture, &format, &access, &result.w, &result.h);
-    return result;
+static void fill_rect(SDL_Color color, SDL_Rect * dest_rect) {
+    SDL_FillRect(screen_buffer, dest_rect, pack_color(color));
 }
-
-static void set_color(SDL_Color color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-}
-static void render_texture(SDL_Texture * texture, SDL_Rect source_rect, SDL_Rect output_area, int horizontal_align, int vertical_align) {
+static void render_surface(SDL_Surface * surface, SDL_Rect source_rect, SDL_Rect output_area, int horizontal_align, int vertical_align) {
     SDL_Rect dest_rect;
     if (horizontal_align < 0) {
         dest_rect.x = output_area.x + output_area.w - source_rect.w;
@@ -230,17 +224,16 @@ static void render_texture(SDL_Texture * texture, SDL_Rect source_rect, SDL_Rect
     }
     dest_rect.w = source_rect.w;
     dest_rect.h = source_rect.h;
-    set_color(black);
-    SDL_RenderFillRect(renderer, &dest_rect);
-    SDL_RenderCopyEx(renderer, texture, &source_rect, &dest_rect, 0.0, nullptr, SDL_FLIP_NONE);
+    fill_rect(black, &dest_rect);
+    SDL_BlitSurface(surface, &source_rect, screen_buffer, &dest_rect);
 }
 static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int vertical_align) {
     div->set_max_size(output_area.w, output_area.h);
-    SDL_Texture * texture = div->get_texture(renderer);
-    if (texture == nullptr)
+    SDL_Surface * surface = div->get_surface();
+    if (surface == nullptr)
         return;
-    SDL_Rect source_rect = get_texture_bounds(texture);
-    render_texture(texture, source_rect, output_area, horizontal_align, vertical_align);
+    SDL_Rect source_rect = {0, 0, surface->w, surface->h};
+    render_surface(surface, source_rect, output_area, horizontal_align, vertical_align);
 }
 
 Coord get_mouse_tile(SDL_Rect area) {
@@ -981,8 +974,7 @@ void render() {
     List<AbilityId> my_abilities;
     get_abilities(player_actor(), &my_abilities);
 
-    set_color(black);
-    SDL_RenderClear(renderer);
+    SDL_FillRect(screen_buffer, &entire_window_area, 0);
 
     int direction_distance_min = -1;
     int direction_distance_max = -1;
@@ -1265,15 +1257,15 @@ void render() {
         if (expand_message_box) {
             // truncate from the bottom
             events_div->set_max_size(entire_window_area.w, entire_window_area.h);
-            SDL_Texture * texture = events_div->get_texture(renderer);
-            if (texture != nullptr) {
-                SDL_Rect source_rect = get_texture_bounds(texture);
+            SDL_Surface * surface = events_div->get_surface();
+            if (surface != nullptr) {
+                SDL_Rect source_rect = {0, 0, surface->w, surface->h};
                 int overflow = source_rect.h - entire_window_area.h;
                 if (overflow > 0) {
                     source_rect.y += overflow;
                     source_rect.h -= overflow;
                 }
-                render_texture(texture, source_rect, entire_window_area, 1, 1);
+                render_surface(surface, source_rect, entire_window_area, 1, 1);
             }
         } else {
             render_div(events_div, message_area, 1, -1);
@@ -1289,8 +1281,7 @@ void render() {
         cursor_rect.y = inventory_area.y + cursor_location.y * tile_size;
         cursor_rect.w = tile_size;
         cursor_rect.h = tile_size;
-        set_color(inventory_cursor_color);
-        SDL_RenderFillRect(renderer, &cursor_rect);
+        fill_rect(inventory_cursor_color, &cursor_rect);
     }
     for (int i = 0; i < my_inventory.length(); i++) {
         Coord location = inventory_index_to_location(i);
@@ -1330,8 +1321,7 @@ void render() {
         cursor_rect.y = ability_area.y + cursor_location.y * tile_size;
         cursor_rect.w = tile_size;
         cursor_rect.h = tile_size;
-        set_color(ability_cursor_color);
-        SDL_RenderFillRect(renderer, &cursor_rect);
+        fill_rect(ability_cursor_color, &cursor_rect);
     }
     for (int i = 0; i < my_abilities.length(); i++) {
         Coord location = inventory_index_to_location(i) + Coord{map_size.x, inventory_area.h / tile_size};
@@ -1532,6 +1522,32 @@ void render() {
                 popup_help(inventory_area, mouse_hover_inventory_tile, mouse_hover_div);
             }
         }
+    }
+
+    {
+        SDL_Texture * screen_texture = SDL_CreateTextureFromSurface(renderer, screen_buffer);
+        SDL_SetTextureBlendMode(screen_texture, SDL_BLENDMODE_BLEND);
+        SDL_Rect dest_rect = {0, 0, -1, -1};
+        SDL_GetRendererOutputSize(renderer, &dest_rect.w, &dest_rect.h);
+        // preserve aspect ratio
+        float source_aspect_ratio = (float)entire_window_area.w / (float)entire_window_area.h;
+        float dest_aspect_ratio = (float)dest_rect.w / (float)dest_rect.h;
+        if (source_aspect_ratio > dest_aspect_ratio) {
+            // use width
+            int new_height = (int)((float)dest_rect.w / source_aspect_ratio);
+            dest_rect.y += (dest_rect.h - new_height) / 2;
+            dest_rect.h = new_height;
+        } else {
+            // use height
+            int new_width = (int)((float)dest_rect.h * source_aspect_ratio);
+            dest_rect.x += (dest_rect.w - new_width) / 2;
+            dest_rect.w = new_width;
+        }
+
+        SDL_SetRenderDrawColor(renderer, black.r, black.g, black.b, black.a);
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, screen_texture, &entire_window_area, &dest_rect);
+        SDL_DestroyTexture(screen_texture);
     }
 
     SDL_RenderPresent(renderer);

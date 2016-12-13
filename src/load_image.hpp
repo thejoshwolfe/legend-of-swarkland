@@ -3,6 +3,6 @@
 
 #include <SDL.h>
 
-void load_texture(SDL_Renderer * renderer, SDL_Texture ** output_texture, SDL_Surface ** output_surface);
+SDL_Surface * load_texture();
 
 #endif
