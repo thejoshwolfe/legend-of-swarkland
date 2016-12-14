@@ -1,0 +1,13 @@
+@test
+!monster shapeshifter player 4 1
+wait
+@mark_events
+  ability assume_form -1 0
+    @rng 48 midpoint:48:assume_form_cooldown
+    @rng 240 midpoint:240:ability_assume_form_duration
+  @expect_event "a shapeshifter transforms into a human!"
+  @expect_no_events
+@find_things_at 4 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing

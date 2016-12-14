@@ -720,18 +720,19 @@ void polymorph_individual(Thing individual, SpeciesId species_id, int duration) 
         if (index == -1)
             return; // polymorphing into what you are does nothing
 
-        publish_event(Event::polymorph(individual, species_id));
         individual->status_effects.swap_remove(index);
+        publish_event(Event::polymorph(individual, species_id));
     } else {
+        StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH);
+        polymorph_effect->expiration_time = game->time_counter + duration;
+        polymorph_effect->species_id = species_id;
+
         // add a update/polymorph status
         if (index == -1 || individual->status_effects[index].species_id != species_id)
             publish_event(Event::polymorph(individual, species_id));
 
-        StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH);
-        polymorph_effect->expiration_time = game->time_counter + duration;
         if (polymorph_effect->species_id == species_id)
             return; // already polymorphed into that.
-        polymorph_effect->species_id = species_id;
     }
 
     int new_max_hitpoints = individual->max_hitpoints();

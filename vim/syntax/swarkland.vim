@@ -44,13 +44,13 @@ syn match   swarklandDirective /@expect_carrying_nothing\>/
 
 " barewords
 syn keyword swarklandBareword individual potion wand book
-syn keyword swarklandBareword human ogre lich pink_blob air_elemenetal dog ant bee beetle scorpion snake cobra unseen
+syn keyword swarklandBareword human ogre lich shapeshifter pink_blob air_elemenetal tar_elemental dog ant bee beetle scorpion snake cobra unseen
 syn keyword swarklandBareword player ai
 syn keyword swarklandBareword confusion digging magic_missile speed remedy unknown
 syn keyword swarklandBareword healing poison ethereal_vision cogniscopy blindness invisibility
 syn keyword swarklandBareword polymorph
 syn keyword swarklandBareword magic_bullet mapping force assume_form blinding slowing
-syn keyword swarklandBareword spit_blinding_venom
+syn keyword swarklandBareword spit_blinding_venom throw_tar assume_form
 syn keyword swarklandBareword red blue green yellow orange purple
 syn keyword swarklandBareword       bone       gold       plastic       copper       purple
 syn keyword swarklandBareword shiny_bone shiny_gold shiny_plastic shiny_copper shiny_purple
