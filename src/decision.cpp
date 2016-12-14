@@ -131,6 +131,21 @@ static int rate_interest_in_target(Thing actor, PerceivedThing target) {
     return score;
 }
 
+static int rate_polymorph_value(SpeciesId species_id) {
+    if (species_id == SpeciesId_UNSEEN) {
+        // guess that unseen things are level 3.
+        return 3;
+    } else if (species_id == SpeciesId_SHAPESHIFTER) {
+        // never try to become a shapeshifter, and always shapeshift into something else.
+        return -1;
+    } else if (species_id == SpeciesId_HUMAN) {
+        // they're better than they look
+        return 3;
+    } else {
+        return specieses[species_id].min_level;
+    }
+}
+
 static const int confident_zap_distance = beam_length_average - beam_length_error_margin + 1;
 static const int confident_throw_distance = throw_distance_average - throw_distance_error_margin;
 static bool is_clear_projectile_shot(Thing actor, Coord location, int confident_distance) {
@@ -166,17 +181,53 @@ Action get_ai_decision(Thing actor) {
     get_abilities(actor, &abilities);
 
     List<PerceivedThing> things_of_interest;
+    List<Action> high_priority_actions;
     PerceivedThing target;
     for (auto iterator = actor->life()->knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
+        if (target->id == actor->id)
+            continue; // hi, that's myself.
         if (target->location == Coord::nowhere())
             continue; // can't access you
         switch (target->thing_type) {
             case ThingType_INDIVIDUAL:
+                for (int i = 0; i < abilities.length(); i++) {
+                    AbilityId ability_id = abilities[i];
+                    if (!is_ability_ready(actor, ability_id))
+                        continue;
+                    switch (ability_id) {
+                        case AbilityId_ASSUME_FORM: {
+                            if (!is_clear_projectile_shot(actor, target->location, infinite_range))
+                                break; // not aligned
+                            // do we want to change into this thing?
+                            int current_value = rate_polymorph_value(actor->physical_species_id());
+                            int new_value = rate_polymorph_value(target->life()->species_id);
+                            if (new_value < current_value)
+                                break; // don't downgrade
+                            Coord direction = sign(target->location - actor->location);
+                            if (new_value > current_value) {
+                                // always upgrade
+                                high_priority_actions.append(Action::ability(ability_id, direction));
+                            } else {
+                                // sideways grade? maybe...
+                                if (random_int(20, nullptr) == 0)
+                                    high_priority_actions.append(Action::ability(ability_id, direction));
+                            }
+                            break;
+                        }
+                        case AbilityId_SPIT_BLINDING_VENOM:
+                        case AbilityId_THROW_TAR:
+                            // handled below
+                            break;
+                        case AbilityId_COUNT:
+                            unreachable();
+                    }
+                }
+
                 if (target->id == game->you_id)
                     break; // get him!
                 if (target->is_placeholder)
                     break; // uh... get him?
-                // you're cool
+                // ignore him
                 continue;
             case ThingType_WAND:
                 if (!uses_items)
@@ -220,6 +271,11 @@ Action get_ai_decision(Thing actor) {
                 continue;
             }
         }
+    }
+
+    if (high_priority_actions.length() > 0) {
+        // don't even consider other things
+        return high_priority_actions[random_int(high_priority_actions.length(), nullptr)];
     }
 
     if (things_of_interest.length() > 0) {
@@ -397,6 +453,10 @@ Action get_ai_decision(Thing actor) {
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
+                        case AbilityId_ASSUME_FORM: {
+                            // handled above
+                            break;
+                        }
                         case AbilityId_COUNT:
                             unreachable();
                     }

@@ -8,6 +8,7 @@ const int beam_length_error_margin = 3;
 
 const int throw_distance_average = 5;
 const int throw_distance_error_margin = 1;
+const int infinite_range = max(MAP_SIZE_X, MAP_SIZE_Y);
 
 static const int WAND_OFFSET = 0;
 static const int POTION_OFFSET = WAND_OFFSET + WandId_COUNT;

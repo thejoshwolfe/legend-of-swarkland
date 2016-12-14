@@ -82,7 +82,7 @@ static String version_string = new_string();
 
 #define fill_with_trash(array) \
     for (int i = 0; i < (int)(get_array_length(array)); i++) \
-        array[i] == SwarklandImage_::nowhere()
+        array[i] = SwarklandImage_::nowhere()
 #define check_no_trash(array) \
     for (int i = 0; i < (int)(get_array_length(array)); i++) \
         assert_str(array[i] != SwarklandImage_::nowhere(), "missed a spot")
@@ -93,6 +93,7 @@ static void load_images() {
     species_images[SpeciesId_HUMAN] = sprite_location_human;
     species_images[SpeciesId_OGRE] = sprite_location_ogre;
     species_images[SpeciesId_LICH] = sprite_location_lich;
+    species_images[SpeciesId_SHAPESHIFTER] = sprite_location_shapeshifter;
     species_images[SpeciesId_DOG] = sprite_location_dog;
     species_images[SpeciesId_PINK_BLOB] = sprite_location_pink_blob;
     species_images[SpeciesId_AIR_ELEMENTAL] = sprite_location_air_elemental;
@@ -251,6 +252,8 @@ const char * get_species_name_str(SpeciesId species_id) {
             return "ogre";
         case SpeciesId_LICH:
             return "lich king";
+        case SpeciesId_SHAPESHIFTER:
+            return "shapeshifter";
         case SpeciesId_PINK_BLOB:
             return "pink blob";
         case SpeciesId_AIR_ELEMENTAL:
@@ -615,6 +618,8 @@ static SwarklandImage_ get_image_for_ability(AbilityId ability_id) {
             return sprite_location_cobra_venom;
         case AbilityId_THROW_TAR:
             return sprite_location_tar_elemental_throw;
+        case AbilityId_ASSUME_FORM:
+            return sprite_location_shapeshifter;
         case AbilityId_COUNT:
             unreachable();
     }
@@ -960,6 +965,9 @@ static Span get_ability_description(AbilityId ability_id, bool is_ready) {
             break;
         case AbilityId_THROW_TAR:
             span->format("throw tar");
+            break;
+        case AbilityId_ASSUME_FORM:
+            span->format("assume form");
             break;
         case AbilityId_COUNT:
             unreachable();

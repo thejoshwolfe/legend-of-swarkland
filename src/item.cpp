@@ -312,7 +312,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                     length_penalty = -1;
                     break;
                 case ProjectileId_BEAM_OF_ASSUME_FORM:
-                    polymorph_individual(actor, target->physical_species_id());
+                    polymorph_individual(actor, target->physical_species_id(), random_midpoint(2000, "spell_assume_form_duration"));
                     length_penalty = -1;
                     break;
                 case ProjectileId_BEAM_OF_INVISIBILITY:

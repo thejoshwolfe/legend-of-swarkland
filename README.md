@@ -126,7 +126,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
 ### 4.4.0
 
- * New monster: tar elemental.
+ * New monsters: tar elemental, shapeshifter.
 
 ## Version History
 

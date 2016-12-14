@@ -128,7 +128,7 @@ bool is_ability_ready(Thing actor, AbilityId ability_id);
 void attempt_move(Thing actor, Coord new_position);
 
 bool check_for_status_expired(Thing individual, int index);
-void polymorph_individual(Thing individual, SpeciesId species_id);
+void polymorph_individual(Thing individual, SpeciesId species_id, int duration);
 void damage_individual(Thing target, int damage, Thing attacker, bool is_melee);
 void poison_individual(Thing attacker, Thing target);
 void slow_individual(Thing attacker, Thing target);

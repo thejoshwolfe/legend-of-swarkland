@@ -208,22 +208,30 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
 }
 
 static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
-    int cooldown_time = random_midpoint(150, "ability_cooldown");
-    actor->ability_cooldowns.append(AbilityCooldown{ability_id, game->time_counter + cooldown_time});
-
     int range;
+    int cooldown_time;
     switch (ability_id) {
         case AbilityId_SPIT_BLINDING_VENOM:
             publish_event(Event::spit_blinding_venom(actor->id));
-            range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "spit_distance");
+            cooldown_time = random_midpoint(150, "spit_blinding_venom_cooldown");
+            range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "spit_blinding_venom_distance");
             break;
         case AbilityId_THROW_TAR:
             publish_event(Event::throw_tar(actor->id));
+            cooldown_time = random_midpoint(150, "throw_tar_cooldown");
             range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "throw_tar_distance");
+            break;
+        case AbilityId_ASSUME_FORM:
+            cooldown_time = random_midpoint(48, "assume_form_cooldown");
+            range = infinite_range;
             break;
         case AbilityId_COUNT:
             unreachable();
     }
+
+    if (cooldown_time > 0)
+        actor->ability_cooldowns.append(AbilityCooldown{ability_id, game->time_counter + cooldown_time});
+
     Coord cursor = actor->location;
     for (int i = 0; i < range; i++) {
         cursor += direction;
@@ -235,16 +243,19 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
                     publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
                     blind_individual(actor, target);
                     compute_vision(target);
-                    break;
+                    return;
                 case AbilityId_THROW_TAR:
                     publish_event(Event::tar_hit_individual(target->id));
                     publish_event(Event::gain_status(target->id, StatusEffect::SLOWING));
                     slow_individual(actor, target);
-                    break;
+                    return;
+                case AbilityId_ASSUME_FORM:
+                    polymorph_individual(actor, target->physical_species_id(), random_midpoint(240, "ability_assume_form_duration"));
+                    return;
                 case AbilityId_COUNT:
                     unreachable();
             }
-            return;
+            unreachable();
         }
         if (!is_open_space(game->actual_map_tiles[cursor])) {
             // hit wall
@@ -550,23 +561,50 @@ void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities) 
         case SpeciesId_BEETLE:
         case SpeciesId_SCORPION:
         case SpeciesId_SNAKE:
-            return;
+            break;
+        case SpeciesId_SHAPESHIFTER:
+            output_sorted_abilities->append(AbilityId_ASSUME_FORM);
+            break;
         case SpeciesId_TAR_ELEMENTAL:
             output_sorted_abilities->append(AbilityId_THROW_TAR);
-            return;
+            break;
         case SpeciesId_COBRA:
             output_sorted_abilities->append(AbilityId_SPIT_BLINDING_VENOM);
-            return;
+            break;
 
         case SpeciesId_COUNT:
         case SpeciesId_UNSEEN:
             unreachable();
     }
-    unreachable();
+
+    switch (individual->life()->original_species_id) {
+        case SpeciesId_HUMAN:
+        case SpeciesId_OGRE:
+        case SpeciesId_LICH:
+        case SpeciesId_PINK_BLOB:
+        case SpeciesId_AIR_ELEMENTAL:
+        case SpeciesId_TAR_ELEMENTAL:
+        case SpeciesId_DOG:
+        case SpeciesId_ANT:
+        case SpeciesId_BEE:
+        case SpeciesId_BEETLE:
+        case SpeciesId_SCORPION:
+        case SpeciesId_SNAKE:
+        case SpeciesId_COBRA:
+            break;
+        case SpeciesId_SHAPESHIFTER:
+            if (output_sorted_abilities->index_of(AbilityId_ASSUME_FORM) == -1)
+                output_sorted_abilities->append(AbilityId_ASSUME_FORM);
+            break;
+
+        case SpeciesId_COUNT:
+        case SpeciesId_UNSEEN:
+            unreachable();
+    }
 }
 bool is_ability_ready(Thing actor, AbilityId ability_id) {
     const List<AbilityCooldown> & ability_cooldowns = actor->ability_cooldowns;
-    for (int i = 0; ability_cooldowns.length(); i++)
+    for (int i = 0; i < ability_cooldowns.length(); i++)
         if (ability_cooldowns[i].ability_id == ability_id)
             return false;
     return true;
@@ -632,7 +670,7 @@ bool check_for_status_expired(Thing individual, int index) {
             break;
         case StatusEffect::POLYMORPH:
             // we've got a function for removing this status
-            polymorph_individual(individual, individual->life()->original_species_id);
+            polymorph_individual(individual, individual->life()->original_species_id, 0);
             return true;
 
         case StatusEffect::COUNT:
@@ -673,7 +711,7 @@ static void cheatcode_kill(uint256 individual_id) {
     Thing individual = game->actual_things.get(individual_id);
     kill_individual(individual, nullptr, false);
 }
-void polymorph_individual(Thing individual, SpeciesId species_id) {
+void polymorph_individual(Thing individual, SpeciesId species_id, int duration) {
     int old_max_hitpoints = individual->max_hitpoints();
 
     int index = find_status(individual->status_effects, StatusEffect::POLYMORPH);
@@ -690,7 +728,7 @@ void polymorph_individual(Thing individual, SpeciesId species_id) {
             publish_event(Event::polymorph(individual, species_id));
 
         StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH);
-        polymorph_effect->expiration_time = game->time_counter + random_midpoint(2000, "polymorph_expiration");
+        polymorph_effect->expiration_time = game->time_counter + duration;
         if (polymorph_effect->species_id == species_id)
             return; // already polymorphed into that.
         polymorph_effect->species_id = species_id;
@@ -923,7 +961,7 @@ static bool take_action(Thing actor, const Action & action) {
             cheatcode_kill(action.item());
             return false;
         case Action::CHEATCODE_POLYMORPH:
-            polymorph_individual(player_actor(), action.species());
+            polymorph_individual(player_actor(), action.species(), 1000000);
             // this one does take time, because your movement cost may have changed
             return false;
         case Action::CHEATCODE_GENERATE_MONSTER: {

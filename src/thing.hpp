@@ -100,6 +100,7 @@ enum SpeciesId {
     SpeciesId_HUMAN,
     SpeciesId_OGRE,
     SpeciesId_LICH,
+    SpeciesId_SHAPESHIFTER,
     SpeciesId_PINK_BLOB,
     SpeciesId_AIR_ELEMENTAL,
     SpeciesId_TAR_ELEMENTAL,
@@ -194,6 +195,7 @@ static constexpr Species specieses[SpeciesId_COUNT] = {
     {SpeciesId_HUMAN        , 12, 10, 3, 3, 0, 10,_civl,_norm, 0, 0, 0},
     {SpeciesId_OGRE         , 24, 15, 0, 2, 4, 10,_savg,_norm, 0, 0, 0},
     {SpeciesId_LICH         , 12, 12, 4, 3, 7, 10,_civl,_norm, 0, 0, 0},
+    {SpeciesId_SHAPESHIFTER , 12,  5, 0, 2, 1, 10,_civl,_norm, 0, 0, 0},
     {SpeciesId_PINK_BLOB    , 48,  4, 0, 1, 0,  1,_none,_ethe, 1, 0, 0},
     {SpeciesId_AIR_ELEMENTAL,  6,  6, 0, 1, 3, 10,_none,_ethe, 1, 1, 0},
     {SpeciesId_TAR_ELEMENTAL, 24, 10, 0, 1, 3, 10,_none,_ethe, 1, 0, 0},
@@ -296,6 +298,7 @@ static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
 enum AbilityId {
     AbilityId_SPIT_BLINDING_VENOM,
     AbilityId_THROW_TAR,
+    AbilityId_ASSUME_FORM,
 
     AbilityId_COUNT,
 };
