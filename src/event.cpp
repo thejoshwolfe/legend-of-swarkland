@@ -371,7 +371,8 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             unreachable();
         }
         case Event::POLYMORPH: {
-            if (!can_see_thing(observer, event.polymorph_data().individual))
+            const Event::PolymorphData & data = event.polymorph_data();
+            if (!can_see_shape(get_vision_for_thing(observer, data.individual)))
                 return false;
             *output_event = event;
             return true;
