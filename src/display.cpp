@@ -605,9 +605,20 @@ static SwarklandImage_ get_image_for_tile(TileType tile_type, uint32_t aesthetic
         case TileType_STAIRS_DOWN:
             return sprite_location_stairs_down;
         case TileType_COUNT:
-            panic("not a real tile type");
+            unreachable();
     }
-    panic("tile type");
+    unreachable();
+}
+static SwarklandImage_ get_image_for_ability(AbilityId ability_id) {
+    switch (ability_id) {
+        case AbilityId_SPIT_BLINDING_VENOM:
+            return sprite_location_cobra_venom;
+        case AbilityId_THROW_TAR:
+            return sprite_location_tar_elemental_throw;
+        case AbilityId_COUNT:
+            unreachable();
+    }
+    unreachable();
 }
 
 static int previous_events_length = 0;
@@ -1321,7 +1332,7 @@ void render() {
         int alpha = 0xff;
         if (!is_ability_ready(player_actor(), my_abilities[i]))
             alpha = 0x44;
-        render_tile(species_images[SpeciesId_COBRA], alpha, location);
+        render_tile(get_image_for_ability(my_abilities[i]), alpha, location);
     }
     if (show_ability_cursor_help) {
         bool is_ready = is_ability_ready(player_actor(), my_abilities[ability_cursor]);
