@@ -419,7 +419,7 @@ static IndexAndValue<ConstStr> constexpr species_names[SpeciesId_COUNT + 2] = {
     {SpeciesId_SCORPION, "scorpion"},
     {SpeciesId_SNAKE, "snake"},
     {SpeciesId_COBRA, "cobra"},
-    {SpeciesId_COUNT, ""},
+    {SpeciesId_COUNT, nullptr},
     {SpeciesId_UNSEEN, "unseen"},
 };
 check_indexed_array(species_names);
@@ -449,7 +449,7 @@ static IndexAndValue<ConstStr> constexpr wand_id_names[WandId_COUNT + 2] = {
     {WandId_WAND_OF_INVISIBILITY, "invisibility"},
     {WandId_WAND_OF_MAGIC_BULLET, "magic_bullet"},
     {WandId_WAND_OF_SLOWING, "slowing"},
-    {WandId_COUNT, ""},
+    {WandId_COUNT, nullptr},
     {WandId_UNKNOWN, "unknown"},
 };
 check_indexed_array(wand_id_names);
@@ -461,7 +461,7 @@ static IndexAndValue<ConstStr> constexpr potion_id_names[PotionId_COUNT + 2] = {
     {PotionId_POTION_OF_COGNISCOPY, "cogniscopy"},
     {PotionId_POTION_OF_BLINDNESS, "blindness"},
     {PotionId_POTION_OF_INVISIBILITY, "invisibility"},
-    {PotionId_COUNT, ""},
+    {PotionId_COUNT, nullptr},
     {PotionId_UNKNOWN, "unknown"},
 };
 check_indexed_array(potion_id_names);
@@ -472,7 +472,7 @@ static IndexAndValue<ConstStr> constexpr book_id_names[BookId_COUNT + 2] = {
     {BookId_SPELLBOOK_OF_MAPPING, "mapping"},
     {BookId_SPELLBOOK_OF_FORCE, "force"},
     {BookId_SPELLBOOK_OF_ASSUME_FORM, "assume_form"},
-    {BookId_COUNT, ""},
+    {BookId_COUNT, nullptr},
     {BookId_UNKNOWN, "unknown"},
 };
 check_indexed_array(book_id_names);
@@ -520,7 +520,7 @@ static IndexAndValue<ConstStr> constexpr wand_description_names[WandDescriptionI
     {WandDescriptionId_SHINY_PLASTIC_WAND, "shiny_plastic"},
     {WandDescriptionId_SHINY_COPPER_WAND, "shiny_copper"},
     {WandDescriptionId_SHINY_PURPLE_WAND, "shiny_purple"},
-    {WandDescriptionId_COUNT, ""},
+    {WandDescriptionId_COUNT, nullptr},
     {WandDescriptionId_UNSEEN, "unseen"},
 };
 static_assert(_check_indexed_array(wand_description_names, WandDescriptionId_COUNT), "missed a spot");
@@ -532,7 +532,7 @@ static IndexAndValue<ConstStr> constexpr potion_description_names[PotionDescript
     {PotionDescriptionId_YELLOW_POTION, "yellow"},
     {PotionDescriptionId_ORANGE_POTION, "orange"},
     {PotionDescriptionId_PURPLE_POTION, "purple"},
-    {PotionDescriptionId_COUNT, ""},
+    {PotionDescriptionId_COUNT, nullptr},
     {PotionDescriptionId_UNSEEN, "unseen"},
 };
 static_assert(_check_indexed_array(potion_description_names, PotionDescriptionId_COUNT), "missed a spot");
@@ -543,7 +543,7 @@ static IndexAndValue<ConstStr> constexpr book_description_names[BookDescriptionI
     {BookDescriptionId_RED_BOOK, "red"},
     {BookDescriptionId_GREEN_BOOK, "green"},
     {BookDescriptionId_YELLOW_BOOK, "yellow"},
-    {BookDescriptionId_COUNT, ""},
+    {BookDescriptionId_COUNT, nullptr},
     {BookDescriptionId_UNSEEN, "unseen"},
 };
 static_assert(_check_indexed_array(book_description_names, BookDescriptionId_COUNT), "missed a spot");

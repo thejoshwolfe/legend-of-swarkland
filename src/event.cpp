@@ -448,7 +448,7 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
     for (int i = 0; i < actual_target->status_effects.length(); i++) {
         StatusEffect::Id effect = actual_target->status_effects[i].type;
         if (can_have_status(actual_target, effect) && can_see_status_effect(effect, vision))
-            target->status_effects.append(StatusEffect { effect, -1, -1, uint256::zero(), SpeciesId_COUNT });
+            target->status_effects.append(StatusEffect { effect, -1, -1, uint256::zero(), actual_target->status_effects[i].species_id });
     }
 }
 static PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id, VisionTypes vision) {

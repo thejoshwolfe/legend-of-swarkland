@@ -15,6 +15,7 @@ void ByteBuffer::append(const char * str) {
 }
 
 void ByteBuffer::append(const char * str, int length) {
+    assert(str != nullptr);
     int prev_length_plus_null = _buffer.length();
     int new_length_plus_null = prev_length_plus_null + length;
     _buffer.resize(new_length_plus_null);

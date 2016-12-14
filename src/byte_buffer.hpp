@@ -23,6 +23,9 @@ public:
     char const* const ptr;
     int const len;
 
+    constexpr ConstStr(decltype(nullptr)) :
+        ptr(nullptr), len(-1) {
+    }
     constexpr ConstStr(char const* str) :
         ptr(str), len(strlen_constexpr(str)) {
     }
