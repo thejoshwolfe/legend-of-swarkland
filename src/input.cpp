@@ -24,18 +24,13 @@ Coord cheatcode_generate_monster_choose_location_cursor = {map_size.x / 2, map_s
 Action current_player_decision = Action::undecided();
 bool request_shutdown = false;
 
-static bool seen_the_mouse_for_realz = false;
+static bool is_mouse_in_window = false;
 
 Coord get_mouse_pixels() {
+    if (!is_mouse_in_window)
+        return Coord::nowhere();
     Coord result;
     SDL_GetMouseState(&result.x, &result.y);
-    if (!seen_the_mouse_for_realz) {
-        // the mouse is reported at {0, 0} until we see it for realz,
-        // so don't believe it until we're sure.
-        if (result == Coord{0, 0})
-            return Coord::nowhere();
-        seen_the_mouse_for_realz = true;
-    }
     return result;
 }
 
@@ -765,6 +760,16 @@ void read_input() {
         switch (event.type) {
             case SDL_KEYDOWN:
                 current_player_decision = on_key_down(event);
+                break;
+            case SDL_WINDOWEVENT:
+                switch (event.window.event) {
+                    case SDL_WINDOWEVENT_ENTER:
+                        is_mouse_in_window = true;
+                        break;
+                    case SDL_WINDOWEVENT_LEAVE:
+                        is_mouse_in_window = false;
+                        break;
+                }
                 break;
             case SDL_QUIT:
                 request_shutdown = true;
