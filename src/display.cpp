@@ -31,11 +31,12 @@ static const SDL_Rect tutorial_area = { ability_area.x, ability_area.y + ability
 static const SDL_Rect version_area = { status_box_area.x + status_box_area.w, status_box_area.y, inventory_layout_width * tile_size, tile_size };
 static const SDL_Rect entire_window_area = { 0, 0, inventory_area.x + inventory_area.w, status_box_area.y + status_box_area.h };
 
-
 static SDL_Window * window;
 SDL_Texture * sprite_sheet_texture;
 static SDL_Renderer * renderer;
 static SDL_Texture * screen_buffer;
+// this changes when the window resizes
+static SDL_Rect output_rect = entire_window_area;
 
 static const SwarklandImage_ dirt_floor_images[] = {
     sprite_location_dirt_floor0,
@@ -233,9 +234,19 @@ static void render_div(Div div, SDL_Rect output_area, int horizontal_align, int 
     div->render(renderer, dest_position);
 }
 
+static Coord pixels_to_game_position(Coord pixels) {
+    return Coord{
+        (pixels.x - output_rect.x) * entire_window_area.w / output_rect.w,
+        (pixels.y - output_rect.y) * entire_window_area.h / output_rect.h,
+    };
+}
+static Coord get_mouse_game_position() {
+    return pixels_to_game_position(get_mouse_pixels());
+}
+
 Coord get_mouse_tile(SDL_Rect area) {
     assert(!headless_mode);
-    Coord pixels = get_mouse_pixels();
+    Coord pixels = get_mouse_game_position();
     if (!rect_contains(area, pixels))
         return Coord::nowhere();
     pixels.x -= area.x;
@@ -1247,7 +1258,7 @@ void render() {
 
     // message area
     {
-        bool expand_message_box = rect_contains(message_area, get_mouse_pixels());
+        bool expand_message_box = rect_contains(message_area, get_mouse_game_position());
         List<RememberedEvent> & events = spectate_from->life()->knowledge.remembered_events;
         bool refresh_events = previous_event_forget_counter != spectate_from->life()->knowledge.event_forget_counter || previous_spectator_id != spectate_from->id;
         if (refresh_events) {
@@ -1538,26 +1549,27 @@ void render() {
 
     {
         SDL_SetRenderTarget(renderer, NULL);
-        SDL_Rect dest_rect = {0, 0, -1, -1};
-        SDL_GetRendererOutputSize(renderer, &dest_rect.w, &dest_rect.h);
+        SDL_GetRendererOutputSize(renderer, &output_rect.w, &output_rect.h);
         // preserve aspect ratio
         float source_aspect_ratio = (float)entire_window_area.w / (float)entire_window_area.h;
-        float dest_aspect_ratio = (float)dest_rect.w / (float)dest_rect.h;
+        float dest_aspect_ratio = (float)output_rect.w / (float)output_rect.h;
         if (source_aspect_ratio > dest_aspect_ratio) {
             // use width
-            int new_height = (int)((float)dest_rect.w / source_aspect_ratio);
-            dest_rect.y += (dest_rect.h - new_height) / 2;
-            dest_rect.h = new_height;
+            int new_height = (int)((float)output_rect.w / source_aspect_ratio);
+            output_rect.x = 0;
+            output_rect.y = (output_rect.h - new_height) / 2;
+            output_rect.h = new_height;
         } else {
             // use height
-            int new_width = (int)((float)dest_rect.h * source_aspect_ratio);
-            dest_rect.x += (dest_rect.w - new_width) / 2;
-            dest_rect.w = new_width;
+            int new_width = (int)((float)output_rect.h * source_aspect_ratio);
+            output_rect.x = (output_rect.w - new_width) / 2;
+            output_rect.y = 0;
+            output_rect.w = new_width;
         }
 
         SDL_SetRenderDrawColor(renderer, black.r, black.g, black.b, black.a);
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, screen_buffer, &entire_window_area, &dest_rect);
+        SDL_RenderCopy(renderer, screen_buffer, &entire_window_area, &output_rect);
     }
 
     SDL_RenderPresent(renderer);
