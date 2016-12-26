@@ -122,11 +122,14 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
  * New items:
    * spellbooks of: charm, fear, life syphon, slowing
-   * potions of: experience, fruit juice, mana
+   * potions of: fruit juice, mana
 
 ### 4.4.0
 
  * New monsters: tar elemental, shapeshifter.
+ * Added dodging: after a move or wait action, you have a chance to avoid incoming attacks, projectiles, magic beams, etc.
+ * Window is resizeable, and content scales to fill it while preserving aspect ratio.
+ * Enhancements for swarkland developers: removed dependencies on rucksack and libpng. Added dependency on a git submodule.
 
 ## Version History
 
@@ -141,7 +144,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 ### 4.2.0
  * New monster: cobra that spits blinding venom.
  * Added a rest button. (issue [#22](https://github.com/thejoshwolfe/legend-of-swarkland/issues/22))
- * Limitted perception of status effects. (i.e. You can't identify cogniscopy by throwing it at enemies, etc.)
+ * Limited perception of status effects. (i.e. You can't identify cogniscopy by throwing it at enemies, etc.)
  * AI doesn't wander off when someone gets in their way anymore.
 
 ### 4.1.0
