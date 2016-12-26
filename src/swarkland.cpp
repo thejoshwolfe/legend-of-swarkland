@@ -663,11 +663,13 @@ bool attempt_move(Thing actor, Coord new_position) {
 }
 bool attempt_dodge(Thing attacker, Thing target) {
     Life * life = target->life();
-    if (!life->can_dodge)
+    if (!life->can_dodge || !can_see_thing(target, attacker->id))
         return false;
-    if (!can_see_thing(target, attacker->id))
-        return false;
-    return random_int(2, "dodge_on_0") == 0;
+    // can dodge
+    int numerator = 2;
+    int denominator = get_movement_cost(target);
+    bool success = denominator < numerator || random_int(denominator, "dodge") < numerator;
+    return success;
 }
 // return iff expired and removed
 bool check_for_status_expired(Thing individual, int index) {

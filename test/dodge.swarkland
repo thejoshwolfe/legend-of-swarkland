@@ -17,7 +17,7 @@ quaff 0000000000000000000000000000000000000000000000000000000000000006
 wait
 throw -1 0 0000000000000000000000000000000000000000000000000000000000000004
   @rng 4 range:4:6:throw_distance
-  @rng 0 int:2:dodge_on_0
+  @rng 0 int:12:dodge
 wait
 move -1 0
 wait
@@ -39,14 +39,14 @@ quaff 0000000000000000000000000000000000000000000000000000000000000002
 wait
 wait
 attack -1 0
-  @rng 0 int:2:dodge_on_0
+  @rng 0 int:12:dodge
 move 0 1
 attack -1 1
-  @rng 0 int:2:dodge_on_0
+  @rng 0 int:12:dodge
 wait
 zap -1 1 0000000000000000000000000000000000000000000000000000000000000005
   @rng 6 inclusive:6:12:beam_length
-  @rng 0 int:2:dodge_on_0
+  @rng 0 int:12:dodge
 wait
 wait
 wait

@@ -10,7 +10,7 @@ wait
 wait
 throw 1 0 0000000000000000000000000000000000000000000000000000000000000004
   @rng 4 range:4:6:throw_distance
-  @rng 1 int:2:dodge_on_0
+  @rng 2 int:12:dodge
   @rng 1 inclusive:1:2:throw_impact_damage
   @rng 2000 midpoint:2000:potion_of_invisibility_expiration
 move -1 0
