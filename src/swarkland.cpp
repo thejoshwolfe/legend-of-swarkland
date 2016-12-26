@@ -171,7 +171,7 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
         }
         Thing target = find_individual_at(cursor);
         if (target != nullptr) {
-            if (attempt_dodge(target)) {
+            if (attempt_dodge(item, target)) {
                 publish_event(Event::individual_dodges_thrown_item(target->id, item->id));
             } else {
                 // wham!
@@ -183,8 +183,8 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
                     // no item can survive that much damage dealt
                     item_breaks = true;
                 }
+                break;
             }
-            break;
         }
     }
 
@@ -483,7 +483,7 @@ void use_mana(Thing actor, int mana) {
 
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
-    if (attempt_dodge(target)) {
+    if (attempt_dodge(attacker, target)) {
         publish_event(Event::dodge_attack(attacker->id, target->id));
         return;
     }
@@ -661,11 +661,13 @@ bool attempt_move(Thing actor, Coord new_position) {
     do_move(actor, new_position);
     return true;
 }
-bool attempt_dodge(Thing target) {
+bool attempt_dodge(Thing attacker, Thing target) {
     Life * life = target->life();
     if (!life->can_dodge)
         return false;
-    return random_int(4, "dodge_on_0") == 0;
+    if (!can_see_thing(target, attacker->id))
+        return false;
+    return random_int(2, "dodge_on_0") == 0;
 }
 // return iff expired and removed
 bool check_for_status_expired(Thing individual, int index) {

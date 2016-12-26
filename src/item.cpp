@@ -277,7 +277,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
         Thing target = find_individual_at(cursor);
         int length_penalty = 0;
         if (target != nullptr) {
-            if (attempt_dodge(target)) {
+            if (attempt_dodge(actor, target)) {
                 // nice dodge
                 publish_event(Event::individual_dodges_magic_beam(target->id));
             } else {
