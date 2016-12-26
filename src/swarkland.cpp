@@ -171,14 +171,18 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
         }
         Thing target = find_individual_at(cursor);
         if (target != nullptr) {
-            // wham!
-            publish_event(Event::item_hits_individual(target->id, item->id));
-            // hurt a little
-            int damage = random_inclusive(1, 2, "throw_impact_damage");
-            damage_individual(target, damage, actor, false);
-            if (damage == 2) {
-                // no item can survive that much damage dealt
-                item_breaks = true;
+            if (attempt_dodge(target)) {
+                publish_event(Event::individual_dodges_thrown_item(target->id, item->id));
+            } else {
+                // wham!
+                publish_event(Event::item_hits_individual(target->id, item->id));
+                // hurt a little
+                int damage = random_inclusive(1, 2, "throw_impact_damage");
+                damage_individual(target, damage, actor, false);
+                if (damage == 2) {
+                    // no item can survive that much damage dealt
+                    item_breaks = true;
+                }
             }
             break;
         }
@@ -479,6 +483,10 @@ void use_mana(Thing actor, int mana) {
 
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
+    if (attempt_dodge(target)) {
+        publish_event(Event::dodge_attack(attacker->id, target->id));
+        return;
+    }
     publish_event(Event::attack_individual(attacker, target));
     int attack_power = attacker->attack_power();
     int min_damage = (attack_power + 1) / 2;
@@ -637,19 +645,27 @@ static void do_move(Thing mover, Coord new_position) {
         }
     }
 }
-void attempt_move(Thing actor, Coord new_position) {
+// return if it worked, otherwise bumped into something.
+bool attempt_move(Thing actor, Coord new_position) {
     if (!is_open_space(game->actual_map_tiles[new_position])) {
         publish_event(Event::bump_into_location(actor, new_position, false));
-        return;
+        return false;
     }
     Thing target = find_individual_at(new_position);
     if (target != nullptr) {
         // this is not attacking
         publish_event(Event::bump_into_individual(actor, target));
-        return;
+        return false;
     }
     // clear to move
     do_move(actor, new_position);
+    return true;
+}
+bool attempt_dodge(Thing target) {
+    Life * life = target->life();
+    if (!life->can_dodge)
+        return false;
+    return random_int(4, "dodge_on_0") == 0;
 }
 // return iff expired and removed
 bool check_for_status_expired(Thing individual, int index) {
@@ -904,12 +920,14 @@ static bool take_action(Thing actor, const Action & action) {
     assert(validate_action(actor, action));
     // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
 
+    bool can_dodge = false;
     switch (action.id) {
         case Action::WAIT:
+            can_dodge = true;
             break;
         case Action::MOVE: {
             Coord new_position = actor->location + confuse_direction(actor, action.coord());
-            attempt_move(actor, new_position);
+            can_dodge = attempt_move(actor, new_position);
             break;
         }
         case Action::ATTACK: {
@@ -920,7 +938,7 @@ static bool take_action(Thing actor, const Action & action) {
                 break;
             } else {
                 bool is_air = is_open_space(game->actual_map_tiles[new_position]);
-                publish_event(Event::attack_location(actor, new_position, is_air));
+                publish_event(Event::attack_location(actor->id, new_position, is_air));
                 break;
             }
         }
@@ -1042,14 +1060,15 @@ static bool take_action(Thing actor, const Action & action) {
                 life->last_action_time = life->last_movement_time + movement_cost - action_cost;
         }
     } else {
-        if (!can_act(actor))
-            panic("can't act");
+        assert(can_act(actor));
         // action
         life->last_action_time = game->time_counter;
         // you have to wait for the action before you can move again.
         if (life->last_movement_time < life->last_action_time + action_cost - movement_cost)
             life->last_movement_time = life->last_action_time + action_cost - movement_cost;
     }
+
+    life->can_dodge = can_dodge;
 
     return true;
 }

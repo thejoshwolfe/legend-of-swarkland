@@ -458,6 +458,7 @@ struct Life {
     int experience = 0;
     int64_t last_movement_time = 0;
     int64_t last_action_time = 0;
+    bool can_dodge = false;
     uint256 initiative;
     DecisionMakerType decision_maker;
     Knowledge knowledge;

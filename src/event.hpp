@@ -36,6 +36,7 @@ struct Event {
         enum Id {
             BUMP_INTO_INDIVIDUAL,
             ATTACK_INDIVIDUAL,
+            DODGE_ATTACK,
             MELEE_KILL,
         };
         Id id;
@@ -50,6 +51,7 @@ struct Event {
             READ_BOOK,
             THROW_ITEM,
             ITEM_HITS_INDIVIDUAL,
+            INDIVIDUAL_DODGES_THROWN_ITEM,
             INDIVIDUAL_PICKS_UP_ITEM,
             INDIVIDUAL_SUCKS_UP_ITEM,
             QUAFF_POTION,
@@ -81,6 +83,7 @@ struct Event {
             THROW_TAR,
             TAR_HIT_INDIVIDUAL,
             MAGIC_BEAM_HIT_INDIVIDUAL,
+            INDIVIDUAL_DODGES_MAGIC_BEAM,
             MAGIC_MISSILE_HIT_INDIVIDUAL,
             MAGIC_BULLET_HIT_INDIVIDUAL,
             INDIVIDUAL_IS_HEALED,
@@ -162,8 +165,11 @@ struct Event {
     static inline Event attack_individual(Thing attacker, Thing target) {
         return two_individual_type_event(TwoIndividualData::ATTACK_INDIVIDUAL, attacker->id, target->id);
     }
-    static inline Event attack_location(Thing attacker, Coord location, bool is_air) {
-        return individual_and_location_event(IndividualAndLocationData::ATTACK_LOCATION, attacker->id, location, is_air);
+    static inline Event dodge_attack(uint256 attacker, uint256 target) {
+        return two_individual_type_event(TwoIndividualData::DODGE_ATTACK, attacker, target);
+    }
+    static inline Event attack_location(uint256 attacker, Coord location, bool is_air) {
+        return individual_and_location_event(IndividualAndLocationData::ATTACK_LOCATION, attacker, location, is_air);
     }
 
     static inline Event zap_wand(uint256 individual_id, uint256 item_id) {
@@ -183,6 +189,9 @@ struct Event {
     }
     static inline Event magic_beam_hit(uint256 target) {
         return individual_event(TheIndividualData::MAGIC_BEAM_HIT_INDIVIDUAL, target);
+    }
+    static inline Event individual_dodges_magic_beam(uint256 target) {
+        return individual_event(TheIndividualData::INDIVIDUAL_DODGES_MAGIC_BEAM, target);
     }
     static inline Event magic_missile_hit(uint256 target) {
         return individual_event(TheIndividualData::MAGIC_MISSILE_HIT_INDIVIDUAL, target);
@@ -215,6 +224,9 @@ struct Event {
     }
     static Event item_hits_individual(uint256 individual_id, uint256 item_id) {
         return individual_and_item_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, individual_id, item_id);
+    }
+    static Event individual_dodges_thrown_item(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_DODGES_THROWN_ITEM, individual_id, item_id);
     }
     static Event item_hits_wall(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_HITS_WALL, item_id, location);

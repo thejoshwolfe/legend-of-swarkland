@@ -10,6 +10,7 @@ wait
 @mark_events
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000003
     @rng 12 inclusive:6:12:beam_length
+    @rng 1 int:4:dodge_on_0
     @rng 20 range:100:200:confusion_duration
   @expect_event "a lich king zaps a bone wand."
   @expect_event "a magic beam hits you."
@@ -37,6 +38,7 @@ wait
 @mark_events
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000004
     @rng 12 inclusive:6:12:beam_length
+    @rng 1 int:4:dodge_on_0
   @expect_event "a lich king zaps a gold wand."
   @expect_event "a magic beam hits you."
   # digging doesn't work on border stone

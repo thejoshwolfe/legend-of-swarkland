@@ -277,52 +277,57 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
         Thing target = find_individual_at(cursor);
         int length_penalty = 0;
         if (target != nullptr) {
-            // hit individual
-            switch (projectile_id) {
-                case ProjectileId_BEAM_OF_CONFUSION:
-                    confusion_hit_individual(target);
-                    length_penalty = 2;
-                    break;
-                case ProjectileId_BEAM_OF_DIGGING:
-                    hit_individual_no_effect(target);
-                    length_penalty = 2;
-                    break;
-                case ProjectileId_MAGIC_MISSILE:
-                    magic_missile_hit_individual(actor, target);
-                    length_penalty = 2;
-                    break;
-                case ProjectileId_BEAM_OF_SPEED:
-                    speed_hit_individual(target);
-                    length_penalty = 2;
-                    break;
-                case ProjectileId_BEAM_OF_REMEDY:
-                    remedy_hit_individual(target);
-                    length_penalty = 2;
-                    break;
-                case ProjectileId_MAGIC_BULLET:
-                    magic_bullet_hit_individual(actor, target);
-                    length_penalty = -1;
-                    break;
-                case ProjectileId_BEAM_OF_BLINDING:
-                    blinding_hit_individual(target);
-                    length_penalty = 2;
-                    break;
-                case ProjectileId_BEAM_OF_FORCE:
-                    force_hit_individual(target, direction, beam_length - i);
-                    length_penalty = -1;
-                    break;
-                case ProjectileId_BEAM_OF_ASSUME_FORM:
-                    polymorph_individual(actor, target->physical_species_id(), random_midpoint(2000, "spell_assume_form_duration"));
-                    length_penalty = -1;
-                    break;
-                case ProjectileId_BEAM_OF_INVISIBILITY:
-                    invisibility_hit_individual(target);
-                    length_penalty = 2;
-                    break;
-                case ProjectileId_BEAM_OF_SLOWING:
-                    slowing_hit_individual(actor, target);
-                    length_penalty = 2;
-                    break;
+            if (attempt_dodge(target)) {
+                // nice dodge
+                publish_event(Event::individual_dodges_magic_beam(target->id));
+            } else {
+                // hit individual
+                switch (projectile_id) {
+                    case ProjectileId_BEAM_OF_CONFUSION:
+                        confusion_hit_individual(target);
+                        length_penalty = 2;
+                        break;
+                    case ProjectileId_BEAM_OF_DIGGING:
+                        hit_individual_no_effect(target);
+                        length_penalty = 2;
+                        break;
+                    case ProjectileId_MAGIC_MISSILE:
+                        magic_missile_hit_individual(actor, target);
+                        length_penalty = 2;
+                        break;
+                    case ProjectileId_BEAM_OF_SPEED:
+                        speed_hit_individual(target);
+                        length_penalty = 2;
+                        break;
+                    case ProjectileId_BEAM_OF_REMEDY:
+                        remedy_hit_individual(target);
+                        length_penalty = 2;
+                        break;
+                    case ProjectileId_MAGIC_BULLET:
+                        magic_bullet_hit_individual(actor, target);
+                        length_penalty = -1;
+                        break;
+                    case ProjectileId_BEAM_OF_BLINDING:
+                        blinding_hit_individual(target);
+                        length_penalty = 2;
+                        break;
+                    case ProjectileId_BEAM_OF_FORCE:
+                        force_hit_individual(target, direction, beam_length - i);
+                        length_penalty = -1;
+                        break;
+                    case ProjectileId_BEAM_OF_ASSUME_FORM:
+                        polymorph_individual(actor, target->physical_species_id(), random_midpoint(2000, "spell_assume_form_duration"));
+                        length_penalty = -1;
+                        break;
+                    case ProjectileId_BEAM_OF_INVISIBILITY:
+                        invisibility_hit_individual(target);
+                        length_penalty = 2;
+                        break;
+                    case ProjectileId_BEAM_OF_SLOWING:
+                        slowing_hit_individual(actor, target);
+                        length_penalty = 2;
+                        break;
+                }
             }
         }
         if (length_penalty == -1)

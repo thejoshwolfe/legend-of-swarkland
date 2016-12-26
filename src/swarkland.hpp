@@ -125,7 +125,8 @@ void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);
 void drop_item_to_the_floor(Thing item, Coord location);
 void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities);
 bool is_ability_ready(Thing actor, AbilityId ability_id);
-void attempt_move(Thing actor, Coord new_position);
+bool attempt_move(Thing actor, Coord new_position);
+bool attempt_dodge(Thing actor);
 
 bool check_for_status_expired(Thing individual, int index);
 void polymorph_individual(Thing individual, SpeciesId species_id, int duration);

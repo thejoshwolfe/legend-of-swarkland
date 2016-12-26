@@ -70,6 +70,12 @@ bool can_see_thing(Thing observer, uint256 target_id) {
 
     return can_see_thing(observer, target_id, location);
 }
+static Coord get_individual_location(uint256 individual_id) {
+    assert(individual_id != uint256::zero());
+    Coord result = game->actual_things.get(individual_id)->location;
+    assert(result != Coord::nowhere());
+    return result;
+}
 static bool see_thing(Thing observer, uint256 target_id, Coord location) {
     if (!can_see_thing(observer, target_id, location))
         return false;
@@ -211,7 +217,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TheIndividualData::ACTIVATED_MAPPING:
                 case Event::TheIndividualData::FAIL_TO_CAST_SPELL:
                     // it's all in the mind
-                    if (!can_see_thoughts(get_vision_for_thing(observer, data.individual)))
+                    if (!can_see_thoughts(vision))
                         return false;
                     *output_event = event;
                     return true;
@@ -230,6 +236,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     return true;
                 }
                 case Event::TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL:
+                case Event::TheIndividualData::INDIVIDUAL_DODGES_MAGIC_BEAM:
                     // TODO: consider when this individual is unseen
                     if (!see_thing(observer, data.individual))
                         return false;
@@ -294,7 +301,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             switch (data.id) {
                 case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
                 case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
-                case Event::TwoIndividualData::MELEE_KILL: {
+                case Event::TwoIndividualData::MELEE_KILL:
                     // maybe replace one of the individuals with a placeholder.
                     *output_event = event;
                     if (see_thing(observer, data.actor)) {
@@ -312,7 +319,25 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                             return false;
                         }
                     }
-                }
+                case Event::TwoIndividualData::DODGE_ATTACK:
+                    *output_event = event;
+                    if (see_thing(observer, data.actor)) {
+                        if (see_thing(observer, data.target)) {
+                            return true;
+                        } else {
+                            // if you can't see the target, it looks like attacking thin air.
+                            Coord location = get_individual_location(data.target);
+                            *output_event = Event::attack_location(data.actor, location, is_open_space(game->actual_map_tiles[location]));
+                            return true;
+                        }
+                    } else {
+                        if (see_thing(observer, data.target)) {
+                            output_event->two_individual_data().actor = make_placeholder_individual(observer, data.actor);
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
             }
             unreachable();
         }
@@ -364,6 +389,12 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     if (!can_see_thing(observer, data.individual))
                         return false;
                     if (!can_see_thing(observer, data.item))
+                        return false;
+                    *output_event = event;
+                    return true;
+                case Event::IndividualAndItemData::INDIVIDUAL_DODGES_THROWN_ITEM:
+                    // you need to see the individual
+                    if (!can_see_shape(get_vision_for_thing(observer, data.individual)))
                         return false;
                     *output_event = event;
                     return true;
@@ -578,6 +609,9 @@ static void observe_event(Thing observer, Event event) {
                     remembered_event->span->format("a magic beam hits %s.", get_thing_description(observer, data.individual));
                     // status is included in a different event
                     break;
+                case Event::TheIndividualData::INDIVIDUAL_DODGES_MAGIC_BEAM:
+                    remembered_event->span->format("%s dodges a magic beam.", get_thing_description(observer, data.individual));
+                    break;
                 case Event::TheIndividualData::MAGIC_MISSILE_HIT_INDIVIDUAL:
                     remembered_event->span->format("a magic missile hits %s!", get_thing_description(observer, data.individual));
                     identify_active_item(observer, WandId_WAND_OF_MAGIC_MISSILE, PotionId_COUNT, BookId_COUNT);
@@ -756,6 +790,7 @@ static void observe_event(Thing observer, Event event) {
             switch (data.id) {
                 case Event::TwoIndividualData::BUMP_INTO_INDIVIDUAL:
                 case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
+                case Event::TwoIndividualData::DODGE_ATTACK:
                 case Event::TwoIndividualData::MELEE_KILL: {
                     record_perception_of_thing(observer, data.actor);
                     record_perception_of_thing(observer, data.target);
@@ -769,6 +804,9 @@ static void observe_event(Thing observer, Event event) {
                             break;
                         case Event::TwoIndividualData::ATTACK_INDIVIDUAL:
                             fmt = "%s hits %s.";
+                            break;
+                        case Event::TwoIndividualData::DODGE_ATTACK:
+                            fmt = "%s attacks, but %s dodges.";
                             break;
                         case Event::TwoIndividualData::MELEE_KILL:
                             fmt = "%s kills %s.";
@@ -826,6 +864,9 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
                     remembered_event->span->format("%s hits %s!", item_description, individual_description);
+                    break;
+                case Event::IndividualAndItemData::INDIVIDUAL_DODGES_THROWN_ITEM:
+                    remembered_event->span->format("%s dodges %s!", individual_description, item_description);
                     break;
                 case Event::IndividualAndItemData::POTION_HITS_INDIVIDUAL: {
                     remembered_event->span->format("%s shatters and splashes on %s!", item_description, individual_description);
