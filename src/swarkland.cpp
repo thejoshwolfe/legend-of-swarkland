@@ -731,28 +731,26 @@ static void cheatcode_kill(uint256 individual_id) {
     Thing individual = game->actual_things.get(individual_id);
     kill_individual(individual, nullptr, false);
 }
-void polymorph_individual(Thing individual, SpeciesId species_id, int duration) {
+void polymorph_individual(Thing individual, SpeciesId new_species_id, int duration) {
     int old_max_hitpoints = individual->max_hitpoints();
+    int old_species_id = individual->physical_species_id();
 
-    int index = find_status(individual->status_effects, StatusEffect::POLYMORPH);
-    if (species_id == individual->life()->original_species_id) {
+    if (new_species_id == individual->life()->original_species_id) {
         // undo any polymorph
+        int index = find_status(individual->status_effects, StatusEffect::POLYMORPH);
         if (index == -1)
-            return; // polymorphing into what you are does nothing
+            return; // polymorphing from your natural form to your natural form does nothing
 
         individual->status_effects.swap_remove(index);
-        publish_event(Event::polymorph(individual, species_id));
+        publish_event(Event::polymorph(individual, new_species_id));
     } else {
+        // add or refresh polymorph status
         StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH);
         polymorph_effect->expiration_time = game->time_counter + duration;
-        polymorph_effect->species_id = species_id;
+        polymorph_effect->species_id = new_species_id;
 
-        // add a update/polymorph status
-        if (index == -1 || individual->status_effects[index].species_id != species_id)
-            publish_event(Event::polymorph(individual, species_id));
-
-        if (polymorph_effect->species_id == species_id)
-            return; // already polymorphed into that.
+        if (old_species_id != new_species_id)
+            publish_event(Event::polymorph(individual, new_species_id));
     }
 
     int new_max_hitpoints = individual->max_hitpoints();
