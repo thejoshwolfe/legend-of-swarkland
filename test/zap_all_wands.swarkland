@@ -40,6 +40,7 @@ wait
     @rng 12 inclusive:6:12:beam_length
     @rng 2 int:12:dodge
   @expect_event "a lich king zaps a gold wand."
+  @expect_event "nimble movement has lead you to dodge more consistently!"
   @expect_event "a magic beam hits you."
   # digging doesn't work on border stone
   @expect_event "a magic beam hits a wall."

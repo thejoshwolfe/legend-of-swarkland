@@ -119,8 +119,6 @@ static Action on_key_down_main(const SDL_Event & event) {
                 return Action::cheatcode_identify();
             case SDLK_PERIOD:
                 return Action::cheatcode_go_down();
-            case SDLK_e:
-                return Action::cheatcode_gain_level();
 
             default:
                 break;
@@ -374,7 +372,6 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                 case Action::CHEATCODE_WISH:
                 case Action::CHEATCODE_IDENTIFY:
                 case Action::CHEATCODE_GO_DOWN:
-                case Action::CHEATCODE_GAIN_LEVEL:
                 case Action::COUNT:
                 case Action::UNDECIDED:
                 case Action::AUTO_WAIT:

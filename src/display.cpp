@@ -747,7 +747,6 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
                     case Action::CHEATCODE_WISH:
                     case Action::CHEATCODE_IDENTIFY:
                     case Action::CHEATCODE_GO_DOWN:
-                    case Action::CHEATCODE_GAIN_LEVEL:
                     case Action::COUNT:
                     case Action::UNDECIDED:
                     case Action::AUTO_WAIT:
@@ -864,7 +863,6 @@ static const char * get_action_text(Action::Id action_id) {
         case Action::CHEATCODE_WISH:
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
-        case Action::CHEATCODE_GAIN_LEVEL:
         case Action::COUNT:
         case Action::UNDECIDED:
         case Action::AUTO_WAIT:
@@ -901,7 +899,6 @@ static Span render_action(Thing actor, const Action & action) {
         case Action::CHEATCODE_WISH:
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
-        case Action::CHEATCODE_GAIN_LEVEL:
         case Action::COUNT:
         case Action::UNDECIDED:
         case Action::AUTO_WAIT:
@@ -1232,11 +1229,11 @@ void render() {
     {
         Div div = new_div();
         String string = new_string();
-        string->format("XP Level: %d", spectate_from->experience_level());
+        string->format("Attack: +%d", spectate_from->experience_level(SkillId_ATTACK_DAMAGE));
         div->append(new_span(string));
         div->append_newline();
         string->clear();
-        string->format("XP:       %d/%d", spectate_from->life()->experience, spectate_from->next_level_up());
+        string->format("Dodge:  +%d", spectate_from->experience_level(SkillId_DODGE));
         div->append(new_span(string));
         xp_div->set_content(div);
         render_div(xp_div, xp_area, 1, 1);

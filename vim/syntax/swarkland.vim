@@ -19,7 +19,6 @@ syn match   swarklandCheat     /!monster\>/
 syn match   swarklandCheat     /!wish\>/
 syn match   swarklandCheat     /!identify\>/
 syn match   swarklandCheat     /!down\>/
-syn match   swarklandCheat     /!levelup\>/
 syn match   swarklandDirective /@test\>/
 syn match   swarklandDirective /@seed\>/
 syn match   swarklandDirective /@rng\>/

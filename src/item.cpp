@@ -490,6 +490,25 @@ int get_mana_cost(BookId book_id) {
     }
     unreachable();
 }
+int get_spell_difficulty(BookId book_id) {
+    switch (book_id) {
+        case BookId_SPELLBOOK_OF_MAGIC_BULLET:
+            return 0;
+        case BookId_SPELLBOOK_OF_SPEED:
+            return 2;
+        case BookId_SPELLBOOK_OF_MAPPING:
+            return 3;
+        case BookId_SPELLBOOK_OF_FORCE:
+            return 1;
+        case BookId_SPELLBOOK_OF_ASSUME_FORM:
+            return 4;
+
+        case BookId_COUNT:
+        case BookId_UNKNOWN:
+            unreachable();
+    }
+    unreachable();
+}
 
 void read_book(Thing actor, uint256 item_id, Coord direction) {
     publish_event(Event::read_book(actor->id, item_id));
@@ -526,6 +545,8 @@ void read_book(Thing actor, uint256 item_id, Coord direction) {
         publish_event(Event::fail_to_cast_spell(actor->id));
     }
     game->observer_to_active_identifiable_item.clear();
+
+    gain_experience(actor, SkillId_MP, get_spell_difficulty(book_id));
 }
 
 // is_breaking is used in the published event

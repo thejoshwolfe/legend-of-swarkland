@@ -119,16 +119,16 @@ static inline int random_triangle_distribution(int n) {
     }
 }
 
-template <typename T>
+template<typename T>
 static inline T min(T a, T b) {
     return a < b ? a : b;
 }
-template <typename T>
+template<typename T>
 static inline T max(T a, T b) {
     return a < b ? b : a;
 }
 
-template <typename T>
+template<typename T>
 static inline T clamp(T value, T min, T max) {
     if (value < min)
         return min;
@@ -137,7 +137,7 @@ static inline T clamp(T value, T min, T max) {
     return value;
 }
 
-template <typename T>
+template<typename T>
 static inline int sign(T value) {
     if (value > 0)
         return 1;
@@ -147,7 +147,7 @@ static inline int sign(T value) {
         return 0;
 }
 
-template <typename T>
+template<typename T>
 static inline T euclidean_mod(T a, T base) {
     if (a < 0)
         return (a % base + base) % base;
@@ -204,7 +204,10 @@ private:
     bool (*filter)(ValueType);
 };
 
-#define get_array_length(array) ((int)(sizeof(array) / sizeof((array)[0])))
+template<typename T, int N>
+static constexpr int get_array_length(T (&)[N]) {
+    return N;
+}
 
 template<typename T>
 struct IndexAndValue {

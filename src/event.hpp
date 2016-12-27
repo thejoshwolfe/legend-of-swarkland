@@ -13,6 +13,7 @@ struct Event {
         TWO_INDIVIDUAL,
         INDIVIDUAL_AND_ITEM,
         POLYMORPH,
+        INDIVIDUAL_AND_SKILL,
         ITEM_AND_LOCATION,
     };
     Type type;
@@ -75,7 +76,6 @@ struct Event {
     struct TheIndividualData {
         enum Id {
             APPEAR,
-            LEVEL_UP,
             DIE,
             DELETE_THING,
             SPIT_BLINDING_VENOM,
@@ -151,6 +151,15 @@ struct Event {
     PolymorphData & polymorph_data() {
         check_data_type(POLYMORPH);
         return _data._polymorph;
+    };
+
+    struct IndividualAndSkillData {
+        uint256 individual;
+        SkillId skill;
+    };
+    IndividualAndSkillData & individual_and_skill_data() {
+        check_data_type(INDIVIDUAL_AND_SKILL);
+        return _data._individual_and_skill;
     };
 
     ItemAndLocationData & item_and_location_data() {
@@ -258,9 +267,6 @@ struct Event {
     static inline Event appear(Thing new_guy) {
         return individual_event(TheIndividualData::APPEAR, new_guy->id);
     }
-    static inline Event level_up(uint256 individual_id) {
-        return individual_event(TheIndividualData::LEVEL_UP, individual_id);
-    }
     static inline Event die(uint256 deceased_id) {
         return individual_event(TheIndividualData::DIE, deceased_id);
     }
@@ -289,6 +295,14 @@ struct Event {
         return result;
     }
 
+    static inline Event level_up(uint256 individual_id, SkillId skill_id) {
+        Event result;
+        result.type = INDIVIDUAL_AND_SKILL;
+        IndividualAndSkillData & data = result.individual_and_skill_data();
+        data.individual = individual_id;
+        data.skill = skill_id;
+        return result;
+    }
 
     static inline Event item_drops_to_the_floor(Thing item) {
         return item_and_location_type_event(ItemAndLocationData::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location);
@@ -396,6 +410,7 @@ private:
         TwoIndividualData _two_individual;
         IndividualAndItemData _individual_and_item;
         PolymorphData _polymorph;
+        IndividualAndSkillData _individual_and_skill;
         ItemAndLocationData _item_and_location;
     } _data;
 

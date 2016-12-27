@@ -22,7 +22,7 @@ wait
 move -1 0
 wait
 attack -1 0
-  @rng 3 inclusive:3:6:melee_damage
+  @rng 3 inclusive:2:3:melee_damage
 wait
 move 1 0
 wait
@@ -33,7 +33,7 @@ wait
 move -1 0
 wait
 attack -1 0
-  @rng 3 inclusive:3:6:melee_damage
+  @rng 3 inclusive:2:3:melee_damage
 quaff 0000000000000000000000000000000000000000000000000000000000000002
   @rng 49 midpoint:2000:potion_of_ethereal_vision_expiration
 wait

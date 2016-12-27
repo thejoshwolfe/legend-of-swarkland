@@ -441,13 +441,15 @@ struct Knowledge {
     }
 };
 
-static inline int experience_to_level(int experience) {
-    return log2(experience);
-}
-// the lowest experience for this level
-static inline int level_to_experience(int level) {
-    return 1 << level;
-}
+static constexpr int xp_bucket_sizes[] = {2, 4, 6, 6, 6};
+enum SkillId {
+    SkillId_HP,
+    SkillId_MP,
+    SkillId_ATTACK_DAMAGE,
+    SkillId_DODGE,
+
+    SkillId_COUNT,
+};
 
 struct Life {
     SpeciesId original_species_id;
@@ -455,7 +457,7 @@ struct Life {
     int64_t hp_regen_deadline;
     int mana;
     int64_t mp_regen_deadline;
-    int experience = 0;
+    int experience[SkillId_COUNT][get_array_length(xp_bucket_sizes)];
     int64_t last_movement_time = 0;
     int64_t last_action_time = 0;
     bool can_dodge = false;
@@ -560,20 +562,34 @@ public:
     const Species * physical_species() const {
         return &specieses[physical_species_id()];
     }
-    int experience_level() const {
-        return experience_to_level(life()->experience);
-    }
-    int next_level_up() const {
-        return level_to_experience(experience_level() + 1);
+
+    int experience_level(SkillId skill_id) const {
+        int total = 0;
+        for (int i = 0; i < get_array_length(xp_bucket_sizes); i++)
+            total += life()->experience[skill_id][i];
+        int expectation = 0;
+        int i = 0;
+        for (; i < get_array_length(xp_bucket_sizes); i++) {
+            expectation += xp_bucket_sizes[i];
+            if (total < expectation)
+                break;
+        }
+        return i;
     }
     int attack_power() const {
-        return max(1, physical_species()->base_attack_power + experience_level() / 2);
+        return max(1, physical_species()->base_attack_power + experience_level(SkillId_ATTACK_DAMAGE) / 2);
     }
     int max_hitpoints() const {
-        return physical_species()->base_hitpoints + 2 * experience_level();
+        return physical_species()->base_hitpoints + 2 * experience_level(SkillId_HP);
     }
     int max_mana() const {
-        return mental_species()->base_mana * (experience_level() + 1);
+        return mental_species()->base_mana * (experience_level(SkillId_MP) + 1);
+    }
+
+    int get_combat_difficulty() const {
+        if (thing_type != ThingType_INDIVIDUAL)
+            return 0;
+        return physical_species()->min_level;
     }
 private:
     union {

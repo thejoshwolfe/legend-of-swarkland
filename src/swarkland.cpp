@@ -44,28 +44,23 @@ static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     }
 }
 
-static void level_up(Thing individual, bool publish) {
+void gain_experience(Thing individual, SkillId skill_id, int difficulty) {
     Life * life = individual->life();
-    int old_max_hitpoints = individual->max_hitpoints();
-    int old_max_mana = individual->max_mana();
-    life->experience = individual->next_level_up();
-    int new_max_hitpoints = individual->max_hitpoints();
-    int new_max_mana = individual->max_mana();
-    life->hitpoints = life->hitpoints * new_max_hitpoints / old_max_hitpoints;
-    if (old_max_mana > 0)
-        life->mana = life->mana * new_max_mana / old_max_mana;
-    else
-        life->mana = new_max_mana;
-    if (publish)
-        publish_event(Event::level_up(individual->id));
-}
+    if (difficulty > get_array_length(xp_bucket_sizes) - 1)
+        difficulty = get_array_length(xp_bucket_sizes) - 1;
+    int old_level = individual->experience_level(skill_id);
+    for (int i = difficulty; i >= 0; i--) {
+        if (life->experience[skill_id][i] < xp_bucket_sizes[i]) {
+            // gain experience
+            life->experience[skill_id][i] += 1;
 
-static void gain_experience(Thing individual, int delta, bool publish) {
-    Life * life = individual->life();
-    int new_expderience = life->experience + delta;
-    while (new_expderience >= individual->next_level_up())
-        level_up(individual, publish);
-    life->experience = new_expderience;
+            if (old_level < individual->experience_level(skill_id)) {
+                publish_event(Event::level_up(individual->id, skill_id));
+            }
+            return;
+        }
+    }
+    // wasted
 }
 
 static void reset_hp_regen_timeout(Thing individual) {
@@ -78,9 +73,11 @@ void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) 
     target->life()->hitpoints -= damage;
     reset_hp_regen_timeout(target);
     if (target->life()->hitpoints <= 0) {
+        // get reqt
         kill_individual(target, attacker, is_melee);
-        if (attacker != nullptr && attacker->id != target->id)
-            gain_experience(attacker, 1, true);
+    } else {
+        // what doesn't kill you...
+        gain_experience(target, SkillId_HP, damage);
     }
 }
 
@@ -320,8 +317,6 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
     Thing individual = create<ThingImpl>(random_id(), species_id, decision_maker, random_initiative());
     individual->location = location;
 
-    gain_experience(individual, level_to_experience(specieses[species_id].min_level + 1) - 1, false);
-
     game->actual_things.put(individual->id, individual);
     compute_vision(individual);
     publish_event(Event::appear(individual));
@@ -484,17 +479,21 @@ void use_mana(Thing actor, int mana) {
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
     if (attempt_dodge(attacker, target)) {
+        // you did your best
         publish_event(Event::dodge_attack(attacker->id, target->id));
-        return;
+    } else {
+        // landed a hit
+        publish_event(Event::attack_individual(attacker, target));
+        int attack_power = attacker->attack_power();
+        int min_damage = (attack_power + 1) / 2;
+        int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
+        damage_individual(target, damage, attacker, true);
+        reset_hp_regen_timeout(attacker);
+        if (target->still_exists && attacker->physical_species()->poison_attack && random_int(4, "poison_attack") == 0)
+            poison_individual(attacker, target);
     }
-    publish_event(Event::attack_individual(attacker, target));
-    int attack_power = attacker->attack_power();
-    int min_damage = (attack_power + 1) / 2;
-    int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
-    damage_individual(target, damage, attacker, true);
-    reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->physical_species()->poison_attack && random_int(4, "poison_attack") == 0)
-        poison_individual(attacker, target);
+
+    gain_experience(attacker, SkillId_ATTACK_DAMAGE, target->get_combat_difficulty());
 }
 
 static int compare_things_by_z_order(Thing a, Thing b) {
@@ -666,9 +665,10 @@ bool attempt_dodge(Thing attacker, Thing target) {
     if (!life->can_dodge || !can_see_thing(target, attacker->id))
         return false;
     // can dodge
-    int numerator = 2;
+    int numerator = 1 + target->experience_level(SkillId_DODGE);
     int denominator = get_movement_cost(target);
     bool success = denominator < numerator || random_int(denominator, "dodge") < numerator;
+    gain_experience(target, SkillId_DODGE, attacker->get_combat_difficulty());
     return success;
 }
 // return iff expired and removed
@@ -857,7 +857,6 @@ bool validate_action(Thing actor, const Action & action) {
         case Action::CHEATCODE_POLYMORPH:
         case Action::CHEATCODE_IDENTIFY:
         case Action::CHEATCODE_GO_DOWN:
-        case Action::CHEATCODE_GAIN_LEVEL:
             if (actor != player_actor())
                 return false;
             return true;
@@ -1024,9 +1023,6 @@ static bool take_action(Thing actor, const Action & action) {
             if (game->dungeon_level < final_dungeon_level)
                 go_down();
             break;
-        case Action::CHEATCODE_GAIN_LEVEL:
-            level_up(actor, true);
-            return false;
 
         case Action::COUNT:
         case Action::UNDECIDED:

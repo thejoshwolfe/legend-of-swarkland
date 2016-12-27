@@ -10,7 +10,7 @@ enum SaveFileMode {
     SaveFileMode_IGNORE,
 };
 
-void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test_mode);
+void set_save_file(SaveFileMode mode, const char * file_path, bool cli_says_test_mode);
 void set_replay_delay(int n);
 void init_random();
 Action read_decision_from_save_file();

@@ -349,17 +349,6 @@ enum DirectiveId {
 static char const* const RNG_DIRECTIVE = "@rng";
 static char const* const SEED_DIRECTIVE = "@seed";
 static char const* const TEST_MODE_HEADER = "@test";
-// TODO: inline these constants
-static char const* const SNAPSHOT_DIRECTIVE = "@snapshot";
-static char const* const MAP_TILES_DIRECTIVE = "@map_tiles";
-static char const* const AESTHETIC_INDEXES_DIRECTIVE = "@aesthetics";
-static char const* const RNG_STATE_DIRECTIVE = "@rng_state";
-static char const* const THING_DIRECTIVE = "@thing";
-static char const* const LIFE_DIRECTIVE = "@life";
-static char const* const STATUS_EFFECT_DIRECTIVE = "@status_effect";
-static char const* const ABILITY_COOLDOWN_DIRECTIVE = "@ability_cooldown";
-static char const* const KNOWLEDGE_DIRECTIVE = "@knowledge";
-static char const* const PERCEIVED_THING_DIRECTIVE = "@perceived_thing";
 static IndexAndValue<ConstStr> constexpr directive_names[DirectiveId_COUNT] {
     {DirectiveId_MARK_EVENTS, "@mark_events"},
     {DirectiveId_EXPECT_EVENT, "@expect_event"},
@@ -369,16 +358,16 @@ static IndexAndValue<ConstStr> constexpr directive_names[DirectiveId_COUNT] {
     {DirectiveId_EXPECT_NOTHING, "@expect_nothing"},
     {DirectiveId_EXPECT_CARRYING, "@expect_carrying"},
     {DirectiveId_EXPECT_CARRYING_NOTHING, "@expect_carrying_nothing"},
-    {DirectiveId_SNAPSHOT, SNAPSHOT_DIRECTIVE},
-    {DirectiveId_MAP_TILES, MAP_TILES_DIRECTIVE},
-    {DirectiveId_AESTHETIC_INDEXES, AESTHETIC_INDEXES_DIRECTIVE},
-    {DirectiveId_RNG_STATE, RNG_STATE_DIRECTIVE},
-    {DirectiveId_THING, THING_DIRECTIVE},
-    {DirectiveId_LIFE, LIFE_DIRECTIVE},
-    {DirectiveId_STATUS_EFFECT, STATUS_EFFECT_DIRECTIVE},
-    {DirectiveId_ABILITY_COOLDOWN, ABILITY_COOLDOWN_DIRECTIVE},
-    {DirectiveId_KNOWLEDGE, KNOWLEDGE_DIRECTIVE},
-    {DirectiveId_PERCEIVED_THING, PERCEIVED_THING_DIRECTIVE},
+    {DirectiveId_SNAPSHOT, "@snapshot"},
+    {DirectiveId_MAP_TILES, "@map_tiles"},
+    {DirectiveId_AESTHETIC_INDEXES, "@aesthetics"},
+    {DirectiveId_RNG_STATE, "@rng_state"},
+    {DirectiveId_THING, "@thing"},
+    {DirectiveId_LIFE, "@life"},
+    {DirectiveId_STATUS_EFFECT, "@status_effect"},
+    {DirectiveId_ABILITY_COOLDOWN, "@ability_cooldown"},
+    {DirectiveId_KNOWLEDGE, "@knowledge"},
+    {DirectiveId_PERCEIVED_THING, "@perceived_thing"},
 };
 check_indexed_array(directive_names);
 
@@ -401,7 +390,6 @@ static IndexAndValue<ConstStr> constexpr action_names[Action::COUNT] = {
     {Action::CHEATCODE_WISH, "!wish"},
     {Action::CHEATCODE_IDENTIFY, "!identify"},
     {Action::CHEATCODE_GO_DOWN, "!down"},
-    {Action::CHEATCODE_GAIN_LEVEL, "!levelup"},
 };
 check_indexed_array(action_names);
 
@@ -709,7 +697,7 @@ static void read_header() {
     }
 }
 
-void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test_mode) {
+void set_save_file(SaveFileMode mode, const char * file_path, bool cli_says_test_mode) {
     script_path = file_path;
 
     switch (mode) {
@@ -760,7 +748,7 @@ void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test
             break;
         }
         case SaveFileMode_WRITE: {
-            if (cli_syas_test_mode) {
+            if (cli_says_test_mode) {
                 write_test_mode_header();
                 lets_do_test_mode = true;
             } else {
@@ -770,7 +758,7 @@ void set_save_file(SaveFileMode mode, const char * file_path, bool cli_syas_test
             break;
         }
         case SaveFileMode_IGNORE:
-            if (cli_syas_test_mode) {
+            if (cli_says_test_mode) {
                 lets_do_test_mode = true;
             } else {
                 rng_seed = get_random_seed();
@@ -815,7 +803,7 @@ static StatusEffect parse_status_effect() {
     return status_effect;
 }
 static void write_status_effect(ByteBuffer * output_buffer, StatusEffect status_effect) {
-    output_buffer->append(STATUS_EFFECT_DIRECTIVE);
+    output_buffer->append(directive_names[DirectiveId_STATUS_EFFECT].value);
     output_buffer->append(' ');
     output_buffer->append(status_effect_names[status_effect.type].value);
     output_buffer->append(' ');
@@ -970,9 +958,13 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                 life->hp_regen_deadline = parse_int64(line, tokens[token_cursor++]);
                 life->mana = parse_int(line, tokens[token_cursor++]);
                 life->mp_regen_deadline = parse_int64(line, tokens[token_cursor++]);
-                life->experience = parse_int(line, tokens[token_cursor++]);
                 life->last_movement_time = parse_int64(line, tokens[token_cursor++]);
                 life->last_action_time = parse_int64(line, tokens[token_cursor++]);
+
+                for (int skill_id = 0; skill_id < SkillId_COUNT; skill_id++)
+                    for (int j = 0; j < get_array_length(xp_bucket_sizes); j++)
+                        life->experience[skill_id][j] = parse_int(line, tokens[token_cursor++]);
+
                 life->initiative = parse_uint256(line, tokens[token_cursor++]);
                 int status_effect_count = parse_int(line, tokens[token_cursor++]);
                 int ability_cooldowns_count = parse_int(line, tokens[token_cursor++]);
@@ -1137,7 +1129,7 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
     return game;
 }
 static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
-    buffer->append(SNAPSHOT_DIRECTIVE);
+    buffer->append(directive_names[DirectiveId_SNAPSHOT].value);
     for (int i = 0; i < WandId_COUNT; i++)
         buffer->format(" %d", game->actual_wand_descriptions[i]);
     buffer->append(" .");
@@ -1166,11 +1158,11 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
     buffer->format(" %d", things.length());
 
     buffer->format(" %d", game->dungeon_level);
-    buffer->format("\n  %s ", MAP_TILES_DIRECTIVE);
+    buffer->format("\n  %s ", directive_names[DirectiveId_MAP_TILES].value.ptr);
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
             buffer->append(tile_type_short_names[game->actual_map_tiles[cursor]].value);
-    buffer->format("\n  %s ", AESTHETIC_INDEXES_DIRECTIVE);
+    buffer->format("\n  %s ", directive_names[DirectiveId_AESTHETIC_INDEXES].value.ptr);
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] >> 4));
@@ -1178,7 +1170,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
         }
     }
 
-    buffer->format("\n  %s %d", RNG_STATE_DIRECTIVE, !!game->test_mode);
+    buffer->format("\n  %s %d", directive_names[DirectiveId_RNG_STATE].value.ptr, !!game->test_mode);
     if (game->test_mode) {
         buffer->append(' ');
         write_uint_oversized_to_buffer(buffer, game->random_arbitrary_large_number_count);
@@ -1194,7 +1186,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
     for (int i = 0; i < things.length(); i++) {
         Thing thing = things[i];
 
-        buffer->format("\n  %s ", THING_DIRECTIVE);
+        buffer->format("\n  %s ", directive_names[DirectiveId_THING].value.ptr);
         write_uint_oversized_to_buffer(buffer, thing->id);
 
         buffer->append(' ');
@@ -1214,18 +1206,22 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                 buffer->append(' ');
                 buffer->append(decision_maker_names[life->decision_maker].value);
 
-                buffer->format("\n    %s", LIFE_DIRECTIVE);
+                buffer->format("\n    %s", directive_names[DirectiveId_LIFE].value.ptr);
                 buffer->format(" %d", life->hitpoints);
                 buffer->append(' ');
                 buffer->format(int64_format, life->hp_regen_deadline);
                 buffer->format(" %d", life->mana);
                 buffer->append(' ');
                 buffer->format(int64_format, life->mp_regen_deadline);
-                buffer->format(" %d", life->experience);
                 buffer->append(' ');
                 buffer->format(int64_format, life->last_movement_time);
                 buffer->append(' ');
                 buffer->format(int64_format, life->last_action_time);
+
+                for (int skill_id = 0; skill_id < SkillId_COUNT; skill_id++)
+                    for (int j = 0; j < get_array_length(xp_bucket_sizes); j++)
+                        buffer->format(" %d", life->experience[skill_id][j]);
+
                 buffer->append(' ');
                 write_uint_oversized_to_buffer(buffer, life->initiative);
 
@@ -1246,7 +1242,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                 }
                 for (int i = 0; i < ability_cooldowns.length(); i++) {
                     AbilityCooldown ability_cooldown = ability_cooldowns[i];
-                    buffer->format("\n      %s", ABILITY_COOLDOWN_DIRECTIVE);
+                    buffer->format("\n      %s", directive_names[DirectiveId_ABILITY_COOLDOWN].value.ptr);
                     buffer->append(' ');
                     buffer->append(ability_names[ability_cooldown.ability_id].value);
                     buffer->append(' ');
@@ -1254,7 +1250,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                 }
 
                 Knowledge const& knowledge = life->knowledge;
-                buffer->format("\n    %s", KNOWLEDGE_DIRECTIVE);
+                buffer->format("\n    %s", directive_names[DirectiveId_KNOWLEDGE].value.ptr);
                 for (int i = 0; i < WandDescriptionId_COUNT; i++)
                     buffer->format(" %d", knowledge.wand_identities[i]);
                 buffer->append(" .");
@@ -1275,7 +1271,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
 
                 buffer->format(" %d", perceived_things.length());
 
-                buffer->format("\n      %s ", MAP_TILES_DIRECTIVE);
+                buffer->format("\n      %s ", directive_names[DirectiveId_MAP_TILES].value.ptr);
                 for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
                     for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
                         buffer->append(tile_type_short_names[knowledge.tiles[cursor]].value);
@@ -1283,7 +1279,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                 for (int i = 0; i < perceived_things.length(); i++) {
                     PerceivedThing perceived_thing = perceived_things[i];
 
-                    buffer->format("\n      %s", PERCEIVED_THING_DIRECTIVE);
+                    buffer->format("\n      %s", directive_names[DirectiveId_PERCEIVED_THING].value.ptr);
                     buffer->append(' ');
                     write_uint_oversized_to_buffer(buffer, perceived_thing->id);
                     buffer->format(" %d", !!perceived_thing->is_placeholder);
@@ -1329,7 +1325,6 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                             unreachable();
                     }
                 }
-                // TODO: rememberd_events
                 break;
             }
             case ThingType_WAND:

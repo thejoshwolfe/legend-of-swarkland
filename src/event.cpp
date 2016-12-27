@@ -206,7 +206,6 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                         return false;
                     *output_event = event;
                     return true;
-                case Event::TheIndividualData::LEVEL_UP:
                 case Event::TheIndividualData::SPIT_BLINDING_VENOM:
                 case Event::TheIndividualData::THROW_TAR:
                 case Event::TheIndividualData::INDIVIDUAL_IS_HEALED:
@@ -408,6 +407,13 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             *output_event = event;
             return true;
         }
+        case Event::INDIVIDUAL_AND_SKILL: {
+            const Event::IndividualAndSkillData & data = event.individual_and_skill_data();
+            if (!can_see_shape(get_vision_for_thing(observer, data.individual)))
+                return false;
+            *output_event = event;
+            return true;
+        }
         case Event::ITEM_AND_LOCATION: {
             const Event::ItemAndLocationData & data = event.item_and_location_data();
             if (!can_see_shape(observer->life()->knowledge.tile_is_visible[data.location]))
@@ -567,10 +573,6 @@ static void observe_event(Thing observer, Event event) {
                     individual = record_perception_of_thing(observer, data.individual);
                     maybe_remove_status(&individual->status_effects, StatusEffect::INVISIBILITY);
                     remembered_event->span->format("%s appears out of nowhere!", get_thing_description(observer, data.individual));
-                    break;
-                case Event::TheIndividualData::LEVEL_UP:
-                    // no state change
-                    remembered_event->span->format("%s levels up.", get_thing_description(observer, data.individual));
                     break;
                 case Event::TheIndividualData::DIE:
                     remembered_event->span->format("%s dies.", get_thing_description(observer, data.individual));
@@ -893,6 +895,27 @@ static void observe_event(Thing observer, Event event) {
             remembered_event->span->format("%s transforms into a %s!", get_thing_description(observer, data.individual), get_species_name(data.new_species));
             record_perception_of_thing(observer, data.individual);
             identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_ASSUME_FORM);
+            break;
+        }
+        case Event::INDIVIDUAL_AND_SKILL: {
+            const Event::IndividualAndSkillData & data = event.individual_and_skill_data();
+            switch (data.skill) {
+                case SkillId_HP:
+                    remembered_event->span->format("pain has toughened %s!", get_thing_description(observer, data.individual));
+                    break;
+                case SkillId_MP:
+                    remembered_event->span->format("study and practice has enlightened %s in the magical arts!", get_thing_description(observer, data.individual));
+                    break;
+                case SkillId_ATTACK_DAMAGE:
+                    remembered_event->span->format("striking at enemies has made %s a more deadly attacker!", get_thing_description(observer, data.individual));
+                    break;
+                case SkillId_DODGE:
+                    remembered_event->span->format("nimble movement has lead %s to dodge more consistently!", get_thing_description(observer, data.individual));
+                    break;
+
+                case SkillId_COUNT:
+                    unreachable();
+            }
             break;
         }
         case Event::ITEM_AND_LOCATION: {

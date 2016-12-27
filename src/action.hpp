@@ -27,7 +27,6 @@ struct Action {
         CHEATCODE_WISH,
         CHEATCODE_IDENTIFY,
         CHEATCODE_GO_DOWN,
-        CHEATCODE_GAIN_LEVEL,
 
         COUNT,
         // only a player can be undecided
@@ -157,9 +156,6 @@ struct Action {
     static Action cheatcode_go_down() {
         return init(CHEATCODE_GO_DOWN);
     }
-    static Action cheatcode_gain_level() {
-        return init(CHEATCODE_GAIN_LEVEL);
-    }
 
     static Action init(Id id) {
         assert(get_layout(id) == Layout_VOID);
@@ -273,7 +269,6 @@ private:
             case CHEATCODE_HEALTH_BOOST:
             case CHEATCODE_IDENTIFY:
             case CHEATCODE_GO_DOWN:
-            case CHEATCODE_GAIN_LEVEL:
                 return Layout_VOID;
             case CHEATCODE_POLYMORPH:
                 return Layout_SPECIES;
