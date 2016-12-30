@@ -576,6 +576,15 @@ public:
         }
         return i;
     }
+    int highest_skill_level() const {
+        int result = 0;
+        for (int i = 0; i < SkillId_COUNT; i++) {
+            int level = experience_level((SkillId)i);
+            if (result < level)
+                result = level;
+        }
+        return result;
+    }
     int attack_power() const {
         return max(1, physical_species()->base_attack_power + experience_level(SkillId_ATTACK_DAMAGE) / 2);
     }
@@ -589,7 +598,7 @@ public:
     int get_combat_difficulty() const {
         if (thing_type != ThingType_INDIVIDUAL)
             return 0;
-        return physical_species()->min_level;
+        return max(physical_species()->min_level, highest_skill_level());
     }
 private:
     union {
