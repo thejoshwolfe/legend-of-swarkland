@@ -2,8 +2,8 @@
 all:
 
 PKG_CONFIG_DEPENDENCIES = SDL2_ttf sdl2
-RESOURCE_NAMES = version_resource font_resource spritesheet_resource
-OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o serial.o byte_buffer.o item.o input.o event.o string.o text.o $(foreach f,$(RESOURCE_NAMES),$f.o)
+RESOURCE_NAMES = version_resource font_resource spritesheet_resource audio_attack_resource
+OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o serial.o byte_buffer.o item.o input.o event.o string.o text.o audio.o $(foreach f,$(RESOURCE_NAMES),$f.o)
 
 CPP_FLAGS += $(TARGET_SPECIFIC_CPP_FLAGS) -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
 COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++14 -o $@ -MMD -MP -MF $@.d -I$(dir $@) $(CPP_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --cflags $(PKG_CONFIG_DEPENDENCIES)) $<
@@ -28,6 +28,8 @@ build/full_version.txt: $(VERSION_FILE)
 %/version_resource: build/full_version.txt
 	cp "$<" $@
 %/font_resource: assets/font/DejaVuSansMono.ttf
+	cp "$<" $@
+%/audio_attack_resource: assets/audio/attack.raw
 	cp "$<" $@
 %/spritesheet_resource:
 	PYTHONPATH=deps/simplepng.py/ ./tools/compile_spritesheet.py assets/img/ --glob='*.png' --tilesize=32 --spritesheet=$@ --header=$(dir $@)spritesheet.hpp --deps=$@.d

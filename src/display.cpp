@@ -12,6 +12,7 @@
 #include "event.hpp"
 #include "decision.hpp"
 #include "spritesheet.hpp"
+#include "audio.hpp"
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -141,7 +142,7 @@ static void load_images() {
 void init_display() {
     assert(!headless_mode);
 
-    if (SDL_Init(SDL_INIT_VIDEO) != 0)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0)
         panic("unable to init SDL");
 
     window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, entire_window_area.w, entire_window_area.h, SDL_WINDOW_RESIZABLE);
@@ -174,6 +175,18 @@ void init_display() {
     ByteBuffer buffer;
     buffer.append((const char *)get_binary_version_resource_start(), (int)get_binary_version_resource_size());
     version_string->decode(buffer);
+
+    SDL_AudioSpec want;
+    want.freq = 44100;
+    want.format = AUDIO_S16LSB;
+    want.channels = 1;
+    want.samples = 4096;
+    want.callback = audio_callback;
+    audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &want, 0);
+    if (audio_device == 0) {
+        panic(SDL_GetError());
+    }
+    SDL_PauseAudioDevice(audio_device, 0);
 }
 
 void display_finish() {
@@ -992,6 +1005,9 @@ static Span get_ability_description(AbilityId ability_id, bool is_ready) {
 
 void render() {
     assert(!headless_mode);
+
+    if (cheatcode_spectator != nullptr)
+        play_the_sound = true;
 
     Thing spectate_from = cheatcode_spectator != nullptr ? cheatcode_spectator : player_actor();
     PerceivedThing perceived_self = spectate_from->life()->knowledge.perceived_things.get(spectate_from->id);
