@@ -86,3 +86,9 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
 Game art assests are in public domain.
 
 http://opengameart.org/content/dungeon-crawl-32x32-tiles
+
+# Other
+
+* attack.wav:
+ - http://www.freesound.org/people/JoelAudio/sounds/77611/
+ - Modified
