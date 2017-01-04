@@ -426,10 +426,42 @@ Action get_ai_decision(Thing actor) {
                                     unreachable();
                             }
                             break;
-                        case ThingType_BOOK:
-                            // TODO use books
+                        case ThingType_BOOK: {
+                            if (!advanced_strategy)
+                                break; // too dumb to use books
+                            BookId book_id = actor->life()->knowledge.book_identities[item->book_info()->description_id];
+                            int mana_cost = book_id == BookId_UNKNOWN ? 8 : get_mana_cost(book_id);
+                            bool will_it_hurt_me = (mana_cost > actor->life()->mana);
+                            if (will_it_hurt_me)
+                                break; // not worth
+                            switch (book_id) {
+                                case BookId_SPELLBOOK_OF_MAGIC_BULLET:
+                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                        // get him!
+                                        range_attack_actions.append(Action::read_book(item->id, direction));
+                                    }
+                                    break;
+                                case BookId_SPELLBOOK_OF_SPEED:
+                                    if (!has_status(actor, StatusEffect::SPEED)) {
+                                        // gotta go fast!
+                                        buff_actions.append(Action::read_book(item->id, {0, 0}));
+                                    }
+                                    break;
+                                case BookId_UNKNOWN:
+                                    if (is_clear_projectile_shot(actor, target->location, confident_zap_distance)) {
+                                        // um. sure.
+                                        range_attack_actions.append(Action::read_book(item->id, direction));
+                                    }
+                                    break;
+                                case BookId_SPELLBOOK_OF_FORCE:
+                                case BookId_SPELLBOOK_OF_MAPPING:
+                                case BookId_SPELLBOOK_OF_ASSUME_FORM:
+                                    break; // not sure how to use yet
+                                case BookId_COUNT:
+                                    unreachable();
+                            }
                             break;
-
+                        }
                         case ThingType_COUNT:
                             unreachable();
                     }
