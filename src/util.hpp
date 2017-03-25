@@ -34,8 +34,8 @@ static inline bool __builtin_add_overflow(int a, int b, int * result) {
 }
 #endif
 
-#define panic(str) _panic(str, __FILE__, __LINE__)
-void _panic(const char * str, const char * file_name, int line_number) __attribute__ ((noreturn));
+#define panic(args...) _panic(__FILE__, __LINE__, args)
+void _panic(const char * file_name, int line_number, const char * str, const char * str2 = nullptr) __attribute__ ((noreturn));
 #define assert(condition) \
     if (!(condition)) \
         panic("assertion failure")

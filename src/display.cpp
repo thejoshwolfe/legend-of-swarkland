@@ -142,14 +142,14 @@ void init_display() {
     assert(!headless_mode);
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
-        panic("unable to init SDL");
+        panic("unable to init SDL", SDL_GetError());
 
     window = SDL_CreateWindow("Legend of Swarkland", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, entire_window_area.w, entire_window_area.h, SDL_WINDOW_RESIZABLE);
     if (window == nullptr)
-        panic("window create failed");
+        panic("window create failed", SDL_GetError());
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == nullptr)
-        panic("renderer create failed");
+        panic("renderer create failed", SDL_GetError());
 
     SDL_RendererInfo renderer_info;
     SDL_GetRendererInfo(renderer, &renderer_info);
@@ -167,7 +167,7 @@ void init_display() {
 
     font_rw_ops = SDL_RWFromMem((void *)get_binary_font_resource_start(), (int)get_binary_font_resource_size());
     if (font_rw_ops == nullptr)
-        panic("sdl rwops fail");
+        panic("sdl rwops fail", SDL_GetError());
     status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
     TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
 
