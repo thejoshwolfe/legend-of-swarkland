@@ -124,14 +124,14 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
    * spellbooks of: charm, fear, life syphon, slowing
    * potions of: fruit juice, mana
 
+## Version History
+
 ### 4.4.0
 
  * New monsters: tar elemental, shapeshifter.
  * Added dodging: after a move or wait action, you have a chance to avoid incoming attacks, projectiles, magic beams, etc.
  * Window is resizeable, and content scales to fill it while preserving aspect ratio.
  * Enhancements for swarkland developers: removed dependencies on rucksack and libpng. Added dependency on a git submodule.
-
-## Version History
 
 ### 4.3.0
 
