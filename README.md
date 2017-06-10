@@ -77,6 +77,7 @@ Browse to this directory.
 
 Now you should be able to open `main.cpp` and see no error or warning annotations.
 You should be able to select a system include (`#include <...>`), and F3 to see its source.
+If SDL.h is still not found, try triggering a full build of the project with Project -> Clean... or using `make clean` in the command line, and then doing a build of the project with Project -> Build All or enabling auto build and refreshing the project with F5.
 
 ### Optional Tweaks
 
