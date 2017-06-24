@@ -105,8 +105,6 @@ public:
     bool operator==(const StringImpl & other) const {
         if (this == &other)
             return true;
-        if (this == nullptr || &other == nullptr)
-            return false;
         return _chars == other._chars;
     }
     bool operator!=(const StringImpl & other) const {

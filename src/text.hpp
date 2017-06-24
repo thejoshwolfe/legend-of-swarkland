@@ -145,8 +145,6 @@ public:
     bool operator==(const SpanImpl & other) const {
         if (this == &other)
             return true;
-        if (this == nullptr || &other == nullptr)
-            return false;
         return _items == other._items &&
                _foreground == other._foreground &&
                _background == other._background;
