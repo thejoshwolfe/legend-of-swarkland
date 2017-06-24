@@ -74,7 +74,7 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
     simplepng.write_png(f, spritesheet_image)
 
   # check header
-  header_item_format = "static constexpr Coord %s = {%i, %i};";
+  header_item_format = "static constexpr Rect %s = {{%i, %i}, {32, 32}};";
   header_contents = header_format.format(
     sprites_per_row * tilesize,
     sprites_per_row * tilesize,

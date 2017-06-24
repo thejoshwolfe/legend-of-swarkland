@@ -27,7 +27,7 @@ Coord SpanImpl::compute_size(SDL_Renderer * renderer) {
                 if (sub_texture == nullptr)
                     continue;
                 sub_size = get_texture_size(sub_texture);
-            } else if (_items[i].image != SwarklandImage_::nowhere()) {
+            } else if (_items[i].image != Rect::nowhere()) {
                 sub_size = Coord{tile_size, tile_size};
             } else {
                 unreachable();
@@ -64,9 +64,9 @@ void SpanImpl::render(SDL_Renderer * renderer, Coord position) {
             SDL_Rect dest_rect = {cursor.x, cursor.y, sub_size.x, sub_size.y};
             SDL_RenderCopy(renderer, sub_texture, nullptr, &dest_rect);
             delta_x = sub_size.x;
-        } else if (_items[i].image != SwarklandImage_::nowhere()) {
+        } else if (_items[i].image != Rect::nowhere()) {
             SDL_Rect dest_rect = {cursor.x, cursor.y, tile_size, tile_size};
-            SDL_Rect src_rect = {_items[i].image.x, _items[i].image.y, tile_size, tile_size};
+            SDL_Rect src_rect = {_items[i].image.position.x, _items[i].image.position.y, _items[i].image.size.x, _items[i].image.size.y};
             SDL_RenderCopy(renderer, sprite_sheet_texture, &src_rect, &dest_rect);
             delta_x = tile_size;
         } else {

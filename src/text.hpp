@@ -16,18 +16,18 @@ private:
         String string;
         SDL_Texture * string_texture = nullptr;
         Span span;
-        SwarklandImage_ image;
+        Rect image;
 
         ChildElement() :
-            image(Coord::nowhere()) {
+            image(Rect::nowhere()) {
         }
         ChildElement(String string) :
-            string(string), image(Coord::nowhere()) {
+            string(string), image(Rect::nowhere()) {
         }
         ChildElement(Span span) :
-            span(span), image(Coord::nowhere()) {
+            span(span), image(Rect::nowhere()) {
         }
-        ChildElement(SwarklandImage_ image) :
+        ChildElement(Rect image) :
             image(image) {
         }
         ~ChildElement() {
@@ -115,7 +115,7 @@ public:
         _items.append(ChildElement(span));
         _size = Coord::nowhere();
     }
-    void append(SwarklandImage_ image) {
+    void append(Rect image) {
         _items.append(ChildElement(image));
         _size = Coord::nowhere();
     }
@@ -128,7 +128,7 @@ public:
     template<typename ...Args>
     void format(const char * fmt, Span span1, Args... args);
     template<typename ...Args>
-    void format(const char * fmt, SwarklandImage_ image, Args... args);
+    void format(const char * fmt, Rect image, Args... args);
 
     void to_string(String output_string) const {
         for (int i = 0; i < _items.length(); i++) {
@@ -136,7 +136,7 @@ public:
                 output_string->append(_items[i].string);
             } else if (_items[i].span != nullptr) {
                 _items[i].span->to_string(output_string);
-            } else if (_items[i].image != SwarklandImage_::nowhere()) {
+            } else if (_items[i].image != Rect::nowhere()) {
                 // sorry.
             } else unreachable();
         }
@@ -184,7 +184,7 @@ void SpanImpl::format(const char * fmt, Span span1, Args... args) {
     format(fmt + i, args...);
 }
 template<typename ...Args>
-void SpanImpl::format(const char * fmt, SwarklandImage_ image, Args... args) {
+void SpanImpl::format(const char * fmt, Rect image, Args... args) {
     int i = find_percent_something(fmt, 'g');
     ByteBuffer prefix;
     prefix.append(fmt, i - 2);

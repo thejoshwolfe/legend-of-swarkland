@@ -38,7 +38,7 @@ static SDL_Texture * screen_buffer;
 // this changes when the window resizes
 static SDL_Rect output_rect = entire_window_area;
 
-static const SwarklandImage_ dirt_floor_images[] = {
+static const Rect dirt_floor_images[] = {
     sprite_location_dirt_floor0,
     sprite_location_dirt_floor1,
     sprite_location_dirt_floor2,
@@ -48,7 +48,7 @@ static const SwarklandImage_ dirt_floor_images[] = {
     sprite_location_dirt_floor6,
     sprite_location_dirt_floor7,
 };
-static SwarklandImage_ marble_floor_images[] = {
+static Rect marble_floor_images[] = {
     sprite_location_marble_floor0,
     sprite_location_marble_floor1,
     sprite_location_marble_floor2,
@@ -56,7 +56,7 @@ static SwarklandImage_ marble_floor_images[] = {
     sprite_location_marble_floor4,
     sprite_location_marble_floor5,
 };
-static SwarklandImage_ brown_brick_wall_images[] = {
+static Rect brown_brick_wall_images[] = {
     sprite_location_brown_brick0,
     sprite_location_brown_brick1,
     sprite_location_brown_brick2,
@@ -66,16 +66,16 @@ static SwarklandImage_ brown_brick_wall_images[] = {
     sprite_location_brown_brick6,
     sprite_location_brown_brick7,
 };
-static SwarklandImage_ gray_brick_wall_images[] = {
+static Rect gray_brick_wall_images[] = {
     sprite_location_gray_brick0,
     sprite_location_gray_brick1,
     sprite_location_gray_brick2,
     sprite_location_gray_brick3,
 };
-static SwarklandImage_ species_images[SpeciesId_COUNT];
-static SwarklandImage_ wand_images[WandDescriptionId_COUNT];
-static SwarklandImage_ potion_images[PotionDescriptionId_COUNT];
-static SwarklandImage_ book_images[BookDescriptionId_COUNT];
+static Rect species_images[SpeciesId_COUNT];
+static Rect wand_images[WandDescriptionId_COUNT];
+static Rect potion_images[PotionDescriptionId_COUNT];
+static Rect book_images[BookDescriptionId_COUNT];
 
 TTF_Font * status_box_font;
 static SDL_RWops *font_rw_ops;
@@ -83,10 +83,10 @@ static String version_string = new_string();
 
 #define fill_with_trash(array) \
     for (int i = 0; i < (int)(get_array_length(array)); i++) \
-        array[i] = SwarklandImage_::nowhere()
+        array[i] = Rect::nowhere()
 #define check_no_trash(array) \
     for (int i = 0; i < (int)(get_array_length(array)); i++) \
-        assert_str(array[i] != SwarklandImage_::nowhere(), "missed a spot")
+        assert_str(array[i] != Rect::nowhere(), "missed a spot")
 
 static void load_images() {
     // TODO: do all this at compile time
@@ -196,12 +196,12 @@ static inline bool rect_contains(SDL_Rect rect, Coord point) {
            rect.y <= point.y && point.y < rect.y + rect.h;
 }
 
-static void render_tile(SwarklandImage_ image, int alpha, Coord dest_coord) {
+static void render_tile(Rect image, int alpha, Coord dest_coord) {
     SDL_Rect source_rect;
-    source_rect.x = image.x;
-    source_rect.y = image.y;
-    source_rect.w = tile_size;
-    source_rect.h = tile_size;
+    source_rect.x = image.position.x;
+    source_rect.y = image.position.y;
+    source_rect.w = image.size.x;
+    source_rect.h = image.size.y;
 
     SDL_Rect dest_rect;
     dest_rect.x = main_map_area.x + dest_coord.x * tile_size;
@@ -559,7 +559,7 @@ static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
     render_div(div, rect, horizontal_align, vertical_align);
 }
 
-static SwarklandImage_ get_image_for_thing(PerceivedThing thing) {
+static Rect get_image_for_thing(PerceivedThing thing) {
     switch (thing->thing_type) {
         case ThingType_INDIVIDUAL:
             if (thing->life()->species_id == SpeciesId_UNSEEN)
@@ -583,7 +583,7 @@ static SwarklandImage_ get_image_for_thing(PerceivedThing thing) {
     }
     panic("thing type");
 }
-static SwarklandImage_ get_image_for_thing(Thing thing) {
+static Rect get_image_for_thing(Thing thing) {
     switch (thing->thing_type) {
         case ThingType_INDIVIDUAL:
             return species_images[thing->physical_species_id()];
@@ -599,10 +599,10 @@ static SwarklandImage_ get_image_for_thing(Thing thing) {
     }
     panic("thing type");
 }
-static SwarklandImage_ get_image_for_tile(TileType tile_type, uint32_t aesthetic_index) {
+static Rect get_image_for_tile(TileType tile_type, uint32_t aesthetic_index) {
     switch (tile_type) {
         case TileType_UNKNOWN:
-            return SwarklandImage_::nowhere();
+            return Rect::nowhere();
         case TileType_DIRT_FLOOR:
             return dirt_floor_images[aesthetic_index % get_array_length(dirt_floor_images)];
         case TileType_MARBLE_FLOOR:
@@ -623,7 +623,7 @@ static SwarklandImage_ get_image_for_tile(TileType tile_type, uint32_t aesthetic
     }
     unreachable();
 }
-static SwarklandImage_ get_image_for_ability(AbilityId ability_id) {
+static Rect get_image_for_ability(AbilityId ability_id) {
     switch (ability_id) {
         case AbilityId_SPIT_BLINDING_VENOM:
             return sprite_location_cobra_venom;
@@ -877,7 +877,7 @@ static Span render_action(Thing actor, const Action & action) {
     Span result = new_span();
     switch (action.id) {
         case Action::PICKUP: {
-            SwarklandImage_ image = get_image_for_thing(actor->life()->knowledge.perceived_things.get(action.item()));
+            Rect image = get_image_for_thing(actor->life()->knowledge.perceived_things.get(action.item()));
             result->format("pick up %g%s", image, get_thing_description(actor, action.item(), true));
             return result;
         }
@@ -1114,8 +1114,8 @@ void render() {
             TileType tile = spectate_from->life()->knowledge.tiles[cursor];
             if (cheatcode_full_visibility)
                 tile = game->actual_map_tiles[cursor];
-            SwarklandImage_ image = get_image_for_tile(tile, game->aesthetic_indexes[cursor]);
-            if (image == SwarklandImage_::nowhere())
+            Rect image = get_image_for_tile(tile, game->aesthetic_indexes[cursor]);
+            if (image == Rect::nowhere())
                 continue;
             Uint8 alpha;
             if (can_see_shape(spectate_from->life()->knowledge.tile_is_visible[cursor])) {
@@ -1502,7 +1502,7 @@ void render() {
     }
     if (show_cheatcode_generate_monster_location_cursor) {
         SpeciesId species_id = (SpeciesId)cheatcode_generate_monster_choose_species_menu_cursor;
-        SwarklandImage_ image = species_images[species_id];
+        Rect image = species_images[species_id];
         render_tile(image, 0x7f, cheatcode_generate_monster_choose_location_cursor);
     }
     // popup help for hovering over things

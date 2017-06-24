@@ -10,7 +10,6 @@ struct Coord {
         return {-1, -1};
     }
 };
-typedef Coord SwarklandImage_; // TODO: rename and delete this
 static inline bool operator==(Coord a, Coord b) {
     return a.x == b.x && a.y == b.y;
 }
@@ -55,6 +54,20 @@ static inline int ordinal_distance(Coord a, Coord b) {
 static inline int cardinal_distance(Coord a, Coord b) {
     Coord abs_vector = abs(b - a);
     return abs_vector.x + abs_vector.y;
+}
+
+struct Rect {
+    Coord position;
+    Coord size;
+    static inline Rect nowhere() {
+        return {Coord::nowhere(), Coord::nowhere()};
+    }
+};
+static inline bool operator==(Rect a, Rect b) {
+    return a.position == b.position && a.size == b.size;
+}
+static inline bool operator!=(Rect a, Rect b) {
+    return !(a == b);
 }
 
 template<typename T, int SizeX, int SizeY>
