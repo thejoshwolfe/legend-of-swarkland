@@ -120,16 +120,16 @@ static inline int random_triangle_distribution(int n) {
 }
 
 template <typename T>
-static inline T min(T a, T b) {
+static constexpr T min(T a, T b) {
     return a < b ? a : b;
 }
 template <typename T>
-static inline T max(T a, T b) {
+static constexpr T max(T a, T b) {
     return a < b ? b : a;
 }
 
 template <typename T>
-static inline T clamp(T value, T min, T max) {
+static constexpr T clamp(T value, T min, T max) {
     if (value < min)
         return min;
     if (value > max)
@@ -138,7 +138,7 @@ static inline T clamp(T value, T min, T max) {
 }
 
 template <typename T>
-static inline int sign(T value) {
+static constexpr int sign(T value) {
     if (value > 0)
         return 1;
     else if (value < 0)
@@ -148,7 +148,7 @@ static inline int sign(T value) {
 }
 
 template <typename T>
-static inline T euclidean_mod(T a, T base) {
+static constexpr T euclidean_mod(T a, T base) {
     if (a < 0)
         return (a % base + base) % base;
     else
