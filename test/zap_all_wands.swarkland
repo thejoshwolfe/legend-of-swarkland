@@ -73,6 +73,7 @@ wait
 @mark_events
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000005
     @rng 12 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
     @rng 4 range:4:8:magic_missile_damage
   @expect_event "a lich king zaps a plastic wand."
   @expect_event "a magic missile hits you!"
@@ -97,6 +98,7 @@ wait
 @mark_events
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000006
     @rng 12 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
     @rng 20 range:100:200:speed_duration
   @expect_event "a lich king zaps a copper wand."
   @expect_event "a magic beam hits you."
@@ -157,6 +159,7 @@ wait
 @mark_events
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000009
     @rng 6 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
     @rng 12 midpoint:200:blinding_duration
   @expect_event "a lich king zaps a shiny bone wand."
   @expect_event "a magic beam hits you."
@@ -182,6 +185,7 @@ wait
 @mark_events
   zap -1 -1 000000000000000000000000000000000000000000000000000000000000000a
     @rng 6 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
   @expect_event "a lich king zaps a shiny gold wand."
   @expect_event "a magic beam pushes you!"
   @expect_event "you bumps into a wall."
@@ -205,6 +209,7 @@ wait
 @mark_events
   zap -1 -1 000000000000000000000000000000000000000000000000000000000000000b
     @rng 6 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
     @rng 12 midpoint:500:invisibility_duration
   @expect_event "a lich king zaps a shiny plastic wand."
   @expect_event "a magic beam hits you."
@@ -230,6 +235,7 @@ wait
 @mark_events
   zap -1 -1 000000000000000000000000000000000000000000000000000000000000000c
     @rng 6 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
     @rng 1 inclusive:1:2:magic_bullet_damage
   @expect_event "a lich king zaps a shiny copper wand."
   @expect_event "a magic bullet hits you!"
@@ -253,6 +259,7 @@ wait
 @mark_events
   zap -1 -1 000000000000000000000000000000000000000000000000000000000000000d
     @rng 6 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
     @rng 12 midpoint:200:slowing_duration
   @expect_event "a lich king zaps a shiny purple wand."
   @expect_event "a magic beam hits you."

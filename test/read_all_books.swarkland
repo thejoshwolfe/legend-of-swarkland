@@ -33,6 +33,7 @@ wait
 @mark_events
   read_book 1 0 0000000000000000000000000000000000000000000000000000000000000004
     @rng 6 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
     @rng 12 range:100:200:speed_duration
   @expect_event "you reads a blue book."
   @expect_event "a magic beam hits a dog."
@@ -73,6 +74,7 @@ wait
 @mark_events
   read_book 1 0 0000000000000000000000000000000000000000000000000000000000000006
     @rng 6 inclusive:6:12:beam_length
+    @rng 6 int:12:dodge
   @expect_event "you reads a green book."
   @expect_event "a magic beam pushes a dog!"
   @expect_event "a dog bumps into a wall."

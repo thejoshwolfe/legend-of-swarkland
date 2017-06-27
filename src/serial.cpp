@@ -85,7 +85,7 @@ static bool read_line(ByteBuffer * output_buffer) {
         size_t read_count = fread(blob, 1, 256, script_file);
         if (read_count == 0) {
             if (read_buffer.length() > 0) {
-                fprintf(stderr, "ERROR: expected newline at end of file: %s\n", script_path);
+                fprintf(stderr, "%s:%d: error: expected newline at end of file\n", script_path, line_number + 1);
                 exit_with_error();
             }
             return false;
@@ -154,11 +154,13 @@ static void tokenize_line(ByteBuffer const& line, List<Token> * tokens) {
     }
 }
 static void read_tokens(ByteBuffer * output_line, List<Token> * output_tokens, bool tolerate_eof) {
+    output_tokens->clear();
     while (output_tokens->length() == 0) {
+        output_line->resize(0);
         if (!read_line(output_line)) {
             // EOF
             if (!tolerate_eof) {
-                fprintf(stderr, "%s:%d:1: error: unexpected EOF", script_path, line_number);
+                fprintf(stderr, "%s:%d:1: error: unexpected EOF\n", script_path, line_number);
                 exit_with_error();
             }
             return;
@@ -894,8 +896,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
 
     // map tiles
     {
-        line.resize(0);
-        tokens.clear();
         read_tokens(&line, &tokens, false);
         expect_extra_token_count(tokens, 1);
         token_cursor = 0;
@@ -910,8 +910,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
 
     // aesthetic indexes
     {
-        line.resize(0);
-        tokens.clear();
         read_tokens(&line, &tokens, false);
         expect_extra_token_count(tokens, 1);
         token_cursor = 0;
@@ -931,8 +929,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
 
     // rng state
     {
-        line.resize(0);
-        tokens.clear();
         read_tokens(&line, &tokens, false);
         expect_extra_token_count(tokens, 3);
         token_cursor = 0;
@@ -955,8 +951,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
     }
 
     for (int i = 0; i < thing_count; i++) {
-        line.resize(0);
-        tokens.clear();
         read_tokens(&line, &tokens, false);
         token_cursor = 0;
         if (parse_directive_id(line, tokens[token_cursor++]) != DirectiveId_THING)
@@ -977,8 +971,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                 thing = create<ThingImpl>(id, species_id, decision_maker, uint256::zero());
                 expect_extra_token_count(tokens, token_cursor - 1);
 
-                line.resize(0);
-                tokens.clear();
                 read_tokens(&line, &tokens, false);
                 token_cursor = 0;
                 if (parse_directive_id(line, tokens[token_cursor++]) != DirectiveId_LIFE)
@@ -1001,8 +993,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                     thing->status_effects.append(parse_status_effect());
 
                 for (int i = 0; i < ability_cooldowns_count; i++) {
-                    line.resize(0);
-                    tokens.clear();
                     read_tokens(&line, &tokens, false);
                     expect_extra_token_count(tokens, 2);
                     token_cursor = 0;
@@ -1017,8 +1007,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
 
                 // knowledge
                 {
-                    line.resize(0);
-                    tokens.clear();
                     read_tokens(&line, &tokens, false);
                     token_cursor = 0;
                     if (parse_directive_id(line, tokens[token_cursor++]) != DirectiveId_KNOWLEDGE)
@@ -1042,8 +1030,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
 
                     // map tiles
                     {
-                        line.resize(0);
-                        tokens.clear();
                         read_tokens(&line, &tokens, false);
                         expect_extra_token_count(tokens, 1);
                         token_cursor = 0;
@@ -1057,8 +1043,6 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                     }
 
                     for (int i = 0; i < perceived_things_count; i++) {
-                        line.resize(0);
-                        tokens.clear();
                         read_tokens(&line, &tokens, false);
                         token_cursor = 0;
                         if (parse_directive_id(line, tokens[token_cursor++]) != DirectiveId_PERCEIVED_THING)
