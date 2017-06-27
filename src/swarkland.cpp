@@ -139,96 +139,25 @@ void drop_item_to_the_floor(Thing item, Coord location) {
         publish_event(Event::individual_sucks_up_item(individual->id, item->id));
     }
 }
-static void throw_item(Thing actor, Thing item, Coord direction) {
-    publish_event(Event::throw_item(actor->id, item->id));
-    // let go of the item. it's now sailing through the air.
-    item->location = actor->location;
-    item->container_id = uint256::zero();
-    item->z_order = 0;
-    fix_z_orders(actor->id);
-
-    // find the hit target
-    int range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "throw_distance");
-    Coord cursor = actor->location;
-    bool item_breaks = false;
-    // potions are fragile
-    if (item->thing_type == ThingType_POTION)
-        item_breaks = true;
-    bool impacts_in_wall = item->thing_type == ThingType_WAND && item->wand_info()->wand_id == WandId_WAND_OF_DIGGING;
-    for (int i = 0; i < range; i++) {
-        cursor += direction;
-        if (!is_open_space(game->actual_map_tiles[cursor])) {
-            if (!(item_breaks && impacts_in_wall)) {
-                // impact just in front of the wall
-                cursor -= direction;
-            }
-            item_breaks = item->thing_type == ThingType_POTION || random_int(2, "wand_breaks") == 0;
-            publish_event(Event::item_hits_wall(item->id, cursor));
-            break;
-        } else {
-            item->location = cursor;
-            publish_event(Event::move(item, cursor - direction));
-        }
-        Thing target = find_individual_at(cursor);
-        if (target != nullptr) {
-            if (attempt_dodge(item, target)) {
-                publish_event(Event::individual_dodges_thrown_item(target->id, item->id));
-            } else {
-                // wham!
-                publish_event(Event::item_hits_individual(target->id, item->id));
-                // hurt a little
-                int damage = random_inclusive(1, 2, "throw_impact_damage");
-                damage_individual(target, damage, actor, false);
-                if (damage == 2) {
-                    // no item can survive that much damage dealt
-                    item_breaks = true;
-                }
-                break;
-            }
-        }
-    }
-
-    if (item_breaks) {
-        switch (item->thing_type) {
-            case ThingType_INDIVIDUAL:
-                unreachable();
-            case ThingType_WAND:
-                explode_wand(actor, item, cursor);
-                break;
-            case ThingType_POTION:
-                break_potion(actor, item, cursor);
-                break;
-            case ThingType_BOOK:
-            case ThingType_WEAPON:
-                // actually unbreakable
-                drop_item_to_the_floor(item, cursor);
-                break;
-
-            case ThingType_COUNT:
-                unreachable();
-        }
-    } else {
-        drop_item_to_the_floor(item, cursor);
-    }
-}
 
 static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
+    Coord range_window = get_ability_range_window(ability_id);
     int range;
     int cooldown_time;
     switch (ability_id) {
         case AbilityId_SPIT_BLINDING_VENOM:
             publish_event(Event::spit_blinding_venom(actor->id));
             cooldown_time = random_midpoint(150, "spit_blinding_venom_cooldown");
-            range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "spit_blinding_venom_distance");
+            range = random_inclusive(range_window.x, range_window.y, "spit_blinding_venom_distance");
             break;
         case AbilityId_THROW_TAR:
             publish_event(Event::throw_tar(actor->id));
             cooldown_time = random_midpoint(150, "throw_tar_cooldown");
-            range = random_int(throw_distance_average - throw_distance_error_margin, throw_distance_average + throw_distance_error_margin, "throw_tar_distance");
+            range = random_inclusive(range_window.x, range_window.y, "throw_tar_distance");
             break;
         case AbilityId_ASSUME_FORM:
             cooldown_time = random_midpoint(48, "assume_form_cooldown");
-            range = infinite_range;
+            range = random_inclusive(range_window.x, range_window.y, "assume_form_distance");
             break;
         case AbilityId_COUNT:
             unreachable();

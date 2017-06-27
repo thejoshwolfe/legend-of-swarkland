@@ -57,10 +57,4 @@ static inline Coord get_texture_size(SDL_Texture * texture) {
     return Coord{result.w, result.h};
 }
 
-static inline bool renderer_is_alive(SDL_Renderer * renderer) {
-    SDL_RendererInfo info;
-    int error_code = SDL_GetRendererInfo(renderer, &info);
-    return error_code == 0;
-}
-
 #endif

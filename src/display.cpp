@@ -1111,20 +1111,27 @@ void render() {
             inventory_cursor_color = gray;
             show_map_popup_help = true;
             break;
-        case InputMode_THROW_CHOOSE_DIRECTION:
-            direction_distance_min = throw_distance_average - throw_distance_error_margin;
-            direction_distance_max = throw_distance_average + throw_distance_error_margin;
+        case InputMode_THROW_CHOOSE_DIRECTION: {
+            Coord range_window = get_throw_range_window(my_inventory[inventory_cursor]);
+            direction_distance_min = range_window.x;
+            direction_distance_max = range_window.y;
             show_inventory_cursor = true;
             inventory_cursor_color = gray;
             show_map_popup_help = true;
             break;
-        case InputMode_ABILITY_CHOOSE_DIRECTION:
-            direction_distance_min = throw_distance_average - throw_distance_error_margin;
-            direction_distance_max = throw_distance_average + throw_distance_error_margin;
+        }
+        case InputMode_ABILITY_CHOOSE_DIRECTION: {
+            List<AbilityId> abilities;
+            get_abilities(player_actor(), &abilities);
+            AbilityId chosen_ability = abilities[ability_cursor];
+            Coord range_window = get_ability_range_window(chosen_ability);
+            direction_distance_min = range_window.x;
+            direction_distance_max = range_window.y;
             show_ability_cursor = true;
             ability_cursor_color = gray;
             show_map_popup_help = true;
             break;
+        }
         case InputMode_FLOOR_CHOOSE_ACTION:
             show_floor_menu = true;
             break;

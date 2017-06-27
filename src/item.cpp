@@ -582,7 +582,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     game->observer_to_active_identifiable_item.clear();
 }
 
-void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
+static void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     // boom
     WandId wand_id = wand->wand_info()->wand_id;
     int apothem;
@@ -667,7 +667,7 @@ void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     game->observer_to_active_identifiable_item.clear();
 }
 
-void break_potion(Thing actor, Thing item, Coord location) {
+static void break_potion(Thing actor, Thing item, Coord location) {
     Thing target = find_individual_at(location);
     if (target != nullptr) {
         use_potion(actor, target, item, true);
@@ -675,4 +675,78 @@ void break_potion(Thing actor, Thing item, Coord location) {
         publish_event(Event::potion_breaks(item->id, location));
     }
     item->still_exists = false;
+}
+
+void throw_item(Thing actor, Thing item, Coord direction) {
+    publish_event(Event::throw_item(actor->id, item->id));
+    // let go of the item. it's now sailing through the air.
+    item->location = actor->location;
+    item->container_id = uint256::zero();
+    item->z_order = 0;
+    fix_z_orders(actor->id);
+
+    // find the hit target
+    Coord range_window = get_throw_range_window(item);
+    int range = random_inclusive(range_window.x, range_window.y, "throw_distance");
+    Coord cursor = actor->location;
+    bool item_breaks = false;
+    // potions are fragile
+    if (item->thing_type == ThingType_POTION)
+        item_breaks = true;
+    bool impacts_in_wall = item->thing_type == ThingType_WAND && item->wand_info()->wand_id == WandId_WAND_OF_DIGGING;
+    for (int i = 0; i < range; i++) {
+        cursor += direction;
+        if (!is_open_space(game->actual_map_tiles[cursor])) {
+            if (!(item_breaks && impacts_in_wall)) {
+                // impact just in front of the wall
+                cursor -= direction;
+            }
+            item_breaks = item->thing_type == ThingType_POTION || random_int(2, "wand_breaks") == 0;
+            publish_event(Event::item_hits_wall(item->id, cursor));
+            break;
+        } else {
+            item->location = cursor;
+            publish_event(Event::move(item, cursor - direction));
+        }
+        Thing target = find_individual_at(cursor);
+        if (target != nullptr) {
+            if (attempt_dodge(item, target)) {
+                publish_event(Event::individual_dodges_thrown_item(target->id, item->id));
+            } else {
+                // wham!
+                publish_event(Event::item_hits_individual(target->id, item->id));
+                // hurt a little
+                int damage = random_inclusive(1, 2, "throw_impact_damage");
+                damage_individual(target, damage, actor, false);
+                if (damage == 2) {
+                    // no item can survive that much damage dealt
+                    item_breaks = true;
+                }
+                break;
+            }
+        }
+    }
+
+    if (item_breaks) {
+        switch (item->thing_type) {
+            case ThingType_INDIVIDUAL:
+                unreachable();
+            case ThingType_WAND:
+                explode_wand(actor, item, cursor);
+                break;
+            case ThingType_POTION:
+                break_potion(actor, item, cursor);
+                break;
+            case ThingType_BOOK:
+            case ThingType_WEAPON:
+                // actually unbreakable
+                drop_item_to_the_floor(item, cursor);
+                break;
+
+            case ThingType_COUNT:
+                unreachable();
+        }
+    } else {
+        drop_item_to_the_floor(item, cursor);
+    }
 }

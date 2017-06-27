@@ -3,7 +3,7 @@
 pickup 0000000000000000000000000000000000000000000000000000000000000002
 @mark_events
   throw 1 0 0000000000000000000000000000000000000000000000000000000000000002
-    @rng 4 range:4:6:throw_distance
+    @rng 4 inclusive:4:6:throw_distance
   @expect_event "you throws a blue potion."
   @expect_event "a blue potion hits a wall."
   @expect_event "a blue potion shatters!"
@@ -15,7 +15,7 @@ move 0 1
 pickup 0000000000000000000000000000000000000000000000000000000000000003
 @mark_events
   throw 1 0 0000000000000000000000000000000000000000000000000000000000000003
-    @rng 4 range:4:6:throw_distance
+    @rng 4 inclusive:4:6:throw_distance
   @expect_event "you throws a blue potion."
   @expect_event "a blue potion shatters!"
   @expect_no_events

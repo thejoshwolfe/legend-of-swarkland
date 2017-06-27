@@ -6,9 +6,7 @@
 const int beam_length_average = 9;
 const int beam_length_error_margin = 3;
 
-const int throw_distance_average = 5;
-const int throw_distance_error_margin = 1;
-const int infinite_range = max(MAP_SIZE_X, MAP_SIZE_Y);
+static const int infinite_range = max(MAP_SIZE_X, MAP_SIZE_Y);
 
 static const int WAND_OFFSET = 0;
 static const int POTION_OFFSET = WAND_OFFSET + WandId_COUNT;
@@ -58,7 +56,59 @@ int get_mana_cost(BookId book_id);
 void zap_wand(Thing individual, uint256 item_id, Coord direction);
 void read_book(Thing actor, uint256 item_id, Coord direction);
 void use_potion(Thing actor, Thing target, Thing item, bool is_breaking);
-void explode_wand(Thing actor, Thing item, Coord explosion_center);
-void break_potion(Thing actor, Thing item, Coord location);
+void throw_item(Thing actor, Thing item, Coord direction);
+
+static const int typical_throw_range_window_min = 4;
+static const int typical_throw_range_window_max = 6;
+
+// {min, max} (inclusive)
+template <typename T>
+Coord get_throw_range_window(T thrown_thing) {
+    switch (thrown_thing->thing_type) {
+        case ThingType_INDIVIDUAL:
+            // can't even hold individuals, let alone throw them.
+            unreachable();
+        case ThingType_WAND:
+        case ThingType_POTION:
+        case ThingType_BOOK:
+            return Coord{typical_throw_range_window_min, typical_throw_range_window_max};
+        case ThingType_WEAPON:
+            switch (thrown_thing->weapon_info()->weapon_id) {
+                case WeaponId_DAGGER:
+                    // range up
+                    return Coord{8, 12};
+                case WeaponId_BATTLEAXE:
+                    // range down
+                    return Coord{2, 3};
+
+                case WeaponId_UNKNOWN:
+                case WeaponId_COUNT:
+                    unreachable();
+            }
+            unreachable();
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+
+// {min, max} (inclusive)
+static inline Coord get_ability_range_window(AbilityId ability_id) {
+    switch (ability_id) {
+        case AbilityId_SPIT_BLINDING_VENOM:
+            return Coord{typical_throw_range_window_min, typical_throw_range_window_max};
+        case AbilityId_THROW_TAR:
+            return Coord{typical_throw_range_window_min, typical_throw_range_window_max};
+        case AbilityId_ASSUME_FORM:
+            return Coord{infinite_range, infinite_range};
+
+        case AbilityId_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+
+
 
 #endif

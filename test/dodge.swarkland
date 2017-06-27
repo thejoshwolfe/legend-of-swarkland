@@ -16,7 +16,7 @@ quaff 0000000000000000000000000000000000000000000000000000000000000006
   @rng 2000 midpoint:2000:potion_of_invisibility_expiration
 wait
 throw -1 0 0000000000000000000000000000000000000000000000000000000000000004
-  @rng 4 range:4:6:throw_distance
+  @rng 4 inclusive:4:6:throw_distance
   @rng 0 int:12:dodge
 wait
 move -1 0
@@ -59,6 +59,6 @@ wait
 
 # point-blank throw from invisible
 throw -1 1 0000000000000000000000000000000000000000000000000000000000000005
-  @rng 6 range:4:6:throw_distance
+  @rng 6 inclusive:4:6:throw_distance
   @rng 0 int:2:dodge_on_0
   @rng 1 int:2:wand_breaks

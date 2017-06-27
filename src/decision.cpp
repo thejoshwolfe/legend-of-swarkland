@@ -147,7 +147,6 @@ static int rate_polymorph_value(SpeciesId species_id) {
 }
 
 static const int confident_zap_distance = beam_length_average - beam_length_error_margin + 1;
-static const int confident_throw_distance = throw_distance_average - throw_distance_error_margin;
 static bool is_clear_projectile_shot(Thing actor, Coord location, int confident_distance) {
     int distnace = ordinal_distance(location, actor->location);
     if (distnace > confident_distance)
@@ -380,7 +379,7 @@ Action get_ai_decision(Thing actor) {
                                 case PotionId_POTION_OF_POISON:
                                     if (has_status(target, StatusEffect::POISON))
                                         break; // already poisoned
-                                    if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
+                                    if (!is_clear_projectile_shot(actor, target->location, get_throw_range_window(item).x))
                                         break; // too far
                                     range_attack_actions.append(Action::throw_(item->id, direction));
                                     break;
@@ -413,7 +412,7 @@ Action get_ai_decision(Thing actor) {
                                 case PotionId_POTION_OF_BLINDNESS:
                                     if (has_status(target, StatusEffect::BLINDNESS))
                                         break; // already blind
-                                    if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
+                                    if (!is_clear_projectile_shot(actor, target->location, get_throw_range_window(item).x))
                                         break; // too far
                                     range_attack_actions.append(Action::throw_(item->id, direction));
                                     break;
@@ -483,14 +482,14 @@ Action get_ai_decision(Thing actor) {
                         case AbilityId_SPIT_BLINDING_VENOM:
                             if (advanced_strategy && has_status(target, StatusEffect::BLINDNESS))
                                 break; // already affected
-                            if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
+                            if (!is_clear_projectile_shot(actor, target->location, get_ability_range_window(ability_id).x))
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
                         case AbilityId_THROW_TAR:
                             if (advanced_strategy && has_status(target, StatusEffect::SLOWING))
                                 break; // already affected
-                            if (!is_clear_projectile_shot(actor, target->location, confident_throw_distance))
+                            if (!is_clear_projectile_shot(actor, target->location, get_ability_range_window(ability_id).x))
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;

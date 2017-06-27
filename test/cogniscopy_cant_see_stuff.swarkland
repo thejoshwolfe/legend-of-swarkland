@@ -61,7 +61,7 @@ wait
 wait
 # throw the wand into view
 throw -1 0 0000000000000000000000000000000000000000000000000000000000000006
-  @rng 5 range:4:6:throw_distance
+  @rng 5 inclusive:4:6:throw_distance
 @find_things_at 8 4
   @expect_thing individual lich
     # ok, you're probably not carrying that wand anymore

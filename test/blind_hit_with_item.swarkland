@@ -11,7 +11,7 @@ pickup 0000000000000000000000000000000000000000000000000000000000000004
 @mark_events
 wait
 throw -1 0 0000000000000000000000000000000000000000000000000000000000000004
-  @rng 6 range:4:6:throw_distance
+  @rng 6 inclusive:4:6:throw_distance
   @rng 2 int:12:dodge
   @rng 1 inclusive:1:2:throw_impact_damage
 @expect_event "a potion hits you!"
