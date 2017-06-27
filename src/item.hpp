@@ -109,6 +109,36 @@ static inline Coord get_ability_range_window(AbilityId ability_id) {
     unreachable();
 }
 
+// {min, max} (inclusive)
+template <typename T>
+Coord get_throw_damage_damage_window(T item) {
+    switch (item->thing_type) {
+        case ThingType_INDIVIDUAL:
+            unreachable();
+        case ThingType_WAND:
+        case ThingType_POTION:
+        case ThingType_BOOK:
+            // token damage
+            return Coord{1, 2};
+        case ThingType_WEAPON:
+            switch (item->weapon_info()->weapon_id) {
+                case WeaponId_DAGGER:
+                    // more damage
+                    return Coord{2, 4};
+                case WeaponId_BATTLEAXE:
+                    // lots damage
+                    return Coord{3, 6};
 
+                case WeaponId_UNKNOWN:
+                case WeaponId_COUNT:
+                    unreachable();
+            }
+            unreachable();
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
 
 #endif

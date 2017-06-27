@@ -12,7 +12,7 @@ throw -1 0 0000000000000000000000000000000000000000000000000000000000000004
   @rng 3 inclusive:2:3:throw_distance
   # TODO: shouldn't be able to dodge this.
   @rng 9 int:12:dodge
-  @rng 1 inclusive:1:2:throw_impact_damage
+  @rng 3 inclusive:3:6:throw_impact_damage
 @expect_event "a battleaxe hits you!"
 @expect_event "a battleaxe drops to the floor."
 @expect_no_events
