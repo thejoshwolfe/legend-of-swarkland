@@ -249,6 +249,12 @@ Action get_ai_decision(Thing actor) {
                 if (target->location == Coord::nowhere())
                     continue; // not available to pick up
                 break;
+            case ThingType_WEAPON:
+                if (!uses_items)
+                    continue; // don't care
+                if (target->location == Coord::nowhere())
+                    continue; // not available to pick up
+                break;
 
             case ThingType_COUNT:
                 unreachable();
@@ -462,6 +468,9 @@ Action get_ai_decision(Thing actor) {
                             }
                             break;
                         }
+                        case ThingType_WEAPON:
+                            // We're not going to throw it. Just attack if it's equipped.
+                            break;
                         case ThingType_COUNT:
                             unreachable();
                     }
@@ -527,7 +536,8 @@ Action get_ai_decision(Thing actor) {
             }
             case ThingType_WAND:
             case ThingType_POTION:
-            case ThingType_BOOK: {
+            case ThingType_BOOK:
+            case ThingType_WEAPON: {
                 // gimme that
                 if (target->location == actor->location)
                     return Action::pickup(target->id);

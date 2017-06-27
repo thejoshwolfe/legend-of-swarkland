@@ -47,6 +47,7 @@ struct Action {
             WandId wand_id;
             PotionId potion_id;
             BookId book_id;
+            WeaponId weapon_id;
         };
     };
     struct GenerateMonster {
@@ -151,6 +152,9 @@ struct Action {
     static Action cheatcode_wish(BookId book_id) {
         return init(CHEATCODE_WISH, book_id);
     }
+    static Action cheatcode_wish(WeaponId weapon_id) {
+        return init(CHEATCODE_WISH, weapon_id);
+    }
     static Action cheatcode_identify() {
         return init(CHEATCODE_IDENTIFY);
     }
@@ -218,6 +222,14 @@ struct Action {
         result.id = id;
         result._thing.thing_type = ThingType_BOOK;
         result._thing.book_id = book_id;
+        return result;
+    }
+    static Action init(Id id, WeaponId weapon_id) {
+        assert(get_layout(id) == Layout_THING);
+        Action result;
+        result.id = id;
+        result._thing.thing_type = ThingType_WEAPON;
+        result._thing.weapon_id = weapon_id;
         return result;
     }
     static Action init(Id id, SpeciesId species_id, DecisionMakerType decision_maker, Coord location) {
@@ -329,6 +341,10 @@ static inline bool operator==(const Action & a, const Action &  b) {
                     return true;
                 case ThingType_BOOK:
                     if (a_data.book_id != b_data.book_id)
+                        return false;
+                    return true;
+                case ThingType_WEAPON:
+                    if (a_data.weapon_id != b_data.weapon_id)
                         return false;
                     return true;
 

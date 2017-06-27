@@ -199,7 +199,8 @@ static void throw_item(Thing actor, Thing item, Coord direction) {
                 break_potion(actor, item, cursor);
                 break;
             case ThingType_BOOK:
-                // actually, the book doesn't break
+            case ThingType_WEAPON:
+                // actually unbreakable
                 drop_item_to_the_floor(item, cursor);
                 break;
 
@@ -1003,6 +1004,9 @@ static bool take_action(Thing actor, const Action & action) {
                     return false;
                 case ThingType_BOOK:
                     drop_item_to_the_floor(create_book(data.book_id), actor->location);
+                    return false;
+                case ThingType_WEAPON:
+                    drop_item_to_the_floor(create_weapon(data.weapon_id), actor->location);
                     return false;
 
                 case ThingType_COUNT:

@@ -33,6 +33,7 @@ const char * get_species_name_str(SpeciesId species_id);
 const char * get_wand_id_str(WandId wand_id);
 const char * get_potion_id_str(PotionId potion_id);
 const char * get_book_id_str(BookId book_id);
+const char * get_weapon_id_str(WeaponId weapon_id);
 Span get_species_name(SpeciesId species_id);
 Span get_thing_description(Thing observer, uint256 target_id);
 void render();

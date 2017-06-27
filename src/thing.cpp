@@ -29,3 +29,9 @@ ThingImpl::ThingImpl(uint256 id, BookId book_id) :
     _book_info = create<BookInfo>();
     _book_info->book_id = book_id;
 }
+ThingImpl::ThingImpl(uint256 id, WeaponId weapon_id) :
+        id(id), thing_type(ThingType_WEAPON)
+{
+    _weapon_info = create<WeaponInfo>();
+    _weapon_info->weapon_id = weapon_id;
+}

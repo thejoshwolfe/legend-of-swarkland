@@ -39,6 +39,9 @@ Thing create_potion(PotionId potion_id) {
 Thing create_book(BookId book_id) {
     return register_item(create<ThingImpl>(random_id(), book_id));
 }
+Thing create_weapon(WeaponId weapon_id) {
+    return register_item(create<ThingImpl>(random_id(), weapon_id));
+}
 
 static Thing create_random_item(int min_offset, int max_offset) {
     // select from the pool
@@ -71,6 +74,8 @@ static Thing create_random_item(int min_offset, int max_offset) {
         return create_potion((PotionId)(item_index - POTION_OFFSET));
     if (BOOK_OFFSET <= item_index && item_index < BOOK_OFFSET + BookId_COUNT)
         return create_book((BookId)(item_index - BOOK_OFFSET));
+    if (WEAPON_OFFSET <= item_index && item_index < WEAPON_OFFSET + WeaponId_COUNT)
+        return create_weapon((WeaponId)(item_index - WEAPON_OFFSET));
     unreachable();
 }
 Thing create_random_item() {
@@ -86,6 +91,8 @@ Thing create_random_item(ThingType thing_type) {
             return create_random_item(POTION_OFFSET, POTION_OFFSET + PotionId_COUNT);
         case ThingType_BOOK:
             return create_random_item(BOOK_OFFSET, BOOK_OFFSET + BookId_COUNT);
+        case ThingType_WEAPON:
+            return create_random_item(WEAPON_OFFSET, WEAPON_OFFSET + WeaponId_COUNT);
 
         case ThingType_COUNT:
             unreachable();

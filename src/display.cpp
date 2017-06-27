@@ -12,6 +12,7 @@
 #include "event.hpp"
 #include "decision.hpp"
 #include "spritesheet.hpp"
+#include "sdl_graphics.hpp"
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -76,6 +77,7 @@ static Rect species_images[SpeciesId_COUNT];
 static Rect wand_images[WandDescriptionId_COUNT];
 static Rect potion_images[PotionDescriptionId_COUNT];
 static Rect book_images[BookDescriptionId_COUNT];
+static Rect weapon_images[WeaponId_COUNT];
 
 TTF_Font * status_box_font;
 static SDL_RWops *font_rw_ops;
@@ -136,6 +138,11 @@ static void load_images() {
     book_images[BookDescriptionId_GREEN_BOOK] = sprite_location_green_book;
     book_images[BookDescriptionId_YELLOW_BOOK] = sprite_location_yellow_book;
     check_no_trash(book_images);
+
+    fill_with_trash(weapon_images);
+    weapon_images[WeaponId_DAGGER] = sprite_location_dagger;
+    weapon_images[WeaponId_BATTLEAXE] = sprite_location_battleaxe;
+    check_no_trash(weapon_images);
 }
 
 void init_display() {
@@ -442,6 +449,19 @@ const char * get_book_id_str(BookId book_id) {
     }
     unreachable();;
 }
+const char * get_weapon_id_str(WeaponId weapon_id) {
+    switch (weapon_id) {
+        case WeaponId_DAGGER:
+            return "dagger";
+        case WeaponId_BATTLEAXE:
+            return "battleaxe";
+
+        case WeaponId_COUNT:
+        case WeaponId_UNKNOWN:
+            unreachable();;
+    }
+    unreachable();;
+}
 static const char * get_potion_description_str(Thing observer, PerceivedThing item) {
     PotionDescriptionId description_id = item->potion_info()->description_id;
     PotionId true_id = description_id != PotionDescriptionId_UNSEEN ? observer->life()->knowledge.potion_identities[description_id] : PotionId_UNKNOWN;
@@ -498,6 +518,22 @@ static const char * get_book_description_str(Thing observer, PerceivedThing item
         unreachable();
     }
 }
+static const char * get_weapon_description_str(PerceivedThing item) {
+    WeaponId weapon_id = item->weapon_info()->weapon_id;
+    switch (weapon_id) {
+        case WeaponId_DAGGER:
+            return "dagger";
+        case WeaponId_BATTLEAXE:
+            return "battleaxe";
+
+        case WeaponId_UNKNOWN:
+            return "weapon";
+
+        case WeaponId_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
 static Span get_thing_description(Thing observer, uint256 target_id, bool verbose) {
     if (observer->id == target_id)
         return new_span("you", light_blue, black);
@@ -525,6 +561,9 @@ static Span get_thing_description(Thing observer, uint256 target_id, bool verbos
             return result;
         case ThingType_BOOK:
             result->append(new_span(get_book_description_str(observer, target), light_green, black));
+            return result;
+        case ThingType_WEAPON:
+            result->append(new_span(get_weapon_description_str(target), light_green, black));
             return result;
 
         case ThingType_COUNT:
@@ -577,6 +616,10 @@ static Rect get_image_for_thing(PerceivedThing thing) {
             if (thing->book_info()->description_id == BookDescriptionId_UNSEEN)
                 return sprite_location_unseen_book;
             return book_images[thing->book_info()->description_id];
+        case ThingType_WEAPON:
+            if (thing->weapon_info()->weapon_id == WeaponId_UNKNOWN)
+                return sprite_location_unseen_weapon;
+            return weapon_images[thing->weapon_info()->weapon_id];
 
         case ThingType_COUNT:
             unreachable();
@@ -593,6 +636,8 @@ static Rect get_image_for_thing(Thing thing) {
             return potion_images[game->actual_potion_descriptions[thing->potion_info()->potion_id]];
         case ThingType_BOOK:
             return book_images[game->actual_book_descriptions[thing->book_info()->book_id]];
+        case ThingType_WEAPON:
+            return weapon_images[thing->weapon_info()->weapon_id];
 
         case ThingType_COUNT:
             unreachable();
@@ -666,6 +711,8 @@ static Div cheatcode_wish_choose_potion_id_menu_div = new_div();
 static int last_cheatcode_wish_choose_potion_id_menu_cursor = -1;
 static Div cheatcode_wish_choose_book_id_menu_div = new_div();
 static int last_cheatcode_wish_choose_book_id_menu_cursor = -1;
+static Div cheatcode_wish_choose_weapon_id_menu_div = new_div();
+static int last_cheatcode_wish_choose_weapon_id_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_species_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
@@ -761,6 +808,7 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
             case InputMode_CHEATCODE_WISH_CHOOSE_WAND_ID:
             case InputMode_CHEATCODE_WISH_CHOOSE_POTION_ID:
             case InputMode_CHEATCODE_WISH_CHOOSE_BOOK_ID:
+            case InputMode_CHEATCODE_WISH_CHOOSE_WEAPON_ID:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
                 lines.append("w/x: move cursor");
@@ -923,6 +971,9 @@ static Span render_thing_type(ThingType thing_type) {
         case ThingType_BOOK:
             result->format("%g%s", sprite_location_unseen_book, new_span("book"));
             break;
+        case ThingType_WEAPON:
+            result->format("%g%s", sprite_location_unseen_weapon, new_span("weapon"));
+            break;
 
         case ThingType_COUNT:
             unreachable();
@@ -932,19 +983,24 @@ static Span render_thing_type(ThingType thing_type) {
 static Span render_wand_id(WandId wand_id) {
     Span result = new_span();
     WandDescriptionId description_id = game->actual_wand_descriptions[wand_id];
-    result->format("%g%s", wand_images[description_id], new_span(get_wand_id_str((WandId)wand_id)));
+    result->format("%g%s", wand_images[description_id], new_span(get_wand_id_str(wand_id)));
     return result;
 }
 static Span render_potion_id(PotionId potion_id) {
     Span result = new_span();
     PotionDescriptionId description_id = game->actual_potion_descriptions[potion_id];
-    result->format("%g%s", potion_images[description_id], new_span(get_potion_id_str((PotionId)potion_id)));
+    result->format("%g%s", potion_images[description_id], new_span(get_potion_id_str(potion_id)));
     return result;
 }
 static Span render_book_id(BookId book_id) {
     Span result = new_span();
     BookDescriptionId description_id = game->actual_book_descriptions[book_id];
-    result->format("%g%s", book_images[description_id], new_span(get_book_id_str((BookId)book_id)));
+    result->format("%g%s", book_images[description_id], new_span(get_book_id_str(book_id)));
+    return result;
+}
+static Span render_weapon_id(WeaponId weapon_id) {
+    Span result = new_span();
+    result->format("%g%s", weapon_images[weapon_id], new_span(get_weapon_id_str(weapon_id)));
     return result;
 }
 static Span render_species(SpeciesId species_id) {
@@ -1019,6 +1075,7 @@ void render() {
     bool show_cheatcode_wish_choose_wand_id_menu = false;
     bool show_cheatcode_wish_choose_potion_id_menu = false;
     bool show_cheatcode_wish_choose_book_id_menu = false;
+    bool show_cheatcode_wish_choose_weapon_id_menu = false;
     bool show_cheatcode_generate_monster_choose_species_menu = false;
     bool show_cheatcode_generate_monster_choose_decision_maker_menu = false;
     bool show_cheatcode_generate_monster_location_cursor = false;
@@ -1085,6 +1142,9 @@ void render() {
             break;
         case InputMode_CHEATCODE_WISH_CHOOSE_BOOK_ID:
             show_cheatcode_wish_choose_book_id_menu = true;
+            break;
+        case InputMode_CHEATCODE_WISH_CHOOSE_WEAPON_ID:
+            show_cheatcode_wish_choose_weapon_id_menu = true;
             break;
         case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             show_cheatcode_generate_monster_choose_species_menu = true;
@@ -1465,6 +1525,23 @@ void render() {
             }
         }
         popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_book_id_menu_div);
+    }
+    if (show_cheatcode_wish_choose_weapon_id_menu) {
+        if (last_cheatcode_wish_choose_weapon_id_menu_cursor != cheatcode_wish_choose_weapon_id_menu_cursor) {
+            // rerender menu div
+            cheatcode_wish_choose_weapon_id_menu_div->clear();
+            last_cheatcode_wish_choose_weapon_id_menu_cursor = cheatcode_wish_choose_weapon_id_menu_cursor;
+            for (int i = 0; i < WeaponId_COUNT; i++) {
+                if (i > 0)
+                    cheatcode_wish_choose_weapon_id_menu_div->append_newline();
+                Span item_span = render_weapon_id((WeaponId)i);
+                if (i == cheatcode_wish_choose_weapon_id_menu_cursor) {
+                    item_span->set_color_recursive(black, amber);
+                }
+                cheatcode_wish_choose_weapon_id_menu_div->append(item_span);
+            }
+        }
+        popup_help(main_map_area, Coord{-1, -1}, cheatcode_wish_choose_weapon_id_menu_div);
     }
     if (show_cheatcode_generate_monster_choose_species_menu) {
         if (last_cheatcode_generate_monster_choose_species_menu_cursor != cheatcode_generate_monster_choose_species_menu_cursor) {

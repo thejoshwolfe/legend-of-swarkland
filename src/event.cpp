@@ -141,6 +141,10 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
                 if (thing->book_info()->description_id == BookDescriptionId_UNSEEN)
                     return thing->id; // already got one
                 break;
+            case ThingType_WEAPON:
+                if (thing->weapon_info()->weapon_id == WeaponId_UNKNOWN)
+                    return thing->id; // already got one
+                break;
 
             case ThingType_COUNT:
                 unreachable();
@@ -160,6 +164,9 @@ static uint256 make_placeholder_item(Thing observer, uint256 actual_item_id, uin
             break;
         case ThingType_BOOK:
             thing = create<PerceivedThingImpl>(id, true, BookDescriptionId_UNSEEN, game->time_counter);
+            break;
+        case ThingType_WEAPON:
+            thing = create<PerceivedThingImpl>(id, true, WeaponId_UNKNOWN, game->time_counter);
             break;
 
         case ThingType_COUNT:
@@ -436,6 +443,8 @@ static PerceivedThing new_perceived_thing(uint256 id, ThingType thing_type) {
             return create<PerceivedThingImpl>(id, false, PotionDescriptionId_UNSEEN, game->time_counter);
         case ThingType_BOOK:
             return create<PerceivedThingImpl>(id, false, BookDescriptionId_UNSEEN, game->time_counter);
+        case ThingType_WEAPON:
+            return create<PerceivedThingImpl>(id, false, WeaponId_UNKNOWN, game->time_counter);
 
         case ThingType_COUNT:
             unreachable();
@@ -466,6 +475,10 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
         case ThingType_BOOK:
             if (can_see_color(vision))
                 target->book_info()->description_id = game->actual_book_descriptions[actual_target->book_info()->book_id];
+            break;
+        case ThingType_WEAPON:
+            if (can_see_shape(vision))
+                target->weapon_info()->weapon_id = actual_target->weapon_info()->weapon_id;
             break;
 
         case ThingType_COUNT:
@@ -548,6 +561,8 @@ static void identify_active_item(Thing observer, WandId wand_id, PotionId potion
             assert(book_id != BookId_UNKNOWN);
             observer->life()->knowledge.book_identities[item->book_info()->description_id] = book_id;
             return;
+        case ThingType_WEAPON:
+            unreachable();
 
         case ThingType_COUNT:
             unreachable();

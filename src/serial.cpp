@@ -436,6 +436,7 @@ static IndexAndValue<ConstStr> constexpr thing_type_names[ThingType_COUNT] = {
     {ThingType_WAND, "wand"},
     {ThingType_POTION, "potion"},
     {ThingType_BOOK, "book"},
+    {ThingType_WEAPON, "weapon"},
 };
 check_indexed_array(thing_type_names);
 
@@ -473,6 +474,14 @@ static IndexAndValue<ConstStr> constexpr book_id_names[BookId_COUNT + 2] = {
     {BookId_SPELLBOOK_OF_MAPPING, "mapping"},
     {BookId_SPELLBOOK_OF_FORCE, "force"},
     {BookId_SPELLBOOK_OF_ASSUME_FORM, "assume_form"},
+    {BookId_COUNT, nullptr},
+    {BookId_UNKNOWN, "unknown"},
+};
+check_indexed_array(book_id_names);
+
+static IndexAndValue<ConstStr> constexpr weapon_id_names[WeaponId_COUNT + 2] = {
+    {WeaponId_DAGGER, "dagger"},
+    {WeaponId_BATTLEAXE, "battleaxe"},
     {BookId_COUNT, nullptr},
     {BookId_UNKNOWN, "unknown"},
 };
@@ -618,6 +627,13 @@ static BookId parse_book_id(ByteBuffer const& line, const Token & token) {
     }
     report_error(token, 0, "undefined book id");
 }
+static WeaponId parse_weapon_id(ByteBuffer const& line, const Token & token) {
+    for (int i = 0; i < get_array_length(weapon_id_names); i++) {
+        if (token_equals(line, token, weapon_id_names[i].value))
+            return (WeaponId)i;
+    }
+    report_error(token, 0, "undefined weapon id");
+}
 static Action::Thing parse_thing_signature(ByteBuffer const& line, const Token & token1, const Token & token2) {
     Action::Thing thing;
     thing.thing_type = parse_thing_type(line, token1);
@@ -633,6 +649,9 @@ static Action::Thing parse_thing_signature(ByteBuffer const& line, const Token &
             break;
         case ThingType_BOOK:
             thing.book_id = parse_book_id(line, token2);
+            break;
+        case ThingType_WEAPON:
+            thing.weapon_id = parse_weapon_id(line, token2);
             break;
 
         case ThingType_COUNT:
@@ -1089,6 +1108,13 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                                 expect_extra_token_count(tokens, token_cursor - 1);
                                 break;
                             }
+                            case ThingType_WEAPON: {
+                                WeaponId weapon_id = parse_string_id<WeaponId>(weapon_id_names, get_array_length(weapon_id_names), line, tokens[token_cursor++]);
+                                perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, weapon_id, last_seen_time);
+
+                                expect_extra_token_count(tokens, token_cursor - 1);
+                                break;
+                            }
 
                             case ThingType_COUNT:
                                 unreachable();
@@ -1120,6 +1146,13 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
             case ThingType_BOOK: {
                 BookId book_id = parse_book_id(line, tokens[token_cursor++]);
                 thing = create<ThingImpl>(id, book_id);
+
+                expect_extra_token_count(tokens, token_cursor - 1);
+                break;
+            }
+            case ThingType_WEAPON: {
+                WeaponId weapon_id = parse_weapon_id(line, tokens[token_cursor++]);
+                thing = create<ThingImpl>(id, weapon_id);
 
                 expect_extra_token_count(tokens, token_cursor - 1);
                 break;
@@ -1324,6 +1357,10 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                             buffer->append(' ');
                             buffer->append(book_description_names[perceived_thing->book_info()->description_id].value);
                             break;
+                        case ThingType_WEAPON:
+                            buffer->append(' ');
+                            buffer->append(weapon_id_names[perceived_thing->weapon_info()->weapon_id].value);
+                            break;
 
                         case ThingType_COUNT:
                             unreachable();
@@ -1344,6 +1381,10 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
             case ThingType_BOOK:
                 buffer->append(' ');
                 buffer->append(book_id_names[thing->book_info()->book_id].value);
+                break;
+            case ThingType_WEAPON:
+                buffer->append(' ');
+                buffer->append(weapon_id_names[thing->weapon_info()->weapon_id].value);
                 break;
 
             case ThingType_COUNT:
@@ -1399,6 +1440,9 @@ static String get_thing_description(const Action::Thing & thing) {
         case ThingType_BOOK:
             result->append(get_book_id_str(thing.book_id));
             return result;
+        case ThingType_WEAPON:
+            result->append(get_weapon_id_str(thing.weapon_id));
+            return result;
         case ThingType_COUNT:
             unreachable();
     }
@@ -1440,6 +1484,15 @@ static PerceivedThing expect_thing(const Action::Thing & expected_thing, List<Pe
                         continue;
                 } else {
                     if (thing->book_info()->description_id != game->actual_book_descriptions[expected_thing.book_id])
+                        continue;
+                }
+                break;
+            case ThingType_WEAPON:
+                if (thing->weapon_info()->weapon_id == WeaponId_UNKNOWN) {
+                    if (expected_thing.weapon_id != WeaponId_UNKNOWN)
+                        continue;
+                } else {
+                    if (thing->weapon_info()->weapon_id != expected_thing.weapon_id)
                         continue;
                 }
                 break;
@@ -1668,6 +1721,10 @@ static void write_action(ByteBuffer * output_buffer, const Action & action) {
                 case ThingType_BOOK:
                     output_buffer->append(' ');
                     output_buffer->append(book_id_names[data.book_id].value);
+                    break;
+                case ThingType_WEAPON:
+                    output_buffer->append(' ');
+                    output_buffer->append(weapon_id_names[data.weapon_id].value);
                     break;
 
                 case ThingType_COUNT:

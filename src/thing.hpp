@@ -17,6 +17,7 @@ enum ThingType {
     ThingType_WAND,
     ThingType_POTION,
     ThingType_BOOK,
+    ThingType_WEAPON,
 
     ThingType_COUNT,
 };
@@ -94,6 +95,13 @@ enum BookId {
 
     BookId_COUNT,
     BookId_UNKNOWN,
+};
+enum WeaponId {
+    WeaponId_DAGGER,
+    WeaponId_BATTLEAXE,
+
+    WeaponId_COUNT,
+    WeaponId_UNKNOWN,
 };
 
 enum SpeciesId {
@@ -322,6 +330,9 @@ struct PerceivedPotionInfo {
 struct PerceivedBookInfo {
     BookDescriptionId description_id;
 };
+struct PerceivedWeaponInfo {
+    WeaponId weapon_id;
+};
 struct PerceivedLife {
     SpeciesId species_id;
 };
@@ -362,6 +373,12 @@ public:
         _book_info = create<PerceivedBookInfo>();
         _book_info->description_id = description_id;
     }
+    // weapon
+    PerceivedThingImpl(uint256 id, bool is_placeholder, WeaponId weapon_id, int64_t last_seen_time) :
+            id(id), is_placeholder(is_placeholder), thing_type(ThingType_WEAPON), last_seen_time(last_seen_time) {
+        _weapon_info = create<PerceivedWeaponInfo>();
+        _weapon_info->weapon_id = weapon_id;
+    }
     ~PerceivedThingImpl() {
         switch (thing_type) {
             case ThingType_INDIVIDUAL:
@@ -375,6 +392,9 @@ public:
                 break;
             case ThingType_BOOK:
                 destroy(_book_info, 1);
+                break;
+            case ThingType_WEAPON:
+                destroy(_weapon_info, 1);
                 break;
 
             case ThingType_COUNT:
@@ -397,12 +417,17 @@ public:
         assert_str(thing_type == ThingType_BOOK, "wrong type");
         return _book_info;
     }
+    PerceivedWeaponInfo * weapon_info() {
+        assert_str(thing_type == ThingType_WEAPON, "wrong type");
+        return _weapon_info;
+    }
 private:
     union {
         PerceivedLife * _life;
         PerceivedWandInfo * _wand_info;
         PerceivedPotionInfo * _potion_info;
         PerceivedBookInfo * _book_info;
+        PerceivedWeaponInfo * _weapon_info;
     };
 };
 typedef Reference<PerceivedThingImpl> PerceivedThing;
@@ -481,6 +506,9 @@ struct PotionInfo {
 struct BookInfo {
     BookId book_id;
 };
+struct WeaponInfo {
+    WeaponId weapon_id;
+};
 
 class ThingImpl : public ReferenceCounted {
 public:
@@ -504,6 +532,8 @@ public:
     ThingImpl(uint256 id, PotionId potion_id);
     // book
     ThingImpl(uint256 id, BookId book_id);
+    // weapon
+    ThingImpl(uint256 id, WeaponId weapon_id);
 
     ~ThingImpl() {
         switch (thing_type) {
@@ -518,6 +548,9 @@ public:
                 break;
             case ThingType_BOOK:
                 destroy(_book_info, 1);
+                break;
+            case ThingType_WEAPON:
+                destroy(_weapon_info, 1);
                 break;
 
             case ThingType_COUNT:
@@ -544,6 +577,10 @@ public:
     BookInfo * book_info() {
         assert(thing_type == ThingType_BOOK);
         return _book_info;
+    }
+    WeaponInfo * weapon_info() {
+        assert(thing_type == ThingType_WEAPON);
+        return _weapon_info;
     }
 
     // these are only valid for individuals
@@ -581,6 +618,7 @@ private:
         WandInfo * _wand_info;
         PotionInfo * _potion_info;
         BookInfo * _book_info;
+        WeaponInfo * _weapon_info;
     };
 
     ThingImpl(ThingImpl &) = delete;
