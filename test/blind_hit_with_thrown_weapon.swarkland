@@ -1,0 +1,17 @@
+@test
+!wish potion blindness
+pickup 0000000000000000000000000000000000000000000000000000000000000002
+!monster lich player 3 1
+quaff 0000000000000000000000000000000000000000000000000000000000000002
+  @rng 1000 midpoint:1000:potion_of_blindness_expiration
+!wish weapon battleaxe
+pickup 0000000000000000000000000000000000000000000000000000000000000004
+@mark_events
+wait
+throw -1 0 0000000000000000000000000000000000000000000000000000000000000004
+  @rng 6 range:4:6:throw_distance
+  # TODO: shouldn't be able to dodge this.
+  @rng 9 int:12:dodge
+  @rng 1 inclusive:1:2:throw_impact_damage
+@expect_event "a battleaxe hits you!"
+@expect_event "a battleaxe drops to the floor."
