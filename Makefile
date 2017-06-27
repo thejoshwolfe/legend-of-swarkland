@@ -29,7 +29,7 @@ build/full_version.txt: $(VERSION_FILE)
 	cp "$<" $@
 %/font_resource: assets/font/DejaVuSansMono.ttf
 	cp "$<" $@
-%/spritesheet_resource:
+%/spritesheet_resource: tools/compile_spritesheet.py
 	PYTHONPATH=deps/simplepng.py/ ./tools/compile_spritesheet.py assets/img/ --glob='*.png' --tilesize=32 --spritesheet=$@ --header=$(dir $@)spritesheet.hpp --deps=$@.d
 %/spritesheet.hpp: %/spritesheet_resource
 	@# the spritesheet generation might update the .hpp
