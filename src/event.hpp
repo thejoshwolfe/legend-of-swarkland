@@ -51,6 +51,7 @@ struct Event {
             READ_BOOK,
             THROW_ITEM,
             ITEM_HITS_INDIVIDUAL,
+            ITEM_SINKS_INTO_INDIVIDUAL,
             INDIVIDUAL_DODGES_THROWN_ITEM,
             INDIVIDUAL_PICKS_UP_ITEM,
             INDIVIDUAL_SUCKS_UP_ITEM,
@@ -224,6 +225,9 @@ struct Event {
     }
     static Event item_hits_individual(uint256 individual_id, uint256 item_id) {
         return individual_and_item_event(IndividualAndItemData::ITEM_HITS_INDIVIDUAL, individual_id, item_id);
+    }
+    static Event item_sinks_into_individual(uint256 individual_id, uint256 item_id) {
+        return individual_and_item_event(IndividualAndItemData::ITEM_SINKS_INTO_INDIVIDUAL, individual_id, item_id);
     }
     static Event individual_dodges_thrown_item(uint256 individual_id, uint256 item_id) {
         return individual_and_item_event(IndividualAndItemData::INDIVIDUAL_DODGES_THROWN_ITEM, individual_id, item_id);

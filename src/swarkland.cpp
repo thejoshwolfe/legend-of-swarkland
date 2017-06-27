@@ -556,6 +556,11 @@ void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
     sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
 }
 
+void suck_up_item(Thing actor, Thing item) {
+    pickup_item(actor, item);
+    publish_event(Event::individual_sucks_up_item(actor->id, item->id));
+}
+
 static void do_move(Thing mover, Coord new_position) {
     Coord old_position = mover->location;
     mover->location = new_position;
@@ -569,10 +574,8 @@ static void do_move(Thing mover, Coord new_position) {
         // pick up items for free
         List<Thing> floor_items;
         find_items_on_floor(new_position, &floor_items);
-        for (int i = 0; i < floor_items.length(); i++) {
-            pickup_item(mover, floor_items[i]);
-            publish_event(Event::individual_sucks_up_item(mover->id, floor_items[i]->id));
-        }
+        for (int i = 0; i < floor_items.length(); i++)
+            suck_up_item(mover, floor_items[i]);
     }
 }
 // return if it worked, otherwise bumped into something.

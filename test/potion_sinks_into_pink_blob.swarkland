@@ -1,0 +1,19 @@
+@test
+!monster pink_blob player 3 1
+!wish potion healing
+pickup 0000000000000000000000000000000000000000000000000000000000000003
+wait
+@mark_events
+throw 1 0 0000000000000000000000000000000000000000000000000000000000000003
+  @rng 6 inclusive:4:6:throw_distance
+  @rng 12 int:48:dodge
+wait
+@expect_event "you throws a blue potion."
+@expect_event "a blue potion sinks into a pink blob!"
+@expect_event "a pink blob sucks up a blue potion."
+@expect_no_events
+@find_things_at 3 1
+  @expect_thing individual pink_blob
+    @expect_carrying potion healing
+    @expect_carrying_nothing
+  @expect_nothing

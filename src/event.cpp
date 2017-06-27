@@ -360,6 +360,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::IndividualAndItemData::INDIVIDUAL_PICKS_UP_ITEM:
                 case Event::IndividualAndItemData::INDIVIDUAL_SUCKS_UP_ITEM:
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
+                case Event::IndividualAndItemData::ITEM_SINKS_INTO_INDIVIDUAL:
                 case Event::IndividualAndItemData::POTION_HITS_INDIVIDUAL:
                 case Event::IndividualAndItemData::THROW_ITEM:
                     // the item is not in anyone's hand, so if you can see the item, you can see the event.
@@ -879,6 +880,9 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case Event::IndividualAndItemData::ITEM_HITS_INDIVIDUAL:
                     remembered_event->span->format("%s hits %s!", item_description, individual_description);
+                    break;
+                case Event::IndividualAndItemData::ITEM_SINKS_INTO_INDIVIDUAL:
+                    remembered_event->span->format("%s sinks into %s!", item_description, individual_description);
                     break;
                 case Event::IndividualAndItemData::INDIVIDUAL_DODGES_THROWN_ITEM:
                     remembered_event->span->format("%s dodges %s!", individual_description, item_description);

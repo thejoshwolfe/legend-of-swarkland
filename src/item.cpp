@@ -681,6 +681,7 @@ enum ImpactBehavior {
     ImpactBehavior_SHATTERS,
     ImpactBehavior_MIGHT_BREAK,
     ImpactBehavior_JUST_HIT,
+    ImpactBehavior_SINK_IN,
 };
 
 static ImpactBehavior get_impact_behavior(Thing item) {
@@ -713,7 +714,9 @@ void throw_item(Thing actor, Thing item, Coord direction) {
     Coord range_window = get_throw_range_window(item);
     int range = random_inclusive(range_window.x, range_window.y, "throw_distance");
     Coord cursor = actor->location;
+    ImpactBehavior impact_behavior = get_impact_behavior(item);
     int impact_force = 0;
+    Thing hit_target = nullptr;
     for (int i = 0; i < range; i++) {
         cursor += direction;
         if (!is_open_space(game->actual_map_tiles[cursor])) {
@@ -726,24 +729,30 @@ void throw_item(Thing actor, Thing item, Coord direction) {
             item->location = cursor;
             publish_event(Event::move(item, cursor - direction));
         }
-        Thing target = find_individual_at(cursor);
-        if (target != nullptr) {
-            if (attempt_dodge(item, target)) {
-                publish_event(Event::individual_dodges_thrown_item(target->id, item->id));
+        hit_target = find_individual_at(cursor);
+        if (hit_target != nullptr) {
+            if (attempt_dodge(item, hit_target)) {
+                publish_event(Event::individual_dodges_thrown_item(hit_target->id, item->id));
             } else {
-                // wham!
-                publish_event(Event::item_hits_individual(target->id, item->id));
-                // hurt a little
-                int damage = random_inclusive(1, 2, "throw_impact_damage");
-                impact_force = damage;
-                damage_individual(target, damage, actor, false);
+                // got em
+                if (hit_target->physical_species()->sucks_up_items) {
+                    // catch the item
+                    impact_behavior = ImpactBehavior_SINK_IN;
+                    publish_event(Event::item_sinks_into_individual(hit_target->id, item->id));
+                } else {
+                    // hurt a little
+                    publish_event(Event::item_hits_individual(hit_target->id, item->id));
+                    int damage = random_inclusive(1, 2, "throw_impact_damage");
+                    impact_force = damage;
+                    damage_individual(hit_target, damage, actor, false);
+                }
                 break;
             }
         }
     }
 
     bool item_breaks = false;
-    switch (get_impact_behavior(item)) {
+    switch (impact_behavior) {
         case ImpactBehavior_SHATTERS:
             item_breaks = true;
             break;
@@ -753,6 +762,7 @@ void throw_item(Thing actor, Thing item, Coord direction) {
             item_breaks = impact_force > 1;
             break;
         case ImpactBehavior_JUST_HIT:
+        case ImpactBehavior_SINK_IN:
             item_breaks = false;
             break;
     }
@@ -774,6 +784,15 @@ void throw_item(Thing actor, Thing item, Coord direction) {
                 unreachable();
         }
     } else {
-        drop_item_to_the_floor(item, cursor);
+        switch (impact_behavior) {
+            case ImpactBehavior_SHATTERS:
+            case ImpactBehavior_MIGHT_BREAK:
+            case ImpactBehavior_JUST_HIT:
+                drop_item_to_the_floor(item, cursor);
+                break;
+            case ImpactBehavior_SINK_IN:
+                suck_up_item(hit_target, item);
+                break;
+        }
     }
 }
