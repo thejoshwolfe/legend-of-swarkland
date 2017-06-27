@@ -89,3 +89,5 @@ move 1 0
   wait
   # you can't see people level up through cogniscopy
   @expect_no_events
+
+@test_end

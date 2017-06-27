@@ -11,3 +11,5 @@ wait
 @find_things_at 6 4
   @expect_thing individual dog
   @expect_nothing
+
+@test_end

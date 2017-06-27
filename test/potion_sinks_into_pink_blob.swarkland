@@ -17,3 +17,5 @@ wait
     @expect_carrying potion healing
     @expect_carrying_nothing
   @expect_nothing
+
+@test_end

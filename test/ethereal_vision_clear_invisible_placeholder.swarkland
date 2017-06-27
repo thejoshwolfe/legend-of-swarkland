@@ -31,3 +31,5 @@ wait
   @expect_nothing
 
 move -1 0
+
+@test_end

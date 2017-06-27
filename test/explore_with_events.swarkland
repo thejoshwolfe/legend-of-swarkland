@@ -42,3 +42,5 @@ wait
   @expect_thing individual human
   @expect_thing potion unknown
   @expect_nothing
+
+@test_end

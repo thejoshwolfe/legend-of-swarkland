@@ -37,3 +37,5 @@ wait
   # and i see you've dropped the potion since last we saw each other
   @expect_thing potion healing
   @expect_nothing
+
+@test_end

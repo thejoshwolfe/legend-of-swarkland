@@ -87,3 +87,5 @@ pickup 0000000000000000000000000000000000000000000000000000000000000008
     @expect_carrying_nothing
   @expect_nothing
 wait
+
+@test_end

@@ -26,3 +26,5 @@ move -1 0
   wait
   @expect_event "a lich king is no longer invisible."
   @expect_no_events
+
+@test_end

@@ -28,3 +28,5 @@ move 0 1
   # confirm that the potion is sitting there on the floor
   @expect_thing potion healing
   @expect_nothing
+
+@test_end

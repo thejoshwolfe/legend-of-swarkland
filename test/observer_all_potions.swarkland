@@ -68,3 +68,5 @@ wait
   @expect_event "a lich king is invisible!"
   @expect_event "a lich king is no longer invisible."
   @expect_no_events
+
+@test_end

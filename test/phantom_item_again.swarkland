@@ -20,3 +20,5 @@ wait
 move 1 0
 move 1 1
 move -1 -1
+
+@test_end

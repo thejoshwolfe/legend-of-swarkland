@@ -17,3 +17,5 @@ throw -1 0 0000000000000000000000000000000000000000000000000000000000000004
 @expect_event "a potion hits you!"
 @expect_event "a potion shatters and splashes on you!"
 @expect_event "you is healed!"
+
+@test_end

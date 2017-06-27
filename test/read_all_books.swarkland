@@ -85,3 +85,5 @@ wait
   @expect_event "a spellbook of force drops to the floor."
   @expect_no_events
 wait
+
+@test_end

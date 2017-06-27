@@ -17,6 +17,7 @@ static SaveFileMode current_mode;
 
 // line_number starts at 1
 static int line_number = 0;
+static bool found_test_end = false;
 
 __attribute__((noreturn))
 static void exit_with_error() {
@@ -344,6 +345,7 @@ enum DirectiveId {
     DirectiveId_ABILITY_COOLDOWN,
     DirectiveId_KNOWLEDGE,
     DirectiveId_PERCEIVED_THING,
+    DirectiveId_TEST_END,
 
     DirectiveId_COUNT,
 };
@@ -381,6 +383,7 @@ static IndexAndValue<ConstStr> constexpr directive_names[DirectiveId_COUNT] {
     {DirectiveId_ABILITY_COOLDOWN, ABILITY_COOLDOWN_DIRECTIVE},
     {DirectiveId_KNOWLEDGE, KNOWLEDGE_DIRECTIVE},
     {DirectiveId_PERCEIVED_THING, PERCEIVED_THING_DIRECTIVE},
+    {DirectiveId_TEST_END, "@test_end"},
 };
 check_indexed_array(directive_names);
 
@@ -1566,6 +1569,9 @@ static void handle_directive(DirectiveId directive_id, ByteBuffer const& line, c
             destroy(saved_game, 1);
             break;
         }
+        case DirectiveId_TEST_END:
+            found_test_end = true;
+            break;
 
         case DirectiveId_MAP_TILES:
         case DirectiveId_AESTHETIC_INDEXES:
@@ -1587,8 +1593,20 @@ static Action read_action() {
     List<Token> tokens;
     while (true) {
         read_tokens(&line, &tokens, true);
-        if (tokens.length() == 0)
-            return Action::undecided(); // EOF
+        if (tokens.length() == 0) {
+            // EOF
+            if (game->test_mode && current_mode == SaveFileMode_READ && !found_test_end) {
+                fprintf(stderr, "%s:%d:1: error: missing %s at end of test\n", script_path, line_number, directive_names[DirectiveId_TEST_END].value.ptr);
+                exit_with_error();
+            }
+            return Action::undecided();
+        } else {
+            if (found_test_end) {
+                fprintf(stderr, "%s:%d:1: error: expected EOF after %s\n", script_path, line_number, directive_names[DirectiveId_TEST_END].value.ptr);
+                exit_with_error();
+                return Action::undecided();
+            }
+        }
 
         DirectiveId directive_id = parse_directive_id(line, tokens[0]);
         if (directive_id != DirectiveId_COUNT) {

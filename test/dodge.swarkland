@@ -62,3 +62,5 @@ throw -1 1 0000000000000000000000000000000000000000000000000000000000000005
   @rng 6 inclusive:4:6:throw_distance
   @rng 0 int:12:dodge
   @rng 1 inclusive:1:2:impact_force
+
+@test_end

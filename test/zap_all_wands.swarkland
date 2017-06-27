@@ -278,3 +278,4 @@ wait
   @expect_no_events
 wait
 
+@test_end

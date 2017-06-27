@@ -72,3 +72,5 @@ wait
 
 # make sure there's no phantom item crash here
 move -1 0
+
+@test_end

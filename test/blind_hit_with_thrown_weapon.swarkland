@@ -16,3 +16,5 @@ throw -1 0 0000000000000000000000000000000000000000000000000000000000000004
 @expect_event "a battleaxe hits you!"
 @expect_event "a battleaxe drops to the floor."
 @expect_no_events
+
+@test_end
