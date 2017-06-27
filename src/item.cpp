@@ -677,6 +677,30 @@ static void break_potion(Thing actor, Thing item, Coord location) {
     item->still_exists = false;
 }
 
+enum ImpactBehavior {
+    ImpactBehavior_SHATTERS,
+    ImpactBehavior_MIGHT_BREAK,
+    ImpactBehavior_JUST_HIT,
+};
+
+static ImpactBehavior get_impact_behavior(Thing item) {
+    switch (item->thing_type) {
+        case ThingType_INDIVIDUAL:
+            unreachable();
+        case ThingType_WAND:
+            return ImpactBehavior_MIGHT_BREAK;
+        case ThingType_POTION:
+            return ImpactBehavior_SHATTERS;
+        case ThingType_BOOK:
+        case ThingType_WEAPON:
+            return ImpactBehavior_JUST_HIT;
+
+        case ThingType_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+
 void throw_item(Thing actor, Thing item, Coord direction) {
     publish_event(Event::throw_item(actor->id, item->id));
     // let go of the item. it's now sailing through the air.
@@ -689,20 +713,14 @@ void throw_item(Thing actor, Thing item, Coord direction) {
     Coord range_window = get_throw_range_window(item);
     int range = random_inclusive(range_window.x, range_window.y, "throw_distance");
     Coord cursor = actor->location;
-    bool item_breaks = false;
-    // potions are fragile
-    if (item->thing_type == ThingType_POTION)
-        item_breaks = true;
-    bool impacts_in_wall = item->thing_type == ThingType_WAND && item->wand_info()->wand_id == WandId_WAND_OF_DIGGING;
+    int impact_force = 0;
     for (int i = 0; i < range; i++) {
         cursor += direction;
         if (!is_open_space(game->actual_map_tiles[cursor])) {
-            if (!(item_breaks && impacts_in_wall)) {
-                // impact just in front of the wall
-                cursor -= direction;
-            }
-            item_breaks = item->thing_type == ThingType_POTION || random_int(2, "wand_breaks") == 0;
+            // impact just in front of the wall
+            cursor -= direction;
             publish_event(Event::item_hits_wall(item->id, cursor));
+            impact_force = -1; // random
             break;
         } else {
             item->location = cursor;
@@ -717,16 +735,27 @@ void throw_item(Thing actor, Thing item, Coord direction) {
                 publish_event(Event::item_hits_individual(target->id, item->id));
                 // hurt a little
                 int damage = random_inclusive(1, 2, "throw_impact_damage");
+                impact_force = damage;
                 damage_individual(target, damage, actor, false);
-                if (damage == 2) {
-                    // no item can survive that much damage dealt
-                    item_breaks = true;
-                }
                 break;
             }
         }
     }
 
+    bool item_breaks = false;
+    switch (get_impact_behavior(item)) {
+        case ImpactBehavior_SHATTERS:
+            item_breaks = true;
+            break;
+        case ImpactBehavior_MIGHT_BREAK:
+            if (impact_force == -1)
+                impact_force = random_inclusive(1, 2, "impact_force");
+            item_breaks = impact_force > 1;
+            break;
+        case ImpactBehavior_JUST_HIT:
+            item_breaks = false;
+            break;
+    }
     if (item_breaks) {
         switch (item->thing_type) {
             case ThingType_INDIVIDUAL:
@@ -739,9 +768,7 @@ void throw_item(Thing actor, Thing item, Coord direction) {
                 break;
             case ThingType_BOOK:
             case ThingType_WEAPON:
-                // actually unbreakable
-                drop_item_to_the_floor(item, cursor);
-                break;
+                unreachable();
 
             case ThingType_COUNT:
                 unreachable();
