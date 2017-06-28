@@ -115,15 +115,11 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
 
 ## Roadmap
 
-### 5.0.0
-
- * Stairs up.
-
 ### 4.5.0
 
- * New items:
-   * spellbooks of: charm, fear, life syphon, slowing
-   * potions of: fruit juice, mana
+ * Added weapons: dagger, battleaxe
+   * Weapons can be thrown for more/less range and more damage than other items.
+   * Holding a weapon increases your attack power.
 
 ## Version History
 
