@@ -546,7 +546,7 @@ static Span get_thing_description(Thing observer, uint256 target_id, bool verbos
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL:
             result->append(get_species_name(target->life()->species_id));
-            return result;
+            break;
         case ThingType_WAND: {
             result->append(new_span(get_wand_description_str(observer, target), light_green, black));
             int used_count = target->wand_info()->used_count;
@@ -554,22 +554,37 @@ static Span get_thing_description(Thing observer, uint256 target_id, bool verbos
                 result->append(" ");
                 result->append(get_used_count_description(used_count));
             }
-            return result;
+            break;
         }
         case ThingType_POTION:
             result->append(new_span(get_potion_description_str(observer, target), light_green, black));
-            return result;
+            break;
         case ThingType_BOOK:
             result->append(new_span(get_book_description_str(observer, target), light_green, black));
-            return result;
+            break;
         case ThingType_WEAPON:
             result->append(new_span(get_weapon_description_str(target), light_green, black));
-            return result;
+            break;
 
         case ThingType_COUNT:
             unreachable();
     }
-    panic("thing type");
+
+    if (verbose) {
+        PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id, nullptr);
+        if (container != nullptr) {
+            // TODO: this is wrong. why are we looking at the actual things?
+            Thing actual_container = game->actual_things.get(container->id, nullptr);
+            if (actual_container != nullptr) {
+                Thing equipped_weapon = get_equipped_weapon(actual_container);
+                if (equipped_weapon != nullptr && equipped_weapon->id == target->id) {
+                    result->append(" (equipped)");
+                }
+            }
+        }
+    }
+
+    return result;
 }
 Span get_thing_description(Thing observer, uint256 target_id) {
     return get_thing_description(observer, target_id, false);
@@ -1055,6 +1070,7 @@ void render() {
     find_items_in_inventory(player_actor(), player_actor()->id, &my_inventory);
     List<AbilityId> my_abilities;
     get_abilities(player_actor(), &my_abilities);
+    Thing equipped_weapon = get_equipped_weapon(spectate_from);
 
     SDL_SetRenderTarget(renderer, screen_buffer);
     SDL_SetRenderDrawColor(renderer, black.r, black.g, black.b, black.a);
@@ -1315,7 +1331,6 @@ void render() {
         div->set_content(new_span(dungeon_level_string));
         div->append_newline();
         String attack_damage_string = new_string();
-        Thing equipped_weapon = get_equipped_weapon(spectate_from);
         if (equipped_weapon != nullptr) {
             int weapon_damage = get_weapon_damage(equipped_weapon);
             attack_damage_string->format("Attack: %d+%d", spectate_from->innate_attack_power(), weapon_damage);
@@ -1390,6 +1405,8 @@ void render() {
         location.x += map_size.x;
         PerceivedThing item = my_inventory[i];
         render_tile(get_image_for_thing(item), 0xff, location);
+        if (equipped_weapon != nullptr && item->id == equipped_weapon->id)
+            render_tile(sprite_location_equipment, 0xff, location);
     }
     if (show_inventory_cursor_help) {
         keyboard_hover_div->set_content(get_thing_description(player_actor(), my_inventory[inventory_cursor]->id, true));
