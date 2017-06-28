@@ -147,7 +147,10 @@ void animate_map_tiles() {
             switch (game->actual_map_tiles[cursor]) {
                 case TileType_LAVA_FLOOR:
                     // actually animated
-                    game->aesthetic_indexes[cursor] = random_aesthetic_index();
+                    if (random_int(24, nullptr) == 0) {
+                        // switch on average every 2 turns.
+                        game->aesthetic_indexes[cursor] = (game->aesthetic_indexes[cursor] + 1) & 0x0f;
+                    }
                     break;
 
                 case TileType_DIRT_FLOOR:
