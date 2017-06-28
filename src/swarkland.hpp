@@ -119,6 +119,7 @@ PerceivedThing find_perceived_individual_at(Thing observer, Coord location);
 void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
 void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
 Thing find_individual_at(Coord location);
+Thing get_equipped_weapon(Thing individual);
 void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list);
 void find_items_in_inventory(Thing observer, uint256 container_id, List<PerceivedThing> * output_sorted_list);
 void find_items_on_floor(Coord location, List<Thing> * output_sorted_list);

@@ -603,7 +603,7 @@ public:
     int next_level_up() const {
         return level_to_experience(experience_level() + 1);
     }
-    int attack_power() const {
+    int innate_attack_power() const {
         return max(1, physical_species()->base_attack_power + experience_level() / 2);
     }
     int max_hitpoints() const {

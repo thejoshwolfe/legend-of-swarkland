@@ -742,7 +742,7 @@ void throw_item(Thing actor, Thing item, Coord direction) {
                 } else {
                     // hurt a little
                     publish_event(Event::item_hits_individual(hit_target->id, item->id));
-                    Coord throw_damage_window = get_throw_damage_damage_window(item);
+                    Coord throw_damage_window = get_throw_damage_window(item);
                     int damage = random_inclusive(throw_damage_window.x, throw_damage_window.y, "throw_impact_damage");
                     impact_force = damage > 1 ? 2 : 1;
                     damage_individual(hit_target, damage, actor, false);

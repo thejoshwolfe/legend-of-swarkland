@@ -1309,9 +1309,21 @@ void render() {
         render_div(xp_div, xp_area, 1, 1);
     }
     {
-        String string = new_string();
-        string->format("Dungeon Level: %d", game->dungeon_level);
-        dungeon_level_div->set_content(new_span(string));
+        Div div = new_div();
+        String dungeon_level_string = new_string();
+        dungeon_level_string->format("Dungeon Level: %d", game->dungeon_level);
+        div->set_content(new_span(dungeon_level_string));
+        div->append_newline();
+        String attack_damage_string = new_string();
+        Thing equipped_weapon = get_equipped_weapon(spectate_from);
+        if (equipped_weapon != nullptr) {
+            int weapon_damage = get_weapon_damage(equipped_weapon);
+            attack_damage_string->format("Attack: %d+%d", spectate_from->innate_attack_power(), weapon_damage);
+        } else {
+            attack_damage_string->format("Attack: %d", spectate_from->innate_attack_power());
+        }
+        div->append(new_span(attack_damage_string));
+        dungeon_level_div->set_content(div);
         render_div(dungeon_level_div, dungeon_level_area, 1, 1);
     }
     {

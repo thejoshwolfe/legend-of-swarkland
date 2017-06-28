@@ -58,6 +58,22 @@ void read_book(Thing actor, uint256 item_id, Coord direction);
 void use_potion(Thing actor, Thing target, Thing item, bool is_breaking);
 void throw_item(Thing actor, Thing item, Coord direction);
 
+template <typename T>
+int get_weapon_damage(T item) {
+    assert(item->thing_type == ThingType_WEAPON);
+    switch (item->weapon_info()->weapon_id) {
+        case WeaponId_DAGGER:
+            return 1;
+        case WeaponId_BATTLEAXE:
+            return 2;
+
+        case WeaponId_UNKNOWN:
+        case WeaponId_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+
 static const int typical_throw_range_window_min = 4;
 static const int typical_throw_range_window_max = 6;
 
@@ -111,7 +127,7 @@ static inline Coord get_ability_range_window(AbilityId ability_id) {
 
 // {min, max} (inclusive)
 template <typename T>
-Coord get_throw_damage_damage_window(T item) {
+Coord get_throw_damage_window(T item) {
     switch (item->thing_type) {
         case ThingType_INDIVIDUAL:
             unreachable();

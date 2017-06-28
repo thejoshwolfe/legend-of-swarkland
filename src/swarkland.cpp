@@ -410,7 +410,6 @@ void use_mana(Thing actor, int mana) {
     reset_mp_regen_timeout(actor);
 }
 
-
 // normal melee attack
 static void attack(Thing attacker, Thing target) {
     if (attempt_dodge(attacker, target)) {
@@ -418,7 +417,10 @@ static void attack(Thing attacker, Thing target) {
         return;
     }
     publish_event(Event::attack_individual(attacker, target));
-    int attack_power = attacker->attack_power();
+    int attack_power = attacker->innate_attack_power();
+    Thing weapon = get_equipped_weapon(attacker);
+    if (weapon != nullptr)
+        attack_power += get_weapon_damage(weapon);
     int min_damage = (attack_power + 1) / 2;
     int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
     damage_individual(target, damage, attacker, true);
@@ -472,6 +474,23 @@ Thing find_individual_at(Coord location) {
     return nullptr;
 }
 
+Thing get_equipped_weapon(Thing individual) {
+    List<Thing> inventory;
+    find_items_in_inventory(individual->id, &inventory);
+    Thing best_weapon = nullptr;
+    int best_weapon_damage = 0;
+    for (int i = 0; i < inventory.length(); i++) {
+        Thing item = inventory[i];
+        if (item->thing_type != ThingType_WEAPON)
+            continue;
+        int item_damage = get_weapon_damage(item);
+        if (item_damage > best_weapon_damage) {
+            best_weapon = item;
+            best_weapon_damage = item_damage;
+        }
+    }
+    return best_weapon;
+}
 void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list) {
     Thing item;
     for (auto iterator = game->actual_things.value_iterator(); iterator.next(&item);)
