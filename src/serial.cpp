@@ -503,6 +503,7 @@ static IndexAndValue<char> constexpr tile_type_short_names[TileType_COUNT] = {
     {TileType_UNKNOWN, '_'},
     {TileType_DIRT_FLOOR, 'a'},
     {TileType_MARBLE_FLOOR, 'b'},
+    {TileType_LAVA_FLOOR, 'g'},
     {TileType_BROWN_BRICK_WALL, 'c'},
     {TileType_GRAY_BRICK_WALL, 'd'},
     {TileType_BORDER_WALL, 'e'},
@@ -511,6 +512,7 @@ static IndexAndValue<char> constexpr tile_type_short_names[TileType_COUNT] = {
     {TileType_UNKNOWN_WALL, '2'},
 };
 static_assert(_check_indexed_array(tile_type_short_names, TileType_COUNT), "missed a spot");
+static_assert(_check_indexed_array_values_unique(tile_type_short_names, TileType_COUNT), "values clash");
 
 static IndexAndValue<ConstStr> constexpr status_effect_names[StatusEffect::COUNT] = {
     {StatusEffect::CONFUSION, "confusion"},

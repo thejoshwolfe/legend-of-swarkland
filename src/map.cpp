@@ -184,13 +184,20 @@ void generate_map() {
     }
     for (int i = 0; i < rooms.length(); i++) {
         SDL_Rect room = rooms[i];
+        bool room_contains_lava = game->dungeon_level >= 4 && room.w >= 5 && room.h >= 5 && random_int(3, nullptr) == 0;
         Coord cursor;
         for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
             for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
-                room_floor_spaces.append(cursor);
-                game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+                if (room_contains_lava && random_int(3, nullptr) == 0) {
+                    // lava
+                    game->actual_map_tiles[cursor] = TileType_LAVA_FLOOR;
+                } else {
+                    room_floor_spaces.append(cursor);
+                    game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+                }
             }
         }
+
     }
 
     // connect rooms with prim's algorithm, or something.
@@ -321,7 +328,7 @@ void generate_map() {
 static const int no_spawn_radius = 10;
 bool can_spawn_at(Coord away_from_location, Coord location) {
     TileType tile = game->actual_map_tiles[location];
-    if (!is_open_space(tile))
+    if (!is_safe_space(tile))
         return false;
     if (tile == TileType_MARBLE_FLOOR)
         return false; // don't spawn in vaults

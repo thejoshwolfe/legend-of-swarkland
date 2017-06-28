@@ -57,6 +57,12 @@ static Rect marble_floor_images[] = {
     sprite_location_marble_floor4,
     sprite_location_marble_floor5,
 };
+static Rect lava_floor_images[] = {
+    sprite_location_lava0,
+    sprite_location_lava1,
+    sprite_location_lava2,
+    sprite_location_lava3,
+};
 static Rect brown_brick_wall_images[] = {
     sprite_location_brown_brick0,
     sprite_location_brown_brick1,
@@ -667,6 +673,8 @@ static Rect get_image_for_tile(TileType tile_type, uint32_t aesthetic_index) {
             return dirt_floor_images[aesthetic_index % get_array_length(dirt_floor_images)];
         case TileType_MARBLE_FLOOR:
             return marble_floor_images[aesthetic_index % get_array_length(marble_floor_images)];
+        case TileType_LAVA_FLOOR:
+            return lava_floor_images[aesthetic_index % get_array_length(lava_floor_images)];
         case TileType_UNKNOWN_FLOOR:
             return sprite_location_unknown_floor;
         case TileType_BROWN_BRICK_WALL:

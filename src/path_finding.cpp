@@ -9,7 +9,7 @@
 static int get_movement_cost_for_location(Thing observer, Coord location) {
     if (!is_in_bounds(location))
         return -1;
-    if (!is_open_space(observer->life()->knowledge.tiles[location]))
+    if (!is_safe_space(observer->life()->knowledge.tiles[location]))
         return -1;
     if (find_perceived_individual_at(observer, location) != nullptr)
         return 3;

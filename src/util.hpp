@@ -219,9 +219,22 @@ static bool constexpr _check_indexed_array(const IndexAndValue<T> array[], int s
             return false;
     return true;
 }
+template<typename T>
+static bool constexpr _check_indexed_array_values_unique(const IndexAndValue<T> array[], int size) {
+    for (int i = 0; i < size; i++)
+        for (int j = i + 1; j < size; j++)
+            if (array[i].value == array[j].value)
+                return false;
+    return true;
+}
 #else
 template<typename T>
 static bool constexpr _check_indexed_array(const IndexAndValue<T>[], int) {
+    // congratulations. your compiler sucks.
+    return true;
+}
+template<typename T>
+static bool constexpr _check_indexed_array_values_unique(const IndexAndValue<T>[], int) {
     // congratulations. your compiler sucks.
     return true;
 }

@@ -18,6 +18,7 @@ enum TileType {
     TileType_UNKNOWN,
     TileType_DIRT_FLOOR,
     TileType_MARBLE_FLOOR,
+    TileType_LAVA_FLOOR,
     TileType_BROWN_BRICK_WALL,
     TileType_GRAY_BRICK_WALL,
     TileType_BORDER_WALL,
@@ -40,12 +41,35 @@ static inline bool is_in_bounds(Coord point) {
 static inline bool is_open_space(TileType tile_type) {
     switch (tile_type) {
         case TileType_UNKNOWN:
+            // not sure what to say here.
+            return true;
+        case TileType_DIRT_FLOOR:
+        case TileType_MARBLE_FLOOR:
+        case TileType_LAVA_FLOOR:
+        case TileType_UNKNOWN_FLOOR:
+            return true;
+        case TileType_BROWN_BRICK_WALL:
+        case TileType_GRAY_BRICK_WALL:
+        case TileType_BORDER_WALL:
+        case TileType_UNKNOWN_WALL:
+            return false;
+        case TileType_STAIRS_DOWN:
+            return true;
+        case TileType_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+static inline bool is_safe_space(TileType tile_type) {
+    switch (tile_type) {
+        case TileType_UNKNOWN:
             // consider this open for the sake of path finding
             return true;
         case TileType_DIRT_FLOOR:
         case TileType_MARBLE_FLOOR:
         case TileType_UNKNOWN_FLOOR:
             return true;
+        case TileType_LAVA_FLOOR:
         case TileType_BROWN_BRICK_WALL:
         case TileType_GRAY_BRICK_WALL:
         case TileType_BORDER_WALL:
@@ -66,6 +90,7 @@ static inline bool is_diggable_wall(TileType tile_type) {
         case TileType_UNKNOWN:
         case TileType_DIRT_FLOOR:
         case TileType_MARBLE_FLOOR:
+        case TileType_LAVA_FLOOR:
         case TileType_UNKNOWN_FLOOR:
         case TileType_BORDER_WALL:
         case TileType_UNKNOWN_WALL:
