@@ -440,6 +440,7 @@ typedef Reference<RememberedEventImpl> RememberedEvent;
 struct Knowledge {
     // terrain knowledge
     MapMatrix<TileType> tiles;
+    MapMatrix<uint8_t> aesthetic_indexes;
     MapMatrix<VisionTypes> tile_is_visible;
     List<RememberedEvent> remembered_events;
     // incremented whenever events were forgotten, which means we need to blank out and refresh the rendering of the events.
@@ -462,6 +463,7 @@ struct Knowledge {
     }
     void reset_map() {
         tiles.set_all(TileType_UNKNOWN);
+        aesthetic_indexes.set_all(0);
         tile_is_visible.set_all(0);
     }
 };
@@ -636,7 +638,8 @@ static inline int compare_perceived_things_by_id(PerceivedThing a, PerceivedThin
     return compare(a->id, b->id);
 }
 
-// TODO: this is in the wrong place
+// TODO: these are in the wrong place
+void see_aesthetics(Thing observer);
 void compute_vision(Thing observer);
 
 static inline bool individual_has_mind(Thing thing) {

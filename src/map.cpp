@@ -41,6 +41,7 @@ static void refresh_normal_vision(Thing individual) {
                 continue;
             individual->life()->knowledge.tile_is_visible[target] |= VisionTypes_NORMAL;
             individual->life()->knowledge.tiles[target] = game->actual_map_tiles[target];
+            individual->life()->knowledge.aesthetic_indexes[target] = game->aesthetic_indexes[target];
         }
     }
 }
@@ -56,6 +57,7 @@ static void refresh_ethereal_vision(Thing individual) {
                 continue;
             individual->life()->knowledge.tile_is_visible[target] |= VisionTypes_ETHEREAL;
             individual->life()->knowledge.tiles[target] = game->actual_map_tiles[target];
+            individual->life()->knowledge.aesthetic_indexes[target] = game->aesthetic_indexes[target];
         }
     }
 }
@@ -69,6 +71,14 @@ void record_shape_of_terrain(MapMatrix<TileType> * tiles, Coord location) {
             (*tiles)[location] = is_air ? TileType_UNKNOWN_FLOOR : TileType_UNKNOWN_WALL;
         }
     }
+}
+
+void see_aesthetics(Thing observer) {
+    Knowledge & knowledge = observer->life()->knowledge;
+    for (Coord target = {0, 0}; target.y < map_size.y; target.y++)
+        for (target.x = 0; target.x < map_size.x; target.x++)
+            if (can_see_color(knowledge.tile_is_visible[target]))
+                knowledge.aesthetic_indexes[target] = game->aesthetic_indexes[target];
 }
 
 void compute_vision(Thing observer) {
@@ -126,6 +136,38 @@ void compute_vision(Thing observer) {
     }
 }
 
+static inline uint8_t random_aesthetic_index() {
+    // only go from 0-f so that serializing it can be a single character.
+    return (uint8_t)random_uint32() & 0x0f;
+}
+
+void animate_map_tiles() {
+    for (Coord cursor = { 0, 0 }; cursor.y < map_size.y; cursor.y++) {
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
+            switch (game->actual_map_tiles[cursor]) {
+                case TileType_LAVA_FLOOR:
+                    // actually animated
+                    game->aesthetic_indexes[cursor] = random_aesthetic_index();
+                    break;
+
+                case TileType_DIRT_FLOOR:
+                case TileType_MARBLE_FLOOR:
+                case TileType_UNKNOWN_FLOOR:
+                case TileType_BROWN_BRICK_WALL:
+                case TileType_GRAY_BRICK_WALL:
+                case TileType_BORDER_WALL:
+                case TileType_UNKNOWN_WALL:
+                case TileType_STAIRS_DOWN:
+                    break;
+
+                case TileType_UNKNOWN:
+                case TileType_COUNT:
+                    unreachable();
+            }
+        }
+    }
+}
+
 void generate_map() {
     game->dungeon_level++;
 
@@ -134,9 +176,9 @@ void generate_map() {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             game->actual_map_tiles[cursor] = TileType_BROWN_BRICK_WALL;
             if (!game->test_mode)
-                game->aesthetic_indexes[cursor] = (uint8_t)random_uint32() & 0xff;
+                game->aesthetic_indexes[cursor] = random_aesthetic_index();
             else
-                game->aesthetic_indexes[cursor] = (cursor.x / 5 + cursor.y / 5);
+                game->aesthetic_indexes[cursor] = 0;
         }
     }
     // line the border with special undiggable walls

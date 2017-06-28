@@ -32,6 +32,7 @@ enum TileType {
 static const int final_dungeon_level = 5;
 static const int ethereal_radius = 5;
 
+void animate_map_tiles();
 void generate_map();
 
 static inline bool is_in_bounds(Coord point) {

@@ -356,7 +356,6 @@ static char const* const TEST_MODE_HEADER = "@test";
 // TODO: inline these constants
 static char const* const SNAPSHOT_DIRECTIVE = "@snapshot";
 static char const* const MAP_TILES_DIRECTIVE = "@map_tiles";
-static char const* const AESTHETIC_INDEXES_DIRECTIVE = "@aesthetics";
 static char const* const RNG_STATE_DIRECTIVE = "@rng_state";
 static char const* const THING_DIRECTIVE = "@thing";
 static char const* const LIFE_DIRECTIVE = "@life";
@@ -375,7 +374,7 @@ static IndexAndValue<ConstStr> constexpr directive_names[DirectiveId_COUNT] {
     {DirectiveId_EXPECT_CARRYING_NOTHING, "@expect_carrying_nothing"},
     {DirectiveId_SNAPSHOT, SNAPSHOT_DIRECTIVE},
     {DirectiveId_MAP_TILES, MAP_TILES_DIRECTIVE},
-    {DirectiveId_AESTHETIC_INDEXES, AESTHETIC_INDEXES_DIRECTIVE},
+    {DirectiveId_AESTHETIC_INDEXES, "@aesthetics"},
     {DirectiveId_RNG_STATE, RNG_STATE_DIRECTIVE},
     {DirectiveId_THING, THING_DIRECTIVE},
     {DirectiveId_LIFE, LIFE_DIRECTIVE},
@@ -923,13 +922,9 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
 
         const Token & aesthetic_indexes_token = tokens[token_cursor++];
         int i = 0;
-        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
-            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-                uint32_t high = parse_nibble(line, aesthetic_indexes_token, i++);
-                uint32_t low = parse_nibble(line, aesthetic_indexes_token, i++);
-                game->aesthetic_indexes[cursor] = (high << 4) | low;
-            }
-        }
+        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+                game->aesthetic_indexes[cursor] = parse_nibble(line, aesthetic_indexes_token, i++);
     }
 
     // rng state
@@ -1045,6 +1040,19 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                         for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
                             for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
                                 knowledge.tiles[cursor] = parse_tile_type_short_name(line, tiles_token, i++);
+                    }
+                    // aesthetic indexes
+                    {
+                        read_tokens(&line, &tokens, false);
+                        expect_extra_token_count(tokens, 1);
+                        token_cursor = 0;
+                        if (parse_directive_id(line, tokens[token_cursor++]) != DirectiveId_AESTHETIC_INDEXES)
+                            report_error(tokens[token_cursor - 1], 0, "expected aesthetic indexes directive");
+                        const Token & tiles_token = tokens[token_cursor++];
+                        int i = 0;
+                        for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+                            for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+                                knowledge.aesthetic_indexes[cursor] = parse_nibble(line, tiles_token, i++);
                     }
 
                     for (int i = 0; i < perceived_things_count; i++) {
@@ -1192,13 +1200,10 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
             buffer->append(tile_type_short_names[game->actual_map_tiles[cursor]].value);
-    buffer->format("\n  %s ", AESTHETIC_INDEXES_DIRECTIVE);
-    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
-        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
-            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] >> 4));
-            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor] & 0xf));
-        }
-    }
+    buffer->format("\n  %s ", directive_names[DirectiveId_AESTHETIC_INDEXES].value.ptr);
+    for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+        for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+            buffer->append(nibble_to_char(game->aesthetic_indexes[cursor]));
 
     buffer->format("\n  %s %d", RNG_STATE_DIRECTIVE, !!game->test_mode);
     if (game->test_mode) {
@@ -1301,6 +1306,11 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                 for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
                     for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
                         buffer->append(tile_type_short_names[knowledge.tiles[cursor]].value);
+
+                buffer->format("\n      %s ", directive_names[DirectiveId_AESTHETIC_INDEXES].value.ptr);
+                for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++)
+                    for (cursor.x = 0; cursor.x < map_size.x; cursor.x++)
+                        buffer->append(nibble_to_char(knowledge.aesthetic_indexes[cursor]));
 
                 for (int i = 0; i < perceived_things.length(); i++) {
                     PerceivedThing perceived_thing = perceived_things[i];

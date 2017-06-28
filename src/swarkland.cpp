@@ -1119,6 +1119,13 @@ void run_the_game() {
         if (poised_individuals.length() == 0) {
             game->time_counter++;
 
+            {
+                animate_map_tiles();
+                Thing individual;
+                for (auto iterator = actual_individuals(); iterator.next(&individual);)
+                    see_aesthetics(individual);
+            }
+
             maybe_spawn_monsters();
 
             // who's ready to make a move?

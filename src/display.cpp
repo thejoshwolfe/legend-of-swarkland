@@ -1203,9 +1203,12 @@ void render() {
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             TileType tile = spectate_from->life()->knowledge.tiles[cursor];
-            if (cheatcode_full_visibility)
+            uint8_t aesthetic_index = spectate_from->life()->knowledge.aesthetic_indexes[cursor];
+            if (cheatcode_full_visibility) {
                 tile = game->actual_map_tiles[cursor];
-            Rect image = get_image_for_tile(tile, game->aesthetic_indexes[cursor]);
+                aesthetic_index = game->aesthetic_indexes[cursor];
+            }
+            Rect image = get_image_for_tile(tile, aesthetic_index);
             if (image == Rect::nowhere())
                 continue;
             Uint8 alpha;
