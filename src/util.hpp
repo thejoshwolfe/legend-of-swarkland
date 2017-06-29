@@ -158,7 +158,15 @@ static constexpr T euclidean_mod(T a, T base) {
 // log2(x) == 0 if x <= 0
 int log2(int value) __attribute__((pure));
 
-template<typename T, int(*Comparator)(T, T)>
+template<typename T>
+static constexpr int compare(const T & a, const T & b)
+{
+    if (a == b)
+        return 0;
+    return a < b ? -1 : 1;
+}
+
+template<typename T, int(*Comparator)(const T&, const T&)>
 void sort(T * in_place_list, int size) {
     // insertion sort, cuz whatever.
     for (int top = 1; top < size; top++) {

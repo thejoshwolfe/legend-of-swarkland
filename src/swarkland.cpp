@@ -429,13 +429,13 @@ static void attack(Thing attacker, Thing target) {
         poison_individual(attacker, target);
 }
 
-static int compare_things_by_z_order(Thing a, Thing b) {
+static int compare_things_by_z_order(const Thing & a, const Thing & b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
-static int compare_perceived_things_by_z_order(PerceivedThing a, PerceivedThing b) {
+static int compare_perceived_things_by_z_order(const PerceivedThing & a, const PerceivedThing & b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
-int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b) {
+int compare_perceived_things_by_type_and_z_order(const PerceivedThing & a, const PerceivedThing & b) {
     int is_individual_a = a->thing_type == ThingType_INDIVIDUAL;
     int is_individual_b = b->thing_type == ThingType_INDIVIDUAL;
     int result = is_individual_a - is_individual_b;
@@ -1030,35 +1030,67 @@ static bool take_action(Thing actor, const Action & action) {
     return true;
 }
 
-// advance time for an individual
-static void age_individual(Thing individual) {
-    // environment hazards
-    switch (game->actual_map_tiles[individual->location]) {
-        case TileType_DIRT_FLOOR:
-        case TileType_MARBLE_FLOOR:
-        case TileType_UNKNOWN_FLOOR:
-        case TileType_STAIRS_DOWN:
-            break;
-        case TileType_LAVA_FLOOR: {
-            // damage over time
-            int lava_damage = random_int(2, "lava_damage");
-            if (lava_damage > 0) {
-                publish_event(Event::seared_by_lava(individual->id));
-                damage_individual(individual, lava_damage, nullptr, false);
-            }
-            break;
+static void age_things() {
+    List<Thing> things_in_order;
+    {
+        Thing thing;
+        for (auto iterator = game->actual_things.value_iterator(); iterator.next(&thing);) {
+            assert(thing->still_exists);
+            things_in_order.append(thing);
         }
-        case TileType_BROWN_BRICK_WALL:
-        case TileType_GRAY_BRICK_WALL:
-        case TileType_BORDER_WALL:
-            // you can't be in a wall
-            unreachable();
-        case TileType_UNKNOWN_WALL:
-        case TileType_UNKNOWN:
-        case TileType_COUNT:
-            unreachable();
     }
 
+    sort<Thing, compare_things_by_location>(things_in_order.raw(), things_in_order.length());
+
+    // environment hazards
+    for (int i = 0; i < things_in_order.length(); i++) {
+        Thing thing = things_in_order[i];
+        if (thing->location == Coord::nowhere())
+            continue;
+        switch (game->actual_map_tiles[thing->location]) {
+            case TileType_DIRT_FLOOR:
+            case TileType_MARBLE_FLOOR:
+            case TileType_UNKNOWN_FLOOR:
+            case TileType_STAIRS_DOWN:
+                break;
+            case TileType_LAVA_FLOOR: {
+                // damage over time
+                int lava_damage = random_int(2, "lava_damage");
+                if (lava_damage > 0) {
+                    switch (thing->thing_type) {
+                        case ThingType_INDIVIDUAL:
+                            publish_event(Event::seared_by_lava(thing->id));
+                            damage_individual(thing, lava_damage, nullptr, false);
+                            break;
+                        case ThingType_WAND:
+                        case ThingType_POTION:
+                        case ThingType_BOOK:
+                        case ThingType_WEAPON:
+                            // items disintegrate in lava
+                            publish_event(Event::item_disintegrates_in_lava(thing->id, thing->location));
+                            thing->still_exists = false;
+                            break;
+                        case ThingType_COUNT:
+                            unreachable();
+                    }
+                }
+                break;
+            }
+            case TileType_BROWN_BRICK_WALL:
+            case TileType_GRAY_BRICK_WALL:
+            case TileType_BORDER_WALL:
+                // you can't be in a wall
+                unreachable();
+            case TileType_UNKNOWN_WALL:
+            case TileType_UNKNOWN:
+            case TileType_COUNT:
+                unreachable();
+        }
+    }
+}
+
+// advance time for an individual
+static void age_individual(Thing individual) {
     if (!game->test_mode) {
         regen_hp(individual);
         regen_mp(individual);
@@ -1154,6 +1186,8 @@ void run_the_game() {
             }
 
             maybe_spawn_monsters();
+
+            age_things();
 
             // who's ready to make a move?
             List<Thing> turn_order;

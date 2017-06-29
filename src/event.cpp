@@ -940,6 +940,9 @@ static void observe_event(Thing observer, Event event) {
                 case Event::ItemAndLocationData::POTION_BREAKS:
                     remembered_event->span->format("%s shatters!", item_description);
                     break;
+                case Event::ItemAndLocationData::ITEM_DISINTEGRATES_IN_LAVA:
+                    remembered_event->span->format("%s disintegrates in lava!", item_description);
+                    break;
             }
             break;
         }

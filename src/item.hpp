@@ -51,7 +51,6 @@ Thing create_wand(WandId wand_id);
 Thing create_potion(PotionId potion_id);
 Thing create_book(BookId book_id);
 Thing create_weapon(WeaponId weapon_id);
-void delete_item(Thing item);
 int get_mana_cost(BookId book_id);
 void zap_wand(Thing individual, uint256 item_id, Coord direction);
 void read_book(Thing actor, uint256 item_id, Coord direction);

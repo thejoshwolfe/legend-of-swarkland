@@ -251,7 +251,7 @@ struct StatusEffect {
     // used for polymorph
     SpeciesId species_id;
 };
-static inline int compare_status_effects_by_type(StatusEffect a, StatusEffect b) {
+static inline int compare_status_effects_by_type(const StatusEffect & a, const StatusEffect & b) {
     assert_str(a.type != b.type, "status effect list contains duplicates");
     return a.type - b.type;
 }
@@ -315,7 +315,7 @@ struct AbilityCooldown {
     AbilityId ability_id;
     int64_t expiration_time;
 };
-static inline int compare_ability_cooldowns_by_type(AbilityCooldown a, AbilityCooldown b) {
+static inline int compare_ability_cooldowns_by_type(const AbilityCooldown & a, const AbilityCooldown & b) {
     assert_str(a.ability_id != b.ability_id, "ability cooldown list contains duplicates");
     return a.ability_id - b.ability_id;
 }
@@ -628,14 +628,24 @@ private:
 };
 typedef Reference<ThingImpl> Thing;
 
-static inline int compare_individuals_by_initiative(Thing a, Thing b) {
+static inline int compare_individuals_by_initiative(const Thing & a, const Thing & b) {
     return compare(a->life()->initiative, b->life()->initiative);
 }
-static inline int compare_things_by_id(Thing a, Thing b) {
+static inline int compare_things_by_id(const Thing & a, const Thing & b) {
     return compare(a->id, b->id);
 }
-static inline int compare_perceived_things_by_id(PerceivedThing a, PerceivedThing b) {
+static inline int compare_perceived_things_by_id(const PerceivedThing & a, const PerceivedThing & b) {
     return compare(a->id, b->id);
+}
+static inline int compare_things_by_location(const Thing & a, const Thing & b) {
+    int result;
+    if ((result = compare(a->location, b->location)) != 0)
+        return result;
+    if ((result = compare(a->container_id, b->container_id)) != 0)
+        return result;
+    if ((result = compare(a->z_order, b->z_order)) != 0)
+        return result;
+    return 0;
 }
 
 // TODO: these are in the wrong place

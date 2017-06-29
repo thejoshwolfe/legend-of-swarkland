@@ -68,6 +68,7 @@ struct Event {
             ITEM_HITS_WALL,
             ITEM_DROPS_TO_THE_FLOOR,
             POTION_BREAKS,
+            ITEM_DISINTEGRATES_IN_LAVA,
         };
         Id id;
         uint256 item;
@@ -238,6 +239,9 @@ struct Event {
     }
     static Event potion_breaks(uint256 item_id, Coord location) {
         return item_and_location_type_event(ItemAndLocationData::POTION_BREAKS, item_id, location);
+    }
+    static Event item_disintegrates_in_lava(uint256 item_id, Coord location) {
+        return item_and_location_type_event(ItemAndLocationData::ITEM_DISINTEGRATES_IN_LAVA, item_id, location);
     }
 
     static inline Event gain_status(uint256 individual_id, StatusEffect::Id status) {

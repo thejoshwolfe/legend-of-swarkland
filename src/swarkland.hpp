@@ -114,7 +114,7 @@ static inline int get_movement_cost(Thing actor) {
 }
 
 void run_the_game();
-int compare_perceived_things_by_type_and_z_order(PerceivedThing a, PerceivedThing b);
+int compare_perceived_things_by_type_and_z_order(const PerceivedThing & a, const PerceivedThing & b);
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location);
 void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
 void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);

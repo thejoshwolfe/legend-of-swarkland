@@ -55,6 +55,14 @@ static constexpr int cardinal_distance(Coord a, Coord b) {
     Coord abs_vector = abs(b - a);
     return abs_vector.x + abs_vector.y;
 }
+static constexpr int compare(const Coord & a, const Coord & b) {
+    int result = 0;
+    if ((result = compare(a.x, b.x)) != 0)
+        return result;
+    if ((result = compare(a.y, b.y)) != 0)
+        return result;
+    return 0;
+}
 
 struct Rect {
     Coord position;
