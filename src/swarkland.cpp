@@ -1032,6 +1032,33 @@ static bool take_action(Thing actor, const Action & action) {
 
 // advance time for an individual
 static void age_individual(Thing individual) {
+    // environment hazards
+    switch (game->actual_map_tiles[individual->location]) {
+        case TileType_DIRT_FLOOR:
+        case TileType_MARBLE_FLOOR:
+        case TileType_UNKNOWN_FLOOR:
+        case TileType_STAIRS_DOWN:
+            break;
+        case TileType_LAVA_FLOOR: {
+            // damage over time
+            int lava_damage = random_int(2, "lava_damage");
+            if (lava_damage > 0) {
+                publish_event(Event::seared_by_lava(individual->id));
+                damage_individual(individual, lava_damage, nullptr, false);
+            }
+            break;
+        }
+        case TileType_BROWN_BRICK_WALL:
+        case TileType_GRAY_BRICK_WALL:
+        case TileType_BORDER_WALL:
+            // you can't be in a wall
+            unreachable();
+        case TileType_UNKNOWN_WALL:
+        case TileType_UNKNOWN:
+        case TileType_COUNT:
+            unreachable();
+    }
+
     if (!game->test_mode) {
         regen_hp(individual);
         regen_mp(individual);

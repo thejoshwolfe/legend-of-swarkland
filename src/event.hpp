@@ -91,6 +91,7 @@ struct Event {
             ACTIVATED_MAPPING,
             MAGIC_BEAM_PUSH_INDIVIDUAL,
             FAIL_TO_CAST_SPELL,
+            SEARED_BY_LAVA,
         };
         Id id;
         uint256 individual;
@@ -282,6 +283,9 @@ struct Event {
     }
     static inline Event fail_to_cast_spell(uint256 individual_id) {
         return individual_event(TheIndividualData::FAIL_TO_CAST_SPELL, individual_id);
+    }
+    static inline Event seared_by_lava(uint256 individual_id) {
+        return individual_event(TheIndividualData::SEARED_BY_LAVA, individual_id);
     }
 
     static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {

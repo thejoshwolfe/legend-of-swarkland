@@ -217,6 +217,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TheIndividualData::SPIT_BLINDING_VENOM:
                 case Event::TheIndividualData::THROW_TAR:
                 case Event::TheIndividualData::INDIVIDUAL_IS_HEALED:
+                case Event::TheIndividualData::SEARED_BY_LAVA:
                     if (!can_see_shape(vision))
                         return false;
                     *output_event = event;
@@ -650,6 +651,9 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case Event::TheIndividualData::FAIL_TO_CAST_SPELL:
                     remembered_event->span->format("%s must not understand how to cast that spell.", get_thing_description(observer, data.individual));
+                    break;
+                case Event::TheIndividualData::SEARED_BY_LAVA:
+                    remembered_event->span->format("%s is seared by lava!", get_thing_description(observer, data.individual));
                     break;
             }
             break;
