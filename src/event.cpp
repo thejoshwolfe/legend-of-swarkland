@@ -291,6 +291,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             switch (data.id) {
                 case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
                 case Event::IndividualAndLocationData::ATTACK_LOCATION:
+                case Event::IndividualAndLocationData::INDIVIDUAL_BURROWS_THROUGH_WALL:
                     if (!see_thing(observer, data.actor))
                         return false;
                     *output_event = event;
@@ -786,28 +787,31 @@ static void observe_event(Thing observer, Event event) {
         case Event::INDIVIDUAL_AND_LOCATION: {
             const Event::IndividualAndLocationData & data = event.individual_and_location_data();
             record_solidity_of_location(observer, data.location, data.is_air);
-            // there's no individual there to attack
-            List<PerceivedThing> perceived_things;
-            find_perceived_things_at(observer, data.location, &perceived_things);
-            for (int i = 0; i < perceived_things.length(); i++)
-                if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
-                    perceived_things[i]->location = Coord::nowhere();
             Span actor_description = get_thing_description(observer, data.actor);
             Span bumpee_description;
             if (!is_open_space(observer->life()->knowledge.tiles[data.location]))
                 bumpee_description = new_span("a wall");
             else
                 bumpee_description = new_span("thin air");
-            const char * fmt;
             switch (data.id) {
                 case Event::IndividualAndLocationData::BUMP_INTO_LOCATION:
-                    fmt = "%s bumps into %s.";
+                    remembered_event->span->format("%s bumps into %s.", actor_description, bumpee_description);
                     break;
-                case Event::IndividualAndLocationData::ATTACK_LOCATION:
-                    fmt = "%s hits %s.";
+                case Event::IndividualAndLocationData::ATTACK_LOCATION: {
+                    remembered_event->span->format("%s hits %s.", actor_description, bumpee_description);
+
+                    // there's no individual there to attack
+                    List<PerceivedThing> perceived_things;
+                    find_perceived_things_at(observer, data.location, &perceived_things);
+                    for (int i = 0; i < perceived_things.length(); i++)
+                        if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
+                            perceived_things[i]->location = Coord::nowhere();
+                    break;
+                }
+                case Event::IndividualAndLocationData::INDIVIDUAL_BURROWS_THROUGH_WALL:
+                    remembered_event->span->format("%s burrows through a wall.", actor_description);
                     break;
             }
-            remembered_event->span->format(fmt, actor_description, bumpee_description);
             break;
         }
         case Event::MOVE: {

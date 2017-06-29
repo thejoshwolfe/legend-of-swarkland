@@ -21,6 +21,7 @@ struct Event {
         enum Id {
             BUMP_INTO_LOCATION,
             ATTACK_LOCATION,
+            INDIVIDUAL_BURROWS_THROUGH_WALL,
         };
         Id id;
         uint256 actor;
@@ -221,6 +222,9 @@ struct Event {
     }
     static Event bump_into_location(Thing actor, Coord location, bool is_air) {
         return individual_and_location_event(IndividualAndLocationData::BUMP_INTO_LOCATION, actor->id, location, is_air);
+    }
+    static Event individual_burrows_through_wall(uint256 actor_id, Coord location) {
+        return individual_and_location_event(IndividualAndLocationData::INDIVIDUAL_BURROWS_THROUGH_WALL, actor_id, location, true);
     }
 
     static Event throw_item(uint256 individual_id, uint256 item_id) {

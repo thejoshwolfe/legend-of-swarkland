@@ -600,6 +600,17 @@ static void do_move(Thing mover, Coord new_position) {
 // return if it worked, otherwise bumped into something.
 bool attempt_move(Thing actor, Coord new_position) {
     if (!is_open_space(game->actual_map_tiles[new_position])) {
+        // moving into a wall
+        if (has_status(actor, StatusEffect::BURROWING)) {
+            // maybe we can tunnel through this.
+            if (is_diggable_wall(game->actual_map_tiles[new_position])) {
+                // burrow through the wall.
+                change_map(new_position, TileType_DIRT_FLOOR);
+                do_move(actor, new_position);
+                publish_event(Event::individual_burrows_through_wall(actor->id, new_position));
+                return true;
+            }
+        }
         publish_event(Event::bump_into_location(actor, new_position, false));
         return false;
     }
