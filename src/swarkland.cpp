@@ -1219,8 +1219,14 @@ void run_the_game() {
             Thing individual = poised_individuals[poised_individuals_index];
             bool should_time_pass = false;
             while (!should_time_pass) {
-                if (!individual->still_exists)
-                    break; // sorry, buddy. you were that close to making another move.
+                if (!individual->still_exists) {
+                    // sorry, buddy. you were that close to making another move.
+                    break;
+                }
+                if (!can_act(individual)) {
+                    // someone interrupted your turn and made you lose it.
+                    break;
+                }
                 Action action = decision_makers[individual->life()->decision_maker](individual);
                 if (action.id == Action::UNDECIDED) {
                     // give the player some time to think.

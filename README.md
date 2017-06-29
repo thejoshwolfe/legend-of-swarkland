@@ -120,6 +120,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
  * Added weapons: dagger, battleaxe
    * Weapons can be thrown for more/less range and more damage than other items.
    * Holding a weapon increases your attack power.
+ * Added lava
 
 ## Version History
 

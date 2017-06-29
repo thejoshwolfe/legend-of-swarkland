@@ -887,6 +887,14 @@ static Div get_time_display(Thing spectate_from) {
     {
         String time_string = new_string();
         time_string->format("time: %d", game->time_counter / 12);
+        if (movement_cost < 12) {
+            // enhanced time sense can see the ticks
+            int and_ticks = game->time_counter % 12;
+            time_string->append(':');
+            if (and_ticks < 10)
+                time_string->append('0');
+            time_string->format("%d", and_ticks);
+        }
         result->append(new_span(time_string));
     }
 

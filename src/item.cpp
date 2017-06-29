@@ -198,8 +198,16 @@ static void force_hit_individual(Thing target, Coord direction, int beam_length_
             choo_choo_train.append(target);
         } else {
             // move the train into this space
-            for (int i = choo_choo_train.length() - 1; i >= 0; i--)
-                attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
+            for (int i = choo_choo_train.length() - 1; i >= 0; i--) {
+                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
+                if (actually_moved) {
+                    // "stun" the individual so they can't move right away.
+                    // they have to charge their move from this forced movement as though it were their last regular movement.
+                    // this makes pushing enemies into lava do more predictable damage.
+                    // note that you can still act at the same time you would have been able to, just not move.
+                    choo_choo_train[i]->life()->last_movement_time = game->time_counter;
+                }
+            }
             if (!is_open_space(game->actual_map_tiles[cursor])) {
                 // end of the line.
                 // we just published a bunch of bump-into events.
