@@ -1064,21 +1064,28 @@ static void age_things() {
                 // damage over time
                 int lava_damage = random_int(2, "lava_damage");
                 if (lava_damage > 0) {
+                    bool item_disintegrates = false;
                     switch (thing->thing_type) {
                         case ThingType_INDIVIDUAL:
-                            publish_event(Event::seared_by_lava(thing->id));
-                            damage_individual(thing, lava_damage, nullptr, false);
+                            if (!has_status(thing, StatusEffect::LEVITATING)) {
+                                publish_event(Event::seared_by_lava(thing->id));
+                                damage_individual(thing, lava_damage, nullptr, false);
+                            }
                             break;
                         case ThingType_WAND:
-                        case ThingType_POTION:
                         case ThingType_BOOK:
                         case ThingType_WEAPON:
-                            // items disintegrate in lava
-                            publish_event(Event::item_disintegrates_in_lava(thing->id, thing->location));
-                            thing->still_exists = false;
+                            item_disintegrates = true;
+                            break;
+                        case ThingType_POTION:
+                            item_disintegrates = thing->potion_info()->potion_id != PotionId_POTION_OF_LEVITATION;
                             break;
                         case ThingType_COUNT:
                             unreachable();
+                    }
+                    if (item_disintegrates) {
+                        publish_event(Event::item_disintegrates_in_lava(thing->id, thing->location));
+                        thing->still_exists = false;
                     }
                 }
                 break;

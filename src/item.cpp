@@ -756,7 +756,13 @@ void throw_item(Thing actor, Thing item, Coord direction) {
 
     // find the hit target
     Coord range_window = get_throw_range_window(item);
-    int range = random_inclusive(range_window.x, range_window.y, "throw_distance");
+    int range;
+    if (item->thing_type == ThingType_POTION && item->potion_info()->potion_id == PotionId_POTION_OF_LEVITATION) {
+        // just keeps floating
+        range = infinite_range;
+    } else {
+        range = random_inclusive(range_window.x, range_window.y, "throw_distance");
+    }
     Coord cursor = actor->location;
     ImpactBehavior impact_behavior = get_impact_behavior(item);
     int impact_force = 0;
