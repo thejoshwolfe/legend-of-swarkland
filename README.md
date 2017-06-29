@@ -121,6 +121,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
    * Weapons can be thrown for more/less range and more damage than other items.
    * Holding a weapon increases your attack power.
  * Added lava
+ * Magic beam of force now recoils on a point blank hit. Gotta go fast!
 
 ## Version History
 

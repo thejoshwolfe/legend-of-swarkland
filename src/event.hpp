@@ -91,6 +91,7 @@ struct Event {
             INDIVIDUAL_IS_HEALED,
             ACTIVATED_MAPPING,
             MAGIC_BEAM_PUSH_INDIVIDUAL,
+            MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL,
             FAIL_TO_CAST_SPELL,
             SEARED_BY_LAVA,
         };
@@ -284,6 +285,9 @@ struct Event {
     }
     static inline Event magic_beam_push_individual(uint256 individual_id) {
         return individual_event(TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL, individual_id);
+    }
+    static inline Event magic_beam_recoils_and_pushes_individual(uint256 individual_id) {
+        return individual_event(TheIndividualData::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL, individual_id);
     }
     static inline Event fail_to_cast_spell(uint256 individual_id) {
         return individual_event(TheIndividualData::FAIL_TO_CAST_SPELL, individual_id);

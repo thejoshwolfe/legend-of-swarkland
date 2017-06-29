@@ -244,6 +244,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     return true;
                 }
                 case Event::TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL:
+                case Event::TheIndividualData::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL:
                 case Event::TheIndividualData::INDIVIDUAL_DODGES_MAGIC_BEAM:
                     // TODO: consider when this individual is unseen
                     if (!see_thing(observer, data.individual))
@@ -647,6 +648,10 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case Event::TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL:
                     remembered_event->span->format("a magic beam pushes %s!", get_thing_description(observer, data.individual));
+                    identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
+                    break;
+                case Event::TheIndividualData::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL:
+                    remembered_event->span->format("the magic beam recoils and pushes %s!", get_thing_description(observer, data.individual));
                     identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
                     break;
                 case Event::TheIndividualData::FAIL_TO_CAST_SPELL:

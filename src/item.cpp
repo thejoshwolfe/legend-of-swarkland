@@ -182,14 +182,10 @@ static int digging_hit_wall(Coord location) {
     return 0;
 }
 
-static void force_hit_individual(Thing target, Coord direction, int beam_length_remaining) {
-    if (direction == Coord{0, 0}) {
-        // no effect with no direction
-        publish_event(Event::magic_beam_hit(target->id));
-        return;
-    }
+static bool force_push_individual(Thing target, Coord direction, int beam_length_remaining) {
     Coord cursor = target->location;
     List<Thing> choo_choo_train;
+    bool is_point_blank_recoil = true;
     for (int push_length = 0; push_length < beam_length_remaining; push_length++) {
         target = find_individual_at(cursor);
         if (target != nullptr) {
@@ -206,6 +202,9 @@ static void force_hit_individual(Thing target, Coord direction, int beam_length_
                     // this makes pushing enemies into lava do more predictable damage.
                     // note that you can still act at the same time you would have been able to, just not move.
                     choo_choo_train[i]->life()->last_movement_time = game->time_counter;
+
+                    // if anyone moves, there's no recoil
+                    is_point_blank_recoil = false;
                 }
             }
             if (!is_open_space(game->actual_map_tiles[cursor])) {
@@ -213,8 +212,34 @@ static void force_hit_individual(Thing target, Coord direction, int beam_length_
                 // we just published a bunch of bump-into events.
                 break;
             }
+            if (choo_choo_train.length() == 0) {
+                // nobody and no wall at point blank
+                is_point_blank_recoil = false;
+            }
         }
         cursor += direction;
+    }
+    return is_point_blank_recoil;
+}
+static void force_hit_something(Thing target, Coord direction, int beam_length_remaining, Thing actor, bool is_point_blank) {
+    if (direction == Coord{0, 0}) {
+        // no effect with no direction
+        publish_event(Event::magic_beam_hit(target->id));
+        return;
+    }
+    bool is_point_blank_recoil;
+    if (target != nullptr) {
+        // hit an individual
+        is_point_blank_recoil = force_push_individual(target, direction, beam_length_remaining);
+    } else {
+        // hit a wall
+        is_point_blank_recoil = true;
+    }
+    if (is_point_blank && is_point_blank_recoil) {
+        // special case when forcing point blank against a wall or a chain of enemies that can't be moved.
+        // recoil as though force was pushing you.
+        publish_event(Event::magic_beam_recoils_and_pushes_individual(actor->id));
+        force_push_individual(actor, Coord{-direction.x, -direction.y}, beam_length_remaining);
     }
 }
 
@@ -288,6 +313,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
         cursor = cursor + direction;
         if (!is_in_bounds(cursor))
             break;
+        bool is_point_blank = i == 0;
 
         Thing target = find_individual_at(cursor);
         int length_penalty = 0;
@@ -327,7 +353,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                         length_penalty = 2;
                         break;
                     case ProjectileId_BEAM_OF_FORCE:
-                        force_hit_individual(target, direction, beam_length - i);
+                        force_hit_something(target, direction, beam_length - i, actor, is_point_blank);
                         length_penalty = -1;
                         break;
                     case ProjectileId_BEAM_OF_ASSUME_FORM:
@@ -347,7 +373,6 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
         }
         if (length_penalty == -1)
             break;
-        beam_length -= length_penalty;
 
         if (!is_open_space(game->actual_map_tiles[cursor])) {
             // hit wall
@@ -355,13 +380,16 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                 case ProjectileId_BEAM_OF_DIGGING:
                     length_penalty = digging_hit_wall(cursor);
                     break;
+                case ProjectileId_BEAM_OF_FORCE:
+                    hit_wall_no_effect(cursor);
+                    force_hit_something(nullptr, direction, beam_length, actor, is_point_blank);
+                    break;
                 case ProjectileId_BEAM_OF_CONFUSION:
                 case ProjectileId_MAGIC_MISSILE:
                 case ProjectileId_BEAM_OF_SPEED:
                 case ProjectileId_BEAM_OF_REMEDY:
                 case ProjectileId_MAGIC_BULLET:
                 case ProjectileId_BEAM_OF_BLINDING:
-                case ProjectileId_BEAM_OF_FORCE: // TODO: force hit wall
                 case ProjectileId_BEAM_OF_ASSUME_FORM:
                 case ProjectileId_BEAM_OF_INVISIBILITY:
                 case ProjectileId_BEAM_OF_SLOWING:
@@ -651,7 +679,7 @@ static void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
                     (beam_length_average - beam_length_error_margin) / 3,
                     (beam_length_average + beam_length_error_margin) / 3,
                     "force_explosion_push_distance");
-                force_hit_individual(affected_individuals[i], direction, beam_length);
+                force_hit_something(affected_individuals[i], direction, beam_length, nullptr, false);
             }
             break;
         case WandId_WAND_OF_INVISIBILITY:
