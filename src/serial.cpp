@@ -468,6 +468,7 @@ static IndexAndValue<ConstStr> constexpr potion_id_names[PotionId_COUNT + 2] = {
     {PotionId_POTION_OF_BLINDNESS, "blindness"},
     {PotionId_POTION_OF_INVISIBILITY, "invisibility"},
     {PotionId_POTION_OF_BURROWING, "burrowing"},
+    {PotionId_POTION_OF_LEVITATION, "levitation"},
     {PotionId_COUNT, nullptr},
     {PotionId_UNKNOWN, "unknown"},
 };
@@ -525,6 +526,7 @@ static IndexAndValue<ConstStr> constexpr status_effect_names[StatusEffect::COUNT
     {StatusEffect::POLYMORPH, "polymorph"},
     {StatusEffect::SLOWING, "slowing"},
     {StatusEffect::BURROWING, "burrowing"},
+    {StatusEffect::LEVITATING, "levitating"},
 };
 static_assert(_check_indexed_array(status_effect_names, StatusEffect::COUNT), "missed a spot");
 
@@ -552,6 +554,7 @@ static IndexAndValue<ConstStr> constexpr potion_description_names[PotionDescript
     {PotionDescriptionId_ORANGE_POTION, "orange"},
     {PotionDescriptionId_PURPLE_POTION, "purple"},
     {PotionDescriptionId_GLITTERY_BLUE_POTION, "glittery_blue"},
+    {PotionDescriptionId_GLITTERY_GREEN_POTION, "glittery_green"},
     {PotionDescriptionId_COUNT, nullptr},
     {PotionDescriptionId_UNSEEN, "unseen"},
 };
@@ -828,6 +831,10 @@ static StatusEffect parse_status_effect() {
         case StatusEffect::SLOWING:
         case StatusEffect::BURROWING:
             break;
+        case StatusEffect::LEVITATING:
+            status_effect.coord = parse_coord(line, tokens[token_cursor], tokens[token_cursor + 1]);
+            token_cursor += 2;
+            break;
         case StatusEffect::POISON:
             status_effect.poison_next_damage_time = parse_int64(line, tokens[token_cursor++]);
             status_effect.who_is_responsible = parse_uint256(line, tokens[token_cursor++]);
@@ -858,6 +865,9 @@ static void write_status_effect(ByteBuffer * output_buffer, StatusEffect status_
         case StatusEffect::INVISIBILITY:
         case StatusEffect::SLOWING:
         case StatusEffect::BURROWING:
+            break;
+        case StatusEffect::LEVITATING:
+            output_buffer->format(" %d %d", status_effect.coord.x, status_effect.coord.y);
             break;
         case StatusEffect::POISON:
             output_buffer->append(' ');

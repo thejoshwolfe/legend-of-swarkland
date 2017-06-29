@@ -425,6 +425,7 @@ Action get_ai_decision(Thing actor) {
                                     buff_actions.append(Action::quaff(item->id));
                                     break;
                                 case PotionId_POTION_OF_BURROWING:
+                                case PotionId_POTION_OF_LEVITATION:
                                     // idk how to use this.
                                     break;
                                 case PotionId_UNKNOWN:

@@ -136,6 +136,7 @@ static void load_images() {
     potion_images[PotionDescriptionId_ORANGE_POTION] = sprite_location_orange_potion;
     potion_images[PotionDescriptionId_PURPLE_POTION] = sprite_location_purple_potion;
     potion_images[PotionDescriptionId_GLITTERY_BLUE_POTION] = sprite_location_glittery_blue_potion;
+    potion_images[PotionDescriptionId_GLITTERY_GREEN_POTION] = sprite_location_glittery_green_potion;
     check_no_trash(potion_images);
 
     fill_with_trash(book_images);
@@ -337,6 +338,8 @@ static Span get_status_description(const List<StatusEffect> & status_effects) {
         result->append("polymorphed ");
     if (maybe_remove_status(&remaining_status_effects, StatusEffect::BURROWING))
         result->append("burrowing ");
+    if (maybe_remove_status(&remaining_status_effects, StatusEffect::LEVITATING))
+        result->append("levitating ");
     assert_str(remaining_status_effects.length() == 0, "missed a spot");
     result->set_color(pink, black);
     return result;
@@ -434,6 +437,8 @@ const char * get_potion_id_str(PotionId potion_id) {
             return "potion of invisibility";
         case PotionId_POTION_OF_BURROWING:
             return "potion of burrowing";
+        case PotionId_POTION_OF_LEVITATION:
+            return "potion of levitation";
 
         case PotionId_COUNT:
         case PotionId_UNKNOWN:
@@ -494,6 +499,8 @@ static const char * get_potion_description_str(Thing observer, PerceivedThing it
                 return "purple potion";
             case PotionDescriptionId_GLITTERY_BLUE_POTION:
                 return "glittery blue potion";
+            case PotionDescriptionId_GLITTERY_GREEN_POTION:
+                return "glittery green potion";
 
             case PotionDescriptionId_UNSEEN:
                 return "potion";

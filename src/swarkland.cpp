@@ -650,6 +650,7 @@ bool check_for_status_expired(Thing individual, int index) {
         case StatusEffect::INVISIBILITY:
         case StatusEffect::SLOWING:
         case StatusEffect::BURROWING:
+        case StatusEffect::LEVITATING:
             publish_event(Event::lose_status(individual->id, status_effect.type));
             break;
         case StatusEffect::POLYMORPH:
@@ -667,6 +668,7 @@ bool check_for_status_expired(Thing individual, int index) {
         case StatusEffect::SLOWING:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::BURROWING:
+        case StatusEffect::LEVITATING:
             break;
         case StatusEffect::ETHEREAL_VISION:
         case StatusEffect::COGNISCOPY:

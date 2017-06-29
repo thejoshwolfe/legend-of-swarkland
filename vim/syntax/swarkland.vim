@@ -48,12 +48,13 @@ syn keyword swarklandBareword individual potion wand book weapon
 syn keyword swarklandBareword human ogre lich shapeshifter pink_blob air_elemenetal tar_elemental dog ant bee beetle scorpion snake cobra unseen
 syn keyword swarklandBareword player ai
 syn keyword swarklandBareword confusion digging magic_missile speed remedy unknown
-syn keyword swarklandBareword healing poison ethereal_vision cogniscopy blindness invisibility burrowing
-syn keyword swarklandBareword polymorph
+syn keyword swarklandBareword healing poison ethereal_vision cogniscopy blindness invisibility burrowing levitation
+syn keyword swarklandBareword polymorph levitating
 syn keyword swarklandBareword magic_bullet mapping force assume_form blinding slowing
 syn keyword swarklandBareword dagger battleaxe
 syn keyword swarklandBareword spit_blinding_venom throw_tar assume_form
-syn keyword swarklandBareword red blue green yellow orange purple glittery_blue
+syn keyword swarklandBareword          blue          green yellow orange red purple
+syn keyword swarklandBareword glittery_blue glittery_green
 syn keyword swarklandBareword       bone       gold       plastic       copper       purple
 syn keyword swarklandBareword shiny_bone shiny_gold shiny_plastic shiny_copper shiny_purple
 

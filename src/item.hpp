@@ -33,6 +33,7 @@ static constexpr IndexAndValue<int> item_rarities[TOTAL_ITEMS] = {
     {POTION_OFFSET + PotionId_POTION_OF_BLINDNESS      ,  8},
     {POTION_OFFSET + PotionId_POTION_OF_INVISIBILITY   ,  8},
     {POTION_OFFSET + PotionId_POTION_OF_BURROWING      ,  8},
+    {POTION_OFFSET + PotionId_POTION_OF_LEVITATION     , 10},
 
     {BOOK_OFFSET + BookId_SPELLBOOK_OF_MAGIC_BULLET, 4},
     {BOOK_OFFSET + BookId_SPELLBOOK_OF_SPEED       , 3},

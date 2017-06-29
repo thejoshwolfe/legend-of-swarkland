@@ -102,4 +102,18 @@ pickup 0000000000000000000000000000000000000000000000000000000000000009
   @expect_nothing
 wait
 
+!wish potion levitation
+pickup 000000000000000000000000000000000000000000000000000000000000000a
+@mark_events
+  quaff 000000000000000000000000000000000000000000000000000000000000000a
+    @rng 20 midpoint:2000:potion_of_levitation_expiration
+  @expect_event "you quaffs a glittery green potion."
+  @expect_event "you is levitating!"
+  @expect_no_events
+@find_things_at 1 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing
+wait
+
 @test_end

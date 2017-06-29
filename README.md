@@ -122,7 +122,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
    * Holding a weapon increases your attack power.
  * New items:
    * weapons: dagger, battleaxe
-   * potions of: burrowing
+   * potions of: burrowing, levitation
  * Added lava
  * Magic beam of force now recoils on a point blank hit. Gotta go fast!
 

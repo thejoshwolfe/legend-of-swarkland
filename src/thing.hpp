@@ -61,6 +61,7 @@ enum PotionDescriptionId {
     PotionDescriptionId_ORANGE_POTION,
     PotionDescriptionId_PURPLE_POTION,
     PotionDescriptionId_GLITTERY_BLUE_POTION,
+    PotionDescriptionId_GLITTERY_GREEN_POTION,
 
     PotionDescriptionId_COUNT,
     PotionDescriptionId_UNSEEN,
@@ -73,6 +74,7 @@ enum PotionId {
     PotionId_POTION_OF_BLINDNESS,
     PotionId_POTION_OF_INVISIBILITY,
     PotionId_POTION_OF_BURROWING,
+    PotionId_POTION_OF_LEVITATION,
 
     PotionId_COUNT,
     PotionId_UNKNOWN,
@@ -239,6 +241,7 @@ struct StatusEffect {
         POLYMORPH,
         SLOWING,
         BURROWING,
+        LEVITATING,
 
         COUNT,
     };
@@ -246,13 +249,13 @@ struct StatusEffect {
     // this is never in the past
     int64_t expiration_time;
 
-    // TODO: union
-    // currently only used for poison
     int64_t poison_next_damage_time;
     // used for awarding experience for poison damage kills
     uint256 who_is_responsible;
     // used for polymorph
     SpeciesId species_id;
+    // used for levitation momentum
+    Coord coord;
 };
 static inline int compare_status_effects_by_type(const StatusEffect & a, const StatusEffect & b) {
     assert_str(a.type != b.type, "status effect list contains duplicates");
@@ -261,12 +264,13 @@ static inline int compare_status_effects_by_type(const StatusEffect & a, const S
 
 static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vision) {
     switch (effect) {
-        case StatusEffect::CONFUSION: // the derpy look on your face
-        case StatusEffect::SPEED:     // the twitchy motion of your body
-        case StatusEffect::SLOWING:   // the baywatchy motion of your body
-        case StatusEffect::BLINDNESS: // the empty look in your eyes
-        case StatusEffect::POISON:    // the sick look on your face
-        case StatusEffect::BURROWING: // the ground rippling beneath your feet
+        case StatusEffect::CONFUSION:  // the derpy look on your face
+        case StatusEffect::SPEED:      // the twitchy motion of your body
+        case StatusEffect::SLOWING:    // the baywatchy motion of your body
+        case StatusEffect::BLINDNESS:  // the empty look in your eyes
+        case StatusEffect::POISON:     // the sick look on your face
+        case StatusEffect::BURROWING:  // the ground rippling beneath your feet
+        case StatusEffect::LEVITATING: // the gap between you and the ground
             return can_see_shape(vision);
         case StatusEffect::INVISIBILITY:
             // ironically, you need normal vision to tell when something can't be seen with it.
@@ -300,6 +304,8 @@ static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
             return can_see_status_effect(StatusEffect::INVISIBILITY, vision);
         case PotionId_POTION_OF_BURROWING:
             return can_see_status_effect(StatusEffect::BURROWING, vision);
+        case PotionId_POTION_OF_LEVITATION:
+            return can_see_status_effect(StatusEffect::LEVITATING, vision);
 
         case PotionId_UNKNOWN: // you alread know you can't see it
             return false;
@@ -690,6 +696,7 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
         case StatusEffect::POISON:
         case StatusEffect::POLYMORPH:
         case StatusEffect::BURROWING:
+        case StatusEffect::LEVITATING:
             return true;
 
         case StatusEffect::COUNT:
@@ -702,7 +709,7 @@ static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::Id st
     int index = find_status(thing->status_effects, status);
     if (index == -1) {
         index = thing->status_effects.length();
-        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero(), SpeciesId_COUNT });
+        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero(), SpeciesId_COUNT, Coord{0, 0} });
     }
     return &thing->status_effects[index];
 }
@@ -720,7 +727,7 @@ static inline StatusEffect * find_or_put_status(PerceivedThing thing, StatusEffe
     int index = find_status(thing->status_effects, status);
     if (index == -1) {
         index = thing->status_effects.length();
-        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero(), SpeciesId_COUNT });
+        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero(), SpeciesId_COUNT, Coord{0, 0} });
     }
     return &thing->status_effects[index];
 }
