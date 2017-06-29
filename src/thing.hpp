@@ -60,6 +60,7 @@ enum PotionDescriptionId {
     PotionDescriptionId_YELLOW_POTION,
     PotionDescriptionId_ORANGE_POTION,
     PotionDescriptionId_PURPLE_POTION,
+    PotionDescriptionId_GLITTERY_BLUE_POTION,
 
     PotionDescriptionId_COUNT,
     PotionDescriptionId_UNSEEN,
@@ -71,6 +72,7 @@ enum PotionId {
     PotionId_POTION_OF_COGNISCOPY,
     PotionId_POTION_OF_BLINDNESS,
     PotionId_POTION_OF_INVISIBILITY,
+    PotionId_POTION_OF_BURROWING,
 
     PotionId_COUNT,
     PotionId_UNKNOWN,
@@ -236,6 +238,7 @@ struct StatusEffect {
         POISON,
         POLYMORPH,
         SLOWING,
+        BURROWING,
 
         COUNT,
     };
@@ -263,6 +266,7 @@ static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vi
         case StatusEffect::SLOWING:   // the baywatchy motion of your body
         case StatusEffect::BLINDNESS: // the empty look in your eyes
         case StatusEffect::POISON:    // the sick look on your face
+        case StatusEffect::BURROWING: // the ground rippling beneath your feet
             return can_see_shape(vision);
         case StatusEffect::INVISIBILITY:
             // ironically, you need normal vision to tell when something can't be seen with it.
@@ -294,6 +298,8 @@ static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
             return can_see_status_effect(StatusEffect::BLINDNESS, vision);
         case PotionId_POTION_OF_INVISIBILITY:
             return can_see_status_effect(StatusEffect::INVISIBILITY, vision);
+        case PotionId_POTION_OF_BURROWING:
+            return can_see_status_effect(StatusEffect::BURROWING, vision);
 
         case PotionId_UNKNOWN: // you alread know you can't see it
             return false;
@@ -668,7 +674,7 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
         case StatusEffect::CONFUSION:
             return individual_has_mind(individual);
         case StatusEffect::SPEED:
-            // if you're already moving at the slow speed, you can't tell if it gets worse
+            // this is everything
             return individual->physical_species()->movement_cost != speedy_movement_cost;
         case StatusEffect::SLOWING:
             // if you're already moving at the slow speed, you can't tell if it gets worse
@@ -683,6 +689,7 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
         case StatusEffect::INVISIBILITY:
         case StatusEffect::POISON:
         case StatusEffect::POLYMORPH:
+        case StatusEffect::BURROWING:
             return true;
 
         case StatusEffect::COUNT:

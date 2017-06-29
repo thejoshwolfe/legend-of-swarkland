@@ -88,4 +88,18 @@ pickup 0000000000000000000000000000000000000000000000000000000000000008
   @expect_nothing
 wait
 
+!wish potion burrowing
+pickup 0000000000000000000000000000000000000000000000000000000000000009
+@mark_events
+  quaff 0000000000000000000000000000000000000000000000000000000000000009
+    @rng 20 midpoint:600:potion_of_burrowing_expiration
+  @expect_event "you quaffs a glittery blue potion."
+  @expect_event "the ground below you starts to ripple!"
+  @expect_no_events
+@find_things_at 1 1
+  @expect_thing individual human
+    @expect_carrying_nothing
+  @expect_nothing
+wait
+
 @test_end

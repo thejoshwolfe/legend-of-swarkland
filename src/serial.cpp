@@ -467,6 +467,7 @@ static IndexAndValue<ConstStr> constexpr potion_id_names[PotionId_COUNT + 2] = {
     {PotionId_POTION_OF_COGNISCOPY, "cogniscopy"},
     {PotionId_POTION_OF_BLINDNESS, "blindness"},
     {PotionId_POTION_OF_INVISIBILITY, "invisibility"},
+    {PotionId_POTION_OF_BURROWING, "burrowing"},
     {PotionId_COUNT, nullptr},
     {PotionId_UNKNOWN, "unknown"},
 };
@@ -523,6 +524,7 @@ static IndexAndValue<ConstStr> constexpr status_effect_names[StatusEffect::COUNT
     {StatusEffect::POISON, "poison"},
     {StatusEffect::POLYMORPH, "polymorph"},
     {StatusEffect::SLOWING, "slowing"},
+    {StatusEffect::BURROWING, "burrowing"},
 };
 static_assert(_check_indexed_array(status_effect_names, StatusEffect::COUNT), "missed a spot");
 
@@ -549,6 +551,7 @@ static IndexAndValue<ConstStr> constexpr potion_description_names[PotionDescript
     {PotionDescriptionId_YELLOW_POTION, "yellow"},
     {PotionDescriptionId_ORANGE_POTION, "orange"},
     {PotionDescriptionId_PURPLE_POTION, "purple"},
+    {PotionDescriptionId_GLITTERY_BLUE_POTION, "glittery_blue"},
     {PotionDescriptionId_COUNT, nullptr},
     {PotionDescriptionId_UNSEEN, "unseen"},
 };
@@ -823,6 +826,7 @@ static StatusEffect parse_status_effect() {
         case StatusEffect::BLINDNESS:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::SLOWING:
+        case StatusEffect::BURROWING:
             break;
         case StatusEffect::POISON:
             status_effect.poison_next_damage_time = parse_int64(line, tokens[token_cursor++]);
@@ -853,6 +857,7 @@ static void write_status_effect(ByteBuffer * output_buffer, StatusEffect status_
         case StatusEffect::BLINDNESS:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::SLOWING:
+        case StatusEffect::BURROWING:
             break;
         case StatusEffect::POISON:
             output_buffer->append(' ');

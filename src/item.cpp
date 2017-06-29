@@ -610,6 +610,10 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             publish_event(Event::gain_status(target_id, StatusEffect::INVISIBILITY));
             find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = game->time_counter + random_midpoint(2000, "potion_of_invisibility_expiration");
             break;
+        case PotionId_POTION_OF_BURROWING:
+            publish_event(Event::gain_status(target_id, StatusEffect::BURROWING));
+            find_or_put_status(target, StatusEffect::BURROWING)->expiration_time = game->time_counter + random_midpoint(600, "potion_of_burrowing_expiration");
+            break;
 
         case PotionId_COUNT:
         case PotionId_UNKNOWN:

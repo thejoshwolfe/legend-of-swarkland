@@ -638,6 +638,7 @@ bool check_for_status_expired(Thing individual, int index) {
         case StatusEffect::POISON:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::SLOWING:
+        case StatusEffect::BURROWING:
             publish_event(Event::lose_status(individual->id, status_effect.type));
             break;
         case StatusEffect::POLYMORPH:
@@ -651,26 +652,19 @@ bool check_for_status_expired(Thing individual, int index) {
     individual->status_effects.swap_remove(index);
     switch (status_effect.type) {
         case StatusEffect::CONFUSION:
-            break;
         case StatusEffect::SPEED:
         case StatusEffect::SLOWING:
+        case StatusEffect::INVISIBILITY:
+        case StatusEffect::BURROWING:
             break;
         case StatusEffect::ETHEREAL_VISION:
-            compute_vision(individual);
-            break;
         case StatusEffect::COGNISCOPY:
-            compute_vision(individual);
-            break;
         case StatusEffect::BLINDNESS:
+        case StatusEffect::POLYMORPH:
             compute_vision(individual);
             break;
         case StatusEffect::POISON:
             reset_hp_regen_timeout(individual);
-            break;
-        case StatusEffect::INVISIBILITY:
-            break;
-        case StatusEffect::POLYMORPH:
-            compute_vision(individual);
             break;
 
         case StatusEffect::COUNT:

@@ -758,6 +758,14 @@ static void observe_event(Thing observer, Event event) {
                     lose_wand_id = WandId_WAND_OF_SPEED;
                     lose_book_id = BookId_SPELLBOOK_OF_SPEED;
                     break;
+                case StatusEffect::BURROWING:
+                    if (data.is_gain) {
+                        remembered_event->span->format("the ground below %s starts to ripple!", individual_description);
+                    } else {
+                        remembered_event->span->format("the ground below %s looks solid.", individual_description);
+                    }
+                    gain_potion_id = PotionId_POTION_OF_BURROWING;
+                    break;
 
                 case StatusEffect::COUNT:
                     unreachable();
