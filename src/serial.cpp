@@ -1622,7 +1622,7 @@ static Action read_action() {
         read_tokens(&line, &tokens, true);
         if (tokens.length() == 0) {
             // EOF
-            if (game->test_mode && current_mode == SaveFileMode_READ && !found_test_end) {
+            if (game->test_mode && current_mode == SaveFileMode_READ && headless_mode && !found_test_end) {
                 fprintf(stderr, "%s:%d:1: error: missing %s at end of test\n", script_path, line_number, directive_names[DirectiveId_TEST_END].value.ptr);
                 exit_with_error();
             }
