@@ -589,6 +589,19 @@ static void do_move(Thing mover, Coord new_position) {
     // notify other individuals who could see that move
     publish_event(Event::move(mover, old_position));
 
+    int index;
+    if ((index = find_status(mover->status_effects, StatusEffect::LEVITATING)) != -1) {
+        Coord momentum;
+        if (is_solid_wall_within_reach(new_position)) {
+            // steady...
+            momentum = Coord{0, 0};
+        } else {
+            // we're going this way
+            momentum = new_position - old_position;
+        }
+        mover->status_effects[index].coord = momentum;
+    }
+
     if (mover->physical_species()->sucks_up_items) {
         // pick up items for free
         List<Thing> floor_items;
@@ -596,6 +609,11 @@ static void do_move(Thing mover, Coord new_position) {
         for (int i = 0; i < floor_items.length(); i++)
             suck_up_item(mover, floor_items[i]);
     }
+
+    // after any actual movement, your movement timer starts over.
+    // this makes force pushing enemies into lava do more predictable damage.
+    // note that you can still act at the same time you would have been able to, just not move.
+    mover->life()->last_movement_time = game->time_counter;
 }
 // return if it worked, otherwise bumped into something.
 bool attempt_move(Thing actor, Coord new_position) {
@@ -849,16 +867,7 @@ bool validate_action(Thing actor, const Action & action) {
     }
     unreachable();
 }
-static const Coord directions_by_rotation[] = {
-    {+1,  0},
-    {+1, +1},
-    { 0, +1},
-    {-1, +1},
-    {-1,  0},
-    {-1, -1},
-    { 0, -1},
-    {+1, -1},
-};
+
 Coord confuse_direction(Thing individual, Coord direction) {
     if (direction == Coord{0, 0})
         return direction; // can't get that wrong
@@ -875,20 +884,34 @@ Coord confuse_direction(Thing individual, Coord direction) {
     }
     return direction; // not confused
 }
+static bool can_propel_self(Thing actor) {
+    if (!has_status(actor, StatusEffect::LEVITATING))
+        return true;
+    if (is_solid_wall_within_reach(actor->location))
+        return true;
+    return false;
+}
 
 // return true if time should pass, false if we used an instantaneous cheatcode.
 static bool take_action(Thing actor, const Action & action) {
     assert(validate_action(actor, action));
-    // we know you can attempt the action, but it won't necessarily turn out the way you expected it.
+    // we know you can attempt the action, but it won't necessarily turn out the way you expected.
 
     bool can_dodge = false;
+    bool just_successfully_moved = false;
     switch (action.id) {
         case Action::WAIT:
-            can_dodge = true;
+            // this is false when we're floating at high speed after doing an action
+            can_dodge = can_act(actor);
             break;
         case Action::MOVE: {
-            Coord new_position = actor->location + confuse_direction(actor, action.coord());
-            can_dodge = attempt_move(actor, new_position);
+            if (can_propel_self(actor)) {
+                Coord new_position = actor->location + confuse_direction(actor, action.coord());
+                can_dodge = attempt_move(actor, new_position);
+                just_successfully_moved = true;
+            } else {
+                publish_event(Event::individual_floats_uncontrollably(actor->id));
+            }
             break;
         }
         case Action::ATTACK: {
@@ -994,6 +1017,21 @@ static bool take_action(Thing actor, const Action & action) {
             unreachable();
     }
 
+    // uncontrollable momentum
+    bool floating_uncontrollably = false;
+    if (!just_successfully_moved && can_move(actor)) {
+        // when you first shove off a wall, we don't want this to give you a double boost.
+        int index;
+        if ((index = find_status(actor->status_effects, StatusEffect::LEVITATING)) != -1) {
+            Coord momentum = actor->status_effects[index].coord;
+            if (momentum != Coord{0, 0}) {
+                // also keep sliding through the air.
+                attempt_move(actor, actor->location + momentum);
+                floating_uncontrollably = true;
+            }
+        }
+    }
+
     // now pay for the action
     Life * life = actor->life();
     int movement_cost = get_movement_cost(actor);
@@ -1005,10 +1043,11 @@ static bool take_action(Thing actor, const Action & action) {
         } else if (can_move(actor)) {
             int lowest_cost = min(movement_cost, action_cost - (int)(game->time_counter - life->last_action_time));
             life->last_movement_time += lowest_cost;
-        } else {
-            // can act
+        } else if (can_act(actor)) {
             int lowest_cost = min(action_cost, movement_cost - (int)(game->time_counter - life->last_movement_time));
             life->last_action_time += lowest_cost;
+        } else {
+            // already handled
         }
     } else if (action.id == Action::MOVE) {
         life->last_movement_time = game->time_counter;
@@ -1027,9 +1066,11 @@ static bool take_action(Thing actor, const Action & action) {
         assert(can_act(actor));
         // action
         life->last_action_time = game->time_counter;
-        // you have to wait for the action before you can move again.
-        if (life->last_movement_time < life->last_action_time + action_cost - movement_cost)
-            life->last_movement_time = life->last_action_time + action_cost - movement_cost;
+        if (!floating_uncontrollably) {
+            // you have to wait for the action before you can move again.
+            if (life->last_movement_time < game->time_counter + action_cost - movement_cost)
+                life->last_movement_time = game->time_counter + action_cost - movement_cost;
+        }
     }
 
     life->can_dodge = can_dodge;
@@ -1217,7 +1258,7 @@ void run_the_game() {
                 if (!individual->still_exists)
                     continue;
                 age_individual(individual);
-                if (can_act(individual)) {
+                if (can_move(individual) || can_act(individual)) {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
@@ -1237,11 +1278,18 @@ void run_the_game() {
                     // sorry, buddy. you were that close to making another move.
                     break;
                 }
+                Action action;
                 if (!can_act(individual)) {
-                    // someone interrupted your turn and made you lose it.
-                    break;
+                    if (can_move(individual)) {
+                        // still floating through the air at a fast speed waiting for action cost
+                        action = Action::wait();
+                    } else {
+                        // someone interrupted your turn and made you lose it.
+                        break;
+                    }
+                } else {
+                    action = decision_makers[individual->life()->decision_maker](individual);
                 }
-                Action action = decision_makers[individual->life()->decision_maker](individual);
                 if (action.id == Action::UNDECIDED) {
                     // give the player some time to think.
                     // we'll resume right back where we left off.

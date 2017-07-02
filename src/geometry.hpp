@@ -63,6 +63,16 @@ static constexpr int compare(const Coord & a, const Coord & b) {
         return result;
     return 0;
 }
+static constexpr Coord directions_by_rotation[] = {
+    {+1,  0},
+    {+1, +1},
+    { 0, +1},
+    {-1, +1},
+    {-1,  0},
+    {-1, -1},
+    { 0, -1},
+    {+1, -1},
+};
 
 struct Rect {
     Coord position;

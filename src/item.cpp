@@ -197,12 +197,6 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
             for (int i = choo_choo_train.length() - 1; i >= 0; i--) {
                 bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
                 if (actually_moved) {
-                    // "stun" the individual so they can't move right away.
-                    // they have to charge their move from this forced movement as though it were their last regular movement.
-                    // this makes pushing enemies into lava do more predictable damage.
-                    // note that you can still act at the same time you would have been able to, just not move.
-                    choo_choo_train[i]->life()->last_movement_time = game->time_counter;
-
                     // if anyone moves, there's no recoil
                     is_point_blank_recoil = false;
                 }

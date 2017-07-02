@@ -106,11 +106,10 @@ void compute_vision(Thing observer) {
     knowledge.tile_is_visible[observer->location] |= VisionTypes_COLOCATION;
     record_shape_of_terrain(&knowledge.tiles, observer->location);
     // while blind (and always), you're reaching around you and feel if the walls around you are real or not
-    for (Coord cursor = {-1, -1}; cursor.y <= 1; cursor.y++) {
-        for (cursor.x = -1; cursor.x <= 1; cursor.x++) {
-            knowledge.tile_is_visible[observer->location + cursor] |= VisionTypes_REACH_AND_TOUCH;
-            record_shape_of_terrain(&knowledge.tiles, observer->location + cursor);
-        }
+    for (int i = 0; i < 8; i++) {
+        Coord location = observer->location + directions_by_rotation[i];
+        knowledge.tile_is_visible[location] |= VisionTypes_REACH_AND_TOUCH;
+        record_shape_of_terrain(&knowledge.tiles, location);
     }
 
     // see things
@@ -144,6 +143,13 @@ void compute_vision(Thing observer) {
         if (can_see_thing(observer, actual_target->id))
             record_perception_of_thing(observer, actual_target->id);
     }
+}
+
+bool is_solid_wall_within_reach(Coord location) {
+    for (int i = 0; i < 8; i++)
+        if (!is_open_space(game->actual_map_tiles[location + directions_by_rotation[i]]))
+            return true;
+    return false;
 }
 
 static inline uint8_t random_aesthetic_index() {

@@ -95,6 +95,7 @@ struct Event {
             MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL,
             FAIL_TO_CAST_SPELL,
             SEARED_BY_LAVA,
+            INDIVIDUAL_FLOATS_UNCONTROLLABLY,
         };
         Id id;
         uint256 individual;
@@ -298,6 +299,9 @@ struct Event {
     }
     static inline Event seared_by_lava(uint256 individual_id) {
         return individual_event(TheIndividualData::SEARED_BY_LAVA, individual_id);
+    }
+    static inline Event individual_floats_uncontrollably(uint256 individual_id) {
+        return individual_event(TheIndividualData::INDIVIDUAL_FLOATS_UNCONTROLLABLY, individual_id);
     }
 
     static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {

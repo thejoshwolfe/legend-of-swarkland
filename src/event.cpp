@@ -218,6 +218,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TheIndividualData::THROW_TAR:
                 case Event::TheIndividualData::INDIVIDUAL_IS_HEALED:
                 case Event::TheIndividualData::SEARED_BY_LAVA:
+                case Event::TheIndividualData::INDIVIDUAL_FLOATS_UNCONTROLLABLY:
                     if (!can_see_shape(vision))
                         return false;
                     *output_event = event;
@@ -664,6 +665,10 @@ static void observe_event(Thing observer, Event event) {
                     observer->life()->knowledge.tiles[individual->location] = TileType_LAVA_FLOOR;
                     break;
                 }
+                case Event::TheIndividualData::INDIVIDUAL_FLOATS_UNCONTROLLABLY:
+                    remembered_event->span->format("%s floats uncontrollably!", get_thing_description(observer, data.individual));
+                    // we also know that the individual is levitating, but we should already know that.
+                    break;
             }
             break;
         }
