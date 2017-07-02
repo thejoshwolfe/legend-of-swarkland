@@ -658,9 +658,12 @@ static void observe_event(Thing observer, Event event) {
                 case Event::TheIndividualData::FAIL_TO_CAST_SPELL:
                     remembered_event->span->format("%s must not understand how to cast that spell.", get_thing_description(observer, data.individual));
                     break;
-                case Event::TheIndividualData::SEARED_BY_LAVA:
+                case Event::TheIndividualData::SEARED_BY_LAVA: {
                     remembered_event->span->format("%s is seared by lava!", get_thing_description(observer, data.individual));
+                    // we also learn that there is lava there
+                    observer->life()->knowledge.tiles[individual->location] = TileType_LAVA_FLOOR;
                     break;
+                }
             }
             break;
         }
@@ -676,7 +679,7 @@ static void observe_event(Thing observer, Event event) {
                     break;
                 case Event::TheLocationData::MAGIC_BEAM_PASS_THROUGH_AIR:
                     remembered_event = nullptr;
-                    // we know there's no one here
+                    // either no one is here, or they dodged. in either case, believe no one is here.
                     clear_placeholder_individual_at(observer, data.location);
                     break;
             }
