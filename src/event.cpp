@@ -43,7 +43,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
             return true;
         }
     }
-    if (vision & VisionTypes_TOUCH) {
+    if (vision & VisionTypes_COLOCATION) {
         // we're on top of it
         return true;
     }
@@ -190,7 +190,7 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
     VisionTypes vision = observer->life()->knowledge.tile_is_visible[actual_target->location];
     if (vision & VisionTypes_NORMAL) {
         // hmmm. this guy is probably invisible
-        assert(!can_see_invisible(vision));
+        assert(!can_see_physical_presence(vision));
         find_or_put_status(thing, StatusEffect::INVISIBILITY);
     }
     return thing->id;

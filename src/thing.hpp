@@ -140,15 +140,15 @@ enum VisionTypesBits {
     VisionTypes_NORMAL = 0x1,
     VisionTypes_ETHEREAL = 0x2,
     VisionTypes_COGNISCOPY = 0x4,
-    VisionTypes_TOUCH = 0x8,
+    VisionTypes_COLOCATION = 0x8,
+    VisionTypes_REACH_AND_TOUCH = 0x10,
 };
 
-static inline bool can_see_invisible(VisionTypes vision) {
-    // TODO: delete this function in favor of positive ideas like shape and color
-    return vision & (VisionTypes_ETHEREAL | VisionTypes_TOUCH);
+static inline bool can_see_physical_presence(VisionTypes vision) {
+    return vision & (VisionTypes_ETHEREAL | VisionTypes_COLOCATION);
 }
 static inline bool can_see_shape(VisionTypes vision) {
-    return vision & (VisionTypes_NORMAL | VisionTypes_ETHEREAL | VisionTypes_TOUCH);
+    return vision & (VisionTypes_NORMAL | VisionTypes_ETHEREAL | VisionTypes_COLOCATION);
 }
 static inline bool can_see_color(VisionTypes vision) {
     return vision & (VisionTypes_NORMAL | VisionTypes_ETHEREAL);
@@ -156,7 +156,7 @@ static inline bool can_see_color(VisionTypes vision) {
 static inline bool can_see_thoughts(VisionTypes vision) {
     // you can only see your own thoughts.
     // TODO: this should really be more like TELEPATHY, but that doesn't exist right now.
-    return vision & VisionTypes_TOUCH;
+    return vision & VisionTypes_COLOCATION;
 }
 
 enum Mind {

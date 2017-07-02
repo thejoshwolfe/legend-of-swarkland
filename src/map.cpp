@@ -5,7 +5,7 @@
 #include "item.hpp"
 #include "event.hpp"
 
-bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatrix<TileType> map_tiles) {
+bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatrix<TileType> & map_tiles) {
     if (from_location == to_location)
         return true;
     Coord abs_delta = {abs(to_location.x - from_location.x), abs(to_location.y - from_location.y)};
@@ -33,7 +33,7 @@ bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatr
     return true;
 }
 
-static void refresh_normal_vision(Thing individual) {
+static void see_map_with_normal_vision(Thing individual) {
     Coord you_location = individual->location;
     for (Coord target = {0, 0}; target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
@@ -46,7 +46,7 @@ static void refresh_normal_vision(Thing individual) {
     }
 }
 
-static void refresh_ethereal_vision(Thing individual) {
+static void see_map_with_ethereal_vision(Thing individual) {
     Coord you_location = individual->location;
     Coord etheral_radius_diagonal = {ethereal_radius, ethereal_radius};
     Coord upper_left = clamp(you_location - etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
@@ -89,6 +89,7 @@ void compute_vision(Thing observer) {
         // cogniscopy reaches everywhere
         no_vision_yet |= VisionTypes_COGNISCOPY;
     }
+    // refresh vision of the map
     knowledge.tile_is_visible.set_all(no_vision_yet);
     VisionTypes has_vision = observer->physical_species()->vision_types;
     if (has_status(observer, StatusEffect::ETHEREAL_VISION)) {
@@ -98,12 +99,19 @@ void compute_vision(Thing observer) {
         has_vision &= ~VisionTypes_NORMAL;
     }
     if (has_vision & VisionTypes_NORMAL)
-        refresh_normal_vision(observer);
+        see_map_with_normal_vision(observer);
     if (has_vision & VisionTypes_ETHEREAL)
-        refresh_ethereal_vision(observer);
+        see_map_with_ethereal_vision(observer);
     // you can always feel just the spot you're on
-    knowledge.tile_is_visible[observer->location] |= VisionTypes_TOUCH;
+    knowledge.tile_is_visible[observer->location] |= VisionTypes_COLOCATION;
     record_shape_of_terrain(&knowledge.tiles, observer->location);
+    // while blind (and always), you're reaching around you and feel if the walls around you are real or not
+    for (Coord cursor = {-1, -1}; cursor.y <= 1; cursor.y++) {
+        for (cursor.x = -1; cursor.x <= 1; cursor.x++) {
+            knowledge.tile_is_visible[observer->location + cursor] |= VisionTypes_REACH_AND_TOUCH;
+            record_shape_of_terrain(&knowledge.tiles, observer->location + cursor);
+        }
+    }
 
     // see things
     // first clear out anything that we know is no longer where we thought
@@ -113,12 +121,14 @@ void compute_vision(Thing observer) {
         if (target_location == Coord::nowhere())
             continue;
         VisionTypes vision = knowledge.tile_is_visible[target_location];
-        // TODO: allow cogniscopy to clear some markers
+        // cogniscopy cannot verify the absence of things at a location
         vision &= ~VisionTypes_COGNISCOPY;
+        // reach and touch doesn't feel things
+        vision &= ~VisionTypes_REACH_AND_TOUCH;
 
         if (vision == 0)
             continue; // leave the marker
-        if (is_invisible(observer, target) && !can_see_invisible(vision)) {
+        if (is_invisible(observer, target) && !can_see_physical_presence(vision)) {
             // we had reason to believe there was something invisible here, and we don't have confidence that it's gone.
             // leave the marker.
             continue;
@@ -371,7 +381,7 @@ void generate_map() {
 }
 
 static const int no_spawn_radius = 10;
-bool can_spawn_at(Coord away_from_location, Coord location) {
+static bool can_spawn_at(Coord away_from_location, Coord location) {
     TileType tile = game->actual_map_tiles[location];
     if (!is_safe_space(tile))
         return false;
