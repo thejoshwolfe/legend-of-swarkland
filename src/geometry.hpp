@@ -22,6 +22,9 @@ static constexpr Coord operator+(Coord a, Coord b) {
 static constexpr Coord operator-(Coord a, Coord b) {
     return {a.x - b.x, a.y - b.y};
 }
+static constexpr Coord operator-(Coord a) {
+    return {-a.x, -a.y};
+}
 static constexpr void operator+=(Coord & a, Coord b) {
     a = a + b;
 }

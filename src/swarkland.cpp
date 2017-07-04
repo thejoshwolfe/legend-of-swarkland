@@ -703,6 +703,21 @@ bool check_for_status_expired(Thing individual, int index) {
     }
     return true;
 }
+// impluse as in change in momentum.
+void apply_impulse(Thing individual, Coord vector) {
+    // only do this for individuals. for items, you do other things, like throw them.
+    assert(individual->thing_type == ThingType_INDIVIDUAL);
+    int index;
+    if ((index = find_status(individual->status_effects, StatusEffect::LEVITATING)) != -1) {
+        Coord & momentum = individual->status_effects[index].coord;
+        if (is_solid_wall_within_reach(individual->location)) {
+            // if you can steady yourself, you're immune to momentum
+            assert(momentum == (Coord{0, 0}));
+            return;
+        }
+        momentum = clamp(momentum + vector, Coord{-1, -1}, Coord{1, 1});
+    }
+}
 
 static void cheatcode_kill(uint256 individual_id) {
     Thing individual = game->actual_things.get(individual_id);

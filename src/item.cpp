@@ -233,7 +233,7 @@ static void force_hit_something(Thing target, Coord direction, int beam_length_r
         // special case when forcing point blank against a wall or a chain of enemies that can't be moved.
         // recoil as though force was pushing you.
         publish_event(Event::magic_beam_recoils_and_pushes_individual(actor->id));
-        force_push_individual(actor, Coord{-direction.x, -direction.y}, beam_length_remaining);
+        force_push_individual(actor, -direction, beam_length_remaining);
     }
 }
 
@@ -747,6 +747,9 @@ void throw_item(Thing actor, Thing item, Coord direction) {
     item->container_id = uint256::zero();
     item->z_order = 0;
     fix_z_orders(actor->id);
+
+    // kickback from throwing
+    apply_impulse(actor, -direction);
 
     // find the hit target
     Coord range_window = get_throw_range_window(item);

@@ -129,6 +129,7 @@ bool is_ability_ready(Thing actor, AbilityId ability_id);
 void suck_up_item(Thing actor, Thing item);
 bool attempt_move(Thing actor, Coord new_position);
 bool attempt_dodge(Thing attacker, Thing actor);
+void apply_impulse(Thing individual, Coord vector);
 
 bool check_for_status_expired(Thing individual, int index);
 void polymorph_individual(Thing individual, SpeciesId species_id, int duration);
