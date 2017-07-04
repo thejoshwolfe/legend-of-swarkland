@@ -416,6 +416,7 @@ static void attack(Thing attacker, Thing target) {
         publish_event(Event::dodge_attack(attacker->id, target->id));
         return;
     }
+    // it's a hit
     publish_event(Event::attack_individual(attacker, target));
     int attack_power = attacker->innate_attack_power();
     Thing weapon = get_equipped_weapon(attacker);
@@ -427,6 +428,11 @@ static void attack(Thing attacker, Thing target) {
     reset_hp_regen_timeout(attacker);
     if (target->still_exists && attacker->physical_species()->poison_attack && random_int(4, "poison_attack") == 0)
         poison_individual(attacker, target);
+
+    // newton's 3rd
+    Coord attack_vector = target->location - attacker->location;
+    apply_impulse(target, attack_vector);
+    apply_impulse(attacker, -attack_vector);
 }
 
 static int compare_things_by_z_order(const Thing & a, const Thing & b) {
