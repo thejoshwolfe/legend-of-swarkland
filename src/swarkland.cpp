@@ -642,6 +642,10 @@ bool attempt_move(Thing actor, Coord new_position) {
     if (target != nullptr) {
         // this is not attacking
         publish_event(Event::bump_into_individual(actor, target));
+        // newton's 3rd
+        Coord collisison_vector = target->location - actor->location;
+        apply_impulse(target, collisison_vector);
+        apply_impulse(actor, -collisison_vector);
         return false;
     }
     // clear to move
