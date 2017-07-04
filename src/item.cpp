@@ -202,9 +202,9 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
                 }
             }
             if (!is_open_space(game->actual_map_tiles[cursor])) {
-                // end of the line.
-                // we just published a bunch of bump-into events.
-                break;
+                // beam hits the wall
+                // we probably just published a bunch of bump-into events.
+                return is_point_blank_recoil;
             }
             if (choo_choo_train.length() == 0) {
                 // nobody and no wall at point blank
@@ -213,6 +213,30 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
         }
         cursor += direction;
     }
+    // beam ran out of range
+
+    // if the tail (far end) of the train is all levitators, keep pushing them forever.
+    int levitating_tail_start = choo_choo_train.length();
+    for (levitating_tail_start = choo_choo_train.length(); levitating_tail_start > 0; levitating_tail_start--) {
+        if (!has_status(choo_choo_train[levitating_tail_start - 1], StatusEffect::LEVITATING))
+            break;
+    }
+    if (levitating_tail_start < choo_choo_train.length()) {
+        // somebody's sliding away
+        bool still_going = true;
+        while (still_going) {
+            for (int i = choo_choo_train.length() - 1; i >= 0; i--) {
+                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
+                if (actually_moved) {
+                    // if anyone moves, there's no recoil
+                    is_point_blank_recoil = false;
+                } else {
+                    still_going = false;
+                }
+            }
+        }
+    }
+
     return is_point_blank_recoil;
 }
 static void force_hit_something(Thing target, Coord direction, int beam_length_remaining, Thing actor, bool is_point_blank) {
