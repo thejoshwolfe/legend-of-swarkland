@@ -1123,7 +1123,6 @@ static void age_things() {
         switch (game->actual_map_tiles[thing->location]) {
             case TileType_DIRT_FLOOR:
             case TileType_MARBLE_FLOOR:
-            case TileType_UNKNOWN_FLOOR:
             case TileType_STAIRS_DOWN:
                 break;
             case TileType_LAVA_FLOOR: {
@@ -1161,6 +1160,7 @@ static void age_things() {
             case TileType_BORDER_WALL:
                 // you can't be in a wall
                 unreachable();
+            case TileType_UNKNOWN_FLOOR:
             case TileType_UNKNOWN_WALL:
             case TileType_UNKNOWN:
             case TileType_COUNT:
