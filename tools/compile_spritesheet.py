@@ -16,7 +16,7 @@ def cli():
   parser.add_argument("--glob")
   parser.add_argument("--tilesize", type=int, required=True)
   parser.add_argument("--spritesheet", required=True)
-  parser.add_argument("--header")
+  parser.add_argument("--out-config")
   parser.add_argument("--deps")
 
   args = parser.parse_args()
@@ -24,15 +24,15 @@ def cli():
   glob_pattern = args.glob
   tilesize = args.tilesize
   spritesheet_path = args.spritesheet
-  header_path = args.header
+  out_config_path = args.out_config
   deps_path = args.deps
 
   if glob_pattern != "*.png":
     parser.error("you must specify glob pattern '*.png'")
 
-  main(source_dir, tilesize, spritesheet_path, header_path, deps_path)
+  main(source_dir, tilesize, spritesheet_path, out_config_path, deps_path)
 
-def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
+def main(source_dir, tilesize, spritesheet_path, out_config_path, deps_path):
   dependencies = [source_dir]
   # find all the input files
   item_paths = []
@@ -52,7 +52,7 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   # composite spritesheet
   x = 0
   y = 0
-  header_items = []
+  out_config_items = []
   for item_path in item_paths:
     with open(os.path.join(source_dir, item_path), "rb") as f:
       item_image = simplepng.read_png(f)
@@ -60,7 +60,7 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
       sys.exit("ERROR: {}: expected {}x{}. found {}x{}".format(item_path, tilesize, tilesize, item_image.width, item_image.height))
     spritesheet_image.paste(item_image, dx=x*tilesize, dy=y*tilesize)
 
-    header_items.append((mangle_item_name(item_path), x * tilesize, y * tilesize))
+    out_config_items.append((mangle_item_name(item_path), x * tilesize, y * tilesize))
 
     x += 1
     if x == sprites_per_row:
@@ -73,24 +73,19 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   with open(spritesheet_path + "_reference.png", "wb") as f:
     simplepng.write_png(f, spritesheet_image)
 
-  # check header
-  header_item_format = "static constexpr Rect %s = {{%i, %i}, {32, 32}};";
-  header_contents = header_format.format(
-    sprites_per_row * tilesize,
-    sprites_per_row * tilesize,
-    "\n".join(
-      header_item_format % header_item for header_item in header_items
-    )
+  # check out_config
+  out_config_contents = "".join(
+    "{} {} {} 32 32\n".format(*out_config_item) for out_config_item in out_config_items
   )
-  def maybe_update_header():
+  def maybe_update_out_config():
     try:
-      with open(header_path, "r") as f:
-        if f.read() == header_contents: return
+      with open(out_config_path, "r") as f:
+        if f.read() == out_config_contents: return
     except IOError: pass
-    with open(header_path + ".tmp", "w") as f:
-      f.write(header_contents)
-    os.rename(header_path + ".tmp", header_path)
-  maybe_update_header()
+    with open(out_config_path + ".tmp", "w") as f:
+      f.write(out_config_contents)
+    os.rename(out_config_path + ".tmp", out_config_path)
+  maybe_update_out_config()
 
   # output dependencies
   if deps_path != None:
@@ -101,24 +96,10 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   # now we're done
   os.rename(spritesheet_path + ".tmp", spritesheet_path)
 
-header_format = """\
-#ifndef SPRITESHEET_HPP
-#define SPRITESHEET_HPP
-
-#include "geometry.hpp"
-
-static const int spritesheet_width = {};
-static const int spritesheet_height = {};
-
-{}
-
-#endif
-"""
-
 def mangle_item_name(item_path):
   name = item_path[:-len(".png")]
   name = os.path.basename(name)
-  return "sprite_location_" + name
+  return name
 
 def find_files(root):
   for name in os.listdir(root):

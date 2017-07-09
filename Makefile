@@ -2,7 +2,7 @@
 all:
 
 PKG_CONFIG_DEPENDENCIES = SDL2_ttf sdl2
-RESOURCE_NAMES = version_resource font_resource spritesheet_resource
+RESOURCE_NAMES = version_resource font_resource spritesheet_resource spritesheet_config_resource
 OBJECT_NAMES = swarkland.o display.o load_image.o util.o thing.o path_finding.o map.o hashtable.o random.o decision.o serial.o byte_buffer.o item.o input.o event.o string.o text.o $(foreach f,$(RESOURCE_NAMES),$f.o)
 
 CPP_FLAGS += $(TARGET_SPECIFIC_CPP_FLAGS) -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
@@ -30,7 +30,7 @@ build/full_version.txt: $(VERSION_FILE)
 %/font_resource: assets/font/DejaVuSansMono.ttf
 	cp "$<" $@
 %/spritesheet_resource:
-	PYTHONPATH=deps/simplepng.py/ ./tools/compile_spritesheet.py assets/img/ --glob='*.png' --tilesize=32 --spritesheet=$@ --header=$(dir $@)spritesheet.hpp --deps=$@.d
+	PYTHONPATH=deps/simplepng.py/ ./tools/compile_spritesheet.py assets/img/ --glob='*.png' --tilesize=32 --spritesheet=$@ --out-config=$(dir $@)spritesheet_config_resource --deps=$@.d
 %/spritesheet.hpp: %/spritesheet_resource
 	@# the spritesheet generation might update the .hpp
 

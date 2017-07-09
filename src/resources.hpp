@@ -36,6 +36,7 @@
 BINARY_RESOURCE(binary_prefix, version_resource)
 BINARY_RESOURCE(binary_prefix, font_resource)
 BINARY_RESOURCE(binary_prefix, spritesheet_resource)
+BINARY_RESOURCE(binary_prefix, spritesheet_config_resource)
 #undef BINARY_RESOURCE
 #undef BINARY_RESOURCE_PLEASE
 
