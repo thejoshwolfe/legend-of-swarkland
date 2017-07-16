@@ -705,11 +705,13 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
     unreachable();
 }
 
-static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::Id status) {
+static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::Id status, int64_t expiration_time) {
     int index = find_status(thing->status_effects, status);
     if (index == -1) {
         index = thing->status_effects.length();
-        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero(), SpeciesId_COUNT, Coord{0, 0} });
+        thing->status_effects.append(StatusEffect { status, expiration_time, -1, uint256::zero(), SpeciesId_COUNT, Coord{0, 0} });
+    } else {
+        thing->status_effects[index].expiration_time = expiration_time;
     }
     return &thing->status_effects[index];
 }

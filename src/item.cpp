@@ -110,7 +110,7 @@ static void hit_wall_no_effect(Coord location) {
 static void confusion_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::CONFUSION));
-    find_or_put_status(target, StatusEffect::CONFUSION)->expiration_time = game->time_counter + random_int(100, 200, "confusion_duration");
+    find_or_put_status(target, StatusEffect::CONFUSION, game->time_counter + random_int(100, 200, "confusion_duration"));
 }
 static void magic_missile_hit_individual(Thing actor, Thing target) {
     publish_event(Event::magic_missile_hit(target->id));
@@ -127,12 +127,12 @@ static void speed_hit_individual(Thing target) {
     }
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::SPEED));
-    find_or_put_status(target, StatusEffect::SPEED)->expiration_time = game->time_counter + random_int(100, 200, "speed_duration");
+    find_or_put_status(target, StatusEffect::SPEED, game->time_counter + random_int(100, 200, "speed_duration"));
 }
 static void invisibility_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::INVISIBILITY));
-    find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = game->time_counter + random_midpoint(500, "invisibility_duration");
+    find_or_put_status(target, StatusEffect::INVISIBILITY, game->time_counter + random_midpoint(500, "invisibility_duration"));
 }
 static void slowing_hit_individual(Thing actor, Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
@@ -149,7 +149,7 @@ static void slowing_hit_individual(Thing actor, Thing target) {
 static void blinding_hit_individual(Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
-    find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = game->time_counter + random_midpoint(200, "blinding_duration");
+    find_or_put_status(target, StatusEffect::BLINDNESS, game->time_counter + random_midpoint(200, "blinding_duration"));
 }
 static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
     int index = find_status(individual->status_effects, status);
@@ -611,30 +611,30 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             break;
         case PotionId_POTION_OF_ETHEREAL_VISION:
             publish_event(Event::gain_status(target_id, StatusEffect::ETHEREAL_VISION));
-            find_or_put_status(target, StatusEffect::ETHEREAL_VISION)->expiration_time = game->time_counter + random_midpoint(2000, "potion_of_ethereal_vision_expiration");
+            find_or_put_status(target, StatusEffect::ETHEREAL_VISION, game->time_counter + random_midpoint(2000, "potion_of_ethereal_vision_expiration"));
             compute_vision(target);
             break;
         case PotionId_POTION_OF_COGNISCOPY:
             publish_event(Event::gain_status(target_id, StatusEffect::COGNISCOPY));
-            find_or_put_status(target, StatusEffect::COGNISCOPY)->expiration_time = game->time_counter + random_midpoint(2000, "potion_of_cogniscopy_expiration");
+            find_or_put_status(target, StatusEffect::COGNISCOPY, game->time_counter + random_midpoint(2000, "potion_of_cogniscopy_expiration"));
             compute_vision(target);
             break;
         case PotionId_POTION_OF_BLINDNESS:
             publish_event(Event::gain_status(target_id, StatusEffect::BLINDNESS));
-            find_or_put_status(target, StatusEffect::BLINDNESS)->expiration_time = game->time_counter + random_midpoint(1000, "potion_of_blindness_expiration");
+            find_or_put_status(target, StatusEffect::BLINDNESS, game->time_counter + random_midpoint(1000, "potion_of_blindness_expiration"));
             compute_vision(target);
             break;
         case PotionId_POTION_OF_INVISIBILITY:
             publish_event(Event::gain_status(target_id, StatusEffect::INVISIBILITY));
-            find_or_put_status(target, StatusEffect::INVISIBILITY)->expiration_time = game->time_counter + random_midpoint(2000, "potion_of_invisibility_expiration");
+            find_or_put_status(target, StatusEffect::INVISIBILITY, game->time_counter + random_midpoint(2000, "potion_of_invisibility_expiration"));
             break;
         case PotionId_POTION_OF_BURROWING:
             publish_event(Event::gain_status(target_id, StatusEffect::BURROWING));
-            find_or_put_status(target, StatusEffect::BURROWING)->expiration_time = game->time_counter + random_midpoint(600, "potion_of_burrowing_expiration");
+            find_or_put_status(target, StatusEffect::BURROWING, game->time_counter + random_midpoint(600, "potion_of_burrowing_expiration"));
             break;
         case PotionId_POTION_OF_LEVITATION:
             publish_event(Event::gain_status(target_id, StatusEffect::LEVITATING));
-            find_or_put_status(target, StatusEffect::LEVITATING)->expiration_time = game->time_counter + random_midpoint(2000, "potion_of_levitation_expiration");
+            find_or_put_status(target, StatusEffect::LEVITATING, game->time_counter + random_midpoint(2000, "potion_of_levitation_expiration"));
             break;
 
         case PotionId_COUNT:

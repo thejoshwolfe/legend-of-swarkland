@@ -87,20 +87,17 @@ void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) 
 void poison_individual(Thing attacker, Thing target) {
     publish_event(Event::gain_status(target->id, StatusEffect::POISON));
 
-    StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON);
+    StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON, game->time_counter + random_midpoint(600, "poison_expiriration"));
     poison->who_is_responsible = attacker->id;
-    poison->expiration_time = game->time_counter + random_midpoint(600, "poison_expiriration");
     poison->poison_next_damage_time = game->time_counter + 12 * 3;
 }
 static void blind_individual(Thing attacker, Thing target) {
-    StatusEffect * effect = find_or_put_status(target, StatusEffect::BLINDNESS);
+    StatusEffect * effect = find_or_put_status(target, StatusEffect::BLINDNESS, game->time_counter + random_midpoint(600, "blindness_expiriration"));
     effect->who_is_responsible = attacker->id;
-    effect->expiration_time = game->time_counter + random_midpoint(600, "blindness_expiriration");
 }
 void slow_individual(Thing actor, Thing target) {
-    StatusEffect * effect = find_or_put_status(target, StatusEffect::SLOWING);
+    StatusEffect * effect = find_or_put_status(target, StatusEffect::SLOWING, game->time_counter + random_midpoint(200, "slowing_duration"));
     effect->who_is_responsible = actor->id;
-    effect->expiration_time = game->time_counter + random_midpoint(200, "slowing_duration");
 }
 
 // publish the event yourself
@@ -747,8 +744,7 @@ void polymorph_individual(Thing individual, SpeciesId new_species_id, int durati
         publish_event(Event::polymorph(individual, new_species_id));
     } else {
         // add or refresh polymorph status
-        StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH);
-        polymorph_effect->expiration_time = game->time_counter + duration;
+        StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH, game->time_counter + duration);
         polymorph_effect->species_id = new_species_id;
 
         if (old_species_id != new_species_id)
