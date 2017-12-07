@@ -583,6 +583,24 @@ void suck_up_item(Thing actor, Thing item) {
     publish_event(Event::individual_sucks_up_item(actor->id, item->id));
 }
 
+static bool can_propel_self_while_levitating(Thing actor) {
+    if (actor->physical_species()->flying)
+        return true;
+    if (is_solid_wall_within_reach(actor->location))
+        return true;
+    return false;
+}
+static bool can_propel_self(Thing actor) {
+    if (!has_status(actor, StatusEffect::LEVITATING))
+        return true;
+    return can_propel_self_while_levitating(actor);
+}
+bool is_touching_ground(Thing individual) {
+    if (individual->physical_species()->flying) return false;
+    if (has_status(individual, StatusEffect::LEVITATING)) return false;
+    return true;
+}
+
 static void do_move(Thing mover, Coord new_position) {
     Coord old_position = mover->location;
     mover->location = new_position;
@@ -595,7 +613,7 @@ static void do_move(Thing mover, Coord new_position) {
     int index;
     if ((index = find_status(mover->status_effects, StatusEffect::LEVITATING)) != -1) {
         Coord momentum;
-        if (is_solid_wall_within_reach(new_position)) {
+        if (can_propel_self_while_levitating(mover)) {
             // steady...
             momentum = Coord{0, 0};
         } else {
@@ -717,7 +735,7 @@ void apply_impulse(Thing individual, Coord vector) {
     int index;
     if ((index = find_status(individual->status_effects, StatusEffect::LEVITATING)) != -1) {
         Coord & momentum = individual->status_effects[index].coord;
-        if (is_solid_wall_within_reach(individual->location)) {
+        if (can_propel_self_while_levitating(individual)) {
             // if you can steady yourself, you're immune to momentum
             assert(momentum == (Coord{0, 0}));
             return;
@@ -889,7 +907,7 @@ bool validate_action(Thing actor, const Action & action) {
     unreachable();
 }
 
-Coord confuse_direction(Thing individual, Coord direction) {
+static Coord confuse_direction(Thing individual, Coord direction) {
     if (direction == Coord{0, 0})
         return direction; // can't get that wrong
     if (has_status(individual, StatusEffect::CONFUSION) && random_int(2, "is_direction_confused") == 0) {
@@ -904,13 +922,6 @@ Coord confuse_direction(Thing individual, Coord direction) {
         panic("direction not found");
     }
     return direction; // not confused
-}
-static bool can_propel_self(Thing actor) {
-    if (!has_status(actor, StatusEffect::LEVITATING))
-        return true;
-    if (is_solid_wall_within_reach(actor->location))
-        return true;
-    return false;
 }
 
 // return true if time should pass, false if we used an instantaneous cheatcode.
@@ -1044,11 +1055,16 @@ static bool take_action(Thing actor, const Action & action) {
         // when you first shove off a wall, we don't want this to give you a double boost.
         int index;
         if ((index = find_status(actor->status_effects, StatusEffect::LEVITATING)) != -1) {
-            Coord momentum = actor->status_effects[index].coord;
-            if (momentum != Coord{0, 0}) {
-                // also keep sliding through the air.
-                attempt_move(actor, actor->location + momentum);
-                floating_uncontrollably = true;
+            if (can_propel_self_while_levitating(actor)) {
+                // not affected by levitation
+                actor->status_effects[index].coord = Coord{0, 0};
+            } else {
+                Coord momentum = actor->status_effects[index].coord;
+                if (momentum != Coord{0, 0}) {
+                    // also keep sliding through the air.
+                    attempt_move(actor, actor->location + momentum);
+                    floating_uncontrollably = true;
+                }
             }
         }
     }
@@ -1128,7 +1144,7 @@ static void age_things() {
                     bool item_disintegrates = false;
                     switch (thing->thing_type) {
                         case ThingType_INDIVIDUAL:
-                            if (!has_status(thing, StatusEffect::LEVITATING)) {
+                            if (is_touching_ground(thing)) {
                                 publish_event(Event::seared_by_lava(thing->id));
                                 damage_individual(thing, lava_damage, nullptr, false);
                             }

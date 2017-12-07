@@ -158,6 +158,7 @@ static inline uint8_t random_aesthetic_index() {
 }
 
 void animate_map_tiles() {
+    if (game->test_mode) return;
     for (Coord cursor = { 0, 0 }; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
             switch (game->actual_map_tiles[cursor]) {
@@ -219,6 +220,8 @@ void generate_map() {
         // a hallway, so there's a "just around the corner"
         for (int x = 5; x < 10; x++)
             game->actual_map_tiles[Coord{x, 4}] = TileType_DIRT_FLOOR;
+        // a small pocket of lava
+        game->actual_map_tiles[Coord{2, 4}] = TileType_LAVA_FLOOR;
         // no stairs
         return;
     }
@@ -389,7 +392,7 @@ void generate_map() {
 static const int no_spawn_radius = 10;
 static bool can_spawn_at(Coord away_from_location, Coord location) {
     TileType tile = game->actual_map_tiles[location];
-    if (!is_safe_space(tile))
+    if (!is_safe_space(tile, true))
         return false;
     if (tile == TileType_MARBLE_FLOOR)
         return false; // don't spawn in vaults

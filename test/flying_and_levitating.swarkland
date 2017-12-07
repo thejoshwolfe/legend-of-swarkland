@@ -1,0 +1,58 @@
+@test
+move 0 1
+!wish potion levitation
+pickup 0000000000000000000000000000000000000000000000000000000000000002
+quaff 0000000000000000000000000000000000000000000000000000000000000002
+  @rng 2000 midpoint:2000:potion_of_levitation_expiration
+
+# kick off the wall
+move 1 0
+
+# confirm that we're floating
+@mark_events
+  move -1 0
+  @expect_event "you floats uncontrollably!"
+  @expect_no_events
+
+# become flying
+!polymorph bee
+
+# confirm that we're not floating uncontrollably anymore
+@mark_events
+  wait
+  # confirm that we didn't move
+  @find_things_at 3 2
+    @expect_thing individual bee
+    @expect_nothing
+
+  move -1 0
+  move 1 0
+  move -1 0
+  @expect_no_events
+
+# stop flying
+!polymorph human
+# now we should be dead in the water
+
+# waiting doesn't give any message
+@mark_events
+  wait
+  @expect_no_events
+
+# moving around should be all panics
+@mark_events
+  move 1 0
+  move 1 0
+  move 1 0
+  move -1 0
+  move -1 0
+  move -1 0
+  @expect_event "you floats uncontrollably!"
+  @expect_event "you floats uncontrollably!"
+  @expect_event "you floats uncontrollably!"
+  @expect_event "you floats uncontrollably!"
+  @expect_event "you floats uncontrollably!"
+  @expect_event "you floats uncontrollably!"
+  @expect_no_events
+
+@test_end

@@ -105,6 +105,7 @@ void swarkland_init();
 
 bool validate_action(Thing actor, const Action & action);
 bool can_move(Thing actor);
+bool is_touching_ground(Thing individual);
 static inline int get_movement_cost(Thing actor) {
     if (has_status(actor, StatusEffect::SPEED))
         return speedy_movement_cost;

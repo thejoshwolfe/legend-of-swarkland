@@ -62,7 +62,7 @@ static inline bool is_open_space(TileType tile_type) {
     }
     unreachable();
 }
-static inline bool is_safe_space(TileType tile_type) {
+static inline bool is_safe_space(TileType tile_type, bool touching_ground) {
     switch (tile_type) {
         case TileType_UNKNOWN:
             // consider this open for the sake of path finding
@@ -72,6 +72,7 @@ static inline bool is_safe_space(TileType tile_type) {
         case TileType_UNKNOWN_FLOOR:
             return true;
         case TileType_LAVA_FLOOR:
+            return !touching_ground;
         case TileType_BROWN_BRICK_WALL:
         case TileType_GRAY_BRICK_WALL:
         case TileType_BORDER_WALL:

@@ -185,13 +185,14 @@ struct Species {
     bool sucks_up_items;
     bool auto_throws_items;
     bool poison_attack;
+    bool flying;
 };
-static const VisionTypes _norm = VisionTypes_NORMAL;
-static const VisionTypes _ethe = VisionTypes_ETHEREAL;
 static const Mind _none = Mind_NONE;
 static const Mind _beas = Mind_BEAST;
 static const Mind _savg = Mind_SAVAGE;
 static const Mind _civl = Mind_CIVILIZED;
+static const VisionTypes _norm = VisionTypes_NORMAL;
+static const VisionTypes _ethe = VisionTypes_ETHEREAL;
 static constexpr Species specieses[SpeciesId_COUNT] = {
     //                         movement cost
     //                         |   health
@@ -204,20 +205,21 @@ static constexpr Species specieses[SpeciesId_COUNT] = {
     //                         |   |  |  |  |   |  |     |     sucks up items
     //                         |   |  |  |  |   |  |     |     |  auto throws items
     //                         |   |  |  |  |   |  |     |     |  |  poison attack
-    {SpeciesId_HUMAN        , 12, 10, 3, 3, 0, 10,_civl,_norm, 0, 0, 0},
-    {SpeciesId_OGRE         , 24, 15, 0, 2, 4, 10,_savg,_norm, 0, 0, 0},
-    {SpeciesId_LICH         , 12, 12, 4, 3, 7, 10,_civl,_norm, 0, 0, 0},
-    {SpeciesId_SHAPESHIFTER , 12,  5, 0, 2, 1, 10,_civl,_norm, 0, 0, 0},
-    {SpeciesId_PINK_BLOB    , 48,  4, 0, 1, 0,  1,_none,_ethe, 1, 0, 0},
-    {SpeciesId_AIR_ELEMENTAL,  6,  6, 0, 1, 3, 10,_none,_ethe, 1, 1, 0},
-    {SpeciesId_TAR_ELEMENTAL, 24, 10, 0, 1, 3, 10,_none,_ethe, 1, 0, 0},
-    {SpeciesId_DOG          , 12,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0},
-    {SpeciesId_ANT          , 12,  2, 0, 1, 0,  1,_beas,_norm, 0, 0, 0},
-    {SpeciesId_BEE          , 12,  2, 0, 3, 1,  2,_beas,_norm, 0, 0, 0},
-    {SpeciesId_BEETLE       , 24,  6, 0, 1, 0,  1,_beas,_norm, 0, 0, 0},
-    {SpeciesId_SCORPION     , 24,  5, 0, 1, 2,  3,_beas,_norm, 0, 0, 1},
-    {SpeciesId_SNAKE        , 18,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0},
-    {SpeciesId_COBRA        , 18,  2, 0, 1, 2,  3,_beas,_norm, 0, 0, 0},
+    //                         |   |  |  |  |   |  |     |     |  |  |  flying
+    {SpeciesId_HUMAN        , 12, 10, 3, 3, 0, 10,_civl,_norm, 0, 0, 0, 0},
+    {SpeciesId_OGRE         , 24, 15, 0, 2, 4, 10,_savg,_norm, 0, 0, 0, 0},
+    {SpeciesId_LICH         , 12, 12, 4, 3, 7, 10,_civl,_norm, 0, 0, 0, 0},
+    {SpeciesId_SHAPESHIFTER , 12,  5, 0, 2, 1, 10,_civl,_norm, 0, 0, 0, 0},
+    {SpeciesId_PINK_BLOB    , 48,  4, 0, 1, 0,  1,_none,_ethe, 1, 0, 0, 0},
+    {SpeciesId_AIR_ELEMENTAL,  6,  6, 0, 1, 3, 10,_none,_ethe, 1, 1, 0, 1},
+    {SpeciesId_TAR_ELEMENTAL, 24, 10, 0, 1, 3, 10,_none,_ethe, 1, 0, 0, 0},
+    {SpeciesId_DOG          , 12,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_ANT          , 12,  2, 0, 1, 0,  1,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_BEE          , 12,  2, 0, 3, 1,  2,_beas,_norm, 0, 0, 0, 1},
+    {SpeciesId_BEETLE       , 24,  6, 0, 1, 0,  1,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_SCORPION     , 24,  5, 0, 1, 2,  3,_beas,_norm, 0, 0, 1, 0},
+    {SpeciesId_SNAKE        , 18,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_COBRA        , 18,  2, 0, 1, 2,  3,_beas,_norm, 0, 0, 0, 0},
 };
 static bool constexpr _check_specieses() {
 #if __cpp_constexpr >= 201304
@@ -691,12 +693,13 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
         case StatusEffect::ETHEREAL_VISION:
             // if you have ethereal vision anyway, you can't get it again
             return !(individual->physical_species()->vision_types & VisionTypes_ETHEREAL);
+        case StatusEffect::LEVITATING:
+            return !individual->physical_species()->flying;
         case StatusEffect::COGNISCOPY:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::POISON:
         case StatusEffect::POLYMORPH:
         case StatusEffect::BURROWING:
-        case StatusEffect::LEVITATING:
             return true;
 
         case StatusEffect::COUNT:

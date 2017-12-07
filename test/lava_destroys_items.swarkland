@@ -1,0 +1,22 @@
+@test
+move 1 0
+!wish book magic_bullet
+pickup 0000000000000000000000000000000000000000000000000000000000000002
+
+# throw a book into lava
+@mark_events
+  throw 0 1 0000000000000000000000000000000000000000000000000000000000000002
+    @rng 6 inclusive:4:6:throw_distance
+    @rng 1 int:2:lava_damage
+
+  @expect_event "you throws a purple book."
+  @expect_event "a purple book hits a wall."
+  @expect_event "a purple book drops to the floor."
+  @expect_event "a purple book disintegrates in lava!"
+  @expect_no_events
+
+# the book should be gone
+@find_things_at 2 4
+  @expect_nothing
+
+@test_end

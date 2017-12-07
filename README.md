@@ -8,7 +8,7 @@ Very short (5 levels) turn-based roguelike with a final boss and randomized item
 
 ### Windows
 
-[Latest Windows Build](http://superjoe.s3.amazonaws.com/temp/legend-of-swarkland.html)
+[Latest Windows Build](http://wolfesoftware.com/legend-of-swarkland/)
 
 ### Ubuntu
 
@@ -124,7 +124,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
    * weapons: dagger, battleaxe
    * potions of: burrowing, levitation
  * Added lava
- * Magic beam of force now recoils on a point blank hit. Gotta go fast!
+ * Added point-blank recoil for beam of force. Gotta go fast!
 
 ## Version History
 
