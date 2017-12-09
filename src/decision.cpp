@@ -215,6 +215,7 @@ Action get_ai_decision(Thing actor) {
                         }
                         case AbilityId_SPIT_BLINDING_VENOM:
                         case AbilityId_THROW_TAR:
+                        case AbilityId_LUNGE_ATTACK:
                             // handled below
                             break;
                         case AbilityId_COUNT:
@@ -292,7 +293,8 @@ Action get_ai_decision(Thing actor) {
             case ThingType_INDIVIDUAL: {
                 // we are aggro!!
 
-                // use items?
+                // use items/abilities?
+                List<Action> high_priority_range_attack_actions;
                 List<Action> defense_actions;
                 List<Action> buff_actions;
                 List<Action> low_priority_buff_actions;
@@ -497,6 +499,16 @@ Action get_ai_decision(Thing actor) {
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
+                        case AbilityId_LUNGE_ATTACK: {
+                            if (!is_clear_projectile_shot(actor, target->location, lunge_attack_range + 1))
+                                break; // we'll bonk on something
+                            if (ordinal_distance(Coord{0, 0}, vector) != lunge_attack_range + 1)
+                                break; // too close
+                            if (advanced_strategy && !is_safe_space(actor->life()->knowledge.tiles[target->location - direction], is_touching_ground(actor)))
+                                break; // we'd fall into lava!
+                            high_priority_range_attack_actions.append(Action::ability(ability_id, direction));
+                            break;
+                        }
                         case AbilityId_ASSUME_FORM: {
                             // handled above
                             break;
@@ -505,9 +517,11 @@ Action get_ai_decision(Thing actor) {
                             unreachable();
                     }
                 }
-                if (defense_actions.length() + buff_actions.length() + range_attack_actions.length() > 0) {
+                if (high_priority_range_attack_actions.length() + defense_actions.length() + buff_actions.length() + range_attack_actions.length() > 0) {
                     // should we go through with it?
-                    if (advanced_strategy || random_int(3, nullptr) == 0) {
+                    if (high_priority_range_attack_actions.length() > 0 || advanced_strategy || random_int(3, nullptr) == 0) {
+                        if (high_priority_range_attack_actions.length())
+                            return high_priority_range_attack_actions[random_int(high_priority_range_attack_actions.length(), nullptr)];
                         if (defense_actions.length())
                             return defense_actions[random_int(defense_actions.length(), nullptr)];
                         if (buff_actions.length())

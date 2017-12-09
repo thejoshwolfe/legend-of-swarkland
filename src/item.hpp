@@ -77,6 +77,7 @@ int get_weapon_damage(T item) {
 
 static const int typical_throw_range_window_min = 4;
 static const int typical_throw_range_window_max = 6;
+static const int lunge_attack_range = 2;
 
 // {min, max} (inclusive)
 template <typename T>
@@ -119,6 +120,8 @@ static inline Coord get_ability_range_window(AbilityId ability_id) {
             return Coord{typical_throw_range_window_min, typical_throw_range_window_max};
         case AbilityId_ASSUME_FORM:
             return Coord{infinite_range, infinite_range};
+        case AbilityId_LUNGE_ATTACK:
+            return Coord{lunge_attack_range, lunge_attack_range};
 
         case AbilityId_COUNT:
             unreachable();

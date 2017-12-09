@@ -497,6 +497,7 @@ static IndexAndValue<ConstStr> constexpr ability_names[AbilityId_COUNT] = {
     {AbilityId_SPIT_BLINDING_VENOM, "spit_blinding_venom"},
     {AbilityId_THROW_TAR, "throw_tar"},
     {AbilityId_ASSUME_FORM, "assume_form"},
+    {AbilityId_LUNGE_ATTACK, "lunge_attack"},
 };
 check_indexed_array(ability_names);
 

@@ -218,8 +218,8 @@ static constexpr Species specieses[SpeciesId_COUNT] = {
     {SpeciesId_BEE          , 12,  2, 0, 3, 1,  2,_beas,_norm, 0, 0, 0, 1},
     {SpeciesId_BEETLE       , 24,  6, 0, 1, 0,  1,_beas,_norm, 0, 0, 0, 0},
     {SpeciesId_SCORPION     , 24,  5, 0, 1, 2,  3,_beas,_norm, 0, 0, 1, 0},
-    {SpeciesId_SNAKE        , 18,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0, 0},
-    {SpeciesId_COBRA        , 18,  2, 0, 1, 2,  3,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_SNAKE        , 24,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_COBRA        , 24,  2, 0, 1, 2,  3,_beas,_norm, 0, 0, 0, 0},
 };
 static bool constexpr _check_specieses() {
 #if __cpp_constexpr >= 201304
@@ -321,6 +321,7 @@ enum AbilityId {
     AbilityId_SPIT_BLINDING_VENOM,
     AbilityId_THROW_TAR,
     AbilityId_ASSUME_FORM,
+    AbilityId_LUNGE_ATTACK,
 
     AbilityId_COUNT,
 };

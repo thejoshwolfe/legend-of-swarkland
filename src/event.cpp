@@ -247,6 +247,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::TheIndividualData::MAGIC_BEAM_PUSH_INDIVIDUAL:
                 case Event::TheIndividualData::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL:
                 case Event::TheIndividualData::INDIVIDUAL_DODGES_MAGIC_BEAM:
+                case Event::TheIndividualData::LUNGE:
                     // TODO: consider when this individual is unseen
                     if (!see_thing(observer, data.individual))
                         return false;
@@ -668,6 +669,9 @@ static void observe_event(Thing observer, Event event) {
                 case Event::TheIndividualData::INDIVIDUAL_FLOATS_UNCONTROLLABLY:
                     remembered_event->span->format("%s floats uncontrollably!", get_thing_description(observer, data.individual));
                     // we also know that the individual is levitating, but we should already know that.
+                    break;
+                case Event::TheIndividualData::LUNGE:
+                    remembered_event->span->format("%s lunges!", get_thing_description(observer, data.individual));
                     break;
             }
             break;

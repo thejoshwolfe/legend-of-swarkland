@@ -96,6 +96,7 @@ struct Event {
             FAIL_TO_CAST_SPELL,
             SEARED_BY_LAVA,
             INDIVIDUAL_FLOATS_UNCONTROLLABLY,
+            LUNGE,
         };
         Id id;
         uint256 individual;
@@ -302,6 +303,9 @@ struct Event {
     }
     static inline Event individual_floats_uncontrollably(uint256 individual_id) {
         return individual_event(TheIndividualData::INDIVIDUAL_FLOATS_UNCONTROLLABLY, individual_id);
+    }
+    static inline Event lunge(uint256 individual_id) {
+        return individual_event(TheIndividualData::LUNGE, individual_id);
     }
 
     static inline Event polymorph(Thing shapeshifter, SpeciesId new_species) {

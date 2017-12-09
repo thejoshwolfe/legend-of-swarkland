@@ -713,6 +713,9 @@ static Rect get_image_for_ability(AbilityId ability_id) {
             return sprite_location_tar_elemental_throw;
         case AbilityId_ASSUME_FORM:
             return sprite_location_shapeshifter;
+        case AbilityId_LUNGE_ATTACK:
+            return sprite_location_lunge;
+
         case AbilityId_COUNT:
             unreachable();
     }
@@ -1080,6 +1083,9 @@ static Span get_ability_description(AbilityId ability_id, bool is_ready) {
             break;
         case AbilityId_ASSUME_FORM:
             span->format("assume form");
+            break;
+        case AbilityId_LUNGE_ATTACK:
+            span->format("lunge attack");
             break;
         case AbilityId_COUNT:
             unreachable();

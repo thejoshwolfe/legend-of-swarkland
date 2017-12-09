@@ -137,31 +137,93 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     }
 }
 
+// normal melee attack
+static void attack(Thing attacker, Thing target, int bonus_damage) {
+    if (attempt_dodge(attacker, target)) {
+        publish_event(Event::dodge_attack(attacker->id, target->id));
+        return;
+    }
+    // it's a hit
+    publish_event(Event::attack_individual(attacker, target));
+    int attack_power = attacker->innate_attack_power();
+    Thing weapon = get_equipped_weapon(attacker);
+    if (weapon != nullptr)
+        attack_power += get_weapon_damage(weapon);
+    attack_power += bonus_damage;
+    int min_damage = (attack_power + 1) / 2;
+    int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
+    damage_individual(target, damage, attacker, true);
+    reset_hp_regen_timeout(attacker);
+    if (target->still_exists && attacker->physical_species()->poison_attack && random_int(4, "poison_attack") == 0)
+        poison_individual(attacker, target);
+
+    // newton's 3rd
+    Coord attack_vector = target->location - attacker->location;
+    apply_impulse(target, attack_vector);
+    apply_impulse(attacker, -attack_vector);
+}
+
+static void attack_location(Thing actor, Coord location, int bonus_damage) {
+    Thing target = find_individual_at(location);
+    if (target != nullptr) {
+        attack(actor, target, bonus_damage);
+    } else {
+        bool is_air = is_open_space(game->actual_map_tiles[location]);
+        publish_event(Event::attack_location(actor->id, location, is_air));
+    }
+}
+
+static void do_lunge_attack(Thing actor, Coord direction) {
+    for (int i = 0; i < lunge_attack_range; i++) {
+        if (!attempt_move(actor, actor->location + direction))
+            return; // bonk!
+    }
+    // we made it to the end of the range. now attack.
+    attack_location(actor, actor->location + direction, 10);
+}
+
 static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
-    Coord range_window = get_ability_range_window(ability_id);
-    int range;
     int cooldown_time;
     switch (ability_id) {
         case AbilityId_SPIT_BLINDING_VENOM:
             publish_event(Event::spit_blinding_venom(actor->id));
             cooldown_time = random_midpoint(150, "spit_blinding_venom_cooldown");
-            range = random_inclusive(range_window.x, range_window.y, "spit_blinding_venom_distance");
             break;
         case AbilityId_THROW_TAR:
             publish_event(Event::throw_tar(actor->id));
             cooldown_time = random_midpoint(150, "throw_tar_cooldown");
-            range = random_inclusive(range_window.x, range_window.y, "throw_tar_distance");
             break;
         case AbilityId_ASSUME_FORM:
             cooldown_time = random_midpoint(48, "assume_form_cooldown");
-            range = random_inclusive(range_window.x, range_window.y, "assume_form_distance");
+            break;
+        case AbilityId_LUNGE_ATTACK:
+            publish_event(Event::lunge(actor->id));
+            cooldown_time = random_midpoint(72, "lunge_attack_cooldown");
             break;
         case AbilityId_COUNT:
             unreachable();
     }
-
     if (cooldown_time > 0)
         actor->ability_cooldowns.append(AbilityCooldown{ability_id, game->time_counter + cooldown_time});
+
+    Coord range_window = get_ability_range_window(ability_id);
+    int range;
+    switch (ability_id) {
+        case AbilityId_SPIT_BLINDING_VENOM:
+            range = random_inclusive(range_window.x, range_window.y, "spit_blinding_venom_distance");
+            break;
+        case AbilityId_THROW_TAR:
+            range = random_inclusive(range_window.x, range_window.y, "throw_tar_distance");
+            break;
+        case AbilityId_ASSUME_FORM:
+            range = random_inclusive(range_window.x, range_window.y, "assume_form_distance");
+            break;
+        case AbilityId_LUNGE_ATTACK:
+            do_lunge_attack(actor, direction);
+            return;
+        case AbilityId_COUNT:
+            unreachable();
+    }
 
     Coord cursor = actor->location;
     for (int i = 0; i < range; i++) {
@@ -183,6 +245,7 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
                 case AbilityId_ASSUME_FORM:
                     polymorph_individual(actor, target->physical_species_id(), random_midpoint(240, "ability_assume_form_duration"));
                     return;
+                case AbilityId_LUNGE_ATTACK:
                 case AbilityId_COUNT:
                     unreachable();
             }
@@ -433,31 +496,6 @@ void use_mana(Thing actor, int mana) {
     reset_mp_regen_timeout(actor);
 }
 
-// normal melee attack
-static void attack(Thing attacker, Thing target) {
-    if (attempt_dodge(attacker, target)) {
-        publish_event(Event::dodge_attack(attacker->id, target->id));
-        return;
-    }
-    // it's a hit
-    publish_event(Event::attack_individual(attacker, target));
-    int attack_power = attacker->innate_attack_power();
-    Thing weapon = get_equipped_weapon(attacker);
-    if (weapon != nullptr)
-        attack_power += get_weapon_damage(weapon);
-    int min_damage = (attack_power + 1) / 2;
-    int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
-    damage_individual(target, damage, attacker, true);
-    reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->physical_species()->poison_attack && random_int(4, "poison_attack") == 0)
-        poison_individual(attacker, target);
-
-    // newton's 3rd
-    Coord attack_vector = target->location - attacker->location;
-    apply_impulse(target, attack_vector);
-    apply_impulse(attacker, -attack_vector);
-}
-
 static int compare_things_by_z_order(const Thing & a, const Thing & b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
@@ -546,7 +584,6 @@ void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities) 
         case SpeciesId_BEE:
         case SpeciesId_BEETLE:
         case SpeciesId_SCORPION:
-        case SpeciesId_SNAKE:
             break;
         case SpeciesId_SHAPESHIFTER:
             output_sorted_abilities->append(AbilityId_ASSUME_FORM);
@@ -556,6 +593,10 @@ void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities) 
             break;
         case SpeciesId_COBRA:
             output_sorted_abilities->append(AbilityId_SPIT_BLINDING_VENOM);
+            output_sorted_abilities->append(AbilityId_LUNGE_ATTACK);
+            break;
+        case SpeciesId_SNAKE:
+            output_sorted_abilities->append(AbilityId_LUNGE_ATTACK);
             break;
 
         case SpeciesId_COUNT:
@@ -982,15 +1023,8 @@ static bool take_action(Thing actor, const Action & action) {
         }
         case Action::ATTACK: {
             Coord new_position = actor->location + confuse_direction(actor, action.coord());
-            Thing target = find_individual_at(new_position);
-            if (target != nullptr) {
-                attack(actor, target);
-                break;
-            } else {
-                bool is_air = is_open_space(game->actual_map_tiles[new_position]);
-                publish_event(Event::attack_location(actor->id, new_position, is_air));
-                break;
-            }
+            attack_location(actor, new_position, 0);
+            break;
         }
         case Action::ZAP:
             zap_wand(actor, action.coord_and_item().item, confuse_direction(actor, action.coord_and_item().coord));
