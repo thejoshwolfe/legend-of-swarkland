@@ -41,8 +41,8 @@ static constexpr IndexAndValue<int> item_rarities[TOTAL_ITEMS] = {
     {BOOK_OFFSET + BookId_SPELLBOOK_OF_FORCE       , 4},
     {BOOK_OFFSET + BookId_SPELLBOOK_OF_ASSUME_FORM , 1},
 
-    {WEAPON_OFFSET + WeaponId_DAGGER   , 10},
-    {WEAPON_OFFSET + WeaponId_BATTLEAXE,  5},
+    {WEAPON_OFFSET + WeaponId_DAGGER   ,  0},
+    {WEAPON_OFFSET + WeaponId_BATTLEAXE,  0},
 };
 static_assert(_check_indexed_array(item_rarities, TOTAL_ITEMS), "missed a spot");
 

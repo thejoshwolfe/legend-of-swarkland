@@ -125,6 +125,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
    * potions of: burrowing, levitation
  * Added lava, and lava island rooms
  * Added point-blank recoil for beam of force. Gotta go fast!
+ * Removed random monster spawns over time. You only get what the level starts with now.
 
 ## Version History
 

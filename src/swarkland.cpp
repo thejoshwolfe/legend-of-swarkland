@@ -255,6 +255,42 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
     return individual;
 }
 
+static void spawn_a_monster_with_equipment() {
+    Thing individual = spawn_a_monster(SpeciesId_COUNT, DecisionMakerType_AI, Coord::nowhere());
+
+    WeaponId weapon_id;
+    switch (individual->life()->original_species_id) {
+        case SpeciesId_OGRE:
+            if (random_int(3, nullptr) == 0) return;
+            weapon_id = WeaponId_BATTLEAXE;
+            break;
+        case SpeciesId_SHAPESHIFTER:
+            if (random_int(3, nullptr) == 0) return;
+            weapon_id = WeaponId_DAGGER;
+            break;
+        case SpeciesId_HUMAN:
+        case SpeciesId_LICH:
+        case SpeciesId_PINK_BLOB:
+        case SpeciesId_AIR_ELEMENTAL:
+        case SpeciesId_DOG:
+        case SpeciesId_ANT:
+        case SpeciesId_BEE:
+        case SpeciesId_BEETLE:
+        case SpeciesId_SCORPION:
+        case SpeciesId_SNAKE:
+        case SpeciesId_TAR_ELEMENTAL:
+        case SpeciesId_COBRA:
+            // no starting equipment
+            return;
+
+        case SpeciesId_COUNT:
+        case SpeciesId_UNSEEN:
+            unreachable();
+    }
+
+    pickup_item(individual, create_weapon(weapon_id));
+}
+
 static SpeciesId get_miniboss_species(int dungeon_level) {
     switch (dungeon_level) {
         case 1: return SpeciesId_DOG;
@@ -265,9 +301,6 @@ static SpeciesId get_miniboss_species(int dungeon_level) {
     panic("dungeon_level");
 }
 
-static void spawn_random_individual() {
-    spawn_a_monster(SpeciesId_COUNT, DecisionMakerType_AI, Coord::nowhere());
-}
 static void init_individuals() {
     if (game->test_mode) {
         game->you_id = spawn_a_monster(SpeciesId_HUMAN, DecisionMakerType_PLAYER, Coord{1, 1})->id;
@@ -306,7 +339,7 @@ static void init_individuals() {
 
     // random monsters
     for (int i = 0; i < 4 + 3 * game->dungeon_level; i++)
-        spawn_a_monster(SpeciesId_COUNT, DecisionMakerType_AI, Coord::nowhere());
+        spawn_a_monster_with_equipment();
 }
 
 void swarkland_init() {
@@ -333,13 +366,6 @@ void go_down() {
     you()->life()->knowledge.reset_map();
     generate_map();
     init_individuals();
-}
-
-static void maybe_spawn_monsters() {
-    if (game->test_mode)
-        return;
-    if (random_int(2000, nullptr) == 0)
-        spawn_random_individual();
 }
 
 void heal_hp(Thing individual, int hp) {
@@ -1284,8 +1310,6 @@ void run_the_game() {
                 for (auto iterator = actual_individuals(); iterator.next(&individual);)
                     see_aesthetics(individual);
             }
-
-            maybe_spawn_monsters();
 
             age_things();
 

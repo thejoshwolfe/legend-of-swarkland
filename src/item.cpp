@@ -62,7 +62,7 @@ static Thing create_random_item(int min_offset, int max_offset) {
 
     // remove it from the pool
     game->item_pool[item_index] -= 1;
-    if (game->item_pool[item_index] == 0) {
+    if (game->item_pool[item_index] == 0 && item_rarities[item_index].value != 0) {
         // restock the pool
         for (int i = 0; i < TOTAL_ITEMS; i++)
             game->item_pool[i] += item_rarities[i].value;
