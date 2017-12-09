@@ -502,7 +502,7 @@ Action get_ai_decision(Thing actor) {
                         case AbilityId_LUNGE_ATTACK: {
                             if (!is_clear_projectile_shot(actor, target->location, lunge_attack_range + 1))
                                 break; // we'll bonk on something
-                            if (ordinal_distance(Coord{0, 0}, vector) != lunge_attack_range + 1)
+                            if (ordinal_distance(Coord{0, 0}, vector) <= 1)
                                 break; // too close
                             if (advanced_strategy && !is_safe_space(actor->life()->knowledge.tiles[target->location - direction], is_touching_ground(actor)))
                                 break; // we'd fall into lava!

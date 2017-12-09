@@ -174,12 +174,23 @@ static void attack_location(Thing actor, Coord location, int bonus_damage) {
 }
 
 static void do_lunge_attack(Thing actor, Coord direction) {
-    for (int i = 0; i < lunge_attack_range; i++) {
+    assert(lunge_attack_range == 2);
+    // move at least once
+    if (!attempt_move(actor, actor->location + direction))
+        return; // bonk!
+    int bonus_damage;
+    if (find_perceived_individual_at(actor, actor->location + direction) != nullptr) {
+        // short range attack
+        bonus_damage = 7;
+    } else {
+        // move one more before attacking
         if (!attempt_move(actor, actor->location + direction))
             return; // bonk!
+        // long range attack
+        bonus_damage = 5;
     }
     // we made it to the end of the range. now attack.
-    attack_location(actor, actor->location + direction, 10);
+    attack_location(actor, actor->location + direction, bonus_damage);
 }
 
 static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
@@ -198,7 +209,7 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
             break;
         case AbilityId_LUNGE_ATTACK:
             publish_event(Event::lunge(actor->id));
-            cooldown_time = random_midpoint(72, "lunge_attack_cooldown");
+            cooldown_time = 48;
             break;
         case AbilityId_COUNT:
             unreachable();
