@@ -1,0 +1,27 @@
+@test
+move 0 1
+move 0 1
+move 0 1
+!wish wand speed
+  @rng 8 range:4:8:wand_charges
+pickup 0000000000000000000000000000000000000000000000000000000000000002
+zap 0 0 0000000000000000000000000000000000000000000000000000000000000002
+  @rng 200 range:100:200:speed_duration
+
+# let's go!
+@mark_events
+  move 1 0
+    @rng 1 int:2:lava_damage
+    @rng 1 int:2:lava_damage
+    @rng 1 int:2:lava_damage
+  @expect_event "you is seared by lava!"
+  @expect_event "you is seared by lava!"
+  @expect_event "you is seared by lava!"
+  @expect_no_events
+
+# now we should be clear to move
+@mark_events
+  move 1 0
+  @expect_no_events
+
+@test_end

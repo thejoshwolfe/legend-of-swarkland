@@ -5,11 +5,7 @@ move 0 1
 # jump in lava
 @mark_events
   move 0 1
-    # do 5 burns.
-    @rng 1 int:2:lava_damage
-    @rng 1 int:2:lava_damage
-    @rng 1 int:2:lava_damage
-    @rng 1 int:2:lava_damage
+    # do 4 burns.
     @rng 1 int:2:lava_damage
     @rng 0 int:2:lava_damage
     @rng 0 int:2:lava_damage
@@ -18,7 +14,49 @@ move 0 1
     @rng 0 int:2:lava_damage
     @rng 0 int:2:lava_damage
     @rng 0 int:2:lava_damage
-  @expect_event "you is seared by lava!"
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+  wait
+    @rng 1 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+  wait
+    @rng 1 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+  wait
+    @rng 1 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
+    @rng 0 int:2:lava_damage
   @expect_event "you is seared by lava!"
   @expect_event "you is seared by lava!"
   @expect_event "you is seared by lava!"

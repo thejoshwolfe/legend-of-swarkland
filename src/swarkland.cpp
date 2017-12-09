@@ -801,6 +801,14 @@ static bool is_in_my_inventory(Thing actor, uint256 item_id) {
     return item->container_id == actor->id;
 }
 bool validate_action(Thing actor, const Action & action) {
+    if (action.id == Action::WAIT) {
+        // we shouldn't even ask an individual for an action if they weren't allowed to wait.
+        assert(can_act(actor) || can_move(actor));
+    } else if (action.id == Action::MOVE) {
+        if (!can_move(actor)) return false;
+    } else {
+        if (!can_act(actor)) return false;
+    }
     switch (action.id) {
         case Action::WAIT:
             // always an option

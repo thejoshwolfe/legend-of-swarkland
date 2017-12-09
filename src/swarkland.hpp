@@ -111,6 +111,8 @@ static inline int get_movement_cost(Thing actor) {
         return speedy_movement_cost;
     if (has_status(actor, StatusEffect::SLOWING))
         return slow_movement_cost;
+    if (game->actual_map_tiles[actor->location] == TileType_LAVA_FLOOR && is_touching_ground(actor))
+        return slow_movement_cost;
     return actor->physical_species()->movement_cost;
 }
 
