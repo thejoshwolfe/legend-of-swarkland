@@ -188,6 +188,34 @@ void animate_map_tiles() {
     }
 }
 
+struct Room {
+    enum Type {
+        NORMAL,
+        LAVA_SPLASHES,
+        LAVA_ISLAND,
+    };
+    int x, y;
+    int width, height;
+    Type type;
+};
+
+static bool line_segments_intersect(int a1, int a2, int b1, int b2) {
+    if (a2 <= b1) return false;
+    if (b2 <= a1) return false;
+    return true;
+}
+static bool rooms_intersect(Room const& a, Room const& b) {
+    if (!line_segments_intersect(a.x, a.x + a.width, b.x, b.x + b.width))
+        return false;
+    if (!line_segments_intersect(a.y, a.y + a.height, b.y, b.y + b.height))
+        return false;
+    return true;
+}
+
+static bool level_contains_lava(int dungeon_level) {
+    return dungeon_level >= 4;
+}
+
 void generate_map() {
     game->dungeon_level++;
 
@@ -226,20 +254,44 @@ void generate_map() {
         return;
     }
 
+    int vault_count = random_inclusive(1, 2, nullptr);
+    int lava_island_count = 0;
+    if (level_contains_lava(game->dungeon_level)) {
+        for (int i = vault_count; i >= 0; i--) {
+            if (random_int(2, nullptr) == 0) {
+                // turn this vault into a lava island
+                vault_count--;
+                lava_island_count++;
+            }
+        }
+    }
+
     // create rooms
-    List<SDL_Rect> rooms;
+    List<Room> rooms;
     List<Coord> room_floor_spaces;
     for (int i = 0; i < 50; i++) {
-        int width = random_int(3, 10, nullptr);
-        int height = random_int(3, 10, nullptr);
-        int x = random_int(0, map_size.x - width, nullptr);
-        int y = random_int(0, map_size.y - height, nullptr);
-        SDL_Rect room = SDL_Rect{x, y, width, height};
+        Room room;
+        if (lava_island_count > 0) {
+            lava_island_count--;
+            room.type = Room::LAVA_ISLAND;
+            room.width = random_int(8, 10, nullptr);
+            room.height = random_int(8, 10, nullptr);
+        } else if (level_contains_lava(game->dungeon_level) && random_int(5, nullptr) == 0) {
+            room.type = Room::LAVA_SPLASHES;
+            room.width = random_int(5, 10, nullptr);
+            room.height = random_int(5, 10, nullptr);
+        } else {
+            room.type = Room::NORMAL;
+            room.width = random_int(3, 10, nullptr);
+            room.height = random_int(3, 10, nullptr);
+        }
+        room.x = random_int(0, map_size.x - room.width, nullptr);
+        room.y = random_int(0, map_size.y - room.height, nullptr);
         for (int j = 0; j < rooms.length(); j++) {
-            SDL_Rect intersection;
-            if (SDL_IntersectRect(&rooms[j], &room, &intersection)) {
+            if (rooms_intersect(room, rooms[j])) {
                 // overlaps with another room.
                 // don't create this room at all.
+                // TODO: just try scooching it around to fit
                 goto next_room;
             }
         }
@@ -247,21 +299,53 @@ void generate_map() {
         next_room:;
     }
     for (int i = 0; i < rooms.length(); i++) {
-        SDL_Rect room = rooms[i];
-        bool room_contains_lava = game->dungeon_level >= 4 && room.w >= 5 && room.h >= 5 && random_int(3, nullptr) == 0;
+        Room room = rooms[i];
         Coord cursor;
-        for (cursor.y = room.y + 1; cursor.y < room.y + room.h - 1; cursor.y++) {
-            for (cursor.x = room.x + 1; cursor.x < room.x + room.w - 1; cursor.x++) {
-                if (room_contains_lava && random_int(3, nullptr) == 0) {
-                    // lava
-                    game->actual_map_tiles[cursor] = TileType_LAVA_FLOOR;
-                } else {
-                    room_floor_spaces.append(cursor);
-                    game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+        for (cursor.y = room.y + 1; cursor.y < room.y + room.height - 1; cursor.y++)
+            for (cursor.x = room.x + 1; cursor.x < room.x + room.width - 1; cursor.x++)
+                game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+        switch (room.type) {
+            case Room::NORMAL:
+                break;
+            case Room::LAVA_SPLASHES:
+                for (cursor.y = room.y + 1; cursor.y < room.y + room.height - 1; cursor.y++) {
+                    for (cursor.x = room.x + 1; cursor.x < room.x + room.width - 1; cursor.x++) {
+                        if (random_int(3, nullptr) == 0) {
+                            // splash some lava
+                            game->actual_map_tiles[cursor] = TileType_LAVA_FLOOR;
+                        }
+                    }
                 }
+                break;
+            case Room::LAVA_ISLAND: {
+                int offset_x = random_inclusive(0, room.width - 8, nullptr);
+                int offset_y = random_inclusive(0, room.height - 8, nullptr);
+                // lava moat
+                for (int y = 0; y < 4; y++) {
+                    for (int x = 0; x < 4; x++) {
+                        Coord coord = {room.x + offset_x + 2 + x, room.y + offset_y + 2 + y};
+                        game->actual_map_tiles[coord] = TileType_LAVA_FLOOR;
+                    }
+                }
+                // island
+                for (int y = 1; y < 3; y++) {
+                    for (int x = 1; x < 3; x++) {
+                        Coord coord = {room.x + offset_x + 2 + x, room.y + offset_y + 2 + y};
+                        game->actual_map_tiles[coord] = TileType_MARBLE_FLOOR;
+                        create_random_item()->location = coord;
+                    }
+                }
+                break;
             }
         }
 
+        // what's left of the floor?
+        for (cursor.y = room.y + 1; cursor.y < room.y + room.height - 1; cursor.y++) {
+            for (cursor.x = room.x + 1; cursor.x < room.x + room.width - 1; cursor.x++) {
+                if (game->actual_map_tiles[cursor] == TileType_DIRT_FLOOR)
+                    room_floor_spaces.append(cursor);
+            }
+        }
     }
 
     // connect rooms with prim's algorithm, or something.
@@ -282,17 +366,17 @@ void generate_map() {
     for (int i = 0; i < rooms.length(); i++)
         node_to_parent_node.append(i);
     for (int i = 0; i < rooms.length(); i++) {
-        SDL_Rect room = rooms[i];
+        Room room = rooms[i];
         int room_root = PrimUtil::find_root_node(node_to_parent_node, i);
         // find nearest room
         // uh... this is not prim's algorithm. we're supposed to find the shortest edge in the graph.
         // whatever.
         int closest_neighbor = -1;
-        SDL_Rect closest_room = {-1, -1, -1, -1};
+        Room closest_room;
         int closest_neighbor_root = -1;
         int closest_distance = 0x7fffffff;
         for (int j = 0; j < rooms.length(); j++) {
-            SDL_Rect other_room = rooms[j];
+            Room other_room = rooms[j];
             int other_root = PrimUtil::find_root_node(node_to_parent_node, j);
             if (room_root == other_root)
                 continue; // already joined
@@ -314,10 +398,12 @@ void generate_map() {
         Coord delta = sign(b - a);
         Coord cursor = a;
         for (; cursor.x * delta.x < b.x * delta.x; cursor.x += delta.x) {
-            game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+            if (game->actual_map_tiles[cursor] == TileType_BROWN_BRICK_WALL)
+                game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
         }
         for (; cursor.y * delta.y < b.y * delta.y; cursor.y += delta.y) {
-            game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+            if (game->actual_map_tiles[cursor] == TileType_BROWN_BRICK_WALL)
+                game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
         }
     }
 
@@ -342,7 +428,6 @@ void generate_map() {
     }
 
     // place some vaults
-    int vault_count = random_inclusive(1, 2, nullptr);
     int width = 6;
     int height = 6;
     for (int i = 0; i < vault_count; i++) {
