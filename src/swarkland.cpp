@@ -1074,10 +1074,14 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::CHEATCODE_KILL:
             cheatcode_kill(action.item());
             return false;
-        case Action::CHEATCODE_POLYMORPH:
-            polymorph_individual(player_actor(), action.species(), 1000000);
-            // this one does take time, because your movement cost may have changed
+        case Action::CHEATCODE_POLYMORPH: {
+            Thing individual = player_actor();
+            polymorph_individual(individual, action.species(), 1);
+            individual->life()->original_species_id = action.species();
+            int index = find_status(individual->status_effects, StatusEffect::POLYMORPH);
+            individual->status_effects.swap_remove(index);
             return false;
+        }
         case Action::CHEATCODE_GENERATE_MONSTER: {
             const Action::GenerateMonster & data = action.generate_monster();
             spawn_a_monster(data.species, data.decision_maker, data.location);
