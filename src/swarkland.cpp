@@ -453,19 +453,32 @@ void heal_hp(Thing individual, int hp) {
 }
 static void regen_hp(Thing individual) {
     Life * life = individual->life();
+    bool do_regen = true;
     int index;
     if ((index = find_status(individual->status_effects, StatusEffect::POISON)) != -1) {
-        // poison damage instead
+        // you're poisoned
+        do_regen = immune_to_poison(individual);
         StatusEffect * poison = &individual->status_effects[index];
         if (poison->poison_next_damage_time == game->time_counter) {
-            // ouch
-            Thing attacker = game->actual_things.get(poison->who_is_responsible, nullptr);
-            if (attacker != nullptr && !attacker->still_exists)
-                attacker = nullptr;
-            damage_individual(individual, 1, attacker, false);
+            // the poison does battle with your metabolism!
+            if (immune_to_poison(individual)) {
+                // reduce the poison time
+                poison->expiration_time -= random_midpoint(15 * 12, "speedy_poison_recovery");
+                if (poison->expiration_time < game->time_counter)
+                    poison->expiration_time = game->time_counter;
+                // this will usually be unobservable, but if your scorpion polymorph runs out,
+                // then you might have some poison left to deal with.
+            } else {
+                // ouch
+                Thing attacker = game->actual_things.get(poison->who_is_responsible, nullptr);
+                if (attacker != nullptr && !attacker->still_exists)
+                    attacker = nullptr;
+                damage_individual(individual, 1, attacker, false);
+            }
             poison->poison_next_damage_time = game->time_counter + random_midpoint(7 * 12, "poison_damage");
         }
-    } else if (life->hp_regen_deadline == game->time_counter) {
+    }
+    if (do_regen && life->hp_regen_deadline == game->time_counter) {
         // hp regen
         int hp_heal = random_inclusive(1, max(1, individual->max_hitpoints() / 5), nullptr);
         heal_hp(individual, hp_heal);

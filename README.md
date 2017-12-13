@@ -127,6 +127,7 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
  * Added point-blank recoil for beam of force. Gotta go fast!
  * Removed random monster spawns over time. You only get what the level starts with now.
  * Snakes get a lunge attack.
+ * Scorpions are immune to poison.
 
 ## Version History
 

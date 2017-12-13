@@ -678,6 +678,9 @@ static inline bool individual_has_mind(Thing thing) {
     }
     unreachable();
 }
+static inline bool immune_to_poison(Thing individual) {
+    return individual->physical_species()->poison_attack;
+}
 static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
     switch (status) {
         case StatusEffect::CONFUSION:
@@ -696,9 +699,10 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
             return !(individual->physical_species()->vision_types & VisionTypes_ETHEREAL);
         case StatusEffect::LEVITATING:
             return !individual->physical_species()->flying;
+        case StatusEffect::POISON:
+            return !immune_to_poison(individual);
         case StatusEffect::COGNISCOPY:
         case StatusEffect::INVISIBILITY:
-        case StatusEffect::POISON:
         case StatusEffect::POLYMORPH:
         case StatusEffect::BURROWING:
             return true;
