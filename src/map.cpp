@@ -191,7 +191,7 @@ void animate_map_tiles() {
 struct Room {
     enum Type {
         NORMAL,
-        LAVA_SPLASHES,
+        LAVA_AND_BRIDGES,
         LAVA_ISLAND,
     };
     int x, y;
@@ -276,8 +276,8 @@ void generate_map() {
             room.type = Room::LAVA_ISLAND;
             room.width = random_int(8, 10, nullptr);
             room.height = random_int(8, 10, nullptr);
-        } else if (level_contains_lava(game->dungeon_level) && random_int(5, nullptr) == 0) {
-            room.type = Room::LAVA_SPLASHES;
+        } else if (game->dungeon_level == 4 || (game->dungeon_level == 5 && random_int(5, nullptr) == 0)) {
+            room.type = Room::LAVA_AND_BRIDGES;
             room.width = random_int(5, 10, nullptr);
             room.height = random_int(5, 10, nullptr);
         } else {
@@ -307,13 +307,11 @@ void generate_map() {
         switch (room.type) {
             case Room::NORMAL:
                 break;
-            case Room::LAVA_SPLASHES:
+            case Room::LAVA_AND_BRIDGES:
+                // start with the room completely full of lava
                 for (cursor.y = room.y + 1; cursor.y < room.y + room.height - 1; cursor.y++) {
                     for (cursor.x = room.x + 1; cursor.x < room.x + room.width - 1; cursor.x++) {
-                        if (random_int(3, nullptr) == 0) {
-                            // splash some lava
-                            game->actual_map_tiles[cursor] = TileType_LAVA_FLOOR;
-                        }
+                        game->actual_map_tiles[cursor] = TileType_LAVA_FLOOR;
                     }
                 }
                 break;
@@ -404,6 +402,53 @@ void generate_map() {
         for (; cursor.y * delta.y < b.y * delta.y; cursor.y += delta.y) {
             if (game->actual_map_tiles[cursor] == TileType_BROWN_BRICK_WALL)
                 game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+        }
+    }
+
+    // revisit rooms now that we know where the "doors" are between them.
+    for (int i = 0; i < rooms.length(); i++) {
+        Room room = rooms[i];
+        switch (room.type) {
+            case Room::LAVA_AND_BRIDGES: {
+                // add pathways between doors
+                List<Coord> doors;
+                {
+                    Coord cursor;
+                    for (cursor.y = room.y; cursor.y <= room.y + room.height; cursor.y += room.height)
+                        for (cursor.x = room.x; cursor.x <= room.x + room.width; cursor.x++)
+                            if (game->actual_map_tiles[cursor] == TileType_DIRT_FLOOR)
+                                doors.append(cursor);
+                    for (cursor.x = room.x; cursor.x <= room.x + room.width; cursor.x += room.width)
+                        for (cursor.y = room.y; cursor.y <= room.y + room.height; cursor.y++)
+                            if (game->actual_map_tiles[cursor] == TileType_DIRT_FLOOR)
+                                doors.append(cursor);
+                }
+                assert(doors.length() > 0);
+
+                Coord room_center = Coord{room.x + room.width / 2, room.y + room.height / 2};
+                // wiggle the center a bit
+                room_center.x += random_inclusive(-1, 1, nullptr);
+                room_center.y += random_inclusive(-1, 1, nullptr);
+
+                if (doors.length() == 1) {
+                    // add a bogus destination somewhere else in the room just to go somewhere
+                    doors.append(clamp(room_center - (doors[0] - room_center),
+                        Coord{room.x, room.y},
+                        Coord{room.x + room.width, room.y + room.height}));
+                }
+
+                for (int i = 0; i < doors.length(); i++) {
+                    Coord cursor = doors[i];
+                    while (cursor != room_center) {
+                        cursor += sign(room_center - cursor);
+                        game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+                    }
+                }
+                break;
+            }
+            case Room::NORMAL:
+            case Room::LAVA_ISLAND:
+                break;
         }
     }
 
