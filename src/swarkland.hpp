@@ -130,7 +130,7 @@ void drop_item_to_the_floor(Thing item, Coord location);
 void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities);
 bool is_ability_ready(Thing actor, AbilityId ability_id);
 void suck_up_item(Thing actor, Thing item);
-bool attempt_move(Thing actor, Coord new_position);
+bool attempt_move(Thing actor, Coord new_position, Thing who_is_responsible);
 bool attempt_dodge(Thing attacker, Thing actor);
 void apply_impulse(Thing individual, Coord vector);
 
@@ -138,6 +138,7 @@ bool check_for_status_expired(Thing individual, int index);
 void polymorph_individual(Thing individual, SpeciesId species_id, int duration);
 void damage_individual(Thing target, int damage, Thing attacker, bool is_melee);
 void poison_individual(Thing attacker, Thing target);
+void blind_individual(Thing attacker, Thing target, int expiration_midpoint);
 void slow_individual(Thing attacker, Thing target);
 void heal_hp(Thing individual, int hp);
 void use_mana(Thing actor, int mana);

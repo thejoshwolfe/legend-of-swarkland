@@ -441,7 +441,10 @@ void generate_map() {
                     Coord cursor = doors[i];
                     while (cursor != room_center) {
                         cursor += sign(room_center - cursor);
+                        if (game->actual_map_tiles[cursor] == TileType_DIRT_FLOOR)
+                            break;
                         game->actual_map_tiles[cursor] = TileType_DIRT_FLOOR;
+                        room_floor_spaces.append(cursor);
                     }
                 }
                 break;

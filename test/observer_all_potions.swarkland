@@ -50,7 +50,7 @@ pickup 0000000000000000000000000000000000000000000000000000000000000007
 wait
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000007
-    @rng 12 midpoint:1000:potion_of_blindness_expiration
+    @rng 12 midpoint:1000:blindness_expiration
   wait
   @expect_event "a lich king quaffs a orange potion."
   @expect_event "a lich king is blind!"

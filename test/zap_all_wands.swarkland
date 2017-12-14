@@ -160,11 +160,10 @@ wait
   zap -1 -1 0000000000000000000000000000000000000000000000000000000000000009
     @rng 6 inclusive:6:12:beam_length
     @rng 6 int:12:dodge
-    @rng 12 midpoint:200:blinding_duration
+    @rng 12 midpoint:200:blindness_expiration
   @expect_event "a lich king zaps a shiny bone wand."
   @expect_event "a magic beam hits you."
   @expect_event "you is blind!"
-  @expect_event "a magic beam hits a wall."
   @expect_no_events
 wait
 @mark_events

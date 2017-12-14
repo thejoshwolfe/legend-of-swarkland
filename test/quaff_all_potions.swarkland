@@ -64,7 +64,7 @@ wait
 pickup 0000000000000000000000000000000000000000000000000000000000000007
 @mark_events
   quaff 0000000000000000000000000000000000000000000000000000000000000007
-    @rng 20 midpoint:1000:potion_of_blindness_expiration
+    @rng 20 midpoint:1000:blindness_expiration
   @expect_event "you quaffs a orange potion."
   @expect_event "you is blind!"
   @expect_no_events

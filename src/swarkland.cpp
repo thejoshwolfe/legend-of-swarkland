@@ -91,9 +91,11 @@ void poison_individual(Thing attacker, Thing target) {
     poison->who_is_responsible = attacker->id;
     poison->poison_next_damage_time = game->time_counter + 12 * 3;
 }
-static void blind_individual(Thing attacker, Thing target) {
-    StatusEffect * effect = find_or_put_status(target, StatusEffect::BLINDNESS, game->time_counter + random_midpoint(600, "blindness_expiriration"));
+void blind_individual(Thing attacker, Thing target, int expiration_midpoint) {
+    publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
+    StatusEffect * effect = find_or_put_status(target, StatusEffect::BLINDNESS, game->time_counter + random_midpoint(expiration_midpoint, "blindness_expiration"));
     effect->who_is_responsible = attacker->id;
+    compute_vision(target);
 }
 void slow_individual(Thing actor, Thing target) {
     StatusEffect * effect = find_or_put_status(target, StatusEffect::SLOWING, game->time_counter + random_midpoint(200, "slowing_duration"));
@@ -176,7 +178,7 @@ static void attack_location(Thing actor, Coord location, int bonus_damage) {
 static void do_lunge_attack(Thing actor, Coord direction) {
     assert(lunge_attack_range == 2);
     // move at least once
-    if (!attempt_move(actor, actor->location + direction))
+    if (!attempt_move(actor, actor->location + direction, actor))
         return; // bonk!
     int bonus_damage;
     if (find_perceived_individual_at(actor, actor->location + direction) != nullptr) {
@@ -184,7 +186,7 @@ static void do_lunge_attack(Thing actor, Coord direction) {
         bonus_damage = 7;
     } else {
         // move one more before attacking
-        if (!attempt_move(actor, actor->location + direction))
+        if (!attempt_move(actor, actor->location + direction, actor))
             return; // bonk!
         // long range attack
         bonus_damage = 5;
@@ -244,9 +246,7 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
             switch (ability_id) {
                 case AbilityId_SPIT_BLINDING_VENOM:
                     publish_event(Event::blinding_venom_hit_individual(target->id));
-                    publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
-                    blind_individual(actor, target);
-                    compute_vision(target);
+                    blind_individual(actor, target, 600);
                     return;
                 case AbilityId_THROW_TAR:
                     publish_event(Event::tar_hit_individual(target->id));
@@ -692,7 +692,7 @@ bool is_touching_ground(Thing individual) {
     return true;
 }
 
-static void do_move(Thing mover, Coord new_position) {
+static void do_move(Thing mover, Coord new_position, Thing who_is_responsible) {
     Coord old_position = mover->location;
     mover->location = new_position;
 
@@ -726,9 +726,12 @@ static void do_move(Thing mover, Coord new_position) {
     // this makes force pushing enemies into lava do more predictable damage.
     // note that you can still act at the same time you would have been able to, just not move.
     mover->life()->last_movement_time = game->time_counter;
+
+    if (mover->id != who_is_responsible->id)
+        find_or_put_status(mover, StatusEffect::PUSHED, game->time_counter + 10 * 12)->who_is_responsible = who_is_responsible->id;
 }
 // return if it worked, otherwise bumped into something.
-bool attempt_move(Thing actor, Coord new_position) {
+bool attempt_move(Thing actor, Coord new_position, Thing who_is_responsible) {
     if (!is_open_space(game->actual_map_tiles[new_position])) {
         // moving into a wall
         if (has_status(actor, StatusEffect::BURROWING)) {
@@ -736,7 +739,7 @@ bool attempt_move(Thing actor, Coord new_position) {
             if (is_diggable_wall(game->actual_map_tiles[new_position])) {
                 // burrow through the wall.
                 change_map(new_position, TileType_DIRT_FLOOR);
-                do_move(actor, new_position);
+                do_move(actor, new_position, who_is_responsible);
                 publish_event(Event::individual_burrows_through_wall(actor->id, new_position));
                 return true;
             }
@@ -755,7 +758,7 @@ bool attempt_move(Thing actor, Coord new_position) {
         return false;
     }
     // clear to move
-    do_move(actor, new_position);
+    do_move(actor, new_position, who_is_responsible);
     return true;
 }
 bool attempt_dodge(Thing attacker, Thing target) {
@@ -791,6 +794,8 @@ bool check_for_status_expired(Thing individual, int index) {
             // we've got a function for removing this status
             polymorph_individual(individual, individual->life()->original_species_id, 0);
             return true;
+        case StatusEffect::PUSHED:
+            break;
 
         case StatusEffect::COUNT:
             unreachable();
@@ -803,17 +808,18 @@ bool check_for_status_expired(Thing individual, int index) {
         case StatusEffect::INVISIBILITY:
         case StatusEffect::BURROWING:
         case StatusEffect::LEVITATING:
+        case StatusEffect::PUSHED:
             break;
         case StatusEffect::ETHEREAL_VISION:
         case StatusEffect::COGNISCOPY:
         case StatusEffect::BLINDNESS:
-        case StatusEffect::POLYMORPH:
             compute_vision(individual);
             break;
         case StatusEffect::POISON:
             reset_hp_regen_timeout(individual);
             break;
 
+        case StatusEffect::POLYMORPH:
         case StatusEffect::COUNT:
             unreachable();
     }
@@ -1038,7 +1044,7 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::MOVE: {
             if (can_propel_self(actor)) {
                 Coord new_position = actor->location + confuse_direction(actor, action.coord());
-                can_dodge = attempt_move(actor, new_position);
+                can_dodge = attempt_move(actor, new_position, actor);
                 just_successfully_moved = true;
             } else {
                 publish_event(Event::individual_floats_uncontrollably(actor->id));
@@ -1158,7 +1164,7 @@ static bool take_action(Thing actor, const Action & action) {
                 Coord momentum = actor->status_effects[index].coord;
                 if (momentum != Coord{0, 0}) {
                     // also keep sliding through the air.
-                    attempt_move(actor, actor->location + momentum);
+                    attempt_move(actor, actor->location + momentum, actor);
                     floating_uncontrollably = true;
                 }
             }
@@ -1211,6 +1217,31 @@ static bool take_action(Thing actor, const Action & action) {
     return true;
 }
 
+static constexpr StatusEffect::Id reasons_why_im_here[] = {
+    // being pushed is the most obvious reason
+    StatusEffect::PUSHED,
+    // confusion can trick you into falling into lava
+    StatusEffect::CONFUSION,
+    // blindness can prevent you from seeing lava
+    StatusEffect::BLINDNESS,
+};
+static Thing who_is_responsible_for_being_here(Thing thing) {
+    for (int i = 0; i < get_array_length(reasons_why_im_here); i++) {
+        int index;
+        if ((index = find_status(thing->status_effects, reasons_why_im_here[i])) != -1) {
+            assert(thing->status_effects[index].who_is_responsible != uint256::zero());
+            if (thing->status_effects[index].who_is_responsible == thing->id)
+                continue;
+            Thing who_is_responsible = game->actual_things.get(thing->status_effects[index].who_is_responsible, nullptr);
+            if (who_is_responsible != nullptr && who_is_responsible->still_exists)
+                return who_is_responsible;
+            // we found the cause, but that person is dead. so no one gets credit.
+            return nullptr;
+        }
+    }
+    return nullptr;
+}
+
 static void age_things() {
     List<Thing> things_in_order;
     {
@@ -1242,7 +1273,7 @@ static void age_things() {
                         case ThingType_INDIVIDUAL:
                             if (is_touching_ground(thing)) {
                                 publish_event(Event::seared_by_lava(thing->id));
-                                damage_individual(thing, lava_damage, nullptr, false);
+                                damage_individual(thing, lava_damage, who_is_responsible_for_being_here(thing), false);
                             }
                             break;
                         case ThingType_WAND:

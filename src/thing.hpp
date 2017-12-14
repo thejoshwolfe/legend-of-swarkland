@@ -244,6 +244,7 @@ struct StatusEffect {
         SLOWING,
         BURROWING,
         LEVITATING,
+        PUSHED,
 
         COUNT,
     };
@@ -252,7 +253,7 @@ struct StatusEffect {
     int64_t expiration_time;
 
     int64_t poison_next_damage_time;
-    // used for awarding experience for poison damage kills
+    // used for awarding experience
     uint256 who_is_responsible;
     // used for polymorph
     SpeciesId species_id;
@@ -284,6 +285,9 @@ static inline bool can_see_status_effect(StatusEffect::Id effect, VisionTypes vi
             // the polymorphed status is unknown unless you can see the original mind.
             // otherwise, you just look like the new species.
             return can_see_thoughts(vision);
+        case StatusEffect::PUSHED:
+            // this is only used to track who is responsible
+            return false;
 
         case StatusEffect::COUNT:
             unreachable();
@@ -706,6 +710,9 @@ static inline bool can_have_status(Thing individual, StatusEffect::Id status) {
         case StatusEffect::POLYMORPH:
         case StatusEffect::BURROWING:
             return true;
+        case StatusEffect::PUSHED:
+            // this is only used to track who is responsible
+            return false;
 
         case StatusEffect::COUNT:
             unreachable();

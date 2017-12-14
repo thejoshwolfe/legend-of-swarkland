@@ -2,7 +2,7 @@
 !wish potion blindness
 pickup 0000000000000000000000000000000000000000000000000000000000000002
 quaff 0000000000000000000000000000000000000000000000000000000000000002
-  @rng 1000 midpoint:1000:potion_of_blindness_expiration
+  @rng 1000 midpoint:1000:blindness_expiration
 !monster lich player 3 1
 wait
 !wish potion healing

@@ -528,6 +528,7 @@ static IndexAndValue<ConstStr> constexpr status_effect_names[StatusEffect::COUNT
     {StatusEffect::SLOWING, "slowing"},
     {StatusEffect::BURROWING, "burrowing"},
     {StatusEffect::LEVITATING, "levitating"},
+    {StatusEffect::PUSHED, "pushed"},
 };
 static_assert(_check_indexed_array(status_effect_names, StatusEffect::COUNT), "missed a spot");
 
@@ -823,11 +824,9 @@ static StatusEffect parse_status_effect() {
     status_effect.type = parse_string_id<StatusEffect::Id>(status_effect_names, get_array_length(status_effect_names), line, tokens[token_cursor++]);
     status_effect.expiration_time = parse_int64(line, tokens[token_cursor++]);
     switch (status_effect.type) {
-        case StatusEffect::CONFUSION:
         case StatusEffect::SPEED:
         case StatusEffect::ETHEREAL_VISION:
         case StatusEffect::COGNISCOPY:
-        case StatusEffect::BLINDNESS:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::SLOWING:
         case StatusEffect::BURROWING:
@@ -842,6 +841,11 @@ static StatusEffect parse_status_effect() {
             break;
         case StatusEffect::POLYMORPH:
             status_effect.species_id = parse_species_id(line, tokens[token_cursor++]);;
+            break;
+        case StatusEffect::CONFUSION:
+        case StatusEffect::BLINDNESS:
+        case StatusEffect::PUSHED:
+            status_effect.who_is_responsible = parse_uint256(line, tokens[token_cursor++]);
             break;
 
         case StatusEffect::COUNT:
@@ -858,11 +862,9 @@ static void write_status_effect(ByteBuffer * output_buffer, StatusEffect status_
     output_buffer->append(' ');
     output_buffer->format(int64_format, status_effect.expiration_time);
     switch (status_effect.type) {
-        case StatusEffect::CONFUSION:
         case StatusEffect::SPEED:
         case StatusEffect::ETHEREAL_VISION:
         case StatusEffect::COGNISCOPY:
-        case StatusEffect::BLINDNESS:
         case StatusEffect::INVISIBILITY:
         case StatusEffect::SLOWING:
         case StatusEffect::BURROWING:
@@ -879,6 +881,12 @@ static void write_status_effect(ByteBuffer * output_buffer, StatusEffect status_
         case StatusEffect::POLYMORPH:
             output_buffer->append(' ');
             output_buffer->append(species_names[status_effect.species_id].value);
+            break;
+        case StatusEffect::CONFUSION:
+        case StatusEffect::BLINDNESS:
+        case StatusEffect::PUSHED:
+            output_buffer->append(' ');
+            write_uint_oversized_to_buffer(output_buffer, status_effect.who_is_responsible);
             break;
 
         case StatusEffect::COUNT:

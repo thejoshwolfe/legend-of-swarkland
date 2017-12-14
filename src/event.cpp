@@ -784,6 +784,7 @@ static void observe_event(Thing observer, Event event) {
                     gain_potion_id = PotionId_POTION_OF_LEVITATION;
                     break;
 
+                case StatusEffect::PUSHED:
                 case StatusEffect::COUNT:
                     unreachable();
             }

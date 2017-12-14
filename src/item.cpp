@@ -107,10 +107,11 @@ static void hit_wall_no_effect(Coord location) {
     publish_event(Event::magic_beam_hit_wall(location));
 }
 
-static void confusion_hit_individual(Thing target) {
+static void confusion_hit_individual(Thing attacker, Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
     publish_event(Event::gain_status(target->id, StatusEffect::CONFUSION));
-    find_or_put_status(target, StatusEffect::CONFUSION, game->time_counter + random_int(100, 200, "confusion_duration"));
+    StatusEffect * confusion = find_or_put_status(target, StatusEffect::CONFUSION, game->time_counter + random_int(100, 200, "confusion_duration"));
+    confusion->who_is_responsible = attacker->id;
 }
 static void magic_missile_hit_individual(Thing actor, Thing target) {
     publish_event(Event::magic_missile_hit(target->id));
@@ -146,10 +147,9 @@ static void slowing_hit_individual(Thing actor, Thing target) {
     publish_event(Event::gain_status(target->id, StatusEffect::SLOWING));
     slow_individual(actor, target);
 }
-static void blinding_hit_individual(Thing target) {
+static void blinding_hit_individual(Thing attacker, Thing target) {
     publish_event(Event::magic_beam_hit(target->id));
-    publish_event(Event::gain_status(target->id, StatusEffect::BLINDNESS));
-    find_or_put_status(target, StatusEffect::BLINDNESS, game->time_counter + random_midpoint(200, "blinding_duration"));
+    blind_individual(attacker, target, 200);
 }
 static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
     int index = find_status(individual->status_effects, status);
@@ -182,7 +182,7 @@ static int digging_hit_wall(Coord location) {
     return 0;
 }
 
-static bool force_push_individual(Thing target, Coord direction, int beam_length_remaining) {
+static bool force_push_individual(Thing target, Coord direction, int beam_length_remaining, Thing who_is_responsible) {
     Coord cursor = target->location;
     List<Thing> choo_choo_train;
     bool is_point_blank_recoil = true;
@@ -195,7 +195,7 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
         } else {
             // move the train into this space
             for (int i = choo_choo_train.length() - 1; i >= 0; i--) {
-                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
+                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction, who_is_responsible);
                 if (actually_moved) {
                     // if anyone moves, there's no recoil
                     is_point_blank_recoil = false;
@@ -226,7 +226,7 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
         bool still_going = true;
         while (still_going) {
             for (int i = choo_choo_train.length() - 1; i >= 0; i--) {
-                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction);
+                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction, who_is_responsible);
                 if (actually_moved) {
                     // if anyone moves, there's no recoil
                     is_point_blank_recoil = false;
@@ -248,7 +248,7 @@ static void force_hit_something(Thing target, Coord direction, int beam_length_r
     bool is_point_blank_recoil;
     if (target != nullptr) {
         // hit an individual
-        is_point_blank_recoil = force_push_individual(target, direction, beam_length_remaining);
+        is_point_blank_recoil = force_push_individual(target, direction, beam_length_remaining, actor);
     } else {
         // hit a wall
         is_point_blank_recoil = true;
@@ -257,7 +257,7 @@ static void force_hit_something(Thing target, Coord direction, int beam_length_r
         // special case when forcing point blank against a wall or a chain of enemies that can't be moved.
         // recoil as though force was pushing you.
         publish_event(Event::magic_beam_recoils_and_pushes_individual(actor->id));
-        force_push_individual(actor, -direction, beam_length_remaining);
+        force_push_individual(actor, -direction, beam_length_remaining, actor);
     }
 }
 
@@ -343,7 +343,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                 // hit individual
                 switch (projectile_id) {
                     case ProjectileId_BEAM_OF_CONFUSION:
-                        confusion_hit_individual(target);
+                        confusion_hit_individual(actor, target);
                         length_penalty = 2;
                         break;
                     case ProjectileId_BEAM_OF_DIGGING:
@@ -367,7 +367,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
                         length_penalty = -1;
                         break;
                     case ProjectileId_BEAM_OF_BLINDING:
-                        blinding_hit_individual(target);
+                        blinding_hit_individual(actor, target);
                         length_penalty = 2;
                         break;
                     case ProjectileId_BEAM_OF_FORCE:
@@ -620,9 +620,7 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             compute_vision(target);
             break;
         case PotionId_POTION_OF_BLINDNESS:
-            publish_event(Event::gain_status(target_id, StatusEffect::BLINDNESS));
-            find_or_put_status(target, StatusEffect::BLINDNESS, game->time_counter + random_midpoint(1000, "potion_of_blindness_expiration"));
-            compute_vision(target);
+            blind_individual(actor, target, 1000);
             break;
         case PotionId_POTION_OF_INVISIBILITY:
             publish_event(Event::gain_status(target_id, StatusEffect::INVISIBILITY));
@@ -676,7 +674,7 @@ static void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     switch (wand->wand_info()->wand_id) {
         case WandId_WAND_OF_CONFUSION:
             for (int i = 0; i < affected_individuals.length(); i++)
-                confusion_hit_individual(affected_individuals[i]);
+                confusion_hit_individual(actor, affected_individuals[i]);
             break;
         case WandId_WAND_OF_DIGGING:
             for (int i = 0; i < affected_walls.length(); i++)
@@ -696,7 +694,7 @@ static void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
             break;
         case WandId_WAND_OF_BLINDING:
             for (int i = 0; i < affected_individuals.length(); i++)
-                blinding_hit_individual(affected_individuals[i]);
+                blinding_hit_individual(actor, affected_individuals[i]);
             break;
         case WandId_WAND_OF_FORCE:
             for (int i = 0; i < affected_individuals.length(); i++) {
