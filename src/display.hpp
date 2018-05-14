@@ -7,13 +7,9 @@
 #include "string.hpp"
 #include "text.hpp"
 
-#include <SDL.h>
-#include <SDL_ttf.h>
-
 static const int tile_size = 32;
 extern const SDL_Rect main_map_area;
 
-extern TTF_Font * status_box_font;
 extern SDL_Texture * sprite_sheet_texture;
 
 void init_display();

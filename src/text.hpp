@@ -5,6 +5,9 @@
 #include "string.hpp"
 #include "sdl_graphics.hpp"
 
+void init_text();
+void text_finish();
+
 class SpanImpl;
 class DivImpl;
 

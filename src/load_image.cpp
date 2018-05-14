@@ -1,7 +1,6 @@
 #include "load_image.hpp"
 
 #include "util.hpp"
-#include "sdl_graphics.hpp"
 #include "resources.hpp"
 #include "spritesheet.hpp"
 

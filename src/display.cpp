@@ -15,7 +15,6 @@
 #include "sdl_graphics.hpp"
 
 #include <SDL.h>
-#include <SDL_ttf.h>
 
 // screen layout
 static const SDL_Rect message_area = { 0, 0, map_size.x * tile_size, 2 * tile_size };
@@ -85,8 +84,6 @@ static Rect potion_images[PotionDescriptionId_COUNT];
 static Rect book_images[BookDescriptionId_COUNT];
 static Rect weapon_images[WeaponId_COUNT];
 
-TTF_Font * status_box_font;
-static SDL_RWops *font_rw_ops;
 static String version_string = new_string();
 
 #define fill_with_trash(array) \
@@ -178,13 +175,7 @@ void init_display() {
     load_images();
     if (false) load_images();
 
-    TTF_Init();
-
-    font_rw_ops = SDL_RWFromMem((void *)get_binary_font_resource_start(), (int)get_binary_font_resource_size());
-    if (font_rw_ops == nullptr)
-        panic("sdl rwops fail", SDL_GetError());
-    status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
-    TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
+    init_text();
 
     ByteBuffer buffer;
     buffer.append((const char *)get_binary_version_resource_start(), (int)get_binary_version_resource_size());
@@ -194,9 +185,7 @@ void init_display() {
 void display_finish() {
     assert(!headless_mode);
 
-    TTF_Quit();
-
-    SDL_RWclose(font_rw_ops);
+    text_finish();
 
     SDL_DestroyTexture(sprite_sheet_texture);
     SDL_DestroyTexture(screen_buffer);

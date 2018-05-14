@@ -1,8 +1,30 @@
 #include "text.hpp"
 
 #include "display.hpp"
+#include "resources.hpp"
 
+#include <SDL.h>
 #include <SDL_ttf.h>
+
+static TTF_Font * status_box_font;
+static SDL_RWops * font_rw_ops;
+
+void init_text() {
+    TTF_Init();
+
+    font_rw_ops = SDL_RWFromMem((void *)get_binary_font_resource_start(), (int)get_binary_font_resource_size());
+    if (font_rw_ops == nullptr)
+        panic("sdl rwops fail", SDL_GetError());
+    status_box_font = TTF_OpenFontRW(font_rw_ops, 0, 13);
+    TTF_SetFontHinting(status_box_font, TTF_HINTING_LIGHT);
+}
+
+void text_finish() {
+    TTF_Quit();
+
+    SDL_RWclose(font_rw_ops);
+}
+
 
 SDL_Texture * SpanImpl::render_string_item(SDL_Renderer * renderer, SpanImpl::ChildElement * element) {
     if (element->string_texture == nullptr && element->string->length() > 0) {
