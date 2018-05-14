@@ -299,6 +299,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     *output_event = event;
                     return true;
             }
+            unreachable();
         }
         case Event::MOVE: {
             const Event::MoveData & data = event.move_data();

@@ -15,7 +15,7 @@ Very short (5 levels) turn-based roguelike with a final boss and randomized item
 install dependencies:
 
 ```
-git submodule init && git submodule update
+git submodule update --init --recursive
 sudo apt-get install libsdl2-dev libsdl2-ttf-dev upx-ucl
 ```
 
@@ -52,24 +52,14 @@ source code to the website.
 ## Eclipse Environment Setup on Linux
 
 Josh develops this project in Eclipse on Linux, but of course it's optional.
-These instructions were last updated with Eclipse Mars.
-
-Search Google for "eclipse download" to get to the right Eclipse downloads page (there are lots of wrong download pages.).
-You should see several options such as "Eclipse IDE for Java Developers".
-Get "Eclipse IDE for C/C++ Developers".
-You should get a binary archive on the order of 200MB with an executable at the top level called `eclipse`.
-
-In my experience, the Eclipse Installer utility sucks.
-It selected a slow mirror from another country,
-took 20 minutes to download stuff into the /tmp directory,
-crashed with a "Widget is disposed" error,
-deleted its download cache,
-and didn't save any of my install path preferences for the next attempt.
-Worthless.
+These instructions were last updated with Eclipse Oxygen.
 
 ```
 sudo apt-get install default-jdk
 ```
+
+Follow the obvious instructions for downloading Eclipse Oxygen.
+When prompted, choose to install the IDE for C/C++.
 
 In eclipse, File -> New -> Project... -> C/C++ -> Makefile Project with Existing Code.
 Browse to this directory.
