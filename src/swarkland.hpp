@@ -4,10 +4,11 @@
 #include "hashtable.hpp"
 #include "geometry.hpp"
 #include "list.hpp"
+#include "random.hpp"
+
 #include "thing.hpp"
 #include "item.hpp"
 #include "action.hpp"
-#include "random.hpp"
 
 extern bool print_diagnostics;
 extern int snapshot_interval;

@@ -796,7 +796,7 @@ void throw_item(Thing actor, Thing item, Coord direction) {
             break;
         } else {
             item->location = cursor;
-            publish_event(Event::move(item, cursor - direction));
+            publish_event(Event::move(item->id, cursor - direction, item->location));
         }
         hit_target = find_individual_at(cursor);
         if (hit_target != nullptr) {

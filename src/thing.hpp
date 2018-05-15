@@ -1,6 +1,8 @@
 #ifndef INDIVIDUAL_HPP
 #define INDIVIDUAL_HPP
 
+#include "primitives.hpp"
+#include "structs.hpp"
 #include "reference_counter.hpp"
 #include "geometry.hpp"
 #include "map.hpp"
@@ -11,138 +13,6 @@
 #include "text.hpp"
 
 #include <stdbool.h>
-
-enum ThingType {
-    ThingType_INDIVIDUAL,
-    ThingType_WAND,
-    ThingType_POTION,
-    ThingType_BOOK,
-    ThingType_WEAPON,
-
-    ThingType_COUNT,
-};
-
-enum WandDescriptionId {
-    WandDescriptionId_BONE_WAND,
-    WandDescriptionId_GOLD_WAND,
-    WandDescriptionId_PLASTIC_WAND,
-    WandDescriptionId_COPPER_WAND,
-    WandDescriptionId_PURPLE_WAND,
-    WandDescriptionId_SHINY_BONE_WAND,
-    WandDescriptionId_SHINY_GOLD_WAND,
-    WandDescriptionId_SHINY_PLASTIC_WAND,
-    WandDescriptionId_SHINY_COPPER_WAND,
-    WandDescriptionId_SHINY_PURPLE_WAND,
-
-    WandDescriptionId_COUNT,
-    WandDescriptionId_UNSEEN,
-};
-enum WandId {
-    WandId_WAND_OF_CONFUSION,
-    WandId_WAND_OF_DIGGING,
-    WandId_WAND_OF_MAGIC_MISSILE,
-    WandId_WAND_OF_SPEED,
-    WandId_WAND_OF_REMEDY,
-    WandId_WAND_OF_BLINDING,
-    WandId_WAND_OF_FORCE,
-    WandId_WAND_OF_INVISIBILITY,
-    WandId_WAND_OF_MAGIC_BULLET,
-    WandId_WAND_OF_SLOWING,
-
-    WandId_COUNT,
-    WandId_UNKNOWN,
-};
-
-enum PotionDescriptionId {
-    PotionDescriptionId_BLUE_POTION,
-    PotionDescriptionId_GREEN_POTION,
-    PotionDescriptionId_RED_POTION,
-    PotionDescriptionId_YELLOW_POTION,
-    PotionDescriptionId_ORANGE_POTION,
-    PotionDescriptionId_PURPLE_POTION,
-    PotionDescriptionId_GLITTERY_BLUE_POTION,
-    PotionDescriptionId_GLITTERY_GREEN_POTION,
-
-    PotionDescriptionId_COUNT,
-    PotionDescriptionId_UNSEEN,
-};
-enum PotionId {
-    PotionId_POTION_OF_HEALING,
-    PotionId_POTION_OF_POISON,
-    PotionId_POTION_OF_ETHEREAL_VISION,
-    PotionId_POTION_OF_COGNISCOPY,
-    PotionId_POTION_OF_BLINDNESS,
-    PotionId_POTION_OF_INVISIBILITY,
-    PotionId_POTION_OF_BURROWING,
-    PotionId_POTION_OF_LEVITATION,
-
-    PotionId_COUNT,
-    PotionId_UNKNOWN,
-};
-
-enum BookDescriptionId {
-    BookDescriptionId_PURPLE_BOOK,
-    BookDescriptionId_BLUE_BOOK,
-    BookDescriptionId_RED_BOOK,
-    BookDescriptionId_GREEN_BOOK,
-    BookDescriptionId_YELLOW_BOOK,
-
-    BookDescriptionId_COUNT,
-    BookDescriptionId_UNSEEN,
-};
-enum BookId {
-    BookId_SPELLBOOK_OF_MAGIC_BULLET,
-    BookId_SPELLBOOK_OF_SPEED,
-    BookId_SPELLBOOK_OF_MAPPING,
-    BookId_SPELLBOOK_OF_FORCE,
-    BookId_SPELLBOOK_OF_ASSUME_FORM,
-
-    BookId_COUNT,
-    BookId_UNKNOWN,
-};
-enum WeaponId {
-    WeaponId_DAGGER,
-    WeaponId_BATTLEAXE,
-
-    WeaponId_COUNT,
-    WeaponId_UNKNOWN,
-};
-
-enum SpeciesId {
-    SpeciesId_HUMAN,
-    SpeciesId_OGRE,
-    SpeciesId_LICH,
-    SpeciesId_SHAPESHIFTER,
-    SpeciesId_PINK_BLOB,
-    SpeciesId_AIR_ELEMENTAL,
-    SpeciesId_TAR_ELEMENTAL,
-    SpeciesId_DOG,
-    SpeciesId_ANT,
-    SpeciesId_BEE,
-    SpeciesId_BEETLE,
-    SpeciesId_SCORPION,
-    SpeciesId_SNAKE,
-    SpeciesId_COBRA,
-
-    SpeciesId_COUNT,
-    SpeciesId_UNSEEN,
-};
-
-enum DecisionMakerType {
-    DecisionMakerType_AI,
-    DecisionMakerType_PLAYER,
-
-    DecisionMakerType_COUNT,
-};
-
-typedef uint8_t VisionTypes;
-enum VisionTypesBits {
-    VisionTypes_NORMAL = 0x1,
-    VisionTypes_ETHEREAL = 0x2,
-    VisionTypes_COGNISCOPY = 0x4,
-    VisionTypes_COLOCATION = 0x8,
-    VisionTypes_REACH_AND_TOUCH = 0x10,
-};
 
 static inline bool can_see_physical_presence(VisionTypes vision) {
     return vision & (VisionTypes_ETHEREAL | VisionTypes_COLOCATION);
@@ -158,13 +28,6 @@ static inline bool can_see_thoughts(VisionTypes vision) {
     // TODO: this should really be more like TELEPATHY, but that doesn't exist right now.
     return vision & VisionTypes_COLOCATION;
 }
-
-enum Mind {
-    Mind_NONE,
-    Mind_BEAST,
-    Mind_SAVAGE,
-    Mind_CIVILIZED,
-};
 
 // everyone has the same action cost
 static const int action_cost = 12;
@@ -231,35 +94,6 @@ static bool constexpr _check_specieses() {
 }
 static_assert(_check_specieses(), "missed a spot");
 
-struct StatusEffect {
-    enum Id {
-        CONFUSION,
-        SPEED,
-        ETHEREAL_VISION,
-        COGNISCOPY,
-        BLINDNESS,
-        INVISIBILITY,
-        POISON,
-        POLYMORPH,
-        SLOWING,
-        BURROWING,
-        LEVITATING,
-        PUSHED,
-
-        COUNT,
-    };
-    Id type;
-    // this is never in the past
-    int64_t expiration_time;
-
-    int64_t poison_next_damage_time;
-    // used for awarding experience
-    uint256 who_is_responsible;
-    // used for polymorph
-    SpeciesId species_id;
-    // used for levitation momentum
-    Coord coord;
-};
 static inline int compare_status_effects_by_type(const StatusEffect & a, const StatusEffect & b) {
     assert_str(a.type != b.type, "status effect list contains duplicates");
     return a.type - b.type;
@@ -320,15 +154,6 @@ static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
     }
     unreachable();
 }
-
-enum AbilityId {
-    AbilityId_SPIT_BLINDING_VENOM,
-    AbilityId_THROW_TAR,
-    AbilityId_ASSUME_FORM,
-    AbilityId_LUNGE_ATTACK,
-
-    AbilityId_COUNT,
-};
 
 struct AbilityCooldown {
     AbilityId ability_id;

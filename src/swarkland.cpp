@@ -26,7 +26,7 @@ static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     individual->life()->hitpoints = 0;
 
     if (is_melee) {
-        publish_event(Event::melee_kill(attacker, individual));
+        publish_event(Event::melee_kill(attacker->id, individual->id));
     } else {
         publish_event(Event::die(individual->id));
     }
@@ -129,7 +129,7 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     item->z_order = -0x80000000;
     fix_z_orders(location);
 
-    publish_event(Event::item_drops_to_the_floor(item));
+    publish_event(Event::item_drops_to_the_floor(item->id, item->location));
 
     Thing individual = find_individual_at(location);
     if (individual != nullptr && individual->physical_species()->sucks_up_items) {
@@ -146,7 +146,7 @@ static void attack(Thing attacker, Thing target, int bonus_damage) {
         return;
     }
     // it's a hit
-    publish_event(Event::attack_individual(attacker, target));
+    publish_event(Event::attack_individual(attacker->id, target->id));
     int attack_power = attacker->innate_attack_power();
     Thing weapon = get_equipped_weapon(attacker);
     if (weapon != nullptr)
@@ -325,7 +325,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
 
     game->actual_things.put(individual->id, individual);
     compute_vision(individual);
-    publish_event(Event::appear(individual));
+    publish_event(Event::appear(individual->id));
     return individual;
 }
 
@@ -699,7 +699,7 @@ static void do_move(Thing mover, Coord new_position, Thing who_is_responsible) {
     compute_vision(mover);
 
     // notify other individuals who could see that move
-    publish_event(Event::move(mover, old_position));
+    publish_event(Event::move(mover->id, old_position, mover->location));
 
     int index;
     if ((index = find_status(mover->status_effects, StatusEffect::LEVITATING)) != -1) {
@@ -744,13 +744,13 @@ bool attempt_move(Thing actor, Coord new_position, Thing who_is_responsible) {
                 return true;
             }
         }
-        publish_event(Event::bump_into_location(actor, new_position, false));
+        publish_event(Event::bump_into_location(actor->id, new_position, false));
         return false;
     }
     Thing target = find_individual_at(new_position);
     if (target != nullptr) {
         // this is not attacking
-        publish_event(Event::bump_into_individual(actor, target));
+        publish_event(Event::bump_into_individual(actor->id, target->id));
         // newton's 3rd
         Coord collisison_vector = target->location - actor->location;
         apply_impulse(target, collisison_vector);
@@ -856,14 +856,14 @@ void polymorph_individual(Thing individual, SpeciesId new_species_id, int durati
             return; // polymorphing from your natural form to your natural form does nothing
 
         individual->status_effects.swap_remove(index);
-        publish_event(Event::polymorph(individual, new_species_id));
+        publish_event(Event::polymorph(individual->id, new_species_id));
     } else {
         // add or refresh polymorph status
         StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH, game->time_counter + duration);
         polymorph_effect->species_id = new_species_id;
 
         if (old_species_id != new_species_id)
-            publish_event(Event::polymorph(individual, new_species_id));
+            publish_event(Event::polymorph(individual->id, new_species_id));
     }
 
     int new_max_hitpoints = individual->max_hitpoints();
