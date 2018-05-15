@@ -4,6 +4,7 @@
 #include "primitives.hpp"
 #include "geometry.hpp"
 #include "hashtable.hpp"
+#include "bitfield.hpp"
 
 // The structs defined in this file should be copyable, pointerless blobs of data.
 
@@ -36,6 +37,8 @@ struct StatusEffect {
     // used for levitation momentum
     Coord coord;
 };
+
+using StatusEffectIdBitField = BitField<StatusEffect::COUNT - 1>::Type;
 
 struct Event {
     enum Type {

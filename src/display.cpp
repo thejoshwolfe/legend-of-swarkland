@@ -301,35 +301,40 @@ const char * get_species_name_str(SpeciesId species_id) {
 Span get_species_name(SpeciesId species_id) {
     return new_span(get_species_name_str(species_id), light_brown, black);
 }
+template <typename T>
+static bool remove_bit(T * value, int mask) {
+    T result = *value & mask;
+    *value &= ~mask;
+    return result != 0;
+}
+
 // ends with " " if non-blank
-static Span get_status_description(const List<StatusEffect> & status_effects) {
+static Span get_status_description(StatusEffectIdBitField status_effect_bits) {
     Span result = new_span();
     // we need the order of words to be consistent.
-    List<StatusEffect> remaining_status_effects;
-    remaining_status_effects.append_all(status_effects);
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::CONFUSION))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::CONFUSION))
         result->append("confused ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::SPEED))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::SPEED))
         result->append("fast ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::SLOWING))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::SLOWING))
         result->append("slow ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::ETHEREAL_VISION))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::ETHEREAL_VISION))
         result->append("ethereal-visioned ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::COGNISCOPY))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::COGNISCOPY))
         result->append("cogniscopic ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::BLINDNESS))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::BLINDNESS))
         result->append("blind ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::POISON))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::POISON))
         result->append("poisoned ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::INVISIBILITY))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::INVISIBILITY))
         result->append("invisible ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::POLYMORPH))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::POLYMORPH))
         result->append("polymorphed ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::BURROWING))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::BURROWING))
         result->append("burrowing ");
-    if (maybe_remove_status(&remaining_status_effects, StatusEffect::LEVITATING))
+    if (remove_bit(&status_effect_bits, 1 << StatusEffect::LEVITATING))
         result->append("levitating ");
-    assert_str(remaining_status_effects.length() == 0, "missed a spot");
+    assert_str(status_effect_bits == 0, "missed a spot");
     result->set_color(pink, black);
     return result;
 }
@@ -550,7 +555,7 @@ static Span get_thing_description(Thing observer, uint256 target_id, bool verbos
     PerceivedThing target = observer->life()->knowledge.perceived_things.get(target_id);
 
     Span result = new_span("a ");
-    result->append(get_status_description(target->status_effects));
+    result->append(get_status_description(target->status_effect_bits));
 
     switch (target->thing_type) {
         case ThingType_INDIVIDUAL:
@@ -1370,7 +1375,7 @@ void render() {
         render_div(dungeon_level_div, dungeon_level_area, 1, 1);
     }
     {
-        status_div->set_content(get_status_description(perceived_self->status_effects));
+        status_div->set_content(get_status_description(perceived_self->status_effect_bits));
         render_div(status_div, status_area, 1, 1);
     }
     {

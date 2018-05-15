@@ -191,7 +191,7 @@ static uint256 make_placeholder_individual(Thing observer, uint256 actual_target
     if (vision & VisionTypes_NORMAL) {
         // hmmm. this guy is probably invisible
         assert(!can_see_physical_presence(vision));
-        find_or_put_status(thing, StatusEffect::INVISIBILITY);
+        put_status(thing, StatusEffect::INVISIBILITY);
     }
     return thing->id;
 }
@@ -492,15 +492,15 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
             unreachable();
     }
 
-    for (int i = target->status_effects.length() - 1; i >= 0; i--) {
-        StatusEffect effect = target->status_effects[i];
-        if (!can_have_status(actual_target, effect.type) || can_see_status_effect(effect.type, vision))
-            target->status_effects.swap_remove(i);
+    for (int i = 1; i < StatusEffect::COUNT; i++) {
+        StatusEffect::Id effect_id = (StatusEffect::Id)i;
+        if (!can_have_status(actual_target, effect_id) || can_see_status_effect(effect_id, vision))
+            remove_status(target, effect_id);
     }
     for (int i = 0; i < actual_target->status_effects.length(); i++) {
         StatusEffect::Id effect = actual_target->status_effects[i].type;
         if (can_have_status(actual_target, effect) && can_see_status_effect(effect, vision))
-            target->status_effects.append(StatusEffect { effect, -1, -1, uint256::zero(), actual_target->status_effects[i].species_id, actual_target->status_effects[i].coord });
+            put_status(target, actual_target->status_effects[i].type);
     }
 }
 static PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id, VisionTypes vision) {
@@ -587,7 +587,7 @@ static void observe_event(Thing observer, Event event) {
             switch (data.id) {
                 case Event::TheIndividualData::APPEAR:
                     individual = record_perception_of_thing(observer, data.individual);
-                    maybe_remove_status(&individual->status_effects, StatusEffect::INVISIBILITY);
+                    remove_status(individual, StatusEffect::INVISIBILITY);
                     remembered_event->span->format("%s appears out of nowhere!", get_thing_description(observer, data.individual));
                     break;
                 case Event::TheIndividualData::LEVEL_UP:
@@ -705,11 +705,11 @@ static void observe_event(Thing observer, Event event) {
                 is_no_longer = "is";
                 punctuation = "!";
                 individual_description = get_thing_description(observer, data.individual);
-                find_or_put_status(individual, data.status);
+                put_status(individual, data.status);
             } else {
                 is_no_longer = "is no longer";
                 punctuation = ".";
-                maybe_remove_status(&individual->status_effects, data.status);
+                remove_status(individual, data.status);
                 individual_description = get_thing_description(observer, data.individual);
             }
             const char * status_description = nullptr;

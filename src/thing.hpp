@@ -11,6 +11,7 @@
 #include "byte_buffer.hpp"
 #include "string.hpp"
 #include "text.hpp"
+#include "bitfield.hpp"
 
 #include <stdbool.h>
 
@@ -147,7 +148,7 @@ static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
         case PotionId_POTION_OF_LEVITATION:
             return can_see_status_effect(StatusEffect::LEVITATING, vision);
 
-        case PotionId_UNKNOWN: // you alread know you can't see it
+        case PotionId_UNKNOWN: // you already know you can't see it
             return false;
         case PotionId_COUNT:
             unreachable();
@@ -190,7 +191,7 @@ public:
     uint256 container_id = uint256::zero();
     int z_order = 0;
     int64_t last_seen_time;
-    List<StatusEffect> status_effects;
+    StatusEffectIdBitField status_effect_bits;
     // individual
     PerceivedThingImpl(uint256 id, bool is_placeholder, SpeciesId species_id, int64_t last_seen_time) :
             id(id), is_placeholder(is_placeholder), thing_type(ThingType_INDIVIDUAL), last_seen_time(last_seen_time) {
@@ -563,15 +564,13 @@ static inline bool has_status(Thing thing, StatusEffect::Id status) {
     return can_have_status(thing, status) && has_status(thing->status_effects, status);
 }
 static inline bool has_status(PerceivedThing thing, StatusEffect::Id status) {
-    return has_status(thing->status_effects, status);
+    return (thing->status_effect_bits & (1 << status)) != 0;
 }
-static inline StatusEffect * find_or_put_status(PerceivedThing thing, StatusEffect::Id status) {
-    int index = find_status(thing->status_effects, status);
-    if (index == -1) {
-        index = thing->status_effects.length();
-        thing->status_effects.append(StatusEffect { status, -1, -1, uint256::zero(), SpeciesId_COUNT, Coord{0, 0} });
-    }
-    return &thing->status_effects[index];
+static inline void put_status(PerceivedThing thing, StatusEffect::Id status) {
+    thing->status_effect_bits |= 1 << status;
+}
+static inline void remove_status(PerceivedThing thing, StatusEffect::Id status) {
+    thing->status_effect_bits &= ~(1 << status);
 }
 static inline bool maybe_remove_status(List<StatusEffect> * status_effects, StatusEffect::Id status) {
     int index = find_status(*status_effects, status);
