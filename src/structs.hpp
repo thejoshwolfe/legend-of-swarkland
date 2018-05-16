@@ -67,6 +67,18 @@ struct Event {
         Coord location;
         bool is_air;
     };
+    IndividualAndLocationData & individual_and_location_data() {
+        check_data_type(INDIVIDUAL_AND_LOCATION);
+        return _data._individual_and_location;
+    }
+    Event(IndividualAndLocationDataId id, uint256 actor, Coord location, bool is_air) : type(INDIVIDUAL_AND_LOCATION) {
+        individual_and_location_data() = {
+            id,
+            actor,
+            location,
+            is_air,
+        };
+    }
 
     enum IndividualAndTwoLocationDataId {
         MOVE,
@@ -76,6 +88,17 @@ struct Event {
         Coord old_location;
         Coord new_location;
     };
+    IndividualAndTwoLocationData & individual_and_two_location_data() {
+        check_data_type(INDIVIDUAL_AND_TWO_LOCATION);
+        return _data._individual_and_two_location;
+    }
+    Event(IndividualAndTwoLocationDataId, uint256 actor, Coord old_location, Coord new_location) : type(INDIVIDUAL_AND_TWO_LOCATION) {
+        individual_and_two_location_data() = {
+            actor,
+            old_location,
+            new_location,
+        };
+    }
 
     enum TwoIndividualDataId {
         BUMP_INTO_INDIVIDUAL,
@@ -88,6 +111,17 @@ struct Event {
         uint256 actor;
         uint256 target;
     };
+    TwoIndividualData & two_individual_data() {
+        check_data_type(TWO_INDIVIDUAL);
+        return _data._two_individual;
+    }
+    Event(TwoIndividualDataId id, uint256 actor, uint256 target) : type(TWO_INDIVIDUAL) {
+        two_individual_data() = {
+            id,
+            actor,
+            target,
+        };
+    }
 
     enum IndividualAndItemDataId {
         ZAP_WAND,
@@ -108,6 +142,17 @@ struct Event {
         uint256 individual;
         uint256 item;
     };
+    IndividualAndItemData & individual_and_item_data() {
+        check_data_type(INDIVIDUAL_AND_ITEM);
+        return _data._individual_and_item;
+    }
+    Event(IndividualAndItemDataId id, uint256 individual_id, uint256 item_id) : type(INDIVIDUAL_AND_ITEM) {
+        individual_and_item_data() = {
+            id,
+            individual_id,
+            item_id,
+        };
+    }
 
     enum ItemAndLocationDataId {
         WAND_EXPLODES,
@@ -121,6 +166,17 @@ struct Event {
         uint256 item;
         Coord location;
     };
+    ItemAndLocationData & item_and_location_data() {
+        check_data_type(ITEM_AND_LOCATION);
+        return _data._item_and_location;
+    }
+    Event(ItemAndLocationDataId id, uint256 item, Coord location) : type(ITEM_AND_LOCATION) {
+        item_and_location_data() = {
+            id,
+            item,
+            location,
+        };
+    }
 
     enum TheIndividualDataId {
         APPEAR,
@@ -148,6 +204,16 @@ struct Event {
         TheIndividualDataId id;
         uint256 individual;
     };
+    TheIndividualData & the_individual_data() {
+        check_data_type(THE_INDIVIDUAL);
+        return _data._the_individual;
+    }
+    Event(TheIndividualDataId id, uint256 individual_id) : type(THE_INDIVIDUAL) {
+        the_individual_data() = {
+            id,
+            individual_id,
+        };
+    }
 
     enum TheLocationDataId {
         MAGIC_BEAM_HIT_WALL,
@@ -158,6 +224,16 @@ struct Event {
         TheLocationDataId id;
         Coord location;
     };
+    TheLocationData & the_location_data() {
+        check_data_type(THE_LOCATION);
+        return _data._the_location;
+    }
+    Event(TheLocationDataId id, Coord location) : type(THE_LOCATION) {
+        the_location_data() = {
+            id,
+            location,
+        };
+    }
 
     enum IndividualAndStatusDataId {
         GAIN_STATUS,
@@ -168,81 +244,10 @@ struct Event {
         uint256 individual;
         StatusEffect::Id status;
     };
-
-    enum IndividualAndSpeciesDataId {
-        POLYMORPH,
-    };
-    struct IndividualAndSpeciesData {
-        uint256 individual;
-        SpeciesId new_species;
-    };
-
-    TheIndividualData & the_individual_data() {
-        check_data_type(THE_INDIVIDUAL);
-        return _data._the_individual;
-    }
-
-    TheLocationData & the_location_data() {
-        check_data_type(THE_LOCATION);
-        return _data._the_location;
-    }
-
     IndividualAndStatusData & individual_and_status_data() {
         check_data_type(INDIVIDUAL_AND_STATUS);
         return _data._individual_and_status;
     }
-
-    IndividualAndLocationData & individual_and_location_data() {
-        check_data_type(INDIVIDUAL_AND_LOCATION);
-        return _data._individual_and_location;
-    }
-
-    IndividualAndTwoLocationData & individual_and_two_location_data() {
-        check_data_type(INDIVIDUAL_AND_TWO_LOCATION);
-        return _data._individual_and_two_location;
-    }
-
-    TwoIndividualData & two_individual_data() {
-        check_data_type(TWO_INDIVIDUAL);
-        return _data._two_individual;
-    }
-
-    IndividualAndItemData & individual_and_item_data() {
-        check_data_type(INDIVIDUAL_AND_ITEM);
-        return _data._individual_and_item;
-    }
-
-    IndividualAndSpeciesData & individual_and_species_data() {
-        check_data_type(INDIVIDUAL_AND_SPECIES);
-        return _data._individual_and_species;
-    };
-
-    ItemAndLocationData & item_and_location_data() {
-        check_data_type(ITEM_AND_LOCATION);
-        return _data._item_and_location;
-    }
-
-    Event(IndividualAndSpeciesDataId, uint256 shapeshifter, SpeciesId new_species) : type(INDIVIDUAL_AND_SPECIES) {
-        individual_and_species_data() = {
-            shapeshifter,
-            new_species,
-        };
-    }
-
-    Event(TheIndividualDataId id, uint256 individual_id) : type(THE_INDIVIDUAL) {
-        the_individual_data() = {
-            id,
-            individual_id,
-        };
-    }
-
-    Event(TheLocationDataId id, Coord location) : type(THE_LOCATION) {
-        the_location_data() = {
-            id,
-            location,
-        };
-    }
-
     Event(IndividualAndStatusDataId id, uint256 individual_id, StatusEffect::Id status) : type(INDIVIDUAL_AND_STATUS) {
         individual_and_status_data() = {
             id,
@@ -251,47 +256,25 @@ struct Event {
         };
     }
 
-    Event(IndividualAndLocationDataId id, uint256 actor, Coord location, bool is_air) : type(INDIVIDUAL_AND_LOCATION) {
-        individual_and_location_data() = {
-            id,
-            actor,
-            location,
-            is_air,
+    enum IndividualAndSpeciesDataId {
+        POLYMORPH,
+    };
+    struct IndividualAndSpeciesData {
+        uint256 individual;
+        SpeciesId new_species;
+    };
+    IndividualAndSpeciesData & individual_and_species_data() {
+        check_data_type(INDIVIDUAL_AND_SPECIES);
+        return _data._individual_and_species;
+    };
+    Event(IndividualAndSpeciesDataId, uint256 shapeshifter, SpeciesId new_species) : type(INDIVIDUAL_AND_SPECIES) {
+        individual_and_species_data() = {
+            shapeshifter,
+            new_species,
         };
     }
 
-    Event(IndividualAndTwoLocationDataId, uint256 actor, Coord old_location, Coord new_location) : type(INDIVIDUAL_AND_TWO_LOCATION) {
-        individual_and_two_location_data() = {
-            actor,
-            old_location,
-            new_location,
-        };
-    }
-
-    Event(TwoIndividualDataId id, uint256 actor, uint256 target) : type(TWO_INDIVIDUAL) {
-        two_individual_data() = {
-            id,
-            actor,
-            target,
-        };
-    }
-
-    Event(IndividualAndItemDataId id, uint256 individual_id, uint256 item_id) : type(INDIVIDUAL_AND_ITEM) {
-        individual_and_item_data() = {
-            id,
-            individual_id,
-            item_id,
-        };
-    }
-
-    Event(ItemAndLocationDataId id, uint256 item, Coord location) : type(ITEM_AND_LOCATION) {
-        item_and_location_data() = {
-            id,
-            item,
-            location,
-        };
-    }
-
+private:
     union {
         TheIndividualData _the_individual;
         TheLocationData _the_location;
