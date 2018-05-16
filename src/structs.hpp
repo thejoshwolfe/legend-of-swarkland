@@ -41,6 +41,8 @@ struct StatusEffect {
 using StatusEffectIdBitField = BitField<StatusEffect::COUNT - 1>::Type;
 
 struct Event {
+    Event() {}
+
     enum Type {
         THE_INDIVIDUAL,
         THE_LOCATION,
@@ -49,7 +51,7 @@ struct Event {
         INDIVIDUAL_AND_TWO_LOCATION,
         TWO_INDIVIDUAL,
         INDIVIDUAL_AND_ITEM,
-        POLYMORPH,
+        INDIVIDUAL_AND_SPECIES,
         ITEM_AND_LOCATION,
     };
     Type type;
@@ -167,6 +169,14 @@ struct Event {
         StatusEffect::Id status;
     };
 
+    enum IndividualAndSpeciesDataId {
+        POLYMORPH,
+    };
+    struct IndividualAndSpeciesData {
+        uint256 individual;
+        SpeciesId new_species;
+    };
+
     TheIndividualData & the_individual_data() {
         check_data_type(THE_INDIVIDUAL);
         return _data._the_individual;
@@ -202,13 +212,9 @@ struct Event {
         return _data._individual_and_item;
     }
 
-    struct PolymorphData {
-        uint256 individual;
-        SpeciesId new_species;
-    };
-    PolymorphData & polymorph_data() {
-        check_data_type(POLYMORPH);
-        return _data._polymorph;
+    IndividualAndSpeciesData & individual_and_species_data() {
+        check_data_type(INDIVIDUAL_AND_SPECIES);
+        return _data._individual_and_species;
     };
 
     ItemAndLocationData & item_and_location_data() {
@@ -216,14 +222,11 @@ struct Event {
         return _data._item_and_location;
     }
 
-    Event() {}
-    static inline Event polymorph(uint256 shapeshifter, SpeciesId new_species) {
-        Event result;
-        result.type = POLYMORPH;
-        PolymorphData & data = result.polymorph_data();
-        data.individual = shapeshifter;
-        data.new_species = new_species;
-        return result;
+    Event(IndividualAndSpeciesDataId, uint256 shapeshifter, SpeciesId new_species) : type(INDIVIDUAL_AND_SPECIES) {
+        individual_and_species_data() = {
+            shapeshifter,
+            new_species,
+        };
     }
 
     Event(TheIndividualDataId id, uint256 individual_id) : type(THE_INDIVIDUAL) {
@@ -297,7 +300,7 @@ struct Event {
         IndividualAndTwoLocationData _individual_and_two_location;
         TwoIndividualData _two_individual;
         IndividualAndItemData _individual_and_item;
-        PolymorphData _polymorph;
+        IndividualAndSpeciesData _individual_and_species;
         ItemAndLocationData _item_and_location;
     } _data;
 

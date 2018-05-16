@@ -416,8 +416,8 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             }
             unreachable();
         }
-        case Event::POLYMORPH: {
-            const Event::PolymorphData & data = event.polymorph_data();
+        case Event::INDIVIDUAL_AND_SPECIES: {
+            const Event::IndividualAndSpeciesData & data = event.individual_and_species_data();
             if (!can_see_shape(get_vision_for_thing(observer, data.individual)))
                 return false;
             *output_event = event;
@@ -950,8 +950,8 @@ static void observe_event(Thing observer, Event event) {
             }
             break;
         }
-        case Event::POLYMORPH: {
-            const Event::PolymorphData & data = event.polymorph_data();
+        case Event::INDIVIDUAL_AND_SPECIES: {
+            const Event::IndividualAndSpeciesData & data = event.individual_and_species_data();
             remembered_event->span->format("%s transforms into a %s!", get_thing_description(observer, data.individual), get_species_name(data.new_species));
             record_perception_of_thing(observer, data.individual);
             identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_ASSUME_FORM);

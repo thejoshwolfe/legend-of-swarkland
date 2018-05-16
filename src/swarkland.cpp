@@ -856,14 +856,14 @@ void polymorph_individual(Thing individual, SpeciesId new_species_id, int durati
             return; // polymorphing from your natural form to your natural form does nothing
 
         individual->status_effects.swap_remove(index);
-        publish_event(Event::polymorph(individual->id, new_species_id));
+        publish_event(Event(Event::POLYMORPH, individual->id, new_species_id));
     } else {
         // add or refresh polymorph status
         StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH, game->time_counter + duration);
         polymorph_effect->species_id = new_species_id;
 
         if (old_species_id != new_species_id)
-            publish_event(Event::polymorph(individual->id, new_species_id));
+            publish_event(Event(Event::POLYMORPH, individual->id, new_species_id));
     }
 
     int new_max_hitpoints = individual->max_hitpoints();
