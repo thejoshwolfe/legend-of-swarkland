@@ -699,7 +699,7 @@ static void do_move(Thing mover, Coord new_position, Thing who_is_responsible) {
     compute_vision(mover);
 
     // notify other individuals who could see that move
-    publish_event(Event::move(mover->id, old_position, mover->location));
+    publish_event(Event(Event::MOVE, mover->id, old_position, mover->location));
 
     int index;
     if ((index = find_status(mover->status_effects, StatusEffect::LEVITATING)) != -1) {

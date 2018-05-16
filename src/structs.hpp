@@ -46,7 +46,7 @@ struct Event {
         THE_LOCATION,
         INDIVIDUAL_AND_STATUS,
         INDIVIDUAL_AND_LOCATION,
-        MOVE,
+        INDIVIDUAL_AND_TWO_LOCATION,
         TWO_INDIVIDUAL,
         INDIVIDUAL_AND_ITEM,
         POLYMORPH,
@@ -66,7 +66,10 @@ struct Event {
         bool is_air;
     };
 
-    struct MoveData {
+    enum IndividualAndTwoLocationDataId {
+        MOVE,
+    };
+    struct IndividualAndTwoLocationData {
         uint256 actor;
         Coord old_location;
         Coord new_location;
@@ -184,9 +187,9 @@ struct Event {
         return _data._individual_and_location;
     }
 
-    MoveData & move_data() {
-        check_data_type(MOVE);
-        return _data._move;
+    IndividualAndTwoLocationData & individual_and_two_location_data() {
+        check_data_type(INDIVIDUAL_AND_TWO_LOCATION);
+        return _data._individual_and_two_location;
     }
 
     TwoIndividualData & two_individual_data() {
@@ -211,10 +214,6 @@ struct Event {
     ItemAndLocationData & item_and_location_data() {
         check_data_type(ITEM_AND_LOCATION);
         return _data._item_and_location;
-    }
-
-    static inline Event move(uint256 mover, Coord from, Coord to) {
-        return move_event(mover, from, to);
     }
 
     Event() {}
@@ -258,15 +257,12 @@ struct Event {
         };
     }
 
-    static inline Event move_event(uint256 actor, Coord old_location, Coord new_location) {
-        Event result;
-        result.type = MOVE;
-        result.move_data() = {
+    Event(IndividualAndTwoLocationDataId, uint256 actor, Coord old_location, Coord new_location) : type(INDIVIDUAL_AND_TWO_LOCATION) {
+        individual_and_two_location_data() = {
             actor,
             old_location,
             new_location,
         };
-        return result;
     }
 
     Event(TwoIndividualDataId id, uint256 actor, uint256 target) : type(TWO_INDIVIDUAL) {
@@ -298,7 +294,7 @@ struct Event {
         TheLocationData _the_location;
         IndividualAndStatusData _individual_and_status;
         IndividualAndLocationData _individual_and_location;
-        MoveData _move;
+        IndividualAndTwoLocationData _individual_and_two_location;
         TwoIndividualData _two_individual;
         IndividualAndItemData _individual_and_item;
         PolymorphData _polymorph;

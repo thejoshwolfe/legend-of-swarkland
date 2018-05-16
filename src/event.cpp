@@ -302,8 +302,8 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             }
             unreachable();
         }
-        case Event::MOVE: {
-            const Event::MoveData & data = event.move_data();
+        case Event::INDIVIDUAL_AND_TWO_LOCATION: {
+            const Event::IndividualAndTwoLocationData & data = event.individual_and_two_location_data();
             // for moving, you get to see the individual in either location
             if (!(see_thing(observer, data.actor, data.old_location) || see_thing(observer, data.actor)))
                 return false;
@@ -836,8 +836,8 @@ static void observe_event(Thing observer, Event event) {
             }
             break;
         }
-        case Event::MOVE: {
-            const Event::MoveData & data = event.move_data();
+        case Event::INDIVIDUAL_AND_TWO_LOCATION: {
+            const Event::IndividualAndTwoLocationData & data = event.individual_and_two_location_data();
             remembered_event = nullptr;
             const MapMatrix<VisionTypes> & tile_is_visible = observer->life()->knowledge.tile_is_visible;
             VisionTypes vision = tile_is_visible[data.old_location] | tile_is_visible[data.new_location];
