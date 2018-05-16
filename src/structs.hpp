@@ -40,8 +40,9 @@ struct StatusEffect {
 
 using StatusEffectIdBitField = BitField<StatusEffect::COUNT - 1>::Type;
 
-struct Event {
-    Event() {}
+template<typename ThingType>
+struct EventBase {
+    EventBase() {}
 
     enum Type {
         THE_INDIVIDUAL,
@@ -63,7 +64,7 @@ struct Event {
     };
     struct IndividualAndLocationData {
         IndividualAndLocationDataId id;
-        uint256 actor;
+        ThingType actor;
         Coord location;
         bool is_air;
     };
@@ -71,7 +72,7 @@ struct Event {
         check_data_type(INDIVIDUAL_AND_LOCATION);
         return _data._individual_and_location;
     }
-    Event(IndividualAndLocationDataId id, uint256 actor, Coord location, bool is_air) : type(INDIVIDUAL_AND_LOCATION) {
+    EventBase(IndividualAndLocationDataId id, ThingType actor, Coord location, bool is_air) : type(INDIVIDUAL_AND_LOCATION) {
         individual_and_location_data() = {
             id,
             actor,
@@ -84,7 +85,7 @@ struct Event {
         MOVE,
     };
     struct IndividualAndTwoLocationData {
-        uint256 actor;
+        ThingType actor;
         Coord old_location;
         Coord new_location;
     };
@@ -92,7 +93,7 @@ struct Event {
         check_data_type(INDIVIDUAL_AND_TWO_LOCATION);
         return _data._individual_and_two_location;
     }
-    Event(IndividualAndTwoLocationDataId, uint256 actor, Coord old_location, Coord new_location) : type(INDIVIDUAL_AND_TWO_LOCATION) {
+    EventBase(IndividualAndTwoLocationDataId, ThingType actor, Coord old_location, Coord new_location) : type(INDIVIDUAL_AND_TWO_LOCATION) {
         individual_and_two_location_data() = {
             actor,
             old_location,
@@ -108,14 +109,14 @@ struct Event {
     };
     struct TwoIndividualData {
         TwoIndividualDataId id;
-        uint256 actor;
-        uint256 target;
+        ThingType actor;
+        ThingType target;
     };
     TwoIndividualData & two_individual_data() {
         check_data_type(TWO_INDIVIDUAL);
         return _data._two_individual;
     }
-    Event(TwoIndividualDataId id, uint256 actor, uint256 target) : type(TWO_INDIVIDUAL) {
+    EventBase(TwoIndividualDataId id, ThingType actor, ThingType target) : type(TWO_INDIVIDUAL) {
         two_individual_data() = {
             id,
             actor,
@@ -139,14 +140,14 @@ struct Event {
     };
     struct IndividualAndItemData {
         IndividualAndItemDataId id;
-        uint256 individual;
-        uint256 item;
+        ThingType individual;
+        ThingType item;
     };
     IndividualAndItemData & individual_and_item_data() {
         check_data_type(INDIVIDUAL_AND_ITEM);
         return _data._individual_and_item;
     }
-    Event(IndividualAndItemDataId id, uint256 individual_id, uint256 item_id) : type(INDIVIDUAL_AND_ITEM) {
+    EventBase(IndividualAndItemDataId id, ThingType individual_id, ThingType item_id) : type(INDIVIDUAL_AND_ITEM) {
         individual_and_item_data() = {
             id,
             individual_id,
@@ -163,14 +164,14 @@ struct Event {
     };
     struct ItemAndLocationData {
         ItemAndLocationDataId id;
-        uint256 item;
+        ThingType item;
         Coord location;
     };
     ItemAndLocationData & item_and_location_data() {
         check_data_type(ITEM_AND_LOCATION);
         return _data._item_and_location;
     }
-    Event(ItemAndLocationDataId id, uint256 item, Coord location) : type(ITEM_AND_LOCATION) {
+    EventBase(ItemAndLocationDataId id, ThingType item, Coord location) : type(ITEM_AND_LOCATION) {
         item_and_location_data() = {
             id,
             item,
@@ -202,13 +203,13 @@ struct Event {
     };
     struct TheIndividualData {
         TheIndividualDataId id;
-        uint256 individual;
+        ThingType individual;
     };
     TheIndividualData & the_individual_data() {
         check_data_type(THE_INDIVIDUAL);
         return _data._the_individual;
     }
-    Event(TheIndividualDataId id, uint256 individual_id) : type(THE_INDIVIDUAL) {
+    EventBase(TheIndividualDataId id, ThingType individual_id) : type(THE_INDIVIDUAL) {
         the_individual_data() = {
             id,
             individual_id,
@@ -228,7 +229,7 @@ struct Event {
         check_data_type(THE_LOCATION);
         return _data._the_location;
     }
-    Event(TheLocationDataId id, Coord location) : type(THE_LOCATION) {
+    EventBase(TheLocationDataId id, Coord location) : type(THE_LOCATION) {
         the_location_data() = {
             id,
             location,
@@ -241,14 +242,14 @@ struct Event {
     };
     struct IndividualAndStatusData {
         IndividualAndStatusDataId id;
-        uint256 individual;
+        ThingType individual;
         StatusEffect::Id status;
     };
     IndividualAndStatusData & individual_and_status_data() {
         check_data_type(INDIVIDUAL_AND_STATUS);
         return _data._individual_and_status;
     }
-    Event(IndividualAndStatusDataId id, uint256 individual_id, StatusEffect::Id status) : type(INDIVIDUAL_AND_STATUS) {
+    EventBase(IndividualAndStatusDataId id, ThingType individual_id, StatusEffect::Id status) : type(INDIVIDUAL_AND_STATUS) {
         individual_and_status_data() = {
             id,
             individual_id,
@@ -260,14 +261,14 @@ struct Event {
         POLYMORPH,
     };
     struct IndividualAndSpeciesData {
-        uint256 individual;
+        ThingType individual;
         SpeciesId new_species;
     };
     IndividualAndSpeciesData & individual_and_species_data() {
         check_data_type(INDIVIDUAL_AND_SPECIES);
         return _data._individual_and_species;
     };
-    Event(IndividualAndSpeciesDataId, uint256 shapeshifter, SpeciesId new_species) : type(INDIVIDUAL_AND_SPECIES) {
+    EventBase(IndividualAndSpeciesDataId, ThingType shapeshifter, SpeciesId new_species) : type(INDIVIDUAL_AND_SPECIES) {
         individual_and_species_data() = {
             shapeshifter,
             new_species,
@@ -292,8 +293,22 @@ private:
     }
 };
 
-struct PerceivedEvent {
+struct ThingSnapshot {
+    ThingType thing_type;
+    StatusEffectIdBitField status_effect_bits;
+
+private:
+    union {
+        SpeciesId _speices_id;
+        WandId _wand_id;
+        PotionId _potion_id;
+        BookId _book_id;
+        WeaponId _weapon_id;
+    } _data;
 };
+
+typedef EventBase<uint256> Event;
+typedef EventBase<ThingSnapshot> PerceivedEvent;
 
 // everyone has the same action cost
 static const int action_cost = 12;
