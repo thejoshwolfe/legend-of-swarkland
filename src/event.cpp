@@ -492,15 +492,17 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
             unreachable();
     }
 
-    for (int i = 1; i < StatusEffect::COUNT; i++) {
-        StatusEffect::Id effect_id = (StatusEffect::Id)i;
-        if (!can_have_status(actual_target, effect_id) || can_see_status_effect(effect_id, vision))
-            remove_status(target, effect_id);
-    }
-    for (int i = 0; i < actual_target->status_effects.length(); i++) {
-        StatusEffect::Id effect = actual_target->status_effects[i].type;
-        if (can_have_status(actual_target, effect) && can_see_status_effect(effect, vision))
-            put_status(target, actual_target->status_effects[i].type);
+    if (actual_target->thing_type == ThingType_INDIVIDUAL) {
+        for (int i = 1; i < StatusEffect::COUNT; i++) {
+            StatusEffect::Id effect_id = (StatusEffect::Id)i;
+            if (!can_have_status(actual_target, effect_id) || can_see_status_effect(effect_id, vision))
+                remove_status(target, effect_id);
+        }
+        for (int i = 0; i < actual_target->status_effects.length(); i++) {
+            StatusEffect::Id effect = actual_target->status_effects[i].type;
+            if (can_have_status(actual_target, effect) && can_see_status_effect(effect, vision))
+                put_status(target, actual_target->status_effects[i].type);
+        }
     }
 }
 static PerceivedThing record_perception_of_thing(Thing observer, uint256 target_id, VisionTypes vision) {

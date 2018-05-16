@@ -191,7 +191,7 @@ public:
     uint256 container_id = uint256::zero();
     int z_order = 0;
     int64_t last_seen_time;
-    StatusEffectIdBitField status_effect_bits;
+    StatusEffectIdBitField status_effect_bits = 0;
     // individual
     PerceivedThingImpl(uint256 id, bool is_placeholder, SpeciesId species_id, int64_t last_seen_time) :
             id(id), is_placeholder(is_placeholder), thing_type(ThingType_INDIVIDUAL), last_seen_time(last_seen_time) {

@@ -1099,11 +1099,7 @@ static Game * parse_snapshot(ByteBuffer const& first_line, const List<Token> & f
                                 SpeciesId species_id = parse_species_id(line, tokens[token_cursor++]);
                                 perceived_thing = create<PerceivedThingImpl>(id, is_place_holder, species_id, last_seen_time);
 
-                                int perceived_status_effect_count = parse_int(line, tokens[token_cursor++]);
-                                expect_extra_token_count(tokens, token_cursor - 1);
-
-                                for (int i = 0; i < perceived_status_effect_count; i++)
-                                    perceived_thing->status_effects.append(parse_status_effect());
+                                perceived_thing->status_effect_bits = parse_int(line, tokens[token_cursor++]);
                                 break;
                             }
                             case ThingType_WAND: {
@@ -1356,15 +1352,7 @@ static void write_snapshot_to_buffer(Game const* game, ByteBuffer * buffer) {
                             buffer->append(' ');
                             buffer->append(species_names[perceived_thing->life()->species_id].value);
 
-                            List<StatusEffect> perceived_status_effects;
-                            perceived_status_effects.append_all(perceived_thing->status_effects);
-                            sort<StatusEffect, compare_status_effects_by_type>(perceived_status_effects.raw(), perceived_status_effects.length());
-                            buffer->format(" %d", perceived_status_effects.length());
-
-                            for (int i = 0; i < perceived_status_effects.length(); i++) {
-                                buffer->append("\n        ");
-                                write_status_effect(buffer, perceived_status_effects[i]);
-                            }
+                            buffer->format(" %d", perceived_thing->status_effect_bits);
                             break;
                         }
                         case ThingType_WAND:
