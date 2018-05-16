@@ -30,71 +30,6 @@ static inline bool can_see_thoughts(VisionTypes vision) {
     return vision & VisionTypes_COLOCATION;
 }
 
-// everyone has the same action cost
-static const int action_cost = 12;
-static const int speedy_movement_cost = 3;
-static const int slow_movement_cost = 48;
-
-struct Species {
-    SpeciesId species_id;
-    // how many ticks does it cost to move one space? average human is 12.
-    int movement_cost;
-    int base_hitpoints;
-    int base_mana;
-    int base_attack_power;
-    int min_level;
-    int max_level;
-    Mind mind;
-    VisionTypes vision_types;
-    bool sucks_up_items;
-    bool auto_throws_items;
-    bool poison_attack;
-    bool flying;
-};
-static const Mind _none = Mind_NONE;
-static const Mind _beas = Mind_BEAST;
-static const Mind _savg = Mind_SAVAGE;
-static const Mind _civl = Mind_CIVILIZED;
-static const VisionTypes _norm = VisionTypes_NORMAL;
-static const VisionTypes _ethe = VisionTypes_ETHEREAL;
-static constexpr Species specieses[SpeciesId_COUNT] = {
-    //                         movement cost
-    //                         |   health
-    //                         |   |  base mana
-    //                         |   |  |  base attack
-    //                         |   |  |  |  min level
-    //                         |   |  |  |  |   max level
-    //                         |   |  |  |  |   |  mind
-    //                         |   |  |  |  |   |  |     vision
-    //                         |   |  |  |  |   |  |     |     sucks up items
-    //                         |   |  |  |  |   |  |     |     |  auto throws items
-    //                         |   |  |  |  |   |  |     |     |  |  poison attack
-    //                         |   |  |  |  |   |  |     |     |  |  |  flying
-    {SpeciesId_HUMAN        , 12, 10, 3, 3, 0, 10,_civl,_norm, 0, 0, 0, 0},
-    {SpeciesId_OGRE         , 24, 15, 0, 2, 4, 10,_savg,_norm, 0, 0, 0, 0},
-    {SpeciesId_LICH         , 12, 12, 4, 3, 7, 10,_civl,_norm, 0, 0, 0, 0},
-    {SpeciesId_SHAPESHIFTER , 12,  5, 0, 2, 1, 10,_civl,_norm, 0, 0, 0, 0},
-    {SpeciesId_PINK_BLOB    , 48,  4, 0, 1, 0,  1,_none,_ethe, 1, 0, 0, 0},
-    {SpeciesId_AIR_ELEMENTAL,  6,  6, 0, 1, 3, 10,_none,_ethe, 1, 1, 0, 1},
-    {SpeciesId_TAR_ELEMENTAL, 24, 10, 0, 1, 3, 10,_none,_ethe, 1, 0, 0, 0},
-    {SpeciesId_DOG          , 12,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0, 0},
-    {SpeciesId_ANT          , 12,  2, 0, 1, 0,  1,_beas,_norm, 0, 0, 0, 0},
-    {SpeciesId_BEE          , 12,  2, 0, 3, 1,  2,_beas,_norm, 0, 0, 0, 1},
-    {SpeciesId_BEETLE       , 24,  6, 0, 1, 0,  1,_beas,_norm, 0, 0, 0, 0},
-    {SpeciesId_SCORPION     , 24,  5, 0, 1, 2,  3,_beas,_norm, 0, 0, 1, 0},
-    {SpeciesId_SNAKE        , 24,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0, 0},
-    {SpeciesId_COBRA        , 24,  2, 0, 1, 2,  3,_beas,_norm, 0, 0, 0, 0},
-};
-static bool constexpr _check_specieses() {
-#if __cpp_constexpr >= 201304
-    for (int i = 0; i < SpeciesId_COUNT; i++)
-        if (specieses[i].species_id != i)
-            return false;
-#endif
-    return true;
-}
-static_assert(_check_specieses(), "missed a spot");
-
 static inline int compare_status_effects_by_type(const StatusEffect & a, const StatusEffect & b) {
     assert_str(a.type != b.type, "status effect list contains duplicates");
     return a.type - b.type;
@@ -156,10 +91,6 @@ static inline bool can_see_potion_effect(PotionId effect, VisionTypes vision) {
     unreachable();
 }
 
-struct AbilityCooldown {
-    AbilityId ability_id;
-    int64_t expiration_time;
-};
 static inline int compare_ability_cooldowns_by_type(const AbilityCooldown & a, const AbilityCooldown & b) {
     assert_str(a.ability_id != b.ability_id, "ability cooldown list contains duplicates");
     return a.ability_id - b.ability_id;
@@ -372,15 +303,45 @@ public:
     List<AbilityCooldown> ability_cooldowns;
 
     // individual
-    ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker, uint256 initiative);
+    ThingImpl(uint256 id, SpeciesId species_id, DecisionMakerType decision_maker, uint256 initiative) :
+        id(id), thing_type(ThingType_INDIVIDUAL)
+    {
+        _life = create<Life>();
+        _life->original_species_id = species_id;
+        _life->decision_maker = decision_maker;
+        _life->hitpoints = max_hitpoints();
+        _life->mana = max_mana();
+        _life->initiative = initiative;
+    }
     // wand
-    ThingImpl(uint256 id, WandId wand_id, int charges);
+    ThingImpl(uint256 id, WandId wand_id, int charges) :
+        id(id), thing_type(ThingType_WAND)
+    {
+        _wand_info = create<WandInfo>();
+        _wand_info->wand_id = wand_id;
+        _wand_info->charges = charges;
+    }
     // potion
-    ThingImpl(uint256 id, PotionId potion_id);
+    ThingImpl(uint256 id, PotionId potion_id) :
+        id(id), thing_type(ThingType_POTION)
+    {
+        _potion_info = create<PotionInfo>();
+        _potion_info->potion_id = potion_id;
+    }
     // book
-    ThingImpl(uint256 id, BookId book_id);
+    ThingImpl(uint256 id, BookId book_id) :
+        id(id), thing_type(ThingType_BOOK)
+    {
+        _book_info = create<BookInfo>();
+        _book_info->book_id = book_id;
+    }
     // weapon
-    ThingImpl(uint256 id, WeaponId weapon_id);
+    ThingImpl(uint256 id, WeaponId weapon_id) :
+        id(id), thing_type(ThingType_WEAPON)
+    {
+        _weapon_info = create<WeaponInfo>();
+        _weapon_info->weapon_id = weapon_id;
+    }
 
     ~ThingImpl() {
         switch (thing_type) {

@@ -809,7 +809,7 @@ static void observe_event(Thing observer, Event event) {
             record_solidity_of_location(observer, data.location, data.is_air);
             Span actor_description = get_thing_description(observer, data.actor);
             Span bumpee_description;
-            if (!is_open_space(observer->life()->knowledge.tiles[data.location]))
+            if (!data.is_air)
                 bumpee_description = new_span("a wall");
             else
                 bumpee_description = new_span("thin air");

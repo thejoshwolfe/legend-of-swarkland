@@ -469,4 +469,77 @@ private:
     }
 };
 
+struct PerceivedEvent {
+};
+
+// everyone has the same action cost
+static const int action_cost = 12;
+static const int speedy_movement_cost = 3;
+static const int slow_movement_cost = 48;
+
+struct Species {
+    SpeciesId species_id;
+    // how many ticks does it cost to move one space? average human is 12.
+    int movement_cost;
+    int base_hitpoints;
+    int base_mana;
+    int base_attack_power;
+    int min_level;
+    int max_level;
+    Mind mind;
+    VisionTypes vision_types;
+    bool sucks_up_items;
+    bool auto_throws_items;
+    bool poison_attack;
+    bool flying;
+};
+static const Mind _none = Mind_NONE;
+static const Mind _beas = Mind_BEAST;
+static const Mind _savg = Mind_SAVAGE;
+static const Mind _civl = Mind_CIVILIZED;
+static const VisionTypes _norm = VisionTypes_NORMAL;
+static const VisionTypes _ethe = VisionTypes_ETHEREAL;
+static constexpr Species specieses[SpeciesId_COUNT] = {
+    //                         movement cost
+    //                         |   health
+    //                         |   |  base mana
+    //                         |   |  |  base attack
+    //                         |   |  |  |  min level
+    //                         |   |  |  |  |   max level
+    //                         |   |  |  |  |   |  mind
+    //                         |   |  |  |  |   |  |     vision
+    //                         |   |  |  |  |   |  |     |     sucks up items
+    //                         |   |  |  |  |   |  |     |     |  auto throws items
+    //                         |   |  |  |  |   |  |     |     |  |  poison attack
+    //                         |   |  |  |  |   |  |     |     |  |  |  flying
+    {SpeciesId_HUMAN        , 12, 10, 3, 3, 0, 10,_civl,_norm, 0, 0, 0, 0},
+    {SpeciesId_OGRE         , 24, 15, 0, 2, 4, 10,_savg,_norm, 0, 0, 0, 0},
+    {SpeciesId_LICH         , 12, 12, 4, 3, 7, 10,_civl,_norm, 0, 0, 0, 0},
+    {SpeciesId_SHAPESHIFTER , 12,  5, 0, 2, 1, 10,_civl,_norm, 0, 0, 0, 0},
+    {SpeciesId_PINK_BLOB    , 48,  4, 0, 1, 0,  1,_none,_ethe, 1, 0, 0, 0},
+    {SpeciesId_AIR_ELEMENTAL,  6,  6, 0, 1, 3, 10,_none,_ethe, 1, 1, 0, 1},
+    {SpeciesId_TAR_ELEMENTAL, 24, 10, 0, 1, 3, 10,_none,_ethe, 1, 0, 0, 0},
+    {SpeciesId_DOG          , 12,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_ANT          , 12,  2, 0, 1, 0,  1,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_BEE          , 12,  2, 0, 3, 1,  2,_beas,_norm, 0, 0, 0, 1},
+    {SpeciesId_BEETLE       , 24,  6, 0, 1, 0,  1,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_SCORPION     , 24,  5, 0, 1, 2,  3,_beas,_norm, 0, 0, 1, 0},
+    {SpeciesId_SNAKE        , 24,  4, 0, 2, 1,  2,_beas,_norm, 0, 0, 0, 0},
+    {SpeciesId_COBRA        , 24,  2, 0, 1, 2,  3,_beas,_norm, 0, 0, 0, 0},
+};
+#if __cpp_constexpr >= 201304
+static bool constexpr _check_specieses() {
+    for (int i = 0; i < SpeciesId_COUNT; i++)
+        if (specieses[i].species_id != i)
+            return false;
+    return true;
+}
+static_assert(_check_specieses(), "missed a spot");
+#endif
+
+struct AbilityCooldown {
+    AbilityId ability_id;
+    int64_t expiration_time;
+};
+
 #endif
