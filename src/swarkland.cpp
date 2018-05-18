@@ -1340,12 +1340,6 @@ static void age_individual(Thing individual) {
         }
     }
 
-    List<RememberedEvent> & remembered_events = individual->life()->knowledge.remembered_events;
-    if (remembered_events.length() >= 1000) {
-        remembered_events.remove_range(0, 500);
-        individual->life()->knowledge.event_forget_counter++;
-    }
-
     // clean up stale placeholders
     List<uint256> delete_ids;
     PerceivedThing thing;
@@ -1424,7 +1418,7 @@ void run_the_game() {
                     poised_individuals.append(individual);
                     // log the passage of time in the message window.
                     // this actually only observers time in increments of your movement cost
-                    List<RememberedEvent> & events = individual->life()->knowledge.remembered_events;
+                    List<Nullable<PerceivedEvent>> & events = individual->life()->knowledge.perceived_events;
                     if (events.length() > 0 && events[events.length() - 1] != nullptr)
                         events.append(nullptr);
                 }

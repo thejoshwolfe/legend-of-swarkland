@@ -579,30 +579,32 @@ static void identify_active_item(Thing observer, WandId wand_id, PotionId potion
     }
 }
 
-static void observe_event(Thing observer, Event event) {
+static ThingSnapshot get_thing_description(Thing observer, uint256 target_id) {
+    (void)observer;
+    (void)target_id;
+    return TODO;
+}
+
+static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
     // make changes to our knowledge
-    RememberedEvent remembered_event = create<RememberedEventImpl>();
     switch (event.type) {
         case Event::THE_INDIVIDUAL: {
             const Event::TheIndividualData & data = event.the_individual_data();
             PerceivedThing individual = observer->life()->knowledge.perceived_things.get(data.individual, nullptr);
-            Span individual_description;
             switch (data.id) {
                 case Event::APPEAR:
                     individual = record_perception_of_thing(observer, data.individual);
                     remove_status(individual, StatusEffect::INVISIBILITY);
-                    remembered_event->span->format("%s appears out of nowhere!", get_thing_description(observer, data.individual));
-                    break;
+                    return PerceivedEvent(PerceivedEvent::APPEAR, get_thing_description(observer, data.individual));
                 case Event::LEVEL_UP:
                     // no state change
-                    remembered_event->span->format("%s levels up.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::DIE:
-                    remembered_event->span->format("%s dies.", get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::LEVEL_UP, get_thing_description(observer, data.individual));
+                case Event::DIE: {
+                    PerceivedEvent result(PerceivedEvent::DIE, get_thing_description(observer, data.individual));
                     individual->location = Coord::nowhere();
-                    break;
+                    return result;
+                }
                 case Event::DELETE_THING: {
-                    remembered_event = nullptr;
                     PerceivedThing thing = observer->life()->knowledge.perceived_things.get(data.individual, nullptr);
                     if (thing != nullptr) {
                         observer->life()->knowledge.perceived_things.remove(data.individual);
@@ -614,69 +616,64 @@ static void observe_event(Thing observer, Event event) {
                             inventory[i]->container_id = uint256::zero();
                         }
                     }
-                    break;
+                    return nullptr;
                 }
                 case Event::SPIT_BLINDING_VENOM:
-                    remembered_event->span->format("%s spits blinding venom!", get_thing_description(observer, data.individual));
-                    break;
+                    return PerceivedEvent(PerceivedEvent::SPIT_BLINDING_VENOM, get_thing_description(observer, data.individual));
                 case Event::BLINDING_VENOM_HIT_INDIVIDUAL:
-                    remembered_event->span->format("%s is hit by blinding venom!", get_thing_description(observer, data.individual));
                     // status is included in a different event
-                    break;
+                    return PerceivedEvent(PerceivedEvent::BLINDING_VENOM_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
                 case Event::THROW_TAR:
-                    remembered_event->span->format("%s throws tar!", get_thing_description(observer, data.individual));
-                    break;
+                    return PerceivedEvent(PerceivedEvent::THROW_TAR, get_thing_description(observer, data.individual));
                 case Event::TAR_HIT_INDIVIDUAL:
-                    remembered_event->span->format("%s is hit by tar!", get_thing_description(observer, data.individual));
                     // status is included in a different event
-                    break;
+                    return PerceivedEvent(PerceivedEvent::TAR_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
                 case Event::MAGIC_BEAM_HIT_INDIVIDUAL:
-                    remembered_event->span->format("a magic beam hits %s.", get_thing_description(observer, data.individual));
                     // status is included in a different event
-                    break;
+                    return PerceivedEvent(PerceivedEvent::MAGIC_BEAM_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
                 case Event::INDIVIDUAL_DODGES_MAGIC_BEAM:
-                    remembered_event->span->format("%s dodges a magic beam.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::MAGIC_MISSILE_HIT_INDIVIDUAL:
-                    remembered_event->span->format("a magic missile hits %s!", get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::INDIVIDUAL_DODGES_MAGIC_BEAM, get_thing_description(observer, data.individual));
+                case Event::MAGIC_MISSILE_HIT_INDIVIDUAL: {
+                    PerceivedEvent result(PerceivedEvent::MAGIC_MISSILE_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
                     identify_active_item(observer, WandId_WAND_OF_MAGIC_MISSILE, PotionId_COUNT, BookId_COUNT);
-                    break;
-                case Event::MAGIC_BULLET_HIT_INDIVIDUAL:
-                    remembered_event->span->format("a magic bullet hits %s!", get_thing_description(observer, data.individual));
-                    identify_active_item(observer, WandId_WAND_OF_MAGIC_BULLET, PotionId_COUNT, BookId_SPELLBOOK_OF_MAGIC_BULLET);
-                    break;
-                case Event::INDIVIDUAL_IS_HEALED:
-                    remembered_event->span->format("%s is healed!", get_thing_description(observer, data.individual));
-                    identify_active_item(observer, WandId_COUNT, PotionId_POTION_OF_HEALING, BookId_COUNT);
-                    break;
-                case Event::ACTIVATED_MAPPING:
-                    remembered_event->span->format("%s gets a vision of a map of the area!", get_thing_description(observer, data.individual));
-                    identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_MAPPING);
-                    break;
-                case Event::MAGIC_BEAM_PUSH_INDIVIDUAL:
-                    remembered_event->span->format("a magic beam pushes %s!", get_thing_description(observer, data.individual));
-                    identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
-                    break;
-                case Event::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL:
-                    remembered_event->span->format("the magic beam recoils and pushes %s!", get_thing_description(observer, data.individual));
-                    identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
-                    break;
-                case Event::FAIL_TO_CAST_SPELL:
-                    remembered_event->span->format("%s must not understand how to cast that spell.", get_thing_description(observer, data.individual));
-                    break;
-                case Event::SEARED_BY_LAVA: {
-                    remembered_event->span->format("%s is seared by lava!", get_thing_description(observer, data.individual));
-                    // we also learn that there is lava there
-                    observer->life()->knowledge.tiles[individual->location] = TileType_LAVA_FLOOR;
-                    break;
+                    return result;
                 }
+                case Event::MAGIC_BULLET_HIT_INDIVIDUAL: {
+                    PerceivedEvent result(PerceivedEvent::MAGIC_BULLET_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    identify_active_item(observer, WandId_WAND_OF_MAGIC_BULLET, PotionId_COUNT, BookId_SPELLBOOK_OF_MAGIC_BULLET);
+                    return result;
+                }
+                case Event::INDIVIDUAL_IS_HEALED: {
+                    PerceivedEvent result(PerceivedEvent::INDIVIDUAL_IS_HEALED, get_thing_description(observer, data.individual));
+                    identify_active_item(observer, WandId_COUNT, PotionId_POTION_OF_HEALING, BookId_COUNT);
+                    return result;
+                }
+                case Event::ACTIVATED_MAPPING: {
+                    PerceivedEvent result(PerceivedEvent::ACTIVATED_MAPPING, get_thing_description(observer, data.individual));
+                    identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_MAPPING);
+                    return result;
+                }
+                case Event::MAGIC_BEAM_PUSH_INDIVIDUAL: {
+                    PerceivedEvent result(PerceivedEvent::MAGIC_BEAM_PUSH_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
+                    return result;
+                }
+                case Event::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL: {
+                    PerceivedEvent result(PerceivedEvent::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
+                    return result;
+                }
+                case Event::FAIL_TO_CAST_SPELL:
+                    return PerceivedEvent(PerceivedEvent::FAIL_TO_CAST_SPELL, get_thing_description(observer, data.individual));
+                case Event::SEARED_BY_LAVA:
+                    // we learn that there is lava there
+                    observer->life()->knowledge.tiles[individual->location] = TileType_LAVA_FLOOR;
+                    return PerceivedEvent(PerceivedEvent::SEARED_BY_LAVA, get_thing_description(observer, data.individual));
                 case Event::INDIVIDUAL_FLOATS_UNCONTROLLABLY:
-                    remembered_event->span->format("%s floats uncontrollably!", get_thing_description(observer, data.individual));
                     // we also know that the individual is levitating, but we should already know that.
-                    break;
+                    return PerceivedEvent(PerceivedEvent::INDIVIDUAL_FLOATS_UNCONTROLLABLY, get_thing_description(observer, data.individual));
                 case Event::LUNGE:
-                    remembered_event->span->format("%s lunges!", get_thing_description(observer, data.individual));
-                    break;
+                    return PerceivedEvent(PerceivedEvent::LUNGE, get_thing_description(observer, data.individual));
             }
             break;
         }
@@ -684,39 +681,31 @@ static void observe_event(Thing observer, Event event) {
             const Event::TheLocationData & data = event.the_location_data();
             switch (data.id) {
                 case Event::MAGIC_BEAM_HIT_WALL:
-                    remembered_event->span->format("a magic beam hits a wall.");
-                    break;
-                case Event::BEAM_OF_DIGGING_DIGS_WALL:
-                    remembered_event->span->format("a magic beam digs away a wall!");
+                    return PerceivedEvent(PerceivedEvent::MAGIC_BEAM_HIT_WALL, data.location);
+                case Event::BEAM_OF_DIGGING_DIGS_WALL: {
+                    PerceivedEvent result(PerceivedEvent::BEAM_OF_DIGGING_DIGS_WALL, data.location);
                     identify_active_item(observer, WandId_WAND_OF_DIGGING, PotionId_COUNT, BookId_COUNT);
-                    break;
+                    return result;
+                }
                 case Event::MAGIC_BEAM_PASS_THROUGH_AIR:
-                    remembered_event = nullptr;
                     // either no one is here, or they dodged. in either case, believe no one is here.
                     clear_placeholder_individual_at(observer, data.location);
-                    break;
+                    return nullptr;
             }
             break;
         }
         case Event::INDIVIDUAL_AND_STATUS: {
             const Event::IndividualAndStatusData & data = event.individual_and_status_data();
             PerceivedThing individual = observer->life()->knowledge.perceived_things.get(data.individual);
-            Span individual_description;
-            const char * is_no_longer;
-            const char * punctuation;
+
+            // snapshot the thing when it doesn't have the status
             bool is_gain = data.id == Event::GAIN_STATUS;
-            if (is_gain) {
-                is_no_longer = "is";
-                punctuation = "!";
-                individual_description = get_thing_description(observer, data.individual);
-                put_status(individual, data.status);
-            } else {
-                is_no_longer = "is no longer";
-                punctuation = ".";
+            if (!is_gain)
                 remove_status(individual, data.status);
-                individual_description = get_thing_description(observer, data.individual);
-            }
-            const char * status_description = nullptr;
+            ThingSnapshot individual_snapshot = get_thing_description(observer, data.individual);
+            if (is_gain)
+                put_status(individual, data.status);
+
             WandId gain_wand_id = WandId_COUNT;
             WandId lose_wand_id = WandId_COUNT;
             PotionId gain_potion_id = PotionId_COUNT;
@@ -725,45 +714,30 @@ static void observe_event(Thing observer, Event event) {
             BookId lose_book_id = BookId_COUNT;
             switch (data.status) {
                 case StatusEffect::CONFUSION:
-                    status_description = "confused";
                     gain_wand_id = WandId_WAND_OF_CONFUSION;
                     lose_wand_id = WandId_WAND_OF_REMEDY;
                     break;
                 case StatusEffect::SPEED:
-                    if (is_gain) {
-                        remembered_event->span->format("%s speeds up!", individual_description);
-                    } else {
-                        remembered_event->span->format("%s slows back down to normal speed.", individual_description);
-                    }
                     gain_wand_id = WandId_WAND_OF_SPEED;
                     gain_book_id = BookId_SPELLBOOK_OF_SPEED;
                     lose_wand_id = WandId_WAND_OF_SLOWING;
                     break;
                 case StatusEffect::ETHEREAL_VISION:
-                    if (is_gain) {
-                        remembered_event->span->format("%s gains ethereal vision!", individual_description);
-                    } else {
-                        remembered_event->span->format("%s no longer has ethereal vision.", individual_description);
-                    }
                     gain_potion_id = PotionId_POTION_OF_ETHEREAL_VISION;
                     break;
                 case StatusEffect::COGNISCOPY:
-                    status_description = "cogniscopic";
                     gain_potion_id = PotionId_POTION_OF_COGNISCOPY;
                     break;
                 case StatusEffect::BLINDNESS:
-                    status_description = "blind";
                     gain_wand_id = WandId_WAND_OF_BLINDING;
                     gain_potion_id = PotionId_POTION_OF_BLINDNESS;
                     lose_wand_id = WandId_WAND_OF_REMEDY;
                     break;
                 case StatusEffect::POISON:
-                    status_description = "poisoned";
                     gain_potion_id = PotionId_POTION_OF_POISON;
                     lose_wand_id = WandId_WAND_OF_REMEDY;
                     break;
                 case StatusEffect::INVISIBILITY:
-                    status_description = "invisible";
                     gain_wand_id = WandId_WAND_OF_INVISIBILITY;
                     gain_potion_id = PotionId_POTION_OF_INVISIBILITY;
                     break;
@@ -771,21 +745,14 @@ static void observe_event(Thing observer, Event event) {
                     // there's a different event for polymorph since you can't tell if someone is gaining it or losing it.
                     unreachable();
                 case StatusEffect::SLOWING:
-                    status_description = "slow";
                     gain_wand_id = WandId_WAND_OF_SLOWING;
                     lose_wand_id = WandId_WAND_OF_SPEED;
                     lose_book_id = BookId_SPELLBOOK_OF_SPEED;
                     break;
                 case StatusEffect::BURROWING:
-                    if (is_gain) {
-                        remembered_event->span->format("the ground below %s starts to ripple!", individual_description);
-                    } else {
-                        remembered_event->span->format("the ground below %s looks solid.", individual_description);
-                    }
                     gain_potion_id = PotionId_POTION_OF_BURROWING;
                     break;
                 case StatusEffect::LEVITATING:
-                    status_description = "levitating";
                     gain_potion_id = PotionId_POTION_OF_LEVITATION;
                     break;
 
@@ -793,56 +760,42 @@ static void observe_event(Thing observer, Event event) {
                 case StatusEffect::COUNT:
                     unreachable();
             }
-            if (status_description != nullptr) {
-                // TODO: we should be able to pass const char * to span->format()
-                String string = new_string();
-                string->format("%s %s%s", is_no_longer, status_description, punctuation);
-                remembered_event->span->format("%s %s", individual_description, new_span(string));
-            }
             if (is_gain) {
                 identify_active_item(observer, gain_wand_id, gain_potion_id, gain_book_id);
+                return PerceivedEvent(PerceivedEvent::GAIN_STATUS, individual_snapshot, data.status);
             } else {
                 identify_active_item(observer, lose_wand_id, lose_potion_id, lose_book_id);
+                return PerceivedEvent(PerceivedEvent::LOSE_STATUS, individual_snapshot, data.status);
             }
-            break;
         }
         case Event::INDIVIDUAL_AND_LOCATION: {
             const Event::IndividualAndLocationData & data = event.individual_and_location_data();
             record_solidity_of_location(observer, data.location, data.is_air);
-            Span actor_description = get_thing_description(observer, data.actor);
-            Span bumpee_description;
-            if (!data.is_air)
-                bumpee_description = new_span("a wall");
-            else
-                bumpee_description = new_span("thin air");
+            ThingSnapshot actor_snapshot = get_thing_description(observer, data.actor);
             switch (data.id) {
                 case Event::BUMP_INTO_LOCATION:
-                    remembered_event->span->format("%s bumps into %s.", actor_description, bumpee_description);
-                    break;
+                    return PerceivedEvent(PerceivedEvent::BUMP_INTO_LOCATION, actor_snapshot, data.location, data.is_air);
                 case Event::ATTACK_LOCATION: {
-                    remembered_event->span->format("%s hits %s.", actor_description, bumpee_description);
-
                     // there's no individual there to attack
                     List<PerceivedThing> perceived_things;
                     find_perceived_things_at(observer, data.location, &perceived_things);
                     for (int i = 0; i < perceived_things.length(); i++)
                         if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
                             perceived_things[i]->location = Coord::nowhere();
-                    break;
+                    return PerceivedEvent(PerceivedEvent::ATTACK_LOCATION, actor_snapshot, data.location, data.is_air);
                 }
                 case Event::INDIVIDUAL_BURROWS_THROUGH_WALL:
-                    remembered_event->span->format("%s burrows through a wall.", actor_description);
-                    break;
+                    return PerceivedEvent(PerceivedEvent::INDIVIDUAL_BURROWS_THROUGH_WALL, actor_snapshot, data.location, data.is_air);
             }
             break;
         }
         case Event::INDIVIDUAL_AND_TWO_LOCATION: {
             const Event::IndividualAndTwoLocationData & data = event.individual_and_two_location_data();
-            remembered_event = nullptr;
             const MapMatrix<VisionTypes> & tile_is_visible = observer->life()->knowledge.tile_is_visible;
+            // you should see them whether they're entering or exiting your view
             VisionTypes vision = tile_is_visible[data.old_location] | tile_is_visible[data.new_location];
             record_perception_of_thing(observer, data.actor, vision);
-            break;
+            return nullptr;
         }
         case Event::TWO_INDIVIDUAL: {
             const Event::TwoIndividualData & data = event.two_individual_data();
@@ -853,28 +806,10 @@ static void observe_event(Thing observer, Event event) {
                 case Event::MELEE_KILL: {
                     record_perception_of_thing(observer, data.actor);
                     record_perception_of_thing(observer, data.target);
-                    Span actor_description = get_thing_description(observer, data.actor);
-                    // what did it bump into? whatever we think is there
-                    Span bumpee_description = get_thing_description(observer, data.target);
-                    const char * fmt;
-                    switch (data.id) {
-                        case Event::BUMP_INTO_INDIVIDUAL:
-                            fmt = "%s bumps into %s.";
-                            break;
-                        case Event::ATTACK_INDIVIDUAL:
-                            fmt = "%s hits %s.";
-                            break;
-                        case Event::DODGE_ATTACK:
-                            fmt = "%s attacks, but %s dodges.";
-                            break;
-                        case Event::MELEE_KILL:
-                            fmt = "%s kills %s.";
-                            break;
-                    }
-                    remembered_event->span->format(fmt, actor_description, bumpee_description);
+                    PerceivedEvent result((PerceivedEvent::TwoIndividualDataId)data.id, get_thing_description(observer, data.actor), get_thing_description(observer, data.target));
                     if (data.id == Event::MELEE_KILL)
                         observer->life()->knowledge.perceived_things.get(data.target)->location = Coord::nowhere();
-                    break;
+                    return result;
                 }
             }
             break;
@@ -882,113 +817,87 @@ static void observe_event(Thing observer, Event event) {
         case Event::INDIVIDUAL_AND_ITEM: {
             const Event::IndividualAndItemData & data = event.individual_and_item_data();
             record_perception_of_thing(observer, data.individual);
-            Span individual_description = get_thing_description(observer, data.individual);
+            ThingSnapshot individual_snapshot = get_thing_description(observer, data.individual);
             PerceivedThing item = record_perception_of_thing(observer, data.item);
-            Span item_description = get_thing_description(observer, data.item);
+            ThingSnapshot item_snapshot = get_thing_description(observer, data.item);
             switch (data.id) {
                 case Event::ZAP_WAND: {
                     PerceivedThing wand = observer->life()->knowledge.perceived_things.get(data.item);
                     WandDescriptionId wand_description = wand->wand_info()->description_id;
                     if (wand_description != WandDescriptionId_UNSEEN)
                         game->observer_to_active_identifiable_item.put(observer->id, wand->id);
-                    remembered_event->span->format("%s zaps %s.", individual_description, item_description);
                     wand->wand_info()->used_count += 1;
-                    break;
+                    return PerceivedEvent(PerceivedEvent::ZAP_WAND, individual_snapshot, item_snapshot);
                 }
                 case Event::ZAP_WAND_NO_CHARGES:
-                    remembered_event->span->format("%s zaps %s, but %s just sputters.", individual_description, item_description, item_description);
                     observer->life()->knowledge.perceived_things.get(data.item)->wand_info()->used_count = -1;
-                    break;
+                    return PerceivedEvent(PerceivedEvent::ZAP_WAND_NO_CHARGES, individual_snapshot, item_snapshot);
                 case Event::WAND_DISINTEGRATES:
-                    remembered_event->span->format("%s tries to zap %s, but %s disintegrates.", individual_description, item_description, item_description);
                     item->location = Coord::nowhere();
                     item->container_id = uint256::zero();
-                    break;
+                    return PerceivedEvent(PerceivedEvent::WAND_DISINTEGRATES, individual_snapshot, item_snapshot);
                 case Event::READ_BOOK: {
                     PerceivedThing book = observer->life()->knowledge.perceived_things.get(data.item);
                     if (book->book_info()->description_id != BookDescriptionId_UNSEEN)
                         game->observer_to_active_identifiable_item.put(observer->id, book->id);
-                    remembered_event->span->format("%s reads %s.", individual_description, item_description);
-                    break;
+                    return PerceivedEvent(PerceivedEvent::READ_BOOK, individual_snapshot, item_snapshot);
                 }
                 case Event::QUAFF_POTION: {
                     PerceivedThing potion = observer->life()->knowledge.perceived_things.get(data.item);
                     if (potion->potion_info()->description_id != PotionDescriptionId_UNSEEN)
                         game->observer_to_active_identifiable_item.put(observer->id, potion->id);
-                    remembered_event->span->format("%s quaffs %s.", individual_description, item_description);
-                    break;
+                    return PerceivedEvent(PerceivedEvent::QUAFF_POTION, individual_snapshot, item_snapshot);
                 }
                 case Event::THROW_ITEM:
-                    remembered_event->span->format("%s throws %s.", individual_description, item_description);
-                    break;
                 case Event::ITEM_HITS_INDIVIDUAL:
-                    remembered_event->span->format("%s hits %s!", item_description, individual_description);
-                    break;
                 case Event::ITEM_SINKS_INTO_INDIVIDUAL:
-                    remembered_event->span->format("%s sinks into %s!", item_description, individual_description);
-                    break;
                 case Event::INDIVIDUAL_DODGES_THROWN_ITEM:
-                    remembered_event->span->format("%s dodges %s!", individual_description, item_description);
-                    break;
+                    return PerceivedEvent((PerceivedEvent::IndividualAndItemDataId)data.id, individual_snapshot, item_snapshot);
                 case Event::POTION_HITS_INDIVIDUAL: {
-                    remembered_event->span->format("%s shatters and splashes on %s!", item_description, individual_description);
                     PerceivedThing potion = observer->life()->knowledge.perceived_things.get(data.item);
                     if (potion->potion_info()->description_id != PotionDescriptionId_UNSEEN)
                         game->observer_to_active_identifiable_item.put(observer->id, potion->id);
-                    break;
+                    return PerceivedEvent(PerceivedEvent::POTION_HITS_INDIVIDUAL, individual_snapshot, item_snapshot);
                 }
                 case Event::INDIVIDUAL_PICKS_UP_ITEM:
                 case Event::INDIVIDUAL_SUCKS_UP_ITEM: {
-                    const char * fmt = data.id == Event::INDIVIDUAL_PICKS_UP_ITEM ? "%s picks up %s." : "%s sucks up %s.";
-                    remembered_event->span->format(fmt, individual_description, item_description);
                     PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
                     item->location = Coord::nowhere();
                     item->container_id = data.individual;
                     fix_perceived_z_orders(observer, data.individual);
-                    break;
+                    return PerceivedEvent((PerceivedEvent::IndividualAndItemDataId)data.id, individual_snapshot, item_snapshot);
                 }
             }
             break;
         }
         case Event::INDIVIDUAL_AND_SPECIES: {
             const Event::IndividualAndSpeciesData & data = event.individual_and_species_data();
-            remembered_event->span->format("%s transforms into a %s!", get_thing_description(observer, data.individual), get_species_name(data.new_species));
+            PerceivedEvent result(PerceivedEvent::POLYMORPH, get_thing_description(observer, data.individual), data.new_species);
             record_perception_of_thing(observer, data.individual);
             identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_ASSUME_FORM);
-            break;
+            return result;
         }
         case Event::ITEM_AND_LOCATION: {
             const Event::ItemAndLocationData & data = event.item_and_location_data();
             PerceivedThing item = record_perception_of_thing(observer, data.item);
-            Span item_description = get_thing_description(observer, data.item);
+            ThingSnapshot item_snapshot = get_thing_description(observer, data.item);
             switch (data.id) {
                 case Event::WAND_EXPLODES:
-                    remembered_event->span->format("%s explodes!", item_description);
                     if (item->wand_info()->description_id != WandDescriptionId_UNSEEN)
                         game->observer_to_active_identifiable_item.put(observer->id, data.item);
                     item->location = Coord::nowhere();
                     item->container_id = uint256::zero();
-                    break;
+                    return PerceivedEvent(PerceivedEvent::WAND_EXPLODES, item_snapshot, data.location);
                 case Event::ITEM_HITS_WALL:
-                    // the item may have been thrown from out of view, so make sure we know what it is.
-                    remembered_event->span->format("%s hits a wall.", item_description);
-                    break;
                 case Event::ITEM_DROPS_TO_THE_FLOOR:
-                    remembered_event->span->format("%s drops to the floor.", item_description);
-                    break;
                 case Event::POTION_BREAKS:
-                    remembered_event->span->format("%s shatters!", item_description);
-                    break;
                 case Event::ITEM_DISINTEGRATES_IN_LAVA:
-                    remembered_event->span->format("%s disintegrates in lava!", item_description);
-                    break;
+                    return PerceivedEvent((PerceivedEvent::ItemAndLocationDataId)data.id, item_snapshot, data.location);
             }
             break;
         }
     }
-
-    if (remembered_event != nullptr)
-        observer->life()->knowledge.remembered_events.append(remembered_event);
+    unreachable();
 }
 
 void publish_event(Event actual_event) {

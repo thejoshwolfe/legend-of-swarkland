@@ -78,4 +78,38 @@ private:
     }
 };
 
+template <typename T>
+struct Nullable {
+    Nullable() : _non_null(false) {}
+    Nullable(nullptr_t) : _non_null(false) {}
+    Nullable(const T & value) : _non_null(true), _data(value) {}
+
+    T * operator->() {
+        assert(_non_null);
+        return &_data;
+    }
+    const T * operator->() const {
+        assert(_non_null);
+        return &_data;
+    }
+    T & operator*() {
+        assert(_non_null);
+        return _data;
+    }
+    const T & operator*() const {
+        assert(_non_null);
+        return _data;
+    }
+
+    bool operator==(nullptr_t) const {
+        return !_non_null;
+    }
+    bool operator!=(nullptr_t) const {
+        return _non_null;
+    }
+private:
+    bool _non_null;
+    T _data;
+};
+
 #endif

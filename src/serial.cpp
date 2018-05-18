@@ -1521,30 +1521,35 @@ static void expect_nothing(const List<PerceivedThing> & things) {
     if (things.length() == 0)
         return;
     String thing_description = new_string();
-    Span span = get_thing_description(you(), things[0]->id);
+    Span span = get_thing_description(you(), things[0]->id, false);
     span->to_string(thing_description);
     test_expect_fail("expected nothing. found at least: %s.", thing_description);
 }
-static void skip_blank_events(const List<RememberedEvent> & events) {
+static void skip_blank_events(const List<Nullable<PerceivedEvent>> & events) {
     while (test_you_events_mark < events.length() && events[test_you_events_mark] == nullptr)
         test_you_events_mark++;
+}
+static String event_to_string(PerceivedEvent event) {
+    Span span = render_event(you(), event);
+    String string = new_string();
+    span->to_string(string);
+    return string;
 }
 
 static void handle_directive(DirectiveId directive_id, ByteBuffer const& line, const List<Token> & tokens) {
     switch (directive_id) {
         case DirectiveId_MARK_EVENTS:
             expect_extra_token_count(tokens, 0);
-            test_you_events_mark = you()->life()->knowledge.remembered_events.length();
+            test_you_events_mark = you()->life()->knowledge.perceived_events.length();
             break;
         case DirectiveId_EXPECT_EVENT: {
             expect_extra_token_count(tokens, 1);
-            const List<RememberedEvent> & events = you()->life()->knowledge.remembered_events;
+            List<Nullable<PerceivedEvent>> & events = you()->life()->knowledge.perceived_events;
             skip_blank_events(events);
             if (test_you_events_mark >= events.length())
                 test_expect_fail("no new events.");
-            const RememberedEvent & event = events[test_you_events_mark];
-            String actual_text = new_string();
-            event->span->to_string(actual_text);
+            PerceivedEvent & event = *events[test_you_events_mark];
+            String actual_text = event_to_string(event);
             String expected_text = parse_string(line, tokens[1]);
             if (*actual_text != *expected_text)
                 test_expect_fail("expected event text \"%s\". got \"%s\".", expected_text, actual_text);
@@ -1553,11 +1558,10 @@ static void handle_directive(DirectiveId directive_id, ByteBuffer const& line, c
         }
         case DirectiveId_EXPECT_NO_EVENTS: {
             expect_extra_token_count(tokens, 0);
-            const List<RememberedEvent> & events = you()->life()->knowledge.remembered_events;
+            List<Nullable<PerceivedEvent>> & events = you()->life()->knowledge.perceived_events;
             skip_blank_events(events);
             if (test_you_events_mark < events.length()) {
-                String event_text = new_string();
-                events[test_you_events_mark]->span->to_string(event_text);
+                String event_text = event_to_string(*events[test_you_events_mark]);
                 test_expect_fail("expected no events. got \"%s\".", event_text);
             }
             break;

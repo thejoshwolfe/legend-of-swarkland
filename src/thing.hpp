@@ -218,9 +218,7 @@ struct Knowledge {
     MapMatrix<TileType> tiles;
     MapMatrix<uint8_t> aesthetic_indexes;
     MapMatrix<VisionTypes> tile_is_visible;
-    List<RememberedEvent> remembered_events;
-    // incremented whenever events were forgotten, which means we need to blank out and refresh the rendering of the events.
-    int event_forget_counter = 0;
+    List<Nullable<PerceivedEvent>> perceived_events;
 
     // these are never wrong
     WandId wand_identities[WandDescriptionId_COUNT];

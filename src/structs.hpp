@@ -293,13 +293,42 @@ private:
     }
 };
 
+struct SpeciesIdAndStatusBits {
+    SpeciesId speices_id;
+    StatusEffectIdBitField status_effect_bits;
+};
+
 struct ThingSnapshot {
     ThingType thing_type;
-    StatusEffectIdBitField status_effect_bits;
+
+    SpeciesIdAndStatusBits & individual_data() {
+        assert(thing_type == ThingType_INDIVIDUAL);
+        return _data._individual_data;
+    }
+
+    WandId & wand_data() {
+        assert(thing_type == ThingType_WAND);
+        return _data._wand_id;
+    }
+
+    PotionId & potion_data() {
+        assert(thing_type == ThingType_POTION);
+        return _data._potion_id;
+    }
+
+    BookId & book_data() {
+        assert(thing_type == ThingType_BOOK);
+        return _data._book_id;
+    }
+
+    WeaponId & weapon_data() {
+        assert(thing_type == ThingType_WEAPON);
+        return _data._weapon_id;
+    }
 
 private:
     union {
-        SpeciesId _speices_id;
+        SpeciesIdAndStatusBits _individual_data;
         WandId _wand_id;
         PotionId _potion_id;
         BookId _book_id;

@@ -548,7 +548,14 @@ static const char * get_weapon_description_str(PerceivedThing item) {
     }
     unreachable();
 }
-static Span get_thing_description(Thing observer, uint256 target_id, bool verbose) {
+
+Span get_thing_description(Thing observer, ThingSnapshot thing_snapshot) {
+    (void)observer;
+    (void)thing_snapshot;
+    return TODO;
+}
+
+Span get_thing_description(Thing observer, uint256 target_id, bool verbose) {
     if (observer->id == target_id)
         return new_span("you", light_blue, black);
 
@@ -599,9 +606,6 @@ static Span get_thing_description(Thing observer, uint256 target_id, bool verbos
     }
 
     return result;
-}
-Span get_thing_description(Thing observer, uint256 target_id) {
-    return get_thing_description(observer, target_id, false);
 }
 
 static void popup_help(SDL_Rect area, Coord tile_in_area, Div div) {
@@ -717,7 +721,6 @@ static Rect get_image_for_ability(AbilityId ability_id) {
 }
 
 static int previous_events_length = 0;
-static int previous_event_forget_counter = 0;
 static uint256 previous_spectator_id = uint256::zero();
 static Div tutorial_div = new_div();
 static Div version_div = new_div();
@@ -1091,6 +1094,297 @@ static Span get_ability_description(AbilityId ability_id, bool is_ready) {
     return span;
 }
 
+Span render_event(Thing observer, PerceivedEvent event) {
+    Span span = new_span();
+    switch (event.type) {
+        case PerceivedEvent::THE_INDIVIDUAL: {
+            const PerceivedEvent::TheIndividualData & data = event.the_individual_data();
+            Span individual_description;
+            switch (data.id) {
+                case PerceivedEvent::APPEAR:
+                    span->format("%s appears out of nowhere!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::LEVEL_UP:
+                    span->format("%s levels up.", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::DIE:
+                    span->format("%s dies.", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::DELETE_THING:
+                    return nullptr;
+                case PerceivedEvent::SPIT_BLINDING_VENOM:
+                    span->format("%s spits blinding venom!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::BLINDING_VENOM_HIT_INDIVIDUAL:
+                    span->format("%s is hit by blinding venom!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::THROW_TAR:
+                    span->format("%s throws tar!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::TAR_HIT_INDIVIDUAL:
+                    span->format("%s is hit by tar!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::MAGIC_BEAM_HIT_INDIVIDUAL:
+                    span->format("a magic beam hits %s.", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::INDIVIDUAL_DODGES_MAGIC_BEAM:
+                    span->format("%s dodges a magic beam.", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::MAGIC_MISSILE_HIT_INDIVIDUAL:
+                    span->format("a magic missile hits %s!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::MAGIC_BULLET_HIT_INDIVIDUAL:
+                    span->format("a magic bullet hits %s!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::INDIVIDUAL_IS_HEALED:
+                    span->format("%s is healed!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::ACTIVATED_MAPPING:
+                    span->format("%s gets a vision of a map of the area!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::MAGIC_BEAM_PUSH_INDIVIDUAL:
+                    span->format("a magic beam pushes %s!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL:
+                    span->format("the magic beam recoils and pushes %s!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::FAIL_TO_CAST_SPELL:
+                    span->format("%s must not understand how to cast that spell.", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::SEARED_BY_LAVA:
+                    span->format("%s is seared by lava!", get_thing_description(observer, data.individual));
+                    break;
+                case PerceivedEvent::INDIVIDUAL_FLOATS_UNCONTROLLABLY:
+                    span->format("%s floats uncontrollably!", get_thing_description(observer, data.individual));
+                    // we also know that the individual is levitating, but we should already know that.
+                    break;
+                case PerceivedEvent::LUNGE:
+                    span->format("%s lunges!", get_thing_description(observer, data.individual));
+                    break;
+            }
+            break;
+        }
+        case PerceivedEvent::THE_LOCATION: {
+            const PerceivedEvent::TheLocationData & data = event.the_location_data();
+            switch (data.id) {
+                case PerceivedEvent::MAGIC_BEAM_HIT_WALL:
+                    span->format("a magic beam hits a wall.");
+                    break;
+                case PerceivedEvent::BEAM_OF_DIGGING_DIGS_WALL:
+                    span->format("a magic beam digs away a wall!");
+                    break;
+                case PerceivedEvent::MAGIC_BEAM_PASS_THROUGH_AIR:
+                    span = nullptr;
+                    break;
+            }
+            break;
+        }
+        case PerceivedEvent::INDIVIDUAL_AND_STATUS: {
+            const PerceivedEvent::IndividualAndStatusData & data = event.individual_and_status_data();
+            Span individual_description;
+            const char * is_no_longer;
+            const char * punctuation;
+            bool is_gain = data.id == PerceivedEvent::GAIN_STATUS;
+            if (is_gain) {
+                is_no_longer = "is";
+                punctuation = "!";
+                individual_description = get_thing_description(observer, data.individual);
+            } else {
+                is_no_longer = "is no longer";
+                punctuation = ".";
+                individual_description = get_thing_description(observer, data.individual);
+            }
+            const char * status_description = nullptr;
+            switch (data.status) {
+                case StatusEffect::CONFUSION:
+                    status_description = "confused";
+                    break;
+                case StatusEffect::SPEED:
+                    if (is_gain) {
+                        span->format("%s speeds up!", individual_description);
+                    } else {
+                        span->format("%s slows back down to normal speed.", individual_description);
+                    }
+                    break;
+                case StatusEffect::ETHEREAL_VISION:
+                    if (is_gain) {
+                        span->format("%s gains ethereal vision!", individual_description);
+                    } else {
+                        span->format("%s no longer has ethereal vision.", individual_description);
+                    }
+                    break;
+                case StatusEffect::COGNISCOPY:
+                    status_description = "cogniscopic";
+                    break;
+                case StatusEffect::BLINDNESS:
+                    status_description = "blind";
+                    break;
+                case StatusEffect::POISON:
+                    status_description = "poisoned";
+                    break;
+                case StatusEffect::INVISIBILITY:
+                    status_description = "invisible";
+                    break;
+                case StatusEffect::POLYMORPH:
+                    // there's a different event for polymorph since you can't tell if someone is gaining it or losing it.
+                    unreachable();
+                case StatusEffect::SLOWING:
+                    status_description = "slow";
+                    break;
+                case StatusEffect::BURROWING:
+                    if (is_gain) {
+                        span->format("the ground below %s starts to ripple!", individual_description);
+                    } else {
+                        span->format("the ground below %s looks solid.", individual_description);
+                    }
+                    break;
+                case StatusEffect::LEVITATING:
+                    status_description = "levitating";
+                    break;
+
+                case StatusEffect::PUSHED:
+                case StatusEffect::COUNT:
+                    unreachable();
+            }
+            if (status_description != nullptr) {
+                // TODO: we should be able to pass const char * to span->format()
+                String string = new_string();
+                string->format("%s %s%s", is_no_longer, status_description, punctuation);
+                span->format("%s %s", individual_description, new_span(string));
+            }
+            break;
+        }
+        case PerceivedEvent::INDIVIDUAL_AND_LOCATION: {
+            const PerceivedEvent::IndividualAndLocationData & data = event.individual_and_location_data();
+            Span actor_description = get_thing_description(observer, data.actor);
+            Span bumpee_description;
+            if (!data.is_air)
+                bumpee_description = new_span("a wall");
+            else
+                bumpee_description = new_span("thin air");
+            switch (data.id) {
+                case PerceivedEvent::BUMP_INTO_LOCATION:
+                    span->format("%s bumps into %s.", actor_description, bumpee_description);
+                    break;
+                case PerceivedEvent::ATTACK_LOCATION:
+                    span->format("%s hits %s.", actor_description, bumpee_description);
+                    break;
+                case PerceivedEvent::INDIVIDUAL_BURROWS_THROUGH_WALL:
+                    span->format("%s burrows through a wall.", actor_description);
+                    break;
+            }
+            break;
+        }
+        case PerceivedEvent::INDIVIDUAL_AND_TWO_LOCATION:
+            return nullptr;
+        case PerceivedEvent::TWO_INDIVIDUAL: {
+            const PerceivedEvent::TwoIndividualData & data = event.two_individual_data();
+            switch (data.id) {
+                case PerceivedEvent::BUMP_INTO_INDIVIDUAL:
+                case PerceivedEvent::ATTACK_INDIVIDUAL:
+                case PerceivedEvent::DODGE_ATTACK:
+                case PerceivedEvent::MELEE_KILL: {
+                    Span actor_description = get_thing_description(observer, data.actor);
+                    // what did it bump into? whatever we think is there
+                    Span bumpee_description = get_thing_description(observer, data.target);
+                    const char * fmt;
+                    switch (data.id) {
+                        case PerceivedEvent::BUMP_INTO_INDIVIDUAL:
+                            fmt = "%s bumps into %s.";
+                            break;
+                        case PerceivedEvent::ATTACK_INDIVIDUAL:
+                            fmt = "%s hits %s.";
+                            break;
+                        case PerceivedEvent::DODGE_ATTACK:
+                            fmt = "%s attacks, but %s dodges.";
+                            break;
+                        case PerceivedEvent::MELEE_KILL:
+                            fmt = "%s kills %s.";
+                            break;
+                    }
+                    span->format(fmt, actor_description, bumpee_description);
+                    break;
+                }
+            }
+            break;
+        }
+        case PerceivedEvent::INDIVIDUAL_AND_ITEM: {
+            const PerceivedEvent::IndividualAndItemData & data = event.individual_and_item_data();
+            Span individual_description = get_thing_description(observer, data.individual);
+            Span item_description = get_thing_description(observer, data.item);
+            switch (data.id) {
+                case PerceivedEvent::ZAP_WAND:
+                    span->format("%s zaps %s.", individual_description, item_description);
+                    break;
+                case PerceivedEvent::ZAP_WAND_NO_CHARGES:
+                    span->format("%s zaps %s, but %s just sputters.", individual_description, item_description, item_description);
+                    break;
+                case PerceivedEvent::WAND_DISINTEGRATES:
+                    span->format("%s tries to zap %s, but %s disintegrates.", individual_description, item_description, item_description);
+                    break;
+                case PerceivedEvent::READ_BOOK:
+                    span->format("%s reads %s.", individual_description, item_description);
+                    break;
+                case PerceivedEvent::QUAFF_POTION:
+                    span->format("%s quaffs %s.", individual_description, item_description);
+                    break;
+                case PerceivedEvent::THROW_ITEM:
+                    span->format("%s throws %s.", individual_description, item_description);
+                    break;
+                case PerceivedEvent::ITEM_HITS_INDIVIDUAL:
+                    span->format("%s hits %s!", item_description, individual_description);
+                    break;
+                case PerceivedEvent::ITEM_SINKS_INTO_INDIVIDUAL:
+                    span->format("%s sinks into %s!", item_description, individual_description);
+                    break;
+                case PerceivedEvent::INDIVIDUAL_DODGES_THROWN_ITEM:
+                    span->format("%s dodges %s!", individual_description, item_description);
+                    break;
+                case PerceivedEvent::POTION_HITS_INDIVIDUAL:
+                    span->format("%s shatters and splashes on %s!", item_description, individual_description);
+                    break;
+                case PerceivedEvent::INDIVIDUAL_PICKS_UP_ITEM:
+                    span->format("%s picks up %s.", individual_description, item_description);
+                    break;
+                case PerceivedEvent::INDIVIDUAL_SUCKS_UP_ITEM:
+                    span->format("%s sucks up %s.", individual_description, item_description);
+                    break;
+            }
+            break;
+        }
+        case PerceivedEvent::INDIVIDUAL_AND_SPECIES: {
+            const PerceivedEvent::IndividualAndSpeciesData & data = event.individual_and_species_data();
+            span->format("%s transforms into a %s!", get_thing_description(observer, data.individual), get_species_name(data.new_species));
+            break;
+        }
+        case PerceivedEvent::ITEM_AND_LOCATION: {
+            const PerceivedEvent::ItemAndLocationData & data = event.item_and_location_data();
+            Span item_description = get_thing_description(observer, data.item);
+            switch (data.id) {
+                case PerceivedEvent::WAND_EXPLODES:
+                    span->format("%s explodes!", item_description);
+                    break;
+                case PerceivedEvent::ITEM_HITS_WALL:
+                    span->format("%s hits a wall.", item_description);
+                    break;
+                case PerceivedEvent::ITEM_DROPS_TO_THE_FLOOR:
+                    span->format("%s drops to the floor.", item_description);
+                    break;
+                case PerceivedEvent::POTION_BREAKS:
+                    span->format("%s shatters!", item_description);
+                    break;
+                case PerceivedEvent::ITEM_DISINTEGRATES_IN_LAVA:
+                    span->format("%s disintegrates in lava!", item_description);
+                    break;
+            }
+            break;
+        }
+    }
+
+    return span;
+}
+
+
 void render() {
     assert(!headless_mode);
 
@@ -1386,16 +1680,15 @@ void render() {
     // message area
     {
         bool expand_message_box = rect_contains(message_area, get_mouse_game_position());
-        List<RememberedEvent> & events = spectate_from->life()->knowledge.remembered_events;
-        bool refresh_events = previous_event_forget_counter != spectate_from->life()->knowledge.event_forget_counter || previous_spectator_id != spectate_from->id;
+        List<Nullable<PerceivedEvent>> & events = spectate_from->life()->knowledge.perceived_events;
+        bool refresh_events = previous_spectator_id != spectate_from->id;
         if (refresh_events) {
             previous_events_length = 0;
-            previous_event_forget_counter = spectate_from->life()->knowledge.event_forget_counter;
             previous_spectator_id = spectate_from->id;
             events_div->clear();
         }
         for (int i = previous_events_length; i < events.length(); i++) {
-            RememberedEvent event = events[i];
+            Nullable<PerceivedEvent> event = events[i];
             if (event != nullptr) {
                 // append something
                 if (i > 0) {
@@ -1405,7 +1698,7 @@ void render() {
                     else
                         events_div->append_spaces(2);
                 }
-                events_div->append(event->span);
+                events_div->append(render_event(spectate_from, *event));
             }
         }
         previous_events_length = events.length();

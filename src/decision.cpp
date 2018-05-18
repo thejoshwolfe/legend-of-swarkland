@@ -11,7 +11,7 @@ static int previous_waiting_hp;
 static int previous_waiting_mp;
 void start_auto_wait() {
     assert_str(player_actor() == you(), "TODO: implement auto wait for multiple player actors");
-    start_waiting_event_count = you()->life()->knowledge.remembered_events.length();
+    start_waiting_event_count = you()->life()->knowledge.perceived_events.length();
     previous_waiting_hp = you()->life()->hitpoints;
     previous_waiting_mp = you()->life()->mana;
 }
@@ -56,7 +56,7 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
         }
     }
 
-    if (life->knowledge.remembered_events.length() > start_waiting_event_count) {
+    if (life->knowledge.perceived_events.length() > start_waiting_event_count) {
         // wake up! something happened.
         *output_stop_for_other_reasons = true;
     }
