@@ -579,10 +579,39 @@ static void identify_active_item(Thing observer, WandId wand_id, PotionId potion
     }
 }
 
-static ThingSnapshot get_thing_description(Thing observer, uint256 target_id) {
-    (void)observer;
-    (void)target_id;
-    return TODO;
+static ThingSnapshot make_thing_snapshot(Thing observer, uint256 target_id) {
+    Knowledge & knowledge = observer->life()->knowledge;
+    PerceivedThing target = knowledge.perceived_things.get(target_id);
+    switch (target->thing_type) {
+        case ThingType_INDIVIDUAL:
+            return ThingSnapshot::create(target->life()->species_id, target->status_effect_bits);
+        case ThingType_WAND: {
+            WandDescriptionId description_id = target->wand_info()->description_id;
+            WandId identified_id = WandId_UNKNOWN;
+            if (description_id != WandDescriptionId_UNSEEN)
+                identified_id = knowledge.wand_identities[description_id];
+            return ThingSnapshot::create(description_id, identified_id);
+        }
+        case ThingType_POTION: {
+            PotionDescriptionId description_id = target->potion_info()->description_id;
+            PotionId identified_id = PotionId_UNKNOWN;
+            if (description_id != PotionDescriptionId_UNSEEN)
+                identified_id = knowledge.potion_identities[description_id];
+            return ThingSnapshot::create(description_id, identified_id);
+        }
+        case ThingType_BOOK: {
+            BookDescriptionId description_id = target->book_info()->description_id;
+            BookId identified_id = BookId_UNKNOWN;
+            if (description_id != BookDescriptionId_UNSEEN)
+                identified_id = knowledge.book_identities[description_id];
+            return ThingSnapshot::create(description_id, identified_id);
+        }
+        case ThingType_WEAPON:
+            return ThingSnapshot::create(target->weapon_info()->weapon_id);
+        case ThingType_COUNT:
+            unreachable();
+    }
+    unreachable();
 }
 
 static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
@@ -595,12 +624,12 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::APPEAR:
                     individual = record_perception_of_thing(observer, data.individual);
                     remove_status(individual, StatusEffect::INVISIBILITY);
-                    return PerceivedEvent(PerceivedEvent::APPEAR, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::APPEAR, make_thing_snapshot(observer, data.individual));
                 case Event::LEVEL_UP:
                     // no state change
-                    return PerceivedEvent(PerceivedEvent::LEVEL_UP, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::LEVEL_UP, make_thing_snapshot(observer, data.individual));
                 case Event::DIE: {
-                    PerceivedEvent result(PerceivedEvent::DIE, get_thing_description(observer, data.individual));
+                    PerceivedEvent result(PerceivedEvent::DIE, make_thing_snapshot(observer, data.individual));
                     individual->location = Coord::nowhere();
                     return result;
                 }
@@ -619,61 +648,61 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     return nullptr;
                 }
                 case Event::SPIT_BLINDING_VENOM:
-                    return PerceivedEvent(PerceivedEvent::SPIT_BLINDING_VENOM, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::SPIT_BLINDING_VENOM, make_thing_snapshot(observer, data.individual));
                 case Event::BLINDING_VENOM_HIT_INDIVIDUAL:
                     // status is included in a different event
-                    return PerceivedEvent(PerceivedEvent::BLINDING_VENOM_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::BLINDING_VENOM_HIT_INDIVIDUAL, make_thing_snapshot(observer, data.individual));
                 case Event::THROW_TAR:
-                    return PerceivedEvent(PerceivedEvent::THROW_TAR, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::THROW_TAR, make_thing_snapshot(observer, data.individual));
                 case Event::TAR_HIT_INDIVIDUAL:
                     // status is included in a different event
-                    return PerceivedEvent(PerceivedEvent::TAR_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::TAR_HIT_INDIVIDUAL, make_thing_snapshot(observer, data.individual));
                 case Event::MAGIC_BEAM_HIT_INDIVIDUAL:
                     // status is included in a different event
-                    return PerceivedEvent(PerceivedEvent::MAGIC_BEAM_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::MAGIC_BEAM_HIT_INDIVIDUAL, make_thing_snapshot(observer, data.individual));
                 case Event::INDIVIDUAL_DODGES_MAGIC_BEAM:
-                    return PerceivedEvent(PerceivedEvent::INDIVIDUAL_DODGES_MAGIC_BEAM, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::INDIVIDUAL_DODGES_MAGIC_BEAM, make_thing_snapshot(observer, data.individual));
                 case Event::MAGIC_MISSILE_HIT_INDIVIDUAL: {
-                    PerceivedEvent result(PerceivedEvent::MAGIC_MISSILE_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    PerceivedEvent result(PerceivedEvent::MAGIC_MISSILE_HIT_INDIVIDUAL, make_thing_snapshot(observer, data.individual));
                     identify_active_item(observer, WandId_WAND_OF_MAGIC_MISSILE, PotionId_COUNT, BookId_COUNT);
                     return result;
                 }
                 case Event::MAGIC_BULLET_HIT_INDIVIDUAL: {
-                    PerceivedEvent result(PerceivedEvent::MAGIC_BULLET_HIT_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    PerceivedEvent result(PerceivedEvent::MAGIC_BULLET_HIT_INDIVIDUAL, make_thing_snapshot(observer, data.individual));
                     identify_active_item(observer, WandId_WAND_OF_MAGIC_BULLET, PotionId_COUNT, BookId_SPELLBOOK_OF_MAGIC_BULLET);
                     return result;
                 }
                 case Event::INDIVIDUAL_IS_HEALED: {
-                    PerceivedEvent result(PerceivedEvent::INDIVIDUAL_IS_HEALED, get_thing_description(observer, data.individual));
+                    PerceivedEvent result(PerceivedEvent::INDIVIDUAL_IS_HEALED, make_thing_snapshot(observer, data.individual));
                     identify_active_item(observer, WandId_COUNT, PotionId_POTION_OF_HEALING, BookId_COUNT);
                     return result;
                 }
                 case Event::ACTIVATED_MAPPING: {
-                    PerceivedEvent result(PerceivedEvent::ACTIVATED_MAPPING, get_thing_description(observer, data.individual));
+                    PerceivedEvent result(PerceivedEvent::ACTIVATED_MAPPING, make_thing_snapshot(observer, data.individual));
                     identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_MAPPING);
                     return result;
                 }
                 case Event::MAGIC_BEAM_PUSH_INDIVIDUAL: {
-                    PerceivedEvent result(PerceivedEvent::MAGIC_BEAM_PUSH_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    PerceivedEvent result(PerceivedEvent::MAGIC_BEAM_PUSH_INDIVIDUAL, make_thing_snapshot(observer, data.individual));
                     identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
                     return result;
                 }
                 case Event::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL: {
-                    PerceivedEvent result(PerceivedEvent::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL, get_thing_description(observer, data.individual));
+                    PerceivedEvent result(PerceivedEvent::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL, make_thing_snapshot(observer, data.individual));
                     identify_active_item(observer, WandId_WAND_OF_FORCE, PotionId_COUNT, BookId_SPELLBOOK_OF_FORCE);
                     return result;
                 }
                 case Event::FAIL_TO_CAST_SPELL:
-                    return PerceivedEvent(PerceivedEvent::FAIL_TO_CAST_SPELL, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::FAIL_TO_CAST_SPELL, make_thing_snapshot(observer, data.individual));
                 case Event::SEARED_BY_LAVA:
                     // we learn that there is lava there
                     observer->life()->knowledge.tiles[individual->location] = TileType_LAVA_FLOOR;
-                    return PerceivedEvent(PerceivedEvent::SEARED_BY_LAVA, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::SEARED_BY_LAVA, make_thing_snapshot(observer, data.individual));
                 case Event::INDIVIDUAL_FLOATS_UNCONTROLLABLY:
                     // we also know that the individual is levitating, but we should already know that.
-                    return PerceivedEvent(PerceivedEvent::INDIVIDUAL_FLOATS_UNCONTROLLABLY, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::INDIVIDUAL_FLOATS_UNCONTROLLABLY, make_thing_snapshot(observer, data.individual));
                 case Event::LUNGE:
-                    return PerceivedEvent(PerceivedEvent::LUNGE, get_thing_description(observer, data.individual));
+                    return PerceivedEvent(PerceivedEvent::LUNGE, make_thing_snapshot(observer, data.individual));
             }
             break;
         }
@@ -702,7 +731,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
             bool is_gain = data.id == Event::GAIN_STATUS;
             if (!is_gain)
                 remove_status(individual, data.status);
-            ThingSnapshot individual_snapshot = get_thing_description(observer, data.individual);
+            ThingSnapshot individual_snapshot = make_thing_snapshot(observer, data.individual);
             if (is_gain)
                 put_status(individual, data.status);
 
@@ -771,7 +800,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
         case Event::INDIVIDUAL_AND_LOCATION: {
             const Event::IndividualAndLocationData & data = event.individual_and_location_data();
             record_solidity_of_location(observer, data.location, data.is_air);
-            ThingSnapshot actor_snapshot = get_thing_description(observer, data.actor);
+            ThingSnapshot actor_snapshot = make_thing_snapshot(observer, data.actor);
             switch (data.id) {
                 case Event::BUMP_INTO_LOCATION:
                     return PerceivedEvent(PerceivedEvent::BUMP_INTO_LOCATION, actor_snapshot, data.location, data.is_air);
@@ -806,7 +835,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::MELEE_KILL: {
                     record_perception_of_thing(observer, data.actor);
                     record_perception_of_thing(observer, data.target);
-                    PerceivedEvent result((PerceivedEvent::TwoIndividualDataId)data.id, get_thing_description(observer, data.actor), get_thing_description(observer, data.target));
+                    PerceivedEvent result((PerceivedEvent::TwoIndividualDataId)data.id, make_thing_snapshot(observer, data.actor), make_thing_snapshot(observer, data.target));
                     if (data.id == Event::MELEE_KILL)
                         observer->life()->knowledge.perceived_things.get(data.target)->location = Coord::nowhere();
                     return result;
@@ -817,9 +846,9 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
         case Event::INDIVIDUAL_AND_ITEM: {
             const Event::IndividualAndItemData & data = event.individual_and_item_data();
             record_perception_of_thing(observer, data.individual);
-            ThingSnapshot individual_snapshot = get_thing_description(observer, data.individual);
+            ThingSnapshot individual_snapshot = make_thing_snapshot(observer, data.individual);
             PerceivedThing item = record_perception_of_thing(observer, data.item);
-            ThingSnapshot item_snapshot = get_thing_description(observer, data.item);
+            ThingSnapshot item_snapshot = make_thing_snapshot(observer, data.item);
             switch (data.id) {
                 case Event::ZAP_WAND: {
                     PerceivedThing wand = observer->life()->knowledge.perceived_things.get(data.item);
@@ -872,7 +901,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
         }
         case Event::INDIVIDUAL_AND_SPECIES: {
             const Event::IndividualAndSpeciesData & data = event.individual_and_species_data();
-            PerceivedEvent result(PerceivedEvent::POLYMORPH, get_thing_description(observer, data.individual), data.new_species);
+            PerceivedEvent result(PerceivedEvent::POLYMORPH, make_thing_snapshot(observer, data.individual), data.new_species);
             record_perception_of_thing(observer, data.individual);
             identify_active_item(observer, WandId_COUNT, PotionId_COUNT, BookId_SPELLBOOK_OF_ASSUME_FORM);
             return result;
@@ -880,7 +909,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
         case Event::ITEM_AND_LOCATION: {
             const Event::ItemAndLocationData & data = event.item_and_location_data();
             PerceivedThing item = record_perception_of_thing(observer, data.item);
-            ThingSnapshot item_snapshot = get_thing_description(observer, data.item);
+            ThingSnapshot item_snapshot = make_thing_snapshot(observer, data.item);
             switch (data.id) {
                 case Event::WAND_EXPLODES:
                     if (item->wand_info()->description_id != WandDescriptionId_UNSEEN)
