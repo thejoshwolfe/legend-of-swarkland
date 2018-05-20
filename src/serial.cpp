@@ -1530,7 +1530,7 @@ static void skip_blank_events(const List<Nullable<PerceivedEvent>> & events) {
         test_you_events_mark++;
 }
 static String event_to_string(PerceivedEvent event) {
-    Span span = render_event(you(), event);
+    Span span = render_event(event);
     String string = new_string();
     span->to_string(string);
     return string;

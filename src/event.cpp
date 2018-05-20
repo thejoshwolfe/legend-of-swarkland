@@ -580,6 +580,8 @@ static void identify_active_item(Thing observer, WandId wand_id, PotionId potion
 }
 
 static ThingSnapshot make_thing_snapshot(Thing observer, uint256 target_id) {
+    if (observer->id == target_id)
+        return ThingSnapshot::create_you();
     Knowledge & knowledge = observer->life()->knowledge;
     PerceivedThing target = knowledge.perceived_things.get(target_id);
     switch (target->thing_type) {
@@ -935,6 +937,8 @@ void publish_event(Event actual_event) {
         Event event;
         if (!true_event_to_observed_event(observer, actual_event, &event))
             continue;
-        observe_event(observer, event);
+        Nullable<PerceivedEvent> maybe_perceived_event = observe_event(observer, event);
+        if (maybe_perceived_event != nullptr)
+            observer->life()->knowledge.perceived_events.append(maybe_perceived_event);
     }
 }

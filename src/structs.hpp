@@ -294,20 +294,37 @@ private:
 };
 
 
+enum ThingSnapshotType {
+    ThingSnapshotType_YOU,
+    ThingSnapshotType_INDIVIDUAL,
+    ThingSnapshotType_WAND,
+    ThingSnapshotType_POTION,
+    ThingSnapshotType_BOOK,
+    ThingSnapshotType_WEAPON,
+};
 struct ThingSnapshot {
-    ThingType thing_type;
+    ThingSnapshotType thing_type;
+
+    bool is_you() {
+        return thing_type == ThingSnapshotType_YOU;
+    }
+    static ThingSnapshot create_you() {
+        ThingSnapshot result;
+        result.thing_type = ThingSnapshotType_YOU;
+        return result;
+    }
 
     struct IndividualSnapshotData {
-        SpeciesId speices_id;
+        SpeciesId species_id;
         StatusEffectIdBitField status_effect_bits;
     };
     IndividualSnapshotData & individual_data() {
-        assert(thing_type == ThingType_INDIVIDUAL);
+        assert(thing_type == ThingSnapshotType_INDIVIDUAL);
         return _data._individual_data;
     }
     static ThingSnapshot create(SpeciesId species_id, StatusEffectIdBitField status_effect_bits) {
         ThingSnapshot result;
-        result.thing_type = ThingType_INDIVIDUAL;
+        result.thing_type = ThingSnapshotType_INDIVIDUAL;
         result.individual_data() = {
             species_id,
             status_effect_bits,
@@ -320,12 +337,12 @@ struct ThingSnapshot {
         WandId identified_id;
     };
     WandSnapshotData & wand_data() {
-        assert(thing_type == ThingType_WAND);
+        assert(thing_type == ThingSnapshotType_WAND);
         return _data._wand_data;
     }
     static ThingSnapshot create(WandDescriptionId description_id, WandId identified_id) {
         ThingSnapshot result;
-        result.thing_type = ThingType_WAND;
+        result.thing_type = ThingSnapshotType_WAND;
         result.wand_data() = {
             description_id,
             identified_id,
@@ -338,12 +355,12 @@ struct ThingSnapshot {
         PotionId identified_id;
     };
     PotionSnapshotData & potion_data() {
-        assert(thing_type == ThingType_POTION);
+        assert(thing_type == ThingSnapshotType_POTION);
         return _data._potion_data;
     }
     static ThingSnapshot create(PotionDescriptionId description_id, PotionId identified_id) {
         ThingSnapshot result;
-        result.thing_type = ThingType_POTION;
+        result.thing_type = ThingSnapshotType_POTION;
         result.potion_data() = {
             description_id,
             identified_id,
@@ -356,12 +373,12 @@ struct ThingSnapshot {
         BookId identified_id;
     };
     BookSnapshotData & book_data() {
-        assert(thing_type == ThingType_BOOK);
+        assert(thing_type == ThingSnapshotType_BOOK);
         return _data._book_data;
     }
     static ThingSnapshot create(BookDescriptionId description_id, BookId identified_id) {
         ThingSnapshot result;
-        result.thing_type = ThingType_BOOK;
+        result.thing_type = ThingSnapshotType_BOOK;
         result.book_data() = {
             description_id,
             identified_id,
@@ -370,12 +387,12 @@ struct ThingSnapshot {
     }
 
     WeaponId & weapon_data() {
-        assert(thing_type == ThingType_WEAPON);
+        assert(thing_type == ThingSnapshotType_WEAPON);
         return _data._weapon_data;
     }
     static ThingSnapshot create(WeaponId weapon_id) {
         ThingSnapshot result;
-        result.thing_type = ThingType_WEAPON;
+        result.thing_type = ThingSnapshotType_WEAPON;
         result.weapon_data() = weapon_id;
         return result;
     }
