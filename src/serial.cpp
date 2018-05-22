@@ -200,10 +200,10 @@ static void write_uint32(ByteBuffer * output_buffer, uint32_t n) {
         output_buffer->append(c);
     }
 }
-template<int Size64>
+template<size_t Size64>
 static void write_uint_oversized_to_buffer(ByteBuffer * output_buffer, uint_oversized<Size64> n) {
-    for (int j = 0; j < Size64; j++) {
-        for (int i = 0; i < 16; i++) {
+    for (size_t j = 0; j < Size64; j++) {
+        for (size_t i = 0; i < 16; i++) {
             uint32_t nibble = (n.values[j] >> (64 - (i + 1) * 4)) & 0xf;
             char c = nibble_to_char(nibble);
             output_buffer->append(c);

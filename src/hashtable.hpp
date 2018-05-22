@@ -5,49 +5,49 @@
 
 #include <stdint.h>
 
-template<int Size64>
+template<size_t Size64>
 struct uint_oversized {
     uint64_t values[Size64];
 
     static inline uint_oversized<Size64> zero() {
         uint_oversized<Size64> result;
-        for (int i = 0; i < Size64; i++)
+        for (size_t i = 0; i < Size64; i++)
             result.values[i] = 0;
         return result;
     }
 };
 
-template<int Size64>
+template<size_t Size64>
 static inline bool operator==(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
-    for (int i = 0; i < Size64; i++)
+    for (size_t i = 0; i < Size64; i++)
         if (a.values[i] != b.values[i])
             return false;
     return true;
 }
-template<int Size64>
+template<size_t Size64>
 static inline bool operator!=(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
     return !(a == b);
 }
-template<int Size64>
+template<size_t Size64>
 static inline uint32_t hash_oversized(const uint_oversized<Size64> & a) {
     // it's just a bunch of xor
     uint64_t result = 0;
-    for (int i = 0; i < Size64; i++)
+    for (size_t i = 0; i < Size64; i++)
         result ^= a.values[i];
     return (uint32_t)(result >> 32) ^ (uint32_t)(result & 0x00000000ffffffffULL);
 }
 
-template<int Size64>
+template<size_t Size64>
 static inline uint_oversized<Size64> random_oversized() {
     uint_oversized<Size64> result;
-    for (int i = 0; i < Size64; i++)
+    for (size_t i = 0; i < Size64; i++)
         result.values[i] = ((uint64_t)random_uint32()) << 32 | (uint64_t)random_uint32();
     return result;
 }
 
-template<int Size64>
+template<size_t Size64>
 static inline int compare(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
-    for (int i = 0; i < Size64; i++) {
+    for (size_t i = 0; i < Size64; i++) {
         if (a.values[i] == b.values[i])
             continue;
         return a.values[i] < b.values[i] ? -1 : 1;
