@@ -2,6 +2,7 @@
 #define PRIMITIVES_HPP
 
 #include <stdint.h>
+#include "bitfield.hpp"
 
 // welcome to the result of Josh's frustration with C's back-reference-only design.
 // this file contains all the enums and primitive typedefs that someone might want to refer to.
@@ -153,5 +154,33 @@ enum AbilityId {
 
     AbilityId_COUNT,
 };
+
+enum TutorialPrompt {
+    TutorialPrompt_QUIT,
+
+    TutorialPrompt_MOVE_HIT,
+    TutorialPrompt_INVENTORY,
+    TutorialPrompt_ABILITY,
+    TutorialPrompt_PICK_UP,
+    TutorialPrompt_GO_DOWN,
+    TutorialPrompt_GROUND_ACTION,
+
+    TutorialPrompt_REST,
+    TutorialPrompt_MOVE_CURSOR,
+    TutorialPrompt_MOVE_CURSOR_MENU,
+    TutorialPrompt_DIRECTION,
+    TutorialPrompt_YOURSELF,
+    TutorialPrompt_MENU_ACTION,
+    TutorialPrompt_ACCEPT,
+    TutorialPrompt_ACCEPT_SUBMENU,
+
+    TutorialPrompt_CANCEL,
+    TutorialPrompt_BACK,
+
+    TutorialPrompt_WHATS_THIS,
+
+    TutorialPrompt_COUNT,
+};
+typedef BitField<TutorialPrompt_COUNT>::Type TutorialPromptBits;
 
 #endif

@@ -767,6 +767,7 @@ static Rect get_image_for_ability(AbilityId ability_id) {
 
 static int previous_events_length = 0;
 static uint256 previous_spectator_id = uint256::zero();
+static TutorialPromptBits previous_tutorial_prompt;
 static Div tutorial_div = new_div();
 static Div version_div = new_div();
 static Div events_div = new_div();
@@ -799,34 +800,6 @@ static Div cheatcode_generate_monster_choose_species_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -1;
-
-enum TutorialPrompt {
-    TutorialPrompt_QUIT,
-
-    TutorialPrompt_MOVE_HIT,
-    TutorialPrompt_INVENTORY,
-    TutorialPrompt_ABILITY,
-    TutorialPrompt_PICK_UP,
-    TutorialPrompt_GO_DOWN,
-    TutorialPrompt_GROUND_ACTION,
-
-    TutorialPrompt_REST,
-    TutorialPrompt_MOVE_CURSOR,
-    TutorialPrompt_MOVE_CURSOR_MENU,
-    TutorialPrompt_DIRECTION,
-    TutorialPrompt_YOURSELF,
-    TutorialPrompt_MENU_ACTION,
-    TutorialPrompt_ACCEPT,
-    TutorialPrompt_ACCEPT_SUBMENU,
-
-    TutorialPrompt_CANCEL,
-    TutorialPrompt_BACK,
-
-    TutorialPrompt_WHATS_THIS,
-
-    TutorialPrompt_COUNT,
-};
-typedef BitField<TutorialPrompt_COUNT>::Type TutorialPromptBits;
 
 static const char * tutorial_prompt_str(TutorialPrompt tutorial_prompt) {
     switch (tutorial_prompt) {
@@ -1629,12 +1602,21 @@ void render() {
     }
 
     // tutorial
-    tutorial_div->set_content(render_tutorial_div_content(get_tutorial_prompts(player_actor(), my_inventory.length() > 0, my_abilities.length() > 0)));
-    render_div(tutorial_div, tutorial_area, 1, 1);
     {
-        Span blurb_span = new_span("v", gray, black);
-        blurb_span->append(version_string);
-        version_div->set_content(blurb_span);
+        TutorialPromptBits tutorial_prompt = get_tutorial_prompts(player_actor(), my_inventory.length() > 0, my_abilities.length() > 0);
+        if (previous_tutorial_prompt != tutorial_prompt) {
+            tutorial_div->set_content(render_tutorial_div_content(tutorial_prompt));
+            previous_tutorial_prompt = tutorial_prompt;
+        }
+    }
+    render_div(tutorial_div, tutorial_area, 1, 1);
+
+    {
+        if (version_div->is_empty()) {
+            Span blurb_span = new_span("v", gray, black);
+            blurb_span->append(version_string);
+            version_div->set_content(blurb_span);
+        }
         render_div(version_div, version_area, -1, -1);
     }
 

@@ -233,6 +233,10 @@ public:
     DivImpl() {
     }
 
+    bool is_empty() const {
+        return _items.length() == 0;
+    }
+
     void set_content(Span span) {
         if (_items.length() == 1 && *_items[0].span == *span)
             return;
