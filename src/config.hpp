@@ -23,4 +23,9 @@ static constexpr char const* const int64_format = (
     nullptr);
 static_assert(int64_format != nullptr, "");
 
+template <typename T>
+static constexpr int ctz(T i) {
+    return __builtin_ctz(i);
+}
+
 #endif

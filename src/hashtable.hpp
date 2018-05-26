@@ -2,32 +2,8 @@
 #define HASHTABLE_HPP
 
 #include "util.hpp"
+#include "uint_oversized.hpp"
 
-#include <stdint.h>
-
-template<size_t Size64>
-struct uint_oversized {
-    uint64_t values[Size64];
-
-    static inline uint_oversized<Size64> zero() {
-        uint_oversized<Size64> result;
-        for (size_t i = 0; i < Size64; i++)
-            result.values[i] = 0;
-        return result;
-    }
-};
-
-template<size_t Size64>
-static inline bool operator==(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
-    for (size_t i = 0; i < Size64; i++)
-        if (a.values[i] != b.values[i])
-            return false;
-    return true;
-}
-template<size_t Size64>
-static inline bool operator!=(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
-    return !(a == b);
-}
 template<size_t Size64>
 static inline uint32_t hash_oversized(const uint_oversized<Size64> & a) {
     // it's just a bunch of xor
@@ -44,19 +20,6 @@ static inline uint_oversized<Size64> random_oversized() {
         result.values[i] = ((uint64_t)random_uint32()) << 32 | (uint64_t)random_uint32();
     return result;
 }
-
-template<size_t Size64>
-static inline int compare(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
-    for (size_t i = 0; i < Size64; i++) {
-        if (a.values[i] == b.values[i])
-            continue;
-        return a.values[i] < b.values[i] ? -1 : 1;
-    }
-    return 0;
-}
-
-DEFINE_GDB_PY_SCRIPT("debug-scripts/uint_oversized.py")
-
 
 typedef uint_oversized<4> uint256;
 uint32_t hash_uint256(const uint256 & a);

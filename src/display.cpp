@@ -800,33 +800,119 @@ static int last_cheatcode_generate_monster_choose_species_menu_cursor = -1;
 static Div cheatcode_generate_monster_choose_decision_maker_menu_div = new_div();
 static int last_cheatcode_generate_monster_choose_decision_maker_menu_cursor = -1;
 
-static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, bool has_abilities) {
-    List<const char *> lines;
+enum TutorialPrompt {
+    TutorialPrompt_QUIT,
+
+    TutorialPrompt_MOVE_HIT,
+    TutorialPrompt_INVENTORY,
+    TutorialPrompt_ABILITY,
+    TutorialPrompt_PICK_UP,
+    TutorialPrompt_GO_DOWN,
+    TutorialPrompt_GROUND_ACTION,
+
+    TutorialPrompt_REST,
+    TutorialPrompt_MOVE_CURSOR,
+    TutorialPrompt_MOVE_CURSOR_MENU,
+    TutorialPrompt_DIRECTION,
+    TutorialPrompt_YOURSELF,
+    TutorialPrompt_MENU_ACTION,
+    TutorialPrompt_ACCEPT,
+    TutorialPrompt_ACCEPT_SUBMENU,
+
+    TutorialPrompt_CANCEL,
+    TutorialPrompt_BACK,
+
+    TutorialPrompt_WHATS_THIS,
+
+    TutorialPrompt_COUNT,
+};
+typedef BitField<TutorialPrompt_COUNT>::Type TutorialPromptBits;
+
+static const char * tutorial_prompt_str(TutorialPrompt tutorial_prompt) {
+    switch (tutorial_prompt) {
+        case TutorialPrompt_QUIT:
+            return "Alt+F4: quit";
+        case TutorialPrompt_MOVE_HIT:
+            return "qweadzxc: move/hit";
+        case TutorialPrompt_INVENTORY:
+            return "Tab: inventory...";
+        case TutorialPrompt_ABILITY:
+            return "v: ability...";
+        case TutorialPrompt_PICK_UP:
+            return "s: pick up";
+        case TutorialPrompt_GO_DOWN:
+            return "s: go down";
+        case TutorialPrompt_GROUND_ACTION:
+            return "s: action...";
+        case TutorialPrompt_REST:
+            return "r: rest";
+        case TutorialPrompt_MOVE_CURSOR:
+            return "qweadzxc: move cursor";
+        case TutorialPrompt_MOVE_CURSOR_MENU:
+            return "w/x: move cursor";
+        case TutorialPrompt_DIRECTION:
+            return "qweadzxc: direction";
+        case TutorialPrompt_YOURSELF:
+            return "s: yourself";
+        case TutorialPrompt_MENU_ACTION:
+            return "Tab/s: action...";
+        case TutorialPrompt_ACCEPT:
+            return "Tab/s: accept";
+        case TutorialPrompt_ACCEPT_SUBMENU:
+            return "Tab/s: accept...";
+        case TutorialPrompt_CANCEL:
+            return "Esc: cancel";
+        case TutorialPrompt_BACK:
+            return "Esc: back";
+        case TutorialPrompt_WHATS_THIS:
+            return "mouse: what's this";
+        case TutorialPrompt_COUNT:
+            unreachable();
+    }
+    unreachable();
+}
+
+static Div render_tutorial_div_content(TutorialPromptBits tutorial_prompt_bits) {
+    Div div = new_div();
+    bool add_separator = false;
+    TutorialPrompt tutorial_prompt;
+    for (auto iter = BitFieldIterator<TutorialPrompt, TutorialPromptBits>(tutorial_prompt_bits); iter.next(&tutorial_prompt);) {
+        if (add_separator)
+            div->append_newline();
+        add_separator = true;
+
+        const char * text = tutorial_prompt_str(tutorial_prompt);
+        div->append(new_span(text));
+    }
+    return div;
+}
+static TutorialPromptBits get_tutorial_prompts(Thing spectate_from, bool has_inventory, bool has_abilities) {
+    TutorialPromptBits result = 0;
     if (!you()->still_exists) {
-        lines.append("Alt+F4: quit");
+        result |= TutorialPrompt_QUIT;
     } else {
         switch (input_mode) {
             case InputMode_MAIN: {
                 List<Action> floor_actions;
                 get_floor_actions(spectate_from, &floor_actions);
 
-                lines.append("qweadzxc: move/hit");
+                result |= TutorialPrompt_MOVE_HIT;
                 if (has_inventory)
-                    lines.append("Tab: inventory...");
+                    result |= TutorialPrompt_INVENTORY;
                 if (has_abilities)
-                    lines.append("v: ability...");
+                    result |= TutorialPrompt_ABILITY;
                 if (floor_actions.length() == 0) {
                 } else if (floor_actions.length() == 1) {
                     Action::Id action_id = floor_actions[0].id;
                     if (action_id == Action::PICKUP) {
-                        lines.append("s: pick up");
+                        result |= TutorialPrompt_PICK_UP;
                     } else if (action_id == Action::GO_DOWN) {
-                        lines.append("s: go down");
+                        result |= TutorialPrompt_GO_DOWN;
                     } else {
                         unreachable();
                     }
                 } else {
-                    lines.append("s: action...");
+                    result |= TutorialPrompt_GROUND_ACTION;
                 }
 
                 List<uint256> scary_individuals;
@@ -836,31 +922,31 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
                 if (scary_individuals.length() == 0 && annoying_status_effects.length() > 0) {
                     if (current_player_decision.id == Action::AUTO_WAIT) {
                         // in the middle of an auto wait
-                        lines.append("Esc: cancel");
+                        result |= TutorialPrompt_CANCEL;
                     } else {
                         // TODO: talk about the reasons somehow
-                        lines.append("r: rest");
+                        result |= TutorialPrompt_REST;
                     }
                 }
                 break;
             }
             case InputMode_INVENTORY_CHOOSE_ITEM:
             case InputMode_CHOOSE_ABILITY:
-                lines.append("qweadzxc: move cursor");
-                lines.append("Tab/s: action...");
-                lines.append("Esc: cancel");
+                result |= TutorialPrompt_MOVE_CURSOR_MENU;
+                result |= TutorialPrompt_MENU_ACTION;
+                result |= TutorialPrompt_CANCEL;
                 break;
             case InputMode_INVENTORY_CHOOSE_ACTION:
-                lines.append("w/x: move cursor");
+                result |= TutorialPrompt_MOVE_CURSOR_MENU;
                 switch (inventory_menu_items[inventory_menu_cursor]) {
                     case Action::DROP:
                     case Action::QUAFF:
-                        lines.append("Tab/s: accept");
+                        result |= TutorialPrompt_ACCEPT;
                         break;
                     case Action::ZAP:
                     case Action::READ_BOOK:
                     case Action::THROW:
-                        lines.append("Tab/s: accept...");
+                        result |= TutorialPrompt_ACCEPT_SUBMENU;
                         break;
 
                     case Action::WAIT:
@@ -882,7 +968,7 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
                     case Action::AUTO_WAIT:
                         unreachable();
                 }
-                lines.append("Esc: back");
+                result |= TutorialPrompt_BACK;
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
             case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
@@ -893,34 +979,27 @@ static Div get_tutorial_div_content(Thing spectate_from, bool has_inventory, boo
             case InputMode_CHEATCODE_WISH_CHOOSE_WEAPON_ID:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
-                lines.append("w/x: move cursor");
-                lines.append("Tab/s: accept");
-                lines.append("Esc: back");
+                result |= TutorialPrompt_MOVE_CURSOR_MENU;
+                result |= TutorialPrompt_ACCEPT;
+                result |= TutorialPrompt_BACK;
                 break;
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
-                lines.append("qweadzxc: move cursor");
-                lines.append("Tab/s: accept");
-                lines.append("Esc: back");
+                result |= TutorialPrompt_MOVE_CURSOR;
+                result |= TutorialPrompt_ACCEPT;
+                result |= TutorialPrompt_BACK;
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
             case InputMode_ZAP_CHOOSE_DIRECTION:
             case InputMode_READ_BOOK_CHOOSE_DIRECTION:
             case InputMode_ABILITY_CHOOSE_DIRECTION:
-                lines.append("qweadzxc: direction");
-                lines.append("s: yourself");
-                lines.append("Esc: cancel");
+                result |= TutorialPrompt_DIRECTION;
+                result |= TutorialPrompt_YOURSELF;
+                result |= TutorialPrompt_CANCEL;
                 break;
         }
     }
-    lines.append("mouse: what's this");
-
-    Div div = new_div();
-    for (int i = 0; i < lines.length(); i++) {
-        if (i > 0)
-            div->append_newline();
-        div->append(new_span(lines[i]));
-    }
-    return div;
+    result |= TutorialPrompt_WHATS_THIS;
+    return result;
 }
 static Span render_percent(int numerator, int denominator) {
     numerator = clamp(numerator, 0, denominator);
@@ -1550,7 +1629,7 @@ void render() {
     }
 
     // tutorial
-    tutorial_div->set_content(get_tutorial_div_content(player_actor(), my_inventory.length() > 0, my_abilities.length() > 0));
+    tutorial_div->set_content(render_tutorial_div_content(get_tutorial_prompts(player_actor(), my_inventory.length() > 0, my_abilities.length() > 0)));
     render_div(tutorial_div, tutorial_area, 1, 1);
     {
         Span blurb_span = new_span("v", gray, black);
