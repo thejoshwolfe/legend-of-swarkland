@@ -42,8 +42,6 @@ using StatusEffectIdBitField = BitField<StatusEffect::COUNT - 1>::Type;
 
 template<typename ThingType>
 struct EventBase {
-    EventBase() {}
-
     enum Type {
         THE_INDIVIDUAL,
         THE_LOCATION,
@@ -72,13 +70,16 @@ struct EventBase {
         check_data_type(INDIVIDUAL_AND_LOCATION);
         return _data._individual_and_location;
     }
-    EventBase(IndividualAndLocationDataId id, ThingType actor, Coord location, bool is_air) : type(INDIVIDUAL_AND_LOCATION) {
-        individual_and_location_data() = {
+    static EventBase create(IndividualAndLocationDataId id, ThingType actor, Coord location, bool is_air) {
+        EventBase result;
+        result.type = INDIVIDUAL_AND_LOCATION;
+        result.individual_and_location_data() = {
             id,
             actor,
             location,
             is_air,
         };
+        return result;
     }
 
     enum IndividualAndTwoLocationDataId {
@@ -93,12 +94,15 @@ struct EventBase {
         check_data_type(INDIVIDUAL_AND_TWO_LOCATION);
         return _data._individual_and_two_location;
     }
-    EventBase(IndividualAndTwoLocationDataId, ThingType actor, Coord old_location, Coord new_location) : type(INDIVIDUAL_AND_TWO_LOCATION) {
-        individual_and_two_location_data() = {
+    static EventBase create(IndividualAndTwoLocationDataId, ThingType actor, Coord old_location, Coord new_location) {
+        EventBase result;
+        result.type = INDIVIDUAL_AND_TWO_LOCATION;
+        result.individual_and_two_location_data() = {
             actor,
             old_location,
             new_location,
         };
+        return result;
     }
 
     enum TwoIndividualDataId {
@@ -116,12 +120,15 @@ struct EventBase {
         check_data_type(TWO_INDIVIDUAL);
         return _data._two_individual;
     }
-    EventBase(TwoIndividualDataId id, ThingType actor, ThingType target) : type(TWO_INDIVIDUAL) {
-        two_individual_data() = {
+    static EventBase create(TwoIndividualDataId id, ThingType actor, ThingType target) {
+        EventBase result;
+        result.type = TWO_INDIVIDUAL;
+        result.two_individual_data() = {
             id,
             actor,
             target,
         };
+        return result;
     }
 
     enum IndividualAndItemDataId {
@@ -147,12 +154,15 @@ struct EventBase {
         check_data_type(INDIVIDUAL_AND_ITEM);
         return _data._individual_and_item;
     }
-    EventBase(IndividualAndItemDataId id, ThingType individual_id, ThingType item_id) : type(INDIVIDUAL_AND_ITEM) {
-        individual_and_item_data() = {
+    static EventBase create(IndividualAndItemDataId id, ThingType individual_id, ThingType item_id) {
+        EventBase result;
+        result.type = INDIVIDUAL_AND_ITEM;
+        result.individual_and_item_data() = {
             id,
             individual_id,
             item_id,
         };
+        return result;
     }
 
     enum ItemAndLocationDataId {
@@ -171,12 +181,15 @@ struct EventBase {
         check_data_type(ITEM_AND_LOCATION);
         return _data._item_and_location;
     }
-    EventBase(ItemAndLocationDataId id, ThingType item, Coord location) : type(ITEM_AND_LOCATION) {
-        item_and_location_data() = {
+    static EventBase create(ItemAndLocationDataId id, ThingType item, Coord location) {
+        EventBase result;
+        result.type = ITEM_AND_LOCATION;
+        result.item_and_location_data() = {
             id,
             item,
             location,
         };
+        return result;
     }
 
     enum TheIndividualDataId {
@@ -209,11 +222,14 @@ struct EventBase {
         check_data_type(THE_INDIVIDUAL);
         return _data._the_individual;
     }
-    EventBase(TheIndividualDataId id, ThingType individual_id) : type(THE_INDIVIDUAL) {
-        the_individual_data() = {
+    static EventBase create(TheIndividualDataId id, ThingType individual_id) {
+        EventBase result;
+        result.type = THE_INDIVIDUAL;
+        result.the_individual_data() = {
             id,
             individual_id,
         };
+        return result;
     }
 
     enum TheLocationDataId {
@@ -229,11 +245,14 @@ struct EventBase {
         check_data_type(THE_LOCATION);
         return _data._the_location;
     }
-    EventBase(TheLocationDataId id, Coord location) : type(THE_LOCATION) {
-        the_location_data() = {
+    static EventBase create(TheLocationDataId id, Coord location) {
+        EventBase result;
+        result.type = THE_LOCATION;
+        result.the_location_data() = {
             id,
             location,
         };
+        return result;
     }
 
     enum IndividualAndStatusDataId {
@@ -249,12 +268,15 @@ struct EventBase {
         check_data_type(INDIVIDUAL_AND_STATUS);
         return _data._individual_and_status;
     }
-    EventBase(IndividualAndStatusDataId id, ThingType individual_id, StatusEffect::Id status) : type(INDIVIDUAL_AND_STATUS) {
-        individual_and_status_data() = {
+    static EventBase create(IndividualAndStatusDataId id, ThingType individual_id, StatusEffect::Id status) {
+        EventBase result;
+        result.type = INDIVIDUAL_AND_STATUS;
+        result.individual_and_status_data() = {
             id,
             individual_id,
             status,
         };
+        return result;
     }
 
     enum IndividualAndSpeciesDataId {
@@ -268,11 +290,14 @@ struct EventBase {
         check_data_type(INDIVIDUAL_AND_SPECIES);
         return _data._individual_and_species;
     };
-    EventBase(IndividualAndSpeciesDataId, ThingType shapeshifter, SpeciesId new_species) : type(INDIVIDUAL_AND_SPECIES) {
-        individual_and_species_data() = {
+    static EventBase create(IndividualAndSpeciesDataId, ThingType shapeshifter, SpeciesId new_species){
+        EventBase result;
+        result.type = INDIVIDUAL_AND_SPECIES;
+        result.individual_and_species_data() = {
             shapeshifter,
             new_species,
         };
+        return result;
     }
 
 private:

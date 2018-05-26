@@ -101,20 +101,20 @@ Thing create_random_item(ThingType thing_type) {
 }
 
 static void hit_individual_no_effect(Thing target) {
-    publish_event(Event(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
 }
 static void hit_wall_no_effect(Coord location) {
-    publish_event(Event(Event::MAGIC_BEAM_HIT_WALL, location));
+    publish_event(Event::create(Event::MAGIC_BEAM_HIT_WALL, location));
 }
 
 static void confusion_hit_individual(Thing attacker, Thing target) {
-    publish_event(Event(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
-    publish_event(Event(Event::GAIN_STATUS, target->id, StatusEffect::CONFUSION));
+    publish_event(Event::create(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::GAIN_STATUS, target->id, StatusEffect::CONFUSION));
     StatusEffect * confusion = find_or_put_status(target, StatusEffect::CONFUSION, game->time_counter + random_int(100, 200, "confusion_duration"));
     confusion->who_is_responsible = attacker->id;
 }
 static void magic_missile_hit_individual(Thing actor, Thing target) {
-    publish_event(Event(Event::MAGIC_MISSILE_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::MAGIC_MISSILE_HIT_INDIVIDUAL, target->id));
     int damage = random_int(4, 8, "magic_missile_damage");
     damage_individual(target, damage, actor, false);
 }
@@ -126,17 +126,17 @@ static void speed_hit_individual(Thing target) {
         check_for_status_expired(target, slowing_index);
         return;
     }
-    publish_event(Event(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
-    publish_event(Event(Event::GAIN_STATUS, target->id, StatusEffect::SPEED));
+    publish_event(Event::create(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::GAIN_STATUS, target->id, StatusEffect::SPEED));
     find_or_put_status(target, StatusEffect::SPEED, game->time_counter + random_int(100, 200, "speed_duration"));
 }
 static void invisibility_hit_individual(Thing target) {
-    publish_event(Event(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
-    publish_event(Event(Event::GAIN_STATUS, target->id, StatusEffect::INVISIBILITY));
+    publish_event(Event::create(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::GAIN_STATUS, target->id, StatusEffect::INVISIBILITY));
     find_or_put_status(target, StatusEffect::INVISIBILITY, game->time_counter + random_midpoint(500, "invisibility_duration"));
 }
 static void slowing_hit_individual(Thing actor, Thing target) {
-    publish_event(Event(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
     int speed_index = find_status(target->status_effects, StatusEffect::SPEED);
     if (speed_index != -1) {
         // dispel speed instead
@@ -144,11 +144,11 @@ static void slowing_hit_individual(Thing actor, Thing target) {
         check_for_status_expired(target, speed_index);
         return;
     }
-    publish_event(Event(Event::GAIN_STATUS, target->id, StatusEffect::SLOWING));
+    publish_event(Event::create(Event::GAIN_STATUS, target->id, StatusEffect::SLOWING));
     slow_individual(actor, target);
 }
 static void blinding_hit_individual(Thing attacker, Thing target) {
-    publish_event(Event(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
     blind_individual(attacker, target, 200);
 }
 static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
@@ -159,14 +159,14 @@ static void remedy_status_effect(Thing individual, StatusEffect::Id status) {
     }
 }
 static void remedy_hit_individual(Thing target) {
-    publish_event(Event(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
 
     remedy_status_effect(target, StatusEffect::CONFUSION);
     remedy_status_effect(target, StatusEffect::POISON);
     remedy_status_effect(target, StatusEffect::BLINDNESS);
 }
 static void magic_bullet_hit_individual(Thing actor, Thing target) {
-    publish_event(Event(Event::MAGIC_BULLET_HIT_INDIVIDUAL, target->id));
+    publish_event(Event::create(Event::MAGIC_BULLET_HIT_INDIVIDUAL, target->id));
     int damage = random_inclusive(1, 2, "magic_bullet_damage");
     damage_individual(target, damage, actor, false);
 }
@@ -174,10 +174,10 @@ static void magic_bullet_hit_individual(Thing actor, Thing target) {
 static int digging_hit_wall(Coord location) {
     if (game->actual_map_tiles[location] == TileType_BORDER_WALL) {
         // no effect on border walls
-        publish_event(Event(Event::MAGIC_BEAM_HIT_WALL, location));
+        publish_event(Event::create(Event::MAGIC_BEAM_HIT_WALL, location));
         return -1;
     }
-    publish_event(Event(Event::BEAM_OF_DIGGING_DIGS_WALL, location));
+    publish_event(Event::create(Event::BEAM_OF_DIGGING_DIGS_WALL, location));
     change_map(location, TileType_DIRT_FLOOR);
     return 0;
 }
@@ -190,7 +190,7 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
         target = find_individual_at(cursor);
         if (target != nullptr) {
             // join the train!
-            publish_event(Event(Event::MAGIC_BEAM_PUSH_INDIVIDUAL, target->id));
+            publish_event(Event::create(Event::MAGIC_BEAM_PUSH_INDIVIDUAL, target->id));
             choo_choo_train.append(target);
         } else {
             // move the train into this space
@@ -242,7 +242,7 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
 static void force_hit_something(Thing target, Coord direction, int beam_length_remaining, Thing actor, bool is_point_blank) {
     if (direction == Coord{0, 0}) {
         // no effect with no direction
-        publish_event(Event(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
+        publish_event(Event::create(Event::MAGIC_BEAM_HIT_INDIVIDUAL, target->id));
         return;
     }
     bool is_point_blank_recoil;
@@ -256,7 +256,7 @@ static void force_hit_something(Thing target, Coord direction, int beam_length_r
     if (is_point_blank && is_point_blank_recoil) {
         // special case when forcing point blank against a wall or a chain of enemies that can't be moved.
         // recoil as though force was pushing you.
-        publish_event(Event(Event::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL, actor->id));
+        publish_event(Event::create(Event::MAGIC_BEAM_RECOILS_AND_PUSHES_INDIVIDUAL, actor->id));
         force_push_individual(actor, -direction, beam_length_remaining, actor);
     }
 }
@@ -338,7 +338,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
         if (target != nullptr) {
             if (direction != Coord{0,0} && attempt_dodge(actor, target)) {
                 // nice dodge
-                publish_event(Event(Event::INDIVIDUAL_DODGES_MAGIC_BEAM, target->id));
+                publish_event(Event::create(Event::INDIVIDUAL_DODGES_MAGIC_BEAM, target->id));
             } else {
                 // hit individual
                 switch (projectile_id) {
@@ -417,7 +417,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
             }
         } else {
             // hit air
-            publish_event(Event(Event::MAGIC_BEAM_PASS_THROUGH_AIR, cursor));
+            publish_event(Event::create(Event::MAGIC_BEAM_PASS_THROUGH_AIR, cursor));
             switch (projectile_id) {
                 case ProjectileId_BEAM_OF_DIGGING:
                     // the digging beam doesn't travel well through air
@@ -446,7 +446,7 @@ static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projecti
 static const int small_mapping_radius = 20;
 static const int large_mapping_radius = 40;
 static void do_mapping(Thing actor, Coord direction) {
-    publish_event(Event(Event::ACTIVATED_MAPPING, actor->id));
+    publish_event(Event::create(Event::ACTIVATED_MAPPING, actor->id));
 
     Coord center = actor->location;
     MapMatrix<TileType> & tiles = actor->life()->knowledge.tiles;
@@ -479,19 +479,19 @@ static void do_mapping(Thing actor, Coord direction) {
 void zap_wand(Thing actor, uint256 item_id, Coord direction) {
     Thing wand = game->actual_things.get(item_id);
     if (wand->wand_info()->charges <= -1) {
-        publish_event(Event(Event::WAND_DISINTEGRATES, actor->id, item_id));
+        publish_event(Event::create(Event::WAND_DISINTEGRATES, actor->id, item_id));
 
         wand->still_exists = false;
         return;
     }
     if (wand->wand_info()->charges <= 0) {
-        publish_event(Event(Event::ZAP_WAND_NO_CHARGES, actor->id, item_id));
+        publish_event(Event::create(Event::ZAP_WAND_NO_CHARGES, actor->id, item_id));
         wand->wand_info()->charges--;
         return;
     }
     wand->wand_info()->charges--;
 
-    publish_event(Event(Event::ZAP_WAND, actor->id, item_id));
+    publish_event(Event::create(Event::ZAP_WAND, actor->id, item_id));
     switch (wand->wand_info()->wand_id) {
         case WandId_WAND_OF_CONFUSION:
             shoot_magic_beam(actor, direction, ProjectileId_BEAM_OF_CONFUSION);
@@ -553,7 +553,7 @@ int get_mana_cost(BookId book_id) {
 }
 
 void read_book(Thing actor, uint256 item_id, Coord direction) {
-    publish_event(Event(Event::READ_BOOK, actor->id, item_id));
+    publish_event(Event::create(Event::READ_BOOK, actor->id, item_id));
 
     Thing book = game->actual_things.get(item_id);
     BookId book_id = book->book_info()->book_id;
@@ -584,7 +584,7 @@ void read_book(Thing actor, uint256 item_id, Coord direction) {
         }
     } else {
         // failure
-        publish_event(Event(Event::FAIL_TO_CAST_SPELL, actor->id));
+        publish_event(Event::create(Event::FAIL_TO_CAST_SPELL, actor->id));
     }
     game->observer_to_active_identifiable_item.clear();
 }
@@ -595,13 +595,13 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
     PotionId potion_id = item->potion_info()->potion_id;
     // the potion might appear to do nothing
     if (is_breaking)
-        publish_event(Event(Event::POTION_HITS_INDIVIDUAL, target_id, item->id));
+        publish_event(Event::create(Event::POTION_HITS_INDIVIDUAL, target_id, item->id));
     else
-        publish_event(Event(Event::QUAFF_POTION, target_id, item->id));
+        publish_event(Event::create(Event::QUAFF_POTION, target_id, item->id));
     item->still_exists = false;
     switch (potion_id) {
         case PotionId_POTION_OF_HEALING: {
-            publish_event(Event(Event::INDIVIDUAL_IS_HEALED, target_id));
+            publish_event(Event::create(Event::INDIVIDUAL_IS_HEALED, target_id));
             int hp = target->max_hitpoints() * 2 / 3;
             heal_hp(target, hp);
             break;
@@ -610,12 +610,12 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             poison_individual(actor, target);
             break;
         case PotionId_POTION_OF_ETHEREAL_VISION:
-            publish_event(Event(Event::GAIN_STATUS, target_id, StatusEffect::ETHEREAL_VISION));
+            publish_event(Event::create(Event::GAIN_STATUS, target_id, StatusEffect::ETHEREAL_VISION));
             find_or_put_status(target, StatusEffect::ETHEREAL_VISION, game->time_counter + random_midpoint(2000, "potion_of_ethereal_vision_expiration"));
             compute_vision(target);
             break;
         case PotionId_POTION_OF_COGNISCOPY:
-            publish_event(Event(Event::GAIN_STATUS, target_id, StatusEffect::COGNISCOPY));
+            publish_event(Event::create(Event::GAIN_STATUS, target_id, StatusEffect::COGNISCOPY));
             find_or_put_status(target, StatusEffect::COGNISCOPY, game->time_counter + random_midpoint(2000, "potion_of_cogniscopy_expiration"));
             compute_vision(target);
             break;
@@ -623,15 +623,15 @@ void use_potion(Thing actor, Thing target, Thing item, bool is_breaking) {
             blind_individual(actor, target, 1000);
             break;
         case PotionId_POTION_OF_INVISIBILITY:
-            publish_event(Event(Event::GAIN_STATUS, target_id, StatusEffect::INVISIBILITY));
+            publish_event(Event::create(Event::GAIN_STATUS, target_id, StatusEffect::INVISIBILITY));
             find_or_put_status(target, StatusEffect::INVISIBILITY, game->time_counter + random_midpoint(2000, "potion_of_invisibility_expiration"));
             break;
         case PotionId_POTION_OF_BURROWING:
-            publish_event(Event(Event::GAIN_STATUS, target_id, StatusEffect::BURROWING));
+            publish_event(Event::create(Event::GAIN_STATUS, target_id, StatusEffect::BURROWING));
             find_or_put_status(target, StatusEffect::BURROWING, game->time_counter + random_midpoint(600, "potion_of_burrowing_expiration"));
             break;
         case PotionId_POTION_OF_LEVITATION:
-            publish_event(Event(Event::GAIN_STATUS, target_id, StatusEffect::LEVITATING));
+            publish_event(Event::create(Event::GAIN_STATUS, target_id, StatusEffect::LEVITATING));
             find_or_put_status(target, StatusEffect::LEVITATING, game->time_counter + random_midpoint(2000, "potion_of_levitation_expiration"));
             break;
 
@@ -651,7 +651,7 @@ static void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     } else {
         apothem = 1; // 3x3
     }
-    publish_event(Event(Event::WAND_EXPLODES, wand->id, explosion_center));
+    publish_event(Event::create(Event::WAND_EXPLODES, wand->id, explosion_center));
     wand->still_exists = false;
 
     List<Thing> affected_individuals;
@@ -732,7 +732,7 @@ static void break_potion(Thing actor, Thing item, Coord location) {
     if (target != nullptr) {
         use_potion(actor, target, item, true);
     } else {
-        publish_event(Event(Event::POTION_BREAKS, item->id, location));
+        publish_event(Event::create(Event::POTION_BREAKS, item->id, location));
     }
     item->still_exists = false;
 }
@@ -763,7 +763,7 @@ static ImpactBehavior get_impact_behavior(Thing item) {
 }
 
 void throw_item(Thing actor, Thing item, Coord direction) {
-    publish_event(Event(Event::THROW_ITEM, actor->id, item->id));
+    publish_event(Event::create(Event::THROW_ITEM, actor->id, item->id));
     // let go of the item. it's now sailing through the air.
     item->location = actor->location;
     item->container_id = uint256::zero();
@@ -791,26 +791,26 @@ void throw_item(Thing actor, Thing item, Coord direction) {
         if (!is_open_space(game->actual_map_tiles[cursor])) {
             // impact just in front of the wall
             cursor -= direction;
-            publish_event(Event(Event::ITEM_HITS_WALL, item->id, cursor));
+            publish_event(Event::create(Event::ITEM_HITS_WALL, item->id, cursor));
             impact_force = -1; // random
             break;
         } else {
             item->location = cursor;
-            publish_event(Event(Event::MOVE, item->id, cursor - direction, item->location));
+            publish_event(Event::create(Event::MOVE, item->id, cursor - direction, item->location));
         }
         hit_target = find_individual_at(cursor);
         if (hit_target != nullptr) {
             if (attempt_dodge(item, hit_target)) {
-                publish_event(Event(Event::INDIVIDUAL_DODGES_THROWN_ITEM, hit_target->id, item->id));
+                publish_event(Event::create(Event::INDIVIDUAL_DODGES_THROWN_ITEM, hit_target->id, item->id));
             } else {
                 // got em
                 if (hit_target->physical_species()->sucks_up_items) {
                     // catch the item
                     impact_behavior = ImpactBehavior_SINK_IN;
-                    publish_event(Event(Event::ITEM_SINKS_INTO_INDIVIDUAL, hit_target->id, item->id));
+                    publish_event(Event::create(Event::ITEM_SINKS_INTO_INDIVIDUAL, hit_target->id, item->id));
                 } else {
                     // hurt a little
-                    publish_event(Event(Event::ITEM_HITS_INDIVIDUAL, hit_target->id, item->id));
+                    publish_event(Event::create(Event::ITEM_HITS_INDIVIDUAL, hit_target->id, item->id));
                     Coord throw_damage_window = get_throw_damage_window(item);
                     int damage = random_inclusive(throw_damage_window.x, throw_damage_window.y, "throw_impact_damage");
                     impact_force = damage > 1 ? 2 : 1;

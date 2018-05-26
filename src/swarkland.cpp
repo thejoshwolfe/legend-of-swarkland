@@ -26,9 +26,9 @@ static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     individual->life()->hitpoints = 0;
 
     if (is_melee) {
-        publish_event(Event(Event::MELEE_KILL, attacker->id, individual->id));
+        publish_event(Event::create(Event::MELEE_KILL, attacker->id, individual->id));
     } else {
-        publish_event(Event(Event::DIE, individual->id));
+        publish_event(Event::create(Event::DIE, individual->id));
     }
     individual->still_exists = false;
 
@@ -57,7 +57,7 @@ static void level_up(Thing individual, bool publish) {
     else
         life->mana = new_max_mana;
     if (publish)
-        publish_event(Event(Event::LEVEL_UP, individual->id));
+        publish_event(Event::create(Event::LEVEL_UP, individual->id));
 }
 
 static void gain_experience(Thing individual, int delta, bool publish) {
@@ -85,14 +85,14 @@ void damage_individual(Thing target, int damage, Thing attacker, bool is_melee) 
 }
 
 void poison_individual(Thing attacker, Thing target) {
-    publish_event(Event(Event::GAIN_STATUS, target->id, StatusEffect::POISON));
+    publish_event(Event::create(Event::GAIN_STATUS, target->id, StatusEffect::POISON));
 
     StatusEffect * poison = find_or_put_status(target, StatusEffect::POISON, game->time_counter + random_midpoint(600, "poison_expiriration"));
     poison->who_is_responsible = attacker->id;
     poison->poison_next_damage_time = game->time_counter + 12 * 3;
 }
 void blind_individual(Thing attacker, Thing target, int expiration_midpoint) {
-    publish_event(Event(Event::GAIN_STATUS, target->id, StatusEffect::BLINDNESS));
+    publish_event(Event::create(Event::GAIN_STATUS, target->id, StatusEffect::BLINDNESS));
     StatusEffect * effect = find_or_put_status(target, StatusEffect::BLINDNESS, game->time_counter + random_midpoint(expiration_midpoint, "blindness_expiration"));
     effect->who_is_responsible = attacker->id;
     compute_vision(target);
@@ -129,24 +129,24 @@ void drop_item_to_the_floor(Thing item, Coord location) {
     item->z_order = -0x80000000;
     fix_z_orders(location);
 
-    publish_event(Event(Event::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location));
+    publish_event(Event::create(Event::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location));
 
     Thing individual = find_individual_at(location);
     if (individual != nullptr && individual->physical_species()->sucks_up_items) {
         // suck it
         pickup_item(individual, item);
-        publish_event(Event(Event::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id));
+        publish_event(Event::create(Event::INDIVIDUAL_SUCKS_UP_ITEM, individual->id, item->id));
     }
 }
 
 // normal melee attack
 static void attack(Thing attacker, Thing target, int bonus_damage) {
     if (attempt_dodge(attacker, target)) {
-        publish_event(Event(Event::DODGE_ATTACK, attacker->id, target->id));
+        publish_event(Event::create(Event::DODGE_ATTACK, attacker->id, target->id));
         return;
     }
     // it's a hit
-    publish_event(Event(Event::ATTACK_INDIVIDUAL, attacker->id, target->id));
+    publish_event(Event::create(Event::ATTACK_INDIVIDUAL, attacker->id, target->id));
     int attack_power = attacker->innate_attack_power();
     Thing weapon = get_equipped_weapon(attacker);
     if (weapon != nullptr)
@@ -171,7 +171,7 @@ static void attack_location(Thing actor, Coord location, int bonus_damage) {
         attack(actor, target, bonus_damage);
     } else {
         bool is_air = is_open_space(game->actual_map_tiles[location]);
-        publish_event(Event(Event::ATTACK_LOCATION, actor->id, location, is_air));
+        publish_event(Event::create(Event::ATTACK_LOCATION, actor->id, location, is_air));
     }
 }
 
@@ -199,18 +199,18 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
     int cooldown_time;
     switch (ability_id) {
         case AbilityId_SPIT_BLINDING_VENOM:
-            publish_event(Event(Event::SPIT_BLINDING_VENOM, actor->id));
+            publish_event(Event::create(Event::SPIT_BLINDING_VENOM, actor->id));
             cooldown_time = random_midpoint(150, "spit_blinding_venom_cooldown");
             break;
         case AbilityId_THROW_TAR:
-            publish_event(Event(Event::THROW_TAR, actor->id));
+            publish_event(Event::create(Event::THROW_TAR, actor->id));
             cooldown_time = random_midpoint(150, "throw_tar_cooldown");
             break;
         case AbilityId_ASSUME_FORM:
             cooldown_time = random_midpoint(48, "assume_form_cooldown");
             break;
         case AbilityId_LUNGE_ATTACK:
-            publish_event(Event(Event::LUNGE, actor->id));
+            publish_event(Event::create(Event::LUNGE, actor->id));
             cooldown_time = 48;
             break;
         case AbilityId_COUNT:
@@ -245,12 +245,12 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
         if (target != nullptr) {
             switch (ability_id) {
                 case AbilityId_SPIT_BLINDING_VENOM:
-                    publish_event(Event(Event::BLINDING_VENOM_HIT_INDIVIDUAL, target->id));
+                    publish_event(Event::create(Event::BLINDING_VENOM_HIT_INDIVIDUAL, target->id));
                     blind_individual(actor, target, 600);
                     return;
                 case AbilityId_THROW_TAR:
-                    publish_event(Event(Event::TAR_HIT_INDIVIDUAL, target->id));
-                    publish_event(Event(Event::GAIN_STATUS, target->id, StatusEffect::SLOWING));
+                    publish_event(Event::create(Event::TAR_HIT_INDIVIDUAL, target->id));
+                    publish_event(Event::create(Event::GAIN_STATUS, target->id, StatusEffect::SLOWING));
                     slow_individual(actor, target);
                     return;
                 case AbilityId_ASSUME_FORM:
@@ -325,7 +325,7 @@ static Thing spawn_a_monster(SpeciesId species_id, DecisionMakerType decision_ma
 
     game->actual_things.put(individual->id, individual);
     compute_vision(individual);
-    publish_event(Event(Event::APPEAR, individual->id));
+    publish_event(Event::create(Event::APPEAR, individual->id));
     return individual;
 }
 
@@ -671,7 +671,7 @@ void find_items_on_floor(Coord location, List<Thing> * output_sorted_list) {
 
 void suck_up_item(Thing actor, Thing item) {
     pickup_item(actor, item);
-    publish_event(Event(Event::INDIVIDUAL_SUCKS_UP_ITEM, actor->id, item->id));
+    publish_event(Event::create(Event::INDIVIDUAL_SUCKS_UP_ITEM, actor->id, item->id));
 }
 
 static bool can_propel_self_while_levitating(Thing actor) {
@@ -699,7 +699,7 @@ static void do_move(Thing mover, Coord new_position, Thing who_is_responsible) {
     compute_vision(mover);
 
     // notify other individuals who could see that move
-    publish_event(Event(Event::MOVE, mover->id, old_position, mover->location));
+    publish_event(Event::create(Event::MOVE, mover->id, old_position, mover->location));
 
     int index;
     if ((index = find_status(mover->status_effects, StatusEffect::LEVITATING)) != -1) {
@@ -740,17 +740,17 @@ bool attempt_move(Thing actor, Coord new_position, Thing who_is_responsible) {
                 // burrow through the wall.
                 change_map(new_position, TileType_DIRT_FLOOR);
                 do_move(actor, new_position, who_is_responsible);
-                publish_event(Event(Event::INDIVIDUAL_BURROWS_THROUGH_WALL, actor->id, new_position, true));
+                publish_event(Event::create(Event::INDIVIDUAL_BURROWS_THROUGH_WALL, actor->id, new_position, true));
                 return true;
             }
         }
-        publish_event(Event(Event::BUMP_INTO_LOCATION, actor->id, new_position, false));
+        publish_event(Event::create(Event::BUMP_INTO_LOCATION, actor->id, new_position, false));
         return false;
     }
     Thing target = find_individual_at(new_position);
     if (target != nullptr) {
         // this is not attacking
-        publish_event(Event(Event::BUMP_INTO_INDIVIDUAL, actor->id, target->id));
+        publish_event(Event::create(Event::BUMP_INTO_INDIVIDUAL, actor->id, target->id));
         // newton's 3rd
         Coord collisison_vector = target->location - actor->location;
         apply_impulse(target, collisison_vector);
@@ -788,7 +788,7 @@ bool check_for_status_expired(Thing individual, int index) {
         case StatusEffect::SLOWING:
         case StatusEffect::BURROWING:
         case StatusEffect::LEVITATING:
-            publish_event(Event(Event::LOSE_STATUS, individual->id, status_effect.type));
+            publish_event(Event::create(Event::LOSE_STATUS, individual->id, status_effect.type));
             break;
         case StatusEffect::POLYMORPH:
             // we've got a function for removing this status
@@ -856,14 +856,14 @@ void polymorph_individual(Thing individual, SpeciesId new_species_id, int durati
             return; // polymorphing from your natural form to your natural form does nothing
 
         individual->status_effects.swap_remove(index);
-        publish_event(Event(Event::POLYMORPH, individual->id, new_species_id));
+        publish_event(Event::create(Event::POLYMORPH, individual->id, new_species_id));
     } else {
         // add or refresh polymorph status
         StatusEffect * polymorph_effect = find_or_put_status(individual, StatusEffect::POLYMORPH, game->time_counter + duration);
         polymorph_effect->species_id = new_species_id;
 
         if (old_species_id != new_species_id)
-            publish_event(Event(Event::POLYMORPH, individual->id, new_species_id));
+            publish_event(Event::create(Event::POLYMORPH, individual->id, new_species_id));
     }
 
     int new_max_hitpoints = individual->max_hitpoints();
@@ -1047,7 +1047,7 @@ static bool take_action(Thing actor, const Action & action) {
                 can_dodge = attempt_move(actor, new_position, actor);
                 just_successfully_moved = true;
             } else {
-                publish_event(Event(Event::INDIVIDUAL_FLOATS_UNCONTROLLABLY, actor->id));
+                publish_event(Event::create(Event::INDIVIDUAL_FLOATS_UNCONTROLLABLY, actor->id));
             }
             break;
         }
@@ -1064,7 +1064,7 @@ static bool take_action(Thing actor, const Action & action) {
             break;
         case Action::PICKUP:
             pickup_item(actor, game->actual_things.get(action.item()));
-            publish_event(Event(Event::INDIVIDUAL_PICKS_UP_ITEM, actor->id, action.item()));
+            publish_event(Event::create(Event::INDIVIDUAL_PICKS_UP_ITEM, actor->id, action.item()));
             break;
         case Action::DROP:
             drop_item_to_the_floor(game->actual_things.get(action.item()), actor->location);
@@ -1272,7 +1272,7 @@ static void age_things() {
                     switch (thing->thing_type) {
                         case ThingType_INDIVIDUAL:
                             if (is_touching_ground(thing)) {
-                                publish_event(Event(Event::SEARED_BY_LAVA, thing->id));
+                                publish_event(Event::create(Event::SEARED_BY_LAVA, thing->id));
                                 damage_individual(thing, lava_damage, who_is_responsible_for_being_here(thing), false);
                             }
                             break;
@@ -1288,7 +1288,7 @@ static void age_things() {
                             unreachable();
                     }
                     if (item_disintegrates) {
-                        publish_event(Event(Event::ITEM_DISINTEGRATES_IN_LAVA, thing->id, thing->location));
+                        publish_event(Event::create(Event::ITEM_DISINTEGRATES_IN_LAVA, thing->id, thing->location));
                         thing->still_exists = false;
                     }
                 }
@@ -1368,7 +1368,7 @@ static void delete_dead_things() {
     }
     // tell everyone to forget about this stuff.
     for (int i = 0; i < delete_things.length(); i++)
-        publish_event(Event(Event::DELETE_THING, delete_things[i]->id));
+        publish_event(Event::create(Event::DELETE_THING, delete_things[i]->id));
 
     // and actually delete it all
     List<uint256> fix_z_order_container_ids;
