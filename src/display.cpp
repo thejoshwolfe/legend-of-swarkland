@@ -889,30 +889,30 @@ static Div render_tutorial_div_content(TutorialPromptBits tutorial_prompt_bits) 
 static TutorialPromptBits get_tutorial_prompts(Thing spectate_from, bool has_inventory, bool has_abilities) {
     TutorialPromptBits result = 0;
     if (!you()->still_exists) {
-        result |= TutorialPrompt_QUIT;
+        result |= 1 << TutorialPrompt_QUIT;
     } else {
         switch (input_mode) {
             case InputMode_MAIN: {
                 List<Action> floor_actions;
                 get_floor_actions(spectate_from, &floor_actions);
 
-                result |= TutorialPrompt_MOVE_HIT;
+                result |= 1 << TutorialPrompt_MOVE_HIT;
                 if (has_inventory)
-                    result |= TutorialPrompt_INVENTORY;
+                    result |= 1 << TutorialPrompt_INVENTORY;
                 if (has_abilities)
-                    result |= TutorialPrompt_ABILITY;
+                    result |= 1 << TutorialPrompt_ABILITY;
                 if (floor_actions.length() == 0) {
                 } else if (floor_actions.length() == 1) {
                     Action::Id action_id = floor_actions[0].id;
                     if (action_id == Action::PICKUP) {
-                        result |= TutorialPrompt_PICK_UP;
+                        result |= 1 << TutorialPrompt_PICK_UP;
                     } else if (action_id == Action::GO_DOWN) {
-                        result |= TutorialPrompt_GO_DOWN;
+                        result |= 1 << TutorialPrompt_GO_DOWN;
                     } else {
                         unreachable();
                     }
                 } else {
-                    result |= TutorialPrompt_GROUND_ACTION;
+                    result |= 1 << TutorialPrompt_GROUND_ACTION;
                 }
 
                 List<uint256> scary_individuals;
@@ -922,31 +922,31 @@ static TutorialPromptBits get_tutorial_prompts(Thing spectate_from, bool has_inv
                 if (scary_individuals.length() == 0 && annoying_status_effects.length() > 0) {
                     if (current_player_decision.id == Action::AUTO_WAIT) {
                         // in the middle of an auto wait
-                        result |= TutorialPrompt_CANCEL;
+                        result |= 1 << TutorialPrompt_CANCEL;
                     } else {
                         // TODO: talk about the reasons somehow
-                        result |= TutorialPrompt_REST;
+                        result |= 1 << TutorialPrompt_REST;
                     }
                 }
                 break;
             }
             case InputMode_INVENTORY_CHOOSE_ITEM:
             case InputMode_CHOOSE_ABILITY:
-                result |= TutorialPrompt_MOVE_CURSOR_MENU;
-                result |= TutorialPrompt_MENU_ACTION;
-                result |= TutorialPrompt_CANCEL;
+                result |= 1 << TutorialPrompt_MOVE_CURSOR_MENU;
+                result |= 1 << TutorialPrompt_MENU_ACTION;
+                result |= 1 << TutorialPrompt_CANCEL;
                 break;
             case InputMode_INVENTORY_CHOOSE_ACTION:
-                result |= TutorialPrompt_MOVE_CURSOR_MENU;
+                result |= 1 << TutorialPrompt_MOVE_CURSOR_MENU;
                 switch (inventory_menu_items[inventory_menu_cursor]) {
                     case Action::DROP:
                     case Action::QUAFF:
-                        result |= TutorialPrompt_ACCEPT;
+                        result |= 1 << TutorialPrompt_ACCEPT;
                         break;
                     case Action::ZAP:
                     case Action::READ_BOOK:
                     case Action::THROW:
-                        result |= TutorialPrompt_ACCEPT_SUBMENU;
+                        result |= 1 << TutorialPrompt_ACCEPT_SUBMENU;
                         break;
 
                     case Action::WAIT:
@@ -968,7 +968,7 @@ static TutorialPromptBits get_tutorial_prompts(Thing spectate_from, bool has_inv
                     case Action::AUTO_WAIT:
                         unreachable();
                 }
-                result |= TutorialPrompt_BACK;
+                result |= 1 << TutorialPrompt_BACK;
                 break;
             case InputMode_FLOOR_CHOOSE_ACTION:
             case InputMode_CHEATCODE_POLYMORPH_CHOOSE_SPECIES:
@@ -979,26 +979,26 @@ static TutorialPromptBits get_tutorial_prompts(Thing spectate_from, bool has_inv
             case InputMode_CHEATCODE_WISH_CHOOSE_WEAPON_ID:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_SPECIES:
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_DECISION_MAKER:
-                result |= TutorialPrompt_MOVE_CURSOR_MENU;
-                result |= TutorialPrompt_ACCEPT;
-                result |= TutorialPrompt_BACK;
+                result |= 1 << TutorialPrompt_MOVE_CURSOR_MENU;
+                result |= 1 << TutorialPrompt_ACCEPT;
+                result |= 1 << TutorialPrompt_BACK;
                 break;
             case InputMode_CHEATCODE_GENERATE_MONSTER_CHOOSE_LOCATION:
-                result |= TutorialPrompt_MOVE_CURSOR;
-                result |= TutorialPrompt_ACCEPT;
-                result |= TutorialPrompt_BACK;
+                result |= 1 << TutorialPrompt_MOVE_CURSOR;
+                result |= 1 << TutorialPrompt_ACCEPT;
+                result |= 1 << TutorialPrompt_BACK;
                 break;
             case InputMode_THROW_CHOOSE_DIRECTION:
             case InputMode_ZAP_CHOOSE_DIRECTION:
             case InputMode_READ_BOOK_CHOOSE_DIRECTION:
             case InputMode_ABILITY_CHOOSE_DIRECTION:
-                result |= TutorialPrompt_DIRECTION;
-                result |= TutorialPrompt_YOURSELF;
-                result |= TutorialPrompt_CANCEL;
+                result |= 1 << TutorialPrompt_DIRECTION;
+                result |= 1 << TutorialPrompt_YOURSELF;
+                result |= 1 << TutorialPrompt_CANCEL;
                 break;
         }
     }
-    result |= TutorialPrompt_WHATS_THIS;
+    result |= 1 << TutorialPrompt_WHATS_THIS;
     return result;
 }
 static Span render_percent(int numerator, int denominator) {
