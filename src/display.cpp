@@ -765,14 +765,39 @@ static Rect get_image_for_ability(AbilityId ability_id) {
     unreachable();
 }
 
+struct StatusDisplay {
+    int hp;
+    int max_hp;
+    int mana;
+    int max_mana;
+    int experience_level;
+    int experience;
+    int next_level_up;
+    int dungeon_level;
+    Nullable<int> weapon_damage;
+    int innate_attack_power;
+    int status_effect_bits;
+
+    StatusDisplay() {
+        memset(this, 0, sizeof(StatusDisplay));
+    }
+    constexpr bool operator==(const StatusDisplay & other) const {
+        return memcmp(this, &other, sizeof(StatusDisplay)) == 0;
+    }
+    constexpr bool operator!=(const StatusDisplay & other) const {
+        return !(*this == other);
+    }
+};
+
 static int previous_events_length = 0;
 static uint256 previous_spectator_id = uint256::zero();
 static TutorialPromptBits previous_tutorial_prompt;
 static Div tutorial_div = new_div();
 static Div version_div = new_div();
 static Div events_div = new_div();
-static Div hp_div = new_div();
-static Div xp_div = new_div();
+StatusDisplay previous_status_display;
+static Div vitality_div = new_div();
+static Div experience_div = new_div();
 static Div dungeon_level_div = new_div();
 static Div status_div = new_div();
 static Div time_div = new_div();
@@ -1493,6 +1518,22 @@ void render() {
     get_abilities(player_actor(), &my_abilities);
     Thing equipped_weapon = get_equipped_weapon(spectate_from);
 
+    StatusDisplay status_display;
+    status_display.hp = spectate_from->life()->hitpoints;
+    status_display.max_hp = spectate_from->max_hitpoints();
+    status_display.mana = spectate_from->life()->mana;
+    status_display.max_mana = spectate_from->max_mana();
+    status_display.experience_level = spectate_from->experience_level();
+    status_display.experience = spectate_from->life()->experience;
+    status_display.next_level_up = spectate_from->next_level_up();
+    status_display.dungeon_level = game->dungeon_level;
+    status_display.weapon_damage = nullptr;
+    if (equipped_weapon != nullptr) {
+        status_display.weapon_damage = get_weapon_damage(equipped_weapon);
+    }
+    status_display.innate_attack_power = spectate_from->innate_attack_power();
+    status_display.status_effect_bits = perceived_self->status_effect_bits;
+
     SDL_SetRenderTarget(renderer, screen_buffer);
     SDL_SetRenderDrawColor(renderer, black.r, black.g, black.b, black.a);
     SDL_RenderClear(renderer);
@@ -1611,14 +1652,12 @@ void render() {
     }
     render_div(tutorial_div, tutorial_area, 1, 1);
 
-    {
-        if (version_div->is_empty()) {
-            Span blurb_span = new_span("v", gray, black);
-            blurb_span->append(version_string);
-            version_div->set_content(blurb_span);
-        }
-        render_div(version_div, version_area, -1, -1);
+    if (version_div->is_empty()) {
+        Span blurb_span = new_span("v", gray, black);
+        blurb_span->append(version_string);
+        version_div->set_content(blurb_span);
     }
+    render_div(version_div, version_area, -1, -1);
 
     // main map
     // render the terrain
@@ -1713,75 +1752,67 @@ void render() {
         }
     }
 
-    // status box
-    {
-        int hp = spectate_from->life()->hitpoints;
-        int max_hp = spectate_from->max_hitpoints();
+    // status bar
+    if (status_display != previous_status_display) {
+        vitality_div->clear();
         String hp_string = new_string();
-        hp_string->format("HP: %d/%d", hp, max_hp);
+        hp_string->format("HP: %d/%d", status_display.hp, status_display.max_hp);
         Span hp_span = new_span(hp_string);
-        if (hp <= max_hp / 3)
+        if (status_display.hp <= status_display.max_hp / 3)
             hp_span->set_color(white, red);
-        else if (hp < max_hp)
+        else if (status_display.hp < status_display.max_hp)
             hp_span->set_color(black, amber);
         else
             hp_span->set_color(white, dark_green);
-        hp_div->set_content(hp_span);
-
-        int mana = spectate_from->life()->mana;
-        int max_mana = spectate_from->max_mana();
-        if (max_mana > 0) {
+        vitality_div->append(hp_span);
+        if (status_display.max_mana > 0) {
             String mp_string = new_string();
-            mp_string->format("MP: %d/%d", mana, max_mana);
+            mp_string->format("MP: %d/%d", status_display.mana, status_display.max_mana);
             Span mp_span = new_span(mp_string);
-            if (mana <= 0)
+            if (status_display.mana <= 0)
                 mp_span->set_color(white, red);
-            else if (mana < max_mana)
+            else if (status_display.mana < status_display.max_mana)
                 mp_span->set_color(black, amber);
             else
                 mp_span->set_color(white, black);
-            hp_div->append_newline();
-            hp_div->append(mp_span);
+            vitality_div->append_newline();
+            vitality_div->append(mp_span);
         }
-        render_div(hp_div, hp_area, 1, 1);
-    }
-    {
-        Div div = new_div();
+
+        experience_div->clear();
         String string = new_string();
-        string->format("XP Level: %d", spectate_from->experience_level());
-        div->append(new_span(string));
-        div->append_newline();
+        string->format("XP Level: %d", status_display.experience_level);
+        experience_div->append(new_span(string));
+        experience_div->append_newline();
         string->clear();
-        string->format("XP:       %d/%d", spectate_from->life()->experience, spectate_from->next_level_up());
-        div->append(new_span(string));
-        xp_div->set_content(div);
-        render_div(xp_div, xp_area, 1, 1);
-    }
-    {
-        Div div = new_div();
+        string->format("XP:       %d/%d", status_display.experience, status_display.next_level_up);
+        experience_div->append(new_span(string));
+
+        dungeon_level_div->clear();
         String dungeon_level_string = new_string();
-        dungeon_level_string->format("Dungeon Level: %d", game->dungeon_level);
-        div->set_content(new_span(dungeon_level_string));
-        div->append_newline();
+        dungeon_level_string->format("Dungeon Level: %d", status_display.dungeon_level);
+        dungeon_level_div->append(new_span(dungeon_level_string));
+        dungeon_level_div->append_newline();
         String attack_damage_string = new_string();
-        if (equipped_weapon != nullptr) {
-            int weapon_damage = get_weapon_damage(equipped_weapon);
-            attack_damage_string->format("Attack: %d+%d", spectate_from->innate_attack_power(), weapon_damage);
+        if (status_display.weapon_damage != nullptr) {
+            attack_damage_string->format("Attack: %d+%d", status_display.innate_attack_power, *status_display.weapon_damage);
         } else {
-            attack_damage_string->format("Attack: %d", spectate_from->innate_attack_power());
+            attack_damage_string->format("Attack: %d", status_display.innate_attack_power);
         }
-        div->append(new_span(attack_damage_string));
-        dungeon_level_div->set_content(div);
-        render_div(dungeon_level_div, dungeon_level_area, 1, 1);
-    }
-    {
-        status_div->set_content(get_status_description(perceived_self->status_effect_bits));
-        render_div(status_div, status_area, 1, 1);
+        dungeon_level_div->append(new_span(attack_damage_string));
+
+        status_div->set_content(get_status_description(status_display.status_effect_bits));
+
+        previous_status_display = status_display;
     }
     {
         time_div->set_content(get_time_display(spectate_from));
-        render_div(time_div, time_area, 1, 1);
     }
+    render_div(vitality_div, hp_area, 1, 1);
+    render_div(experience_div, xp_area, 1, 1);
+    render_div(dungeon_level_div, dungeon_level_area, 1, 1);
+    render_div(status_div, status_area, 1, 1);
+    render_div(time_div, time_area, 1, 1);
 
     // message area
     {
@@ -2060,7 +2091,7 @@ void render() {
                 Div content = new_div();
                 for (int i = 0; i < things.length(); i++) {
                     PerceivedThing target = things[i];
-                    if (i > 0 )
+                    if (i > 0)
                         content->append_newline();
                     Span thing_and_carrying = new_span();
                     thing_and_carrying->append(get_thing_description(spectate_from, target->id, true));
