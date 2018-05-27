@@ -812,9 +812,13 @@ void throw_item(Thing actor, Thing item, Coord direction) {
                     // hurt a little
                     publish_event(Event::create(Event::ITEM_HITS_INDIVIDUAL, hit_target->id, item->id));
                     Coord throw_damage_window = get_throw_damage_window(item);
-                    int damage = random_inclusive(throw_damage_window.x, throw_damage_window.y, "throw_impact_damage");
-                    impact_force = damage > 1 ? 2 : 1;
-                    damage_individual(hit_target, damage, actor, false);
+                    if (throw_damage_window.y > 0) {
+                        int damage = random_inclusive(throw_damage_window.x, throw_damage_window.y, "throw_impact_damage");
+                        impact_force = damage > 1 ? 2 : 1;
+                        damage_individual(hit_target, damage, actor, false);
+                    } else {
+                        impact_force = 0;
+                    }
                 }
                 apply_impulse(hit_target, direction);
                 break;

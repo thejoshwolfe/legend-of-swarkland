@@ -392,6 +392,8 @@ static IndexAndValue<ConstStr> constexpr action_names[Action::COUNT] = {
     {Action::ATTACK, "attack"},
     {Action::ZAP, "zap"},
     {Action::PICKUP, "pickup"},
+    {Action::EQUIP, "equip"},
+    {Action::UNEQUIP, "unequip"},
     {Action::DROP, "drop"},
     {Action::QUAFF, "quaff"},
     {Action::READ_BOOK, "read_book"},
@@ -488,6 +490,7 @@ check_indexed_array(book_id_names);
 static IndexAndValue<ConstStr> constexpr weapon_id_names[WeaponId_COUNT + 2] = {
     {WeaponId_DAGGER, "dagger"},
     {WeaponId_BATTLEAXE, "battleaxe"},
+    {WeaponId_STICK, "stick"},
     {BookId_COUNT, nullptr},
     {BookId_UNKNOWN, "unknown"},
 };

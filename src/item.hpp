@@ -43,6 +43,7 @@ static constexpr IndexAndValue<int> item_rarities[TOTAL_ITEMS] = {
 
     {WEAPON_OFFSET + WeaponId_DAGGER   ,  0},
     {WEAPON_OFFSET + WeaponId_BATTLEAXE,  0},
+    {WEAPON_OFFSET + WeaponId_STICK,      60},
 };
 static_assert(_check_indexed_array(item_rarities, TOTAL_ITEMS), "missed a spot");
 
@@ -59,14 +60,14 @@ void read_book(Thing actor, uint256 item_id, Coord direction);
 void use_potion(Thing actor, Thing target, Thing item, bool is_breaking);
 void throw_item(Thing actor, Thing item, Coord direction);
 
-template <typename T>
-int get_weapon_damage(T item) {
-    assert(item->thing_type == ThingType_WEAPON);
-    switch (item->weapon_info()->weapon_id) {
+static inline WeaponBehavior get_weapon_behavior(WeaponId weapon_id) {
+    switch (weapon_id) {
         case WeaponId_DAGGER:
-            return 1;
+            return WeaponBehavior::create_bonus_damage(1);
         case WeaponId_BATTLEAXE:
-            return 2;
+            return WeaponBehavior::create_bonus_damage(2);
+        case WeaponId_STICK:
+            return WeaponBehavior::create_push();
 
         case WeaponId_UNKNOWN:
         case WeaponId_COUNT:
@@ -93,6 +94,7 @@ Coord get_throw_range_window(T thrown_thing) {
         case ThingType_WEAPON:
             switch (thrown_thing->weapon_info()->weapon_id) {
                 case WeaponId_DAGGER:
+                case WeaponId_STICK:
                     // range up
                     return Coord{8, 12};
                 case WeaponId_BATTLEAXE:
@@ -148,6 +150,9 @@ Coord get_throw_damage_window(T item) {
                 case WeaponId_BATTLEAXE:
                     // lots damage
                     return Coord{3, 6};
+                case WeaponId_STICK:
+                    // no damage
+                    return Coord{0, 0};
 
                 case WeaponId_UNKNOWN:
                 case WeaponId_COUNT:

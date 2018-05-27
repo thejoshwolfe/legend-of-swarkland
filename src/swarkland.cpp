@@ -22,6 +22,17 @@ static void init_static_data() {
             panic("you missed a spot");
 }
 
+static bool is_direction(Coord direction, bool allow_self) {
+    // has to be made of 0's, 1's, and -1's, but not all 0's
+    if (direction == Coord{0, 0})
+        return allow_self;
+    if (!(direction.x == -1 || direction.x == 0 || direction.x == 1))
+        return false;
+    if (!(direction.y == -1 || direction.y == 0 || direction.y == 1))
+        return false;
+    return true;
+}
+
 static void kill_individual(Thing individual, Thing attacker, bool is_melee) {
     individual->life()->hitpoints = 0;
 
@@ -104,8 +115,7 @@ void slow_individual(Thing actor, Thing target) {
 
 // publish the event yourself
 static void pickup_item(Thing individual, Thing item) {
-    if (item->container_id != uint256::zero())
-        panic("pickup item in someone's inventory");
+    assert(item->container_id == uint256::zero());
 
     Coord old_location = item->location;
     item->location = Coord::nowhere();
@@ -115,6 +125,34 @@ static void pickup_item(Thing individual, Thing item) {
     item->container_id = individual->id;
     item->z_order = 0x7fffffff;
     fix_z_orders(individual->id);
+}
+
+static int compare_things_by_z_order(const Thing & a, const Thing & b) {
+    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
+}
+static void find_equipped_items(uint256 container_id, List<Thing> * output_sorted_list) {
+    Thing item;
+    for (auto iterator = game->actual_things.value_iterator(); iterator.next(&item);)
+        if (item->thing_type != ThingType_INDIVIDUAL && item->container_id == container_id && item->is_equipped)
+            output_sorted_list->append(item);
+    sort<Thing, compare_things_by_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+}
+
+// publish the events yourself
+static Thing swap_equipped_item(Thing individual, Thing new_item) {
+    assert(new_item == nullptr || new_item->container_id == individual->id);
+    List<Thing> equipped_items;
+    find_equipped_items(individual->id, &equipped_items);
+    assert(equipped_items.length() <= 1);
+    Thing old_item = nullptr;
+    if (equipped_items.length() == 1) {
+        old_item = equipped_items[0];
+        assert(new_item == nullptr || old_item->id != new_item->id);
+        old_item->is_equipped = false;
+    }
+    if (new_item != nullptr)
+        new_item->is_equipped = true;
+    return old_item;
 }
 void drop_item_to_the_floor(Thing item, Coord location) {
     uint256 old_container_id = item->container_id;
@@ -146,21 +184,38 @@ static void attack(Thing attacker, Thing target, int bonus_damage) {
         return;
     }
     // it's a hit
-    publish_event(Event::create(Event::ATTACK_INDIVIDUAL, attacker->id, target->id));
-    int attack_power = attacker->innate_attack_power();
+    Coord attack_vector = target->location - attacker->location;
+    assert(is_direction(attack_vector, false));
+    int attack_power = 0;
+    bool normal_attack = true;
     Thing weapon = get_equipped_weapon(attacker);
-    if (weapon != nullptr)
-        attack_power += get_weapon_damage(weapon);
-    attack_power += bonus_damage;
-    int min_damage = (attack_power + 1) / 2;
-    int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
-    damage_individual(target, damage, attacker, true);
-    reset_hp_regen_timeout(attacker);
-    if (target->still_exists && attacker->physical_species()->poison_attack && random_int(4, "poison_attack") == 0)
-        poison_individual(attacker, target);
+    if (weapon != nullptr) {
+        WeaponBehavior weapon_behavior = get_weapon_behavior(weapon->weapon_info()->weapon_id);
+        switch (weapon_behavior.type) {
+            case WeaponBehavior::BONUS_DAMAGE:
+                attack_power += weapon_behavior.bonus_damage;
+                break;
+            case WeaponBehavior::PUSH:
+                normal_attack = false;
+                publish_event(Event::create(Event::PUSH_INDIVIDUAL, attacker->id, target->id));
+                attempt_move(target, target->location + attack_vector, attacker);
+                break;
+        }
+    }
+
+    if (normal_attack) {
+        publish_event(Event::create(Event::ATTACK_INDIVIDUAL, attacker->id, target->id));
+        attack_power += attacker->innate_attack_power();
+        attack_power += bonus_damage;
+        int min_damage = (attack_power + 1) / 2;
+        int damage = random_inclusive(min_damage, min_damage + attack_power / 2, "melee_damage");
+        damage_individual(target, damage, attacker, true);
+        reset_hp_regen_timeout(attacker);
+        if (target->still_exists && attacker->physical_species()->poison_attack && random_int(4, "poison_attack") == 0)
+            poison_individual(attacker, target);
+    }
 
     // newton's 3rd
-    Coord attack_vector = target->location - attacker->location;
     apply_impulse(target, attack_vector);
     apply_impulse(attacker, -attack_vector);
 }
@@ -362,7 +417,9 @@ static void spawn_a_monster_with_equipment() {
             unreachable();
     }
 
-    pickup_item(individual, create_weapon(weapon_id));
+    Thing weapon = create_weapon(weapon_id);
+    pickup_item(individual, weapon);
+    swap_equipped_item(individual, weapon);
 }
 
 static SpeciesId get_miniboss_species(int dungeon_level) {
@@ -520,9 +577,6 @@ void use_mana(Thing actor, int mana) {
     reset_mp_regen_timeout(actor);
 }
 
-static int compare_things_by_z_order(const Thing & a, const Thing & b) {
-    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
-}
 static int compare_perceived_things_by_z_order(const PerceivedThing & a, const PerceivedThing & b) {
     return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
 }
@@ -566,21 +620,13 @@ Thing find_individual_at(Coord location) {
 }
 
 Thing get_equipped_weapon(Thing individual) {
-    List<Thing> inventory;
-    find_items_in_inventory(individual->id, &inventory);
-    Thing best_weapon = nullptr;
-    int best_weapon_damage = 0;
-    for (int i = 0; i < inventory.length(); i++) {
-        Thing item = inventory[i];
-        if (item->thing_type != ThingType_WEAPON)
-            continue;
-        int item_damage = get_weapon_damage(item);
-        if (item_damage > best_weapon_damage) {
-            best_weapon = item;
-            best_weapon_damage = item_damage;
-        }
-    }
-    return best_weapon;
+    List<Thing> equipped_items;
+    find_equipped_items(individual->id, &equipped_items);
+    if (equipped_items.length() == 0)
+        return nullptr;
+    if (equipped_items.length() == 1)
+        return equipped_items[0];
+    unreachable();
 }
 void find_items_in_inventory(uint256 container_id, List<Thing> * output_sorted_list) {
     Thing item;
@@ -881,16 +927,6 @@ bool can_move(Thing actor) {
 static bool can_act(Thing actor) {
     return actor->life()->last_action_time + action_cost <= game->time_counter;
 }
-static bool is_direction(Coord direction, bool allow_self) {
-    // has to be made of 0's, 1's, and -1's, but not all 0's
-    if (direction == Coord{0, 0})
-        return allow_self;
-    if (!(direction.x == -1 || direction.x == 0 || direction.x == 1))
-        return false;
-    if (!(direction.y == -1 || direction.y == 0 || direction.y == 1))
-        return false;
-    return true;
-}
 static bool is_in_my_inventory(Thing actor, uint256 item_id) {
     PerceivedThing item = actor->life()->knowledge.perceived_things.get(item_id, nullptr);
     if (item == nullptr)
@@ -919,6 +955,30 @@ bool validate_action(Thing actor, const Action & action) {
             if (item == nullptr)
                 return false;
             if (item->location != actor->location)
+                return false;
+            return true;
+        }
+        case Action::EQUIP: {
+            PerceivedThing item = actor->life()->knowledge.perceived_things.get(action.item(), nullptr);
+            if (item == nullptr)
+                return false;
+            if (item->container_id != actor->id)
+                return false;
+            if (item->thing_type != ThingType_WEAPON)
+                return false;
+            if (item->is_equipped)
+                return false;
+            return true;
+        }
+        case Action::UNEQUIP: {
+            PerceivedThing item = actor->life()->knowledge.perceived_things.get(action.item(), nullptr);
+            if (item == nullptr)
+                return false;
+            if (item->container_id != actor->id)
+                return false;
+            if (item->thing_type != ThingType_WEAPON)
+                return false;
+            if (!item->is_equipped)
                 return false;
             return true;
         }
@@ -1066,14 +1126,27 @@ static bool take_action(Thing actor, const Action & action) {
             pickup_item(actor, game->actual_things.get(action.item()));
             publish_event(Event::create(Event::INDIVIDUAL_PICKS_UP_ITEM, actor->id, action.item()));
             break;
+        case Action::EQUIP: {
+            Thing old_item = swap_equipped_item(actor, game->actual_things.get(action.item()));
+            if (old_item != nullptr) {
+                publish_event(Event::create(Event::SWAP_EQUIPPED_ITEM, actor->id, action.item(), old_item->id));
+            } else {
+                publish_event(Event::create(Event::EQUIP_ITEM, actor->id, action.item()));
+            }
+            break;
+        }
+        case Action::UNEQUIP: {
+            Thing old_item = swap_equipped_item(actor, nullptr);
+            assert(old_item->id == action.item());
+            publish_event(Event::create(Event::UNEQUIP_ITEM, actor->id, action.item()));
+            break;
+        }
         case Action::DROP:
             drop_item_to_the_floor(game->actual_things.get(action.item()), actor->location);
             break;
-        case Action::QUAFF: {
-            Thing item = game->actual_things.get(action.item());
-            use_potion(actor, actor, item, false);
+        case Action::QUAFF:
+            use_potion(actor, actor, game->actual_things.get(action.item()), false);
             break;
-        }
         case Action::THROW:
             throw_item(actor, game->actual_things.get(action.coord_and_item().item), confuse_direction(actor, action.coord_and_item().coord));
             break;

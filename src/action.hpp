@@ -13,6 +13,8 @@ struct Action {
         ATTACK,
         ZAP,
         PICKUP,
+        EQUIP,
+        UNEQUIP,
         DROP,
         QUAFF,
         READ_BOOK,
@@ -113,6 +115,12 @@ struct Action {
     }
     static Action pickup(uint256 item_id) {
         return init(PICKUP, item_id);
+    }
+    static Action equip(uint256 item_id) {
+        return init(EQUIP, item_id);
+    }
+    static Action unequip(uint256 item_id) {
+        return init(UNEQUIP, item_id);
     }
     static Action drop(uint256 item_id) {
         return init(DROP, item_id);
@@ -272,6 +280,8 @@ private:
             case ATTACK:
                 return Layout_COORD;
             case PICKUP:
+            case EQUIP:
+            case UNEQUIP:
             case DROP:
             case QUAFF:
                 return Layout_ITEM;

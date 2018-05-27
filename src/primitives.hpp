@@ -98,6 +98,7 @@ enum BookId {
 enum WeaponId {
     WeaponId_DAGGER,
     WeaponId_BATTLEAXE,
+    WeaponId_STICK,
 
     WeaponId_COUNT,
     WeaponId_UNKNOWN,

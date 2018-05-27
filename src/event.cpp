@@ -316,6 +316,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::BUMP_INTO_INDIVIDUAL:
                 case Event::ATTACK_INDIVIDUAL:
                 case Event::MELEE_KILL:
+                case Event::PUSH_INDIVIDUAL:
                     // maybe replace one of the individuals with a placeholder.
                     *output_event = event;
                     if (see_thing(observer, data.actor)) {
@@ -393,6 +394,9 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                 case Event::READ_BOOK:
                     // this event is noticing that the person is staring into the pages of the book.
                     // the audible spell cast happens later.
+                case Event::EQUIP_ITEM:
+                case Event::UNEQUIP_ITEM:
+                    // the item is as visible as the wielder
                     if (!can_see_shape(get_vision_for_thing(observer, data.individual)))
                         return false;
                     *output_event = event;
@@ -409,6 +413,22 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                     return true;
                 case Event::INDIVIDUAL_DODGES_THROWN_ITEM:
                     // you need to see the individual
+                    if (!can_see_shape(get_vision_for_thing(observer, data.individual)))
+                        return false;
+                    *output_event = event;
+                    return true;
+            }
+            unreachable();
+        }
+        case Event::INDIVIDUAL_AND_TWO_ITEM: {
+            const Event::IndividualAndTwoItemData & data = event.individual_and_two_item_data();
+            if (observer->id == data.individual) {
+                // you're always aware of what you're doing
+                *output_event = event;
+                return true;
+            }
+            switch (data.id) {
+                case Event::SWAP_EQUIPPED_ITEM:
                     if (!can_see_shape(get_vision_for_thing(observer, data.individual)))
                         return false;
                     *output_event = event;
@@ -465,6 +485,7 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
     target->location = actual_target->location;
     target->container_id = actual_target->container_id;
     target->z_order = actual_target->z_order;
+    target->is_equipped = actual_target->is_equipped;
     target->last_seen_time = game->time_counter;
 
     switch (target->thing_type) {
@@ -706,7 +727,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::LUNGE:
                     return PerceivedEvent::create(PerceivedEvent::LUNGE, make_thing_snapshot(observer, data.individual));
             }
-            break;
+            unreachable();
         }
         case Event::THE_LOCATION: {
             const Event::TheLocationData & data = event.the_location_data();
@@ -723,7 +744,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     clear_placeholder_individual_at(observer, data.location);
                     return nullptr;
             }
-            break;
+            unreachable();
         }
         case Event::INDIVIDUAL_AND_STATUS: {
             const Event::IndividualAndStatusData & data = event.individual_and_status_data();
@@ -818,7 +839,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::INDIVIDUAL_BURROWS_THROUGH_WALL:
                     return PerceivedEvent::create(PerceivedEvent::INDIVIDUAL_BURROWS_THROUGH_WALL, actor_snapshot, data.location, data.is_air);
             }
-            break;
+            unreachable();
         }
         case Event::INDIVIDUAL_AND_TWO_LOCATION: {
             const Event::IndividualAndTwoLocationData & data = event.individual_and_two_location_data();
@@ -834,7 +855,8 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::BUMP_INTO_INDIVIDUAL:
                 case Event::ATTACK_INDIVIDUAL:
                 case Event::DODGE_ATTACK:
-                case Event::MELEE_KILL: {
+                case Event::MELEE_KILL:
+                case Event::PUSH_INDIVIDUAL: {
                     record_perception_of_thing(observer, data.actor);
                     record_perception_of_thing(observer, data.target);
                     PerceivedEvent result = PerceivedEvent::create((PerceivedEvent::TwoIndividualDataId)data.id, make_thing_snapshot(observer, data.actor), make_thing_snapshot(observer, data.target));
@@ -843,7 +865,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     return result;
                 }
             }
-            break;
+            unreachable();
         }
         case Event::INDIVIDUAL_AND_ITEM: {
             const Event::IndividualAndItemData & data = event.individual_and_item_data();
@@ -898,8 +920,36 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     fix_perceived_z_orders(observer, data.individual);
                     return PerceivedEvent::create((PerceivedEvent::IndividualAndItemDataId)data.id, individual_snapshot, item_snapshot);
                 }
+                case Event::EQUIP_ITEM: {
+                    PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
+                    item->is_equipped = true;
+                    return PerceivedEvent::create((PerceivedEvent::IndividualAndItemDataId)data.id, individual_snapshot, item_snapshot);
+                }
+                case Event::UNEQUIP_ITEM: {
+                    PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
+                    item->is_equipped = false;
+                    return PerceivedEvent::create((PerceivedEvent::IndividualAndItemDataId)data.id, individual_snapshot, item_snapshot);
+                }
             }
-            break;
+            unreachable();
+        }
+        case Event::INDIVIDUAL_AND_TWO_ITEM: {
+            const Event::IndividualAndTwoItemData & data = event.individual_and_two_item_data();
+            record_perception_of_thing(observer, data.individual);
+            ThingSnapshot individual_snapshot = make_thing_snapshot(observer, data.individual);
+            PerceivedThing old_item = record_perception_of_thing(observer, data.old_item);
+            ThingSnapshot old_item_snapshot = make_thing_snapshot(observer, data.old_item);
+            PerceivedThing new_item = record_perception_of_thing(observer, data.new_item);
+            ThingSnapshot new_item_snapshot = make_thing_snapshot(observer, data.new_item);
+            switch (data.id) {
+                case Event::SWAP_EQUIPPED_ITEM: {
+                    // when we recorded our perception, this was already updated.
+                    old_item->is_equipped = false;
+                    new_item->is_equipped = true;
+                    return PerceivedEvent::create(PerceivedEvent::SWAP_EQUIPPED_ITEM, individual_snapshot, old_item_snapshot, new_item_snapshot);
+                }
+            }
+            unreachable();
         }
         case Event::INDIVIDUAL_AND_SPECIES: {
             const Event::IndividualAndSpeciesData & data = event.individual_and_species_data();
@@ -925,7 +975,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::ITEM_DISINTEGRATES_IN_LAVA:
                     return PerceivedEvent::create((PerceivedEvent::ItemAndLocationDataId)data.id, item_snapshot, data.location);
             }
-            break;
+            unreachable();
         }
     }
     unreachable();

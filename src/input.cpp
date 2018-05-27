@@ -248,6 +248,10 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
                     inventory_menu_items.append(Action::READ_BOOK);
                     break;
                 case ThingType_WEAPON:
+                    if (chosen_item->is_equipped)
+                        inventory_menu_items.append(Action::UNEQUIP);
+                    else
+                        inventory_menu_items.append(Action::EQUIP);
                     break;
 
                 case ThingType_COUNT:
@@ -363,6 +367,20 @@ static Action on_key_down_inventory_choose_action(const SDL_Event & event) {
                     input_mode = InputMode_READ_BOOK_CHOOSE_DIRECTION;
                     inventory_menu_items.clear();
                     break;
+                case Action::EQUIP: {
+                    uint256 id = chosen_item->id;
+                    chosen_item = nullptr;
+                    input_mode = InputMode_MAIN;
+                    inventory_menu_items.clear();
+                    return Action::equip(id);
+                }
+                case Action::UNEQUIP: {
+                    uint256 id = chosen_item->id;
+                    chosen_item = nullptr;
+                    input_mode = InputMode_MAIN;
+                    inventory_menu_items.clear();
+                    return Action::unequip(id);
+                }
 
                 case Action::WAIT:
                 case Action::MOVE:

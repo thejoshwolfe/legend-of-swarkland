@@ -147,6 +147,7 @@ static void load_images() {
     fill_with_trash(weapon_images);
     weapon_images[WeaponId_DAGGER] = sprite_location_dagger;
     weapon_images[WeaponId_BATTLEAXE] = sprite_location_battleaxe;
+    weapon_images[WeaponId_STICK] = sprite_location_kitty;
     check_no_trash(weapon_images);
 }
 
@@ -470,6 +471,8 @@ const char * get_weapon_id_str(WeaponId weapon_id) {
             return "dagger";
         case WeaponId_BATTLEAXE:
             return "battleaxe";
+        case WeaponId_STICK:
+            return "stick";
 
         case WeaponId_COUNT:
         case WeaponId_UNKNOWN:
@@ -551,6 +554,8 @@ static const char * get_weapon_description_str(WeaponId weapon_id) {
             return "dagger";
         case WeaponId_BATTLEAXE:
             return "battleaxe";
+        case WeaponId_STICK:
+            return "stick";
 
         case WeaponId_UNKNOWN:
             return "weapon";
@@ -774,7 +779,7 @@ struct StatusDisplay {
     int experience;
     int next_level_up;
     int dungeon_level;
-    Nullable<int> weapon_damage;
+    Nullable<WeaponBehavior> weapon_behavior;
     int innate_attack_power;
     int status_effect_bits;
 
@@ -939,6 +944,8 @@ static TutorialPromptBits get_tutorial_prompts(Thing spectate_from, bool has_inv
                 switch (inventory_menu_items[inventory_menu_cursor]) {
                     case Action::DROP:
                     case Action::QUAFF:
+                    case Action::EQUIP:
+                    case Action::UNEQUIP:
                         result |= 1 << TutorialPrompt_ACCEPT;
                         break;
                     case Action::ZAP:
@@ -1065,6 +1072,10 @@ static const char * get_action_text(Action::Id action_id) {
             return "zap";
         case Action::READ_BOOK:
             return "cast spell";
+        case Action::EQUIP:
+            return "equip";
+        case Action::UNEQUIP:
+            return "unequip";
 
         case Action::WAIT:
         case Action::MOVE:
@@ -1101,6 +1112,8 @@ static Span render_action(Thing actor, const Action & action) {
             return result;
 
         case Action::DROP:
+        case Action::EQUIP:
+        case Action::UNEQUIP:
         case Action::QUAFF:
         case Action::THROW:
         case Action::ZAP:
@@ -1401,33 +1414,28 @@ Span render_event(PerceivedEvent event) {
             return nullptr;
         case PerceivedEvent::TWO_INDIVIDUAL: {
             const PerceivedEvent::TwoIndividualData & data = event.two_individual_data();
+            Span actor_description = get_thing_description(data.actor);
+            // what did it bump into? whatever we think is there
+            Span bumpee_description = get_thing_description(data.target);
+            const char * fmt;
             switch (data.id) {
                 case PerceivedEvent::BUMP_INTO_INDIVIDUAL:
-                case PerceivedEvent::ATTACK_INDIVIDUAL:
-                case PerceivedEvent::DODGE_ATTACK:
-                case PerceivedEvent::MELEE_KILL: {
-                    Span actor_description = get_thing_description(data.actor);
-                    // what did it bump into? whatever we think is there
-                    Span bumpee_description = get_thing_description(data.target);
-                    const char * fmt;
-                    switch (data.id) {
-                        case PerceivedEvent::BUMP_INTO_INDIVIDUAL:
-                            fmt = "%s bumps into %s.";
-                            break;
-                        case PerceivedEvent::ATTACK_INDIVIDUAL:
-                            fmt = "%s hits %s.";
-                            break;
-                        case PerceivedEvent::DODGE_ATTACK:
-                            fmt = "%s attacks, but %s dodges.";
-                            break;
-                        case PerceivedEvent::MELEE_KILL:
-                            fmt = "%s kills %s.";
-                            break;
-                    }
-                    span->format(fmt, actor_description, bumpee_description);
+                    fmt = "%s bumps into %s.";
                     break;
-                }
+                case PerceivedEvent::ATTACK_INDIVIDUAL:
+                    fmt = "%s hits %s.";
+                    break;
+                case PerceivedEvent::DODGE_ATTACK:
+                    fmt = "%s attacks, but %s dodges.";
+                    break;
+                case PerceivedEvent::MELEE_KILL:
+                    fmt = "%s kills %s.";
+                    break;
+                case PerceivedEvent::PUSH_INDIVIDUAL:
+                    fmt = "%s pushes %s.";
+                    break;
             }
+            span->format(fmt, actor_description, bumpee_description);
             break;
         }
         case PerceivedEvent::INDIVIDUAL_AND_ITEM: {
@@ -1470,6 +1478,24 @@ Span render_event(PerceivedEvent event) {
                     break;
                 case PerceivedEvent::INDIVIDUAL_SUCKS_UP_ITEM:
                     span->format("%s sucks up %s.", individual_description, item_description);
+                    break;
+                case PerceivedEvent::EQUIP_ITEM:
+                    span->format("%s equips %s.", individual_description, item_description);
+                    break;
+                case PerceivedEvent::UNEQUIP_ITEM:
+                    span->format("%s unequips %s.", individual_description, item_description);
+                    break;
+            }
+            break;
+        }
+        case PerceivedEvent::INDIVIDUAL_AND_TWO_ITEM: {
+            const PerceivedEvent::IndividualAndTwoItemData & data = event.individual_and_two_item_data();
+            Span individual_description = get_thing_description(data.individual);
+            // we don't shw the old item
+            Span new_item_description = get_thing_description(data.new_item);
+            switch (data.id) {
+                case PerceivedEvent::SWAP_EQUIPPED_ITEM:
+                    span->format("%s zaps %s.", individual_description, new_item_description);
                     break;
             }
             break;
@@ -1527,9 +1553,9 @@ void render() {
     status_display.experience = spectate_from->life()->experience;
     status_display.next_level_up = spectate_from->next_level_up();
     status_display.dungeon_level = game->dungeon_level;
-    status_display.weapon_damage = nullptr;
+    status_display.weapon_behavior = nullptr;
     if (equipped_weapon != nullptr) {
-        status_display.weapon_damage = get_weapon_damage(equipped_weapon);
+        status_display.weapon_behavior = get_weapon_behavior(equipped_weapon->weapon_info()->weapon_id);
     }
     status_display.innate_attack_power = spectate_from->innate_attack_power();
     status_display.status_effect_bits = perceived_self->status_effect_bits;
@@ -1794,10 +1820,17 @@ void render() {
         dungeon_level_div->append(new_span(dungeon_level_string));
         dungeon_level_div->append_newline();
         String attack_damage_string = new_string();
-        if (status_display.weapon_damage != nullptr) {
-            attack_damage_string->format("Attack: %d+%d", status_display.innate_attack_power, *status_display.weapon_damage);
-        } else {
+        if (status_display.weapon_behavior == nullptr) {
             attack_damage_string->format("Attack: %d", status_display.innate_attack_power);
+        } else {
+            switch (status_display.weapon_behavior->type) {
+                case WeaponBehavior::BONUS_DAMAGE:
+                    attack_damage_string->format("Attack: %d+%d", status_display.innate_attack_power, status_display.weapon_behavior->bonus_damage);
+                    break;
+                case WeaponBehavior::PUSH:
+                    attack_damage_string->format("Attack: push");
+                    break;
+            }
         }
         dungeon_level_div->append(new_span(attack_damage_string));
 

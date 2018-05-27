@@ -50,6 +50,7 @@ struct EventBase {
         INDIVIDUAL_AND_TWO_LOCATION,
         TWO_INDIVIDUAL,
         INDIVIDUAL_AND_ITEM,
+        INDIVIDUAL_AND_TWO_ITEM,
         INDIVIDUAL_AND_SPECIES,
         ITEM_AND_LOCATION,
     };
@@ -110,6 +111,7 @@ struct EventBase {
         ATTACK_INDIVIDUAL,
         DODGE_ATTACK,
         MELEE_KILL,
+        PUSH_INDIVIDUAL,
     };
     struct TwoIndividualData {
         TwoIndividualDataId id;
@@ -144,6 +146,8 @@ struct EventBase {
         INDIVIDUAL_SUCKS_UP_ITEM,
         QUAFF_POTION,
         POTION_HITS_INDIVIDUAL,
+        EQUIP_ITEM,
+        UNEQUIP_ITEM,
     };
     struct IndividualAndItemData {
         IndividualAndItemDataId id;
@@ -154,13 +158,38 @@ struct EventBase {
         check_data_type(INDIVIDUAL_AND_ITEM);
         return _data._individual_and_item;
     }
-    static EventBase create(IndividualAndItemDataId id, ThingType individual_id, ThingType item_id) {
+    static EventBase create(IndividualAndItemDataId id, ThingType individual, ThingType item) {
         EventBase result;
         result.type = INDIVIDUAL_AND_ITEM;
         result.individual_and_item_data() = {
             id,
-            individual_id,
-            item_id,
+            individual,
+            item,
+        };
+        return result;
+    }
+
+    enum IndividualAndTwoItemDataId {
+        SWAP_EQUIPPED_ITEM,
+    };
+    struct IndividualAndTwoItemData {
+        IndividualAndTwoItemDataId id;
+        ThingType individual;
+        ThingType old_item;
+        ThingType new_item;
+    };
+    IndividualAndTwoItemData & individual_and_two_item_data() {
+        check_data_type(INDIVIDUAL_AND_TWO_ITEM);
+        return _data._individual_and_two_item;
+    }
+    static EventBase create(IndividualAndTwoItemDataId id, ThingType individual, ThingType old_item, ThingType new_item) {
+        EventBase result;
+        result.type = INDIVIDUAL_AND_TWO_ITEM;
+        result.individual_and_two_item_data() = {
+            id,
+            individual,
+            old_item,
+            new_item,
         };
         return result;
     }
@@ -309,6 +338,7 @@ private:
         IndividualAndTwoLocationData _individual_and_two_location;
         TwoIndividualData _two_individual;
         IndividualAndItemData _individual_and_item;
+        IndividualAndTwoItemData _individual_and_two_item;
         IndividualAndSpeciesData _individual_and_species;
         ItemAndLocationData _item_and_location;
     } _data;
@@ -503,6 +533,28 @@ static_assert(_check_specieses(), "missed a spot");
 struct AbilityCooldown {
     AbilityId ability_id;
     int64_t expiration_time;
+};
+
+struct WeaponBehavior {
+    enum Type {
+        BONUS_DAMAGE,
+        PUSH,
+    };
+    Type type;
+    int bonus_damage;
+
+    static WeaponBehavior create_bonus_damage(int bonus_damage) {
+        WeaponBehavior result;
+        result.type = BONUS_DAMAGE;
+        result.bonus_damage = bonus_damage;
+        return result;
+    }
+    static WeaponBehavior create_push() {
+        WeaponBehavior result;
+        result.type = PUSH;
+        result.bonus_damage = 0;
+        return result;
+    }
 };
 
 #endif

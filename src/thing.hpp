@@ -121,6 +121,7 @@ public:
     Coord location = Coord::nowhere();
     uint256 container_id = uint256::zero();
     int z_order = 0;
+    bool is_equipped = false;
     int64_t last_seen_time;
     StatusEffectIdBitField status_effect_bits = 0;
     // individual
@@ -296,6 +297,7 @@ public:
     Coord location = Coord::nowhere();
     uint256 container_id = uint256::zero();
     int z_order = 0;
+    bool is_equipped = false;
 
     List<StatusEffect> status_effects;
     List<AbilityCooldown> ability_cooldowns;
