@@ -17,6 +17,7 @@ void start_auto_wait() {
 }
 
 void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<StatusEffect::Id> * output_annoying_status_effects, bool * output_stop_for_other_reasons) {
+    *output_stop_for_other_reasons = false;
     Thing actor = player_actor();
     Life * life = actor->life();
     PerceivedThing self = life->knowledge.perceived_things.get(actor->id);
