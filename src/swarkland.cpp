@@ -1129,7 +1129,7 @@ static bool take_action(Thing actor, const Action & action) {
         case Action::EQUIP: {
             Thing old_item = swap_equipped_item(actor, game->actual_things.get(action.item()));
             if (old_item != nullptr) {
-                publish_event(Event::create(Event::SWAP_EQUIPPED_ITEM, actor->id, action.item(), old_item->id));
+                publish_event(Event::create(Event::SWAP_EQUIPPED_ITEM, actor->id, old_item->id, action.item()));
             } else {
                 publish_event(Event::create(Event::EQUIP_ITEM, actor->id, action.item()));
             }
