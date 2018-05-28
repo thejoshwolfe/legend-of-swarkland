@@ -147,8 +147,11 @@ void gain_mp(Thing individual, int mp);
 
 void change_map(Coord location, TileType new_tile_type);
 
+void set_location(Thing thing, uint256 container_id, int z_order);
+void set_location(Thing thing, Coord location, int z_order);
+void set_location(Thing thing, Coord location);
+void set_location(Thing observer, PerceivedThing thing, Coord location);
+void set_location(Thing observer, PerceivedThing thing, uint256 container_id);
 void fix_perceived_z_orders(Thing observer, uint256 container_id);
-void fix_z_orders(uint256 container_id);
-void fix_z_orders(Coord location);
 
 #endif

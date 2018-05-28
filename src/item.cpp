@@ -765,10 +765,7 @@ static ImpactBehavior get_impact_behavior(Thing item) {
 void throw_item(Thing actor, Thing item, Coord direction) {
     publish_event(Event::create(Event::THROW_ITEM, actor->id, item->id));
     // let go of the item. it's now sailing through the air.
-    item->location = actor->location;
-    item->container_id = uint256::zero();
-    item->z_order = 0;
-    fix_z_orders(actor->id);
+    set_location(item, actor->location);
 
     // kickback from throwing
     apply_impulse(actor, -direction);
@@ -795,8 +792,8 @@ void throw_item(Thing actor, Thing item, Coord direction) {
             impact_force = -1; // random
             break;
         } else {
-            item->location = cursor;
-            publish_event(Event::create(Event::MOVE, item->id, cursor - direction, item->location));
+            set_location(item, cursor);
+            publish_event(Event::create(Event::MOVE, item->id, cursor - direction, cursor));
         }
         hit_target = find_individual_at(cursor);
         if (hit_target != nullptr) {

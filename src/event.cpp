@@ -486,6 +486,7 @@ static void update_perception_of_thing(PerceivedThing target, VisionTypes vision
     target->container_id = actual_target->container_id;
     target->z_order = actual_target->z_order;
     target->is_equipped = actual_target->is_equipped;
+
     target->last_seen_time = game->time_counter;
 
     switch (target->thing_type) {
@@ -653,7 +654,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     return PerceivedEvent::create(PerceivedEvent::LEVEL_UP, make_thing_snapshot(observer, data.individual));
                 case Event::DIE: {
                     PerceivedEvent result = PerceivedEvent::create(PerceivedEvent::DIE, make_thing_snapshot(observer, data.individual));
-                    individual->location = Coord::nowhere();
+                    set_location(observer, individual, Coord::nowhere());
                     return result;
                 }
                 case Event::DELETE_THING: {
@@ -663,10 +664,9 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                         // assume everything drops to the floor
                         List<PerceivedThing> inventory;
                         find_items_in_inventory(observer, thing->id, &inventory);
-                        for (int i = 0; i < inventory.length(); i++) {
-                            inventory[i]->location = thing->location;
-                            inventory[i]->container_id = uint256::zero();
-                        }
+                        // TODO: avoid O(n^2) z_order fixing operation
+                        for (int i = 0; i < inventory.length(); i++)
+                            set_location(observer, inventory[i], thing->location);
                     }
                     return nullptr;
                 }
@@ -833,7 +833,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     find_perceived_things_at(observer, data.location, &perceived_things);
                     for (int i = 0; i < perceived_things.length(); i++)
                         if (perceived_things[i]->thing_type == ThingType_INDIVIDUAL)
-                            perceived_things[i]->location = Coord::nowhere();
+                            set_location(observer, perceived_things[i], Coord::nowhere());
                     return PerceivedEvent::create(PerceivedEvent::ATTACK_LOCATION, actor_snapshot, data.location, data.is_air);
                 }
                 case Event::INDIVIDUAL_BURROWS_THROUGH_WALL:
@@ -861,7 +861,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     record_perception_of_thing(observer, data.target);
                     PerceivedEvent result = PerceivedEvent::create((PerceivedEvent::TwoIndividualDataId)data.id, make_thing_snapshot(observer, data.actor), make_thing_snapshot(observer, data.target));
                     if (data.id == Event::MELEE_KILL)
-                        observer->life()->knowledge.perceived_things.get(data.target)->location = Coord::nowhere();
+                        set_location(observer, observer->life()->knowledge.perceived_things.get(data.target), Coord::nowhere());
                     return result;
                 }
             }
@@ -886,8 +886,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     observer->life()->knowledge.perceived_things.get(data.item)->wand_info()->used_count = -1;
                     return PerceivedEvent::create(PerceivedEvent::ZAP_WAND_NO_CHARGES, individual_snapshot, item_snapshot);
                 case Event::WAND_DISINTEGRATES:
-                    item->location = Coord::nowhere();
-                    item->container_id = uint256::zero();
+                    set_location(observer, item, Coord::nowhere());
                     return PerceivedEvent::create(PerceivedEvent::WAND_DISINTEGRATES, individual_snapshot, item_snapshot);
                 case Event::READ_BOOK: {
                     PerceivedThing book = observer->life()->knowledge.perceived_things.get(data.item);
@@ -915,9 +914,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::INDIVIDUAL_PICKS_UP_ITEM:
                 case Event::INDIVIDUAL_SUCKS_UP_ITEM: {
                     PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
-                    item->location = Coord::nowhere();
-                    item->container_id = data.individual;
-                    fix_perceived_z_orders(observer, data.individual);
+                    set_location(observer, item, data.individual);
                     return PerceivedEvent::create((PerceivedEvent::IndividualAndItemDataId)data.id, individual_snapshot, item_snapshot);
                 }
                 case Event::EQUIP_ITEM: {
@@ -966,8 +963,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::WAND_EXPLODES:
                     if (item->wand_info()->description_id != WandDescriptionId_UNSEEN)
                         game->observer_to_active_identifiable_item.put(observer->id, data.item);
-                    item->location = Coord::nowhere();
-                    item->container_id = uint256::zero();
+                    set_location(observer, item, Coord::nowhere());
                     return PerceivedEvent::create(PerceivedEvent::WAND_EXPLODES, item_snapshot, data.location);
                 case Event::ITEM_HITS_WALL:
                 case Event::ITEM_DROPS_TO_THE_FLOOR:

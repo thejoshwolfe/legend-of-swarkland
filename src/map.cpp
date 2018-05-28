@@ -132,7 +132,7 @@ void compute_vision(Thing observer) {
             // leave the marker.
             continue;
         }
-        target->location = Coord::nowhere();
+        set_location(observer, target, Coord::nowhere());
     }
 
     // now see anything that's in our line of vision
@@ -330,7 +330,7 @@ void generate_map() {
                     for (int x = 1; x < 3; x++) {
                         Coord coord = {room.x + offset_x + 2 + x, room.y + offset_y + 2 + y};
                         game->actual_map_tiles[coord] = TileType_MARBLE_FLOOR;
-                        create_random_item()->location = coord;
+                        set_location(create_random_item(), coord);
                     }
                 }
                 break;
@@ -465,14 +465,14 @@ void generate_map() {
     if (game->dungeon_level == 1) {
         // first level always has a wand of digging and a potion of ethereal vision to make finding vaults less random.
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_wand(WandId_WAND_OF_DIGGING)->location = location;
+        set_location(create_wand(WandId_WAND_OF_DIGGING), location);
         location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_potion(PotionId_POTION_OF_ETHEREAL_VISION)->location = location;
+        set_location(create_potion(PotionId_POTION_OF_ETHEREAL_VISION), location);
     }
     int item_count = random_inclusive(3, 6, nullptr);
     for (int i = 0; i < item_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        create_random_item()->location = location;
+        set_location(create_random_item(), location);
     }
 
     // place some vaults
@@ -509,14 +509,14 @@ void generate_map() {
             for (cursor.y = room.y + 2; cursor.y < room.y + room.h - 2; cursor.y++) {
                 for (cursor.x = room.x + 2; cursor.x < room.x + room.w - 2; cursor.x++) {
                     game->actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
-                    create_random_item()->location = cursor;
+                    set_location(create_random_item(), cursor);
                 }
             }
         } else {
             // throw what items would be in the vault around in the rooms
             for (int i = 0; i < 4; i++) {
                 Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-                create_random_item()->location = location;
+                set_location(create_random_item(), location);
             }
         }
     }

@@ -22,6 +22,79 @@ static void init_static_data() {
             panic("you missed a spot");
 }
 
+void fix_perceived_z_orders(Thing observer, uint256 container_id) {
+    if (container_id == uint256::zero())
+        return;
+    List<PerceivedThing> inventory;
+    find_items_in_inventory(observer, container_id, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        inventory[i]->z_order = i;
+}
+// it's ok to call this with a bogus/deleted id
+static void fix_z_orders(uint256 container_id) {
+    if (container_id == uint256::zero())
+        return;
+    List<Thing> inventory;
+    find_items_in_inventory(container_id, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        inventory[i]->z_order = i;
+}
+static void fix_z_orders(Coord location) {
+    if (location == Coord::nowhere())
+        return;
+    List<Thing> inventory;
+    find_items_on_floor(location, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        inventory[i]->z_order = i;
+}
+
+void set_location(Thing thing, uint256 container_id, int z_order) {
+    Coord old_location = thing->location;
+    thing->location = Coord::nowhere();
+    assert(thing->container_id == uint256::zero());
+    thing->container_id = container_id;
+    thing->z_order = z_order;
+
+    fix_z_orders(old_location);
+    fix_z_orders(container_id);
+}
+void set_location(Thing thing, Coord location, int z_order) {
+    Coord old_location = thing->location;
+    thing->location = location;
+    uint256 old_container_id = thing->container_id;
+    thing->container_id = uint256::zero();
+    thing->z_order = z_order;
+
+    fix_z_orders(old_location);
+    fix_z_orders(old_container_id);
+    fix_z_orders(thing->location);
+}
+void set_location(Thing thing, Coord location) {
+    Coord old_location = thing->location;
+    thing->location = location;
+    uint256 old_container_id = thing->container_id;
+    thing->container_id = uint256::zero();
+
+    if (thing->thing_type != ThingType_INDIVIDUAL) {
+        fix_z_orders(old_location);
+        fix_z_orders(old_container_id);
+        fix_z_orders(thing->location);
+    }
+}
+void set_location(Thing observer, PerceivedThing thing, Coord location) {
+    thing->location = location;
+    uint256 old_container_id = thing->container_id;
+    thing->container_id = uint256::zero();
+    if (observer == nullptr)
+        return; // TODO: don't pass nullptr once this is all a tagged union
+    fix_perceived_z_orders(observer, old_container_id);
+    // TODO: fix perceived z orders for floor items
+}
+void set_location(Thing observer, PerceivedThing thing, uint256 container_id) {
+    thing->location = Coord::nowhere();
+    thing->container_id = container_id;
+    fix_perceived_z_orders(observer, container_id);
+}
 static bool is_direction(Coord direction, bool allow_self) {
     // has to be made of 0's, 1's, and -1's, but not all 0's
     if (direction == Coord{0, 0})
@@ -115,20 +188,12 @@ void slow_individual(Thing actor, Thing target) {
 
 // publish the event yourself
 static void pickup_item(Thing individual, Thing item) {
-    assert(item->container_id == uint256::zero());
-
-    Coord old_location = item->location;
-    item->location = Coord::nowhere();
-    fix_z_orders(old_location);
-
     // put it at the end of the inventory
-    item->container_id = individual->id;
-    item->z_order = 0x7fffffff;
-    fix_z_orders(individual->id);
+    set_location(item, individual->id, 0x7fffffff);
 }
 
 static int compare_things_by_z_order(const Thing & a, const Thing & b) {
-    return a->z_order < b->z_order ? -1 : a->z_order > b->z_order ? 1 : 0;
+    return compare(a->z_order, b->z_order);
 }
 static void find_equipped_items(uint256 container_id, List<Thing> * output_sorted_list) {
     Thing item;
@@ -155,17 +220,8 @@ static Thing swap_equipped_item(Thing individual, Thing new_item) {
     return old_item;
 }
 void drop_item_to_the_floor(Thing item, Coord location) {
-    uint256 old_container_id = item->container_id;
-
-    List<Thing> items_on_floor;
-    find_items_on_floor(location, &items_on_floor);
-    item->container_id = uint256::zero();
-    fix_z_orders(old_container_id);
-
     // put it on the top of pile
-    item->location = location;
-    item->z_order = -0x80000000;
-    fix_z_orders(location);
+    set_location(item, location, -0x80000000);
 
     publish_event(Event::create(Event::ITEM_DROPS_TO_THE_FLOOR, item->id, item->location));
 
@@ -740,7 +796,7 @@ bool is_touching_ground(Thing individual) {
 
 static void do_move(Thing mover, Coord new_position, Thing who_is_responsible) {
     Coord old_position = mover->location;
-    mover->location = new_position;
+    set_location(mover, new_position);
 
     compute_vision(mover);
 
@@ -1543,24 +1599,4 @@ void change_map(Coord location, TileType new_tile_type) {
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);)
         compute_vision(individual);
-}
-
-void fix_perceived_z_orders(Thing observer, uint256 container_id) {
-    List<PerceivedThing> inventory;
-    find_items_in_inventory(observer, container_id, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
-        inventory[i]->z_order = i;
-}
-// it's ok to call this with a bogus/deleted id
-void fix_z_orders(uint256 container_id) {
-    List<Thing> inventory;
-    find_items_in_inventory(container_id, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
-        inventory[i]->z_order = i;
-}
-void fix_z_orders(Coord location) {
-    List<Thing> inventory;
-    find_items_on_floor(location, &inventory);
-    for (int i = 0; i < inventory.length(); i++)
-        inventory[i]->z_order = i;
 }
