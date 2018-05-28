@@ -30,6 +30,14 @@ void fix_perceived_z_orders(Thing observer, uint256 container_id) {
     for (int i = 0; i < inventory.length(); i++)
         inventory[i]->z_order = i;
 }
+static void fix_perceived_z_orders(Thing observer, Coord location) {
+    if (location == Coord::nowhere())
+        return;
+    List<PerceivedThing> inventory;
+    find_perceived_items_at(observer, location, &inventory);
+    for (int i = 0; i < inventory.length(); i++)
+        inventory[i]->z_order = i;
+}
 // it's ok to call this with a bogus/deleted id
 static void fix_z_orders(uint256 container_id) {
     if (container_id == uint256::zero())
@@ -85,12 +93,17 @@ void set_location(Thing thing, Coord location) {
     }
 }
 void set_location(Thing observer, PerceivedThing thing, Coord location) {
+    Coord old_location = thing->location;
     thing->location = location;
     uint256 old_container_id = thing->container_id;
     thing->container_id = uint256::zero();
     thing->is_equipped = false;
-    fix_perceived_z_orders(observer, old_container_id);
-    // TODO: fix perceived z orders for floor items
+
+    if (thing->thing_type != ThingType_INDIVIDUAL) {
+        fix_perceived_z_orders(observer, old_location);
+        fix_perceived_z_orders(observer, old_container_id);
+        fix_perceived_z_orders(observer, thing->location);
+    }
 }
 void set_location(Thing observer, PerceivedThing thing, uint256 container_id) {
     thing->location = Coord::nowhere();
