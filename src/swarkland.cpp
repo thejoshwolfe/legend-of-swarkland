@@ -54,6 +54,7 @@ void set_location(Thing thing, uint256 container_id, int z_order) {
     assert(thing->container_id == uint256::zero());
     thing->container_id = container_id;
     thing->z_order = z_order;
+    thing->is_equipped = false;
 
     fix_z_orders(old_location);
     fix_z_orders(container_id);
@@ -64,6 +65,7 @@ void set_location(Thing thing, Coord location, int z_order) {
     uint256 old_container_id = thing->container_id;
     thing->container_id = uint256::zero();
     thing->z_order = z_order;
+    thing->is_equipped = false;
 
     fix_z_orders(old_location);
     fix_z_orders(old_container_id);
@@ -74,6 +76,7 @@ void set_location(Thing thing, Coord location) {
     thing->location = location;
     uint256 old_container_id = thing->container_id;
     thing->container_id = uint256::zero();
+    thing->is_equipped = false;
 
     if (thing->thing_type != ThingType_INDIVIDUAL) {
         fix_z_orders(old_location);
@@ -85,16 +88,17 @@ void set_location(Thing observer, PerceivedThing thing, Coord location) {
     thing->location = location;
     uint256 old_container_id = thing->container_id;
     thing->container_id = uint256::zero();
-    if (observer == nullptr)
-        return; // TODO: don't pass nullptr once this is all a tagged union
+    thing->is_equipped = false;
     fix_perceived_z_orders(observer, old_container_id);
     // TODO: fix perceived z orders for floor items
 }
 void set_location(Thing observer, PerceivedThing thing, uint256 container_id) {
     thing->location = Coord::nowhere();
     thing->container_id = container_id;
+    thing->is_equipped = false;
     fix_perceived_z_orders(observer, container_id);
 }
+
 static bool is_direction(Coord direction, bool allow_self) {
     // has to be made of 0's, 1's, and -1's, but not all 0's
     if (direction == Coord{0, 0})
