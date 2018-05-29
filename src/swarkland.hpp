@@ -65,16 +65,58 @@ static inline bool is_actual_individual(Thing thing) {
 static inline FilteredIterator<IdMap<Thing>::Iterator, Thing> actual_individuals() {
     return FilteredIterator<IdMap<Thing>::Iterator, Thing>(game->actual_things.value_iterator(), is_actual_individual);
 }
-static inline Thing get_top_level_container(Thing thing) {
-    while (thing->container_id != uint256::zero())
-        thing = game->actual_things.get(thing->container_id);
-    return thing;
+static inline Coord get_location_coord(Thing thing) {
+    while (true) {
+        switch (thing->location.type) {
+            case Location::NOWHERE:
+                unreachable();
+            case Location::STANDING:
+                return thing->location.standing();
+            case Location::FLOOR_PILE:
+                return thing->location.floor_pile().coord;
+            case Location::INVENTORY:
+                thing = game->actual_things.get(thing->location.inventory().container_id);
+                continue;
+        }
+        unreachable();
+    }
 }
-static inline PerceivedThing get_top_level_container(const Thing & observer, PerceivedThing thing) {
-    while (thing->container_id != uint256::zero())
-        thing = observer->life()->knowledge.perceived_things.get(thing->container_id);
-    return thing;
+static inline Coord get_standing_or_floor_coord(Location location) {
+    switch (location.type) {
+        case Location::NOWHERE:
+        case Location::INVENTORY:
+            unreachable();
+        case Location::STANDING:
+            return location.standing();
+        case Location::FLOOR_PILE:
+            return location.floor_pile().coord;
+    }
+    unreachable();
 }
+static inline bool is_standing_or_floor(Location location) {
+    switch (location.type) {
+        case Location::NOWHERE:
+        case Location::INVENTORY:
+            return false;
+        case Location::STANDING:
+        case Location::FLOOR_PILE:
+            return true;
+    }
+    unreachable();
+}
+static inline Nullable<Coord> get_maybe_standing_or_floor_coord(Location location) {
+    switch (location.type) {
+        case Location::NOWHERE:
+        case Location::INVENTORY:
+            return nullptr;
+        case Location::STANDING:
+            return location.standing();
+        case Location::FLOOR_PILE:
+            return location.floor_pile().coord;
+    }
+    unreachable();
+}
+
 static inline bool individual_uses_items(Thing thing) {
     switch (thing->mental_species()->mind) {
         case Mind_NONE:
@@ -99,7 +141,14 @@ static inline bool individual_is_clever(Thing thing) {
 }
 
 static inline bool is_invisible(Thing observer, PerceivedThing thing) {
-    return has_status(get_top_level_container(observer, thing), StatusEffect::INVISIBILITY);
+    if (thing->location.type == Location::INVENTORY)
+        thing = observer->life()->knowledge.perceived_things.get(thing->location.inventory().container_id);
+    return has_status(thing, StatusEffect::INVISIBILITY);
+}
+static inline bool is_invisible(Thing thing) {
+    if (thing->location.type == Location::INVENTORY)
+        thing = game->actual_things.get(thing->location.inventory().container_id);
+    return has_status(thing, StatusEffect::INVISIBILITY);
 }
 
 void swarkland_init();
@@ -112,7 +161,7 @@ static inline int get_movement_cost(Thing actor) {
         return speedy_movement_cost;
     if (has_status(actor, StatusEffect::SLOWING))
         return slow_movement_cost;
-    if (game->actual_map_tiles[actor->location] == TileType_LAVA_FLOOR && is_touching_ground(actor))
+    if (game->actual_map_tiles[actor->location.standing()] == TileType_LAVA_FLOOR && is_touching_ground(actor))
         return slow_movement_cost;
     return actor->physical_species()->movement_cost;
 }
@@ -147,11 +196,7 @@ void gain_mp(Thing individual, int mp);
 
 void change_map(Coord location, TileType new_tile_type);
 
-void set_location(Thing thing, uint256 container_id, int z_order);
-void set_location(Thing thing, Coord location, int z_order);
-void set_location(Thing thing, Coord location);
-void set_location(Thing observer, PerceivedThing thing, Coord location);
-void set_location(Thing observer, PerceivedThing thing, uint256 container_id);
-void fix_perceived_z_orders(Thing observer, uint256 container_id);
+void set_location(Thing thing, Location location);
+void set_location(Thing observer, PerceivedThing thing, Location location);
 
 #endif

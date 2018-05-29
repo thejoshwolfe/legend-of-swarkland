@@ -183,7 +183,7 @@ static int digging_hit_wall(Coord location) {
 }
 
 static bool force_push_individual(Thing target, Coord direction, int beam_length_remaining, Thing who_is_responsible) {
-    Coord cursor = target->location;
+    Coord cursor = target->location.standing();
     List<Thing> choo_choo_train;
     bool is_point_blank_recoil = true;
     for (int push_length = 0; push_length < beam_length_remaining; push_length++) {
@@ -195,7 +195,7 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
         } else {
             // move the train into this space
             for (int i = choo_choo_train.length() - 1; i >= 0; i--) {
-                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction, who_is_responsible);
+                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location.standing() + direction, who_is_responsible);
                 if (actually_moved) {
                     // if anyone moves, there's no recoil
                     is_point_blank_recoil = false;
@@ -226,7 +226,7 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
         bool still_going = true;
         while (still_going) {
             for (int i = choo_choo_train.length() - 1; i >= 0; i--) {
-                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location + direction, who_is_responsible);
+                bool actually_moved = attempt_move(choo_choo_train[i], choo_choo_train[i]->location.standing() + direction, who_is_responsible);
                 if (actually_moved) {
                     // if anyone moves, there's no recoil
                     is_point_blank_recoil = false;
@@ -318,7 +318,7 @@ enum ProjectileId {
 // functions should return how much extra beam length this happening requires.
 // return -1 for stop the beam.
 static void shoot_magic_beam(Thing actor, Coord direction, ProjectileId projectile_id) {
-    Coord cursor = actor->location;
+    Coord cursor = actor->location.standing();
     int beam_length;
     if (direction == Coord{0, 0}) {
         // directed at yourself
@@ -448,7 +448,7 @@ static const int large_mapping_radius = 40;
 static void do_mapping(Thing actor, Coord direction) {
     publish_event(Event::create(Event::ACTIVATED_MAPPING, actor->id));
 
-    Coord center = actor->location;
+    Coord center = actor->location.standing();
     MapMatrix<TileType> & tiles = actor->life()->knowledge.tiles;
     for (Coord cursor = {0, 0}; cursor.y < map_size.y; cursor.y++) {
         for (cursor.x = 0; cursor.x < map_size.x; cursor.x++) {
@@ -657,7 +657,7 @@ static void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
     List<Thing> affected_individuals;
     Thing individual;
     for (auto iterator = actual_individuals(); iterator.next(&individual);) {
-        Coord abs_vector = abs(individual->location - explosion_center);
+        Coord abs_vector = abs(individual->location.standing() - explosion_center);
         if (max(abs_vector.x, abs_vector.y) <= apothem)
             affected_individuals.append(individual);
     }
@@ -698,7 +698,7 @@ static void explode_wand(Thing actor, Thing wand, Coord explosion_center) {
             break;
         case WandId_WAND_OF_FORCE:
             for (int i = 0; i < affected_individuals.length(); i++) {
-                Coord direction = affected_individuals[i]->location - explosion_center;
+                Coord direction = affected_individuals[i]->location.standing() - explosion_center;
                 int beam_length = random_inclusive(
                     (beam_length_average - beam_length_error_margin) / 3,
                     (beam_length_average + beam_length_error_margin) / 3,
@@ -765,7 +765,7 @@ static ImpactBehavior get_impact_behavior(Thing item) {
 void throw_item(Thing actor, Thing item, Coord direction) {
     publish_event(Event::create(Event::THROW_ITEM, actor->id, item->id));
     // let go of the item. it's now sailing through the air.
-    set_location(item, actor->location);
+    set_location(item, Location::create_floor_pile(actor->location.standing(), 0));
 
     // kickback from throwing
     apply_impulse(actor, -direction);
@@ -779,7 +779,7 @@ void throw_item(Thing actor, Thing item, Coord direction) {
     } else {
         range = random_inclusive(range_window.x, range_window.y, "throw_distance");
     }
-    Coord cursor = actor->location;
+    Coord cursor = actor->location.standing();
     ImpactBehavior impact_behavior = get_impact_behavior(item);
     int impact_force = 0;
     Thing hit_target = nullptr;
@@ -792,7 +792,7 @@ void throw_item(Thing actor, Thing item, Coord direction) {
             impact_force = -1; // random
             break;
         } else {
-            set_location(item, cursor);
+            set_location(item, Location::create_floor_pile(cursor, 0));
             publish_event(Event::create(Event::MOVE, item->id, cursor - direction, cursor));
         }
         hit_target = find_individual_at(cursor);

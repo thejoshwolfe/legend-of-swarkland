@@ -557,4 +557,88 @@ struct WeaponBehavior {
     }
 };
 
+struct FloorPileLocation {
+    Coord coord;
+    int z_order;
+};
+struct InventoryLocation {
+    uint256 container_id;
+    int z_order;
+    bool is_equipped;
+};
+
+struct Location {
+    enum Type {
+        NOWHERE,
+        STANDING, // or flying, slithering, etc.
+        FLOOR_PILE,
+        INVENTORY,
+    };
+    Type type;
+
+    static Location nowhere() {
+        Location result;
+        result.type = NOWHERE;
+        return result;
+    }
+
+    Coord & standing() {
+        assert(type == STANDING);
+        return _data._standing;
+    }
+    const Coord & standing() const{
+        assert(type == STANDING);
+        return _data._standing;
+    }
+    static Location create_standing(Coord coord) {
+        Location result;
+        result.type = STANDING;
+        result.standing() = coord;
+        return result;
+    }
+
+    FloorPileLocation & floor_pile() {
+        assert(type == FLOOR_PILE);
+        return _data._floor_pile;
+    }
+    const FloorPileLocation & floor_pile() const {
+        assert(type == FLOOR_PILE);
+        return _data._floor_pile;
+    }
+    static Location create_floor_pile(Coord coord, int z_order) {
+        Location result;
+        result.type = FLOOR_PILE;
+        result.floor_pile() = {
+            coord,
+            z_order,
+        };
+        return result;
+    }
+
+    InventoryLocation & inventory() {
+        assert(type == INVENTORY);
+        return _data._inventory;
+    }
+    const InventoryLocation & inventory() const {
+        assert(type == INVENTORY);
+        return _data._inventory;
+    }
+    static Location create_inventory(uint256 container_id, int z_order, bool equipped) {
+        Location result;
+        result.type = INVENTORY;
+        result.inventory() = {
+            container_id,
+            z_order,
+            equipped,
+        };
+        return result;
+    }
+
+    union {
+        Coord _standing;
+        FloorPileLocation _floor_pile;
+        InventoryLocation _inventory;
+    } _data;
+};
+
 #endif

@@ -118,10 +118,7 @@ public:
     uint256 id;
     bool is_placeholder;
     ThingType thing_type;
-    Coord location = Coord::nowhere();
-    uint256 container_id = uint256::zero();
-    int z_order = 0;
-    bool is_equipped = false;
+    Location location = Location::nowhere();
     int64_t last_seen_time;
     StatusEffectIdBitField status_effect_bits = 0;
     // individual
@@ -294,10 +291,7 @@ public:
     // this is set to false in the time between actually being destroyed and being removed from the master list
     bool still_exists = true;
 
-    Coord location = Coord::nowhere();
-    uint256 container_id = uint256::zero();
-    int z_order = 0;
-    bool is_equipped = false;
+    Location location = Location::nowhere();
 
     List<StatusEffect> status_effects;
     List<AbilityCooldown> ability_cooldowns;
@@ -434,6 +428,27 @@ private:
 };
 typedef Reference<ThingImpl> Thing;
 
+static inline int compare(const Location & a, const Location & b) {
+    if (a.type != b.type)
+        return compare((int)a.type, (int)b.type);
+    int result;
+    switch (a.type) {
+        case Location::NOWHERE:
+            return 0;
+        case Location::STANDING:
+            return compare(a.standing(), b.standing());
+        case Location::FLOOR_PILE:
+            if ((result = compare(a.floor_pile().coord, b.floor_pile().coord)) != 0)
+                return result;
+            return compare(a.floor_pile().z_order, b.floor_pile().z_order);
+        case Location::INVENTORY:
+            if ((result = compare(a.inventory().container_id, b.inventory().container_id)) != 0)
+                return result;
+            return compare(a.inventory().z_order, b.inventory().z_order);
+    }
+    unreachable();
+}
+
 static inline int compare_individuals_by_initiative(const Thing & a, const Thing & b) {
     return compare(a->life()->initiative, b->life()->initiative);
 }
@@ -444,14 +459,7 @@ static inline int compare_perceived_things_by_id(const PerceivedThing & a, const
     return compare(a->id, b->id);
 }
 static inline int compare_things_by_location(const Thing & a, const Thing & b) {
-    int result;
-    if ((result = compare(a->location, b->location)) != 0)
-        return result;
-    if ((result = compare(a->container_id, b->container_id)) != 0)
-        return result;
-    if ((result = compare(a->z_order, b->z_order)) != 0)
-        return result;
-    return 0;
+    return compare(a->location, b->location);
 }
 
 // TODO: these are in the wrong place

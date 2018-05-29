@@ -642,17 +642,8 @@ Span get_thing_description(Thing observer, uint256 target_id, bool verbose) {
     }
 
     if (verbose) {
-        PerceivedThing container = observer->life()->knowledge.perceived_things.get(target->container_id, nullptr);
-        if (container != nullptr) {
-            // TODO: this is wrong. why are we looking at the actual things?
-            Thing actual_container = game->actual_things.get(container->id, nullptr);
-            if (actual_container != nullptr) {
-                Thing equipped_weapon = get_equipped_weapon(actual_container);
-                if (equipped_weapon != nullptr && equipped_weapon->id == target->id) {
-                    result->append(" (equipped)");
-                }
-            }
-        }
+        if (target->location.type == Location::INVENTORY && target->location.inventory().is_equipped)
+            result->append(" (equipped)");
     }
 
     return result;
@@ -1703,10 +1694,10 @@ void render() {
                 // it's in our direct line of sight
                 if (direction_distance_min != -1) {
                     // actually, let's only show the 8 directions
-                    Coord vector = spectate_from->location - cursor;
+                    Coord vector = spectate_from->location.standing() - cursor;
                     if (vector.x * vector.y == 0 || abs(vector.x) == abs(vector.y)) {
                         // ordinal aligned
-                        int distance = ordinal_distance(spectate_from->location, cursor);
+                        int distance = ordinal_distance(spectate_from->location.standing(), cursor);
                         if (distance <= direction_distance_min)
                             alpha = 0xff;
                         else if (distance <= direction_distance_max)
@@ -1732,7 +1723,7 @@ void render() {
         List<PerceivedThing> things;
         PerceivedThing thing;
         for (auto iterator = spectate_from->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
-            if (thing->location == Coord::nowhere())
+            if (!is_standing_or_floor(thing->location))
                 continue;
             things.append(thing);
         }
@@ -1742,18 +1733,19 @@ void render() {
         item_pile_rendered.set_all(false);
         for (int i = 0; i < things.length(); i++) {
             PerceivedThing thing = things[i];
-            if (thing->thing_type != ThingType_INDIVIDUAL) {
-                if (item_pile_rendered[thing->location])
+            if (thing->location.type == Location::FLOOR_PILE) {
+                Coord coord = thing->location.floor_pile().coord;
+                if (item_pile_rendered[coord])
                     continue;
-                item_pile_rendered[thing->location] = true;
+                item_pile_rendered[coord] = true;
             }
             Uint8 alpha = get_thing_alpha(spectate_from, thing);
-            render_tile(get_image_for_thing(thing), alpha, thing->location);
+            render_tile(get_image_for_thing(thing), alpha, get_standing_or_floor_coord(thing->location));
 
             List<PerceivedThing> inventory;
             find_items_in_inventory(spectate_from, thing->id, &inventory);
             if (inventory.length() > 0)
-                render_tile(sprite_location_equipment, alpha, thing->location);
+                render_tile(sprite_location_equipment, alpha, get_standing_or_floor_coord(thing->location));
         }
     } else {
         // full visibility
@@ -1762,19 +1754,20 @@ void render() {
             // this exposes hashtable iteration order, but it's a cheatcode, so whatever.
             if (!thing->still_exists)
                 continue;
-            if (thing->location == Coord::nowhere())
+            if (!is_standing_or_floor(thing->location))
                 continue;
+            Coord coord = get_standing_or_floor_coord(thing->location);
             Uint8 alpha;
-            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_shape(spectate_from->life()->knowledge.tile_is_visible[thing->location]))
+            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_shape(spectate_from->life()->knowledge.tile_is_visible[coord]))
                 alpha = 0x7f;
             else
                 alpha = 0xff;
-            render_tile(get_image_for_thing(thing), alpha, thing->location);
+            render_tile(get_image_for_thing(thing), alpha, coord);
 
             List<Thing> inventory;
             find_items_in_inventory(thing->id, &inventory);
             if (inventory.length() > 0)
-                render_tile(sprite_location_equipment, alpha, thing->location);
+                render_tile(sprite_location_equipment, alpha, coord);
         }
     }
 
@@ -1971,7 +1964,7 @@ void render() {
                 floor_menu_div->append(item_span);
             }
         }
-        popup_help(main_map_area, spectate_from->location, floor_menu_div);
+        popup_help(main_map_area, spectate_from->location.standing(), floor_menu_div);
     }
     if (show_cheatcode_polymorph_choose_species_menu) {
         if (last_cheatcode_polymorph_choose_species_menu_cursor != cheatcode_polymorph_choose_species_menu_cursor) {

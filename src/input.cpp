@@ -38,18 +38,18 @@ Coord get_mouse_pixels() {
 void get_floor_actions(Thing actor, List<Action> * actions) {
     // pick up
     List<PerceivedThing> items;
-    find_perceived_items_at(actor, actor->location, &items);
+    find_perceived_items_at(actor, actor->location.standing(), &items);
     for (int i = 0; i < items.length(); i++)
         actions->append(Action::pickup(items[i]->id));
 
     // go down
-    if (actor->life()->knowledge.tiles[actor->location] == TileType_STAIRS_DOWN)
+    if (actor->life()->knowledge.tiles[actor->location.standing()] == TileType_STAIRS_DOWN)
         actions->append(Action::go_down());
 }
 
 static Action move_or_attack(Coord direction) {
     // convert moving into attacking if it's pointed at an observed monster.
-    if (find_perceived_individual_at(player_actor(), player_actor()->location + direction) != nullptr)
+    if (find_perceived_individual_at(player_actor(), player_actor()->location.standing() + direction) != nullptr)
         return Action::attack(direction);
     return Action::move(direction);
 }
@@ -248,7 +248,7 @@ static Action on_key_down_choose_item(const SDL_Event & event) {
                     inventory_menu_items.append(Action::READ_BOOK);
                     break;
                 case ThingType_WEAPON:
-                    if (chosen_item->is_equipped)
+                    if (chosen_item->location.inventory().is_equipped)
                         inventory_menu_items.append(Action::UNEQUIP);
                     else
                         inventory_menu_items.append(Action::EQUIP);

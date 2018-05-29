@@ -45,6 +45,7 @@ syn match   swarklandDirective /@test_end\>/
 
 " barewords
 syn keyword swarklandBareword individual potion wand book weapon
+syn keyword swarklandBareword nowhere standing floor_pile inventory
 syn keyword swarklandBareword human ogre lich shapeshifter pink_blob air_elemenetal tar_elemental dog ant bee beetle scorpion snake cobra unseen
 syn keyword swarklandBareword player ai
 syn keyword swarklandBareword confusion digging magic_missile speed remedy unknown

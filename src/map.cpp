@@ -34,7 +34,7 @@ bool is_open_line_of_sight(Coord from_location, Coord to_location, const MapMatr
 }
 
 static void see_map_with_normal_vision(Thing individual) {
-    Coord you_location = individual->location;
+    Coord you_location = individual->location.standing();
     for (Coord target = {0, 0}; target.y < map_size.y; target.y++) {
         for (target.x = 0; target.x < map_size.x; target.x++) {
             if (!is_open_line_of_sight(you_location, target, game->actual_map_tiles))
@@ -47,7 +47,7 @@ static void see_map_with_normal_vision(Thing individual) {
 }
 
 static void see_map_with_ethereal_vision(Thing individual) {
-    Coord you_location = individual->location;
+    Coord you_location = individual->location.standing();
     Coord etheral_radius_diagonal = {ethereal_radius, ethereal_radius};
     Coord upper_left = clamp(you_location - etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
     Coord lower_right= clamp(you_location + etheral_radius_diagonal, Coord{0, 0}, map_size - Coord{1, 1});
@@ -103,11 +103,11 @@ void compute_vision(Thing observer) {
     if (has_vision & VisionTypes_ETHEREAL)
         see_map_with_ethereal_vision(observer);
     // you can always feel just the spot you're on
-    knowledge.tile_is_visible[observer->location] |= VisionTypes_COLOCATION;
-    record_shape_of_terrain(&knowledge.tiles, observer->location);
+    knowledge.tile_is_visible[observer->location.standing()] |= VisionTypes_COLOCATION;
+    record_shape_of_terrain(&knowledge.tiles, observer->location.standing());
     // while blind (and always), you're reaching around you and feel if the walls around you are real or not
     for (int i = 0; i < 8; i++) {
-        Coord location = observer->location + directions_by_rotation[i];
+        Coord location = observer->location.standing() + directions_by_rotation[i];
         knowledge.tile_is_visible[location] |= VisionTypes_REACH_AND_TOUCH;
         record_shape_of_terrain(&knowledge.tiles, location);
     }
@@ -116,10 +116,12 @@ void compute_vision(Thing observer) {
     // first clear out anything that we know is no longer where we thought
     PerceivedThing target;
     for (auto iterator = knowledge.perceived_things.value_iterator(); iterator.next(&target);) {
-        Coord target_location = get_top_level_container(observer, target)->location;
-        if (target_location == Coord::nowhere())
+        Location location = target->location;
+        if (location.type == Location::INVENTORY)
+            location = observer->life()->knowledge.perceived_things.get(location.inventory().container_id)->location;
+        if (location.type == Location::NOWHERE)
             continue;
-        VisionTypes vision = knowledge.tile_is_visible[target_location];
+        VisionTypes vision = knowledge.tile_is_visible[get_standing_or_floor_coord(location)];
         // cogniscopy cannot verify the absence of things at a location
         vision &= ~VisionTypes_COGNISCOPY;
         // reach and touch doesn't feel things
@@ -132,7 +134,7 @@ void compute_vision(Thing observer) {
             // leave the marker.
             continue;
         }
-        set_location(observer, target, Coord::nowhere());
+        set_location(observer, target, Location::nowhere());
     }
 
     // now see anything that's in our line of vision
@@ -330,7 +332,7 @@ void generate_map() {
                     for (int x = 1; x < 3; x++) {
                         Coord coord = {room.x + offset_x + 2 + x, room.y + offset_y + 2 + y};
                         game->actual_map_tiles[coord] = TileType_MARBLE_FLOOR;
-                        set_location(create_random_item(), coord);
+                        set_location(create_random_item(), Location::create_floor_pile(coord, 0));
                     }
                 }
                 break;
@@ -465,14 +467,14 @@ void generate_map() {
     if (game->dungeon_level == 1) {
         // first level always has a wand of digging and a potion of ethereal vision to make finding vaults less random.
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        set_location(create_wand(WandId_WAND_OF_DIGGING), location);
+        set_location(create_wand(WandId_WAND_OF_DIGGING), Location::create_floor_pile(location, 0));
         location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        set_location(create_potion(PotionId_POTION_OF_ETHEREAL_VISION), location);
+        set_location(create_potion(PotionId_POTION_OF_ETHEREAL_VISION), Location::create_floor_pile(location, 0));
     }
     int item_count = random_inclusive(3, 6, nullptr);
     for (int i = 0; i < item_count; i++) {
         Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-        set_location(create_random_item(), location);
+        set_location(create_random_item(), Location::create_floor_pile(location, 0));
     }
 
     // place some vaults
@@ -509,14 +511,14 @@ void generate_map() {
             for (cursor.y = room.y + 2; cursor.y < room.y + room.h - 2; cursor.y++) {
                 for (cursor.x = room.x + 2; cursor.x < room.x + room.w - 2; cursor.x++) {
                     game->actual_map_tiles[cursor] = TileType_MARBLE_FLOOR;
-                    set_location(create_random_item(), cursor);
+                    set_location(create_random_item(), Location::create_floor_pile(cursor, 0));
                 }
             }
         } else {
             // throw what items would be in the vault around in the rooms
             for (int i = 0; i < 4; i++) {
                 Coord location = room_floor_spaces[random_int(room_floor_spaces.length(), nullptr)];
-                set_location(create_random_item(), location);
+                set_location(create_random_item(), Location::create_floor_pile(location, 0));
             }
         }
     }
