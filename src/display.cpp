@@ -147,7 +147,7 @@ static void load_images() {
     fill_with_trash(weapon_images);
     weapon_images[WeaponId_DAGGER] = sprite_location_dagger;
     weapon_images[WeaponId_BATTLEAXE] = sprite_location_battleaxe;
-    weapon_images[WeaponId_STICK] = sprite_location_kitty;
+    weapon_images[WeaponId_STICK] = sprite_location_stick;
     check_no_trash(weapon_images);
 }
 
