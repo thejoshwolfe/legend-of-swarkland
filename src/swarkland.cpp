@@ -1018,9 +1018,9 @@ bool validate_action(Thing actor, const Action & action) {
                 return false;
             if (item->thing_type != ThingType_WEAPON)
                 return false;
-            if (!(item->location.type == Location::INVENTORY && item->location.inventory().container_id != actor->id))
+            if (!(item->location.type == Location::INVENTORY && item->location.inventory().container_id == actor->id))
                 return false;
-            if (item->location.inventory().is_equipped)
+            if (!item->location.inventory().is_equipped)
                 return false;
             return true;
         }
