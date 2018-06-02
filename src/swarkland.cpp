@@ -65,7 +65,37 @@ static void fix_z_orders(Location location) {
     }
 }
 
+static inline void assert_valid_location_type(ThingType thing_type, const Location & location) {
+    if (location.type == Location::NOWHERE)
+        return; // always ok
+    switch (thing_type) {
+        case ThingType_INDIVIDUAL:
+            assert(location.type == Location::STANDING);
+            return;
+        case ThingType_WAND:
+        case ThingType_POTION:
+        case ThingType_BOOK:
+        case ThingType_WEAPON:
+            switch (location.type) {
+                case Location::FLOOR_PILE:
+                    return;
+                case Location::INVENTORY:
+                    if (thing_type != ThingType_WEAPON)
+                        assert(!location.inventory().is_equipped);
+                    return;
+                case Location::STANDING:
+                    assert(false);
+                case Location::NOWHERE:
+                    unreachable();
+            }
+        case ThingType_COUNT:
+            unreachable();
+    }
+}
+
 void set_location(Thing thing, Location location) {
+    assert_valid_location_type(thing->thing_type, location);
+
     Location old_location = thing->location;
     thing->location = location;
 
@@ -73,6 +103,7 @@ void set_location(Thing thing, Location location) {
     fix_z_orders(location);
 }
 void set_location(Thing observer, PerceivedThing thing, Location location) {
+    assert_valid_location_type(thing->thing_type, location);
     Location old_location = thing->location;
     thing->location = location;
     fix_perceived_z_orders(observer, old_location);

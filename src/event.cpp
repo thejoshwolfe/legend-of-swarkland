@@ -640,9 +640,8 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                         // assume everything drops to the floor
                         List<PerceivedThing> inventory;
                         find_items_in_inventory(observer, thing->id, &inventory);
-                        // TODO: avoid O(n^2) z_order fixing operation
                         for (int i = 0; i < inventory.length(); i++)
-                            set_location(observer, inventory[i], thing->location);
+                            set_location(observer, inventory[i], Location::create_floor_pile(thing->location.standing(), 0x7fffffff));
                     }
                     return nullptr;
                 }
@@ -890,8 +889,7 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                 case Event::INDIVIDUAL_PICKS_UP_ITEM:
                 case Event::INDIVIDUAL_SUCKS_UP_ITEM: {
                     PerceivedThing item = observer->life()->knowledge.perceived_things.get(data.item);
-                    // TODO: what's the z order here?
-                    set_location(observer, item, Location::create_inventory(data.individual, 0, false));
+                    set_location(observer, item, Location::create_inventory(data.individual, 0x7fffffff, false));
                     return PerceivedEvent::create((PerceivedEvent::IndividualAndItemDataId)data.id, individual_snapshot, item_snapshot);
                 }
                 case Event::EQUIP_ITEM: {
