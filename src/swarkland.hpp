@@ -167,7 +167,10 @@ static inline int get_movement_cost(Thing actor) {
 }
 
 void run_the_game();
-int compare_perceived_things_by_type_and_z_order(const PerceivedThing & a, const PerceivedThing & b);
+int compare_perceived_things_canonically(const PerceivedThing & a, const PerceivedThing & b);
+static inline int compare_floor_items_by_z_order(const PerceivedThing & a, const PerceivedThing & b) {
+    return compare(a->location.floor_pile().z_order, b->location.floor_pile().z_order);
+}
 PerceivedThing find_perceived_individual_at(Thing observer, Coord location);
 void find_perceived_things_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);
 void find_perceived_items_at(Thing observer, Coord location, List<PerceivedThing> * output_sorted_list);

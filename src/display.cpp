@@ -1720,32 +1720,49 @@ void render() {
     // render the things
     if (!cheatcode_full_visibility) {
         // not cheating
-        List<PerceivedThing> things;
+        List<PerceivedThing> floor_items;
+        List<PerceivedThing> standing_individuals;
         PerceivedThing thing;
         for (auto iterator = spectate_from->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);) {
-            if (!is_standing_or_floor(thing->location))
-                continue;
-            things.append(thing);
+            switch (thing->location.type) {
+                case Location::NOWHERE:
+                case Location::INVENTORY:
+                    continue;
+                case Location::FLOOR_PILE:
+                    floor_items.append(thing);
+                    break;
+                case Location::STANDING:
+                    standing_individuals.append(thing);
+                    break;
+            }
         }
-        sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(things.raw(), things.length());
+        sort<PerceivedThing, compare_floor_items_by_z_order>(floor_items.raw(), floor_items.length());
         // only render 1 of each type of thing in each location on the map
         MapMatrix<bool> item_pile_rendered;
         item_pile_rendered.set_all(false);
-        for (int i = 0; i < things.length(); i++) {
-            PerceivedThing thing = things[i];
-            if (thing->location.type == Location::FLOOR_PILE) {
-                Coord coord = thing->location.floor_pile().coord;
-                if (item_pile_rendered[coord])
-                    continue;
-                item_pile_rendered[coord] = true;
-            }
-            Uint8 alpha = get_thing_alpha(spectate_from, thing);
-            render_tile(get_image_for_thing(thing), alpha, get_standing_or_floor_coord(thing->location));
+        for (int i = 0; i < floor_items.length(); i++) {
+            PerceivedThing item = floor_items[i];
+            Coord coord = item->location.floor_pile().coord;
+            if (item_pile_rendered[coord])
+                continue;
+            item_pile_rendered[coord] = true;
+
+            Uint8 alpha = get_thing_alpha(spectate_from, item);
+            render_tile(get_image_for_thing(item), alpha, coord);
+        }
+
+        // render individuals in front of item piles
+        for (int i = 0; i < standing_individuals.length(); i++) {
+            PerceivedThing individual = standing_individuals[i];
+            Coord coord = individual->location.standing();
+            Uint8 alpha = get_thing_alpha(spectate_from, individual);
+            render_tile(get_image_for_thing(individual), alpha, coord);
 
             List<PerceivedThing> inventory;
-            find_items_in_inventory(spectate_from, thing->id, &inventory);
-            if (inventory.length() > 0)
-                render_tile(sprite_location_equipment, alpha, get_standing_or_floor_coord(thing->location));
+            find_items_in_inventory(spectate_from, individual->id, &inventory);
+            if (inventory.length() > 0) {
+                render_tile(sprite_location_equipment, alpha, coord);
+            }
         }
     } else {
         // full visibility

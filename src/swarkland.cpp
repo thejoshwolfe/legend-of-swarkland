@@ -614,8 +614,9 @@ void use_mana(Thing actor, int mana) {
     reset_mp_regen_timeout(actor);
 }
 
-int compare_perceived_things_by_type_and_z_order(const PerceivedThing & a, const PerceivedThing & b) {
-    // TODO: rename
+int compare_perceived_things_canonically(const PerceivedThing & a, const PerceivedThing & b) {
+    // no two things can be in the *exact* same location.
+    // there will at least be z_order to order everything deterministically.
     return compare(a->location, b->location);
 }
 
@@ -643,14 +644,14 @@ void find_perceived_things_at(Thing observer, Coord coord, List<PerceivedThing> 
                 break;
         }
     }
-    sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<PerceivedThing, compare_perceived_things_canonically>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void find_perceived_items_at(Thing observer, Coord coord, List<PerceivedThing> * output_sorted_list) {
     PerceivedThing thing;
     for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&thing);)
         if (thing->location.type == Location::FLOOR_PILE && thing->location.floor_pile().coord == coord)
             output_sorted_list->append(thing);
-    sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<PerceivedThing, compare_perceived_things_canonically>(output_sorted_list->raw(), output_sorted_list->length());
 }
 Thing find_individual_at(Coord coord) {
     Thing individual;
@@ -682,7 +683,7 @@ void find_items_in_inventory(Thing observer, uint256 container_id, List<Perceive
     for (auto iterator = observer->life()->knowledge.perceived_things.value_iterator(); iterator.next(&item);)
         if (item->location.type == Location::INVENTORY && item->location.inventory().container_id == container_id)
             output_sorted_list->append(item);
-    sort<PerceivedThing, compare_perceived_things_by_type_and_z_order>(output_sorted_list->raw(), output_sorted_list->length());
+    sort<PerceivedThing, compare_perceived_things_canonically>(output_sorted_list->raw(), output_sorted_list->length());
 }
 void get_abilities(Thing individual, List<AbilityId> * output_sorted_abilities) {
     switch (individual->physical_species_id()) {
