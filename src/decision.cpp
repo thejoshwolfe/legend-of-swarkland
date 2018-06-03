@@ -478,10 +478,10 @@ Action get_ai_decision(Thing actor) {
                 }
                 for (int i = 0; i < abilities.length(); i++){
                     AbilityId ability_id = abilities[i];
-                    if (!is_ability_ready(actor, ability_id))
-                        continue;
                     switch (ability_id) {
                         case AbilityId_SPIT_BLINDING_VENOM:
+                            if (!is_ability_ready(actor, ability_id))
+                                break;
                             if (advanced_strategy && has_status_apparently(target, StatusEffect::BLINDNESS))
                                 break; // already affected
                             if (!is_clear_projectile_shot(actor, target_coord, get_ability_range_window(ability_id).x))
@@ -489,6 +489,8 @@ Action get_ai_decision(Thing actor) {
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
                         case AbilityId_THROW_TAR:
+                            if (!is_ability_ready(actor, ability_id))
+                                break;
                             if (advanced_strategy && has_status_apparently(target, StatusEffect::SLOWING))
                                 break; // already affected
                             if (!is_clear_projectile_shot(actor, target_coord, get_ability_range_window(ability_id).x))
@@ -496,13 +498,23 @@ Action get_ai_decision(Thing actor) {
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
                         case AbilityId_LUNGE_ATTACK: {
-                            if (!is_clear_projectile_shot(actor, target_coord, lunge_attack_range + 1))
-                                break; // we'll bonk on something
                             if (ordinal_distance(Coord{0, 0}, vector) <= 1)
                                 break; // too close
-                            if (advanced_strategy && !is_safe_space(actor->life()->knowledge.tiles[target_coord - direction], is_touching_ground(actor)))
-                                break; // we'd fall into lava!
-                            high_priority_range_attack_actions.append(Action::ability(ability_id, direction));
+                            Action wait_or_attack;
+                            if (!is_ability_ready(actor, ability_id)) {
+                                // we need to hold still to charge this ability
+                                wait_or_attack = Action::wait();
+                            } else if (!is_clear_projectile_shot(actor, target_coord, lunge_attack_range + 1)) {
+                                // we'll bonk on something
+                                wait_or_attack = Action::wait();
+                            } else if (advanced_strategy && !is_safe_space(actor->life()->knowledge.tiles[target_coord - direction], is_touching_ground(actor))) {
+                                // we'd fall into lava!
+                                wait_or_attack = Action::wait();
+                            } else {
+                                // strike!
+                                wait_or_attack = Action::ability(ability_id, direction);
+                            }
+                            high_priority_range_attack_actions.append(wait_or_attack);
                             break;
                         }
                         case AbilityId_ASSUME_FORM: {
