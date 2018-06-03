@@ -32,6 +32,11 @@ Coord get_mouse_pixels() {
         return Coord::nowhere();
     Coord result;
     SDL_GetMouseState(&result.x, &result.y);
+    if (result == Coord{0, 0}) {
+        // we get this too often when it's not true.
+        // treat this pixel as outside the window
+        return Coord::nowhere();
+    }
     return result;
 }
 

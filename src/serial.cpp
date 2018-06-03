@@ -710,20 +710,20 @@ static void write_location_to_buffer(ByteBuffer * output_buffer, Location locati
     }
 }
 static Location parse_location(const ByteBuffer & line, const List<Token> & tokens, int * token_cursor) {
-    const Token & type_token = tokens[*token_cursor++];
+    const Token & type_token = tokens[(*token_cursor)++];
     if (token_equals(line, type_token, "nowhere")) {
         return Location::nowhere();
     } else if (token_equals(line, type_token, "standing")) {
         Location result = Location::create_standing(parse_coord(line, tokens[*token_cursor], tokens[*token_cursor + 1]));
-        token_cursor += 2;
+        *token_cursor += 2;
         return result;
     } else if (token_equals(line, type_token, "floor_pile")) {
         Location result = Location::create_floor_pile(parse_coord(line, tokens[*token_cursor], tokens[*token_cursor + 1]), parse_int(line, tokens[*token_cursor + 2]));
-        token_cursor += 3;
+        *token_cursor += 3;
         return result;
     } else if (token_equals(line, type_token, "inventory")) {
         Location result = Location::create_inventory(parse_uint256(line, tokens[*token_cursor]), parse_int(line, tokens[*token_cursor + 1]), parse_int(line, tokens[*token_cursor + 2]) != 0);
-        token_cursor += 3;
+        *token_cursor += 3;
         return result;
     } else {
         report_error(type_token, 0, "unrecognized location type");

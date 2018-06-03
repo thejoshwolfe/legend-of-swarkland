@@ -637,11 +637,18 @@ static Nullable<PerceivedEvent> observe_event(Thing observer, Event event) {
                     PerceivedThing thing = observer->life()->knowledge.perceived_things.get(data.individual, nullptr);
                     if (thing != nullptr) {
                         observer->life()->knowledge.perceived_things.remove(data.individual);
-                        // assume everything drops to the floor
+                        Location new_location;
+                        if (thing->location.type == Location::STANDING) {
+                            // assume inventory drops to the floor
+                            new_location = Location::create_floor_pile(thing->location.standing(), 0x7fffffff);
+                        } else {
+                            // don't know where to put inventory
+                            new_location = Location::nowhere();
+                        }
                         List<PerceivedThing> inventory;
                         find_items_in_inventory(observer, thing->id, &inventory);
                         for (int i = 0; i < inventory.length(); i++)
-                            set_location(observer, inventory[i], Location::create_floor_pile(thing->location.standing(), 0x7fffffff));
+                            set_location(observer, inventory[i], new_location);
                     }
                     return nullptr;
                 }
