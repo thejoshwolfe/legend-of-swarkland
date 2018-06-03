@@ -258,16 +258,23 @@ static void attack(Thing attacker, Thing target, int bonus_damage) {
     bool normal_attack = true;
     Thing weapon = get_equipped_weapon(attacker);
     if (weapon != nullptr) {
-        WeaponBehavior weapon_behavior = get_weapon_behavior(weapon->weapon_info()->weapon_id);
-        switch (weapon_behavior.type) {
-            case WeaponBehavior::BONUS_DAMAGE:
-                attack_power += weapon_behavior.bonus_damage;
-                break;
-            case WeaponBehavior::PUSH:
-                normal_attack = false;
-                publish_event(Event::create(Event::PUSH_INDIVIDUAL, attacker->id, target->id));
-                attempt_move(target, target->location.standing() + attack_vector, attacker);
-                break;
+        if (target->physical_species()->sucks_up_items) {
+            // i'll take that
+            set_location(weapon, Location::create_inventory(target->id, 0x7fffffff, false));
+            publish_event(Event::create(Event::ITEM_SINKS_INTO_INDIVIDUAL, target->id, weapon->id));
+            normal_attack = false;
+        } else {
+            WeaponBehavior weapon_behavior = get_weapon_behavior(weapon->weapon_info()->weapon_id);
+            switch (weapon_behavior.type) {
+                case WeaponBehavior::BONUS_DAMAGE:
+                    attack_power += weapon_behavior.bonus_damage;
+                    break;
+                case WeaponBehavior::PUSH:
+                    normal_attack = false;
+                    publish_event(Event::create(Event::PUSH_INDIVIDUAL, attacker->id, target->id));
+                    attempt_move(target, target->location.standing() + attack_vector, attacker);
+                    break;
+            }
         }
     }
 
