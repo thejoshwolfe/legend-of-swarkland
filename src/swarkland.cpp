@@ -318,6 +318,18 @@ static void do_lunge_attack(Thing actor, Coord direction) {
     attack_location(actor, actor->location.standing() + direction, bonus_damage);
 }
 
+static void put_ability_cooldown(Thing actor, AbilityId ability_id, int64_t expiration_time) {
+    for (int i = 0; i < actor->ability_cooldowns.length(); i++) {
+        AbilityCooldown * ability_cooldown = &actor->ability_cooldowns[i];
+        if (ability_cooldown->ability_id == ability_id) {
+            ability_cooldown->expiration_time = max(ability_cooldown->expiration_time, expiration_time);
+            return;
+        }
+    }
+    actor->ability_cooldowns.append(AbilityCooldown{ability_id, expiration_time});
+}
+
+static constexpr int LUNGE_ATTACK_COOLDOWN = 48;
 static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
     int cooldown_time;
     switch (ability_id) {
@@ -334,13 +346,13 @@ static void do_ability(Thing actor, AbilityId ability_id, Coord direction) {
             break;
         case AbilityId_LUNGE_ATTACK:
             publish_event(Event::create(Event::LUNGE, actor->id));
-            cooldown_time = 48;
+            cooldown_time = LUNGE_ATTACK_COOLDOWN;
             break;
         case AbilityId_COUNT:
             unreachable();
     }
     if (cooldown_time > 0)
-        actor->ability_cooldowns.append(AbilityCooldown{ability_id, game->time_counter + cooldown_time});
+        put_ability_cooldown(actor, ability_id, game->time_counter + cooldown_time);
 
     Coord range_window = get_ability_range_window(ability_id);
     int range;
@@ -860,6 +872,13 @@ static void do_move(Thing mover, Coord new_position, Thing who_is_responsible) {
     // this makes force pushing enemies into lava do more predictable damage.
     // note that you can still act at the same time you would have been able to, just not move.
     mover->life()->last_movement_time = game->time_counter;
+
+    // moving uncoils you
+    List<AbilityId> valid_abilities;
+    get_abilities(mover, &valid_abilities);
+    if (valid_abilities.index_of(AbilityId_LUNGE_ATTACK) != -1) {
+        put_ability_cooldown(mover, AbilityId_LUNGE_ATTACK, game->time_counter + LUNGE_ATTACK_COOLDOWN);
+    }
 
     if (mover->id != who_is_responsible->id) {
         // this isn't really supposed to expire.
