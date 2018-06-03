@@ -802,14 +802,28 @@ static bool can_propel_self_while_levitating(Thing actor) {
     return false;
 }
 static bool can_propel_self(Thing actor) {
-    if (!has_status(actor, StatusEffect::LEVITATING))
+    if (!has_status_effectively(actor, StatusEffect::LEVITATING))
         return true;
     return can_propel_self_while_levitating(actor);
 }
 bool is_touching_ground(Thing individual) {
     if (individual->physical_species()->flying) return false;
-    if (has_status(individual, StatusEffect::LEVITATING)) return false;
+    if (has_status_effectively(individual, StatusEffect::LEVITATING)) return false;
     return true;
+}
+int get_movement_cost(Thing actor) {
+    if (has_status_effectively(actor, StatusEffect::SPEED))
+        return speedy_movement_cost;
+    if (has_status_effectively(actor, StatusEffect::SLOWING))
+        return slow_movement_cost;
+    if (game->actual_map_tiles[actor->location.standing()] == TileType_LAVA_FLOOR && is_touching_ground(actor))
+        return slow_movement_cost;
+    int movement_cost = actor->physical_species()->movement_cost;
+    if (has_status_internally(actor, StatusEffect::PUSHED)) {
+        // stun the push victim briefly to give the pusher a chance to act first.
+        movement_cost += 1;
+    }
+    return movement_cost;
 }
 
 static void do_move(Thing mover, Coord new_position, Thing who_is_responsible) {
@@ -847,14 +861,18 @@ static void do_move(Thing mover, Coord new_position, Thing who_is_responsible) {
     // note that you can still act at the same time you would have been able to, just not move.
     mover->life()->last_movement_time = game->time_counter;
 
-    if (mover->id != who_is_responsible->id)
-        find_or_put_status(mover, StatusEffect::PUSHED, game->time_counter + 10 * 12)->who_is_responsible = who_is_responsible->id;
+    if (mover->id != who_is_responsible->id) {
+        // this isn't really supposed to expire.
+        // it will be deleted after your movement is ready.
+        StatusEffect * status = find_or_put_status(mover, StatusEffect::PUSHED, game->time_counter + slow_movement_cost + 1);
+        status->who_is_responsible = who_is_responsible->id;
+    }
 }
 // return if it worked, otherwise bumped into something.
 bool attempt_move(Thing actor, Coord new_position, Thing who_is_responsible) {
     if (!is_open_space(game->actual_map_tiles[new_position])) {
         // moving into a wall
-        if (has_status(actor, StatusEffect::BURROWING)) {
+        if (has_status_effectively(actor, StatusEffect::BURROWING)) {
             // maybe we can tunnel through this.
             if (is_diggable_wall(game->actual_map_tiles[new_position])) {
                 // burrow through the wall.
@@ -1149,7 +1167,7 @@ bool validate_action(Thing actor, const Action & action) {
 static Coord confuse_direction(Thing individual, Coord direction) {
     if (direction == Coord{0, 0})
         return direction; // can't get that wrong
-    if (has_status(individual, StatusEffect::CONFUSION) && random_int(2, "is_direction_confused") == 0) {
+    if (has_status_effectively(individual, StatusEffect::CONFUSION) && random_int(2, "is_direction_confused") == 0) {
         // which direction are we attempting
         for (int i = 0; i < 8; i++) {
             if (directions_by_rotation[i] != direction)

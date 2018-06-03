@@ -143,12 +143,12 @@ static inline bool individual_is_clever(Thing thing) {
 static inline bool is_invisible(Thing observer, PerceivedThing thing) {
     if (thing->location.type == Location::INVENTORY)
         thing = observer->life()->knowledge.perceived_things.get(thing->location.inventory().container_id);
-    return has_status(thing, StatusEffect::INVISIBILITY);
+    return has_status_apparently(thing, StatusEffect::INVISIBILITY);
 }
 static inline bool is_invisible(Thing thing) {
     if (thing->location.type == Location::INVENTORY)
         thing = game->actual_things.get(thing->location.inventory().container_id);
-    return has_status(thing, StatusEffect::INVISIBILITY);
+    return has_status_effectively(thing, StatusEffect::INVISIBILITY);
 }
 
 void swarkland_init();
@@ -156,15 +156,7 @@ void swarkland_init();
 bool validate_action(Thing actor, const Action & action);
 bool can_move(Thing actor);
 bool is_touching_ground(Thing individual);
-static inline int get_movement_cost(Thing actor) {
-    if (has_status(actor, StatusEffect::SPEED))
-        return speedy_movement_cost;
-    if (has_status(actor, StatusEffect::SLOWING))
-        return slow_movement_cost;
-    if (game->actual_map_tiles[actor->location.standing()] == TileType_LAVA_FLOOR && is_touching_ground(actor))
-        return slow_movement_cost;
-    return actor->physical_species()->movement_cost;
-}
+int get_movement_cost(Thing actor);
 
 void run_the_game();
 int compare_perceived_things_canonically(const PerceivedThing & a, const PerceivedThing & b);

@@ -529,10 +529,13 @@ static inline StatusEffect * find_or_put_status(Thing thing, StatusEffect::Id st
 static inline bool has_status(const List<StatusEffect> & status_effects, StatusEffect::Id status) {
     return find_status(status_effects, status) != -1;
 }
-static inline bool has_status(Thing thing, StatusEffect::Id status) {
-    return can_have_status(thing, status) && has_status(thing->status_effects, status);
+static inline bool has_status_internally(Thing thing, StatusEffect::Id status) {
+    return has_status(thing->status_effects, status);
 }
-static inline bool has_status(PerceivedThing thing, StatusEffect::Id status) {
+static inline bool has_status_effectively(Thing thing, StatusEffect::Id status) {
+    return can_have_status(thing, status) && has_status_internally(thing, status);
+}
+static inline bool has_status_apparently(PerceivedThing thing, StatusEffect::Id status) {
     return (thing->status_effect_bits & (1 << status)) != 0;
 }
 static inline void put_status(PerceivedThing thing, StatusEffect::Id status) {

@@ -218,7 +218,7 @@ static bool force_push_individual(Thing target, Coord direction, int beam_length
     // if the tail (far end) of the train is all levitators, keep pushing them forever.
     int levitating_tail_start = choo_choo_train.length();
     for (levitating_tail_start = choo_choo_train.length(); levitating_tail_start > 0; levitating_tail_start--) {
-        if (!has_status(choo_choo_train[levitating_tail_start - 1], StatusEffect::LEVITATING))
+        if (!has_status_effectively(choo_choo_train[levitating_tail_start - 1], StatusEffect::LEVITATING))
             break;
     }
     if (levitating_tail_start < choo_choo_train.length()) {

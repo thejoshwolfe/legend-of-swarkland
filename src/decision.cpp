@@ -68,13 +68,13 @@ void assess_auto_wait_situation(List<uint256> * output_scary_individuals, List<S
         output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low hp" or something
     if (life->mana < actor->max_mana())
         output_annoying_status_effects->append(StatusEffect::SPEED); // TODO: wrong. this should be more like "low mp" or something
-    if (has_status(self, StatusEffect::POISON))
+    if (has_status_apparently(self, StatusEffect::POISON))
         output_annoying_status_effects->append(StatusEffect::POISON);
-    if (has_status(self, StatusEffect::CONFUSION))
+    if (has_status_apparently(self, StatusEffect::CONFUSION))
         output_annoying_status_effects->append(StatusEffect::CONFUSION);
-    if (has_status(self, StatusEffect::BLINDNESS))
+    if (has_status_apparently(self, StatusEffect::BLINDNESS))
         output_annoying_status_effects->append(StatusEffect::BLINDNESS);
-    if (has_status(self, StatusEffect::SLOWING))
+    if (has_status_apparently(self, StatusEffect::SLOWING))
         output_annoying_status_effects->append(StatusEffect::SLOWING);
     // TODO: wait for polymorph
 }
@@ -307,7 +307,7 @@ Action get_ai_decision(Thing actor) {
                                 break; // empty wand.
                             switch (actor->life()->knowledge.wand_identities[item->wand_info()->description_id]) {
                                 case WandId_WAND_OF_CONFUSION:
-                                    if (has_status(target, StatusEffect::CONFUSION))
+                                    if (has_status_apparently(target, StatusEffect::CONFUSION))
                                         break; // already confused.
                                     if (is_clear_projectile_shot(actor, target_coord, confident_zap_distance)) {
                                         // get him!
@@ -315,7 +315,7 @@ Action get_ai_decision(Thing actor) {
                                     }
                                     break;
                                 case WandId_WAND_OF_SLOWING:
-                                    if (has_status(target, StatusEffect::SLOWING))
+                                    if (has_status_apparently(target, StatusEffect::SLOWING))
                                         break; // already confused.
                                     if (is_clear_projectile_shot(actor, target_coord, confident_zap_distance)) {
                                         // get him!
@@ -323,7 +323,7 @@ Action get_ai_decision(Thing actor) {
                                     }
                                     break;
                                 case WandId_WAND_OF_BLINDING:
-                                    if (has_status(target, StatusEffect::BLINDNESS))
+                                    if (has_status_apparently(target, StatusEffect::BLINDNESS))
                                         break; // already confused.
                                     if (is_clear_projectile_shot(actor, target_coord, confident_zap_distance)) {
                                         // get him!
@@ -342,18 +342,18 @@ Action get_ai_decision(Thing actor) {
                                     }
                                     break;
                                 case WandId_WAND_OF_SPEED:
-                                    if (!has_status(actor, StatusEffect::SPEED)) {
+                                    if (!has_status_effectively(actor, StatusEffect::SPEED)) {
                                         // gotta go fast!
                                         buff_actions.append(Action::zap(item->id, {0, 0}));
                                     }
                                     break;
                                 case WandId_WAND_OF_INVISIBILITY:
-                                    if (!has_status(actor, StatusEffect::INVISIBILITY)) {
+                                    if (!has_status_effectively(actor, StatusEffect::INVISIBILITY)) {
                                         buff_actions.append(Action::zap(item->id, {0, 0}));
                                     }
                                     break;
                                 case WandId_WAND_OF_REMEDY:
-                                    if (has_status(actor, StatusEffect::CONFUSION) || has_status(actor, StatusEffect::POISON) || has_status(actor, StatusEffect::BLINDNESS)) {
+                                    if (has_status_effectively(actor, StatusEffect::CONFUSION) || has_status_effectively(actor, StatusEffect::POISON) || has_status_effectively(actor, StatusEffect::BLINDNESS)) {
                                         // sweet sweet soothing
                                         defense_actions.append(Action::zap(item->id, {0, 0}));
                                     }
@@ -375,16 +375,16 @@ Action get_ai_decision(Thing actor) {
                                         defense_actions.append(Action::quaff(item->id));
                                     break;
                                 case PotionId_POTION_OF_POISON:
-                                    if (has_status(target, StatusEffect::POISON))
+                                    if (has_status_apparently(target, StatusEffect::POISON))
                                         break; // already poisoned
                                     if (!is_clear_projectile_shot(actor, target_coord, get_throw_range_window(item).x))
                                         break; // too far
                                     range_attack_actions.append(Action::throw_(item->id, direction));
                                     break;
                                 case PotionId_POTION_OF_ETHEREAL_VISION:
-                                    if (has_status(actor, StatusEffect::COGNISCOPY))
+                                    if (has_status_effectively(actor, StatusEffect::COGNISCOPY))
                                         break; // that's even better
-                                    if (has_status(actor, StatusEffect::ETHEREAL_VISION))
+                                    if (has_status_effectively(actor, StatusEffect::ETHEREAL_VISION))
                                         break;
                                     // do we think she's gone invisible?
                                     if (!can_see_thing(actor, target->id)) {
@@ -399,7 +399,7 @@ Action get_ai_decision(Thing actor) {
                                     }
                                     break;
                                 case PotionId_POTION_OF_COGNISCOPY:
-                                    if (has_status(actor, StatusEffect::COGNISCOPY))
+                                    if (has_status_effectively(actor, StatusEffect::COGNISCOPY))
                                         break;
                                     // do we think she's gone invisible?
                                     if (target->is_placeholder) {
@@ -408,16 +408,16 @@ Action get_ai_decision(Thing actor) {
                                     }
                                     break;
                                 case PotionId_POTION_OF_BLINDNESS:
-                                    if (has_status(target, StatusEffect::BLINDNESS))
+                                    if (has_status_apparently(target, StatusEffect::BLINDNESS))
                                         break; // already blind
                                     if (!is_clear_projectile_shot(actor, target_coord, get_throw_range_window(item).x))
                                         break; // too far
                                     range_attack_actions.append(Action::throw_(item->id, direction));
                                     break;
                                 case PotionId_POTION_OF_INVISIBILITY:
-                                    if (has_status(actor, StatusEffect::INVISIBILITY))
+                                    if (has_status_effectively(actor, StatusEffect::INVISIBILITY))
                                         break; // already invisible
-                                    if (has_status(target, StatusEffect::COGNISCOPY) || has_status(target, StatusEffect::ETHEREAL_VISION))
+                                    if (has_status_apparently(target, StatusEffect::COGNISCOPY) || has_status_apparently(target, StatusEffect::ETHEREAL_VISION))
                                         break; // no point
                                     // now you see me...
                                     buff_actions.append(Action::quaff(item->id));
@@ -449,7 +449,7 @@ Action get_ai_decision(Thing actor) {
                                     }
                                     break;
                                 case BookId_SPELLBOOK_OF_SPEED:
-                                    if (!has_status(actor, StatusEffect::SPEED)) {
+                                    if (!has_status_effectively(actor, StatusEffect::SPEED)) {
                                         // gotta go fast!
                                         buff_actions.append(Action::read_book(item->id, {0, 0}));
                                     }
@@ -482,14 +482,14 @@ Action get_ai_decision(Thing actor) {
                         continue;
                     switch (ability_id) {
                         case AbilityId_SPIT_BLINDING_VENOM:
-                            if (advanced_strategy && has_status(target, StatusEffect::BLINDNESS))
+                            if (advanced_strategy && has_status_apparently(target, StatusEffect::BLINDNESS))
                                 break; // already affected
                             if (!is_clear_projectile_shot(actor, target_coord, get_ability_range_window(ability_id).x))
                                 break; // too far
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
                         case AbilityId_THROW_TAR:
-                            if (advanced_strategy && has_status(target, StatusEffect::SLOWING))
+                            if (advanced_strategy && has_status_apparently(target, StatusEffect::SLOWING))
                                 break; // already affected
                             if (!is_clear_projectile_shot(actor, target_coord, get_ability_range_window(ability_id).x))
                                 break; // too far

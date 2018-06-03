@@ -37,7 +37,7 @@ bool can_see_thing(Thing observer, uint256 target_id, Coord target_location) {
         Thing container = actual_target;
         if (actual_target->location.type == Location::INVENTORY)
             container = game->actual_things.get(actual_target->location.inventory().container_id);
-        if (!has_status(container, StatusEffect::INVISIBILITY)) {
+        if (!has_status_effectively(container, StatusEffect::INVISIBILITY)) {
             // see normally
             return true;
         }
@@ -258,7 +258,7 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
             Thing actual_individual = game->actual_things.get(data.individual);
             if (!can_have_status(actual_individual, data.status))
                 return false; // not even you can tell you have this status
-            bool had_status = has_status(actual_individual, data.status);
+            bool had_status = has_status_effectively(actual_individual, data.status);
             bool is_gain = data.id == Event::GAIN_STATUS;
             if (had_status == is_gain)
                 return false; // no state change. no one can tell. not even yourself.

@@ -85,17 +85,17 @@ void compute_vision(Thing observer) {
     Knowledge & knowledge = observer->life()->knowledge;
 
     VisionTypes no_vision_yet = 0;
-    if (has_status(observer, StatusEffect::COGNISCOPY)) {
+    if (has_status_effectively(observer, StatusEffect::COGNISCOPY)) {
         // cogniscopy reaches everywhere
         no_vision_yet |= VisionTypes_COGNISCOPY;
     }
     // refresh vision of the map
     knowledge.tile_is_visible.set_all(no_vision_yet);
     VisionTypes has_vision = observer->physical_species()->vision_types;
-    if (has_status(observer, StatusEffect::ETHEREAL_VISION)) {
+    if (has_status_effectively(observer, StatusEffect::ETHEREAL_VISION)) {
         has_vision &= ~VisionTypes_NORMAL;
         has_vision |= VisionTypes_ETHEREAL;
-    } else if (has_status(observer, StatusEffect::BLINDNESS)) {
+    } else if (has_status_effectively(observer, StatusEffect::BLINDNESS)) {
         has_vision &= ~VisionTypes_NORMAL;
     }
     if (has_vision & VisionTypes_NORMAL)

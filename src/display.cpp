@@ -1036,7 +1036,7 @@ static Div get_time_display(Thing spectate_from) {
 }
 
 static Uint8 get_thing_alpha(Thing observer, PerceivedThing thing) {
-    if (has_status(thing, StatusEffect::INVISIBILITY))
+    if (has_status_apparently(thing, StatusEffect::INVISIBILITY))
         return 0x7f;
     if (!can_see_thing(observer, thing->id)) {
         int64_t knowledge_age = game->time_counter - thing->last_seen_time;
@@ -1775,7 +1775,7 @@ void render() {
                 continue;
             Coord coord = get_standing_or_floor_coord(thing->location);
             Uint8 alpha;
-            if (has_status(thing, StatusEffect::INVISIBILITY) || !can_see_shape(spectate_from->life()->knowledge.tile_is_visible[coord]))
+            if (has_status_effectively(thing, StatusEffect::INVISIBILITY) || !can_see_shape(spectate_from->life()->knowledge.tile_is_visible[coord]))
                 alpha = 0x7f;
             else
                 alpha = 0xff;
