@@ -498,8 +498,11 @@ Action get_ai_decision(Thing actor) {
                             range_attack_actions.append(Action::ability(ability_id, direction));
                             break;
                         case AbilityId_LUNGE_ATTACK: {
-                            if (ordinal_distance(Coord{0, 0}, vector) <= 1)
+                            int distance = ordinal_distance(Coord{0, 0}, vector);
+                            if (distance <= 1)
                                 break; // too close
+                            if (distance >= 10 || game->time_counter > target->last_seen_time + 72)
+                                break; // too far away
                             Action wait_or_attack;
                             if (!is_ability_ready(actor, ability_id)) {
                                 // we need to hold still to charge this ability
