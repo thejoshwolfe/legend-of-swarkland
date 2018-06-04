@@ -1486,7 +1486,7 @@ Span render_event(PerceivedEvent event) {
             Span new_item_description = get_thing_description(data.new_item);
             switch (data.id) {
                 case PerceivedEvent::SWAP_EQUIPPED_ITEM:
-                    span->format("%s zaps %s.", individual_description, new_item_description);
+                    span->format("%s equips %s instead.", individual_description, new_item_description);
                     break;
             }
             break;
