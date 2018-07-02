@@ -2,108 +2,18 @@
 
 ## Status
 
-Very short (5 levels) turn-based roguelike with a final boss and randomized items.
-
-## How Do I Run It?
-
-### Windows
-
-[Latest Windows Build](http://wolfesoftware.com/legend-of-swarkland/)
-
-### Ubuntu
-
-install dependencies:
-
-```
-git submodule update --init --recursive
-sudo apt-get install libsdl2-dev libsdl2-ttf-dev upx-ucl
-```
-
-build:
-
-```
-make
-```
-
-run:
-
-```
-./build/native/legend-of-swarkland
-```
-
-run with gdb from the command line:
-
-```
-gdb -iex "add-auto-load-safe-path ./" -ex run -ex quit ./build/native/legend-of-swarkland
-```
-
-## Build for Windows on Linux
-
- 0. `git clone https://github.com/mxe/mxe`
- 0. Follow these instructions: http://mxe.cc/#requirements-debian (and see [mxe#593](https://github.com/mxe/mxe/issues/593))
- 0. In the mxe directory: `make gcc sdl2 sdl2_ttf`
- 0. In legend-of-swarkland directory: `make MXE_HOME=/path/to/mxe windows`
-
-(You can build for both Windows and native Linux at the same time by appending `native` to the above.)
-
-See [this project](https://github.com/thejoshwolfe/www.legend-of-swarkland) for
-source code to the website.
-
-## Eclipse Environment Setup on Linux
-
-Josh develops this project in Eclipse on Linux, but of course it's optional.
-These instructions were last updated with Eclipse Oxygen.
-
-```
-sudo apt-get install default-jdk
-```
-
-Follow the obvious instructions for downloading Eclipse Oxygen.
-When prompted, choose to install the IDE for C/C++.
-
-In eclipse, File -> New -> Project... -> C/C++ -> Makefile Project with Existing Code.
-Browse to this directory.
-**Click the "Linux GCC" toolchain.**
-
-Now you should be able to open `main.cpp` and see no error or warning annotations.
-You should be able to select a system include (`#include <...>`), and F3 to see its source.
-If SDL.h is still not found, try triggering a full build of the project with Project -> Clean... or using `make clean` in the command line, and then doing a build of the project with Project -> Build All or enabling auto build and refreshing the project with F5.
-
-### Optional Tweaks
-
-Project -> Properties -> C/C++ Build -> Behavior Tab.
-Uncheck "Stop on first build error".
-Check "Enable parallel build".
-Check "Build on resource save (Auto build)".
-Blank out the textboxes under "Make build target" that say "all".
-
-Run -> Debug Configurations... -> C/C++ Application -> New launch configuration.
-Main Tab: Project -> Browse... -> select the one.
-C/C++ Application: `build/native/legend-of-swarkland`
-Debugger Tab: Uncheck "Stop on startup at".
-GDB command file: `${workspace_loc:legend-of-swarkland}/.gdbinit`
-
-Project -> Properties -> C/C++ General -> Formatter -> Edit...
-Indentation Tab: Indentation policy: Spaces only.
-Check "Statements within a 'switch' body".
-Line Wrapping Tab: Maximum line width: 9999.
-Default indentation for wrapped lines: 1.
-
-## VIM syntax setup
-
-To get vim syntax highlighting for the .swarkland file format:
-
-```
-ln -s /path/to/legend-of-swarkland/vim/syntax/swarkland.vim ~/.vim/syntax/swarkland.vim
-```
-
-and add this to your `.vimrc`:
-
-```
-autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
-```
+Doesn't work.
 
 ## Roadmap
+
+### 5.0.0
+
+ * Complete rewrite from scratch in Zig instead of C++.
+ * Client/server separation.
+ * Game engine is parallel instead of turn-based.
+   * Everyone decides what to do, and then everyone's decisions are resolved.
+
+## Version History
 
 ### 4.5.0
 
@@ -118,8 +28,6 @@ autocmd BufNewFile,BufRead *.swarkland set filetype=swarkland
  * Removed random monster spawns over time. You only get what the level starts with now.
  * Snakes get a lunge attack.
  * Scorpions are immune to poison.
-
-## Version History
 
 ### 4.4.0
 
