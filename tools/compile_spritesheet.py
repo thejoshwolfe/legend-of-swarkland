@@ -74,7 +74,7 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
     simplepng.write_png(f, spritesheet_image)
 
   # check header
-  header_item_format = "static constexpr Rect %s = {{%i, %i}, {32, 32}};";
+  header_item_format = "pub const %s = Rect{.x = %i, .y = %i, .width = 32, .height = 32};";
   header_contents = header_format.format(
     sprites_per_row * tilesize,
     sprites_per_row * tilesize,
@@ -102,23 +102,18 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   os.rename(spritesheet_path + ".tmp", spritesheet_path)
 
 header_format = """\
-#ifndef SPRITESHEET_HPP
-#define SPRITESHEET_HPP
+const Rect = @import("../src/geometry.zig").Rect;
 
-#include "geometry.hpp"
-
-static const int spritesheet_width = {};
-static const int spritesheet_height = {};
+pub const width = {};
+pub const height = {};
 
 {}
-
-#endif
 """
 
 def mangle_item_name(item_path):
   name = item_path[:-len(".png")]
   name = os.path.basename(name)
-  return "sprite_location_" + name
+  return name
 
 def find_files(root):
   for name in os.listdir(root):
