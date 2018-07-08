@@ -4,6 +4,7 @@ const c = @cImport({
 const std = @import("std");
 const assert = std.debug.assert;
 const spritesheet = @import("../zig-cache/spritesheet.zig");
+const build_options = @import("build_options");
 
 // See https://github.com/zig-lang/zig/issues/565
 // SDL_video.h:#define SDL_WINDOWPOS_UNDEFINED         SDL_WINDOWPOS_UNDEFINED_DISPLAY(0)
@@ -26,6 +27,7 @@ inline fn SDL_RWclose(ctx: [*]c.SDL_RWops) c_int {
 }
 
 pub fn main() void {
+    if (build_options.headless) return;
     if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
         std.debug.panic("SDL_Init failed: {c}\n", c.SDL_GetError());
     }
