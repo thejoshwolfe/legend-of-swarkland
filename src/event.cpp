@@ -400,6 +400,10 @@ static bool true_event_to_observed_event(Thing observer, Event event, Event * ou
                         return false;
                     *output_event = event;
                     return true;
+                case Event::MELEE_WEAPON_SINKS_INTO_INDIVIDUAL: {
+                    Thing item = game->actual_things.get(data.item);
+                    TODO();
+                }
             }
             unreachable();
         }

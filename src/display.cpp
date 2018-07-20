@@ -1456,6 +1456,7 @@ Span render_event(PerceivedEvent event) {
                     span->format("%s hits %s!", item_description, individual_description);
                     break;
                 case PerceivedEvent::ITEM_SINKS_INTO_INDIVIDUAL:
+                case PerceivedEvent::MELEE_WEAPON_SINKS_INTO_INDIVIDUAL:
                     span->format("%s sinks into %s!", item_description, individual_description);
                     break;
                 case PerceivedEvent::INDIVIDUAL_DODGES_THROWN_ITEM:

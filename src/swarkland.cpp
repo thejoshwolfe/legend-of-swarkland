@@ -261,7 +261,7 @@ static void attack(Thing attacker, Thing target, int bonus_damage) {
         if (target->physical_species()->sucks_up_items) {
             // i'll take that
             set_location(weapon, Location::create_inventory(target->id, 0x7fffffff, false));
-            publish_event(Event::create(Event::ITEM_SINKS_INTO_INDIVIDUAL, target->id, weapon->id));
+            publish_event(Event::create(Event::MELEE_WEAPON_SINKS_INTO_INDIVIDUAL, target->id, weapon->id));
             normal_attack = false;
         } else {
             WeaponBehavior weapon_behavior = get_weapon_behavior(weapon->weapon_info()->weapon_id);
