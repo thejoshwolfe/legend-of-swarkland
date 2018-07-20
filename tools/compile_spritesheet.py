@@ -76,6 +76,7 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   # check header
   header_item_format = "pub const %s = Rect{.x = %i, .y = %i, .width = 32, .height = 32};";
   header_contents = header_format.format(
+    os.path.relpath(spritesheet_path, os.path.dirname(header_path)),
     sprites_per_row * tilesize,
     sprites_per_row * tilesize,
     "\n".join(
@@ -102,6 +103,8 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   os.rename(spritesheet_path + ".tmp", spritesheet_path)
 
 header_format = """\
+pub const buffer = @embedFile("./{}");
+
 const Rect = @import("../src/geometry.zig").Rect;
 
 pub const width = {};

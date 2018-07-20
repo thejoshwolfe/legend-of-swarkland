@@ -27,7 +27,7 @@ pub fn main() void {
         SDL_WINDOWPOS_UNDEFINED,
         spritesheet.width,
         spritesheet.height,
-        c.SDL_WINDOW_OPENGL,
+        c.SDL_WINDOW_OPENGL | c.SDL_WINDOW_RESIZABLE,
     ) orelse {
         std.debug.panic("SDL_CreateWindow failed: {c}\n", c.SDL_GetError());
     };
@@ -38,8 +38,6 @@ pub fn main() void {
     };
     defer c.SDL_DestroyRenderer(renderer);
 
-    const spritesheet_buffer = @embedFile("../zig-cache/spritesheet_resource");
-
     var texture: *c.SDL_Texture = c.SDL_CreateTexture(renderer, c.SDL_PIXELFORMAT_RGBA8888, c.SDL_TEXTUREACCESS_STATIC, spritesheet.width, spritesheet.height) orelse {
         std.debug.panic("SDL_CreateTexture failed: {c}\n", c.SDL_GetError());
     };
@@ -47,7 +45,7 @@ pub fn main() void {
         std.debug.panic("SDL_SetTextureBlendMode failed: {c}\n", c.SDL_GetError());
     }
     const pitch = spritesheet.width * 4;
-    if (c.SDL_UpdateTexture(texture, null, @ptrCast(?*const c_void, spritesheet_buffer[0..].ptr), pitch) != 0) {
+    if (c.SDL_UpdateTexture(texture, null, @ptrCast(?*const c_void, spritesheet.buffer[0..].ptr), pitch) != 0) {
         std.debug.panic("SDL_UpdateTexture failed: {c}\n", c.SDL_GetError());
     }
 
