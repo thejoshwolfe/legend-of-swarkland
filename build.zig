@@ -10,15 +10,25 @@ pub fn build(b: *Builder) !void {
         "./tools/compile_spritesheet.py",
         "assets/img/",
         "--glob=*.png",
-        "--tilesize=32",
-        "--spritesheet=zig-cache/spritesheet_resource",
-        "--header=zig-cache/spritesheet.zig",
+        "--tile-size=32",
+        "--spritesheet-path=zig-cache/spritesheet_resource",
+        "--defs-path=zig-cache/spritesheet.zig",
         "--deps=zig-cache/spritesheet_resource.d",
+    });
+    const compile_fontsheet = b.addCommand(".", b.env_map, [][]const u8{
+        "./tools/compile_spritesheet.py",
+        "assets/font/",
+        "--glob=*.png",
+        "--slice-tiles=12x16",
+        "--spritesheet-path=zig-cache/fontsheet_resource",
+        "--defs-path=zig-cache/fontsheet.zig",
+        "--deps=zig-cache/fontsheet_resource.d",
     });
 
     const headless_build = make_binary_variant(b, build_options, "legend-of-swarkland_headless", true);
     const client_build = make_binary_variant(b, build_options, "legend-of-swarkland", false);
     client_build.dependOn(&compile_spritesheet.step);
+    client_build.dependOn(&compile_fontsheet.step);
 
     const do_fmt = b.option(bool, "fmt", "zig fmt before building") orelse true;
     if (do_fmt) {
