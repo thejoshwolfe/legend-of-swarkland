@@ -166,7 +166,7 @@ def main(source_dir, tile_size, slice_dimensions, spritesheet_path, defs_path, d
   os.rename(spritesheet_path + ".tmp", spritesheet_path)
 
 defs_format = """\
-const Rect = @import("../src/geometry.zig").Rect;
+const Rect = @import("core").geometry.Rect;
 
 pub const buffer = @embedFile("./{}");
 

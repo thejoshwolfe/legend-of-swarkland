@@ -36,7 +36,8 @@ pub fn build(b: *Builder) !void {
             "zig-self-hosted",
             "fmt",
             "build.zig",
-            "src",
+            "src-core",
+            "src-client",
         });
         headless_build.dependOn(&fmt_command.step);
         client_build.dependOn(&fmt_command.step);
@@ -47,8 +48,10 @@ pub fn build(b: *Builder) !void {
 }
 
 fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u8, headless: bool) *std.build.Step {
-    const exe = b.addExecutable(name, "src/main.zig");
+    const exe = b.addExecutable(name, "src-core/main.zig");
     exe.addBuildOption(bool, "headless", headless);
+    exe.addPackagePath("core", "src-core/index.zig");
+    exe.addPackagePath("client", "src-client/index.zig");
     if (!headless) {
         exe.linkSystemLibrary("SDL2");
         exe.linkSystemLibrary("c");
