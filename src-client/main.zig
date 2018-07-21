@@ -1,6 +1,7 @@
 const std = @import("std");
 const sdl = @import("./sdl.zig");
 const textures = @import("./textures.zig");
+const makeCoord = @import("core").geometry.makeCoord;
 
 pub fn display_main() void {
     if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
@@ -28,22 +29,29 @@ pub fn display_main() void {
     textures.init(renderer);
     defer textures.deinit();
 
-    var quit = false;
-    while (!quit) {
+    while (true) {
         var event: sdl.c.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
                 sdl.c.SDL_QUIT => {
-                    quit = true;
+                    return;
                 },
                 else => {},
             }
         }
 
         _ = sdl.c.SDL_RenderClear(renderer);
-        textures.render_something_idk(renderer);
+
+        var cursor: i32 = 10;
+        cursor = 10 + textures.render_text_scaled(renderer, "Legend of Swarkland", makeCoord(10, cursor), true, 2).y;
+        cursor = 5 + textures.render_text(renderer, "New Game", makeCoord(80, cursor), false).y;
+        cursor = 5 + textures.render_text(renderer, "Load Yagni", makeCoord(80, cursor), false).y;
+        cursor = 5 + textures.render_text(renderer, "Quit", makeCoord(80, cursor), false).y;
+
         sdl.c.SDL_RenderPresent(renderer);
 
-        sdl.c.SDL_Delay(17);
+        // delay until the next multiple of 17 milliseconds
+        const delay_millis = 17 - (sdl.c.SDL_GetTicks() % 17);
+        sdl.c.SDL_Delay(delay_millis);
     }
 }

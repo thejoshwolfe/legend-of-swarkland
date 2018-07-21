@@ -36,27 +36,30 @@ fn load_texture(renderer: *sdl.c.SDL_Renderer, buffer: []const u8, width: i32, h
     return texture;
 }
 
-pub fn render_something_idk(renderer: *sdl.c.SDL_Renderer) void {
-    _ = render_text(renderer, "Legend of Swarkland", makeCoord(10, 10));
+pub fn render_text(renderer: *sdl.c.SDL_Renderer, text: []const u8, location: Coord, bold: bool) Coord {
+    return render_text_scaled(renderer, text, location, bold, 1);
 }
-
-fn render_text(renderer: *sdl.c.SDL_Renderer, text: []const u8, location: Coord) i32 {
-    var cursor = location;
+pub fn render_text_scaled(renderer: *sdl.c.SDL_Renderer, text: []const u8, location: Coord, bold: bool, scale: i32) Coord {
+    var lower_right = location;
     for (text) |c| {
-        cursor.x += render_char(renderer, c, cursor);
+        lower_right = render_char(renderer, c, makeCoord(lower_right.x, location.y), bold, scale);
     }
-    return cursor.x;
+    return lower_right;
 }
 
-fn render_char(renderer: *sdl.c.SDL_Renderer, c: u8, location: Coord) i32 {
-    const char_rect = fonts.console_bold[c - ' '];
-    const source = sdl.makeRect(char_rect);
-    const dest = sdl.makeRect(Rect{
+fn render_char(renderer: *sdl.c.SDL_Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
+    std.debug.assert(scale > 0);
+    const char_rect = (if (bold) fonts.console_bold else fonts.console)[c - ' '];
+    const dest = Rect{
         .x = location.x,
         .y = location.y,
-        .width = char_rect.width,
-        .height = char_rect.height,
-    });
-    _ = sdl.SDL_RenderCopy(renderer, fonts_texture, &source, &dest);
-    return char_rect.width;
+        .width = char_rect.width * scale,
+        .height = char_rect.height * scale,
+    };
+
+    const source_sdl = sdl.makeRect(char_rect);
+    const dest_sdl = sdl.makeRect(dest);
+    _ = sdl.SDL_RenderCopy(renderer, fonts_texture, &source_sdl, &dest_sdl);
+
+    return makeCoord(dest.x + dest.width, dest.y + dest.height);
 }
