@@ -1,5 +1,8 @@
 const std = @import("std");
 const sdl = @import("./sdl.zig");
+const Rect = @import("core").geometry.Rect;
+const Coord = @import("core").geometry.Coord;
+const makeCoord = @import("core").geometry.makeCoord;
 
 pub const sprites = @import("../zig-cache/spritesheet.zig");
 pub const fonts = @import("../zig-cache/fontsheet.zig");
@@ -26,7 +29,7 @@ fn load_texture(renderer: *sdl.c.SDL_Renderer, buffer: []const u8, width: i32, h
     }
 
     const pitch = width * 4;
-    if (sdl.c.SDL_UpdateTexture(texture, null, @ptrCast(?*const c_void, buffer[0..].ptr), pitch) != 0) {
+    if (sdl.c.SDL_UpdateTexture(texture, null, @ptrCast(?*const c_void, buffer.ptr), pitch) != 0) {
         std.debug.panic("SDL_UpdateTexture failed: {c}\n", sdl.c.SDL_GetError());
     }
 
@@ -34,5 +37,26 @@ fn load_texture(renderer: *sdl.c.SDL_Renderer, buffer: []const u8, width: i32, h
 }
 
 pub fn render_something_idk(renderer: *sdl.c.SDL_Renderer) void {
-    _ = sdl.c.SDL_RenderCopy(renderer, fonts_texture, null, null);
+    _ = render_text(renderer, "Legend of Swarkland", makeCoord(10, 10));
+}
+
+fn render_text(renderer: *sdl.c.SDL_Renderer, text: []const u8, location: Coord) i32 {
+    var cursor = location;
+    for (text) |c| {
+        cursor.x += render_char(renderer, c, cursor);
+    }
+    return cursor.x;
+}
+
+fn render_char(renderer: *sdl.c.SDL_Renderer, c: u8, location: Coord) i32 {
+    const char_rect = fonts.console_bold[c - ' '];
+    const source = sdl.makeRect(char_rect);
+    const dest = sdl.makeRect(Rect{
+        .x = location.x,
+        .y = location.y,
+        .width = char_rect.width,
+        .height = char_rect.height,
+    });
+    _ = sdl.SDL_RenderCopy(renderer, fonts_texture, &source, &dest);
+    return char_rect.width;
 }

@@ -1,3 +1,5 @@
+const sdl = this;
+
 pub const c = @cImport({
     @cInclude("SDL2/SDL.h");
 });
@@ -6,6 +8,24 @@ pub const c = @cImport({
 // SDL_video.h:#define SDL_WINDOWPOS_UNDEFINED         SDL_WINDOWPOS_UNDEFINED_DISPLAY(0)
 // SDL_video.h:#define SDL_WINDOWPOS_UNDEFINED_DISPLAY(X)  (SDL_WINDOWPOS_UNDEFINED_MASK|(X))
 // SDL_video.h:#define SDL_WINDOWPOS_UNDEFINED_MASK    0x1FFF0000u
-pub const SDL_WINDOWPOS_UNDEFINED = @bitCast(c_int, c.SDL_WINDOWPOS_UNDEFINED_MASK);
+pub const SDL_WINDOWPOS_UNDEFINED = @bitCast(c_int, sdl.c.SDL_WINDOWPOS_UNDEFINED_MASK);
 
-pub extern fn SDL_PollEvent(event: *c.SDL_Event) c_int;
+pub extern fn SDL_PollEvent(event: *sdl.c.SDL_Event) c_int;
+
+pub extern fn SDL_RenderCopy(
+    renderer: *sdl.c.SDL_Renderer,
+    texture: *sdl.c.SDL_Texture,
+    srcrect: ?*const sdl.c.SDL_Rect,
+    dstrect: ?*const sdl.c.SDL_Rect,
+) c_int;
+
+const geometry = @import("core").geometry;
+
+pub fn makeRect(rect: geometry.Rect) sdl.c.SDL_Rect {
+    return sdl.c.SDL_Rect{
+        .x = rect.x,
+        .y = rect.y,
+        .w = rect.width,
+        .h = rect.height,
+    };
+}

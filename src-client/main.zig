@@ -9,7 +9,7 @@ pub fn display_main() void {
     defer sdl.c.SDL_Quit();
 
     const screen = sdl.c.SDL_CreateWindow(
-        c"Leged of Swarkland",
+        c"Legend of Swarkland",
         sdl.SDL_WINDOWPOS_UNDEFINED,
         sdl.SDL_WINDOWPOS_UNDEFINED,
         512,
