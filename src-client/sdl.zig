@@ -1,8 +1,11 @@
 const sdl = this;
 
+// this is technically all we need
 pub const c = @cImport({
     @cInclude("SDL2/SDL.h");
 });
+// but for convenience, we'll publish some special case wrappers/aliases
+// to isolate the quirks of using a C api from zig.
 
 // See https://github.com/zig-lang/zig/issues/565
 // SDL_video.h:#define SDL_WINDOWPOS_UNDEFINED         SDL_WINDOWPOS_UNDEFINED_DISPLAY(0)
@@ -29,3 +32,5 @@ pub fn makeRect(rect: geometry.Rect) sdl.c.SDL_Rect {
         .h = rect.height,
     };
 }
+
+pub const Renderer = sdl.c.SDL_Renderer;

@@ -1,6 +1,7 @@
 const std = @import("std");
 const sdl = @import("./sdl.zig");
 const textures = @import("./textures.zig");
+const Gui = @import("./gui.zig").Gui;
 const makeCoord = @import("core").geometry.makeCoord;
 
 pub fn display_main() void {
@@ -42,11 +43,19 @@ pub fn display_main() void {
 
         _ = sdl.c.SDL_RenderClear(renderer);
 
-        var cursor: i32 = 10;
-        cursor = 10 + textures.render_text_scaled(renderer, "Legend of Swarkland", makeCoord(10, cursor), true, 2).y;
-        cursor = 5 + textures.render_text(renderer, "New Game", makeCoord(80, cursor), false).y;
-        cursor = 5 + textures.render_text(renderer, "Load Yagni", makeCoord(80, cursor), false).y;
-        cursor = 5 + textures.render_text(renderer, "Quit", makeCoord(80, cursor), false).y;
+        var menuRenderer = Gui.init(renderer);
+
+        menuRenderer.seek(10, 10);
+        menuRenderer.scale(2);
+        menuRenderer.bold(true);
+        menuRenderer.marginBottom(5);
+        menuRenderer.text("Legend of Swarkland");
+        menuRenderer.scale(1);
+        menuRenderer.bold(false);
+        menuRenderer.seekRelative(70, 0);
+        menuRenderer.text("New Game");
+        menuRenderer.text("Load Yagni");
+        menuRenderer.text("Quit");
 
         sdl.c.SDL_RenderPresent(renderer);
 

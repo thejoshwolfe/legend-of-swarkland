@@ -9,7 +9,7 @@ pub const fonts = @import("../zig-cache/fontsheet.zig");
 
 var sprites_texture: *sdl.c.SDL_Texture = undefined;
 var fonts_texture: *sdl.c.SDL_Texture = undefined;
-pub fn init(renderer: *sdl.c.SDL_Renderer) void {
+pub fn init(renderer: *sdl.Renderer) void {
     sprites_texture = load_texture(renderer, sprites.buffer, sprites.width, sprites.height);
     fonts_texture = load_texture(renderer, fonts.buffer, fonts.width, fonts.height);
 }
@@ -19,7 +19,7 @@ pub fn deinit() void {
     sdl.c.SDL_DestroyTexture(fonts_texture);
 }
 
-fn load_texture(renderer: *sdl.c.SDL_Renderer, buffer: []const u8, width: i32, height: i32) *sdl.c.SDL_Texture {
+fn load_texture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height: i32) *sdl.c.SDL_Texture {
     var texture: *sdl.c.SDL_Texture = sdl.c.SDL_CreateTexture(renderer, sdl.c.SDL_PIXELFORMAT_RGBA8888, sdl.c.SDL_TEXTUREACCESS_STATIC, width, height) orelse {
         std.debug.panic("SDL_CreateTexture failed: {c}\n", sdl.c.SDL_GetError());
     };
@@ -36,10 +36,10 @@ fn load_texture(renderer: *sdl.c.SDL_Renderer, buffer: []const u8, width: i32, h
     return texture;
 }
 
-pub fn render_text(renderer: *sdl.c.SDL_Renderer, text: []const u8, location: Coord, bold: bool) Coord {
+pub fn render_text(renderer: *sdl.Renderer, text: []const u8, location: Coord, bold: bool) Coord {
     return render_text_scaled(renderer, text, location, bold, 1);
 }
-pub fn render_text_scaled(renderer: *sdl.c.SDL_Renderer, text: []const u8, location: Coord, bold: bool, scale: i32) Coord {
+pub fn render_text_scaled(renderer: *sdl.Renderer, text: []const u8, location: Coord, bold: bool, scale: i32) Coord {
     var lower_right = location;
     for (text) |c| {
         lower_right = render_char(renderer, c, makeCoord(lower_right.x, location.y), bold, scale);
@@ -47,7 +47,7 @@ pub fn render_text_scaled(renderer: *sdl.c.SDL_Renderer, text: []const u8, locat
     return lower_right;
 }
 
-fn render_char(renderer: *sdl.c.SDL_Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
+fn render_char(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
     std.debug.assert(scale > 0);
     const char_rect = (if (bold) fonts.console_bold else fonts.console)[c - ' '];
     const dest = Rect{
