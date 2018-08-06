@@ -36,18 +36,15 @@ fn load_texture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height:
     return texture;
 }
 
-pub fn render_text(renderer: *sdl.Renderer, text: []const u8, location: Coord, bold: bool) Coord {
-    return render_text_scaled(renderer, text, location, bold, 1);
-}
-pub fn render_text_scaled(renderer: *sdl.Renderer, text: []const u8, location: Coord, bold: bool, scale: i32) Coord {
+pub fn renderTextScaled(renderer: *sdl.Renderer, text: []const u8, location: Coord, bold: bool, scale: i32) Coord {
     var lower_right = location;
     for (text) |c| {
-        lower_right = render_char(renderer, c, makeCoord(lower_right.x, location.y), bold, scale);
+        lower_right = renderChar(renderer, c, makeCoord(lower_right.x, location.y), bold, scale);
     }
     return lower_right;
 }
 
-fn render_char(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
+fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
     std.debug.assert(scale > 0);
     const char_rect = (if (bold) fonts.console_bold else fonts.console)[c - ' '];
     const dest = Rect{
@@ -62,4 +59,17 @@ fn render_char(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scal
     _ = sdl.SDL_RenderCopy(renderer, fonts_texture, &source_sdl, &dest_sdl);
 
     return makeCoord(dest.x + dest.width, dest.y + dest.height);
+}
+
+pub fn renderSprite(renderer: *sdl.Renderer, sprite: Rect, location: Coord) void {
+    const dest = Rect{
+        .x = location.x,
+        .y = location.y,
+        .width = sprite.width,
+        .height = sprite.height,
+    };
+
+    const source_sdl = sdl.makeRect(sprite);
+    const dest_sdl = sdl.makeRect(dest);
+    _ = sdl.SDL_RenderCopy(renderer, sprites_texture, &source_sdl, &dest_sdl);
 }

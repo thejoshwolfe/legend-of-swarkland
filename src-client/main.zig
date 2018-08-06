@@ -1,7 +1,7 @@
 const std = @import("std");
 const sdl = @import("./sdl.zig");
 const textures = @import("./textures.zig");
-const Gui = @import("./gui.zig").Gui;
+const gui = @import("./gui.zig");
 const makeCoord = @import("core").geometry.makeCoord;
 
 pub fn display_main() void {
@@ -22,7 +22,7 @@ pub fn display_main() void {
     };
     defer sdl.c.SDL_DestroyWindow(screen);
 
-    const renderer = sdl.c.SDL_CreateRenderer(screen, -1, 0) orelse {
+    const renderer: *sdl.Renderer = sdl.c.SDL_CreateRenderer(screen, -1, 0) orelse {
         std.debug.panic("SDL_CreateRenderer failed: {c}\n", sdl.c.SDL_GetError());
     };
     defer sdl.c.SDL_DestroyRenderer(renderer);
@@ -30,12 +30,33 @@ pub fn display_main() void {
     textures.init(renderer);
     defer textures.deinit();
 
+    doMainLoop(renderer);
+}
+
+fn doMainLoop(renderer: *sdl.Renderer) void {
+    var main_menu_state = gui.LinearMenuState.init();
+
     while (true) {
+        main_menu_state.beginFrame();
         var event: sdl.c.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
                 sdl.c.SDL_QUIT => {
                     return;
+                },
+                sdl.c.SDL_KEYDOWN => {
+                    switch (@enumToInt(event.key.keysym.scancode)) {
+                        sdl.c.SDL_SCANCODE_UP => {
+                            main_menu_state.moveUp();
+                        },
+                        sdl.c.SDL_SCANCODE_DOWN => {
+                            main_menu_state.moveDown();
+                        },
+                        sdl.c.SDL_SCANCODE_RETURN => {
+                            main_menu_state.enter();
+                        },
+                        else => {},
+                    }
                 },
                 else => {},
             }
@@ -43,7 +64,7 @@ pub fn display_main() void {
 
         _ = sdl.c.SDL_RenderClear(renderer);
 
-        var menuRenderer = Gui.init(renderer);
+        var menuRenderer = gui.Gui.init(renderer, &main_menu_state, textures.sprites.shiny_purple_wand);
 
         menuRenderer.seek(10, 10);
         menuRenderer.scale(2);
@@ -53,9 +74,18 @@ pub fn display_main() void {
         menuRenderer.scale(1);
         menuRenderer.bold(false);
         menuRenderer.seekRelative(70, 0);
-        menuRenderer.text("New Game");
-        menuRenderer.text("Load Yagni");
-        menuRenderer.text("Quit");
+        if (menuRenderer.button("New Game")) {
+            // actually quit
+            return;
+        }
+        if (menuRenderer.button("Load Yagni")) {
+            // actually quit
+            return;
+        }
+        if (menuRenderer.button("Quit")) {
+            // quit
+            return;
+        }
 
         sdl.c.SDL_RenderPresent(renderer);
 
