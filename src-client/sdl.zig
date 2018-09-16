@@ -1,4 +1,4 @@
-const sdl = this;
+const sdl = @This();
 
 // this is technically all we need
 pub const c = @cImport({
