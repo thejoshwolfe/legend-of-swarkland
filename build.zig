@@ -54,6 +54,9 @@ fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u
     if (!headless) {
         exe.linkSystemLibrary("SDL2");
         exe.linkSystemLibrary("c");
+    } else {
+        // TODO: only used for malloc
+        exe.linkSystemLibrary("c");
     }
     exe.setBuildMode(build_options);
     return &exe.step;

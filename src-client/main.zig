@@ -3,8 +3,14 @@ const sdl = @import("./sdl.zig");
 const textures = @import("./textures.zig");
 const gui = @import("./gui.zig");
 const makeCoord = @import("core").geometry.makeCoord;
+const GameEngine = @import("core").game_engine_client.GameEngine;
 
-pub fn display_main() void {
+const GameState = enum {
+    MainMenu,
+    Running,
+};
+
+pub fn displayMain() !void {
     if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
         std.debug.panic("SDL_Init failed: {c}\n", sdl.c.SDL_GetError());
     }
@@ -30,11 +36,16 @@ pub fn display_main() void {
     textures.init(renderer);
     defer textures.deinit();
 
-    doMainLoop(renderer);
+    try doMainLoop(renderer);
 }
 
-fn doMainLoop(renderer: *sdl.Renderer) void {
+fn doMainLoop(renderer: *sdl.Renderer) !void {
+    var game_state = GameState.MainMenu;
     var main_menu_state = gui.LinearMenuState.init();
+    var game_engine: ?GameEngine = null;
+    defer if (game_engine) |g| {
+        _ = g.child_process.kill() catch undefined;
+    };
 
     while (true) {
         main_menu_state.beginFrame();
@@ -45,17 +56,32 @@ fn doMainLoop(renderer: *sdl.Renderer) void {
                     return;
                 },
                 sdl.c.SDL_KEYDOWN => {
-                    switch (@enumToInt(event.key.keysym.scancode)) {
-                        sdl.c.SDL_SCANCODE_UP => {
-                            main_menu_state.moveUp();
+                    switch (game_state) {
+                        GameState.MainMenu => {
+                            switch (@enumToInt(event.key.keysym.scancode)) {
+                                sdl.c.SDL_SCANCODE_UP => {
+                                    main_menu_state.moveUp();
+                                },
+                                sdl.c.SDL_SCANCODE_DOWN => {
+                                    main_menu_state.moveDown();
+                                },
+                                sdl.c.SDL_SCANCODE_RETURN => {
+                                    main_menu_state.enter();
+                                },
+                                else => {},
+                            }
                         },
-                        sdl.c.SDL_SCANCODE_DOWN => {
-                            main_menu_state.moveDown();
+                        GameState.Running => {
+                            switch (@enumToInt(event.key.keysym.scancode)) {
+                                sdl.c.SDL_SCANCODE_LEFT => {
+                                    try game_engine.?.move(-1);
+                                },
+                                sdl.c.SDL_SCANCODE_RIGHT => {
+                                    try game_engine.?.move(1);
+                                },
+                                else => {},
+                            }
                         },
-                        sdl.c.SDL_SCANCODE_RETURN => {
-                            main_menu_state.enter();
-                        },
-                        else => {},
                     }
                 },
                 else => {},
@@ -64,27 +90,35 @@ fn doMainLoop(renderer: *sdl.Renderer) void {
 
         _ = sdl.c.SDL_RenderClear(renderer);
 
-        var menuRenderer = gui.Gui.init(renderer, &main_menu_state, textures.sprites.shiny_purple_wand);
+        switch (game_state) {
+            GameState.MainMenu => {
+                var menu_renderer = gui.Gui.init(renderer, &main_menu_state, textures.sprites.shiny_purple_wand);
 
-        menuRenderer.seek(10, 10);
-        menuRenderer.scale(2);
-        menuRenderer.bold(true);
-        menuRenderer.marginBottom(5);
-        menuRenderer.text("Legend of Swarkland");
-        menuRenderer.scale(1);
-        menuRenderer.bold(false);
-        menuRenderer.seekRelative(70, 0);
-        if (menuRenderer.button("New Game")) {
-            // actually quit
-            return;
-        }
-        if (menuRenderer.button("Load Yagni")) {
-            // actually quit
-            return;
-        }
-        if (menuRenderer.button("Quit")) {
-            // quit
-            return;
+                menu_renderer.seek(10, 10);
+                menu_renderer.scale(2);
+                menu_renderer.bold(true);
+                menu_renderer.marginBottom(5);
+                menu_renderer.text("Legend of Swarkland");
+                menu_renderer.scale(1);
+                menu_renderer.bold(false);
+                menu_renderer.seekRelative(70, 0);
+                if (menu_renderer.button("New Game")) {
+                    game_state = GameState.Running;
+                    game_engine = GameEngine(undefined);
+                    try game_engine.?.startEngine();
+                }
+                if (menu_renderer.button("Load Yagni")) {
+                    // actually quit
+                    return;
+                }
+                if (menu_renderer.button("Quit")) {
+                    // quit
+                    return;
+                }
+            },
+            GameState.Running => {
+                textures.renderSprite(renderer, textures.sprites.human, makeCoord(game_engine.?.position * 32 + 128, 128));
+            },
         }
 
         sdl.c.SDL_RenderPresent(renderer);
