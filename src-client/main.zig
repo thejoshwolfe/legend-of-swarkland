@@ -5,7 +5,7 @@ const gui = @import("./gui.zig");
 const makeCoord = @import("core").geometry.makeCoord;
 const GameEngine = @import("core").game_engine_client.GameEngine;
 
-const GameState = enum {
+const GameState = enum.{
     MainMenu,
     Running,
 };

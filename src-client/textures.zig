@@ -47,7 +47,7 @@ pub fn renderTextScaled(renderer: *sdl.Renderer, text: []const u8, location: Coo
 fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
     std.debug.assert(scale > 0);
     const char_rect = (if (bold) fonts.console_bold else fonts.console)[c - ' '];
-    const dest = Rect{
+    const dest = Rect.{
         .x = location.x,
         .y = location.y,
         .width = char_rect.width * scale,
@@ -62,7 +62,7 @@ fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale
 }
 
 pub fn renderSprite(renderer: *sdl.Renderer, sprite: Rect, location: Coord) void {
-    const dest = Rect{
+    const dest = Rect.{
         .x = location.x,
         .y = location.y,
         .width = sprite.width,

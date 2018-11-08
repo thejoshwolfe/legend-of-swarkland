@@ -6,7 +6,7 @@ pub fn build(b: *Builder) !void {
     const build_options = b.standardReleaseOptions();
 
     try b.env_map.set("PYTHONPATH", "deps/simplepng.py/");
-    const compile_spritesheet = b.addCommand(".", b.env_map, [][]const u8{
+    const compile_spritesheet = b.addCommand(".", b.env_map, [][]const u8.{
         "./tools/compile_spritesheet.py",
         "assets/img/",
         "--glob=*.png",
@@ -15,7 +15,7 @@ pub fn build(b: *Builder) !void {
         "--defs-path=zig-cache/spritesheet.zig",
         "--deps=zig-cache/spritesheet_resource.d",
     });
-    const compile_fontsheet = b.addCommand(".", b.env_map, [][]const u8{
+    const compile_fontsheet = b.addCommand(".", b.env_map, [][]const u8.{
         "./tools/compile_spritesheet.py",
         "assets/font/",
         "--glob=*.png",
@@ -32,7 +32,7 @@ pub fn build(b: *Builder) !void {
 
     const do_fmt = b.option(bool, "fmt", "zig fmt before building") orelse true;
     if (do_fmt) {
-        const fmt_command = b.addCommand(".", b.env_map, [][]const u8{
+        const fmt_command = b.addCommand(".", b.env_map, [][]const u8.{
             "zig-self-hosted",
             "fmt",
             "build.zig",

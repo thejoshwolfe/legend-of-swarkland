@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const GameEngine = struct {
+pub const GameEngine = struct.{
     child_process: *std.os.ChildProcess,
 
     socket_file: std.os.File,
@@ -16,12 +16,12 @@ pub const GameEngine = struct {
         var path = try std.os.path.join(std.heap.c_allocator, dir, "legend-of-swarkland_headless");
         defer std.heap.c_allocator.free(path);
 
-        const args = []const []const u8{path};
+        const args = []const []const u8.{path};
         self.child_process = try std.os.ChildProcess.init(args, std.heap.c_allocator);
         self.child_process.stdout_behavior = std.os.ChildProcess.StdIo.Pipe;
         try self.child_process.spawn();
         var stdout = self.child_process.stdout.?;
-        var port_buffer = []u8{0} ** 5;
+        var port_buffer = []u8.{0} ** 5;
         const bytes_read = try stdout.read(port_buffer[0..]);
         std.debug.assert(bytes_read == 5);
         std.debug.assert(port_buffer[4] == '\n');

@@ -19,7 +19,7 @@ fn headlessMain() !void {
     var loop: std.event.Loop = undefined;
     try loop.initSingleThreaded(std.heap.c_allocator);
 
-    var server = @"💩Server"{ .tcp_server = std.event.tcp.Server.init(&loop) };
+    var server = @"💩Server".{ .tcp_server = std.event.tcp.Server.init(&loop) };
     defer server.tcp_server.deinit();
     try server.tcp_server.listen(addr, @"💩Server".handler);
 
@@ -28,7 +28,7 @@ fn headlessMain() !void {
     loop.run();
 }
 
-const @"💩Server" = struct {
+const @"💩Server" = struct.{
     tcp_server: std.event.tcp.Server,
 
     const Self = @This();
