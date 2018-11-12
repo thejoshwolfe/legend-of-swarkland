@@ -1,9 +1,10 @@
 const std = @import("std");
-const debug = @import("./debug.zig");
-const protocol = @import("./protocol.zig");
-const ClientChannel = protocol.ClientChannel(std.os.File.ReadError, std.os.File.WriteError);
-const Action = protocol.Action;
-const Event = protocol.Event;
+const core = @import("./index.zig");
+const Coord = core.geometry.Coord;
+const makeCoord = core.geometry.makeCoord;
+const ClientChannel = core.protocol.ClientChannel(std.os.File.ReadError, std.os.File.WriteError);
+const Action = core.protocol.Action;
+const Event = core.protocol.Event;
 
 pub const GameEngine = struct.{
     child_process: *std.os.ChildProcess,
@@ -11,7 +12,7 @@ pub const GameEngine = struct.{
     in_adapter: std.os.File.InStream,
     out_adapter: std.os.File.OutStream,
     channel: ClientChannel,
-    position: i32,
+    position: Coord,
 
     pub fn startEngine(self: *GameEngine) !void {
         var dir = try std.os.selfExeDirPathAlloc(std.heap.c_allocator);
@@ -28,14 +29,17 @@ pub const GameEngine = struct.{
         self.out_adapter = self.child_process.stdin.?.outStream();
         self.channel = ClientChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
 
-        self.position = 0;
+        self.position = makeCoord(0, 0);
     }
 
-    pub fn move(self: *GameEngine, direction: i8) !void {
+    pub fn move(self: *GameEngine, direction: Coord) !void {
         try self.channel.writeAction(Action.{ .Move = direction });
-        self.position = switch (try self.channel.readEvent()) {
-            Event.Moved => |position| position,
+
+        switch (try self.channel.readEvent()) {
+            Event.Moved => |vector| {
+                self.position = self.position.plus(vector);
+            },
             Event._Unused => unreachable,
-        };
+        }
     }
 };

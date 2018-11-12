@@ -8,6 +8,20 @@ pub const Rect = struct.{
 pub const Coord = struct.{
     x: i32,
     y: i32,
+
+    pub fn plus(a: Coord, b: Coord) Coord {
+        return Coord.{
+            .x = a.x + b.x,
+            .y = a.y + b.y,
+        };
+    }
+
+    pub fn scaled(a: Coord, s: i32) Coord {
+        return Coord.{
+            .x = a.x * s,
+            .y = a.y * s,
+        };
+    }
 };
 
 pub fn makeCoord(x: i32, y: i32) Coord {

@@ -2,8 +2,9 @@ const std = @import("std");
 const sdl = @import("./sdl.zig");
 const textures = @import("./textures.zig");
 const gui = @import("./gui.zig");
-const makeCoord = @import("core").geometry.makeCoord;
-const GameEngine = @import("core").game_engine_client.GameEngine;
+const core = @import("core");
+const makeCoord = core.geometry.makeCoord;
+const GameEngine = core.game_engine_client.GameEngine;
 
 const GameState = enum.{
     MainMenu,
@@ -74,10 +75,16 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         GameState.Running => {
                             switch (@enumToInt(event.key.keysym.scancode)) {
                                 sdl.c.SDL_SCANCODE_LEFT => {
-                                    try game_engine.?.move(-1);
+                                    try game_engine.?.move(makeCoord(-1, 0));
                                 },
                                 sdl.c.SDL_SCANCODE_RIGHT => {
-                                    try game_engine.?.move(1);
+                                    try game_engine.?.move(makeCoord(1, 0));
+                                },
+                                sdl.c.SDL_SCANCODE_UP => {
+                                    try game_engine.?.move(makeCoord(0, -1));
+                                },
+                                sdl.c.SDL_SCANCODE_DOWN => {
+                                    try game_engine.?.move(makeCoord(0, 1));
                                 },
                                 else => {},
                             }
@@ -117,7 +124,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 }
             },
             GameState.Running => {
-                textures.renderSprite(renderer, textures.sprites.human, makeCoord(game_engine.?.position * 32 + 128, 128));
+                textures.renderSprite(renderer, textures.sprites.human, game_engine.?.position.scaled(32).plus(makeCoord(128, 128)));
             },
         }
 

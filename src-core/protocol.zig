@@ -1,13 +1,14 @@
 const std = @import("std");
-const debug = @import("./debug.zig");
+const core = @import("./index.zig");
+const Coord = core.geometry.Coord;
 
 pub const Action = union(enum).{
-    Move: i8,
+    Move: Coord,
     _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
 };
 
 pub const Event = union(enum).{
-    Moved: i32,
+    Moved: Coord,
     _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
 };
 
@@ -33,8 +34,8 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
         pub fn writeAction(self: *Self, action: Action) !void {
             try self.base.writeInt(u8(@enumToInt(@TagType(Action)(action))));
             switch (action) {
-                Action.Move => |direction| {
-                    try self.base.writeInt(direction);
+                Action.Move => |vector| {
+                    try self.base.writeCoord(vector);
                 },
                 Action._Unused => unreachable,
             }
@@ -46,7 +47,7 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
             }
             switch (@intToEnum(@TagType(Event), @intCast(@TagType(@TagType(Event)), tag_int))) {
                 Event.Moved => {
-                    return Event.{ .Moved = try self.base.readInt(i32) };
+                    return Event.{ .Moved = try self.base.readCoord() };
                 },
                 Event._Unused => unreachable,
             }
@@ -76,8 +77,8 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
         pub fn writeEvent(self: *Self, event: Event) !void {
             try self.base.writeInt(u8(@enumToInt(@TagType(Event)(event))));
             switch (event) {
-                Event.Moved => |position| {
-                    try self.base.writeInt(position);
+                Event.Moved => |vector| {
+                    try self.base.writeCoord(vector);
                 },
                 Event._Unused => unreachable,
             }
@@ -89,7 +90,7 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
             }
             switch (@intToEnum(@TagType(Action), @intCast(@TagType(@TagType(Action)), tag_int))) {
                 Action.Move => {
-                    return Action.{ .Move = try self.base.readInt(i8) };
+                    return Action.{ .Move = try self.base.readCoord() };
                 },
                 Action._Unused => unreachable,
             }
@@ -106,12 +107,21 @@ fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
 
         pub fn readInt(self: *Self, comptime T: type) !T {
             const x = self.in_stream.readIntLe(T);
-            //debug.warn("read: {}\n", x);
             return x;
         }
         pub fn writeInt(self: *Self, x: var) !void {
-            //debug.warn("write: {}\n", x);
             return self.out_stream.writeIntLe(@typeOf(x), x);
+        }
+
+        pub fn readCoord(self: *Self) !Coord {
+            return Coord.{
+                .x = try self.readInt(i32),
+                .y = try self.readInt(i32),
+            };
+        }
+        pub fn writeCoord(self: *Self, coord: Coord) !void {
+            try self.writeInt(coord.x);
+            try self.writeInt(coord.y);
         }
     };
 }

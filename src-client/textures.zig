@@ -1,8 +1,9 @@
 const std = @import("std");
 const sdl = @import("./sdl.zig");
-const Rect = @import("core").geometry.Rect;
-const Coord = @import("core").geometry.Coord;
-const makeCoord = @import("core").geometry.makeCoord;
+const core = @import("core");
+const Rect = core.geometry.Rect;
+const Coord = core.geometry.Coord;
+const makeCoord = core.geometry.makeCoord;
 
 pub const sprites = @import("../zig-cache/spritesheet.zig");
 pub const fonts = @import("../zig-cache/fontsheet.zig");
