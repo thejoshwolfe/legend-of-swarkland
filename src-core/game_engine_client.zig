@@ -35,7 +35,7 @@ pub const GameEngine = struct.{
         try self.channel.writeAction(Action.{ .Move = direction });
         self.position = switch (try self.channel.readEvent()) {
             Event.Moved => |position| position,
-            Event.Died => return error.Quit,
+            Event._Unused => unreachable,
         };
     }
 };

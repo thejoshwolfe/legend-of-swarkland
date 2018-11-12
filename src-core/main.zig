@@ -31,7 +31,7 @@ fn headlessMain() !void {
                 position += direction;
                 try channel.writeEvent(Event.{ .Moved = position });
             },
-            Action.Quit => {},
+            Action._Unused => unreachable,
         }
     }
 }

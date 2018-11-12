@@ -3,12 +3,12 @@ const debug = @import("./debug.zig");
 
 pub const Action = union(enum).{
     Move: i8,
-    Quit, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
+    _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
 };
 
 pub const Event = union(enum).{
     Moved: i32,
-    Died, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
+    _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
 };
 
 pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
@@ -36,7 +36,7 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
                 Action.Move => |direction| {
                     try self.base.writeInt(direction);
                 },
-                Action.Quit => {},
+                Action._Unused => unreachable,
             }
         }
         pub fn readEvent(self: *Self) !Event {
@@ -48,9 +48,7 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
                 Event.Moved => {
                     return Event.{ .Moved = try self.base.readInt(i32) };
                 },
-                Event.Died => {
-                    return Event.{ .Died = {} };
-                },
+                Event._Unused => unreachable,
             }
         }
     };
@@ -81,7 +79,7 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
                 Event.Moved => |position| {
                     try self.base.writeInt(position);
                 },
-                Event.Died => {},
+                Event._Unused => unreachable,
             }
         }
         pub fn readAction(self: *Self) !Action {
@@ -93,9 +91,7 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
                 Action.Move => {
                     return Action.{ .Move = try self.base.readInt(i8) };
                 },
-                Action.Quit => {
-                    return Action.{ .Quit = {} };
-                },
+                Action._Unused => unreachable,
             }
         }
     };
