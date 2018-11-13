@@ -5,6 +5,7 @@ const makeCoord = core.geometry.makeCoord;
 const ClientChannel = core.protocol.ClientChannel(std.os.File.ReadError, std.os.File.WriteError);
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
+const MovedEvent = core.protocol.MovedEvent;
 
 pub const GameEngine = struct.{
     child_process: *std.os.ChildProcess,
@@ -36,8 +37,8 @@ pub const GameEngine = struct.{
         try self.channel.writeAction(Action.{ .Move = direction });
 
         switch (try self.channel.readEvent()) {
-            Event.Moved => |vector| {
-                self.position = self.position.plus(vector);
+            Event.Moved => |event| {
+                self.position = event.to;
             },
             Event._Unused => unreachable,
         }

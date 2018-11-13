@@ -8,6 +8,7 @@ const makeCoord = core.geometry.makeCoord;
 const ServerChannel = core.protocol.ServerChannel(std.os.File.ReadError, std.os.File.WriteError);
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
+const MovedEvent = core.protocol.MovedEvent;
 
 pub fn main() error!void {
     if (build_options.headless) {
@@ -30,8 +31,14 @@ fn headlessMain() !void {
     while (true) {
         switch (try channel.readAction()) {
             Action.Move => |direction| {
-                position = position.plus(direction);
-                try channel.writeEvent(Event.{ .Moved = direction });
+                const new_position = position.plus(direction);
+                try channel.writeEvent(Event.{
+                    .Moved = MovedEvent.{
+                        .from = position,
+                        .to = new_position,
+                    },
+                });
+                position = new_position;
             },
             Action._Unused => unreachable,
         }

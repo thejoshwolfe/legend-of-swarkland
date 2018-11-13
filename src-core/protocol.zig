@@ -8,8 +8,13 @@ pub const Action = union(enum).{
 };
 
 pub const Event = union(enum).{
-    Moved: Coord,
+    Moved: MovedEvent,
     _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
+};
+
+pub const MovedEvent = struct.{
+    from: Coord,
+    to: Coord,
 };
 
 pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
@@ -47,7 +52,12 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
             }
             switch (@intToEnum(@TagType(Event), @intCast(@TagType(@TagType(Event)), tag_int))) {
                 Event.Moved => {
-                    return Event.{ .Moved = try self.base.readCoord() };
+                    return Event.{
+                        .Moved = MovedEvent.{
+                            .from = try self.base.readCoord(),
+                            .to = try self.base.readCoord(),
+                        },
+                    };
                 },
                 Event._Unused => unreachable,
             }
@@ -74,11 +84,12 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
             };
         }
 
-        pub fn writeEvent(self: *Self, event: Event) !void {
-            try self.base.writeInt(u8(@enumToInt(@TagType(Event)(event))));
-            switch (event) {
-                Event.Moved => |vector| {
-                    try self.base.writeCoord(vector);
+        pub fn writeEvent(self: *Self, _event: Event) !void {
+            try self.base.writeInt(u8(@enumToInt(@TagType(Event)(_event))));
+            switch (_event) {
+                Event.Moved => |event| {
+                    try self.base.writeCoord(event.from);
+                    try self.base.writeCoord(event.to);
                 },
                 Event._Unused => unreachable,
             }
@@ -125,4 +136,3 @@ fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
         }
     };
 }
-
