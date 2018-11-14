@@ -7,7 +7,7 @@ const Action = core.protocol.Action;
 const Event = core.protocol.Event;
 const MovedEvent = core.protocol.MovedEvent;
 
-pub const GameEngine = struct.{
+pub const GameEngine = struct {
     child_process: *std.os.ChildProcess,
 
     in_adapter: std.os.File.InStream,
@@ -21,7 +21,7 @@ pub const GameEngine = struct.{
         var path = try std.os.path.join(std.heap.c_allocator, dir, "legend-of-swarkland_headless");
         defer std.heap.c_allocator.free(path);
 
-        const args = []const []const u8.{path};
+        const args = []const []const u8{path};
         self.child_process = try std.os.ChildProcess.init(args, std.heap.c_allocator);
         self.child_process.stdout_behavior = std.os.ChildProcess.StdIo.Pipe;
         self.child_process.stdin_behavior = std.os.ChildProcess.StdIo.Pipe;
@@ -34,7 +34,7 @@ pub const GameEngine = struct.{
     }
 
     pub fn move(self: *GameEngine, direction: Coord) !void {
-        try self.channel.writeAction(Action.{ .Move = direction });
+        try self.channel.writeAction(Action{ .Move = direction });
 
         switch (try self.channel.readEvent()) {
             Event.Moved => |event| {

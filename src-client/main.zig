@@ -6,7 +6,7 @@ const core = @import("core");
 const makeCoord = core.geometry.makeCoord;
 const GameEngine = core.game_engine_client.GameEngine;
 
-const GameState = enum.{
+const GameState = enum {
     MainMenu,
     Running,
 };

@@ -25,7 +25,7 @@ pub extern fn SDL_RenderCopy(
 const geometry = @import("core").geometry;
 
 pub fn makeRect(rect: geometry.Rect) sdl.c.SDL_Rect {
-    return sdl.c.SDL_Rect.{
+    return sdl.c.SDL_Rect{
         .x = rect.x,
         .y = rect.y,
         .w = rect.width,

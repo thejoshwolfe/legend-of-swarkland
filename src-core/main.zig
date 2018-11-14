@@ -10,7 +10,7 @@ const Action = core.protocol.Action;
 const Event = core.protocol.Event;
 const MovedEvent = core.protocol.MovedEvent;
 
-pub fn main() error!void {
+pub fn main() anyerror!void {
     if (build_options.headless) {
         debug.prefix_name = "server";
         debug.warn("init\n");
@@ -32,8 +32,8 @@ fn headlessMain() !void {
         switch (try channel.readAction()) {
             Action.Move => |direction| {
                 const new_position = position.plus(direction);
-                try channel.writeEvent(Event.{
-                    .Moved = MovedEvent.{
+                try channel.writeEvent(Event{
+                    .Moved = MovedEvent{
                         .from = position,
                         .to = new_position,
                     },

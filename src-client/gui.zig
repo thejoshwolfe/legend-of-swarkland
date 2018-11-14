@@ -5,12 +5,12 @@ const Rect = geometry.Rect;
 const makeCoord = geometry.makeCoord;
 const textures = @import("./textures.zig");
 
-pub const LinearMenuState = struct.{
+pub const LinearMenuState = struct {
     cursor_position: usize,
     entry_count: usize,
     enter_pressed: bool,
     pub fn init() LinearMenuState {
-        return LinearMenuState.{
+        return LinearMenuState{
             .cursor_position = 0,
             .entry_count = 0,
             .enter_pressed = false,
@@ -35,7 +35,7 @@ pub const LinearMenuState = struct.{
     }
 };
 
-pub const Gui = struct.{
+pub const Gui = struct {
     _renderer: *sdl.Renderer,
     _menu_state: *LinearMenuState,
     _cursor_icon: Rect,
@@ -46,7 +46,7 @@ pub const Gui = struct.{
     _bold: bool,
     _marginBottom: i32,
     pub fn init(renderer: *sdl.Renderer, menu_state: *LinearMenuState, cursor_icon: Rect) Gui {
-        return Gui.{
+        return Gui{
             ._renderer = renderer,
             ._menu_state = menu_state,
             ._cursor_icon = cursor_icon,

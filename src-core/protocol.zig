@@ -2,23 +2,23 @@ const std = @import("std");
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 
-pub const Action = union(enum).{
+pub const Action = union(enum) {
     Move: Coord,
     _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
 };
 
-pub const Event = union(enum).{
+pub const Event = union(enum) {
     Moved: MovedEvent,
     _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
 };
 
-pub const MovedEvent = struct.{
+pub const MovedEvent = struct {
     from: Coord,
     to: Coord,
 };
 
 pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
-    return struct.{
+    return struct {
         const Self = @This();
         const Base = BaseChannel(ReadError, WriteError);
 
@@ -28,8 +28,8 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
             in_stream: *std.io.InStream(ReadError),
             out_stream: *std.io.OutStream(WriteError),
         ) Self {
-            return Self.{
-                .base = Base.{
+            return Self{
+                .base = Base{
                     .in_stream = in_stream,
                     .out_stream = out_stream,
                 },
@@ -52,8 +52,8 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
             }
             switch (@intToEnum(@TagType(Event), @intCast(@TagType(@TagType(Event)), tag_int))) {
                 Event.Moved => {
-                    return Event.{
-                        .Moved = MovedEvent.{
+                    return Event{
+                        .Moved = MovedEvent{
                             .from = try self.base.readCoord(),
                             .to = try self.base.readCoord(),
                         },
@@ -66,7 +66,7 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
 }
 
 pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
-    return struct.{
+    return struct {
         const Self = @This();
         const Base = BaseChannel(ReadError, WriteError);
 
@@ -76,8 +76,8 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
             in_stream: *std.io.InStream(ReadError),
             out_stream: *std.io.OutStream(WriteError),
         ) Self {
-            return Self.{
-                .base = Base.{
+            return Self{
+                .base = Base{
                     .in_stream = in_stream,
                     .out_stream = out_stream,
                 },
@@ -101,7 +101,7 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
             }
             switch (@intToEnum(@TagType(Action), @intCast(@TagType(@TagType(Action)), tag_int))) {
                 Action.Move => {
-                    return Action.{ .Move = try self.base.readCoord() };
+                    return Action{ .Move = try self.base.readCoord() };
                 },
                 Action._Unused => unreachable,
             }
@@ -110,7 +110,7 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
 }
 
 fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
-    return struct.{
+    return struct {
         const Self = @This();
 
         in_stream: *std.io.InStream(ReadError),
@@ -125,7 +125,7 @@ fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
         }
 
         pub fn readCoord(self: *Self) !Coord {
-            return Coord.{
+            return Coord{
                 .x = try self.readInt(i32),
                 .y = try self.readInt(i32),
             };
