@@ -9,7 +9,6 @@ const MovedEvent = core.protocol.MovedEvent;
 
 pub const GameEngine = struct {
     child_process: *std.os.ChildProcess,
-
     in_adapter: std.os.File.InStream,
     out_adapter: std.os.File.OutStream,
     channel: ClientChannel,
@@ -31,6 +30,9 @@ pub const GameEngine = struct {
         self.channel = ClientChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
 
         self.position = makeCoord(0, 0);
+    }
+    pub fn stopEngine(self: *GameEngine) void {
+        _ = self.child_process.kill() catch undefined;
     }
 
     pub fn move(self: *GameEngine, direction: Coord) !void {

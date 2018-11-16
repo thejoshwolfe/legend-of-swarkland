@@ -44,9 +44,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
     var game_state = GameState.MainMenu;
     var main_menu_state = gui.LinearMenuState.init();
     var game_engine: ?GameEngine = null;
-    defer if (game_engine) |g| {
-        _ = g.child_process.kill() catch undefined;
-    };
+    defer if (game_engine) |*g| g.stopEngine();
 
     while (true) {
         main_menu_state.beginFrame();
