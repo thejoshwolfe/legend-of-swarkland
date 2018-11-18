@@ -13,6 +13,10 @@ pub const GameEngine = struct {
     out_adapter: std.os.File.OutStream,
     channel: ClientChannel,
     position: Coord,
+    send_thread: *std.os.Thread,
+    recv_thread: *std.os.Thread,
+    action_outbox: std.atomic.Queue(Action),
+    event_inbox: std.atomic.Queue(Event),
 
     pub fn startEngine(self: *GameEngine) !void {
         var dir = try std.os.selfExeDirPathAlloc(std.heap.c_allocator);
@@ -30,19 +34,60 @@ pub const GameEngine = struct {
         self.channel = ClientChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
 
         self.position = makeCoord(0, 0);
+        self.send_thread = try std.os.spawnThread(self, sendMain);
+        self.recv_thread = try std.os.spawnThread(self, recvMain);
     }
     pub fn stopEngine(self: *GameEngine) void {
         _ = self.child_process.kill() catch undefined;
     }
 
-    pub fn move(self: *GameEngine, direction: Coord) !void {
-        try self.channel.writeAction(Action{ .Move = direction });
+    pub fn pollEvents(self: *GameEngine) void {
+        while (true) {
+            switch (queueGet(Event, &self.event_inbox) orelse return) {
+                Event.Moved => |event| {
+                    self.position = event.to;
+                },
+                Event._Unused => unreachable,
+            }
+        }
+    }
 
-        switch (try self.channel.readEvent()) {
-            Event.Moved => |event| {
-                self.position = event.to;
-            },
-            Event._Unused => unreachable,
+    pub fn move(self: *GameEngine, direction: Coord) !void {
+        try queuePut(Action, &self.action_outbox, Action{ .Move = direction });
+    }
+
+    fn sendMain(self: *GameEngine) void {
+        while (true) {
+            const action: Action = queueGet(Action, &self.action_outbox) orelse {
+                // :ResidentSleeper:
+                std.os.time.sleep(17 * std.os.time.millisecond);
+                continue;
+            };
+            self.channel.writeAction(action) catch |err| {
+                @panic("TODO: proper error handling");
+            };
+        }
+    }
+
+    fn recvMain(self: *GameEngine) !void {
+        while (true) {
+            const event: Event = try self.channel.readEvent();
+            queuePut(Event, &self.event_inbox, event) catch |err| {
+                @panic("TODO: proper error handling");
+            };
         }
     }
 };
+
+fn queuePut(comptime T: type, queue: *std.atomic.Queue(T), x: T) !void {
+    const Node = std.atomic.Queue(T).Node;
+    const node: *Node = try std.heap.c_allocator.createOne(Node);
+    node.data = x;
+    queue.put(node);
+}
+fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
+    const Node = std.atomic.Queue(T).Node;
+    const node: *Node = queue.get() orelse return null;
+    defer std.heap.c_allocator.destroy(node);
+    return node.data;
+}

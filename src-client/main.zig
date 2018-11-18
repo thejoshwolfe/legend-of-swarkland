@@ -49,6 +49,9 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
     while (true) {
         main_menu_state.beginFrame();
         var event: sdl.c.SDL_Event = undefined;
+        if (game_engine) |*g| {
+            g.pollEvents();
+        }
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
                 sdl.c.SDL_QUIT => {
