@@ -11,7 +11,10 @@ const GameState = enum {
     Running,
 };
 
-pub fn displayMain() !void {
+pub fn main() anyerror!void {
+    core.debug.prefix_name = "client";
+    core.debug.warn("init\n");
+
     if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
         std.debug.panic("SDL_Init failed: {c}\n", sdl.c.SDL_GetError());
     }

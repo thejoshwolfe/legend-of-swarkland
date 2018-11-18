@@ -48,8 +48,7 @@ pub fn build(b: *Builder) !void {
 }
 
 fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u8, headless: bool) *std.build.Step {
-    const exe = b.addExecutable(name, "src-core/main.zig");
-    exe.addBuildOption(bool, "headless", headless);
+    const exe = if (headless) b.addExecutable(name, "src-core/server_main.zig") else b.addExecutable(name, "src-client/client_main.zig");
     exe.addPackagePath("core", "src-core/index.zig");
     if (!headless) {
         exe.linkSystemLibrary("SDL2");
