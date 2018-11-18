@@ -47,11 +47,13 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
     defer if (game_engine) |*g| g.stopEngine();
 
     while (true) {
+        const now = sdl.c.SDL_GetTicks();
+        if (game_engine) |*g| {
+            g.pollEvents(now);
+        }
+
         main_menu_state.beginFrame();
         var event: sdl.c.SDL_Event = undefined;
-        if (game_engine) |*g| {
-            g.pollEvents();
-        }
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
                 sdl.c.SDL_QUIT => {
@@ -125,7 +127,19 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 }
             },
             GameState.Running => {
-                textures.renderSprite(renderer, textures.sprites.human, game_engine.?.position.scaled(32).plus(makeCoord(128, 128)));
+                const g = &game_engine.?;
+                var display_position = g.position.scaled(32);
+                if (g.position_animation) |animation| blk: {
+                    const duration = @intCast(i32, animation.end_time - animation.start_time);
+                    const progress = @intCast(i32, now - animation.start_time);
+                    if (progress > duration) {
+                        g.position_animation = null;
+                        break :blk;
+                    }
+                    const vector = animation.to.minus(animation.from).scaled(32);
+                    display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
+                }
+                textures.renderSprite(renderer, textures.sprites.human, display_position.plus(makeCoord(128, 128)));
             },
         }
 

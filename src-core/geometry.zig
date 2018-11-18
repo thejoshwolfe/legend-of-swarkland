@@ -15,11 +15,23 @@ pub const Coord = struct {
             .y = a.y + b.y,
         };
     }
+    pub fn minus(a: Coord, b: Coord) Coord {
+        return Coord{
+            .x = a.x - b.x,
+            .y = a.y - b.y,
+        };
+    }
 
     pub fn scaled(a: Coord, s: i32) Coord {
         return Coord{
             .x = a.x * s,
             .y = a.y * s,
+        };
+    }
+    pub fn scaledDivTrunc(a: Coord, s: i32) Coord {
+        return Coord{
+            .x = @divTrunc(a.x, s),
+            .y = @divTrunc(a.y, s),
         };
     }
 };
