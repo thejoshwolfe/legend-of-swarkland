@@ -43,8 +43,8 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
             }
         }
         pub fn readEvent(self: *Self) !Event {
-            switch (try std.meta.intToEnum(@TagType(Event), try self.base.readInt(u8))) {
-                Event.Moved => {
+            switch (try self.base.readInt(u8)) {
+                @enumToInt(Event.Moved) => {
                     return Event{
                         .Moved = MovedEvent{
                             .from = try self.base.readCoord(),
@@ -52,6 +52,10 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
                         },
                     };
                 },
+                else => return error.MalformedData,
+            }
+            switch (Event.Moved) {
+                Event.Moved => {},
             }
         }
     };
@@ -86,10 +90,14 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
             }
         }
         pub fn readAction(self: *Self) !Action {
-            switch (try std.meta.intToEnum(@TagType(Action), try self.base.readInt(u8))) {
-                Action.Move => {
+            switch (try self.base.readInt(u8)) {
+                @enumToInt(Action.Move) => {
                     return Action{ .Move = try self.base.readCoord() };
                 },
+                else => return error.MalformedData,
+            }
+            switch (Action.Move) {
+                Action.Move => {},
             }
         }
     };
