@@ -68,7 +68,6 @@ pub const GameEngine = struct {
                         .end_time = now + 1000,
                     };
                 },
-                Event._Unused => unreachable,
             }
         }
     }

@@ -34,7 +34,6 @@ pub const GameEngine = struct {
                     },
                 });
             },
-            Action._Unused => unreachable,
         }
     }
 

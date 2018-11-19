@@ -4,12 +4,10 @@ const Coord = core.geometry.Coord;
 
 pub const Action = union(enum) {
     Move: Coord,
-    _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
 };
 
 pub const Event = union(enum) {
     Moved: MovedEvent,
-    _Unused, // TODO: workaround for https://github.com/ziglang/zig/issues/1712
 };
 
 pub const MovedEvent = struct {
@@ -42,15 +40,10 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
                 Action.Move => |vector| {
                     try self.base.writeCoord(vector);
                 },
-                Action._Unused => unreachable,
             }
         }
         pub fn readEvent(self: *Self) !Event {
-            const tag_int = try self.base.readInt(u8);
-            if (tag_int >= @memberCount(Event)) {
-                @panic("malformed data"); // TODO
-            }
-            switch (@intToEnum(@TagType(Event), @intCast(@TagType(@TagType(Event)), tag_int))) {
+            switch (try std.meta.intToEnum(@TagType(Event), try self.base.readInt(u8))) {
                 Event.Moved => {
                     return Event{
                         .Moved = MovedEvent{
@@ -59,7 +52,6 @@ pub fn ClientChannel(comptime ReadError: type, comptime WriteError: type) type {
                         },
                     };
                 },
-                Event._Unused => unreachable,
             }
         }
     };
@@ -91,19 +83,13 @@ pub fn ServerChannel(comptime ReadError: type, comptime WriteError: type) type {
                     try self.base.writeCoord(event.from);
                     try self.base.writeCoord(event.to);
                 },
-                Event._Unused => unreachable,
             }
         }
         pub fn readAction(self: *Self) !Action {
-            const tag_int = try self.base.readInt(u8);
-            if (tag_int >= @memberCount(Action)) {
-                @panic("malformed data"); // TODO
-            }
-            switch (@intToEnum(@TagType(Action), @intCast(@TagType(@TagType(Action)), tag_int))) {
+            switch (try std.meta.intToEnum(@TagType(Action), try self.base.readInt(u8))) {
                 Action.Move => {
                     return Action{ .Move = try self.base.readCoord() };
                 },
-                Action._Unused => unreachable,
             }
         }
     };
