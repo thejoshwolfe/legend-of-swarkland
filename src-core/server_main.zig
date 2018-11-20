@@ -3,7 +3,9 @@ const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const GameEngine = core.game_engine.GameEngine;
-const ServerChannel = core.protocol.ServerChannel(std.os.File.ReadError, std.os.File.WriteError);
+const BaseChannel = core.protocol.BaseChannel(std.os.File.ReadError, std.os.File.WriteError);
+const Request = core.protocol.Request;
+const Response = core.protocol.Response;
 
 pub fn main() anyerror!void {
     core.debug.prefix_name = "server";
@@ -11,14 +13,22 @@ pub fn main() anyerror!void {
 
     var in_adapter = (try std.io.getStdIn()).inStream();
     var out_adapter = (try std.io.getStdOut()).outStream();
-    var channel = ServerChannel.create(&in_adapter.stream, &out_adapter.stream);
+    var channel = BaseChannel.create(&in_adapter.stream, &out_adapter.stream);
 
     var game_engine: GameEngine = undefined;
     game_engine.init(std.heap.c_allocator);
 
     while (true) {
-        const action = try channel.readAction();
-        const event = try game_engine.takeAction(action);
-        try channel.writeEvent(event);
+        switch (try channel.readRequest()) {
+            Request.Act => |action| {
+                const event = try game_engine.takeAction(action);
+                try channel.writeResponse(Response{ .Event = event });
+            },
+            Request.Rewind => {
+                if (game_engine.rewind()) |event| {
+                    try channel.writeResponse(Response{ .Undo = event });
+                }
+            },
+        }
     }
 }

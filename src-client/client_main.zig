@@ -92,6 +92,9 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                 sdl.c.SDL_SCANCODE_DOWN => {
                                     try game_engine.?.move(makeCoord(0, 1));
                                 },
+                                sdl.c.SDL_SCANCODE_BACKSPACE => {
+                                    try game_engine.?.rewind();
+                                },
                                 else => {},
                             }
                         },

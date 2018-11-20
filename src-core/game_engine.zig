@@ -26,21 +26,44 @@ pub const GameEngine = struct {
             Action.Move => |direction| {
                 const old_position = self.current_position;
                 const new_position = self.current_position.plus(direction);
-                self.current_position = new_position;
-                return try self.recordEvent(Event{
+                return self.applyEvent(try self.recordEvent(Event{
                     .Moved = MovedEvent{
                         .from = old_position,
                         .to = new_position,
                     },
-                });
+                }));
             },
         }
+    }
+
+    pub fn rewind(self: *GameEngine) ?Event {
+        const node = self.history.pop() orelse return null;
+        const event = node.data;
+        self.allocator.destroy(node);
+        return self.undoEvent(event);
     }
 
     fn recordEvent(self: *GameEngine, event: Event) !Event {
         const history_node: *HistoryNode = try self.allocator.createOne(HistoryNode);
         history_node.data = event;
         self.history.append(history_node);
+        return event;
+    }
+
+    fn applyEvent(self: *GameEngine, event: Event) Event {
+        switch (event) {
+            Event.Moved => |e| {
+                self.current_position = e.to;
+            },
+        }
+        return event;
+    }
+    fn undoEvent(self: *GameEngine, event: Event) Event {
+        switch (event) {
+            Event.Moved => |e| {
+                self.current_position = e.from;
+            },
+        }
         return event;
     }
 };

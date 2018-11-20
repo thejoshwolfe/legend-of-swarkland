@@ -2,8 +2,10 @@ const std = @import("std");
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
-const ClientChannel = core.protocol.ClientChannel(std.os.File.ReadError, std.os.File.WriteError);
+const BaseChannel = core.protocol.BaseChannel(std.os.File.ReadError, std.os.File.WriteError);
+const Request = core.protocol.Request;
 const Action = core.protocol.Action;
+const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const MovedEvent = core.protocol.MovedEvent;
 
@@ -11,11 +13,11 @@ pub const GameEngine = struct {
     child_process: *std.os.ChildProcess,
     in_adapter: std.os.File.InStream,
     out_adapter: std.os.File.OutStream,
-    channel: ClientChannel,
+    channel: BaseChannel,
     send_thread: *std.os.Thread,
     recv_thread: *std.os.Thread,
-    action_outbox: std.atomic.Queue(Action),
-    event_inbox: std.atomic.Queue(Event),
+    request_outbox: std.atomic.Queue(Request),
+    response_inbox: std.atomic.Queue(Response),
     stay_alive: std.atomic.Int(u8),
 
     position: Coord,
@@ -34,7 +36,7 @@ pub const GameEngine = struct {
         try self.child_process.spawn();
         self.in_adapter = self.child_process.stdout.?.inStream();
         self.out_adapter = self.child_process.stdin.?.outStream();
-        self.channel = ClientChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
+        self.channel = BaseChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
         self.stay_alive = std.atomic.Int(u8).init(1);
 
         self.position = makeCoord(0, 0);
@@ -58,32 +60,40 @@ pub const GameEngine = struct {
 
     pub fn pollEvents(self: *GameEngine, now: u32) void {
         while (true) {
-            switch (queueGet(Event, &self.event_inbox) orelse return) {
-                Event.Moved => |event| {
-                    self.position = event.to;
-                    self.position_animation = MoveAnimation{
-                        .from = event.from,
-                        .to = event.to,
-                        .start_time = now,
-                        .end_time = now + 1000,
-                    };
+            switch (queueGet(Response, &self.response_inbox) orelse return) {
+                Response.Event => |event| {
+                    switch (event) {
+                        Event.Moved => |e| {
+                            self.position = e.to;
+                            self.position_animation = MoveAnimation{
+                                .from = e.from,
+                                .to = e.to,
+                                .start_time = now,
+                                .end_time = now + 1000,
+                            };
+                        },
+                    }
+                },
+                Response.Undo => |event| {
+                    switch (event) {
+                        Event.Moved => |e| {
+                            self.position = e.from;
+                            self.position_animation = null;
+                        },
+                    }
                 },
             }
         }
     }
 
-    pub fn move(self: *GameEngine, direction: Coord) !void {
-        try queuePut(Action, &self.action_outbox, Action{ .Move = direction });
-    }
-
     fn sendMain(self: *GameEngine) void {
         while (self.isAlive()) {
-            const action: Action = queueGet(Action, &self.action_outbox) orelse {
+            const request = queueGet(Request, &self.request_outbox) orelse {
                 // :ResidentSleeper:
                 std.os.time.sleep(17 * std.os.time.millisecond);
                 continue;
             };
-            self.channel.writeAction(action) catch |err| {
+            self.channel.writeRequest(request) catch |err| {
                 @panic("TODO: proper error handling");
             };
         }
@@ -92,17 +102,30 @@ pub const GameEngine = struct {
 
     fn recvMain(self: *GameEngine) void {
         while (self.isAlive()) {
-            const event: Event = self.channel.readEvent() catch |err| {
+            const response: Response = self.channel.readResponse() catch |err| {
                 switch (err) {
-                    error.EndOfStream => break,
+                    error.EndOfStream => {
+                        if (self.isAlive()) {
+                            @panic("unexpected EOF");
+                        }
+                        // but this is expected when we're trying to shutdown
+                        break;
+                    },
                     else => @panic("TODO: proper error handling"),
                 }
             };
-            queuePut(Event, &self.event_inbox, event) catch |err| {
+            queuePut(Response, &self.response_inbox, response) catch |err| {
                 @panic("TODO: proper error handling");
             };
         }
         core.debug.warn("recv shutdown\n");
+    }
+
+    pub fn rewind(self: *GameEngine) !void {
+        try queuePut(Request, &self.request_outbox, Request{ .Rewind = {} });
+    }
+    pub fn move(self: *GameEngine, direction: Coord) !void {
+        try queuePut(Request, &self.request_outbox, Request{ .Act = Action{ .Move = direction } });
     }
 };
 
