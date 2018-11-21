@@ -1,6 +1,9 @@
 const std = @import("std");
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
+const Terrain = core.game_state.Terrain;
+const Floor = core.game_state.Floor;
+const Wall = core.game_state.Wall;
 
 pub const Request = union(enum) {
     act: Action,
@@ -21,6 +24,12 @@ pub const Event = union(enum) {
     const Moved = struct {
         from: Coord,
         to: Coord,
+    };
+
+    init_state: InitState,
+    const InitState = struct {
+        terrain: Terrain,
+        position: Coord,
     };
 };
 
@@ -93,24 +102,6 @@ pub fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
                 Response.undo => {},
             }
         }
-
-        fn readEvent(self: *Self) !Event {
-            switch (try self.readInt(u8)) {
-                @enumToInt(Event.moved) => {
-                    return Event{
-                        .moved = Event.Moved{
-                            .from = try self.readCoord(),
-                            .to = try self.readCoord(),
-                        },
-                    };
-                },
-                else => return error.MalformedData,
-            }
-            switch (Event.moved) {
-                Event.moved => {},
-            }
-        }
-
         fn writeResponse(self: *Self, response: Response) !void {
             try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
             switch (response) {
@@ -122,6 +113,32 @@ pub fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
                 },
             }
         }
+
+        fn readEvent(self: *Self) !Event {
+            switch (try self.readInt(u8)) {
+                @enumToInt(Event.moved) => {
+                    return Event{
+                        .moved = Event.Moved{
+                            .from = try self.readCoord(),
+                            .to = try self.readCoord(),
+                        },
+                    };
+                },
+                @enumToInt(Event.init_state) => {
+                    return Event{
+                        .init_state = Event.InitState{
+                            .terrain = try self.readTerrain(),
+                            .position = try self.readCoord(),
+                        },
+                    };
+                },
+                else => return error.MalformedData,
+            }
+            switch (Event.moved) {
+                Event.moved => {},
+                Event.init_state => {},
+            }
+        }
         fn writeEvent(self: *Self, _event: Event) !void {
             try self.writeInt(u8(@enumToInt(@TagType(Event)(_event))));
             switch (_event) {
@@ -129,24 +146,66 @@ pub fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
                     try self.writeCoord(event.from);
                     try self.writeCoord(event.to);
                 },
+                Event.init_state => |event| {
+                    try self.writeTerrain(event.terrain);
+                    try self.writeCoord(event.position);
+                },
             }
         }
 
-        pub fn readInt(self: *Self, comptime T: type) !T {
-            const x = self.in_stream.readIntLe(T);
+        fn readTerrain(self: *Self) !Terrain {
+            var result: Terrain = undefined;
+            for (result.floor) |*row| {
+                for (row) |*cell| {
+                    cell.* = try self.readEnum(Floor);
+                }
+            }
+            for (result.walls) |*row| {
+                for (row) |*cell| {
+                    cell.* = try self.readEnum(Wall);
+                }
+            }
+            return result;
+        }
+        fn writeTerrain(self: *Self, terrain: Terrain) !void {
+            for (terrain.floor) |row| {
+                for (row) |cell| {
+                    try self.writeEnum(cell);
+                }
+            }
+            for (terrain.walls) |row| {
+                for (row) |cell| {
+                    try self.writeEnum(cell);
+                }
+            }
+        }
+
+        fn readEnum(self: *Self, comptime T: type) !T {
+            const x = try self.readInt(u8);
+            if (x >= @memberCount(T)) return error.MalformedData;
+            return @intToEnum(T, @intCast(@TagType(T), x));
+        }
+        fn writeEnum(self: *Self, x: var) !void {
+            try self.writeInt(u8(@enumToInt(x)));
+        }
+
+        fn readInt(self: *Self, comptime T: type) !T {
+            const x = try self.in_stream.readIntLe(T);
+            // core.debug.warn("readInt: {}\n", x);
             return x;
         }
-        pub fn writeInt(self: *Self, x: var) !void {
+        fn writeInt(self: *Self, x: var) !void {
+            // core.debug.warn("writeInt: {}\n", x);
             return self.out_stream.writeIntLe(@typeOf(x), x);
         }
 
-        pub fn readCoord(self: *Self) !Coord {
+        fn readCoord(self: *Self) !Coord {
             return Coord{
                 .x = try self.readInt(i32),
                 .y = try self.readInt(i32),
             };
         }
-        pub fn writeCoord(self: *Self, coord: Coord) !void {
+        fn writeCoord(self: *Self, coord: Coord) !void {
             try self.writeInt(coord.x);
             try self.writeInt(coord.y);
         }

@@ -4,6 +4,10 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
+const GameState = core.game_state.GameState;
+const Terrain = core.game_state.Terrain;
+const Floor = core.game_state.Floor;
+const Wall = core.game_state.Wall;
 
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
@@ -20,6 +24,46 @@ pub const GameEngine = struct {
         };
     }
 
+    pub fn startGame(self: *GameEngine) Event {
+        var terrain: Terrain = undefined;
+        {
+            var x: usize = 0;
+            while (x < 16) : (x += 1) {
+                terrain.floor[0][x] = Floor.unknown;
+                terrain.floor[16 - 1][x] = Floor.unknown;
+                terrain.walls[0][x] = Wall.stone;
+                terrain.walls[16 - 1][x] = Wall.stone;
+            }
+        }
+        {
+            var y: usize = 1;
+            while (y < 16 - 1) : (y += 1) {
+                terrain.floor[y][0] = Floor.unknown;
+                terrain.floor[y][16 - 1] = Floor.unknown;
+                terrain.walls[y][0] = Wall.stone;
+                terrain.walls[y][16 - 1] = Wall.stone;
+            }
+        }
+        {
+            var y: usize = 1;
+            while (y < 16 - 1) : (y += 1) {
+                var x: usize = 1;
+                while (x < 16 - 1) : (x += 1) {
+                    terrain.floor[y][x] = Floor.dirt;
+                    terrain.walls[y][x] = Wall.air;
+                }
+            }
+        }
+        const event = Event{
+            .init_state = Event.InitState{
+                .terrain = terrain,
+                .position = makeCoord(3, 3),
+            },
+        };
+        self.game_state.applyEvent(event);
+        return event;
+    }
+
     pub fn takeAction(self: *GameEngine, action: Action) !?Event {
         const event = self.validateAction(action) orelse return null;
         try self.recordEvent(event);
@@ -33,6 +77,8 @@ pub const GameEngine = struct {
                 const old_position = self.game_state.position;
                 const new_position = old_position.plus(direction);
                 if (new_position.x < 0 or new_position.y < 0) return null;
+                if (new_position.x >= 16 or new_position.y >= 16) return null;
+                if (self.game_state.terrain.walls[@intCast(usize, new_position.y)][@intCast(usize, new_position.x)] != Wall.air) return null;
                 return Event{
                     .moved = Event.Moved{
                         .from = old_position,
@@ -60,26 +106,4 @@ pub const GameEngine = struct {
 
 pub const HistoryFrame = struct {
     event: core.protocol.Event,
-};
-
-pub const GameState = struct {
-    position: Coord,
-    pub fn init() GameState {
-        return GameState{ .position = makeCoord(0, 0) };
-    }
-
-    fn applyEvent(self: *GameState, event: Event) void {
-        switch (event) {
-            Event.moved => |e| {
-                self.position = e.to;
-            },
-        }
-    }
-    fn undoEvent(self: *GameState, event: Event) void {
-        switch (event) {
-            Event.moved => |e| {
-                self.position = e.from;
-            },
-        }
-    }
 };

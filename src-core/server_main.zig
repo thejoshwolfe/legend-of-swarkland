@@ -17,7 +17,12 @@ pub fn main() anyerror!void {
 
     var game_engine: GameEngine = undefined;
     game_engine.init(std.heap.c_allocator);
+    {
+        const event = game_engine.startGame();
+        try channel.writeResponse(Response{ .event = event });
+    }
 
+    core.debug.warn("start main loop\n");
     while (true) {
         switch (try channel.readRequest()) {
             Request.act => |action| {

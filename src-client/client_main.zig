@@ -5,6 +5,8 @@ const gui = @import("./gui.zig");
 const core = @import("core");
 const makeCoord = core.geometry.makeCoord;
 const GameEngine = core.game_engine_client.GameEngine;
+const Floor = core.game_state.Floor;
+const Wall = core.game_state.Wall;
 
 const GameState = enum {
     MainMenu,
@@ -133,19 +135,46 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 }
             },
             GameState.Running => {
-                const g = &game_engine.?;
+                const g = (*const GameEngine)(&game_engine.?);
+
+                // render terrain
+                for (g.game_state.terrain.floor) |row, y| {
+                    for (row) |cell, x| {
+                        const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
+                        const texture = switch (cell) {
+                            Floor.unknown => textures.sprites.unknown_floor,
+                            Floor.dirt => textures.sprites.dirt_floor0,
+                            Floor.marble => textures.sprites.marble_floor0,
+                            Floor.lava => textures.sprites.lava0,
+                        };
+                        textures.renderSprite(renderer, texture, coord.scaled(32));
+                    }
+                }
+                for (g.game_state.terrain.walls) |row, y| {
+                    for (row) |cell, x| {
+                        const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
+                        const texture = switch (cell) {
+                            Wall.unknown => textures.sprites.unknown_wall,
+                            Wall.air => continue,
+                            Wall.dirt => textures.sprites.brown_brick0,
+                            Wall.stone => textures.sprites.gray_brick0,
+                        };
+                        textures.renderSprite(renderer, texture, coord.scaled(32));
+                    }
+                }
+
+                // render you
                 var display_position = g.game_state.position.scaled(32);
                 if (g.position_animation) |animation| blk: {
                     const duration = @intCast(i32, animation.end_time - animation.start_time);
                     const progress = @intCast(i32, now - animation.start_time);
                     if (progress > duration) {
-                        g.position_animation = null;
                         break :blk;
                     }
                     const vector = animation.to.minus(animation.from).scaled(32);
                     display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
                 }
-                textures.renderSprite(renderer, textures.sprites.human, display_position.plus(makeCoord(128, 128)));
+                textures.renderSprite(renderer, textures.sprites.human, display_position);
             },
         }
 

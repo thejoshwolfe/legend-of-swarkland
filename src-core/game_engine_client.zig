@@ -7,7 +7,7 @@ const Request = core.protocol.Request;
 const Action = core.protocol.Action;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
-const GameState = core.game_engine.GameState;
+const GameState = core.game_state.GameState;
 
 pub const GameEngine = struct {
     child_process: *std.os.ChildProcess,
@@ -63,6 +63,7 @@ pub const GameEngine = struct {
             switch (queueGet(Response, &self.response_inbox) orelse return) {
                 Response.event => |event| {
                     self.game_state.applyEvent(event);
+                    // animations
                     switch (event) {
                         Event.moved => |e| {
                             self.position_animation = MoveAnimation{
@@ -72,6 +73,7 @@ pub const GameEngine = struct {
                                 .end_time = now + 200,
                             };
                         },
+                        Event.init_state => {},
                     }
                 },
                 Response.undo => |event| {
