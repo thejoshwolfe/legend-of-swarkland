@@ -8,6 +8,7 @@ const Action = core.protocol.Action;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const MovedEvent = core.protocol.MovedEvent;
+const GameState = core.game_engine.GameState;
 
 pub const GameEngine = struct {
     child_process: *std.os.ChildProcess,
@@ -20,7 +21,7 @@ pub const GameEngine = struct {
     response_inbox: std.atomic.Queue(Response),
     stay_alive: std.atomic.Int(u8),
 
-    position: Coord,
+    game_state: GameState,
     position_animation: ?MoveAnimation,
 
     pub fn startEngine(self: *GameEngine) !void {
@@ -39,7 +40,7 @@ pub const GameEngine = struct {
         self.channel = BaseChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
         self.stay_alive = std.atomic.Int(u8).init(1);
 
-        self.position = makeCoord(0, 0);
+        self.game_state = GameState.init();
         self.position_animation = null;
 
         // start threads last
@@ -62,25 +63,21 @@ pub const GameEngine = struct {
         while (true) {
             switch (queueGet(Response, &self.response_inbox) orelse return) {
                 Response.Event => |event| {
+                    self.game_state.applyEvent(event);
                     switch (event) {
                         Event.Moved => |e| {
-                            self.position = e.to;
                             self.position_animation = MoveAnimation{
                                 .from = e.from,
                                 .to = e.to,
                                 .start_time = now,
-                                .end_time = now + 1000,
+                                .end_time = now + 200,
                             };
                         },
                     }
                 },
                 Response.Undo => |event| {
-                    switch (event) {
-                        Event.Moved => |e| {
-                            self.position = e.from;
-                            self.position_animation = null;
-                        },
-                    }
+                    self.game_state.undoEvent(event);
+                    self.position_animation = null;
                 },
             }
         }

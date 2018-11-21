@@ -134,7 +134,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
             },
             GameState.Running => {
                 const g = &game_engine.?;
-                var display_position = g.position.scaled(32);
+                var display_position = g.game_state.position.scaled(32);
                 if (g.position_animation) |animation| blk: {
                     const duration = @intCast(i32, animation.end_time - animation.start_time);
                     const progress = @intCast(i32, now - animation.start_time);

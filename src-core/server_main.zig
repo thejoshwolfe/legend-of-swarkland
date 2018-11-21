@@ -21,8 +21,9 @@ pub fn main() anyerror!void {
     while (true) {
         switch (try channel.readRequest()) {
             Request.Act => |action| {
-                const event = try game_engine.takeAction(action);
-                try channel.writeResponse(Response{ .Event = event });
+                if (try game_engine.takeAction(action)) |event| {
+                    try channel.writeResponse(Response{ .Event = event });
+                }
             },
             Request.Rewind => {
                 if (game_engine.rewind()) |event| {
