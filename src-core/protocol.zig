@@ -3,26 +3,25 @@ const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 
 pub const Request = union(enum) {
-    Act: Action,
-    Rewind,
+    act: Action,
+    rewind,
 };
 
 pub const Action = union(enum) {
-    Move: Coord,
+    move: Coord,
 };
 
 pub const Response = union(enum) {
-    Event: Event,
-    Undo: Event,
+    event: Event,
+    undo: Event,
 };
 
 pub const Event = union(enum) {
-    Moved: MovedEvent,
-};
-
-pub const MovedEvent = struct {
-    from: Coord,
-    to: Coord,
+    moved: Moved,
+    const Moved = struct {
+        from: Coord,
+        to: Coord,
+    };
 };
 
 pub fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
@@ -45,61 +44,61 @@ pub fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
         pub fn writeRequest(self: *Self, request: Request) !void {
             try self.writeInt(u8(@enumToInt(@TagType(Request)(request))));
             switch (request) {
-                Request.Act => |action| {
+                Request.act => |action| {
                     try self.writeInt(u8(@enumToInt(@TagType(Action)(action))));
                     switch (action) {
-                        Action.Move => |vector| {
+                        Action.move => |vector| {
                             try self.writeCoord(vector);
                         },
                     }
                 },
-                Request.Rewind => {},
+                Request.rewind => {},
             }
         }
 
         pub fn readRequest(self: *Self) !Request {
             switch (try self.readInt(u8)) {
-                @enumToInt(Request.Act) => {
+                @enumToInt(Request.act) => {
                     switch (try self.readInt(u8)) {
-                        @enumToInt(Action.Move) => {
-                            return Request{ .Act = Action{ .Move = try self.readCoord() } };
+                        @enumToInt(Action.move) => {
+                            return Request{ .act = Action{ .move = try self.readCoord() } };
                         },
                         else => return error.MalformedData,
                     }
-                    switch (Action.Move) {
+                    switch (Action.move) {
                         Action.Move => {},
                     }
                 },
-                @enumToInt(Request.Rewind) => return Request{ .Rewind = {} },
+                @enumToInt(Request.rewind) => return Request{ .rewind = {} },
                 else => return error.MalformedData,
             }
-            switch (Request.Act) {
-                Request.Act => {},
-                Request.Rewind => {},
+            switch (Request.act) {
+                Request.act => {},
+                Request.rewind => {},
             }
         }
 
         pub fn readResponse(self: *Self) !Response {
             switch (try self.readInt(u8)) {
-                @enumToInt(Response.Event) => {
-                    return Response{ .Event = try self.readEvent() };
+                @enumToInt(Response.event) => {
+                    return Response{ .event = try self.readEvent() };
                 },
-                @enumToInt(Response.Undo) => {
-                    return Response{ .Undo = try self.readEvent() };
+                @enumToInt(Response.undo) => {
+                    return Response{ .undo = try self.readEvent() };
                 },
                 else => return error.MalformedData,
             }
-            switch (Event.Moved) {
-                Response.Event => {},
-                Response.Undo => {},
+            switch (Event.moved) {
+                Response.event => {},
+                Response.undo => {},
             }
         }
 
         fn readEvent(self: *Self) !Event {
             switch (try self.readInt(u8)) {
-                @enumToInt(Event.Moved) => {
+                @enumToInt(Event.moved) => {
                     return Event{
-                        .Moved = MovedEvent{
+                        .moved = Event.Moved{
                             .from = try self.readCoord(),
                             .to = try self.readCoord(),
                         },
@@ -107,18 +106,18 @@ pub fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
                 },
                 else => return error.MalformedData,
             }
-            switch (Event.Moved) {
-                Event.Moved => {},
+            switch (Event.moved) {
+                Event.moved => {},
             }
         }
 
         fn writeResponse(self: *Self, response: Response) !void {
             try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
             switch (response) {
-                Response.Event => |event| {
+                Response.event => |event| {
                     try self.writeEvent(event);
                 },
-                Response.Undo => |event| {
+                Response.undo => |event| {
                     try self.writeEvent(event);
                 },
             }
@@ -126,7 +125,7 @@ pub fn BaseChannel(comptime ReadError: type, comptime WriteError: type) type {
         fn writeEvent(self: *Self, _event: Event) !void {
             try self.writeInt(u8(@enumToInt(@TagType(Event)(_event))));
             switch (_event) {
-                Event.Moved => |event| {
+                Event.moved => |event| {
                     try self.writeCoord(event.from);
                     try self.writeCoord(event.to);
                 },

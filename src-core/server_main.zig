@@ -20,14 +20,14 @@ pub fn main() anyerror!void {
 
     while (true) {
         switch (try channel.readRequest()) {
-            Request.Act => |action| {
+            Request.act => |action| {
                 if (try game_engine.takeAction(action)) |event| {
-                    try channel.writeResponse(Response{ .Event = event });
+                    try channel.writeResponse(Response{ .event = event });
                 }
             },
-            Request.Rewind => {
+            Request.rewind => {
                 if (game_engine.rewind()) |event| {
-                    try channel.writeResponse(Response{ .Undo = event });
+                    try channel.writeResponse(Response{ .undo = event });
                 }
             },
         }

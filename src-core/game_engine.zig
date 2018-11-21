@@ -4,7 +4,6 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
-const MovedEvent = core.protocol.MovedEvent;
 
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
@@ -30,12 +29,12 @@ pub const GameEngine = struct {
 
     pub fn validateAction(self: *const GameEngine, action: Action) ?Event {
         switch (action) {
-            Action.Move => |direction| {
+            Action.move => |direction| {
                 const old_position = self.game_state.position;
                 const new_position = old_position.plus(direction);
                 if (new_position.x < 0 or new_position.y < 0) return null;
                 return Event{
-                    .Moved = MovedEvent{
+                    .moved = Event.Moved{
                         .from = old_position,
                         .to = new_position,
                     },
@@ -71,14 +70,14 @@ pub const GameState = struct {
 
     fn applyEvent(self: *GameState, event: Event) void {
         switch (event) {
-            Event.Moved => |e| {
+            Event.moved => |e| {
                 self.position = e.to;
             },
         }
     }
     fn undoEvent(self: *GameState, event: Event) void {
         switch (event) {
-            Event.Moved => |e| {
+            Event.moved => |e| {
                 self.position = e.from;
             },
         }

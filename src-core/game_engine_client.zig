@@ -7,7 +7,6 @@ const Request = core.protocol.Request;
 const Action = core.protocol.Action;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
-const MovedEvent = core.protocol.MovedEvent;
 const GameState = core.game_engine.GameState;
 
 pub const GameEngine = struct {
@@ -62,10 +61,10 @@ pub const GameEngine = struct {
     pub fn pollEvents(self: *GameEngine, now: u32) void {
         while (true) {
             switch (queueGet(Response, &self.response_inbox) orelse return) {
-                Response.Event => |event| {
+                Response.event => |event| {
                     self.game_state.applyEvent(event);
                     switch (event) {
-                        Event.Moved => |e| {
+                        Event.moved => |e| {
                             self.position_animation = MoveAnimation{
                                 .from = e.from,
                                 .to = e.to,
@@ -75,7 +74,7 @@ pub const GameEngine = struct {
                         },
                     }
                 },
-                Response.Undo => |event| {
+                Response.undo => |event| {
                     self.game_state.undoEvent(event);
                     self.position_animation = null;
                 },
@@ -119,10 +118,10 @@ pub const GameEngine = struct {
     }
 
     pub fn rewind(self: *GameEngine) !void {
-        try queuePut(Request, &self.request_outbox, Request{ .Rewind = {} });
+        try queuePut(Request, &self.request_outbox, Request{ .rewind = {} });
     }
     pub fn move(self: *GameEngine, direction: Coord) !void {
-        try queuePut(Request, &self.request_outbox, Request{ .Act = Action{ .Move = direction } });
+        try queuePut(Request, &self.request_outbox, Request{ .act = Action{ .move = direction } });
     }
 };
 
