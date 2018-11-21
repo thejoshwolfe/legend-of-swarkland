@@ -84,6 +84,7 @@ pub const GameEngine = struct {
     }
 
     fn sendMain(self: *GameEngine) void {
+        defer core.debug.warn("send shutdown\n");
         while (self.isAlive()) {
             const request = queueGet(Request, &self.request_outbox) orelse {
                 // :ResidentSleeper:
@@ -94,10 +95,10 @@ pub const GameEngine = struct {
                 @panic("TODO: proper error handling");
             };
         }
-        core.debug.warn("send shutdown\n");
     }
 
     fn recvMain(self: *GameEngine) void {
+        defer core.debug.warn("recv shutdown\n");
         while (self.isAlive()) {
             const response: Response = self.channel.readResponse() catch |err| {
                 switch (err) {
@@ -115,7 +116,6 @@ pub const GameEngine = struct {
                 @panic("TODO: proper error handling");
             };
         }
-        core.debug.warn("recv shutdown\n");
     }
 
     pub fn rewind(self: *GameEngine) !void {

@@ -33,6 +33,7 @@ pub const GameEngine = struct {
             Action.Move => |direction| {
                 const old_position = self.game_state.position;
                 const new_position = old_position.plus(direction);
+                if (new_position.x < 0 or new_position.y < 0) return null;
                 return Event{
                     .Moved = MovedEvent{
                         .from = old_position,
