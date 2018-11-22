@@ -5,6 +5,8 @@ import sys
 import math
 import time
 import struct
+import re
+from collections import defaultdict
 
 # make sure you call this script with the right PYTHONPATH
 import simplepng
@@ -26,7 +28,6 @@ def cli():
   glob_pattern = args.glob
   tile_size = args.tile_size
   if args.slice_tiles != None:
-    import re
     match = re.match(r"^(\d+)x(\d+)$", args.slice_tiles)
     if match == None:
       parser.error("--slice-tiles wrong format: " + repr(args.slice_tiles))
@@ -88,6 +89,7 @@ def main(source_dir, tile_size, slice_dimensions, spritesheet_path, defs_path, d
   # composite spritesheet
   dx, dy = 0, 0
   defs_items = []
+  defs_groups = defaultdict(dict)
   for input_path, input_image in zip(input_paths, input_images):
     sx, sy = 0, 0
     coordinates = []
@@ -109,7 +111,13 @@ def main(source_dir, tile_size, slice_dimensions, spritesheet_path, defs_path, d
       if sy >= input_image.height:
         # next input image
         break
-    defs_items.append((mangle_item_name(input_path), coordinates))
+    mangled_name = mangle_item_name(input_path)
+    sequence_match = re.match(r'^(.*?)([0-9]+)$', mangled_name)
+    if sequence_match != None:
+        base_name = sequence_match.group(1)
+        defs_groups[base_name][int(sequence_match.group(2), 10)] = coordinates[0]
+    else:
+        defs_items.append((mangled_name, coordinates))
 
   # output spritesheet in RGBA8888 format
   with open(spritesheet_path + ".tmp", "wb") as f:
@@ -119,15 +127,22 @@ def main(source_dir, tile_size, slice_dimensions, spritesheet_path, defs_path, d
 
   # check defs
   if tile_size != None:
-    defs_item_format = "pub const %s = Rect{.x = %i, .y = %i, .width = %i, .height = %i};";
+    defs_item_format = "pub const %%s = Rect{.x = %%i, .y = %%i, .width = %i, .height = %i};" % (item_dimensions[0], item_dimensions[1]);
+    defs_group_format = "pub const %s = []Rect{\n%s\n};"
+    defs_group_item_format = "    Rect{.x = %%i, .y = %%i, .width = %i, .height = %i}," % (item_dimensions[0], item_dimensions[1]);
     defs_contents = defs_format.format(
       os.path.relpath(spritesheet_path, os.path.dirname(defs_path)),
       spritesheet_image.width,
       spritesheet_image.height,
-      "\n".join(
-        defs_item_format % (defs_item[0], defs_item[1][0][0], defs_item[1][0][1], item_dimensions[0], item_dimensions[1])
+      "\n".join([
+        defs_item_format % (defs_item[0], defs_item[1][0][0], defs_item[1][0][1])
         for defs_item in defs_items
-      )
+      ] + [
+        defs_group_format % (group_name, "\n".join(
+          defs_group_item_format % group_dict[i]
+          for i in range(len(group_dict))
+        )) for group_name, group_dict in sorted(defs_groups.items())
+      ])
     )
   else:
     defs_item_format       = "pub const %s = []Rect{\n%s};";
@@ -179,6 +194,8 @@ pub const height = {};
 def mangle_item_name(input_path):
   name = input_path[:-len(".png")]
   name = os.path.basename(name)
+  if not re.match(r'^[a-z][a-z_0-9]*$', name):
+      sys.exit("ERROR: name has bad characters: {}".format(input_path))
   return name
 
 def find_files(root):

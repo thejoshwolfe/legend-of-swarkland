@@ -3,7 +3,9 @@ const sdl = @import("./sdl.zig");
 const textures = @import("./textures.zig");
 const gui = @import("./gui.zig");
 const core = @import("core");
+const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
+const Rect = core.geometry.Rect;
 const GameEngine = core.game_engine_client.GameEngine;
 const Floor = core.game_state.Floor;
 const Wall = core.game_state.Wall;
@@ -50,6 +52,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
     var main_menu_state = gui.LinearMenuState.init();
     var game_engine: ?GameEngine = null;
     defer if (game_engine) |*g| g.stopEngine();
+    const aesthetic_seed = 0xbee894fc;
 
     while (true) {
         const now = sdl.c.SDL_GetTicks();
@@ -143,9 +146,9 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
                         const texture = switch (cell) {
                             Floor.unknown => textures.sprites.unknown_floor,
-                            Floor.dirt => textures.sprites.dirt_floor0,
-                            Floor.marble => textures.sprites.marble_floor0,
-                            Floor.lava => textures.sprites.lava0,
+                            Floor.dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, coord),
+                            Floor.marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, coord),
+                            Floor.lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, coord),
                         };
                         textures.renderSprite(renderer, texture, coord.scaled(32));
                     }
@@ -156,8 +159,8 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         const texture = switch (cell) {
                             Wall.unknown => textures.sprites.unknown_wall,
                             Wall.air => continue,
-                            Wall.dirt => textures.sprites.brown_brick0,
-                            Wall.stone => textures.sprites.gray_brick0,
+                            Wall.dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, coord),
+                            Wall.stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, coord),
                         };
                         textures.renderSprite(renderer, texture, coord.scaled(32));
                     }
@@ -184,4 +187,23 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
         const delay_millis = 17 - (sdl.c.SDL_GetTicks() % 17);
         sdl.c.SDL_Delay(delay_millis);
     }
+}
+
+fn muhHashFnqshn(input: u32) u32 {
+    // TODO: use a better function. i'm on a plane.
+    var x = input;
+    x ^= x >> 16;
+    x *%= 0xaf12bf53;
+    x ^= x >> 13;
+    x *%= 0xaf12bf53;
+    return x;
+}
+
+fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
+    var hash = seed;
+    hash ^= @bitCast(u32, coord.x);
+    hash = muhHashFnqshn(hash);
+    hash ^= @bitCast(u32, coord.y);
+    hash = muhHashFnqshn(hash);
+    return array[@intCast(usize, std.rand.limitRangeBiased(u32, hash, @intCast(u32, array.len)))];
 }
