@@ -6,7 +6,7 @@ const core = @import("core");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
-const GameEngine = core.game_engine_client.GameEngine;
+const GameEngineClient = core.game_engine_client.GameEngineClient;
 const Floor = core.game_state.Floor;
 const Wall = core.game_state.Wall;
 
@@ -51,7 +51,7 @@ pub fn main() anyerror!void {
 fn doMainLoop(renderer: *sdl.Renderer) !void {
     var game_state = GameState.MainMenu;
     var main_menu_state = gui.LinearMenuState.init();
-    var game_engine: ?GameEngine = null;
+    var game_engine: ?GameEngineClient = null;
     defer if (game_engine) |*g| g.stopEngine();
     const aesthetic_seed = 0xbee894fc;
 
@@ -126,7 +126,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 menu_renderer.seekRelative(70, 0);
                 if (menu_renderer.button("New Game")) {
                     game_state = GameState.Running;
-                    game_engine = GameEngine(undefined);
+                    game_engine = GameEngineClient(undefined);
                     try game_engine.?.startEngine();
                 }
                 if (menu_renderer.button("Load Yagni")) {
@@ -139,7 +139,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 }
             },
             GameState.Running => {
-                const g = (*const GameEngine)(&game_engine.?);
+                const g = (*const GameEngineClient)(&game_engine.?);
 
                 // render terrain
                 for (g.game_state.terrain.floor) |row, y| {

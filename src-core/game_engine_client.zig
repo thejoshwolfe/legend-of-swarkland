@@ -9,7 +9,7 @@ const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const GameState = core.game_state.GameState;
 
-pub const GameEngine = struct {
+pub const GameEngineClient = struct {
     child_process: *std.os.ChildProcess,
     in_adapter: std.os.File.InStream,
     out_adapter: std.os.File.OutStream,
@@ -23,7 +23,7 @@ pub const GameEngine = struct {
     game_state: GameState,
     position_animation: ?MoveAnimation,
 
-    pub fn startEngine(self: *GameEngine) !void {
+    pub fn startEngine(self: *GameEngineClient) !void {
         var dir = try std.os.selfExeDirPathAlloc(std.heap.c_allocator);
         defer std.heap.c_allocator.free(dir);
         var path = try std.os.path.join(std.heap.c_allocator, dir, "legend-of-swarkland_headless");
@@ -46,7 +46,7 @@ pub const GameEngine = struct {
         self.send_thread = try std.os.spawnThread(self, sendMain);
         self.recv_thread = try std.os.spawnThread(self, recvMain);
     }
-    pub fn stopEngine(self: *GameEngine) void {
+    pub fn stopEngine(self: *GameEngineClient) void {
         self.stay_alive.set(0);
         _ = self.child_process.kill() catch undefined;
         // io with the child should now produce errors and clean up the threads
@@ -54,11 +54,11 @@ pub const GameEngine = struct {
         self.recv_thread.wait();
         core.debug.warn("all threads done\n");
     }
-    fn isAlive(self: *GameEngine) bool {
+    fn isAlive(self: *GameEngineClient) bool {
         return self.stay_alive.get() != 0;
     }
 
-    pub fn pollEvents(self: *GameEngine, now: u32) void {
+    pub fn pollEvents(self: *GameEngineClient, now: u32) void {
         while (true) {
             switch (queueGet(Response, &self.response_inbox) orelse return) {
                 Response.event => |event| {
@@ -84,7 +84,7 @@ pub const GameEngine = struct {
         }
     }
 
-    fn sendMain(self: *GameEngine) void {
+    fn sendMain(self: *GameEngineClient) void {
         core.debug.nameThisThread("client send");
         core.debug.warn("init\n");
         defer core.debug.warn("shutdown\n");
@@ -100,7 +100,7 @@ pub const GameEngine = struct {
         }
     }
 
-    fn recvMain(self: *GameEngine) void {
+    fn recvMain(self: *GameEngineClient) void {
         core.debug.nameThisThread("client recv");
         core.debug.warn("init\n");
         defer core.debug.warn("shutdown\n");
@@ -123,10 +123,10 @@ pub const GameEngine = struct {
         }
     }
 
-    pub fn rewind(self: *GameEngine) !void {
+    pub fn rewind(self: *GameEngineClient) !void {
         try queuePut(Request, &self.request_outbox, Request{ .rewind = {} });
     }
-    pub fn move(self: *GameEngine, direction: Coord) !void {
+    pub fn move(self: *GameEngineClient, direction: Coord) !void {
         try queuePut(Request, &self.request_outbox, Request{ .act = Action{ .move = direction } });
     }
 };
