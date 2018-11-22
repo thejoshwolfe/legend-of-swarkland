@@ -85,7 +85,9 @@ pub const GameEngine = struct {
     }
 
     fn sendMain(self: *GameEngine) void {
-        defer core.debug.warn("send shutdown\n");
+        core.debug.nameThisThread("client send");
+        core.debug.warn("init\n");
+        defer core.debug.warn("shutdown\n");
         while (self.isAlive()) {
             const request = queueGet(Request, &self.request_outbox) orelse {
                 // :ResidentSleeper:
@@ -99,7 +101,9 @@ pub const GameEngine = struct {
     }
 
     fn recvMain(self: *GameEngine) void {
-        defer core.debug.warn("recv shutdown\n");
+        core.debug.nameThisThread("client recv");
+        core.debug.warn("init\n");
+        defer core.debug.warn("shutdown\n");
         while (self.isAlive()) {
             const response: Response = self.channel.readResponse() catch |err| {
                 switch (err) {
