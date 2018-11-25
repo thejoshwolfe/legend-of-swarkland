@@ -18,12 +18,19 @@ pub fn warn(comptime fmt: []const u8, args: ...) void {
     });
 }
 
+var mutex: ?std.Mutex = null;
+pub fn init() void {
+    mutex = std.Mutex.init();
+}
+
 const IdAndName = struct {
     id: std.os.Thread.Id,
     name: []const u8,
 };
 var thread_names = []?IdAndName{null} ** 100;
 pub fn nameThisThread(name: []const u8) void {
+    var held = mutex.?.acquire();
+    defer held.release();
     const me = std.os.Thread.getCurrentId();
     for (thread_names) |*maybe_it| {
         if (maybe_it.*) |it| {

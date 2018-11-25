@@ -9,8 +9,21 @@ const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const GameState = core.game_state.GameState;
 
-pub const GameEngineClient = struct {
+const Connection = union(enum) {
     child_process: *std.os.ChildProcess,
+    thread: ThreadData,
+    const ThreadData = struct {
+        thread: *std.os.Thread,
+        send_pipe: [2]i32,
+        recv_pipe: [2]i32,
+        server_in_adapter: std.os.File.InStream,
+        server_out_adapter: std.os.File.OutStream,
+        server_channel: BaseChannel,
+    };
+};
+
+pub const GameEngineClient = struct {
+    connection: Connection,
     in_adapter: std.os.File.InStream,
     out_adapter: std.os.File.OutStream,
     channel: BaseChannel,
@@ -23,33 +36,80 @@ pub const GameEngineClient = struct {
     game_state: GameState,
     position_animation: ?MoveAnimation,
 
-    pub fn startEngine(self: *GameEngineClient) !void {
+    fn init(self: *GameEngineClient) void {
+        self.stay_alive = std.atomic.Int(u8).init(1);
+
+        self.game_state = GameState.init();
+        self.position_animation = null;
+    }
+    fn startThreads(self: *GameEngineClient) !void {
+        // start threads last
+        self.send_thread = try std.os.spawnThread(self, sendMain);
+        self.recv_thread = try std.os.spawnThread(self, recvMain);
+    }
+
+    pub fn startAsChildProcess(self: *GameEngineClient) !void {
+        self.init();
+
         var dir = try std.os.selfExeDirPathAlloc(std.heap.c_allocator);
         defer std.heap.c_allocator.free(dir);
         var path = try std.os.path.join(std.heap.c_allocator, dir, "legend-of-swarkland_headless");
         defer std.heap.c_allocator.free(path);
 
-        const args = []const []const u8{path};
-        self.child_process = try std.os.ChildProcess.init(args, std.heap.c_allocator);
-        self.child_process.stdout_behavior = std.os.ChildProcess.StdIo.Pipe;
-        self.child_process.stdin_behavior = std.os.ChildProcess.StdIo.Pipe;
-        try self.child_process.spawn();
-        self.in_adapter = self.child_process.stdout.?.inStream();
-        self.out_adapter = self.child_process.stdin.?.outStream();
-        self.channel = BaseChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
-        self.stay_alive = std.atomic.Int(u8).init(1);
+        self.connection = Connection{ .child_process = undefined };
+        switch (self.connection) {
+            // TODO: This switch is a workaround for lack of guaranteed copy elision.
+            Connection.child_process => |*child_process| {
+                const args = []const []const u8{path};
+                child_process.* = try std.os.ChildProcess.init(args, std.heap.c_allocator);
+                child_process.*.stdout_behavior = std.os.ChildProcess.StdIo.Pipe;
+                child_process.*.stdin_behavior = std.os.ChildProcess.StdIo.Pipe;
+                try child_process.*.spawn();
+                self.in_adapter = child_process.*.stdout.?.inStream();
+                self.out_adapter = child_process.*.stdin.?.outStream();
+                self.channel = BaseChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
+            },
+            else => unreachable,
+        }
 
-        self.game_state = GameState.init();
-        self.position_animation = null;
-
-        // start threads last
-        self.send_thread = try std.os.spawnThread(self, sendMain);
-        self.recv_thread = try std.os.spawnThread(self, recvMain);
+        try self.startThreads();
     }
+    pub fn startAsThread(self: *GameEngineClient) !void {
+        self.init();
+
+        self.connection = Connection{ .thread = undefined };
+        switch (self.connection) {
+            // TODO: This switch is a workaround for lack of guaranteed copy elision.
+            Connection.thread => |*data| {
+                data.send_pipe = try makePipe();
+                data.recv_pipe = try makePipe();
+                self.out_adapter = std.os.File.openHandle(data.send_pipe[1]).outStream();
+                data.server_in_adapter = std.os.File.openHandle(data.send_pipe[0]).inStream();
+                data.server_out_adapter = std.os.File.openHandle(data.recv_pipe[1]).outStream();
+                self.in_adapter = std.os.File.openHandle(data.recv_pipe[0]).inStream();
+                self.channel = BaseChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
+                data.server_channel = BaseChannel.create(&data.server_in_adapter.stream, &data.server_out_adapter.stream);
+                data.thread = try std.os.spawnThread(&data.server_channel, core.game_server.server_main);
+            },
+            else => unreachable,
+        }
+
+        try self.startThreads();
+    }
+
     pub fn stopEngine(self: *GameEngineClient) void {
         self.stay_alive.set(0);
-        _ = self.child_process.kill() catch undefined;
-        // io with the child should now produce errors and clean up the threads
+        switch (self.connection) {
+            Connection.child_process => |child_process| {
+                _ = child_process.kill() catch undefined;
+                // io with the child should now produce errors
+            },
+            Connection.thread => |*data| {
+                // no more writing allowed.
+                std.os.File.openHandle(data.send_pipe[1]).close();
+                std.os.File.openHandle(data.recv_pipe[1]).close();
+            },
+        }
         self.send_thread.wait();
         self.recv_thread.wait();
         core.debug.warn("all threads done\n");
@@ -149,4 +209,16 @@ fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
     const node: *Node = queue.get() orelse return null;
     defer std.heap.c_allocator.destroy(node);
     return node.data;
+}
+fn makePipe() ![2]i32 {
+    // copied from std child_process.zig
+    var fds: [2]i32 = undefined;
+    const err = std.os.posix.getErrno(std.os.posix.pipe(&fds));
+    if (err > 0) {
+        return switch (err) {
+            std.os.posix.EMFILE, std.os.posix.ENFILE => error.SystemResources,
+            else => std.os.unexpectedErrorPosix(err),
+        };
+    }
+    return fds;
 }

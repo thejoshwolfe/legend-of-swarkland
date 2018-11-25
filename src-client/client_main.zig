@@ -16,6 +16,7 @@ const GameState = enum {
 };
 
 pub fn main() anyerror!void {
+    core.debug.init();
     core.debug.nameThisThread("gui");
     core.debug.warn("init\n");
     defer core.debug.warn("shutdown\n");
@@ -124,14 +125,15 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 menu_renderer.scale(1);
                 menu_renderer.bold(false);
                 menu_renderer.seekRelative(70, 0);
-                if (menu_renderer.button("New Game")) {
+                if (menu_renderer.button("New Game (Thread)")) {
                     game_state = GameState.Running;
                     game_engine = GameEngineClient(undefined);
-                    try game_engine.?.startEngine();
+                    try game_engine.?.startAsThread();
                 }
-                if (menu_renderer.button("Load Yagni")) {
-                    // actually quit
-                    return;
+                if (menu_renderer.button("Attach to Game (Process)")) {
+                    game_state = GameState.Running;
+                    game_engine = GameEngineClient(undefined);
+                    try game_engine.?.startAsChildProcess();
                 }
                 if (menu_renderer.button("Quit")) {
                     // quit
