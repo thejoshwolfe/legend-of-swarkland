@@ -2,11 +2,11 @@ const std = @import("std");
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 const GameEngine = core.game_engine.GameEngine;
-const BaseChannel = core.protocol.BaseChannel(std.os.File.ReadError, std.os.File.WriteError);
+const Channel = core.protocol.Channel;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
 
-pub fn server_main(channel: *BaseChannel) !void {
+pub fn server_main(channel: *Channel) !void {
     core.debug.nameThisThread("core");
     core.debug.warn("init\n");
     defer core.debug.warn("shutdown\n");

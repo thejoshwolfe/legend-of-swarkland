@@ -2,7 +2,7 @@ const std = @import("std");
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
-const BaseChannel = core.protocol.BaseChannel(std.os.File.ReadError, std.os.File.WriteError);
+const Channel = core.protocol.Channel;
 const Request = core.protocol.Request;
 const Action = core.protocol.Action;
 const Response = core.protocol.Response;
@@ -18,7 +18,7 @@ const Connection = union(enum) {
         recv_pipe: [2]i32,
         server_in_adapter: std.os.File.InStream,
         server_out_adapter: std.os.File.OutStream,
-        server_channel: BaseChannel,
+        server_channel: Channel,
     };
 };
 
@@ -26,7 +26,7 @@ pub const GameEngineClient = struct {
     connection: Connection,
     in_adapter: std.os.File.InStream,
     out_adapter: std.os.File.OutStream,
-    channel: BaseChannel,
+    channel: Channel,
     send_thread: *std.os.Thread,
     recv_thread: *std.os.Thread,
     request_outbox: std.atomic.Queue(Request),
@@ -67,7 +67,7 @@ pub const GameEngineClient = struct {
                 try child_process.*.spawn();
                 self.in_adapter = child_process.*.stdout.?.inStream();
                 self.out_adapter = child_process.*.stdin.?.outStream();
-                self.channel = BaseChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
+                self.channel = Channel.create(&self.in_adapter.stream, &self.out_adapter.stream);
             },
             else => unreachable,
         }
@@ -87,8 +87,8 @@ pub const GameEngineClient = struct {
                 data.server_in_adapter = std.os.File.openHandle(data.send_pipe[0]).inStream();
                 data.server_out_adapter = std.os.File.openHandle(data.recv_pipe[1]).outStream();
                 self.in_adapter = std.os.File.openHandle(data.recv_pipe[0]).inStream();
-                self.channel = BaseChannel.create(&self.in_adapter.stream, &self.out_adapter.stream);
-                data.server_channel = BaseChannel.create(&data.server_in_adapter.stream, &data.server_out_adapter.stream);
+                self.channel = Channel.create(&self.in_adapter.stream, &self.out_adapter.stream);
+                data.server_channel = Channel.create(&data.server_in_adapter.stream, &data.server_out_adapter.stream);
                 data.thread = try std.os.spawnThread(&data.server_channel, core.game_server.server_main);
             },
             else => unreachable,
