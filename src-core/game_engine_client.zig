@@ -13,7 +13,7 @@ const Connection = union(enum) {
     child_process: *std.os.ChildProcess,
     thread: ThreadData,
     const ThreadData = struct {
-        thread: *std.os.Thread,
+        core_thread: *std.os.Thread,
         send_pipe: [2]std.os.File,
         recv_pipe: [2]std.os.File,
         server_in_adapter: std.os.File.InStream,
@@ -89,7 +89,7 @@ pub const GameEngineClient = struct {
                 self.in_adapter = data.recv_pipe[0].inStream();
                 self.channel = Channel.create(&self.in_adapter.stream, &self.out_adapter.stream);
                 data.server_channel = Channel.create(&data.server_in_adapter.stream, &data.server_out_adapter.stream);
-                data.thread = try std.os.spawnThread(&data.server_channel, core.game_server.server_main);
+                data.core_thread = try std.os.spawnThread(&data.server_channel, core.game_server.server_main);
             },
             else => unreachable,
         }
@@ -108,6 +108,7 @@ pub const GameEngineClient = struct {
                 // no more writing allowed.
                 data.send_pipe[1].close();
                 data.recv_pipe[1].close();
+                data.core_thread.wait();
             },
         }
         self.send_thread.wait();
