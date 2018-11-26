@@ -14,8 +14,8 @@ const Connection = union(enum) {
     thread: ThreadData,
     const ThreadData = struct {
         thread: *std.os.Thread,
-        send_pipe: [2]i32,
-        recv_pipe: [2]i32,
+        send_pipe: [2]std.os.File,
+        recv_pipe: [2]std.os.File,
         server_in_adapter: std.os.File.InStream,
         server_out_adapter: std.os.File.OutStream,
         server_channel: Channel,
@@ -83,10 +83,10 @@ pub const GameEngineClient = struct {
             Connection.thread => |*data| {
                 data.send_pipe = try makePipe();
                 data.recv_pipe = try makePipe();
-                self.out_adapter = std.os.File.openHandle(data.send_pipe[1]).outStream();
-                data.server_in_adapter = std.os.File.openHandle(data.send_pipe[0]).inStream();
-                data.server_out_adapter = std.os.File.openHandle(data.recv_pipe[1]).outStream();
-                self.in_adapter = std.os.File.openHandle(data.recv_pipe[0]).inStream();
+                self.out_adapter = data.send_pipe[1].outStream();
+                data.server_in_adapter = data.send_pipe[0].inStream();
+                data.server_out_adapter = data.recv_pipe[1].outStream();
+                self.in_adapter = data.recv_pipe[0].inStream();
                 self.channel = Channel.create(&self.in_adapter.stream, &self.out_adapter.stream);
                 data.server_channel = Channel.create(&data.server_in_adapter.stream, &data.server_out_adapter.stream);
                 data.thread = try std.os.spawnThread(&data.server_channel, core.game_server.server_main);
@@ -106,8 +106,8 @@ pub const GameEngineClient = struct {
             },
             Connection.thread => |*data| {
                 // no more writing allowed.
-                std.os.File.openHandle(data.send_pipe[1]).close();
-                std.os.File.openHandle(data.recv_pipe[1]).close();
+                data.send_pipe[1].close();
+                data.recv_pipe[1].close();
             },
         }
         self.send_thread.wait();
@@ -210,7 +210,7 @@ fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
     defer std.heap.c_allocator.destroy(node);
     return node.data;
 }
-fn makePipe() ![2]i32 {
+fn makePipe() ![2]std.os.File {
     // copied from std child_process.zig
     var fds: [2]i32 = undefined;
     const err = std.os.posix.getErrno(std.os.posix.pipe(&fds));
@@ -220,5 +220,8 @@ fn makePipe() ![2]i32 {
             else => std.os.unexpectedErrorPosix(err),
         };
     }
-    return fds;
+    return []std.os.File{
+        std.os.File.openHandle(fds[0]),
+        std.os.File.openHandle(fds[1]),
+    };
 }

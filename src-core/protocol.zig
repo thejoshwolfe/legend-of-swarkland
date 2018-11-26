@@ -40,10 +40,7 @@ pub const Channel = struct {
     in_stream: *InStream,
     out_stream: *OutStream,
 
-    pub fn create(
-        in_stream: *InStream,
-        out_stream: *OutStream,
-    ) Channel {
+    pub fn create(in_stream: *InStream, out_stream: *OutStream) Channel {
         return Channel{
             .in_stream = in_stream,
             .out_stream = out_stream,
