@@ -1,5 +1,6 @@
 const sdl = @import("./sdl.zig");
-const geometry = @import("core").geometry;
+const core = @import("core");
+const geometry = core.geometry;
 const Coord = geometry.Coord;
 const Rect = geometry.Rect;
 const makeCoord = geometry.makeCoord;
@@ -21,11 +22,15 @@ pub const LinearMenuState = struct {
         self.cursor_position -= 1;
     }
     pub fn moveDown(self: *LinearMenuState) void {
-        if (self.cursor_position >= self.entry_count) return;
         self.cursor_position += 1;
+        if (self.cursor_position >= self.entry_count) {
+            self.cursor_position = if (self.entry_count == 0) 0 else self.entry_count - 1;
+        }
     }
     pub fn ensureButtonCount(self: *LinearMenuState, button_count: usize) void {
-        if (button_count > self.entry_count) self.entry_count = button_count;
+        if (button_count > self.entry_count) {
+            self.entry_count = button_count;
+        }
     }
     pub fn enter(self: *LinearMenuState) void {
         self.enter_pressed = true;
