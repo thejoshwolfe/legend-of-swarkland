@@ -16,16 +16,12 @@ const Connection = union(enum) {
         core_thread: *std.os.Thread,
         send_pipe: [2]std.os.File,
         recv_pipe: [2]std.os.File,
-        server_in_adapter: std.os.File.InStream,
-        server_out_adapter: std.os.File.OutStream,
         server_channel: Channel,
     };
 };
 
 pub const GameEngineClient = struct {
     connection: Connection,
-    in_adapter: std.os.File.InStream,
-    out_adapter: std.os.File.OutStream,
     channel: Channel,
     send_thread: *std.os.Thread,
     recv_thread: *std.os.Thread,
@@ -65,9 +61,7 @@ pub const GameEngineClient = struct {
                 child_process.*.stdout_behavior = std.os.ChildProcess.StdIo.Pipe;
                 child_process.*.stdin_behavior = std.os.ChildProcess.StdIo.Pipe;
                 try child_process.*.spawn();
-                self.in_adapter = child_process.*.stdout.?.inStream();
-                self.out_adapter = child_process.*.stdin.?.outStream();
-                self.channel = Channel.create(&self.in_adapter.stream, &self.out_adapter.stream);
+                self.channel.init(child_process.*.stdout.?, child_process.*.stdin.?);
             },
             else => unreachable,
         }
@@ -83,12 +77,8 @@ pub const GameEngineClient = struct {
             Connection.thread => |*data| {
                 data.send_pipe = try makePipe();
                 data.recv_pipe = try makePipe();
-                self.out_adapter = data.send_pipe[1].outStream();
-                data.server_in_adapter = data.send_pipe[0].inStream();
-                data.server_out_adapter = data.recv_pipe[1].outStream();
-                self.in_adapter = data.recv_pipe[0].inStream();
-                self.channel = Channel.create(&self.in_adapter.stream, &self.out_adapter.stream);
-                data.server_channel = Channel.create(&data.server_in_adapter.stream, &data.server_out_adapter.stream);
+                self.channel.init(data.recv_pipe[0], data.send_pipe[1]);
+                data.server_channel.init(data.send_pipe[0], data.recv_pipe[1]);
                 data.core_thread = try std.os.spawnThread(&data.server_channel, core.game_server.server_main);
             },
             else => unreachable,
@@ -98,19 +88,19 @@ pub const GameEngineClient = struct {
     }
 
     pub fn stopEngine(self: *GameEngineClient) void {
-        self.stay_alive.set(0);
+        core.debug.warn("close\n");
+        self.channel.close();
         switch (self.connection) {
             Connection.child_process => |child_process| {
-                _ = child_process.kill() catch undefined;
-                // io with the child should now produce errors
+                _ = child_process.wait() catch undefined;
             },
             Connection.thread => |*data| {
-                // no more writing allowed.
-                data.send_pipe[1].close();
-                data.recv_pipe[1].close();
+                //data.send_pipe[1].close();
+                //data.recv_pipe[1].close();
                 data.core_thread.wait();
             },
         }
+        self.stay_alive.set(0);
         self.send_thread.wait();
         self.recv_thread.wait();
         core.debug.warn("all threads done\n");
@@ -168,11 +158,8 @@ pub const GameEngineClient = struct {
         while (self.isAlive()) {
             const response: Response = self.channel.readResponse() catch |err| {
                 switch (err) {
-                    error.EndOfStream => {
-                        if (self.isAlive()) {
-                            @panic("unexpected EOF");
-                        }
-                        // but this is expected when we're trying to shutdown
+                    error.CleanShutdown => {
+                        core.debug.warn("clean shutdown\n");
                         break;
                     },
                     else => @panic("TODO: proper error handling"),

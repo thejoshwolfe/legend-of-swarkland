@@ -130,7 +130,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     game_engine = GameEngineClient(undefined);
                     try game_engine.?.startAsThread();
                 }
-                if (menu_renderer.button("Attach to Game (Process)")) {
+                if (menu_renderer.button("Attach to Game (Process) (Broken)")) {
                     game_state = GameState.Running;
                     game_engine = GameEngineClient(undefined);
                     try game_engine.?.startAsChildProcess();

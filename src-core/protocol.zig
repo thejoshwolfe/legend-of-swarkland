@@ -34,17 +34,23 @@ pub const Event = union(enum) {
 };
 
 pub const Channel = struct {
-    const InStream = std.io.InStream(std.os.File.ReadError);
-    const OutStream = std.io.OutStream(std.os.File.WriteError);
+    in_file: std.os.File,
+    out_file: std.os.File,
+    in_adapter: std.os.File.InStream,
+    out_adapter: std.os.File.OutStream,
+    in_stream: *std.io.InStream(std.os.File.ReadError),
+    out_stream: *std.io.OutStream(std.os.File.WriteError),
 
-    in_stream: *InStream,
-    out_stream: *OutStream,
-
-    pub fn create(in_stream: *InStream, out_stream: *OutStream) Channel {
-        return Channel{
-            .in_stream = in_stream,
-            .out_stream = out_stream,
-        };
+    pub fn init(self: *Channel, in_file: std.os.File, out_file: std.os.File) void {
+        self.in_file = in_file;
+        self.out_file = out_file;
+        self.in_adapter = in_file.inStream();
+        self.out_adapter = out_file.outStream();
+        self.in_stream = &self.in_adapter.stream;
+        self.out_stream = &self.out_adapter.stream;
+    }
+    pub fn close(self: *Channel) void {
+        self.out_file.close();
     }
 
     pub fn writeRequest(self: *Channel, request: Request) !void {
@@ -63,7 +69,10 @@ pub const Channel = struct {
     }
 
     pub fn readRequest(self: *Channel) !Request {
-        switch (try self.readInt(u8)) {
+        switch (self.readInt(u8) catch |err| switch (err) {
+            error.EndOfStream => return error.CleanShutdown,
+            else => return err,
+        }) {
             @enumToInt(Request.act) => {
                 switch (try self.readInt(u8)) {
                     @enumToInt(Action.move) => {
@@ -85,7 +94,10 @@ pub const Channel = struct {
     }
 
     pub fn readResponse(self: *Channel) !Response {
-        switch (try self.readInt(u8)) {
+        switch (self.readInt(u8) catch |err| switch (err) {
+            error.EndOfStream => return error.CleanShutdown,
+            else => return err,
+        }) {
             @enumToInt(Response.event) => {
                 return Response{ .event = try self.readEvent() };
             },
