@@ -6,6 +6,8 @@ const core = @import("core");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
+const InputEngine = @import("./input_engine.zig").InputEngine;
+const Button = @import("./input_engine.zig").Button;
 const GameEngineClient = core.game_engine_client.GameEngineClient;
 const Floor = core.game_state.Floor;
 const Wall = core.game_state.Wall;
@@ -51,10 +53,13 @@ pub fn main() anyerror!void {
 
 fn doMainLoop(renderer: *sdl.Renderer) !void {
     var game_state = GameState.MainMenu;
-    var main_menu_state = gui.LinearMenuState.init();
     var game_engine: ?GameEngineClient = null;
     defer if (game_engine) |*g| g.stopEngine();
     const aesthetic_seed = 0xbee894fc;
+
+    var main_menu_state = gui.LinearMenuState.init();
+    var input_engine = InputEngine.init();
+    var inputs_considered_harmful = true;
 
     while (true) {
         const now = sdl.c.SDL_GetTicks();
@@ -69,42 +74,57 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 sdl.c.SDL_QUIT => {
                     return;
                 },
-                sdl.c.SDL_KEYDOWN => {
-                    switch (game_state) {
-                        GameState.MainMenu => {
-                            switch (@enumToInt(event.key.keysym.scancode)) {
-                                sdl.c.SDL_SCANCODE_UP => {
-                                    main_menu_state.moveUp();
-                                },
-                                sdl.c.SDL_SCANCODE_DOWN => {
-                                    main_menu_state.moveDown();
-                                },
-                                sdl.c.SDL_SCANCODE_RETURN => {
-                                    main_menu_state.enter();
-                                },
-                                else => {},
-                            }
+                sdl.c.SDL_WINDOWEVENT => {
+                    switch (event.window.event) {
+                        sdl.c.SDL_WINDOWEVENT_FOCUS_GAINED => {
+                            inputs_considered_harmful = true;
                         },
-                        GameState.Running => {
-                            switch (@enumToInt(event.key.keysym.scancode)) {
-                                sdl.c.SDL_SCANCODE_LEFT => {
-                                    try game_engine.?.move(makeCoord(-1, 0));
-                                },
-                                sdl.c.SDL_SCANCODE_RIGHT => {
-                                    try game_engine.?.move(makeCoord(1, 0));
-                                },
-                                sdl.c.SDL_SCANCODE_UP => {
-                                    try game_engine.?.move(makeCoord(0, -1));
-                                },
-                                sdl.c.SDL_SCANCODE_DOWN => {
-                                    try game_engine.?.move(makeCoord(0, 1));
-                                },
-                                sdl.c.SDL_SCANCODE_BACKSPACE => {
-                                    try game_engine.?.rewind();
-                                },
-                                else => {},
-                            }
-                        },
+                        else => {},
+                    }
+                },
+                sdl.c.SDL_KEYDOWN, sdl.c.SDL_KEYUP => {
+                    if (input_engine.handleEvent(event)) |button| {
+                        if (inputs_considered_harmful) {
+                            // when we first get focus, SDL gives a friendly digest of all the buttons that already held down.
+                            // these are not inputs for us.
+                            continue;
+                        }
+                        switch (game_state) {
+                            GameState.MainMenu => {
+                                switch (button) {
+                                    Button.up => {
+                                        main_menu_state.moveUp();
+                                    },
+                                    Button.down => {
+                                        main_menu_state.moveDown();
+                                    },
+                                    Button.enter => {
+                                        main_menu_state.enter();
+                                    },
+                                    else => {},
+                                }
+                            },
+                            GameState.Running => {
+                                switch (button) {
+                                    Button.left => {
+                                        try game_engine.?.move(makeCoord(-1, 0));
+                                    },
+                                    Button.right => {
+                                        try game_engine.?.move(makeCoord(1, 0));
+                                    },
+                                    Button.up => {
+                                        try game_engine.?.move(makeCoord(0, -1));
+                                    },
+                                    Button.down => {
+                                        try game_engine.?.move(makeCoord(0, 1));
+                                    },
+                                    Button.backspace => {
+                                        try game_engine.?.rewind();
+                                    },
+                                    else => {},
+                                }
+                            },
+                        }
                     }
                 },
                 else => {},
@@ -189,6 +209,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
         // delay until the next multiple of 17 milliseconds
         const delay_millis = 17 - (sdl.c.SDL_GetTicks() % 17);
         sdl.c.SDL_Delay(delay_millis);
+        inputs_considered_harmful = false;
     }
 }
 
