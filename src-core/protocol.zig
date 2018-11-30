@@ -20,16 +20,17 @@ pub const Response = union(enum) {
 };
 
 pub const Event = union(enum) {
-    moved: Moved,
-    const Moved = struct {
-        from: [2]Coord,
-        to: [2]Coord,
-    };
-
     init_state: InitState,
     const InitState = struct {
         terrain: Terrain,
         player_positions: [2]Coord,
+    };
+
+    moved: Moved,
+    const Moved = struct {
+        player_index: usize,
+        from: Coord,
+        to: Coord,
     };
 };
 
@@ -128,14 +129,9 @@ pub const Channel = struct {
             @enumToInt(Event.moved) => {
                 return Event{
                     .moved = Event.Moved{
-                        .from = []Coord{
-                            try self.readCoord(),
-                            try self.readCoord(),
-                        },
-                        .to = []Coord{
-                            try self.readCoord(),
-                            try self.readCoord(),
-                        },
+                        .player_index = try self.readInt(u8),
+                        .from = try self.readCoord(),
+                        .to = try self.readCoord(),
                     },
                 };
             },
@@ -161,10 +157,9 @@ pub const Channel = struct {
         try self.writeInt(u8(@enumToInt(@TagType(Event)(_event))));
         switch (_event) {
             Event.moved => |event| {
-                try self.writeCoord(event.from[0]);
-                try self.writeCoord(event.from[1]);
-                try self.writeCoord(event.to[0]);
-                try self.writeCoord(event.to[1]);
+                try self.writeInt(@intCast(u8, event.player_index));
+                try self.writeCoord(event.from);
+                try self.writeCoord(event.to);
             },
             Event.init_state => |event| {
                 try self.writeTerrain(event.terrain);

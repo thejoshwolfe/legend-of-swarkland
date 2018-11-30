@@ -30,13 +30,13 @@ pub const GameEngineClient = struct {
     stay_alive: std.atomic.Int(u8),
 
     game_state: GameState,
-    position_animation: ?MoveAnimation,
+    position_animations: [2]?MoveAnimation,
 
     fn init(self: *GameEngineClient) void {
         self.stay_alive = std.atomic.Int(u8).init(1);
 
         self.game_state = GameState.init();
-        self.position_animation = null;
+        self.position_animations = []?MoveAnimation{ null, null };
     }
     fn startThreads(self: *GameEngineClient) !void {
         // start threads last
@@ -117,7 +117,7 @@ pub const GameEngineClient = struct {
                     // animations
                     switch (event) {
                         Event.moved => |e| {
-                            self.position_animation = MoveAnimation{
+                            self.position_animations[e.player_index] = MoveAnimation{
                                 .from = e.from,
                                 .to = e.to,
                                 .start_time = now,
@@ -129,7 +129,9 @@ pub const GameEngineClient = struct {
                 },
                 Response.undo => |event| {
                     self.game_state.undoEvent(event);
-                    self.position_animation = null;
+                    for (self.position_animations) |*x| {
+                        x.* = null;
+                    }
                 },
             }
         }
@@ -180,8 +182,8 @@ pub const GameEngineClient = struct {
 };
 
 pub const MoveAnimation = struct {
-    from: [2]Coord,
-    to: [2]Coord,
+    from: Coord,
+    to: Coord,
     start_time: u32,
     end_time: u32,
 };

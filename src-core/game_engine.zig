@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
@@ -64,34 +65,45 @@ pub const GameEngine = struct {
         return event;
     }
 
-    pub fn takeAction(self: *GameEngine, action: Action) !?Event {
-        const event = self.validateAction(action) orelse return null;
-        try self.recordEvent(event);
-        self.game_state.applyEvent(event);
-        return event;
+    pub fn actionsToEvents(self: *const GameEngine, actions: []const Action, events: *ArrayList(Event)) !void {
+        for (actions) |action, i| {
+            switch (action) {
+                Action.move => |direction| {
+                    const old_position = self.game_state.player_positions[i];
+                    const new_position = old_position.plus(direction);
+                    if (self.isOpenSpace(new_position)) {
+                        try events.append(Event{
+                            .moved = Event.Moved{
+                                .player_index = i,
+                                .from = old_position,
+                                .to = new_position,
+                            },
+                        });
+                    }
+                },
+            }
+        }
     }
 
-    pub fn validateAction(self: *const GameEngine, action: Action) ?Event {
+    pub fn applyEvents(self: *GameEngine, events: []const Event) !void {
+        for (events) |event| {
+            try self.recordEvent(event);
+            self.game_state.applyEvent(event);
+        }
+    }
+
+    pub fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
+        if (coord.x < 0 or coord.y < 0) return false;
+        if (coord.x >= 16 or coord.y >= 16) return false;
+        return self.game_state.terrain.walls[@intCast(usize, coord.y)][@intCast(usize, coord.x)] == Wall.air;
+    }
+
+    pub fn validateAction(self: *const GameEngine, action: Action) bool {
         switch (action) {
             Action.move => |direction| {
-                if (direction.x * direction.y != 0) return null;
-                if ((direction.x + direction.y) * (direction.x + direction.y) != 1) return null;
-                const old_positions = self.game_state.player_positions;
-                const new_positions = []Coord{
-                    old_positions[0].plus(direction),
-                    old_positions[1].plus(direction),
-                };
-                for (new_positions) |new_position| {
-                    if (new_position.x < 0 or new_position.y < 0) return null;
-                    if (new_position.x >= 16 or new_position.y >= 16) return null;
-                    if (self.game_state.terrain.walls[@intCast(usize, new_position.y)][@intCast(usize, new_position.x)] != Wall.air) return null;
-                }
-                return Event{
-                    .moved = Event.Moved{
-                        .from = old_positions,
-                        .to = new_positions,
-                    },
-                };
+                if (direction.x * direction.y != 0) return false;
+                if ((direction.x + direction.y) * (direction.x + direction.y) != 1) return false;
+                return true;
             },
         }
     }

@@ -193,14 +193,14 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 var i: usize = 0;
                 while (i < 2) : (i += 1) {
                     var display_position = g.game_state.player_positions[i].scaled(32);
-                    if (g.position_animation) |animation| blk: {
+                    if (g.position_animations[i]) |animation| blk: {
                         const duration = @intCast(i32, animation.end_time - animation.start_time);
                         const progress = @intCast(i32, now - animation.start_time);
                         if (progress > duration) {
                             break :blk;
                         }
-                        const vector = animation.to[i].minus(animation.from[i]).scaled(32);
-                        display_position = animation.from[i].scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
+                        const vector = animation.to.minus(animation.from).scaled(32);
+                        display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
                     }
                     textures.renderSprite(renderer, textures.sprites.human, display_position);
                 }

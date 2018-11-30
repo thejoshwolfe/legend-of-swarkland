@@ -21,7 +21,7 @@ pub const GameState = struct {
     fn applyEvent(self: *GameState, event: Event) void {
         switch (event) {
             Event.moved => |e| {
-                self.player_positions = e.to;
+                self.player_positions[e.player_index] = e.to;
             },
             Event.init_state => |e| {
                 self.terrain = e.terrain;
@@ -32,7 +32,7 @@ pub const GameState = struct {
     fn undoEvent(self: *GameState, event: Event) void {
         switch (event) {
             Event.moved => |e| {
-                self.player_positions = e.from;
+                self.player_positions[e.player_index] = e.from;
             },
             Event.init_state => @panic("can't undo the beginning of time"),
         }
