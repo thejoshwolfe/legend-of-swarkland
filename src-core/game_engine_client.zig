@@ -196,7 +196,8 @@ fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
     const Node = std.atomic.Queue(T).Node;
     const node: *Node = queue.get() orelse return null;
     defer std.heap.c_allocator.destroy(node);
-    return node.data;
+    const hack = node.data; // TODO: https://github.com/ziglang/zig/issues/961
+    return hack;
 }
 fn makePipe() ![2]std.os.File {
     // copied from std child_process.zig
