@@ -22,14 +22,14 @@ pub const Response = union(enum) {
 pub const Event = union(enum) {
     moved: Moved,
     const Moved = struct {
-        from: Coord,
-        to: Coord,
+        from: [2]Coord,
+        to: [2]Coord,
     };
 
     init_state: InitState,
     const InitState = struct {
         terrain: Terrain,
-        position: Coord,
+        player_positions: [2]Coord,
     };
 };
 
@@ -128,8 +128,14 @@ pub const Channel = struct {
             @enumToInt(Event.moved) => {
                 return Event{
                     .moved = Event.Moved{
-                        .from = try self.readCoord(),
-                        .to = try self.readCoord(),
+                        .from = []Coord{
+                            try self.readCoord(),
+                            try self.readCoord(),
+                        },
+                        .to = []Coord{
+                            try self.readCoord(),
+                            try self.readCoord(),
+                        },
                     },
                 };
             },
@@ -137,7 +143,10 @@ pub const Channel = struct {
                 return Event{
                     .init_state = Event.InitState{
                         .terrain = try self.readTerrain(),
-                        .position = try self.readCoord(),
+                        .player_positions = []Coord{
+                            try self.readCoord(),
+                            try self.readCoord(),
+                        },
                     },
                 };
             },
@@ -152,12 +161,15 @@ pub const Channel = struct {
         try self.writeInt(u8(@enumToInt(@TagType(Event)(_event))));
         switch (_event) {
             Event.moved => |event| {
-                try self.writeCoord(event.from);
-                try self.writeCoord(event.to);
+                try self.writeCoord(event.from[0]);
+                try self.writeCoord(event.from[1]);
+                try self.writeCoord(event.to[0]);
+                try self.writeCoord(event.to[1]);
             },
             Event.init_state => |event| {
                 try self.writeTerrain(event.terrain);
-                try self.writeCoord(event.position);
+                try self.writeCoord(event.player_positions[0]);
+                try self.writeCoord(event.player_positions[1]);
             },
         }
     }

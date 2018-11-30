@@ -57,7 +57,7 @@ pub const GameEngine = struct {
         const event = Event{
             .init_state = Event.InitState{
                 .terrain = terrain,
-                .position = makeCoord(3, 3),
+                .player_positions = []Coord{ makeCoord(3, 3), makeCoord(9, 5) },
             },
         };
         self.game_state.applyEvent(event);
@@ -74,15 +74,22 @@ pub const GameEngine = struct {
     pub fn validateAction(self: *const GameEngine, action: Action) ?Event {
         switch (action) {
             Action.move => |direction| {
-                const old_position = self.game_state.position;
-                const new_position = old_position.plus(direction);
-                if (new_position.x < 0 or new_position.y < 0) return null;
-                if (new_position.x >= 16 or new_position.y >= 16) return null;
-                if (self.game_state.terrain.walls[@intCast(usize, new_position.y)][@intCast(usize, new_position.x)] != Wall.air) return null;
+                if (direction.x * direction.y != 0) return null;
+                if ((direction.x + direction.y) * (direction.x + direction.y) != 1) return null;
+                const old_positions = self.game_state.player_positions;
+                const new_positions = []Coord{
+                    old_positions[0].plus(direction),
+                    old_positions[1].plus(direction),
+                };
+                for (new_positions) |new_position| {
+                    if (new_position.x < 0 or new_position.y < 0) return null;
+                    if (new_position.x >= 16 or new_position.y >= 16) return null;
+                    if (self.game_state.terrain.walls[@intCast(usize, new_position.y)][@intCast(usize, new_position.x)] != Wall.air) return null;
+                }
                 return Event{
                     .moved = Event.Moved{
-                        .from = old_position,
-                        .to = new_position,
+                        .from = old_positions,
+                        .to = new_positions,
                     },
                 };
             },

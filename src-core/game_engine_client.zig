@@ -180,8 +180,8 @@ pub const GameEngineClient = struct {
 };
 
 pub const MoveAnimation = struct {
-    from: Coord,
-    to: Coord,
+    from: [2]Coord,
+    to: [2]Coord,
     start_time: u32,
     end_time: u32,
 };
