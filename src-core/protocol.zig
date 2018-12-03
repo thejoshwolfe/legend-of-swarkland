@@ -15,8 +15,8 @@ pub const Action = union(enum) {
 };
 
 pub const Response = union(enum) {
-    event: Event,
-    undo: Event,
+    events: []Event,
+    undo: []Event,
 };
 
 pub const Event = union(enum) {
@@ -35,6 +35,7 @@ pub const Event = union(enum) {
 };
 
 pub const Channel = struct {
+    allocator: *std.mem.Allocator,
     in_file: std.os.File,
     out_file: std.os.File,
     in_adapter: std.os.File.InStream,
@@ -42,7 +43,8 @@ pub const Channel = struct {
     in_stream: *std.io.InStream(std.os.File.ReadError),
     out_stream: *std.io.OutStream(std.os.File.WriteError),
 
-    pub fn init(self: *Channel, in_file: std.os.File, out_file: std.os.File) void {
+    pub fn init(self: *Channel, allocator: *std.mem.Allocator, in_file: std.os.File, out_file: std.os.File) void {
+        self.allocator = allocator;
         self.in_file = in_file;
         self.out_file = out_file;
         self.in_adapter = in_file.inStream();
@@ -99,28 +101,42 @@ pub const Channel = struct {
             error.EndOfStream => return error.CleanShutdown,
             else => return err,
         }) {
-            @enumToInt(Response.event) => {
-                return Response{ .event = try self.readEvent() };
+            @enumToInt(Response.events) => {
+                return Response{ .events = try self.readEvents() };
             },
             @enumToInt(Response.undo) => {
-                return Response{ .undo = try self.readEvent() };
+                return Response{ .undo = try self.readEvents() };
             },
             else => return error.MalformedData,
         }
         switch (Event.moved) {
-            Response.event => {},
+            Response.events => {},
             Response.undo => {},
         }
     }
     fn writeResponse(self: *Channel, response: Response) !void {
         try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
         switch (response) {
-            Response.event => |event| {
-                try self.writeEvent(event);
+            Response.events => |events| {
+                try self.writeEvents(events);
             },
-            Response.undo => |event| {
-                try self.writeEvent(event);
+            Response.undo => |events| {
+                try self.writeEvents(events);
             },
+        }
+    }
+
+    fn readEvents(self: *Channel) ![]Event {
+        var events: []Event = try self.allocator.alloc(Event, try self.readArrayLength());
+        for (events) |*event| {
+            event.* = try self.readEvent();
+        }
+        return events;
+    }
+    fn writeEvents(self: *Channel, events: []Event) !void {
+        try self.writeArrayLength(events.len);
+        for (events) |event| {
+            try self.writeEvent(event);
         }
     }
 
@@ -196,6 +212,13 @@ pub const Channel = struct {
         }
     }
 
+    fn readArrayLength(self: *Channel) !usize {
+        return usize(try self.readInt(u8));
+    }
+    fn writeArrayLength(self: *Channel, len: usize) !void {
+        try self.writeInt(@intCast(u8, len));
+    }
+
     fn readEnum(self: *Channel, comptime T: type) !T {
         const x = try self.readInt(u8);
         if (x >= @memberCount(T)) return error.MalformedData;
@@ -226,3 +249,23 @@ pub const Channel = struct {
         try self.writeInt(coord.y);
     }
 };
+
+pub fn deinitResponse(allocator: *std.mem.Allocator, response: Response) void {
+    switch (response) {
+        Response.events => |events| {
+            deinitEvents(allocator, events);
+        },
+        Response.undo => |events| {
+            deinitEvents(allocator, events);
+        },
+    }
+}
+pub fn deinitEvents(allocator: *std.mem.Allocator, events: []Event) void {
+    for (events) |event| {
+        deinitEvent(allocator, event);
+    }
+    allocator.free(events);
+}
+pub fn deinitEvent(allocator: *std.mem.Allocator, event: Event) void {
+    // nothing to do for this yet
+}

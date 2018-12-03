@@ -9,20 +9,22 @@ const Response = core.protocol.Response;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
 
+const allocator = std.heap.c_allocator;
+
 pub fn server_main(channel: *Channel) !void {
     core.debug.nameThisThread("core");
     core.debug.warn("init\n");
     defer core.debug.warn("shutdown\n");
 
     var game_engine: GameEngine = undefined;
-    game_engine.init(std.heap.c_allocator);
+    game_engine.init(allocator);
     {
-        const event = game_engine.startGame();
-        try channel.writeResponse(Response{ .event = event });
+        const events = try game_engine.getStartGameEvents();
+        try game_engine.applyEvents(events);
+        try channel.writeResponse(Response{ .events = events });
     }
 
     core.debug.warn("start main loop\n");
-    var events = ArrayList(Event).init(std.heap.c_allocator);
     while (true) {
         switch (channel.readRequest() catch |err| switch (err) {
             error.CleanShutdown => {
@@ -38,17 +40,16 @@ pub fn server_main(channel: *Channel) !void {
                     action,
                     Action{ .move = Coord{ .x = -1, .y = 0 } },
                 };
-                try game_engine.actionsToEvents(actions[0..], &events);
+                const events = try game_engine.actionsToEvents(actions[0..]);
 
-                try game_engine.applyEvents(events.toSliceConst());
-                for (events.toSliceConst()) |event| {
-                    try channel.writeResponse(Response{ .event = event });
-                }
-                events.shrink(0);
+                // TODO: make a copy of the events here to take ownership, then deinit the response.
+                try game_engine.applyEvents(events);
+                try channel.writeResponse(Response{ .events = events });
             },
             Request.rewind => {
-                if (game_engine.rewind()) |event| {
-                    try channel.writeResponse(Response{ .undo = event });
+                if (game_engine.rewind()) |events| {
+                    try channel.writeResponse(Response{ .undo = events });
+                    core.protocol.deinitEvents(allocator, events);
                 }
             },
         }

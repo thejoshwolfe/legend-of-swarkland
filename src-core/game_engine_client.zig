@@ -9,6 +9,8 @@ const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const GameState = core.game_state.GameState;
 
+const allocator = std.heap.c_allocator;
+
 const Connection = union(enum) {
     child_process: *std.os.ChildProcess,
     thread: ThreadData,
@@ -47,21 +49,21 @@ pub const GameEngineClient = struct {
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
         self.init();
 
-        var dir = try std.os.selfExeDirPathAlloc(std.heap.c_allocator);
-        defer std.heap.c_allocator.free(dir);
-        var path = try std.os.path.join(std.heap.c_allocator, dir, "legend-of-swarkland_headless");
-        defer std.heap.c_allocator.free(path);
+        var dir = try std.os.selfExeDirPathAlloc(allocator);
+        defer allocator.free(dir);
+        var path = try std.os.path.join(allocator, dir, "legend-of-swarkland_headless");
+        defer allocator.free(path);
 
         self.connection = Connection{ .child_process = undefined };
         switch (self.connection) {
             // TODO: This switch is a workaround for lack of guaranteed copy elision.
             Connection.child_process => |*child_process| {
                 const args = []const []const u8{path};
-                child_process.* = try std.os.ChildProcess.init(args, std.heap.c_allocator);
+                child_process.* = try std.os.ChildProcess.init(args, allocator);
                 child_process.*.stdout_behavior = std.os.ChildProcess.StdIo.Pipe;
                 child_process.*.stdin_behavior = std.os.ChildProcess.StdIo.Pipe;
                 try child_process.*.spawn();
-                self.channel.init(child_process.*.stdout.?, child_process.*.stdin.?);
+                self.channel.init(allocator, child_process.*.stdout.?, child_process.*.stdin.?);
             },
             else => unreachable,
         }
@@ -77,8 +79,8 @@ pub const GameEngineClient = struct {
             Connection.thread => |*data| {
                 data.send_pipe = try makePipe();
                 data.recv_pipe = try makePipe();
-                self.channel.init(data.recv_pipe[0], data.send_pipe[1]);
-                data.server_channel.init(data.send_pipe[0], data.recv_pipe[1]);
+                self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
+                data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
                 data.core_thread = try std.os.spawnThread(&data.server_channel, core.game_server.server_main);
             },
             else => unreachable,
@@ -111,24 +113,28 @@ pub const GameEngineClient = struct {
 
     pub fn pollEvents(self: *GameEngineClient, now: u32) void {
         while (true) {
-            switch (queueGet(Response, &self.response_inbox) orelse return) {
-                Response.event => |event| {
-                    self.game_state.applyEvent(event);
+            const response = queueGet(Response, &self.response_inbox) orelse return;
+            defer core.protocol.deinitResponse(allocator, response);
+            switch (response) {
+                Response.events => |events| {
+                    self.game_state.applyEvents(events);
                     // animations
-                    switch (event) {
-                        Event.moved => |e| {
-                            self.position_animations[e.player_index] = MoveAnimation{
-                                .from = e.from,
-                                .to = e.to,
-                                .start_time = now,
-                                .end_time = now + 200,
-                            };
-                        },
-                        Event.init_state => {},
+                    for (events) |event| {
+                        switch (event) {
+                            Event.moved => |e| {
+                                self.position_animations[e.player_index] = MoveAnimation{
+                                    .from = e.from,
+                                    .to = e.to,
+                                    .start_time = now,
+                                    .end_time = now + 200,
+                                };
+                            },
+                            Event.init_state => {},
+                        }
                     }
                 },
-                Response.undo => |event| {
-                    self.game_state.undoEvent(event);
+                Response.undo => |events| {
+                    self.game_state.undoEvents(events);
                     for (self.position_animations) |*x| {
                         x.* = null;
                     }
@@ -190,14 +196,14 @@ pub const MoveAnimation = struct {
 
 fn queuePut(comptime T: type, queue: *std.atomic.Queue(T), x: T) !void {
     const Node = std.atomic.Queue(T).Node;
-    const node: *Node = try std.heap.c_allocator.createOne(Node);
+    const node: *Node = try allocator.createOne(Node);
     node.data = x;
     queue.put(node);
 }
 fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
     const Node = std.atomic.Queue(T).Node;
     const node: *Node = queue.get() orelse return null;
-    defer std.heap.c_allocator.destroy(node);
+    defer allocator.destroy(node);
     const hack = node.data; // TODO: https://github.com/ziglang/zig/issues/961
     return hack;
 }

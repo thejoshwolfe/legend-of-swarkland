@@ -18,23 +18,27 @@ pub const GameState = struct {
         };
     }
 
-    fn applyEvent(self: *GameState, event: Event) void {
-        switch (event) {
-            Event.moved => |e| {
-                self.player_positions[e.player_index] = e.to;
-            },
-            Event.init_state => |e| {
-                self.terrain = e.terrain;
-                self.player_positions = e.player_positions;
-            },
+    fn applyEvents(self: *GameState, events: []const Event) void {
+        for (events) |event| {
+            switch (event) {
+                Event.moved => |e| {
+                    self.player_positions[e.player_index] = e.to;
+                },
+                Event.init_state => |e| {
+                    self.terrain = e.terrain;
+                    self.player_positions = e.player_positions;
+                },
+            }
         }
     }
-    fn undoEvent(self: *GameState, event: Event) void {
-        switch (event) {
-            Event.moved => |e| {
-                self.player_positions[e.player_index] = e.from;
-            },
-            Event.init_state => @panic("can't undo the beginning of time"),
+    fn undoEvents(self: *GameState, events: []const Event) void {
+        for (events) |event| {
+            switch (event) {
+                Event.moved => |e| {
+                    self.player_positions[e.player_index] = e.from;
+                },
+                Event.init_state => @panic("can't undo the beginning of time"),
+            }
         }
     }
 };

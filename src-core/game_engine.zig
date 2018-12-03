@@ -13,20 +13,29 @@ const Wall = core.game_state.Wall;
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
     game_state: GameState,
-    history: std.LinkedList(Event),
+    history: HistoryList,
 
-    const HistoryNode = std.LinkedList(Event).Node;
+    const HistoryList = std.LinkedList([]Event);
+    const HistoryNode = HistoryList.Node;
 
     pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) void {
         self.* = GameEngine{
             .allocator = allocator,
             .game_state = GameState.init(),
-            .history = std.LinkedList(Event).init(),
+            .history = HistoryList.init(),
         };
     }
 
-    pub fn startGame(self: *GameEngine) Event {
-        var terrain: Terrain = undefined;
+    pub fn getStartGameEvents(self: *const GameEngine) ![]Event {
+        var events = try self.allocator.alloc(Event, 1);
+        events[0] = Event{
+            .init_state = Event.InitState{
+                .terrain = undefined,
+                .player_positions = []Coord{ makeCoord(3, 3), makeCoord(9, 5) },
+            },
+        };
+
+        var terrain: *Terrain = &events[0].init_state.terrain;
         {
             var x: usize = 0;
             while (x < 16) : (x += 1) {
@@ -55,17 +64,12 @@ pub const GameEngine = struct {
                 }
             }
         }
-        const event = Event{
-            .init_state = Event.InitState{
-                .terrain = terrain,
-                .player_positions = []Coord{ makeCoord(3, 3), makeCoord(9, 5) },
-            },
-        };
-        self.game_state.applyEvent(event);
-        return event;
+
+        return events;
     }
 
-    pub fn actionsToEvents(self: *const GameEngine, actions: []const Action, events: *ArrayList(Event)) !void {
+    pub fn actionsToEvents(self: *const GameEngine, actions: []const Action) ![]Event {
+        var events = ArrayList(Event).init(self.allocator);
         for (actions) |action, i| {
             switch (action) {
                 Action.move => |direction| {
@@ -83,13 +87,12 @@ pub const GameEngine = struct {
                 },
             }
         }
+        return events.toOwnedSlice();
     }
 
-    pub fn applyEvents(self: *GameEngine, events: []const Event) !void {
-        for (events) |event| {
-            try self.recordEvent(event);
-            self.game_state.applyEvent(event);
-        }
+    pub fn applyEvents(self: *GameEngine, events: []Event) !void {
+        try self.recordEvents(events);
+        self.game_state.applyEvents(events);
     }
 
     pub fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
@@ -108,21 +111,25 @@ pub const GameEngine = struct {
         }
     }
 
-    pub fn rewind(self: *GameEngine) ?Event {
+    pub fn rewind(self: *GameEngine) ?[]Event {
+        if (self.history.len <= 1) {
+            // that's enough pal.
+            return null;
+        }
         const node = self.history.pop() orelse return null;
-        const event = node.data;
+        const events = node.data;
         self.allocator.destroy(node);
-        self.game_state.undoEvent(event);
-        return event;
+        self.game_state.undoEvents(events);
+        return events;
     }
 
-    fn recordEvent(self: *GameEngine, event: Event) !void {
+    fn recordEvents(self: *GameEngine, events: []Event) !void {
         const history_node: *HistoryNode = try self.allocator.createOne(HistoryNode);
-        history_node.data = event;
+        history_node.data = events;
         self.history.append(history_node);
     }
 };
 
 pub const HistoryFrame = struct {
-    event: core.protocol.Event,
+    event: []Event,
 };
