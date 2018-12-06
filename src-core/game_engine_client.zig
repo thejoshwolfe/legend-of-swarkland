@@ -121,6 +121,7 @@ pub const GameEngineClient = struct {
                     // animations
                     for (events) |event| {
                         switch (event) {
+                            Event.init_state => {},
                             Event.moved => |e| {
                                 self.position_animations[e.player_index] = MoveAnimation{
                                     .from = e.from,
@@ -129,7 +130,12 @@ pub const GameEngineClient = struct {
                                     .end_time = now + 200,
                                 };
                             },
-                            Event.init_state => {},
+                            Event.attacked => |e| {
+                                @panic("TODO");
+                            },
+                            Event.died => |player_index| {
+                                @panic("TODO");
+                            },
                         }
                     }
                 },

@@ -6,6 +6,7 @@ const core = @import("core");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
+const hashU32 = core.geometry.hashU32;
 const InputEngine = @import("./input_engine.zig").InputEngine;
 const Button = @import("./input_engine.zig").Button;
 const GameEngineClient = core.game_engine_client.GameEngineClient;
@@ -214,19 +215,6 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
         sdl.c.SDL_Delay(delay_millis);
         inputs_considered_harmful = false;
     }
-}
-
-fn hashU32(input: u32) u32 {
-    // https://nullprogram.com/blog/2018/07/31/
-    var x = input;
-    x ^= x >> 17;
-    x *%= 0xed5ad4bb;
-    x ^= x >> 11;
-    x *%= 0xac4c1b51;
-    x ^= x >> 15;
-    x *%= 0x31848bab;
-    x ^= x >> 14;
-    return x;
 }
 
 fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {

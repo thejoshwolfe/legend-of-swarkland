@@ -1,7 +1,9 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
+const HashMap = std.HashMap;
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
+const isCardinalDirection = core.geometry.isCardinalDirection;
 const makeCoord = core.geometry.makeCoord;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
@@ -69,7 +71,16 @@ pub const GameEngine = struct {
     }
 
     pub fn actionsToEvents(self: *const GameEngine, actions: []const Action) ![]Event {
+        // all game rules are here
         var events = ArrayList(Event).init(self.allocator);
+
+        var coord_to_individual = Multimap(Coord, usize, core.geometry.eqlCoord).init(self.allocator);
+        defer coord_to_individual.deinit();
+
+        for (self.game_state.player_positions) |position, i| {
+            try coord_to_individual.put(position, i);
+        }
+
         for (actions) |action, i| {
             switch (action) {
                 Action.move => |direction| {
@@ -83,8 +94,32 @@ pub const GameEngine = struct {
                                 .to = new_position,
                             },
                         });
+                        // they are also here
+                        try coord_to_individual.put(new_position, i);
                     }
                 },
+                Action.attack => |direction| {},
+            }
+        }
+        for (actions) |action, i| {
+            switch (action) {
+                Action.attack => |direction| {
+                    const origin_position = self.game_state.player_positions[i];
+                    const attack_location = origin_position.plus(direction);
+                    try events.append(Event{
+                        .attacked = Event.Attacked{
+                            .player_index = i,
+                            .origin_position = origin_position,
+                            .attack_location = attack_location,
+                        },
+                    });
+
+                    var iterator = coord_to_individual.find(attack_location);
+                    while (iterator.next()) |hit_i| {
+                        try events.append(Event{ .died = hit_i });
+                    }
+                },
+                Action.move => |direction| {},
             }
         }
         return events.toOwnedSlice();
@@ -103,11 +138,8 @@ pub const GameEngine = struct {
 
     pub fn validateAction(self: *const GameEngine, action: Action) bool {
         switch (action) {
-            Action.move => |direction| {
-                if (direction.x * direction.y != 0) return false;
-                if ((direction.x + direction.y) * (direction.x + direction.y) != 1) return false;
-                return true;
-            },
+            Action.move => |direction| return isCardinalDirection(direction),
+            Action.attack => |direction| return isCardinalDirection(direction),
         }
     }
 
@@ -133,3 +165,45 @@ pub const GameEngine = struct {
 pub const HistoryFrame = struct {
     event: []Event,
 };
+
+fn Multimap(comptime K: type, comptime V: type, comptime eql: fn (a: K, b: K) bool) type {
+    // TODO: use an actual hash multimap instead of this linear search (maybe)
+    return struct {
+        const Self = @This();
+
+        entries: ArrayList(KV),
+
+        const KV = struct {
+            k: K,
+            v: V,
+        };
+
+        pub fn init(allocator: *std.mem.Allocator) Self {
+            return Self{ .entries = ArrayList(KV).init(allocator) };
+        }
+        pub fn deinit(self: *Self) void {
+            self.entries.deinit();
+        }
+
+        pub fn put(self: *Self, k: K, v: V) !void {
+            try self.entries.append(KV{ .k = k, .v = v });
+        }
+
+        pub fn find(self: *Self, k: K) ValueIterator {
+            return ValueIterator{ .self = self, .k = k, .i = 0 };
+        }
+        pub const ValueIterator = struct {
+            self: *const Self,
+            k: K,
+            i: usize,
+
+            pub fn next(self: *ValueIterator) ?V {
+                while (self.i < self.self.entries.len) : (self.i += 1) {
+                    const kv = &self.self.entries.items[self.i];
+                    if (eql(kv.k, self.k)) return kv.v;
+                }
+                return null;
+            }
+        };
+    };
+}

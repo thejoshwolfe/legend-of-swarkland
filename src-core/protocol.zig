@@ -12,6 +12,7 @@ pub const Request = union(enum) {
 
 pub const Action = union(enum) {
     move: Coord,
+    attack: Coord,
 };
 
 pub const Response = union(enum) {
@@ -32,6 +33,15 @@ pub const Event = union(enum) {
         from: Coord,
         to: Coord,
     };
+
+    attacked: Attacked,
+    const Attacked = struct {
+        player_index: usize,
+        origin_position: Coord,
+        attack_location: Coord,
+    };
+
+    died: usize,
 };
 
 pub const Channel = struct {
@@ -62,9 +72,8 @@ pub const Channel = struct {
             Request.act => |action| {
                 try self.writeInt(u8(@enumToInt(@TagType(Action)(action))));
                 switch (action) {
-                    Action.move => |vector| {
-                        try self.writeCoord(vector);
-                    },
+                    Action.move => |direction| try self.writeCoord(direction),
+                    Action.attack => |direction| try self.writeCoord(direction),
                 }
             },
             Request.rewind => {},
@@ -77,14 +86,18 @@ pub const Channel = struct {
             else => return err,
         }) {
             @enumToInt(Request.act) => {
+                switch (Action.move) {
+                    Action.move => {},
+                    Action.attack => {},
+                }
                 switch (try self.readInt(u8)) {
                     @enumToInt(Action.move) => {
                         return Request{ .act = Action{ .move = try self.readCoord() } };
                     },
+                    @enumToInt(Action.attack) => {
+                        return Request{ .act = Action{ .attack = try self.readCoord() } };
+                    },
                     else => return error.MalformedData,
-                }
-                switch (Action.move) {
-                    Action.Move => {},
                 }
             },
             @enumToInt(Request.rewind) => return Request{ .rewind = {} },
@@ -141,16 +154,13 @@ pub const Channel = struct {
     }
 
     fn readEvent(self: *Channel) !Event {
+        switch (Event.moved) {
+            Event.init_state => {},
+            Event.moved => {},
+            Event.attacked => {},
+            Event.died => {},
+        }
         switch (try self.readInt(u8)) {
-            @enumToInt(Event.moved) => {
-                return Event{
-                    .moved = Event.Moved{
-                        .player_index = try self.readInt(u8),
-                        .from = try self.readCoord(),
-                        .to = try self.readCoord(),
-                    },
-                };
-            },
             @enumToInt(Event.init_state) => {
                 return Event{
                     .init_state = Event.InitState{
@@ -162,25 +172,50 @@ pub const Channel = struct {
                     },
                 };
             },
+            @enumToInt(Event.moved) => {
+                return Event{
+                    .moved = Event.Moved{
+                        .player_index = try self.readInt(u8),
+                        .from = try self.readCoord(),
+                        .to = try self.readCoord(),
+                    },
+                };
+            },
+            @enumToInt(Event.attacked) => {
+                return Event{
+                    .attacked = Event.Attacked{
+                        .player_index = try self.readInt(u8),
+                        .origin_position = try self.readCoord(),
+                        .attack_location = try self.readCoord(),
+                    },
+                };
+            },
+            @enumToInt(Event.died) => {
+                return Event{ .died = try self.readInt(u8) };
+            },
             else => return error.MalformedData,
-        }
-        switch (Event.moved) {
-            Event.moved => {},
-            Event.init_state => {},
         }
     }
     fn writeEvent(self: *Channel, _event: Event) !void {
         try self.writeInt(u8(@enumToInt(@TagType(Event)(_event))));
         switch (_event) {
+            Event.init_state => |event| {
+                try self.writeTerrain(event.terrain);
+                try self.writeCoord(event.player_positions[0]);
+                try self.writeCoord(event.player_positions[1]);
+            },
             Event.moved => |event| {
                 try self.writeInt(@intCast(u8, event.player_index));
                 try self.writeCoord(event.from);
                 try self.writeCoord(event.to);
             },
-            Event.init_state => |event| {
-                try self.writeTerrain(event.terrain);
-                try self.writeCoord(event.player_positions[0]);
-                try self.writeCoord(event.player_positions[1]);
+            Event.attacked => |event| {
+                try self.writeInt(@intCast(u8, event.player_index));
+                try self.writeCoord(event.origin_position);
+                try self.writeCoord(event.attack_location);
+            },
+            Event.died => |player_index| {
+                try self.writeInt(@intCast(u8, player_index));
             },
         }
     }

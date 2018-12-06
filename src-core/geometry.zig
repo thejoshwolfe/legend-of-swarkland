@@ -42,3 +42,32 @@ pub fn makeCoord(x: i32, y: i32) Coord {
         .y = y,
     };
 }
+
+pub fn isCardinalDirection(direction: Coord) bool {
+    if (direction.x * direction.y != 0) return false;
+    if ((direction.x + direction.y) * (direction.x + direction.y) != 1) return false;
+    return true;
+}
+
+pub fn hashU32(input: u32) u32 {
+    // https://nullprogram.com/blog/2018/07/31/
+    var x = input;
+    x ^= x >> 17;
+    x *%= 0xed5ad4bb;
+    x ^= x >> 11;
+    x *%= 0xac4c1b51;
+    x ^= x >> 15;
+    x *%= 0x31848bab;
+    x ^= x >> 14;
+    return x;
+}
+
+pub fn hashCoord(coord: Coord) u32 {
+    var x = hashU32(@bitCast(u32, coord.x));
+    x ^= hashU32(@bitCast(u32, coord.y));
+    return x;
+}
+
+pub fn eqlCoord(a: Coord, b: Coord) bool {
+    return a.x == b.x and a.y == b.y;
+}
