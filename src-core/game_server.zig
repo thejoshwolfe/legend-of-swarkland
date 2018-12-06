@@ -26,13 +26,10 @@ pub fn server_main(channel: *Channel) !void {
 
     core.debug.warn("start main loop\n");
     while (true) {
-        switch (channel.readRequest() catch |err| switch (err) {
-            error.CleanShutdown => {
-                core.debug.warn("clean shutdown. close\n");
-                channel.close();
-                break;
-            },
-            else => return err,
+        switch ((try channel.readRequest()) orelse {
+            core.debug.warn("clean shutdown. close\n");
+            channel.close();
+            break;
         }) {
             Request.act => |action| {
                 if (!game_engine.validateAction(action)) continue;

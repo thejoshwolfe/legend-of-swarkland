@@ -71,9 +71,9 @@ pub const Channel = struct {
         }
     }
 
-    pub fn readRequest(self: *Channel) !Request {
+    pub fn readRequest(self: *Channel) !?Request {
         switch (self.readInt(u8) catch |err| switch (err) {
-            error.EndOfStream => return error.CleanShutdown,
+            error.EndOfStream => return null,
             else => return err,
         }) {
             @enumToInt(Request.act) => {
@@ -96,9 +96,9 @@ pub const Channel = struct {
         }
     }
 
-    pub fn readResponse(self: *Channel) !Response {
+    pub fn readResponse(self: *Channel) !?Response {
         switch (self.readInt(u8) catch |err| switch (err) {
-            error.EndOfStream => return error.CleanShutdown,
+            error.EndOfStream => return null,
             else => return err,
         }) {
             @enumToInt(Response.events) => {

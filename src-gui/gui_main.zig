@@ -202,7 +202,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         const vector = animation.to.minus(animation.from).scaled(32);
                         display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
                     }
-                    textures.renderSprite(renderer, textures.sprites.human, display_position);
+                    textures.renderSprite(renderer, if (i == 0) textures.sprites.human else textures.sprites.ogre, display_position);
                 }
             },
         }

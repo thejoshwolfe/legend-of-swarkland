@@ -164,14 +164,11 @@ pub const GameEngineClient = struct {
         core.debug.warn("init\n");
         defer core.debug.warn("shutdown\n");
         while (self.isAlive()) {
-            const response: Response = self.channel.readResponse() catch |err| {
-                switch (err) {
-                    error.CleanShutdown => {
-                        core.debug.warn("clean shutdown\n");
-                        break;
-                    },
-                    else => @panic("TODO: proper error handling"),
-                }
+            const response: Response = self.channel.readResponse() catch {
+                @panic("TODO: proper error handling");
+            } orelse {
+                core.debug.warn("clean shutdown\n");
+                break;
             };
             queuePut(Response, &self.response_inbox, response) catch |err| {
                 @panic("TODO: proper error handling");
