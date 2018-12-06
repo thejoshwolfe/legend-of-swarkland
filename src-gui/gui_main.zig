@@ -216,21 +216,24 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
     }
 }
 
-fn muhHashFnqshn(input: u32) u32 {
-    // TODO: use a better function. i'm on a plane.
+fn hashU32(input: u32) u32 {
+    // https://nullprogram.com/blog/2018/07/31/
     var x = input;
-    x ^= x >> 16;
-    x *%= 0xaf12bf53;
-    x ^= x >> 13;
-    x *%= 0xaf12bf53;
+    x ^= x >> 17;
+    x *%= 0xed5ad4bb;
+    x ^= x >> 11;
+    x *%= 0xac4c1b51;
+    x ^= x >> 15;
+    x *%= 0x31848bab;
+    x ^= x >> 14;
     return x;
 }
 
 fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
     var hash = seed;
     hash ^= @bitCast(u32, coord.x);
-    hash = muhHashFnqshn(hash);
+    hash = hashU32(hash);
     hash ^= @bitCast(u32, coord.y);
-    hash = muhHashFnqshn(hash);
+    hash = hashU32(hash);
     return array[@intCast(usize, std.rand.limitRangeBiased(u32, hash, @intCast(u32, array.len)))];
 }
