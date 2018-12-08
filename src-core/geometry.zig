@@ -71,3 +71,11 @@ pub fn hashCoord(coord: Coord) u32 {
 pub fn eqlCoord(a: Coord, b: Coord) bool {
     return a.x == b.x and a.y == b.y;
 }
+
+pub fn directionToRotation(direction: Coord) u3 {
+    if (direction.x == 1 and direction.y == 0) return 0;
+    if (direction.x == 0 and direction.y == 1) return 2;
+    if (direction.x == -1 and direction.y == 0) return 4;
+    if (direction.x == 0 and direction.y == -1) return 6;
+    unreachable;
+}

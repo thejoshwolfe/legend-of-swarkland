@@ -2,6 +2,7 @@ const std = @import("std");
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
+const directionToRotation = core.geometry.directionToRotation;
 const Channel = core.protocol.Channel;
 const Request = core.protocol.Request;
 const Action = core.protocol.Action;
@@ -32,13 +33,15 @@ pub const GameEngineClient = struct {
     stay_alive: std.atomic.Int(u8),
 
     game_state: GameState,
-    position_animations: [2]?MoveAnimation,
+    move_animations: [2]?MoveAnimation,
+    attack_animations: [2]?AttackAnimation,
 
     fn init(self: *GameEngineClient) void {
         self.stay_alive = std.atomic.Int(u8).init(1);
 
         self.game_state = GameState.init();
-        self.position_animations = []?MoveAnimation{ null, null };
+        self.move_animations = []?MoveAnimation{ null, null };
+        self.attack_animations = []?AttackAnimation{ null, null };
     }
     fn startThreads(self: *GameEngineClient) !void {
         // start threads last
@@ -111,7 +114,7 @@ pub const GameEngineClient = struct {
         return self.stay_alive.get() != 0;
     }
 
-    pub fn pollEvents(self: *GameEngineClient, now: u32) void {
+    pub fn pollEvents(self: *GameEngineClient, now: i32) void {
         while (true) {
             const response = queueGet(Response, &self.response_inbox) orelse return;
             defer core.protocol.deinitResponse(allocator, response);
@@ -123,15 +126,20 @@ pub const GameEngineClient = struct {
                         switch (event) {
                             Event.init_state => {},
                             Event.moved => |e| {
-                                self.position_animations[e.player_index] = MoveAnimation{
-                                    .from = e.from,
-                                    .to = e.to,
+                                self.move_animations[e.player_index] = MoveAnimation{
                                     .start_time = now,
                                     .end_time = now + 200,
+                                    .from = e.from,
+                                    .to = e.to,
                                 };
                             },
                             Event.attacked => |e| {
-                                @panic("TODO");
+                                self.attack_animations[e.player_index] = AttackAnimation{
+                                    .start_time = now,
+                                    .end_time = now + 200,
+                                    .location = e.attack_location,
+                                    .rotation = directionToRotation(e.attack_location.minus(e.origin_position)),
+                                };
                             },
                             Event.died => |player_index| {
                                 @panic("TODO");
@@ -141,7 +149,10 @@ pub const GameEngineClient = struct {
                 },
                 Response.undo => |events| {
                     self.game_state.undoEvents(events);
-                    for (self.position_animations) |*x| {
+                    for (self.move_animations) |*x| {
+                        x.* = null;
+                    }
+                    for (self.attack_animations) |*x| {
                         x.* = null;
                     }
                 },
@@ -188,13 +199,22 @@ pub const GameEngineClient = struct {
     pub fn move(self: *GameEngineClient, direction: Coord) !void {
         try queuePut(Request, &self.request_outbox, Request{ .act = Action{ .move = direction } });
     }
+    pub fn attack(self: *GameEngineClient, direction: Coord) !void {
+        try queuePut(Request, &self.request_outbox, Request{ .act = Action{ .attack = direction } });
+    }
 };
 
 pub const MoveAnimation = struct {
+    start_time: i32,
+    end_time: i32,
     from: Coord,
     to: Coord,
-    start_time: u32,
-    end_time: u32,
+};
+pub const AttackAnimation = struct {
+    start_time: i32,
+    end_time: i32,
+    location: Coord,
+    rotation: u3,
 };
 
 fn queuePut(comptime T: type, queue: *std.atomic.Queue(T), x: T) !void {

@@ -10,8 +10,10 @@ pub const Button = enum {
     down,
     left,
     right,
+    start_attack,
     backspace,
     enter,
+    escape,
 };
 
 pub const InputEngine = struct {
@@ -50,8 +52,10 @@ pub const InputEngine = struct {
             sdl.c.SDL_SCANCODE_RIGHT => return Button.right,
             sdl.c.SDL_SCANCODE_UP => return Button.up,
             sdl.c.SDL_SCANCODE_DOWN => return Button.down,
+            sdl.c.SDL_SCANCODE_F => return Button.start_attack,
             sdl.c.SDL_SCANCODE_BACKSPACE => return Button.backspace,
             sdl.c.SDL_SCANCODE_RETURN => return Button.enter,
+            sdl.c.SDL_SCANCODE_ESCAPE => return Button.escape,
             else => return null,
         }
     }

@@ -198,8 +198,9 @@ fn Multimap(comptime K: type, comptime V: type, comptime eql: fn (a: K, b: K) bo
             i: usize,
 
             pub fn next(self: *ValueIterator) ?V {
-                while (self.i < self.self.entries.len) : (self.i += 1) {
+                while (self.i < self.self.entries.len) {
                     const kv = &self.self.entries.items[self.i];
+                    self.i += 1;
                     if (eql(kv.k, self.k)) return kv.v;
                 }
                 return null;

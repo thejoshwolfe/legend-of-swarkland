@@ -11,8 +11,8 @@ pub const fonts = @import("../zig-cache/fontsheet.zig");
 var sprites_texture: *sdl.c.SDL_Texture = undefined;
 var fonts_texture: *sdl.c.SDL_Texture = undefined;
 pub fn init(renderer: *sdl.Renderer) void {
-    sprites_texture = load_texture(renderer, sprites.buffer, sprites.width, sprites.height);
-    fonts_texture = load_texture(renderer, fonts.buffer, fonts.width, fonts.height);
+    sprites_texture = loadTexture(renderer, sprites.buffer, sprites.width, sprites.height);
+    fonts_texture = loadTexture(renderer, fonts.buffer, fonts.width, fonts.height);
 }
 
 pub fn deinit() void {
@@ -20,7 +20,7 @@ pub fn deinit() void {
     sdl.c.SDL_DestroyTexture(fonts_texture);
 }
 
-fn load_texture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height: i32) *sdl.c.SDL_Texture {
+fn loadTexture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height: i32) *sdl.c.SDL_Texture {
     var texture: *sdl.c.SDL_Texture = sdl.c.SDL_CreateTexture(renderer, sdl.c.SDL_PIXELFORMAT_RGBA8888, sdl.c.SDL_TEXTUREACCESS_STATIC, width, height) orelse {
         std.debug.panic("SDL_CreateTexture failed: {c}\n", sdl.c.SDL_GetError());
     };
@@ -73,4 +73,18 @@ pub fn renderSprite(renderer: *sdl.Renderer, sprite: Rect, location: Coord) void
     const source_sdl = sdl.makeRect(sprite);
     const dest_sdl = sdl.makeRect(dest);
     _ = sdl.SDL_RenderCopy(renderer, sprites_texture, &source_sdl, &dest_sdl);
+}
+pub fn renderSpriteRotated(renderer: *sdl.Renderer, sprite: Rect, location: Coord, rotation: u3) void {
+    const dest = Rect{
+        .x = location.x,
+        .y = location.y,
+        .width = sprite.width,
+        .height = sprite.height,
+    };
+
+    const source_sdl = sdl.makeRect(sprite);
+    const dest_sdl = sdl.makeRect(dest);
+
+    const angle = @intToFloat(f64, rotation) * 45.0;
+    _ = sdl.SDL_RenderCopyEx(renderer, sprites_texture, &source_sdl, &dest_sdl, angle, null, sdl.c.SDL_FLIP_NONE);
 }

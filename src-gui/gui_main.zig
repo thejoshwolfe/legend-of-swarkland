@@ -54,22 +54,28 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
 
     const GameState = union(enum) {
         main_menu: gui.LinearMenuState,
-        running: GameEngineClient,
+
+        running: Running,
+        const Running = struct {
+            g: GameEngineClient,
+            started_attack: bool,
+        };
     };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
     defer switch (game_state) {
-        GameState.running => |*g| g.stopEngine(),
+        GameState.running => |*state| state.g.stopEngine(),
         else => {},
     };
 
     while (true) {
-        const now = sdl.c.SDL_GetTicks();
+        // TODO: use better source of time (that doesn't crash after running for a month)
+        const now = @intCast(i32, sdl.c.SDL_GetTicks());
         switch (game_state) {
             GameState.main_menu => |*main_menu_state| {
                 main_menu_state.beginFrame();
             },
-            GameState.running => |*g| {
-                g.pollEvents(now);
+            GameState.running => |*state| {
+                state.g.pollEvents(now);
             },
         }
 
@@ -109,22 +115,48 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                     else => {},
                                 }
                             },
-                            GameState.running => |*g| {
+                            GameState.running => |*state| {
                                 switch (button) {
                                     Button.left => {
-                                        try g.move(makeCoord(-1, 0));
+                                        if (state.started_attack) {
+                                            try state.g.attack(makeCoord(-1, 0));
+                                            state.started_attack = false;
+                                        } else {
+                                            try state.g.move(makeCoord(-1, 0));
+                                        }
                                     },
                                     Button.right => {
-                                        try g.move(makeCoord(1, 0));
+                                        if (state.started_attack) {
+                                            try state.g.attack(makeCoord(1, 0));
+                                            state.started_attack = false;
+                                        } else {
+                                            try state.g.move(makeCoord(1, 0));
+                                        }
                                     },
                                     Button.up => {
-                                        try g.move(makeCoord(0, -1));
+                                        if (state.started_attack) {
+                                            try state.g.attack(makeCoord(0, -1));
+                                            state.started_attack = false;
+                                        } else {
+                                            try state.g.move(makeCoord(0, -1));
+                                        }
                                     },
                                     Button.down => {
-                                        try g.move(makeCoord(0, 1));
+                                        if (state.started_attack) {
+                                            try state.g.attack(makeCoord(0, 1));
+                                            state.started_attack = false;
+                                        } else {
+                                            try state.g.move(makeCoord(0, 1));
+                                        }
+                                    },
+                                    Button.start_attack => {
+                                        state.started_attack = true;
                                     },
                                     Button.backspace => {
-                                        try g.rewind();
+                                        try state.g.rewind();
+                                    },
+                                    Button.escape => {
+                                        state.started_attack = false;
                                     },
                                     else => {},
                                 }
@@ -151,10 +183,15 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 menu_renderer.bold(false);
                 menu_renderer.seekRelative(70, 0);
                 if (menu_renderer.button("New Game (Thread)")) {
-                    game_state = GameState{ .running = undefined };
+                    game_state = GameState{
+                        .running = GameState.Running{
+                            .g = undefined,
+                            .started_attack = false,
+                        },
+                    };
                     switch (game_state) {
-                        GameState.running => |*g| {
-                            try g.startAsThread();
+                        GameState.running => |*state| {
+                            try state.g.startAsThread();
                         },
                         else => unreachable,
                     }
@@ -162,8 +199,8 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 if (menu_renderer.button("Attach to Game (Process)")) {
                     game_state = GameState{ .running = undefined };
                     switch (game_state) {
-                        GameState.running => |*g| {
-                            try g.startAsChildProcess();
+                        GameState.running => |*state| {
+                            try state.g.startAsChildProcess();
                         },
                         else => unreachable,
                     }
@@ -173,9 +210,9 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     return;
                 }
             },
-            GameState.running => |g| {
+            GameState.running => |state| {
                 // render terrain
-                for (g.game_state.terrain.floor) |row, y| {
+                for (state.g.game_state.terrain.floor) |row, y| {
                     for (row) |cell, x| {
                         const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
                         const texture = switch (cell) {
@@ -187,7 +224,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         textures.renderSprite(renderer, texture, coord.scaled(32));
                     }
                 }
-                for (g.game_state.terrain.walls) |row, y| {
+                for (state.g.game_state.terrain.walls) |row, y| {
                     for (row) |cell, x| {
                         const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
                         const texture = switch (cell) {
@@ -200,20 +237,37 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     }
                 }
 
-                // render you two
-                var i: usize = 0;
-                while (i < 2) : (i += 1) {
-                    var display_position = g.game_state.player_positions[i].scaled(32);
-                    if (g.position_animations[i]) |animation| blk: {
-                        const duration = @intCast(i32, animation.end_time - animation.start_time);
-                        const progress = @intCast(i32, now - animation.start_time);
+                // render the things
+                for (state.g.game_state.player_positions) |p, i| {
+                    var display_position = p.scaled(32);
+                    if (state.g.move_animations[i]) |animation| blk: {
+                        const duration = animation.end_time - animation.start_time;
+                        const progress = now - animation.start_time;
                         if (progress > duration) {
                             break :blk;
                         }
                         const vector = animation.to.minus(animation.from).scaled(32);
                         display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
                     }
-                    textures.renderSprite(renderer, if (i == 0) textures.sprites.human else textures.sprites.ogre, display_position);
+                    if (i == 0) {
+                        textures.renderSprite(renderer, textures.sprites.human, display_position);
+                        if (state.started_attack) {
+                            textures.renderSprite(renderer, textures.sprites.dagger, display_position);
+                        }
+                    } else {
+                        textures.renderSprite(renderer, textures.sprites.ogre, display_position);
+                    }
+                }
+                for (state.g.attack_animations) |a, i| {
+                    if (a) |animation| {
+                        const duration = animation.end_time - animation.start_time;
+                        const progress = now - animation.start_time;
+                        if (progress > duration) {
+                            continue;
+                        }
+                        const display_position = animation.location.scaled(32);
+                        textures.renderSpriteRotated(renderer, textures.sprites.dagger, display_position, animation.rotation +% 1);
+                    }
                 }
             },
         }

@@ -21,6 +21,15 @@ pub extern fn SDL_RenderCopy(
     srcrect: ?*const sdl.c.SDL_Rect,
     dstrect: ?*const sdl.c.SDL_Rect,
 ) c_int;
+pub extern fn SDL_RenderCopyEx(
+    renderer: *sdl.c.SDL_Renderer,
+    texture: *sdl.c.SDL_Texture,
+    srcrect: ?*const sdl.c.SDL_Rect,
+    dstrect: ?*const sdl.c.SDL_Rect,
+    angle: f64,
+    center: ?*const sdl.c.SDL_Point,
+    flip: c_int, // SDL_RendererFlip
+) c_int;
 
 const geometry = @import("core").geometry;
 
