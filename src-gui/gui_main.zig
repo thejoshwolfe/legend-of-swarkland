@@ -13,11 +13,6 @@ const GameEngineClient = core.game_engine_client.GameEngineClient;
 const Floor = core.game_state.Floor;
 const Wall = core.game_state.Wall;
 
-const GameState = enum {
-    MainMenu,
-    Running,
-};
-
 pub fn main() anyerror!void {
     core.debug.init();
     core.debug.nameThisThread("gui");
@@ -53,22 +48,31 @@ pub fn main() anyerror!void {
 }
 
 fn doMainLoop(renderer: *sdl.Renderer) !void {
-    var game_state = GameState.MainMenu;
-    var game_engine: ?GameEngineClient = null;
-    defer if (game_engine) |*g| g.stopEngine();
     const aesthetic_seed = 0xbee894fc;
-
-    var main_menu_state = gui.LinearMenuState.init();
     var input_engine = InputEngine.init();
     var inputs_considered_harmful = true;
 
+    const GameState = union(enum) {
+        main_menu: gui.LinearMenuState,
+        running: GameEngineClient,
+    };
+    var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
+    defer switch (game_state) {
+        GameState.running => |*g| g.stopEngine(),
+        else => {},
+    };
+
     while (true) {
         const now = sdl.c.SDL_GetTicks();
-        if (game_engine) |*g| {
-            g.pollEvents(now);
+        switch (game_state) {
+            GameState.main_menu => |*main_menu_state| {
+                main_menu_state.beginFrame();
+            },
+            GameState.running => |*g| {
+                g.pollEvents(now);
+            },
         }
 
-        main_menu_state.beginFrame();
         var event: sdl.c.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
@@ -91,7 +95,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             continue;
                         }
                         switch (game_state) {
-                            GameState.MainMenu => {
+                            GameState.main_menu => |*main_menu_state| {
                                 switch (button) {
                                     Button.up => {
                                         main_menu_state.moveUp();
@@ -105,22 +109,22 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                     else => {},
                                 }
                             },
-                            GameState.Running => {
+                            GameState.running => |*g| {
                                 switch (button) {
                                     Button.left => {
-                                        try game_engine.?.move(makeCoord(-1, 0));
+                                        try g.move(makeCoord(-1, 0));
                                     },
                                     Button.right => {
-                                        try game_engine.?.move(makeCoord(1, 0));
+                                        try g.move(makeCoord(1, 0));
                                     },
                                     Button.up => {
-                                        try game_engine.?.move(makeCoord(0, -1));
+                                        try g.move(makeCoord(0, -1));
                                     },
                                     Button.down => {
-                                        try game_engine.?.move(makeCoord(0, 1));
+                                        try g.move(makeCoord(0, 1));
                                     },
                                     Button.backspace => {
-                                        try game_engine.?.rewind();
+                                        try g.rewind();
                                     },
                                     else => {},
                                 }
@@ -135,8 +139,8 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
         _ = sdl.c.SDL_RenderClear(renderer);
 
         switch (game_state) {
-            GameState.MainMenu => {
-                var menu_renderer = gui.Gui.init(renderer, &main_menu_state, textures.sprites.shiny_purple_wand);
+            GameState.main_menu => |*main_menu_state| {
+                var menu_renderer = gui.Gui.init(renderer, main_menu_state, textures.sprites.shiny_purple_wand);
 
                 menu_renderer.seek(10, 10);
                 menu_renderer.scale(2);
@@ -147,23 +151,29 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 menu_renderer.bold(false);
                 menu_renderer.seekRelative(70, 0);
                 if (menu_renderer.button("New Game (Thread)")) {
-                    game_state = GameState.Running;
-                    game_engine = GameEngineClient(undefined);
-                    try game_engine.?.startAsThread();
+                    game_state = GameState{ .running = undefined };
+                    switch (game_state) {
+                        GameState.running => |*g| {
+                            try g.startAsThread();
+                        },
+                        else => unreachable,
+                    }
                 }
                 if (menu_renderer.button("Attach to Game (Process)")) {
-                    game_state = GameState.Running;
-                    game_engine = GameEngineClient(undefined);
-                    try game_engine.?.startAsChildProcess();
+                    game_state = GameState{ .running = undefined };
+                    switch (game_state) {
+                        GameState.running => |*g| {
+                            try g.startAsChildProcess();
+                        },
+                        else => unreachable,
+                    }
                 }
                 if (menu_renderer.button("Quit")) {
                     // quit
                     return;
                 }
             },
-            GameState.Running => {
-                const g = (*const GameEngineClient)(&game_engine.?);
-
+            GameState.running => |g| {
                 // render terrain
                 for (g.game_state.terrain.floor) |row, y| {
                     for (row) |cell, x| {
