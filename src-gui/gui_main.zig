@@ -6,12 +6,17 @@ const core = @import("core");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
+const directionToRotation = core.geometry.directionToRotation;
 const hashU32 = core.geometry.hashU32;
 const InputEngine = @import("./input_engine.zig").InputEngine;
 const Button = @import("./input_engine.zig").Button;
 const GameEngineClient = core.game_engine_client.GameEngineClient;
 const Floor = core.game_state.Floor;
 const Wall = core.game_state.Wall;
+const Response = core.protocol.Response;
+const Event = core.protocol.Event;
+
+const allocator = std.heap.c_allocator;
 
 pub fn main() anyerror!void {
     core.debug.init();
@@ -59,6 +64,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
         const Running = struct {
             g: GameEngineClient,
             started_attack: bool,
+            animations: Animations,
         };
     };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
@@ -75,7 +81,10 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 main_menu_state.beginFrame();
             },
             GameState.running => |*state| {
-                state.g.pollEvents(now);
+                if (state.g.pollEvents()) |response| {
+                    defer core.protocol.deinitResponse(allocator, response);
+                    loadAnimations(&state.animations, response, now);
+                }
             },
         }
 
@@ -187,6 +196,10 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         .running = GameState.Running{
                             .g = undefined,
                             .started_attack = false,
+                            .animations = Animations{
+                                .move_animations = []?MoveAnimation{ null, null },
+                                .attack_animations = []?AttackAnimation{ null, null },
+                            },
                         },
                     };
                     switch (game_state) {
@@ -240,7 +253,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 // render the things
                 for (state.g.game_state.player_positions) |p, i| {
                     var display_position = p.scaled(32);
-                    if (state.g.move_animations[i]) |animation| blk: {
+                    if (state.animations.move_animations[i]) |animation| blk: {
                         const duration = animation.end_time - animation.start_time;
                         const progress = now - animation.start_time;
                         if (progress > duration) {
@@ -258,7 +271,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         textures.renderSprite(renderer, textures.sprites.ogre, display_position);
                     }
                 }
-                for (state.g.attack_animations) |a, i| {
+                for (state.animations.attack_animations) |a, i| {
                     if (a) |animation| {
                         const duration = animation.end_time - animation.start_time;
                         const progress = now - animation.start_time;
@@ -288,4 +301,61 @@ fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
     hash ^= @bitCast(u32, coord.y);
     hash = hashU32(hash);
     return array[@intCast(usize, std.rand.limitRangeBiased(u32, hash, @intCast(u32, array.len)))];
+}
+
+const Animations = struct {
+    move_animations: [2]?MoveAnimation,
+    attack_animations: [2]?AttackAnimation,
+};
+const MoveAnimation = struct {
+    start_time: i32,
+    end_time: i32,
+    from: Coord,
+    to: Coord,
+};
+const AttackAnimation = struct {
+    start_time: i32,
+    end_time: i32,
+    location: Coord,
+    rotation: u3,
+};
+
+fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
+    switch (response) {
+        Response.events => |events| {
+            // animations
+            for (events) |event| {
+                switch (event) {
+                    Event.init_state => {},
+                    Event.moved => |e| {
+                        animations.move_animations[e.player_index] = MoveAnimation{
+                            .start_time = now,
+                            .end_time = now + 200,
+                            .from = e.from,
+                            .to = e.to,
+                        };
+                    },
+                    Event.attacked => |e| {
+                        animations.attack_animations[e.player_index] = AttackAnimation{
+                            .start_time = now,
+                            .end_time = now + 200,
+                            .location = e.attack_location,
+                            .rotation = directionToRotation(e.attack_location.minus(e.origin_position)),
+                        };
+                    },
+                    Event.died => |player_index| {
+                        @panic("TODO");
+                    },
+                }
+            }
+        },
+        Response.undo => |events| {
+            for (animations.move_animations) |*x| {
+                x.* = null;
+            }
+            for (animations.attack_animations) |*x| {
+                x.* = null;
+            }
+        },
+    }
 }
