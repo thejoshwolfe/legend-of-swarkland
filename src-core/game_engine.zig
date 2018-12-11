@@ -78,10 +78,13 @@ pub const GameEngine = struct {
         defer coord_to_individual.deinit();
 
         for (self.game_state.player_positions) |position, i| {
+            if (!self.game_state.player_is_alive[i]) continue;
             try coord_to_individual.put(position, i);
         }
 
         for (actions) |action, i| {
+            if (!self.game_state.player_is_alive[i]) continue;
+
             switch (action) {
                 Action.move => |direction| {
                     const old_position = self.game_state.player_positions[i];
@@ -102,6 +105,7 @@ pub const GameEngine = struct {
             }
         }
         for (actions) |action, i| {
+            if (!self.game_state.player_is_alive[i]) continue;
             switch (action) {
                 Action.attack => |direction| {
                     const origin_position = self.game_state.player_positions[i];

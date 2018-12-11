@@ -252,6 +252,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
 
                 // render the things
                 for (state.g.game_state.player_positions) |p, i| {
+                    if (!state.g.game_state.player_is_alive[i]) continue;
                     var display_position = p.scaled(32);
                     if (state.animations.move_animations[i]) |animation| blk: {
                         const duration = animation.end_time - animation.start_time;
@@ -344,7 +345,7 @@ fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
                         };
                     },
                     Event.died => |player_index| {
-                        @panic("TODO");
+                        core.debug.warn("TODO: animate death\n");
                     },
                 }
             }
