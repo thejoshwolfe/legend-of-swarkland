@@ -199,6 +199,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             .animations = Animations{
                                 .move_animations = []?MoveAnimation{ null, null },
                                 .attack_animations = []?AttackAnimation{ null, null },
+                                .death_animations = []?DeathAnimation{ null, null },
                             },
                         },
                     };
@@ -252,7 +253,21 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
 
                 // render the things
                 for (state.g.game_state.player_positions) |p, i| {
-                    if (!state.g.game_state.player_is_alive[i]) continue;
+                    var dying_texture: ?Rect = null;
+                    if (state.animations.death_animations[i]) |animation| blk: {
+                        const duration = animation.end_time - animation.start_time;
+                        const progress = now - animation.start_time;
+                        if (progress > duration) {
+                            // ded
+                            continue;
+                        }
+                        // dying
+                        dying_texture = textures.sprites.red_book;
+                    } else if (!state.g.game_state.player_is_alive[i]) {
+                        // ded
+                        continue;
+                    }
+
                     var display_position = p.scaled(32);
                     if (state.animations.move_animations[i]) |animation| blk: {
                         const duration = animation.end_time - animation.start_time;
@@ -263,6 +278,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         const vector = animation.to.minus(animation.from).scaled(32);
                         display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
                     }
+
                     if (i == 0) {
                         textures.renderSprite(renderer, textures.sprites.human, display_position);
                         if (state.started_attack) {
@@ -270,6 +286,10 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         }
                     } else {
                         textures.renderSprite(renderer, textures.sprites.ogre, display_position);
+                    }
+
+                    if (dying_texture) |t| {
+                        textures.renderSprite(renderer, t, display_position);
                     }
                 }
                 for (state.animations.attack_animations) |a, i| {
@@ -307,6 +327,7 @@ fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
 const Animations = struct {
     move_animations: [2]?MoveAnimation,
     attack_animations: [2]?AttackAnimation,
+    death_animations: [2]?DeathAnimation,
 };
 const MoveAnimation = struct {
     start_time: i32,
@@ -319,6 +340,10 @@ const AttackAnimation = struct {
     end_time: i32,
     location: Coord,
     rotation: u3,
+};
+const DeathAnimation = struct {
+    start_time: i32,
+    end_time: i32,
 };
 
 fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
@@ -345,7 +370,10 @@ fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
                         };
                     },
                     Event.died => |player_index| {
-                        core.debug.warn("TODO: animate death\n");
+                        animations.death_animations[player_index] = DeathAnimation{
+                            .start_time = now,
+                            .end_time = now + 200,
+                        };
                     },
                 }
             }
