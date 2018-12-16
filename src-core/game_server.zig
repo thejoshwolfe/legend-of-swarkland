@@ -3,6 +3,7 @@ const ArrayList = std.ArrayList;
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 const GameEngine = core.game_engine.GameEngine;
+const GameState = core.game_state.GameState;
 const Channel = core.protocol.Channel;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
@@ -35,7 +36,7 @@ pub fn server_main(channel: *Channel) !void {
                 if (!game_engine.validateAction(action)) continue;
                 var actions = []Action{
                     action,
-                    Action{ .move = Coord{ .x = -1, .y = 0 } },
+                    getAiAction(game_engine.game_state),
                 };
                 const events = try game_engine.actionsToEvents(actions[0..]);
 
@@ -51,4 +52,15 @@ pub fn server_main(channel: *Channel) !void {
             },
         }
     }
+}
+
+fn getAiAction(game_state: GameState) Action {
+    // TODO: move this to another thread/process and communicate using a channel.
+    const me = game_state.player_positions[1];
+    const you = game_state.player_positions[0];
+    var delta = you.minus(me);
+    if (delta.x * delta.y == 0 and (delta.x + delta.y) * (delta.x + delta.y) == 1) {
+        return Action{ .attack = delta };
+    }
+    return Action{ .move = Coord{ .x = -1, .y = 0 } };
 }

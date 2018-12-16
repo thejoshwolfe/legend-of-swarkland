@@ -33,7 +33,7 @@ pub const GameEngine = struct {
         events[0] = Event{
             .init_state = Event.InitState{
                 .terrain = undefined,
-                .player_positions = []Coord{ makeCoord(3, 3), makeCoord(9, 5) },
+                .player_positions = []Coord{ makeCoord(3, 3), makeCoord(8, 5) },
             },
         };
 
