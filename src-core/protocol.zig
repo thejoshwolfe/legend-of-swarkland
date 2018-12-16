@@ -264,13 +264,13 @@ pub const Channel = struct {
     }
 
     fn readInt(self: *Channel, comptime T: type) !T {
-        const x = try self.in_stream.readIntLe(T);
+        const x = try self.in_stream.readIntLittle(T);
         // core.debug.warn("readInt: {}\n", x);
         return x;
     }
     fn writeInt(self: *Channel, x: var) !void {
         // core.debug.warn("writeInt: {}\n", x);
-        return self.out_stream.writeIntLe(@typeOf(x), x);
+        return self.out_stream.writeIntLittle(@typeOf(x), x);
     }
 
     fn readCoord(self: *Channel) !Coord {
