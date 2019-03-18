@@ -22,20 +22,20 @@ pub const Response = union(enum) {
 
 pub const Event = union(enum) {
     init_state: InitState,
-    const InitState = struct {
+    pub const InitState = struct {
         terrain: Terrain,
         player_positions: [2]Coord,
     };
 
     moved: Moved,
-    const Moved = struct {
+    pub const Moved = struct {
         player_index: usize,
         from: Coord,
         to: Coord,
     };
 
     attacked: Attacked,
-    const Attacked = struct {
+    pub const Attacked = struct {
         player_index: usize,
         origin_position: Coord,
         attack_location: Coord,

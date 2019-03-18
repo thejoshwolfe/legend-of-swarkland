@@ -160,7 +160,7 @@ pub const GameEngine = struct {
     }
 
     fn recordEvents(self: *GameEngine, events: []Event) !void {
-        const history_node: *HistoryNode = try self.allocator.createOne(HistoryNode);
+        const history_node: *HistoryNode = try self.allocator.create(HistoryNode);
         history_node.data = events;
         self.history.append(history_node);
     }

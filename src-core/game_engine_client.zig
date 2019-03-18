@@ -168,7 +168,7 @@ pub const GameEngineClient = struct {
 
 fn queuePut(comptime T: type, queue: *std.atomic.Queue(T), x: T) !void {
     const Node = std.atomic.Queue(T).Node;
-    const node: *Node = try allocator.createOne(Node);
+    const node: *Node = try allocator.create(Node);
     node.data = x;
     queue.put(node);
 }
