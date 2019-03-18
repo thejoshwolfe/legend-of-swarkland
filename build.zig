@@ -56,6 +56,8 @@ fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u
     if (!headless) {
         exe.linkSystemLibrary("SDL2");
         exe.linkSystemLibrary("c");
+        // FIXME: workaround https://github.com/ziglang/zig/issues/855
+        exe.setMainPkgPath(".");
     } else {
         // TODO: only used for malloc
         exe.linkSystemLibrary("c");
