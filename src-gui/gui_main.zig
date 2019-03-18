@@ -379,15 +379,11 @@ fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
             }
         },
         Response.undo => |events| {
-            for (animations.move_animations) |*x| {
-                x.* = null;
-            }
-            for (animations.attack_animations) |*x| {
-                x.* = null;
-            }
-            for (animations.death_animations) |*x| {
-                x.* = null;
-            }
+            animations.* = Animations{
+                .move_animations = []?MoveAnimation{ null, null },
+                .attack_animations = []?AttackAnimation{ null, null },
+                .death_animations = []?DeathAnimation{ null, null },
+            };
         },
     }
 }
