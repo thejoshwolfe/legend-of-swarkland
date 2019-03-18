@@ -63,5 +63,7 @@ fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u
         exe.linkSystemLibrary("c");
     }
     exe.setBuildMode(build_options);
+    // TODO: proper install target?
+    exe.setOutputDir("zig-cache");
     return &exe.step;
 }
