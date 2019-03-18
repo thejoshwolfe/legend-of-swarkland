@@ -385,6 +385,9 @@ fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
             for (animations.attack_animations) |*x| {
                 x.* = null;
             }
+            for (animations.death_animations) |*x| {
+                x.* = null;
+            }
         },
     }
 }

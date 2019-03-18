@@ -57,10 +57,12 @@ pub fn server_main(channel: *Channel) !void {
 fn getAiAction(game_state: GameState) Action {
     // TODO: move this to another thread/process and communicate using a channel.
     const me = game_state.player_positions[1];
-    const you = game_state.player_positions[0];
-    var delta = you.minus(me);
-    if (delta.x * delta.y == 0 and (delta.x + delta.y) * (delta.x + delta.y) == 1) {
-        return Action{ .attack = delta };
+    if (game_state.player_is_alive[0]) {
+        const you = game_state.player_positions[0];
+        var delta = you.minus(me);
+        if (delta.x * delta.y == 0 and (delta.x + delta.y) * (delta.x + delta.y) == 1) {
+            return Action{ .attack = delta };
+        }
     }
     return Action{ .move = Coord{ .x = -1, .y = 0 } };
 }
