@@ -2,33 +2,38 @@ const std = @import("std");
 const builtin = @import("builtin");
 const Builder = std.build.Builder;
 
-pub fn build(b: *Builder) !void {
+pub fn build(b: *Builder) void {
     const build_options = b.standardReleaseOptions();
 
-    try b.env_map.set("PYTHONPATH", "deps/simplepng.py/");
-    const compile_spritesheet = b.addSystemCommand([][]const u8{
-        "./tools/compile_spritesheet.py",
-        "assets/img/",
-        "--glob=*.png",
-        "--tile-size=32",
-        "--spritesheet-path=zig-cache/spritesheet_resource",
-        "--defs-path=zig-cache/spritesheet.zig",
-        "--deps=zig-cache/spritesheet_resource.d",
-    });
-    const compile_fontsheet = b.addSystemCommand([][]const u8{
-        "./tools/compile_spritesheet.py",
-        "assets/font/",
-        "--glob=*.png",
-        "--slice-tiles=12x16",
-        "--spritesheet-path=zig-cache/fontsheet_resource",
-        "--defs-path=zig-cache/fontsheet.zig",
-        "--deps=zig-cache/fontsheet_resource.d",
-    });
+    const compile_image_commands = []const *std.build.RunStep{
+        b.addSystemCommand([][]const u8{
+            "./tools/compile_spritesheet.py",
+            "assets/img/",
+            "--glob=*.png",
+            "--tile-size=32",
+            "--spritesheet-path=zig-cache/spritesheet_resource",
+            "--defs-path=zig-cache/spritesheet.zig",
+            "--deps=zig-cache/spritesheet_resource.d",
+        }),
+        b.addSystemCommand([][]const u8{
+            "./tools/compile_spritesheet.py",
+            "assets/font/",
+            "--glob=*.png",
+            "--slice-tiles=12x16",
+            "--spritesheet-path=zig-cache/fontsheet_resource",
+            "--defs-path=zig-cache/fontsheet.zig",
+            "--deps=zig-cache/fontsheet_resource.d",
+        }),
+    };
+    for (compile_image_commands) |compile_image_command| {
+        compile_image_command.setEnvironmentVariable("PYTHONPATH", "deps/simplepng.py/");
+    }
 
     const headless_build = make_binary_variant(b, build_options, "legend-of-swarkland_headless", true);
     const gui_build = make_binary_variant(b, build_options, "legend-of-swarkland", false);
-    gui_build.dependOn(&compile_spritesheet.step);
-    gui_build.dependOn(&compile_fontsheet.step);
+    for (compile_image_commands) |compile_image_command| {
+        gui_build.dependOn(&compile_image_command.step);
+    }
 
     b.default_step.dependOn(headless_build);
     b.default_step.dependOn(gui_build);
