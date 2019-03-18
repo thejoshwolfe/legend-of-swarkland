@@ -10,8 +10,40 @@ Doesn't work.
 
  * Complete rewrite from scratch in Zig instead of C++.
  * Client/server separation.
- * Game engine is parallel instead of turn-based.
-   * Everyone decides what to do, and then everyone's decisions are resolved.
+   * A headless "server" binary that only knows the game logic and a protocol. no UI-related dependencies.
+   * A GUI-enabled binary that uses SDL, which also includes all the code in the headless "server".
+   * The GUI can either run everything in its process, which helps debuggers,
+     or it can spawn a headless child process and communicate with stdio to demonstrate and test the client/server separation.
+     Remote communication with TCP is planned but not yet implemented.
+   * The plan is that all information and apis available in the protocol are fair game wrt online play (leaderboards, pvp, etc.).
+     So an AI that uses the API directly is no more privaledged than a human using a GUI.
+     Also, the official GUI will be as helpful as possible for exposing all the features you might want.
+ * All decision makers decide simultaneously on each turn, and all actions are resolved at once.
+   * Introduces complex collision resolution when multiple entities want to move into the same space at once.
+   * Removes slow and fast movement speeds in favor of temporary stun statuses (slow) and move actions that can leap farther than normal (fast).
+ * Undo button.
+   * Always available in "practice" mode, which is currently the only mode.
+     ("Hardcore" mode would simply disable the undo button, and that's all.
+     Hardcore mode would be preferred for any kind of competitive play, such as leaderboards.)
+   * D&D-style dice-roll randomness makes a lot less sense with undo.
+     Instead of attacks doing random damage, for example, all attacks do predictable damage.
+   * Unidentified items make a lot less sense with undo.
+     No more unidentified items. :(
+   * Exploring for hidden rooms makes a lot less sense.
+ * Try to eliminate grinding (where "grinding" is defined by repeating an action to gain some in-game benefit).
+   * No more wait-to-win HP or MP regeneration.
+     Favor a playstyle where you can feasibly avoid all damage.
+     (More like Crypt of the Necrodancer than Nethack in this regard.)
+   * All entities have greatly reduced HP, usually one-hit kills all around.
+     This avoids smacking a boss 20 times until it dies, for example.
+   * If an entity does take multiple hits to kill, each hit should be unique.
+     Perhaps the first hit lops off an arm, which removes a possible action, but changes the AI to be "enraged" or something.
+   * Enemy difficulty can be implemented by complete immunity to certain attacks rather than imperfect resistance to them.
+     If an enemy is immune to arrows but not swords, then you have to adjust your strategy.
+     If an enemy is immune to all attacks, but not falling in lava, that's interesting.
+     If an enemy is simply undefeatable with your current abilities, maybe come back later.
+   * Make the navigable space smaller. This avoids long boring walks through empty corridors.
+ * Overall, more of a puzzle feel than an action feel.
 
 ## Version History
 
