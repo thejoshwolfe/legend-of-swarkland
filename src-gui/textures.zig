@@ -30,7 +30,7 @@ fn loadTexture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height: 
     }
 
     const pitch = width * 4;
-    if (sdl.c.SDL_UpdateTexture(texture, null, @ptrCast(?*const c_void, buffer.ptr), pitch) != 0) {
+    if (sdl.c.SDL_UpdateTexture(texture, 0, @ptrCast(?*const c_void, buffer.ptr), pitch) != 0) {
         std.debug.panic("SDL_UpdateTexture failed: {c}\n", sdl.c.SDL_GetError());
     }
 

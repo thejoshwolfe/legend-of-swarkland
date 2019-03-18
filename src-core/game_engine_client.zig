@@ -47,9 +47,9 @@ pub const GameEngineClient = struct {
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
         self.init();
 
-        var dir = try std.os.selfExeDirPathAlloc(allocator);
+        const dir = try std.os.selfExeDirPathAlloc(allocator);
         defer allocator.free(dir);
-        var path = try std.os.path.join(allocator, dir, "legend-of-swarkland_headless");
+        var path = try std.os.path.join(allocator, [][]const u8{ dir, "legend-of-swarkland_headless" });
         defer allocator.free(path);
 
         self.connection = Connection{ .child_process = undefined };
