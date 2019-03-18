@@ -76,11 +76,8 @@ pub const GameEngine = struct {
 
         var coord_to_individual = Multimap(Coord, usize, core.geometry.eqlCoord).init(self.allocator);
         defer coord_to_individual.deinit();
-
-        for (self.game_state.player_positions) |position, i| {
-            if (!self.game_state.player_is_alive[i]) continue;
-            try coord_to_individual.put(position, i);
-        }
+        var player_is_moving = try self.allocator.alloc(bool, self.game_state.player_positions.len);
+        std.mem.set(bool, player_is_moving, false);
 
         for (actions) |action, i| {
             if (!self.game_state.player_is_alive[i]) continue;
@@ -90,6 +87,7 @@ pub const GameEngine = struct {
                     const old_position = self.game_state.player_positions[i];
                     const new_position = old_position.plus(direction);
                     if (self.isOpenSpace(new_position)) {
+                        player_is_moving[i] = true;
                         try events.append(Event{
                             .moved = Event.Moved{
                                 .player_index = i,
@@ -104,6 +102,12 @@ pub const GameEngine = struct {
                 Action.attack => |direction| {},
             }
         }
+        for (self.game_state.player_positions) |position, i| {
+            if (!self.game_state.player_is_alive[i]) continue;
+            if (player_is_moving[i]) continue;
+            try coord_to_individual.put(position, i);
+        }
+
         for (actions) |action, i| {
             if (!self.game_state.player_is_alive[i]) continue;
             switch (action) {
