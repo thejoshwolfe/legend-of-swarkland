@@ -37,6 +37,17 @@ pub fn build(b: *Builder) void {
 
     b.default_step.dependOn(headless_build);
     b.default_step.dependOn(gui_build);
+
+    const do_fmt = b.option(bool, "fmt", "zig fmt before building") orelse true;
+    if (do_fmt) {
+        const fmt_command = b.addFmt([][]const u8{
+            "build.zig",
+            "src-core",
+            "src-gui",
+        });
+        headless_build.dependOn(&fmt_command.step);
+        gui_build.dependOn(&fmt_command.step);
+    }
 }
 
 fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u8, headless: bool) *std.build.Step {
