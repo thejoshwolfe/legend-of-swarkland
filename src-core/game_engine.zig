@@ -33,7 +33,12 @@ pub const GameEngine = struct {
         events[0] = Event{
             .init_state = Event.InitState{
                 .terrain = undefined,
-                .player_positions = []Coord{ makeCoord(3, 3), makeCoord(8, 5) },
+                .player_positions = blk: {
+                    const slice = try self.allocator.alloc(Coord, 2);
+                    slice[0] = makeCoord(3, 3);
+                    slice[1] = makeCoord(8, 5);
+                    break :blk slice;
+                },
             },
         };
 

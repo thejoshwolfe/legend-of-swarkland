@@ -1,16 +1,18 @@
+const std = @import("std");
+
 const core = @import("./index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Event = core.protocol.Event;
 
 pub const GameState = struct {
-    player_positions: [2]Coord,
+    player_positions: []Coord,
     player_is_alive: [2]bool,
     terrain: Terrain,
 
     pub fn init() GameState {
         return GameState{
-            .player_positions = []Coord{ makeCoord(0, 0), makeCoord(0, 0) },
+            .player_positions = []Coord{},
             .player_is_alive = []bool{ true, true },
             .terrain = Terrain{
             // @_@
@@ -25,7 +27,7 @@ pub const GameState = struct {
             switch (event) {
                 Event.init_state => |e| {
                     self.terrain = e.terrain;
-                    self.player_positions = e.player_positions;
+                    std.mem.copy(Coord, self.player_positions, e.player_positions);
                 },
                 Event.moved => |e| {
                     self.player_positions[e.player_index] = e.to;

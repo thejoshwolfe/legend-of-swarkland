@@ -24,7 +24,7 @@ pub const Event = union(enum) {
     init_state: InitState,
     pub const InitState = struct {
         terrain: Terrain,
-        player_positions: [2]Coord,
+        player_positions: []Coord,
     };
 
     moved: Moved,
@@ -42,6 +42,15 @@ pub const Event = union(enum) {
     };
 
     died: usize,
+
+    pub fn deinit(event: Event, allocator: *std.mem.Allocator) void {
+        switch (event) {
+            Event.init_state => |e| {
+                allocator.free(e.player_positions);
+            },
+            Event.moved, Event.attacked, Event.died => {},
+        }
+    }
 };
 
 pub const Channel = struct {
@@ -165,9 +174,12 @@ pub const Channel = struct {
                 return Event{
                     .init_state = Event.InitState{
                         .terrain = try self.readTerrain(),
-                        .player_positions = []Coord{
-                            try self.readCoord(),
-                            try self.readCoord(),
+                        .player_positions = blk: {
+                            const arr = try self.allocator.alloc(Coord, try self.readArrayLength());
+                            for (arr) |*x| {
+                                x.* = try self.readCoord();
+                            }
+                            break :blk arr;
                         },
                     },
                 };
@@ -201,8 +213,10 @@ pub const Channel = struct {
         switch (_event) {
             Event.init_state => |event| {
                 try self.writeTerrain(event.terrain);
-                try self.writeCoord(event.player_positions[0]);
-                try self.writeCoord(event.player_positions[1]);
+                try self.writeArrayLength(event.player_positions.len);
+                for (event.player_positions) |position| {
+                    try self.writeCoord(position);
+                }
             },
             Event.moved => |event| {
                 try self.writeInt(@intCast(u8, event.player_index));
@@ -297,10 +311,7 @@ pub fn deinitResponse(allocator: *std.mem.Allocator, response: Response) void {
 }
 pub fn deinitEvents(allocator: *std.mem.Allocator, events: []Event) void {
     for (events) |event| {
-        deinitEvent(allocator, event);
+        event.deinit(allocator);
     }
     allocator.free(events);
-}
-pub fn deinitEvent(allocator: *std.mem.Allocator, event: Event) void {
-    // nothing to do for this yet
 }
