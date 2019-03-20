@@ -81,7 +81,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 main_menu_state.beginFrame();
             },
             GameState.running => |*state| {
-                if (state.g.pollEvents()) |response| {
+                if (try state.g.pollEvents()) |response| {
                     defer core.protocol.deinitResponse(allocator, response);
                     loadAnimations(&state.animations, response, now);
                 }

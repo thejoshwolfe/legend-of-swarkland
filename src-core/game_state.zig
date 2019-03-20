@@ -6,12 +6,14 @@ const makeCoord = core.geometry.makeCoord;
 const Event = core.protocol.Event;
 
 pub const GameState = struct {
+    allocator: *std.mem.Allocator,
     player_positions: []Coord,
     player_is_alive: [2]bool,
     terrain: Terrain,
 
-    pub fn init() GameState {
+    pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
+            .allocator = allocator,
             .player_positions = []Coord{},
             .player_is_alive = []bool{ true, true },
             .terrain = Terrain{
@@ -21,12 +23,16 @@ pub const GameState = struct {
             },
         };
     }
+    pub fn deinit(self: *GameState) void {
+        self.allocator.free(self.player_positions);
+    }
 
-    fn applyEvents(self: *GameState, events: []const Event) void {
+    fn applyEvents(self: *GameState, events: []const Event) !void {
         for (events) |event| {
             switch (event) {
                 Event.init_state => |e| {
                     self.terrain = e.terrain;
+                    self.player_positions = try self.allocator.realloc(self.player_positions, e.player_positions.len);
                     std.mem.copy(Coord, self.player_positions, e.player_positions);
                 },
                 Event.moved => |e| {
@@ -39,7 +45,7 @@ pub const GameState = struct {
             }
         }
     }
-    fn undoEvents(self: *GameState, events: []const Event) void {
+    fn undoEvents(self: *GameState, events: []const Event) error{}!void {
         for (events) |event| {
             switch (event) {
                 Event.moved => |e| {

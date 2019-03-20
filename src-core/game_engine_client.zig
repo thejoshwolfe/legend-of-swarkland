@@ -36,7 +36,7 @@ pub const GameEngineClient = struct {
     fn init(self: *GameEngineClient) void {
         self.stay_alive = std.atomic.Int(u8).init(1);
 
-        self.game_state = GameState.init();
+        self.game_state = GameState.init(allocator);
     }
     fn startThreads(self: *GameEngineClient) !void {
         // start threads last
@@ -109,14 +109,14 @@ pub const GameEngineClient = struct {
         return self.stay_alive.get() != 0;
     }
 
-    pub fn pollEvents(self: *GameEngineClient) ?Response {
+    pub fn pollEvents(self: *GameEngineClient) !?Response {
         const response = queueGet(Response, &self.response_inbox) orelse return null;
         switch (response) {
             Response.events => |events| {
-                self.game_state.applyEvents(events);
+                try self.game_state.applyEvents(events);
             },
             Response.undo => |events| {
-                self.game_state.undoEvents(events);
+                try self.game_state.undoEvents(events);
             },
         }
         return response;

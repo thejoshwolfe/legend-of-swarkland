@@ -23,7 +23,7 @@ pub const GameEngine = struct {
     pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) void {
         self.* = GameEngine{
             .allocator = allocator,
-            .game_state = GameState.init(),
+            .game_state = GameState.init(allocator),
             .history = HistoryList.init(),
         };
     }
@@ -140,7 +140,7 @@ pub const GameEngine = struct {
 
     pub fn applyEvents(self: *GameEngine, events: []Event) !void {
         try self.recordEvents(events);
-        self.game_state.applyEvents(events);
+        try self.game_state.applyEvents(events);
     }
 
     pub fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
@@ -164,7 +164,7 @@ pub const GameEngine = struct {
         const node = self.history.pop() orelse return null;
         const events = node.data;
         self.allocator.destroy(node);
-        self.game_state.undoEvents(events);
+        try self.game_state.undoEvents(events);
         return events;
     }
 
