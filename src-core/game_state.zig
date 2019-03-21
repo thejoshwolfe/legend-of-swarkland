@@ -36,7 +36,7 @@ pub const GameState = struct {
                     std.mem.copy(Coord, self.player_positions, e.player_positions);
                 },
                 Event.moved => |e| {
-                    self.player_positions[e.player_index] = e.to;
+                    self.player_positions[e.player_index] = e.locations[e.locations.len - 1];
                 },
                 Event.attacked => {},
                 Event.died => |player_index| {
@@ -49,7 +49,7 @@ pub const GameState = struct {
         for (events) |event| {
             switch (event) {
                 Event.moved => |e| {
-                    self.player_positions[e.player_index] = e.from;
+                    self.player_positions[e.player_index] = e.locations[0];
                 },
                 Event.attacked => {},
                 Event.died => |player_index| {

@@ -33,12 +33,10 @@ pub const GameEngine = struct {
         events[0] = Event{
             .init_state = Event.InitState{
                 .terrain = undefined,
-                .player_positions = blk: {
-                    const slice = try self.allocator.alloc(Coord, 2);
-                    slice[0] = makeCoord(3, 3);
-                    slice[1] = makeCoord(8, 5);
-                    break :blk slice;
-                },
+                .player_positions = try std.mem.dupe(self.allocator, Coord, []Coord{
+                    makeCoord(3, 3),
+                    makeCoord(8, 5),
+                }),
             },
         };
 
@@ -96,8 +94,7 @@ pub const GameEngine = struct {
                         try events.append(Event{
                             .moved = Event.Moved{
                                 .player_index = i,
-                                .from = old_position,
-                                .to = new_position,
+                                .locations = try std.mem.dupe(self.allocator, Coord, []Coord{ old_position, new_position }),
                             },
                         });
                         // they are also here

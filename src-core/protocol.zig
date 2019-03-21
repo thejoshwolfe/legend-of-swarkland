@@ -30,8 +30,7 @@ pub const Event = union(enum) {
     moved: Moved,
     pub const Moved = struct {
         player_index: usize,
-        from: Coord,
-        to: Coord,
+        locations: []Coord,
     };
 
     attacked: Attacked,
@@ -48,7 +47,10 @@ pub const Event = union(enum) {
             Event.init_state => |e| {
                 allocator.free(e.player_positions);
             },
-            Event.moved, Event.attacked, Event.died => {},
+            Event.moved => |e| {
+                allocator.free(e.locations);
+            },
+            Event.attacked, Event.died => {},
         }
     }
 };
@@ -131,10 +133,6 @@ pub const Channel = struct {
             },
             else => return error.MalformedData,
         }
-        switch (Event.moved) {
-            Response.events => {},
-            Response.undo => {},
-        }
     }
     fn writeResponse(self: *Channel, response: Response) !void {
         try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
@@ -188,8 +186,13 @@ pub const Channel = struct {
                 return Event{
                     .moved = Event.Moved{
                         .player_index = try self.readInt(u8),
-                        .from = try self.readCoord(),
-                        .to = try self.readCoord(),
+                        .locations = blk: {
+                            const arr = try self.allocator.alloc(Coord, try self.readArrayLength());
+                            for (arr) |*x| {
+                                x.* = try self.readCoord();
+                            }
+                            break :blk arr;
+                        },
                     },
                 };
             },
@@ -220,8 +223,10 @@ pub const Channel = struct {
             },
             Event.moved => |event| {
                 try self.writeInt(@intCast(u8, event.player_index));
-                try self.writeCoord(event.from);
-                try self.writeCoord(event.to);
+                try self.writeArrayLength(event.locations.len);
+                for (event.locations) |location| {
+                    try self.writeCoord(location);
+                }
             },
             Event.attacked => |event| {
                 try self.writeInt(@intCast(u8, event.player_index));

@@ -357,8 +357,8 @@ fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
                         animations.move_animations[e.player_index] = MoveAnimation{
                             .start_time = now,
                             .end_time = now + 200,
-                            .from = e.from,
-                            .to = e.to,
+                            .from = e.locations[0],
+                            .to = e.locations[e.locations.len - 1],
                         };
                     },
                     Event.attacked => |e| {
