@@ -11,6 +11,11 @@ pub const GameState = struct {
     player_is_alive: [2]bool,
     terrain: Terrain,
 
+    // iterate over this so that you don't have to do `if(!alive)continue`
+    alive_players: []usize,
+    // the above slice points to this
+    _alive_players_buffer: [2]usize,
+
     pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
             .allocator = allocator,
@@ -21,6 +26,8 @@ pub const GameState = struct {
                 .floor = [][16]Floor{[]Floor{Floor.unknown} ** 16} ** 16,
                 .walls = [][16]Wall{[]Wall{Wall.unknown} ** 16} ** 16,
             },
+            .alive_players = []usize{},
+            ._alive_players_buffer = []usize{0} ** 2,
         };
     }
     pub fn deinit(self: *GameState) void {
@@ -44,6 +51,7 @@ pub const GameState = struct {
                 },
             }
         }
+        self.refreshCaches();
     }
     fn undoEvents(self: *GameState, events: []const Event) error{}!void {
         for (events) |event| {
@@ -58,6 +66,17 @@ pub const GameState = struct {
                 Event.init_state => @panic("can't undo the beginning of time"),
             }
         }
+        self.refreshCaches();
+    }
+
+    fn refreshCaches(self: *GameState) void {
+        var alive_player_count: usize = 0;
+        for (self.player_is_alive) |is_alive, i| {
+            if (!is_alive) continue;
+            self._alive_players_buffer[alive_player_count] = i;
+            alive_player_count += 1;
+        }
+        self.alive_players = self._alive_players_buffer[0..alive_player_count];
     }
 };
 

@@ -77,44 +77,107 @@ pub const GameEngine = struct {
         // all game rules are here
         var events = ArrayList(Event).init(self.allocator);
 
-        var coord_to_individual = Multimap(Coord, usize, core.geometry.eqlCoord).init(self.allocator);
-        defer coord_to_individual.deinit();
-        var player_is_moving = try self.allocator.alloc(bool, self.game_state.player_positions.len);
-        std.mem.set(bool, player_is_moving, false);
+        // allocate lots of little things with this,
+        // but anything returned from this function has to be allocated from the main allocator
+        var _arena = std.heap.ArenaAllocator.init(self.allocator);
+        defer _arena.deinit();
+        const arena = &_arena.allocator;
 
-        for (actions) |action, i| {
-            if (!self.game_state.player_is_alive[i]) continue;
+        // read movement
+        var any_movement = false;
+        var current_player_positions = try arena.alloc(Coord, self.game_state.player_positions.len);
+        var current_player_movement = try arena.alloc(Coord, self.game_state.player_positions.len);
+        var current_player_force = try arena.alloc(u4, self.game_state.player_positions.len);
+        for (self.game_state.alive_players) |i| {
+            const action = actions[i];
 
             switch (action) {
                 Action.move => |direction| {
-                    const old_position = self.game_state.player_positions[i];
-                    const new_position = old_position.plus(direction);
-                    if (self.isOpenSpace(new_position)) {
-                        player_is_moving[i] = true;
-                        try events.append(Event{
-                            .moved = Event.Moved{
-                                .player_index = i,
-                                .locations = try std.mem.dupe(self.allocator, Coord, []Coord{ old_position, new_position }),
-                            },
-                        });
-                        // they are also here
-                        try coord_to_individual.put(new_position, i);
-                    }
+                    current_player_positions[i] = self.game_state.player_positions[i];
+                    current_player_movement[i] = direction;
+                    any_movement = true;
                 },
-                Action.attack => |direction| {},
+                else => {
+                    // standing still
+                    current_player_positions[i] = self.game_state.player_positions[i];
+                    current_player_movement[i] = makeCoord(0, 0);
+                },
             }
         }
-        for (self.game_state.player_positions) |position, i| {
-            if (!self.game_state.player_is_alive[i]) continue;
-            if (player_is_moving[i]) continue;
-            try coord_to_individual.put(position, i);
+        // detect and resolve collisions
+        while (any_movement) {
+            any_movement = false;
+            // calculate the forces
+            var force_field = [][16]u4{[]u4{0} ** 16} ** 16;
+            // walls
+            var cursor = makeCoord(0, 0);
+            while (cursor.y < 16) : (cursor.y += 1) {
+                cursor.x = 0;
+                while (cursor.x < 16) : (cursor.x += 1) {
+                    if (!self.isOpenSpace(cursor)) {
+                        // walls push in all directions
+                        force_field[@intCast(u4, cursor.y)][@intCast(u4, cursor.x)] = 15;
+                    }
+                }
+            }
+            // do movement
+            for (self.game_state.alive_players) |i| {
+                const direction = current_player_movement[i];
+                if (direction.x == 0 and direction.y == 0) {
+                    // standing still means pushing in all directions
+                    current_player_force[i] = 15;
+                } else {
+                    // moving
+                    const old_position = current_player_positions[i];
+                    const new_position = old_position.plus(direction);
+                    current_player_positions[i] = new_position;
+                    current_player_force[i] = core.geometry.directionToCardinalBitmask(direction);
+                }
+                // contribute force
+                const position = current_player_positions[i];
+                force_field[@intCast(u4, position.y)][@intCast(u4, position.x)] |= current_player_force[i];
+            }
+            // who's getting pushed
+            for (self.game_state.alive_players) |i| {
+                const position = current_player_positions[i];
+                const my_force = current_player_force[i];
+                // look at all the forces except our own
+                const ambient_force = force_field[@intCast(u4, position.y)][@intCast(u4, position.x)] & ~my_force;
+                if (ambient_force != 0) {
+                    // oof
+                    const push_direction = core.geometry.cardinalBitmaskToDirection(ambient_force) orelse
+                    // if we're walking into something stationary, or walking into a clusterfuck,
+                    // just reverse course.
+                        core.geometry.cardinalBitmaskToDirection(my_force).?.negated();
+                    current_player_movement[i] = push_direction;
+                    any_movement = true;
+                } else {
+                    current_player_movement[i] = makeCoord(0, 0);
+                }
+            }
         }
 
-        for (actions) |action, i| {
-            if (!self.game_state.player_is_alive[i]) continue;
+        // publish movement as events.
+        // TODO: we should give a full history to be animated instead of this digest
+        for (self.game_state.alive_players) |i| {
+            const old_position = self.game_state.player_positions[i];
+            const new_position = current_player_positions[i];
+            if (!old_position.equals(new_position)) {
+                try events.append(Event{
+                    .moved = Event.Moved{
+                        .player_index = i,
+                        .locations = try std.mem.dupe(self.allocator, Coord, []Coord{ old_position, new_position }),
+                    },
+                });
+            }
+        }
+
+        // resolve attacks
+        for (self.game_state.alive_players) |i| {
+            const action = actions[i];
             switch (action) {
                 Action.attack => |direction| {
-                    const origin_position = self.game_state.player_positions[i];
+                    const origin_position = current_player_positions[i];
                     const attack_location = origin_position.plus(direction);
                     try events.append(Event{
                         .attacked = Event.Attacked{
@@ -124,9 +187,10 @@ pub const GameEngine = struct {
                         },
                     });
 
-                    var iterator = coord_to_individual.find(attack_location);
-                    while (iterator.next()) |hit_i| {
-                        try events.append(Event{ .died = hit_i });
+                    for (self.game_state.alive_players) |j| {
+                        if (current_player_positions[j].equals(attack_location)) {
+                            try events.append(Event{ .died = j });
+                        }
                     }
                 },
                 Action.move => |direction| {},
@@ -175,46 +239,3 @@ pub const GameEngine = struct {
 pub const HistoryFrame = struct {
     event: []Event,
 };
-
-fn Multimap(comptime K: type, comptime V: type, comptime eql: fn (a: K, b: K) bool) type {
-    // TODO: use an actual hash multimap instead of this linear search (maybe)
-    return struct {
-        const Self = @This();
-
-        entries: ArrayList(KV),
-
-        const KV = struct {
-            k: K,
-            v: V,
-        };
-
-        pub fn init(allocator: *std.mem.Allocator) Self {
-            return Self{ .entries = ArrayList(KV).init(allocator) };
-        }
-        pub fn deinit(self: *Self) void {
-            self.entries.deinit();
-        }
-
-        pub fn put(self: *Self, k: K, v: V) !void {
-            try self.entries.append(KV{ .k = k, .v = v });
-        }
-
-        pub fn find(self: *Self, k: K) ValueIterator {
-            return ValueIterator{ .self = self, .k = k, .i = 0 };
-        }
-        pub const ValueIterator = struct {
-            self: *const Self,
-            k: K,
-            i: usize,
-
-            pub fn next(self: *ValueIterator) ?V {
-                while (self.i < self.self.entries.len) {
-                    const kv = &self.self.entries.items[self.i];
-                    self.i += 1;
-                    if (eql(kv.k, self.k)) return kv.v;
-                }
-                return null;
-            }
-        };
-    };
-}
