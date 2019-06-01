@@ -22,7 +22,7 @@ pub const GameState = struct {
             .player_positions = []Coord{},
             .player_is_alive = []bool{ true, true },
             .terrain = Terrain{
-            // @_@
+                // @_@
                 .floor = [][16]Floor{[]Floor{Floor.unknown} ** 16} ** 16,
                 .walls = [][16]Wall{[]Wall{Wall.unknown} ** 16} ** 16,
             },

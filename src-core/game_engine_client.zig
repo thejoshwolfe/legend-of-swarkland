@@ -79,7 +79,18 @@ pub const GameEngineClient = struct {
                 data.recv_pipe = try makePipe();
                 self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
                 data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
-                data.core_thread = try std.os.spawnThread(&data.server_channel, core.game_server.server_main);
+                const LambdaPlease = struct {
+                    pub fn f(context: *Channel) void {
+                        core.game_server.server_main(context) catch |err| {
+                            std.debug.warn("error: {}\n", @errorName(err));
+                            if (@errorReturnTrace()) |trace| {
+                                std.debug.dumpStackTrace(trace.*);
+                            }
+                            @panic("");
+                        };
+                    }
+                };
+                data.core_thread = try std.os.spawnThread(&data.server_channel, LambdaPlease.f);
             },
             else => unreachable,
         }
