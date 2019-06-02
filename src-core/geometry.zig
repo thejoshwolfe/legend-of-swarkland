@@ -119,3 +119,9 @@ pub fn cardinalBitmaskToDirection(mask: u4) ?Coord {
     }
     return direction;
 }
+
+pub fn sign(x: var) @typeOf(x) {
+    if (x > 0) return 1;
+    if (x == 0) return 0;
+    return -1;
+}

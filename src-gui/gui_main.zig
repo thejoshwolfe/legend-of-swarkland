@@ -285,7 +285,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             textures.renderSprite(renderer, textures.sprites.dagger, display_position);
                         }
                     } else {
-                        textures.renderSprite(renderer, textures.sprites.ogre, display_position);
+                        textures.renderSprite(renderer, textures.sprites.orc, display_position);
                     }
 
                     if (dying_texture) |t| {

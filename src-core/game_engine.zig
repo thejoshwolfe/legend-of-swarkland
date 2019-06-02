@@ -34,8 +34,9 @@ pub const GameEngine = struct {
             .init_state = Event.InitState{
                 .terrain = undefined,
                 .player_positions = try std.mem.dupe(self.allocator, Coord, []Coord{
-                    makeCoord(3, 3),
-                    makeCoord(8, 5),
+                    makeCoord(7, 14),
+                    makeCoord(3, 2),
+                    // makeCoord(14, 2), // TODO: not ready for a 3rd entity yet.
                 }),
             },
         };

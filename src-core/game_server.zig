@@ -12,7 +12,7 @@ const Event = core.protocol.Event;
 
 const allocator = std.heap.c_allocator;
 
-pub fn server_main(channel: *Channel) !void {
+pub fn server_main(player_channel: *Channel) !void {
     core.debug.nameThisThread("core");
     core.debug.warn("init\n");
     defer core.debug.warn("shutdown\n");
@@ -22,14 +22,14 @@ pub fn server_main(channel: *Channel) !void {
     {
         const events = try game_engine.getStartGameEvents();
         try game_engine.applyEvents(events);
-        try channel.writeResponse(Response{ .events = events });
+        try player_channel.writeResponse(Response{ .events = events });
     }
 
     core.debug.warn("start main loop\n");
     while (true) {
-        switch ((try channel.readRequest()) orelse {
+        switch ((try player_channel.readRequest()) orelse {
             core.debug.warn("clean shutdown. close\n");
-            channel.close();
+            player_channel.close();
             break;
         }) {
             Request.act => |action| {
@@ -42,11 +42,11 @@ pub fn server_main(channel: *Channel) !void {
 
                 // TODO: make a copy of the events here to take ownership, then deinit the response.
                 try game_engine.applyEvents(events);
-                try channel.writeResponse(Response{ .events = events });
+                try player_channel.writeResponse(Response{ .events = events });
             },
             Request.rewind => {
                 if (game_engine.rewind()) |events| {
-                    try channel.writeResponse(Response{ .undo = events });
+                    try player_channel.writeResponse(Response{ .undo = events });
                     core.protocol.deinitEvents(allocator, events);
                 }
             },
@@ -58,11 +58,22 @@ fn getAiAction(game_state: GameState) Action {
     // TODO: move this to another thread/process and communicate using a channel.
     const me = game_state.player_positions[1];
     if (game_state.player_is_alive[0]) {
+        // chase the opponent
         const you = game_state.player_positions[0];
         var delta = you.minus(me);
+        std.debug.assert(!(delta.x == 0 and delta.y == 0));
         if (delta.x * delta.y == 0 and (delta.x + delta.y) * (delta.x + delta.y) == 1) {
+            // orthogonally adjacent.
             return Action{ .attack = delta };
         }
+        // move toward the target
+        if (delta.x != 0) {
+            // prioritize sideways movement
+            return Action{ .move = Coord{ .x = core.geometry.sign(delta.x), .y = 0 } };
+        } else {
+            return Action{ .move = Coord{ .x = 0, .y = core.geometry.sign(delta.y) } };
+        }
     }
-    return Action{ .move = Coord{ .x = -1, .y = 0 } };
+    // everyone is dead
+    return Action{ .move = Coord{ .x = 0, .y = -1 } };
 }
