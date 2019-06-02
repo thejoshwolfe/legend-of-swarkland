@@ -8,26 +8,26 @@ const Event = core.protocol.Event;
 pub const GameState = struct {
     allocator: *std.mem.Allocator,
     player_positions: []Coord,
-    player_is_alive: [2]bool,
+    player_is_alive: [5]bool,
     terrain: Terrain,
 
     // iterate over this so that you don't have to do `if(!alive)continue`
     alive_players: []usize,
     // the above slice points to this
-    _alive_players_buffer: [2]usize,
+    _alive_players_buffer: [5]usize,
 
     pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
             .allocator = allocator,
             .player_positions = []Coord{},
-            .player_is_alive = []bool{ true, true },
+            .player_is_alive = []bool{true} ** 5,
             .terrain = Terrain{
                 // @_@
                 .floor = [][16]Floor{[]Floor{Floor.unknown} ** 16} ** 16,
                 .walls = [][16]Wall{[]Wall{Wall.unknown} ** 16} ** 16,
             },
             .alive_players = []usize{},
-            ._alive_players_buffer = []usize{0} ** 2,
+            ._alive_players_buffer = []usize{0} ** 5,
         };
     }
     pub fn deinit(self: *GameState) void {

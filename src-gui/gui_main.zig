@@ -197,9 +197,9 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             .g = undefined,
                             .started_attack = false,
                             .animations = Animations{
-                                .move_animations = []?MoveAnimation{ null, null },
-                                .attack_animations = []?AttackAnimation{ null, null },
-                                .death_animations = []?DeathAnimation{ null, null },
+                                .move_animations = []?MoveAnimation{null} ** 5,
+                                .attack_animations = []?AttackAnimation{null} ** 5,
+                                .death_animations = []?DeathAnimation{null} ** 5,
                             },
                         },
                     };
@@ -325,9 +325,9 @@ fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
 }
 
 const Animations = struct {
-    move_animations: [2]?MoveAnimation,
-    attack_animations: [2]?AttackAnimation,
-    death_animations: [2]?DeathAnimation,
+    move_animations: [5]?MoveAnimation,
+    attack_animations: [5]?AttackAnimation,
+    death_animations: [5]?DeathAnimation,
 };
 const MoveAnimation = struct {
     start_time: i32,
@@ -380,9 +380,9 @@ fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
         },
         Response.undo => |events| {
             animations.* = Animations{
-                .move_animations = []?MoveAnimation{ null, null },
-                .attack_animations = []?AttackAnimation{ null, null },
-                .death_animations = []?DeathAnimation{ null, null },
+                .move_animations = []?MoveAnimation{null} ** 5,
+                .attack_animations = []?AttackAnimation{null} ** 5,
+                .death_animations = []?DeathAnimation{null} ** 5,
             };
         },
     }

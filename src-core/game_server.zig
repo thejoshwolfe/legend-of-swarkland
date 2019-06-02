@@ -32,12 +32,16 @@ pub fn server_main(player_channel: *Channel) !void {
             player_channel.close();
             break;
         }) {
-            Request.act => |action| {
-                if (!game_engine.validateAction(action)) continue;
-                var actions = []Action{
-                    action,
-                    getAiAction(game_engine.game_state),
-                };
+            Request.act => |player_action| {
+                if (!game_engine.validateAction(player_action)) continue;
+                var actions: [5]Action = undefined;
+                for (actions) |*action, i| {
+                    if (i == 0) {
+                        action.* = player_action;
+                    } else {
+                        action.* = getAiAction(game_engine.game_state, i);
+                    }
+                }
                 const events = try game_engine.actionsToEvents(actions[0..]);
 
                 // TODO: make a copy of the events here to take ownership, then deinit the response.
@@ -54,9 +58,9 @@ pub fn server_main(player_channel: *Channel) !void {
     }
 }
 
-fn getAiAction(game_state: GameState) Action {
+fn getAiAction(game_state: GameState, i: usize) Action {
     // TODO: move this to another thread/process and communicate using a channel.
-    const me = game_state.player_positions[1];
+    const me = game_state.player_positions[i];
     if (game_state.player_is_alive[0]) {
         // chase the opponent
         const you = game_state.player_positions[0];
