@@ -38,8 +38,11 @@ pub fn server_main(player_channel: *Channel) !void {
                 for (actions) |*action, i| {
                     if (i == 0) {
                         action.* = player_action;
-                    } else {
+                    } else if (game_engine.game_state.player_is_alive[i]) {
                         action.* = getAiAction(game_engine.game_state, i);
+                    } else {
+                        // ded. doesn't matter.
+                        action.* = Action{ .move = Coord{ .x = 0, .y = 1 } };
                     }
                 }
                 const events = try game_engine.actionsToEvents(actions[0..]);
