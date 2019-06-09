@@ -24,6 +24,10 @@ pub fn main() anyerror!void {
     core.debug.warn("init\n");
     defer core.debug.warn("shutdown\n");
 
+    // SDL handling SIGINT blocks propagation to child threads.
+    if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, c"1", sdl.c.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.c.SDL_bool.SDL_FALSE)) {
+        std.debug.panic("failed to disable sdl signal handlers\n");
+    }
     if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
         std.debug.panic("SDL_Init failed: {c}\n", sdl.c.SDL_GetError());
     }
@@ -92,6 +96,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
                 sdl.c.SDL_QUIT => {
+                    core.debug.warn("sdl quit\n");
                     return;
                 },
                 sdl.c.SDL_WINDOWEVENT => {
