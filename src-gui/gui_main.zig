@@ -208,21 +208,11 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             },
                         },
                     };
-                    switch (game_state) {
-                        GameState.running => |*state| {
-                            try state.g.startAsThread();
-                        },
-                        else => unreachable,
-                    }
+                    try game_state.running.g.startAsThread();
                 }
                 if (menu_renderer.button("Attach to Game (Process)")) {
                     game_state = GameState{ .running = undefined };
-                    switch (game_state) {
-                        GameState.running => |*state| {
-                            try state.g.startAsChildProcess();
-                        },
-                        else => unreachable,
-                    }
+                    try game_state.running.g.startAsChildProcess();
                 }
                 if (menu_renderer.button("Quit")) {
                     // quit
