@@ -207,7 +207,7 @@ pub const GameEngine = struct {
         try self.game_state.applyEvents(events);
     }
 
-    pub fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
+    fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
         if (coord.x < 0 or coord.y < 0) return false;
         if (coord.x >= 16 or coord.y >= 16) return false;
         return self.game_state.terrain.walls[@intCast(usize, coord.y)][@intCast(usize, coord.x)] == Wall.air;

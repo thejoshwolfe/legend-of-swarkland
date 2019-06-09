@@ -56,6 +56,7 @@ pub const GameState = struct {
     fn undoEvents(self: *GameState, events: []const Event) error{}!void {
         for (events) |event| {
             switch (event) {
+                Event.init_state => @panic("can't undo the beginning of time"),
                 Event.moved => |e| {
                     self.player_positions[e.player_index] = e.locations[0];
                 },
@@ -63,7 +64,6 @@ pub const GameState = struct {
                 Event.died => |player_index| {
                     self.player_is_alive[player_index] = true;
                 },
-                Event.init_state => @panic("can't undo the beginning of time"),
             }
         }
         self.refreshCaches();
