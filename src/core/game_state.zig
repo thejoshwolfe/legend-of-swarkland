@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const core = @import("./index.zig");
+const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Event = core.protocol.Event;

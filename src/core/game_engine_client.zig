@@ -1,5 +1,6 @@
 const std = @import("std");
-const core = @import("./index.zig");
+const core = @import("../index.zig");
+const game_server = @import("../server/game_server.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Channel = core.protocol.Channel;
@@ -83,7 +84,7 @@ pub const GameEngineClient = struct {
                 data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
                 const LambdaPlease = struct {
                     pub fn f(context: *Channel) void {
-                        core.game_server.server_main(context) catch |err| {
+                        game_server.server_main(context) catch |err| {
                             std.debug.warn("error: {}\n", @errorName(err));
                             if (@errorReturnTrace()) |trace| {
                                 std.debug.dumpStackTrace(trace.*);

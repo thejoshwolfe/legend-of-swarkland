@@ -1,6 +1,7 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
-const core = @import("./index.zig");
+// TODO: change to "core" when we dependencies untangled
+const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const GameEngine = core.game_engine.GameEngine;
 const GameState = core.game_state.GameState;

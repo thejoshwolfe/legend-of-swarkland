@@ -1,5 +1,6 @@
 const std = @import("std");
-const core = @import("./index.zig");
+const core = @import("core");
+const game_server = @import("../server/game_server.zig");
 const Channel = core.protocol.Channel;
 
 const allocator = std.heap.c_allocator;
@@ -9,5 +10,5 @@ pub fn main() anyerror!void {
     // communicate with stdio
     var channel: Channel = undefined;
     channel.init(allocator, try std.io.getStdIn(), try std.io.getStdOut());
-    return core.game_server.server_main(&channel);
+    return game_server.server_main(&channel);
 }
