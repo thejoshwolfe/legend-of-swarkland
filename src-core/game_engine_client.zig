@@ -62,6 +62,8 @@ pub const GameEngineClient = struct {
                 child_process.*.stdin_behavior = std.ChildProcess.StdIo.Pipe;
                 try child_process.*.spawn();
                 self.channel.init(allocator, child_process.*.stdout.?, child_process.*.stdin.?);
+                // FIXME: workaround for wait() trying to close stdin when it's already closed.
+                child_process.*.stdin = null;
             },
             else => unreachable,
         }
