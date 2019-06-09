@@ -57,14 +57,14 @@ pub const Event = union(enum) {
 
 pub const Channel = struct {
     allocator: *std.mem.Allocator,
-    in_file: std.os.File,
-    out_file: std.os.File,
-    in_adapter: std.os.File.InStream,
-    out_adapter: std.os.File.OutStream,
-    in_stream: *std.io.InStream(std.os.File.ReadError),
-    out_stream: *std.io.OutStream(std.os.File.WriteError),
+    in_file: std.fs.File,
+    out_file: std.fs.File,
+    in_adapter: std.fs.File.InStream,
+    out_adapter: std.fs.File.OutStream,
+    in_stream: *std.io.InStream(std.fs.File.ReadError),
+    out_stream: *std.io.OutStream(std.fs.File.WriteError),
 
-    pub fn init(self: *Channel, allocator: *std.mem.Allocator, in_file: std.os.File, out_file: std.os.File) void {
+    pub fn init(self: *Channel, allocator: *std.mem.Allocator, in_file: std.fs.File, out_file: std.fs.File) void {
         self.allocator = allocator;
         self.in_file = in_file;
         self.out_file = out_file;

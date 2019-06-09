@@ -5,7 +5,7 @@ pub fn warn(comptime fmt: []const u8, args: ...) void {
     // doesn't interleave on the same line.
     var buffer: [0x1000]u8 = undefined;
     const prefix_name = blk: {
-        const me = std.os.Thread.getCurrentId();
+        const me = std.Thread.getCurrentId();
         for (thread_names) |*maybe_it| {
             if (maybe_it.*) |it| {
                 if (it.id == me) break :blk it.name;
@@ -24,14 +24,14 @@ pub fn init() void {
 }
 
 const IdAndName = struct {
-    id: std.os.Thread.Id,
+    id: std.Thread.Id,
     name: []const u8,
 };
 var thread_names = []?IdAndName{null} ** 100;
 pub fn nameThisThread(name: []const u8) void {
     var held = mutex.?.acquire();
     defer held.release();
-    const me = std.os.Thread.getCurrentId();
+    const me = std.Thread.getCurrentId();
     for (thread_names) |*maybe_it| {
         if (maybe_it.*) |it| {
             std.debug.assert(it.id != me);

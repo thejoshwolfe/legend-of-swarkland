@@ -12,12 +12,12 @@ const GameState = core.game_state.GameState;
 const allocator = std.heap.c_allocator;
 
 const Connection = union(enum) {
-    child_process: *std.os.ChildProcess,
+    child_process: *std.ChildProcess,
     thread: ThreadData,
     const ThreadData = struct {
-        core_thread: *std.os.Thread,
-        send_pipe: [2]std.os.File,
-        recv_pipe: [2]std.os.File,
+        core_thread: *std.Thread,
+        send_pipe: [2]std.fs.File,
+        recv_pipe: [2]std.fs.File,
         server_channel: Channel,
     };
 };
@@ -25,8 +25,8 @@ const Connection = union(enum) {
 pub const GameEngineClient = struct {
     connection: Connection,
     channel: Channel,
-    send_thread: *std.os.Thread,
-    recv_thread: *std.os.Thread,
+    send_thread: *std.Thread,
+    recv_thread: *std.Thread,
     request_outbox: std.atomic.Queue(Request),
     response_inbox: std.atomic.Queue(Response),
     stay_alive: std.atomic.Int(u8),
@@ -40,16 +40,16 @@ pub const GameEngineClient = struct {
     }
     fn startThreads(self: *GameEngineClient) !void {
         // start threads last
-        self.send_thread = try std.os.spawnThread(self, sendMain);
-        self.recv_thread = try std.os.spawnThread(self, recvMain);
+        self.send_thread = try std.Thread.spawn(self, sendMain);
+        self.recv_thread = try std.Thread.spawn(self, recvMain);
     }
 
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
         self.init();
 
-        const dir = try std.os.selfExeDirPathAlloc(allocator);
+        const dir = try std.fs.selfExeDirPathAlloc(allocator);
         defer allocator.free(dir);
-        var path = try std.os.path.join(allocator, [][]const u8{ dir, "legend-of-swarkland_headless" });
+        var path = try std.fs.path.join(allocator, [][]const u8{ dir, "legend-of-swarkland_headless" });
         defer allocator.free(path);
 
         self.connection = Connection{ .child_process = undefined };
@@ -57,9 +57,9 @@ pub const GameEngineClient = struct {
             // TODO: This switch is a workaround for lack of guaranteed copy elision.
             Connection.child_process => |*child_process| {
                 const args = []const []const u8{path};
-                child_process.* = try std.os.ChildProcess.init(args, allocator);
-                child_process.*.stdout_behavior = std.os.ChildProcess.StdIo.Pipe;
-                child_process.*.stdin_behavior = std.os.ChildProcess.StdIo.Pipe;
+                child_process.* = try std.ChildProcess.init(args, allocator);
+                child_process.*.stdout_behavior = std.ChildProcess.StdIo.Pipe;
+                child_process.*.stdin_behavior = std.ChildProcess.StdIo.Pipe;
                 try child_process.*.spawn();
                 self.channel.init(allocator, child_process.*.stdout.?, child_process.*.stdin.?);
             },
@@ -90,7 +90,7 @@ pub const GameEngineClient = struct {
                         };
                     }
                 };
-                data.core_thread = try std.os.spawnThread(&data.server_channel, LambdaPlease.f);
+                data.core_thread = try std.Thread.spawn(&data.server_channel, LambdaPlease.f);
             },
             else => unreachable,
         }
@@ -140,7 +140,7 @@ pub const GameEngineClient = struct {
         while (self.isAlive()) {
             const request = queueGet(Request, &self.request_outbox) orelse {
                 // :ResidentSleeper:
-                std.os.time.sleep(17 * std.os.time.millisecond);
+                std.time.sleep(17 * std.time.millisecond);
                 continue;
             };
             self.channel.writeRequest(request) catch |err| {
@@ -190,18 +190,11 @@ fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
     const hack = node.data; // TODO: https://github.com/ziglang/zig/issues/961
     return hack;
 }
-fn makePipe() ![2]std.os.File {
+fn makePipe() ![2]std.fs.File {
     // copied from std child_process.zig
-    var fds: [2]i32 = undefined;
-    const err = std.os.posix.getErrno(std.os.posix.pipe(&fds));
-    if (err > 0) {
-        return switch (err) {
-            std.os.posix.EMFILE, std.os.posix.ENFILE => error.SystemResources,
-            else => std.os.unexpectedErrorPosix(err),
-        };
-    }
-    return []std.os.File{
-        std.os.File.openHandle(fds[0]),
-        std.os.File.openHandle(fds[1]),
+    var fds: [2]i32 = try std.os.pipe();
+    return []std.fs.File{
+        std.fs.File.openHandle(fds[0]),
+        std.fs.File.openHandle(fds[1]),
     };
 }
