@@ -5,8 +5,8 @@ const Rect = core.geometry.Rect;
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 
-pub const sprites = @import("../zig-cache/spritesheet.zig");
-pub const fonts = @import("../zig-cache/fontsheet.zig");
+pub const sprites = @import("../../zig-cache/spritesheet.zig");
+pub const fonts = @import("../../zig-cache/fontsheet.zig");
 
 var sprites_texture: *sdl.c.SDL_Texture = undefined;
 var fonts_texture: *sdl.c.SDL_Texture = undefined;
