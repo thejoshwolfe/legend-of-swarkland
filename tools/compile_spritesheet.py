@@ -128,7 +128,7 @@ def main(source_dir, tile_size, slice_dimensions, spritesheet_path, defs_path, d
   # check defs
   if tile_size != None:
     defs_item_format = "pub const %%s = Rect{.x = %%i, .y = %%i, .width = %i, .height = %i};" % (item_dimensions[0], item_dimensions[1]);
-    defs_group_format = "pub const %s = []Rect{\n%s\n};"
+    defs_group_format = "pub const %s = [_]Rect{\n%s\n};"
     defs_group_item_format = "    Rect{.x = %%i, .y = %%i, .width = %i, .height = %i}," % (item_dimensions[0], item_dimensions[1]);
     defs_contents = defs_format.format(
       os.path.relpath(spritesheet_path, os.path.dirname(defs_path)),
@@ -145,7 +145,7 @@ def main(source_dir, tile_size, slice_dimensions, spritesheet_path, defs_path, d
       ])
     )
   else:
-    defs_item_format       = "pub const %s = []Rect{\n%s};";
+    defs_item_format       = "pub const %s = [_]Rect{\n%s};";
     defs_item_child_format = "    Rect{.x = %i, .y = %i, .width = %i, .height = %i},\n";
     defs_contents = defs_format.format(
       os.path.relpath(spritesheet_path, os.path.dirname(defs_path)),

@@ -21,7 +21,7 @@ pub const InputEngine = struct {
     button_states: [button_count]bool,
 
     pub fn init() InputEngine {
-        return InputEngine{ .button_states = []bool{false} ** button_count };
+        return InputEngine{ .button_states = [_]bool{false} ** button_count };
     }
 
     pub fn handleEvent(self: *InputEngine, event: sdl.c.SDL_Event) ?Button {

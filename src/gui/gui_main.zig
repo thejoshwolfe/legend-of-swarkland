@@ -202,9 +202,9 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             .g = undefined,
                             .started_attack = false,
                             .animations = Animations{
-                                .move_animations = []?MoveAnimation{null} ** 5,
-                                .attack_animations = []?AttackAnimation{null} ** 5,
-                                .death_animations = []?DeathAnimation{null} ** 5,
+                                .move_animations = [_]?MoveAnimation{null} ** 5,
+                                .attack_animations = [_]?AttackAnimation{null} ** 5,
+                                .death_animations = [_]?DeathAnimation{null} ** 5,
                             },
                         },
                     };
@@ -375,9 +375,9 @@ fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
         },
         Response.undo => |events| {
             animations.* = Animations{
-                .move_animations = []?MoveAnimation{null} ** 5,
-                .attack_animations = []?AttackAnimation{null} ** 5,
-                .death_animations = []?DeathAnimation{null} ** 5,
+                .move_animations = [_]?MoveAnimation{null} ** 5,
+                .attack_animations = [_]?AttackAnimation{null} ** 5,
+                .death_animations = [_]?DeathAnimation{null} ** 5,
             };
         },
     }

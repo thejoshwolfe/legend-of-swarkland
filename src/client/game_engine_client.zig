@@ -50,14 +50,14 @@ pub const GameEngineClient = struct {
 
         const dir = try std.fs.selfExeDirPathAlloc(allocator);
         defer allocator.free(dir);
-        var path = try std.fs.path.join(allocator, [][]const u8{ dir, "legend-of-swarkland_headless" });
+        var path = try std.fs.path.join(allocator, [_][]const u8{ dir, "legend-of-swarkland_headless" });
         defer allocator.free(path);
 
         self.connection = Connection{ .child_process = undefined };
         switch (self.connection) {
             // TODO: This switch is a workaround for lack of guaranteed copy elision.
             Connection.child_process => |*child_process| {
-                const args = []const []const u8{path};
+                const args = [_][]const u8{path};
                 child_process.* = try std.ChildProcess.init(args, allocator);
                 child_process.*.stdout_behavior = std.ChildProcess.StdIo.Pipe;
                 child_process.*.stdin_behavior = std.ChildProcess.StdIo.Pipe;
@@ -196,7 +196,7 @@ fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
 fn makePipe() ![2]std.fs.File {
     // copied from std child_process.zig
     var fds: [2]i32 = try std.os.pipe();
-    return []std.fs.File{
+    return [_]std.fs.File{
         std.fs.File.openHandle(fds[0]),
         std.fs.File.openHandle(fds[1]),
     };

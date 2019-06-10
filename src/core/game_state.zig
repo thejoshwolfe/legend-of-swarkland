@@ -19,15 +19,15 @@ pub const GameState = struct {
     pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
             .allocator = allocator,
-            .player_positions = []Coord{},
-            .player_is_alive = []bool{true} ** 5,
+            .player_positions = [_]Coord{},
+            .player_is_alive = [_]bool{true} ** 5,
             .terrain = Terrain{
                 // @_@
-                .floor = [][16]Floor{[]Floor{Floor.unknown} ** 16} ** 16,
-                .walls = [][16]Wall{[]Wall{Wall.unknown} ** 16} ** 16,
+                .floor = [_][16]Floor{[_]Floor{Floor.unknown} ** 16} ** 16,
+                .walls = [_][16]Wall{[_]Wall{Wall.unknown} ** 16} ** 16,
             },
-            .alive_players = []usize{},
-            ._alive_players_buffer = []usize{0} ** 5,
+            .alive_players = [_]usize{},
+            ._alive_players_buffer = [_]usize{0} ** 5,
         };
     }
     pub fn deinit(self: *GameState) void {

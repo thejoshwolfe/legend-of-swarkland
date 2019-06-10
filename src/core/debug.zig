@@ -27,7 +27,7 @@ const IdAndName = struct {
     id: std.Thread.Id,
     name: []const u8,
 };
-var thread_names = []?IdAndName{null} ** 100;
+var thread_names = [_]?IdAndName{null} ** 100;
 pub fn nameThisThread(name: []const u8) void {
     var held = mutex.?.acquire();
     defer held.release();
