@@ -33,7 +33,7 @@ pub const GameEngine = struct {
         events[0] = Event{
             .init_state = Event.InitState{
                 .terrain = undefined,
-                .player_positions = try std.mem.dupe(self.allocator, Coord, []Coord{
+                .player_positions = try std.mem.dupe(self.allocator, Coord, [_]Coord{
                     makeCoord(7, 14), // you
                     makeCoord(3, 2),
                     makeCoord(5, 2),
@@ -111,7 +111,7 @@ pub const GameEngine = struct {
         while (any_movement) {
             any_movement = false;
             // calculate the forces
-            var force_field = [][16]u4{[]u4{0} ** 16} ** 16;
+            var force_field = [_][16]u4{[_]u4{0} ** 16} ** 16;
             // walls
             var cursor = makeCoord(0, 0);
             while (cursor.y < 16) : (cursor.y += 1) {
@@ -169,7 +169,7 @@ pub const GameEngine = struct {
                 try events.append(Event{
                     .moved = Event.Moved{
                         .player_index = i,
-                        .locations = try std.mem.dupe(self.allocator, Coord, []Coord{ old_position, new_position }),
+                        .locations = try std.mem.dupe(self.allocator, Coord, [_]Coord{ old_position, new_position }),
                     },
                 });
             }
