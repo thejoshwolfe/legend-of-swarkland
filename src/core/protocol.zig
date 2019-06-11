@@ -32,43 +32,40 @@ pub const Action = union(enum) {
 };
 
 pub const Response = union(enum) {
-    events: []Event,
-    undo: []Event,
-};
+    stuff_happens: []PerceivedFrame,
+    undo: PerceivedFrame,
 
-pub const Event = union(enum) {
-    init_state: InitState,
-    pub const InitState = struct {
-        terrain: Terrain,
-        player_positions: []Coord,
-    };
-
-    moved: Moved,
-    pub const Moved = struct {
-        player_index: usize,
-        locations: []Coord,
-    };
-
-    attacked: Attacked,
-    pub const Attacked = struct {
-        player_index: usize,
-        origin_position: Coord,
-        attack_location: Coord,
-    };
-
-    died: usize,
-
-    pub fn deinit(event: Event, allocator: *std.mem.Allocator) void {
-        switch (event) {
-            Event.init_state => |e| {
-                allocator.free(e.player_positions);
+    pub fn deinit(self: Response, allocator: *std.mem.Allocator) void {
+        switch (self) {
+            stuff_happens => |frames| {
+                allocator.free(frames);
             },
-            Event.moved => |e| {
-                allocator.free(e.locations);
-            },
-            Event.attacked, Event.died => {},
+            undo => {},
         }
     }
+};
+
+pub const Species = enum {
+    human,
+    orc,
+};
+
+/// Represents what you can observe with your eyes happening simultaneously.
+/// There can be multiple of these per turn.
+pub const PerceivedFrame = struct {
+    terrain: Terrain,
+    individuals_by_location: []IndividualWithMotion,
+    pub fn deinit(self: PerceivedFrame, allocator: *std.mem.Allocator) void {
+        allocator.free(self.individuals_by_location);
+    }
+
+    // the tuple (prior velocity, abs_position) is guaranteed to be unique in this frame
+    const IndividualWithMotion = struct {
+        prior_velocity: Coord,
+        abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
+        species: Species,
+        next_velocity: Coord,
+    };
 };
 
 pub const Channel = struct {
