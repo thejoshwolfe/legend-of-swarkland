@@ -1,9 +1,25 @@
 const std = @import("std");
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
-const Terrain = core.game_state.Terrain;
-const Floor = core.game_state.Floor;
-const Wall = core.game_state.Wall;
+
+pub const Terrain = struct {
+    floor: [16][16]Floor,
+    walls: [16][16]Wall,
+};
+
+pub const Floor = enum {
+    unknown,
+    dirt,
+    marble,
+    lava,
+};
+
+pub const Wall = enum {
+    unknown,
+    air,
+    dirt,
+    stone,
+};
 
 pub const Request = union(enum) {
     act: Action,

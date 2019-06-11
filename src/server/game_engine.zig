@@ -7,10 +7,9 @@ const isCardinalDirection = core.geometry.isCardinalDirection;
 const makeCoord = core.geometry.makeCoord;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
-const GameState = core.game_state.GameState;
-const Terrain = core.game_state.Terrain;
-const Floor = core.game_state.Floor;
-const Wall = core.game_state.Wall;
+const Terrain = core.protocol.Terrain;
+const Floor = core.protocol.Floor;
+const Wall = core.protocol.Wall;
 
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
@@ -242,3 +241,84 @@ pub const GameEngine = struct {
 pub const HistoryFrame = struct {
     event: []Event,
 };
+
+pub const GameState = struct {
+    allocator: *std.mem.Allocator,
+    player_positions: []Coord,
+    player_is_alive: [5]bool,
+    terrain: Terrain,
+
+    // iterate over this so that you don't have to do `if(!alive)continue`
+    alive_players: []usize,
+    // the above slice points to this
+    _alive_players_buffer: [5]usize,
+
+    pub fn init(allocator: *std.mem.Allocator) GameState {
+        return GameState{
+            .allocator = allocator,
+            .player_positions = [_]Coord{},
+            .player_is_alive = [_]bool{true} ** 5,
+            .terrain = Terrain{
+                // @_@
+                .floor = [_][16]Floor{[_]Floor{Floor.unknown} ** 16} ** 16,
+                .walls = [_][16]Wall{[_]Wall{Wall.unknown} ** 16} ** 16,
+            },
+            .alive_players = [_]usize{},
+            ._alive_players_buffer = [_]usize{0} ** 5,
+        };
+    }
+    pub fn deinit(self: *GameState) void {
+        self.allocator.free(self.player_positions);
+    }
+
+    fn applyEvents(self: *GameState, events: []const Event) !void {
+        for (events) |event| {
+            switch (event) {
+                Event.init_state => |e| {
+                    self.terrain = e.terrain;
+                    self.player_positions = try self.allocator.realloc(self.player_positions, e.player_positions.len);
+                    std.mem.copy(Coord, self.player_positions, e.player_positions);
+                },
+                Event.moved => |e| {
+                    self.player_positions[e.player_index] = e.locations[e.locations.len - 1];
+                },
+                Event.attacked => {},
+                Event.died => |player_index| {
+                    self.player_is_alive[player_index] = false;
+                },
+            }
+        }
+        self.refreshCaches();
+    }
+    fn undoEvents(self: *GameState, events: []const Event) error{}!void {
+        for (events) |event| {
+            switch (event) {
+                Event.init_state => @panic("can't undo the beginning of time"),
+                Event.moved => |e| {
+                    self.player_positions[e.player_index] = e.locations[0];
+                },
+                Event.attacked => {},
+                Event.died => |player_index| {
+                    self.player_is_alive[player_index] = true;
+                },
+            }
+        }
+        self.refreshCaches();
+    }
+
+    fn refreshCaches(self: *GameState) void {
+        var alive_player_count: usize = 0;
+        for (self.player_is_alive) |is_alive, i| {
+            if (!is_alive) continue;
+            self._alive_players_buffer[alive_player_count] = i;
+            alive_player_count += 1;
+        }
+        self.alive_players = self._alive_players_buffer[0..alive_player_count];
+    }
+};
+
+test "engine init" {
+    var game_engine: GameEngine = undefined;
+    game_engine.init(std.debug.global_allocator);
+    try game_engine.applyEvents(try game_engine.getStartGameEvents());
+}

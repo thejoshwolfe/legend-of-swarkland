@@ -3,7 +3,7 @@ const ArrayList = std.ArrayList;
 // TODO: change to "core" when we dependencies untangled
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
-const GameEngine = core.game_engine.GameEngine;
+const GameEngine = @import("./game_engine.zig").GameEngine;
 const GameState = core.game_state.GameState;
 const Channel = core.protocol.Channel;
 const Request = core.protocol.Request;
