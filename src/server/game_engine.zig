@@ -67,12 +67,9 @@ pub const GameEngine = struct {
     pub fn computeHappenings(self: *const GameEngine, actions: []const Action) !Happenings {
         // all game rules are here
 
-        // TODO: this is just to have an inferred error
-        self.allocator.free(try self.allocator.alloc(usize, 1));
-
         // TODO: do anything here.
         return Happenings{
-            .individual_perception_frames = [_][]PerceivedFrame{},
+            .individual_perception_frames = try std.mem.dupe(self.allocator, []PerceivedFrame, [_][]PerceivedFrame{try self.allocator.alloc(PerceivedFrame, 0)}),
             .state_changes = [_]StateDiff{},
         };
     }
