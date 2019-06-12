@@ -109,14 +109,14 @@ pub const Channel = struct {
     pub fn writeRequest(self: *Channel, request: Request) !void {
         try self.writeInt(u8(@enumToInt(@TagType(Request)(request))));
         switch (request) {
-            Request.act => |action| {
+            .act => |action| {
                 try self.writeInt(u8(@enumToInt(@TagType(Action)(action))));
                 switch (action) {
                     Action.move => |direction| try self.writeCoord(direction),
                     Action.attack => |direction| try self.writeCoord(direction),
                 }
             },
-            Request.rewind => {},
+            .rewind => {},
         }
     }
 
@@ -142,10 +142,6 @@ pub const Channel = struct {
             },
             @enumToInt(Request.rewind) => return Request{ .rewind = {} },
             else => return error.MalformedData,
-        }
-        switch (Request.act) {
-            Request.act => {},
-            Request.rewind => {},
         }
     }
 
@@ -187,7 +183,7 @@ pub const Channel = struct {
     fn writeResponse(self: *Channel, response: Response) !void {
         try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
         switch (response) {
-            Response.static_perception => |static_perception| {
+            .static_perception => |static_perception| {
                 try self.writeTerrain(static_perception.terrain);
 
                 try self.writeArrayLength(static_perception.individuals.len);
@@ -196,13 +192,13 @@ pub const Channel = struct {
                     try self.writeEnum(static_individual.species);
                 }
             },
-            Response.stuff_happens => |perception_frames| {
+            .stuff_happens => |perception_frames| {
                 try self.writeArrayLength(perception_frames.len);
                 for (perception_frames) |frame| {
                     try self.writePerceivedFrame(frame);
                 }
             },
-            Response.undo => |_| {
+            .undo => |_| {
                 @panic("todo");
             },
         }
@@ -303,10 +299,10 @@ pub const Channel = struct {
 
 pub fn deinitResponse(allocator: *std.mem.Allocator, response: Response) void {
     switch (response) {
-        Response.events => |events| {
+        .events => |events| {
             deinitEvents(allocator, events);
         },
-        Response.undo => |events| {
+        .undo => |events| {
             deinitEvents(allocator, events);
         },
     }

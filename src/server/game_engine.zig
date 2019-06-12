@@ -19,7 +19,7 @@ pub const GameEngine = struct {
     game_state: GameState,
     history: HistoryList,
 
-    const HistoryList = std.LinkedList(void); // TODO
+    const HistoryList = std.LinkedList([]StateDiff);
     const HistoryNode = HistoryList.Node;
 
     pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) !void {
@@ -49,7 +49,7 @@ pub const GameEngine = struct {
 
     pub const Happenings = struct {
         individual_perception_frames: [][]PerceivedFrame,
-        state_changes: void, // TODO
+        state_changes: []StateDiff,
 
         pub fn deinit(self: Happenings, allocator: *std.mem.Allocator) void {
             for (self.individual_perception_frames) |perception_frames| {
@@ -59,6 +59,7 @@ pub const GameEngine = struct {
                 allocator.free(perception_frames);
             }
             allocator.free(self.individual_perception_frames);
+            allocator.free(self.state_changes);
         }
     };
 
@@ -72,13 +73,13 @@ pub const GameEngine = struct {
         // TODO: do anything here.
         return Happenings{
             .individual_perception_frames = [_][]PerceivedFrame{},
-            .state_changes = {},
+            .state_changes = [_]StateDiff{},
         };
     }
 
-    pub fn applyStateChanges(self: *GameEngine, state_changes: void) !void {
+    pub fn applyStateChanges(self: *GameEngine, state_changes: []StateDiff) !void {
         try self.pushHistoryRecord(state_changes);
-        try self.game_state.applyStateChanges(state_changes);
+        self.game_state.applyStateChanges(state_changes);
     }
 
     fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
@@ -89,12 +90,12 @@ pub const GameEngine = struct {
 
     pub fn validateAction(self: *const GameEngine, action: Action) bool {
         switch (action) {
-            Action.move => |direction| return isCardinalDirection(direction),
-            Action.attack => |direction| return isCardinalDirection(direction),
+            .move => |direction| return isCardinalDirection(direction),
+            .attack => |direction| return isCardinalDirection(direction),
         }
     }
 
-    pub fn rewind(self: *GameEngine) ?void {
+    pub fn rewind(self: *GameEngine) ?[]StateDiff {
         if (self.history.len <= 1) {
             // that's enough pal.
             return null;
@@ -106,7 +107,7 @@ pub const GameEngine = struct {
         return state_changes;
     }
 
-    fn pushHistoryRecord(self: *GameEngine, state_changes: void) !void {
+    fn pushHistoryRecord(self: *GameEngine, state_changes: []StateDiff) !void {
         const history_node: *HistoryNode = try self.allocator.create(HistoryNode);
         history_node.data = state_changes;
         self.history.append(history_node);
@@ -120,6 +121,20 @@ pub const HistoryFrame = struct {
 pub const Individual = struct {
     species: Species,
     abs_position: Coord,
+};
+pub const StateDiff = union(enum) {
+    spawn: IndexedIndividual,
+    die: IndexedIndividual,
+    move: IndexedCoord,
+
+    pub const IndexedIndividual = struct {
+        individual_index: usize,
+        individual: Individual,
+    };
+    pub const IndexedCoord = struct {
+        individual_index: usize,
+        coord: Coord,
+    };
 };
 
 pub const GameState = struct {
@@ -177,13 +192,23 @@ pub const GameState = struct {
         self.allocator.free(self.individuals);
     }
 
-    fn applyStateChanges(self: *GameState, state_changes: void) !void {
-        // TODO: this is just to have an inferred error
-        self.allocator.free(try self.allocator.alloc(usize, 1));
-
-        @panic("todo");
+    fn applyStateChanges(self: *GameState, state_changes: []StateDiff) void {
+        for (state_changes) |diff| {
+            switch (diff) {
+                .spawn => |indexed_individual| {
+                    @panic("TODO");
+                },
+                .die => |indexed_individuall| {
+                    @panic("TODO");
+                },
+                .move => |indexed_coord| {
+                    var abs_position = &self.individuals[indexed_coord.individual_index].abs_position;
+                    abs_position.* = abs_position.plus(indexed_coord.coord);
+                },
+            }
+        }
     }
-    fn undoEvents(self: *GameState, state_changes: void) void {
+    fn undoEvents(self: *GameState, state_changes: []StateDiff) void {
         @panic("todo");
     }
 };
