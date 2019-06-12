@@ -19,7 +19,7 @@ pub const GameEngine = struct {
     game_state: GameState,
     history: HistoryList,
 
-    const HistoryList = std.LinkedList([]StateDiff);
+    const HistoryList = std.TailQueue([]StateDiff);
     const HistoryNode = HistoryList.Node;
 
     pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) !void {
