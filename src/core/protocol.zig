@@ -38,6 +38,9 @@ pub const Response = union(enum) {
     pub fn deinit(self: Response, allocator: *std.mem.Allocator) void {
         switch (self) {
             stuff_happens => |frames| {
+                for (frames) |frame| {
+                    frame.deinit(allocator);
+                }
                 allocator.free(frames);
             },
             undo => {},
@@ -138,11 +141,15 @@ pub const Channel = struct {
             error.EndOfStream => return null,
             else => return err,
         }) {
-            @enumToInt(Response.events) => {
-                return Response{ .events = try self.readEvents() };
+            @enumToInt(Response.stuff_happens) => {
+                var frames = try self.allocator.alloc(PerceivedFrame, try self.readArrayLength());
+                for (frames) |*frame| {
+                    frame.* = try self.readPerceivedFrame();
+                }
+                return Response{ .stuff_happens = frames };
             },
             @enumToInt(Response.undo) => {
-                return Response{ .undo = try self.readEvents() };
+                return Response{ .undo = try self.readPerceivedFrame() };
             },
             else => return error.MalformedData,
         }
@@ -150,105 +157,44 @@ pub const Channel = struct {
     fn writeResponse(self: *Channel, response: Response) !void {
         try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
         switch (response) {
-            Response.events => |events| {
-                try self.writeEvents(events);
+            Response.stuff_happens => |perception_frames| {
+                try self.writeArrayLength(perception_frames.len);
+                for (perception_frames) |frame| {
+                    try self.writePerceivedFrame(frame);
+                }
             },
-            Response.undo => |events| {
-                try self.writeEvents(events);
+            Response.undo => |_| {
+                @panic("todo");
             },
         }
     }
 
-    fn readEvents(self: *Channel) ![]Event {
-        var events: []Event = try self.allocator.alloc(Event, try self.readArrayLength());
-        for (events) |*event| {
-            event.* = try self.readEvent();
-        }
-        return events;
+    fn readPerceivedFrame(self: *Channel) !PerceivedFrame {
+        return PerceivedFrame{
+            .terrain = try self.readTerrain(),
+            .individuals_by_location = blk: {
+                const arr = try self.allocator.alloc(PerceivedFrame.IndividualWithMotion, try self.readArrayLength());
+                for (arr) |*x| {
+                    x.* = PerceivedFrame.IndividualWithMotion{
+                        .prior_velocity = try self.readCoord(),
+                        .abs_position = try self.readCoord(),
+                        .species = try self.readEnum(Species),
+                        .next_velocity = try self.readCoord(),
+                    };
+                }
+                break :blk arr;
+            },
+        };
     }
-    fn writeEvents(self: *Channel, events: []Event) !void {
-        try self.writeArrayLength(events.len);
-        for (events) |event| {
-            try self.writeEvent(event);
-        }
-    }
+    fn writePerceivedFrame(self: *Channel, frame: PerceivedFrame) !void {
+        try self.writeTerrain(frame.terrain);
 
-    fn readEvent(self: *Channel) !Event {
-        switch (Event.moved) {
-            Event.init_state => {},
-            Event.moved => {},
-            Event.attacked => {},
-            Event.died => {},
-        }
-        switch (try self.readInt(u8)) {
-            @enumToInt(Event.init_state) => {
-                return Event{
-                    .init_state = Event.InitState{
-                        .terrain = try self.readTerrain(),
-                        .player_positions = blk: {
-                            const arr = try self.allocator.alloc(Coord, try self.readArrayLength());
-                            for (arr) |*x| {
-                                x.* = try self.readCoord();
-                            }
-                            break :blk arr;
-                        },
-                    },
-                };
-            },
-            @enumToInt(Event.moved) => {
-                return Event{
-                    .moved = Event.Moved{
-                        .player_index = try self.readInt(u8),
-                        .locations = blk: {
-                            const arr = try self.allocator.alloc(Coord, try self.readArrayLength());
-                            for (arr) |*x| {
-                                x.* = try self.readCoord();
-                            }
-                            break :blk arr;
-                        },
-                    },
-                };
-            },
-            @enumToInt(Event.attacked) => {
-                return Event{
-                    .attacked = Event.Attacked{
-                        .player_index = try self.readInt(u8),
-                        .origin_position = try self.readCoord(),
-                        .attack_location = try self.readCoord(),
-                    },
-                };
-            },
-            @enumToInt(Event.died) => {
-                return Event{ .died = try self.readInt(u8) };
-            },
-            else => return error.MalformedData,
-        }
-    }
-    fn writeEvent(self: *Channel, _event: Event) !void {
-        try self.writeInt(u8(@enumToInt(@TagType(Event)(_event))));
-        switch (_event) {
-            Event.init_state => |event| {
-                try self.writeTerrain(event.terrain);
-                try self.writeArrayLength(event.player_positions.len);
-                for (event.player_positions) |position| {
-                    try self.writeCoord(position);
-                }
-            },
-            Event.moved => |event| {
-                try self.writeInt(@intCast(u8, event.player_index));
-                try self.writeArrayLength(event.locations.len);
-                for (event.locations) |location| {
-                    try self.writeCoord(location);
-                }
-            },
-            Event.attacked => |event| {
-                try self.writeInt(@intCast(u8, event.player_index));
-                try self.writeCoord(event.origin_position);
-                try self.writeCoord(event.attack_location);
-            },
-            Event.died => |player_index| {
-                try self.writeInt(@intCast(u8, player_index));
-            },
+        try self.writeArrayLength(frame.individuals_by_location.len);
+        for (frame.individuals_by_location) |individual_with_motion| {
+            try self.writeCoord(individual_with_motion.prior_velocity);
+            try self.writeCoord(individual_with_motion.abs_position);
+            try self.writeEnum(individual_with_motion.species);
+            try self.writeCoord(individual_with_motion.next_velocity);
         }
     }
 
@@ -300,6 +246,8 @@ pub const Channel = struct {
         // core.debug.warn("readInt: {}\n", x);
         return x;
     }
+
+    /// TODO: switch to varint so we don't have to downcast to u8 unsafely
     fn writeInt(self: *Channel, x: var) !void {
         // core.debug.warn("writeInt: {}\n", x);
         return self.out_stream.writeIntLittle(@typeOf(x), x);

@@ -201,3 +201,8 @@ fn makePipe() ![2]std.fs.File {
         std.fs.File.openHandle(fds[1]),
     };
 }
+
+test "basic interaction" {
+    var client: GameEngineClient = undefined;
+    try client.startAsThread();
+}
