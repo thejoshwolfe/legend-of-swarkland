@@ -24,17 +24,22 @@ const Connection = union(enum) {
 };
 
 pub const GameEngineClient = struct {
+    // initialized in startAs*()
     connection: Connection,
     channel: Channel,
+    // initialized in startThreads()
     send_thread: *std.Thread,
     recv_thread: *std.Thread,
+
+    // initialized in init()
     request_outbox: std.atomic.Queue(Request),
     response_inbox: std.atomic.Queue(Response),
     stay_alive: std.atomic.Int(u8),
-
     game_state: GameState,
 
     fn init(self: *GameEngineClient) void {
+        self.request_outbox = std.atomic.Queue(Request).init();
+        self.response_inbox = std.atomic.Queue(Response).init();
         self.stay_alive = std.atomic.Int(u8).init(1);
 
         self.game_state = GameState.init(allocator);
@@ -203,6 +208,11 @@ fn makePipe() ![2]std.fs.File {
 }
 
 test "basic interaction" {
+    core.debug.init();
+    core.debug.nameThisThread("main");
+    core.debug.warn("start test\n");
+    defer core.debug.warn("exit test\n");
     var client: GameEngineClient = undefined;
     try client.startAsThread();
+    defer client.stopEngine();
 }
