@@ -21,8 +21,8 @@ const allocator = std.heap.c_allocator;
 pub fn main() anyerror!void {
     core.debug.init();
     core.debug.nameThisThread("gui");
-    core.debug.warn("init\n");
-    defer core.debug.warn("shutdown\n");
+    core.debug.warn("init");
+    defer core.debug.warn("shutdown");
 
     // SDL handling SIGINT blocks propagation to child threads.
     if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, c"1", sdl.c.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.c.SDL_bool.SDL_FALSE)) {
@@ -96,7 +96,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
                 sdl.c.SDL_QUIT => {
-                    core.debug.warn("sdl quit\n");
+                    core.debug.warn("sdl quit");
                     return;
                 },
                 sdl.c.SDL_WINDOWEVENT => {

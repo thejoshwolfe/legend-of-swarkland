@@ -15,18 +15,18 @@ const allocator = std.heap.c_allocator;
 
 pub fn server_main(player_channel: *Channel) !void {
     core.debug.nameThisThread("core");
-    core.debug.warn("init\n");
-    defer core.debug.warn("shutdown\n");
+    core.debug.warn("init");
+    defer core.debug.warn("shutdown");
 
     var game_engine: GameEngine = undefined;
     try game_engine.init(allocator);
     // TODO: initialize ai threads, and then publish initial perception
 
-    core.debug.warn("start main loop\n");
+    core.debug.warn("start main loop");
     mainLoop: while (true) {
         // input from player
         var player_action = switch ((try player_channel.readRequest()) orelse {
-            core.debug.warn("clean shutdown. close\n");
+            core.debug.warn("clean shutdown. close");
             player_channel.close();
             break :mainLoop;
         }) {

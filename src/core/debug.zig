@@ -13,7 +13,7 @@ pub fn warn(comptime fmt: []const u8, args: ...) void {
         }
         @panic("thread not named");
     };
-    std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], "{}: " ++ fmt, prefix_name, args) catch {
+    std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], "{}: " ++ fmt ++ "\n", prefix_name, args) catch {
         @panic("make the buffer bigger");
     });
 }

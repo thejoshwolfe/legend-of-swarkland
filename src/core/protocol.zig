@@ -243,13 +243,13 @@ pub const Channel = struct {
 
     fn readInt(self: *Channel, comptime T: type) !T {
         const x = try self.in_stream.readIntLittle(T);
-        // core.debug.warn("readInt: {}\n", x);
+        // core.debug.warn("readInt: {}", x);
         return x;
     }
 
     /// TODO: switch to varint so we don't have to downcast to u8 unsafely
     fn writeInt(self: *Channel, x: var) !void {
-        // core.debug.warn("writeInt: {}\n", x);
+        // core.debug.warn("writeInt: {}", x);
         return self.out_stream.writeIntLittle(@typeOf(x), x);
     }
 

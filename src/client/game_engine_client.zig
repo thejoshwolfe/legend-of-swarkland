@@ -90,7 +90,7 @@ pub const GameEngineClient = struct {
                 const LambdaPlease = struct {
                     pub fn f(context: *Channel) void {
                         game_server.server_main(context) catch |err| {
-                            std.debug.warn("error: {}\n", @errorName(err));
+                            std.debug.warn("error: {}", @errorName(err));
                             if (@errorReturnTrace()) |trace| {
                                 std.debug.dumpStackTrace(trace.*);
                             }
@@ -107,7 +107,7 @@ pub const GameEngineClient = struct {
     }
 
     pub fn stopEngine(self: *GameEngineClient) void {
-        core.debug.warn("close\n");
+        core.debug.warn("close");
         self.channel.close();
         switch (self.connection) {
             Connection.child_process => |child_process| {
@@ -122,7 +122,7 @@ pub const GameEngineClient = struct {
         self.stay_alive.set(0);
         self.send_thread.wait();
         self.recv_thread.wait();
-        core.debug.warn("all threads done\n");
+        core.debug.warn("all threads done");
     }
     fn isAlive(self: *GameEngineClient) bool {
         return self.stay_alive.get() != 0;
@@ -143,8 +143,8 @@ pub const GameEngineClient = struct {
 
     fn sendMain(self: *GameEngineClient) void {
         core.debug.nameThisThread("client send");
-        core.debug.warn("init\n");
-        defer core.debug.warn("shutdown\n");
+        core.debug.warn("init");
+        defer core.debug.warn("shutdown");
         while (self.isAlive()) {
             const request = queueGet(Request, &self.request_outbox) orelse {
                 // :ResidentSleeper:
@@ -159,13 +159,13 @@ pub const GameEngineClient = struct {
 
     fn recvMain(self: *GameEngineClient) void {
         core.debug.nameThisThread("client recv");
-        core.debug.warn("init\n");
-        defer core.debug.warn("shutdown\n");
+        core.debug.warn("init");
+        defer core.debug.warn("shutdown");
         while (self.isAlive()) {
             const response: Response = self.channel.readResponse() catch {
                 @panic("TODO: proper error handling");
             } orelse {
-                core.debug.warn("clean shutdown\n");
+                core.debug.warn("clean shutdown");
                 break;
             };
             queuePut(Response, &self.response_inbox, response) catch |err| {
@@ -210,8 +210,8 @@ fn makePipe() ![2]std.fs.File {
 test "basic interaction" {
     core.debug.init();
     core.debug.nameThisThread("main");
-    core.debug.warn("start test\n");
-    defer core.debug.warn("exit test\n");
+    core.debug.warn("start test");
+    defer core.debug.warn("exit test");
     var client: GameEngineClient = undefined;
     try client.startAsThread();
     defer client.stopEngine();
