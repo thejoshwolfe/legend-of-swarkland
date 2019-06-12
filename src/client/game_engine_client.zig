@@ -186,7 +186,6 @@ fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
     return hack;
 }
 fn makePipe() ![2]std.fs.File {
-    // copied from std child_process.zig
     var fds: [2]i32 = try std.os.pipe();
     return [_]std.fs.File{
         std.fs.File.openHandle(fds[0]),
@@ -206,6 +205,9 @@ test "basic interaction" {
 
     const startup_response = pollSync(client);
     core.debug.warn("got response");
+
+    try client.move(makeCoord(1, 0));
+    const post_move_response = pollSync(client);
 }
 
 fn pollSync(client: *GameEngineClient) Response {
