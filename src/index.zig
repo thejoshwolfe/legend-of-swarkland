@@ -2,6 +2,5 @@
 pub const geometry = @import("./core/geometry.zig");
 pub const protocol = @import("./core/protocol.zig");
 pub const debug = @import("./core/debug.zig");
-pub const game_state = @import("./core/game_state.zig");
 
 pub const game_engine_client = @import("./client/game_engine_client.zig");

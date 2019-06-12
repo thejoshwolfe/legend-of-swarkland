@@ -8,7 +8,6 @@ const Request = core.protocol.Request;
 const Action = core.protocol.Action;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
-const GameState = core.game_state.GameState;
 
 const allocator = std.heap.c_allocator;
 
@@ -35,14 +34,11 @@ pub const GameEngineClient = struct {
     request_outbox: std.atomic.Queue(Request),
     response_inbox: std.atomic.Queue(Response),
     stay_alive: std.atomic.Int(u8),
-    game_state: GameState,
 
     fn init(self: *GameEngineClient) void {
         self.request_outbox = std.atomic.Queue(Request).init();
         self.response_inbox = std.atomic.Queue(Response).init();
         self.stay_alive = std.atomic.Int(u8).init(1);
-
-        self.game_state = GameState.init(allocator);
     }
     fn startThreads(self: *GameEngineClient) !void {
         // start threads last
@@ -128,17 +124,8 @@ pub const GameEngineClient = struct {
         return self.stay_alive.get() != 0;
     }
 
-    pub fn pollEvents(self: *GameEngineClient) !?Response {
-        const response = queueGet(Response, &self.response_inbox) orelse return null;
-        switch (response) {
-            Response.events => |events| {
-                try self.game_state.applyEvents(events);
-            },
-            Response.undo => |events| {
-                try self.game_state.undoEvents(events);
-            },
-        }
-        return response;
+    pub fn pollResponse(self: *GameEngineClient) ?Response {
+        return queueGet(Response, &self.response_inbox) orelse return null;
     }
 
     fn sendMain(self: *GameEngineClient) void {
@@ -209,10 +196,23 @@ fn makePipe() ![2]std.fs.File {
 
 test "basic interaction" {
     core.debug.init();
-    core.debug.nameThisThread("main");
+    core.debug.nameThisThread("test main");
     core.debug.warn("start test");
     defer core.debug.warn("exit test");
-    var client: GameEngineClient = undefined;
+    var _client: GameEngineClient = undefined;
+    var client = &_client;
     try client.startAsThread();
     defer client.stopEngine();
+
+    const startup_response = pollSync(client);
+    core.debug.warn("got response");
+}
+
+fn pollSync(client: *GameEngineClient) Response {
+    while (true) {
+        if (client.pollResponse()) |response| {
+            return response;
+        }
+        std.time.sleep(17 * std.time.millisecond);
+    }
 }
