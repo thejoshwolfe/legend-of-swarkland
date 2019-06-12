@@ -2,11 +2,6 @@ const std = @import("std");
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 
-pub const Terrain = struct {
-    floor: [16][16]Floor,
-    walls: [16][16]Wall,
-};
-
 pub const Floor = enum {
     unknown,
     dirt,
@@ -21,6 +16,16 @@ pub const Wall = enum {
     stone,
 };
 
+pub const Species = enum {
+    human,
+    orc,
+};
+
+pub const Terrain = struct {
+    floor: [16][16]Floor,
+    walls: [16][16]Wall,
+};
+
 pub const Request = union(enum) {
     act: Action,
     rewind,
@@ -32,11 +37,16 @@ pub const Action = union(enum) {
 };
 
 pub const Response = union(enum) {
+    static_perception: StaticPerception,
     stuff_happens: []PerceivedFrame,
     undo: PerceivedFrame,
 
+    // TODO: always allocate these in arenas and don't fiddle with deinit
     pub fn deinit(self: Response, allocator: *std.mem.Allocator) void {
         switch (self) {
+            static_perception => |static_perception| {
+                allocator.free(static_perception.individuals);
+            },
             stuff_happens => |frames| {
                 for (frames) |frame| {
                     frame.deinit(allocator);
@@ -48,15 +58,18 @@ pub const Response = union(enum) {
     }
 };
 
-pub const Species = enum {
-    human,
-    orc,
+pub const StaticPerception = struct {
+    terrain: Terrain,
+    individuals: []StaticIndividual,
+    pub const StaticIndividual = struct {
+        abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
+        species: Species,
+    };
 };
 
 /// Represents what you can observe with your eyes happening simultaneously.
 /// There can be multiple of these per turn.
 pub const PerceivedFrame = struct {
-    terrain: Terrain,
     individuals_by_location: []IndividualWithMotion,
     pub fn deinit(self: PerceivedFrame, allocator: *std.mem.Allocator) void {
         allocator.free(self.individuals_by_location);
@@ -141,6 +154,23 @@ pub const Channel = struct {
             error.EndOfStream => return null,
             else => return err,
         }) {
+            @enumToInt(Response.static_perception) => {
+                return Response{
+                    .static_perception = StaticPerception{
+                        .terrain = try self.readTerrain(),
+                        .individuals = blk: {
+                            var arr = try self.allocator.alloc(StaticPerception.StaticIndividual, try self.readArrayLength());
+                            for (arr) |*x| {
+                                x.* = StaticPerception.StaticIndividual{
+                                    .abs_position = try self.readCoord(),
+                                    .species = try self.readEnum(Species),
+                                };
+                            }
+                            break :blk arr;
+                        },
+                    },
+                };
+            },
             @enumToInt(Response.stuff_happens) => {
                 var frames = try self.allocator.alloc(PerceivedFrame, try self.readArrayLength());
                 for (frames) |*frame| {
@@ -157,6 +187,15 @@ pub const Channel = struct {
     fn writeResponse(self: *Channel, response: Response) !void {
         try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
         switch (response) {
+            Response.static_perception => |static_perception| {
+                try self.writeTerrain(static_perception.terrain);
+
+                try self.writeArrayLength(static_perception.individuals.len);
+                for (static_perception.individuals) |static_individual| {
+                    try self.writeCoord(static_individual.abs_position);
+                    try self.writeEnum(static_individual.species);
+                }
+            },
             Response.stuff_happens => |perception_frames| {
                 try self.writeArrayLength(perception_frames.len);
                 for (perception_frames) |frame| {
@@ -171,7 +210,6 @@ pub const Channel = struct {
 
     fn readPerceivedFrame(self: *Channel) !PerceivedFrame {
         return PerceivedFrame{
-            .terrain = try self.readTerrain(),
             .individuals_by_location = blk: {
                 const arr = try self.allocator.alloc(PerceivedFrame.IndividualWithMotion, try self.readArrayLength());
                 for (arr) |*x| {
@@ -187,8 +225,6 @@ pub const Channel = struct {
         };
     }
     fn writePerceivedFrame(self: *Channel, frame: PerceivedFrame) !void {
-        try self.writeTerrain(frame.terrain);
-
         try self.writeArrayLength(frame.individuals_by_location.len);
         for (frame.individuals_by_location) |individual_with_motion| {
             try self.writeCoord(individual_with_motion.prior_velocity);

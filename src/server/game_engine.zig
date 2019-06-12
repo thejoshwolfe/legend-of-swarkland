@@ -12,6 +12,7 @@ const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const PerceivedFrame = core.protocol.PerceivedFrame;
+const StaticPerception = core.protocol.StaticPerception;
 
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
@@ -26,6 +27,23 @@ pub const GameEngine = struct {
             .allocator = allocator,
             .game_state = try GameState.init(allocator),
             .history = HistoryList.init(),
+        };
+    }
+
+    pub fn getStaticPerception(self: *const GameEngine, individual_index: usize) !StaticPerception {
+        return StaticPerception{
+            .terrain = self.game_state.terrain,
+            .individuals = blk: {
+                var arr = try self.allocator.alloc(StaticPerception.StaticIndividual, self.game_state.individuals.len);
+                for (self.game_state.individuals) |individual, i| {
+                    arr[i] = StaticPerception.StaticIndividual{
+                        .species = individual.species,
+                        .abs_position = individual.abs_position,
+                    };
+                }
+                // TODO: sort to hide iteration order
+                break :blk arr;
+            },
         };
     }
 

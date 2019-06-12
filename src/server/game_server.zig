@@ -20,7 +20,9 @@ pub fn server_main(player_channel: *Channel) !void {
 
     var game_engine: GameEngine = undefined;
     try game_engine.init(allocator);
-    // TODO: initialize ai threads, and then publish initial perception
+    // TODO: initialize ai threads
+
+    try player_channel.writeResponse(Response{ .static_perception = try game_engine.getStaticPerception(0) });
 
     core.debug.warn("start main loop");
     mainLoop: while (true) {
