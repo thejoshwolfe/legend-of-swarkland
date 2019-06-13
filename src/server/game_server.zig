@@ -43,13 +43,13 @@ pub fn server_main(player_channel: *Channel) !void {
         // normal action
 
         // get the rest of the decisions
-        var actions = try allocator.alloc(Action, game_engine.game_state.individuals.len);
+        var actions = try allocator.alloc(Action, game_engine.game_state.individuals.count());
         defer allocator.free(actions);
         for (actions) |*action, i| {
             if (i == 0) {
                 action.* = player_action;
             } else {
-                const human_relative_position = game_engine.game_state.individuals[0].abs_position.minus(game_engine.game_state.individuals[i].abs_position);
+                const human_relative_position = Coord{ .x = 1, .y = 1 }; // TODO
                 action.* = getAiAction(human_relative_position);
             }
         }
