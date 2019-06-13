@@ -205,9 +205,15 @@ test "basic interaction" {
 
     const startup_response = pollSync(client);
     core.debug.warn("got response");
+    const starting_position = startup_response.static_perception.individuals[0].abs_position;
 
     try client.move(makeCoord(1, 0));
     const post_move_response = pollSync(client);
+    const new_position = post_move_response.stuff_happens[1].individuals_by_location[0].abs_position;
+
+    if (!new_position.minus(starting_position).equals(makeCoord(1, 0))) {
+        return error.Bad;
+    }
 }
 
 fn pollSync(client: *GameEngineClient) Response {

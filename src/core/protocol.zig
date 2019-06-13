@@ -84,6 +84,7 @@ pub const PerceivedFrame = struct {
     };
 };
 
+/// TODO: sort all arrays to hide iteration order from the server
 pub const Channel = struct {
     allocator: *std.mem.Allocator,
     in_file: std.fs.File,

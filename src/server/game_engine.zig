@@ -41,7 +41,6 @@ pub const GameEngine = struct {
                         .abs_position = individual.abs_position,
                     };
                 }
-                // TODO: sort to hide iteration order
                 break :blk arr;
             },
         };
