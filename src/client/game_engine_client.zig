@@ -211,9 +211,7 @@ test "basic interaction" {
     const post_move_response = pollSync(client);
     const new_position = post_move_response.stuff_happens[1].individuals_by_location[0].abs_position;
 
-    if (!new_position.minus(starting_position).equals(makeCoord(1, 0))) {
-        return error.Bad;
-    }
+    std.testing.expect(new_position.minus(starting_position).equals(makeCoord(1, 0)));
 }
 
 fn pollSync(client: *GameEngineClient) Response {

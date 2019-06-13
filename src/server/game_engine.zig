@@ -67,17 +67,35 @@ pub const GameEngine = struct {
     }
 
     pub const Happenings = struct {
-        individual_to_perception: IdMap([]PerceivedFrame),
+        individual_to_perception: IdMap(ArrayList(PerceivedFrame)),
         state_changes: []StateDiff,
     };
 
     /// computes what would happen but does not change the state of the engine.
     pub fn computeHappenings(self: *const GameEngine, actions: IdMap(Action)) !Happenings {
         // all game rules are here
-        var individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator);
-        _ = try self.allocator.alloc(u32, 1); // inferred error
+        var individual_to_perception = IdMap(ArrayList(PerceivedFrame)).init(self.allocator);
+        {
+            var iterator = self.game_state.individuals.iterator();
+            while (iterator.next()) |kv| {
+                try individual_to_perception.putNoClobber(kv.key, ArrayList(PerceivedFrame).init(self.allocator));
+            }
+        }
 
-        // TODO: do anything here.
+        var action_iterator = actions.iterator();
+        while (action_iterator.next()) |action_kv| {
+            var actor = &self.game_state.individuals.get(action_kv.key).?.value;
+            switch (action_kv.value) {
+                .move => |direction| {
+                    const from = actor.abs_position;
+                    const to = from.plus(direction);
+                },
+                .attack => {
+                    @panic("TODO");
+                },
+            }
+        }
+
         return Happenings{
             .individual_to_perception = individual_to_perception,
             .state_changes = [_]StateDiff{},
@@ -217,10 +235,10 @@ pub const GameState = struct {
         for (state_changes) |diff| {
             switch (diff) {
                 .spawn => |individual| {
-                    std.debug.assert(null == try self.individuals.put(individual.id, individual));
+                    try self.individuals.putNoClobber(individual.id, individual);
                 },
                 .die => |individual| {
-                    std.debug.assert(null != self.individuals.remove(individual.id));
+                    self.individuals.removeAssertDiscard(individual.id);
                 },
                 .move => |id_and_coord| {
                     var abs_position = &self.individuals.get(id_and_coord.id).?.value.abs_position;
@@ -235,10 +253,10 @@ pub const GameState = struct {
             const diff = state_changes[state_changes.len - 1 - forwards_i];
             switch (diff) {
                 .spawn => |individual| {
-                    std.debug.assert(null != self.individuals.remove(individual.id));
+                    self.individuals.removeAssertDiscard(individual.id);
                 },
                 .die => |individuall| {
-                    std.debug.assert(null == try self.individuals.put(individual.id, individual));
+                    try self.individuals.putNoClobber(individual.id, individual);
                 },
                 .move => |_| {
                     var abs_position = &self.individuals.get(id_and_coord.id).?.value.abs_position;
