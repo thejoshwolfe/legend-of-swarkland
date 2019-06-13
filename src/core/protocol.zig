@@ -61,7 +61,7 @@ pub const PerceivedFrame = struct {
     }
 
     // the tuple (prior velocity, abs_position) is guaranteed to be unique in this frame
-    const IndividualWithMotion = struct {
+    pub const IndividualWithMotion = struct {
         prior_velocity: Coord,
         abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
         species: Species,

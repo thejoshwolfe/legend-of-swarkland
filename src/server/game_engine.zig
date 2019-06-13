@@ -71,35 +71,97 @@ pub const GameEngine = struct {
         state_changes: []StateDiff,
     };
 
-    /// computes what would happen but does not change the state of the engine.
+    /// Computes what would happen but does not change the state of the engine.
+    /// This is the entry point for all game rules.
     pub fn computeHappenings(self: *const GameEngine, actions: IdMap(Action)) !Happenings {
-        // all game rules are here
-        var individual_to_perception = IdMap(ArrayList(PerceivedFrame)).init(self.allocator);
+        var individual_to_perception = IdMap(Perception).init(self.allocator);
         {
             var iterator = self.game_state.individuals.iterator();
             while (iterator.next()) |kv| {
-                try individual_to_perception.putNoClobber(kv.key, ArrayList(PerceivedFrame).init(self.allocator));
+                try individual_to_perception.putNoClobber(kv.key, Perception.create(self.allocator, kv.value));
             }
         }
 
-        var action_iterator = actions.iterator();
-        while (action_iterator.next()) |action_kv| {
-            var actor = &self.game_state.individuals.get(action_kv.key).?.value;
-            switch (action_kv.value) {
-                .move => |direction| {
-                    const from = actor.abs_position;
-                    const to = from.plus(direction);
-                },
-                .attack => {
-                    @panic("TODO");
-                },
+        var moves_history = ArrayList(*IdMap(Coord)).init(self.allocator);
+        try moves_history.append(blk: {
+            var x = try self.allocator.create(IdMap(Coord));
+            x.* = IdMap(Coord).init(self.allocator);
+            break :blk x;
+        });
+        try moves_history.append(blk: {
+            var x = try self.allocator.create(IdMap(Coord));
+            x.* = IdMap(Coord).init(self.allocator);
+            break :blk x;
+        });
+        var next_moves = moves_history.at(moves_history.len - 1);
+        var previous_moves = moves_history.at(moves_history.len - 2);
+
+        var attacks = IdMap(Coord).init(self.allocator);
+
+        {
+            var iterator = actions.iterator();
+            while (iterator.next()) |kv| {
+                var actor = &self.game_state.individuals.getValue(kv.key).?;
+                switch (kv.value) {
+                    .move => |direction| {
+                        try next_moves.putNoClobber(kv.key, direction);
+                    },
+                    .attack => |direction| {
+                        try attacks.putNoClobber(kv.key, direction);
+                    },
+                }
             }
         }
 
-        return Happenings{
-            .individual_to_perception = individual_to_perception,
-            .state_changes = [_]StateDiff{},
-        };
+        while (true) {
+            {
+                var iterator = individual_to_perception.iterator();
+                while (iterator.next()) |kv| {
+                    try self.observeMovement(&kv.value, previous_moves, next_moves);
+                }
+            }
+
+            // TODO: collisions detection/resolution
+
+            if (next_moves.count() == 0) break;
+
+            try moves_history.append(blk: {
+                var x = try self.allocator.create(IdMap(Coord));
+                x.* = IdMap(Coord).init(self.allocator);
+                break :blk x;
+            });
+            next_moves = moves_history.at(moves_history.len - 1);
+            previous_moves = moves_history.at(moves_history.len - 2);
+        }
+
+        // TODO: handle attacks
+
+        @panic("TODO");
+        //return Happenings{
+        //    .individual_to_perception = blk: {
+        //    },
+        //    .state_changes = [_]StateDiff{},
+        //};
+    }
+
+    fn observeMovement(self: *const GameEngine, perception: *Perception, previous_moves: *const IdMap(Coord), next_moves: *const IdMap(Coord)) !void {
+        const zero_vector = makeCoord(0, 0);
+        const yourself = perception.individual;
+        var movement_frame = try self.allocator.create(IdMap(PerceivedFrame.IndividualWithMotion));
+        movement_frame.* = IdMap(PerceivedFrame.IndividualWithMotion).init(self.allocator);
+
+        var iterator = self.game_state.individuals.iterator();
+        while (iterator.next()) |kv| {
+            const other = kv.value;
+            try movement_frame.putNoClobber(other.id, PerceivedFrame.IndividualWithMotion{
+                .prior_velocity = previous_moves.getValue(other.id) orelse zero_vector,
+                .abs_position = other.abs_position,
+                .species = other.species,
+                .next_velocity = next_moves.getValue(other.id) orelse zero_vector,
+            });
+        }
+
+        try perception.movement_frames.append(movement_frame);
     }
 
     fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
@@ -241,7 +303,7 @@ pub const GameState = struct {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
                 .move => |id_and_coord| {
-                    var abs_position = &self.individuals.get(id_and_coord.id).?.value.abs_position;
+                    var abs_position = &self.individuals.getValue(id_and_coord.id).?.abs_position;
                     abs_position.* = abs_position.plus(id_and_coord.coord);
                 },
             }
@@ -259,10 +321,21 @@ pub const GameState = struct {
                     try self.individuals.putNoClobber(individual.id, individual);
                 },
                 .move => |_| {
-                    var abs_position = &self.individuals.get(id_and_coord.id).?.value.abs_position;
+                    var abs_position = &self.individuals.getValue(id_and_coord.id).value.abs_position;
                     abs_position.* = abs_position.minus(id_and_coord.coord);
                 },
             }
         }
+    }
+};
+
+const Perception = struct {
+    individual: Individual,
+    movement_frames: ArrayList(*IdMap(PerceivedFrame.IndividualWithMotion)),
+    pub fn create(allocator: *std.mem.Allocator, individual: Individual) Perception {
+        return Perception{
+            .individual = individual,
+            .movement_frames = ArrayList(*IdMap(PerceivedFrame.IndividualWithMotion)).init(allocator),
+        };
     }
 };
