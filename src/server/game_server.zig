@@ -5,6 +5,7 @@ const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const GameEngine = @import("./game_engine.zig").GameEngine;
 const GameState = @import("./game_engine.zig").GameState;
+const IdMap = @import("./game_engine.zig").IdMap;
 const Channel = core.protocol.Channel;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
@@ -20,9 +21,10 @@ pub fn server_main(player_channel: *Channel) !void {
 
     var game_engine: GameEngine = undefined;
     try game_engine.init(allocator);
+    const player_id: u32 = 1;
     // TODO: initialize ai threads
 
-    try player_channel.writeResponse(Response{ .static_perception = try game_engine.getStaticPerception(0) });
+    try player_channel.writeResponse(Response{ .static_perception = try game_engine.getStaticPerception(player_id) });
 
     core.debug.warn("start main loop");
     mainLoop: while (true) {
@@ -43,20 +45,13 @@ pub fn server_main(player_channel: *Channel) !void {
         // normal action
 
         // get the rest of the decisions
-        var actions = try allocator.alloc(Action, game_engine.game_state.individuals.count());
-        defer allocator.free(actions);
-        for (actions) |*action, i| {
-            if (i == 0) {
-                action.* = player_action;
-            } else {
-                const human_relative_position = Coord{ .x = 1, .y = 1 }; // TODO
-                action.* = getAiAction(human_relative_position);
-            }
-        }
+        var actions = IdMap(Action).init(allocator);
+        _ = try actions.put(player_id, player_action);
+        // TODO: populate with ai decisions
 
-        const happenings = try game_engine.computeHappenings(actions[0..]);
+        const happenings = try game_engine.computeHappenings(actions);
         try game_engine.applyStateChanges(happenings.state_changes);
-        try player_channel.writeResponse(Response{ .stuff_happens = happenings.individual_perception_frames[0] });
+        try player_channel.writeResponse(Response{ .stuff_happens = happenings.individual_to_perception.get(player_id).?.value });
     }
 }
 

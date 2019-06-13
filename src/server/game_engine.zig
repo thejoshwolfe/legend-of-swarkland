@@ -14,6 +14,7 @@ const Wall = core.protocol.Wall;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const StaticPerception = core.protocol.StaticPerception;
 
+/// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
     return HashMap(u32, V, core.geometry.hashU32, std.hash_map.getTrivialEqlFn(u32));
 }
@@ -34,66 +35,53 @@ pub const GameEngine = struct {
             .history = HistoryList.init(),
             .next_id = 1,
         };
-        try self.game_state.applyStateChanges([_]StateDiff{StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.human, .abs_position = makeCoord(7, 14) } }});
+        try self.game_state.applyStateChanges([_]StateDiff{StateDiff{ .spawn = Individual{ .id = 1, .species = Species.human, .abs_position = makeCoord(7, 14) } }});
         //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(3, 2) } },
         //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(5, 2) } },
         //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(12, 2) } },
         //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(14, 2) } },
     }
 
-    fn nextId(self: *GameEngine) u32 {
-        defer self.next_id += 1;
-        return self.next_id;
-    }
-
-    pub fn getStaticPerception(self: *const GameEngine, individual_index: usize) !StaticPerception {
+    pub fn getStaticPerception(self: *const GameEngine, individual_id: usize) !StaticPerception {
+        var yourself: StaticPerception.StaticIndividual = undefined;
+        var others = ArrayList(StaticPerception.StaticIndividual).init(self.allocator);
+        var iterator = self.game_state.individuals.iterator();
+        while (iterator.next()) |kv| {
+            if (kv.key == individual_id) {
+                yourself = StaticPerception.StaticIndividual{
+                    .species = kv.value.species,
+                    .abs_position = kv.value.abs_position,
+                };
+            } else {
+                try others.append(StaticPerception.StaticIndividual{
+                    .species = kv.value.species,
+                    .abs_position = kv.value.abs_position,
+                });
+            }
+        }
         return StaticPerception{
             .terrain = self.game_state.terrain,
-            .individuals = blk: {
-                var arr = try self.allocator.alloc(StaticPerception.StaticIndividual, self.game_state.individuals.count());
-                var iterator = self.game_state.individuals.iterator();
-                for (arr) |*x| {
-                    var individual = iterator.next().?.value;
-                    x.* = StaticPerception.StaticIndividual{
-                        .species = individual.species,
-                        .abs_position = individual.abs_position,
-                    };
-                }
-                break :blk arr;
-            },
+            .self = yourself,
+            .others = others.toOwnedSlice(),
         };
     }
 
     pub const Happenings = struct {
-        individual_perception_frames: [][]PerceivedFrame,
+        individual_to_perception: IdMap([]PerceivedFrame),
         state_changes: []StateDiff,
-
-        pub fn deinit(self: Happenings, allocator: *std.mem.Allocator) void {
-            for (self.individual_perception_frames) |perception_frames| {
-                for (perception_frames) |frame| {
-                    frame.deinit(allocator);
-                }
-                allocator.free(perception_frames);
-            }
-            allocator.free(self.individual_perception_frames);
-            allocator.free(self.state_changes);
-        }
     };
 
     /// computes what would happen but does not change the state of the engine.
-    pub fn computeHappenings(self: *const GameEngine, actions: []const Action) !Happenings {
+    pub fn computeHappenings(self: *const GameEngine, actions: IdMap(Action)) !Happenings {
         // all game rules are here
+        var individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator);
+        _ = try self.allocator.alloc(u32, 1); // inferred error
 
         // TODO: do anything here.
         return Happenings{
-            .individual_perception_frames = try std.mem.dupe(self.allocator, []PerceivedFrame, [_][]PerceivedFrame{try self.allocator.alloc(PerceivedFrame, 0)}),
+            .individual_to_perception = individual_to_perception,
             .state_changes = [_]StateDiff{},
         };
-    }
-
-    pub fn applyStateChanges(self: *GameEngine, state_changes: []StateDiff) !void {
-        try self.pushHistoryRecord(state_changes);
-        try self.game_state.applyStateChanges(state_changes);
     }
 
     fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
@@ -106,6 +94,22 @@ pub const GameEngine = struct {
         switch (action) {
             .move => |direction| return isCardinalDirection(direction),
             .attack => |direction| return isCardinalDirection(direction),
+        }
+    }
+
+    pub fn applyStateChanges(self: *GameEngine, state_changes: []StateDiff) !void {
+        try self.pushHistoryRecord(state_changes);
+        try self.game_state.applyStateChanges(state_changes);
+
+        // advance our next_id cursor
+        for (state_changes) |diff| {
+            switch (diff) {
+                .spawn => |individual| {
+                    std.debug.assert(individual.id == self.next_id);
+                    self.next_id = individual.id + 1;
+                },
+                else => {},
+            }
         }
     }
 
@@ -170,6 +174,7 @@ pub const GameState = struct {
         return GameState{
             .allocator = allocator,
             .terrain = blk: {
+                // someday move this outta here
                 var terrain: Terrain = undefined;
                 {
                     var x: usize = 0;
@@ -236,7 +241,8 @@ pub const GameState = struct {
                     std.debug.assert(null == try self.individuals.put(individual.id, individual));
                 },
                 .move => |_| {
-                    @panic("TODO");
+                    var abs_position = &self.individuals.get(id_and_coord.id).?.value.abs_position;
+                    abs_position.* = abs_position.minus(id_and_coord.coord);
                 },
             }
         }

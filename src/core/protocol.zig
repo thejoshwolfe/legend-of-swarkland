@@ -40,27 +40,12 @@ pub const Response = union(enum) {
     static_perception: StaticPerception,
     stuff_happens: []PerceivedFrame,
     undo: PerceivedFrame,
-
-    // TODO: always allocate these in arenas and don't fiddle with deinit
-    pub fn deinit(self: Response, allocator: *std.mem.Allocator) void {
-        switch (self) {
-            static_perception => |static_perception| {
-                allocator.free(static_perception.individuals);
-            },
-            stuff_happens => |frames| {
-                for (frames) |frame| {
-                    frame.deinit(allocator);
-                }
-                allocator.free(frames);
-            },
-            undo => {},
-        }
-    }
 };
 
 pub const StaticPerception = struct {
     terrain: Terrain,
-    individuals: []StaticIndividual,
+    self: StaticIndividual,
+    others: []StaticIndividual,
     pub const StaticIndividual = struct {
         abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
         species: Species,
@@ -155,13 +140,11 @@ pub const Channel = struct {
                 return Response{
                     .static_perception = StaticPerception{
                         .terrain = try self.readTerrain(),
-                        .individuals = blk: {
+                        .self = try self.readStaticIndividual(),
+                        .others = blk: {
                             var arr = try self.allocator.alloc(StaticPerception.StaticIndividual, try self.readArrayLength());
                             for (arr) |*x| {
-                                x.* = StaticPerception.StaticIndividual{
-                                    .abs_position = try self.readCoord(),
-                                    .species = try self.readEnum(Species),
-                                };
+                                x.* = try self.readStaticIndividual();
                             }
                             break :blk arr;
                         },
@@ -186,11 +169,11 @@ pub const Channel = struct {
         switch (response) {
             .static_perception => |static_perception| {
                 try self.writeTerrain(static_perception.terrain);
+                try self.writeStaticIndividual(static_perception.self);
 
-                try self.writeArrayLength(static_perception.individuals.len);
-                for (static_perception.individuals) |static_individual| {
-                    try self.writeCoord(static_individual.abs_position);
-                    try self.writeEnum(static_individual.species);
+                try self.writeArrayLength(static_perception.others.len);
+                for (static_perception.others) |static_individual| {
+                    try self.writeStaticIndividual(static_individual);
                 }
             },
             .stuff_happens => |perception_frames| {
@@ -203,6 +186,17 @@ pub const Channel = struct {
                 @panic("todo");
             },
         }
+    }
+
+    fn readStaticIndividual(self: *Channel) !StaticPerception.StaticIndividual {
+        return StaticPerception.StaticIndividual{
+            .abs_position = try self.readCoord(),
+            .species = try self.readEnum(Species),
+        };
+    }
+    fn writeStaticIndividual(self: *Channel, static_individual: StaticPerception.StaticIndividual) !void {
+        try self.writeCoord(static_individual.abs_position);
+        try self.writeEnum(static_individual.species);
     }
 
     fn readPerceivedFrame(self: *Channel) !PerceivedFrame {

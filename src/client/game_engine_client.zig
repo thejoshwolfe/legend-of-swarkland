@@ -205,7 +205,7 @@ test "basic interaction" {
 
     const startup_response = pollSync(client);
     core.debug.warn("got response");
-    const starting_position = startup_response.static_perception.individuals[0].abs_position;
+    const starting_position = startup_response.static_perception.self.abs_position;
 
     try client.move(makeCoord(1, 0));
     const post_move_response = pollSync(client);
