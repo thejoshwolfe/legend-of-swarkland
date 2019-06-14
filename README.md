@@ -8,6 +8,8 @@ Doesn't work.
 
 ### 5.0.0
 
+TODO: separate release notes from design goals when 5.0.0 is "released" in some form.
+
  * Complete rewrite from scratch in Zig instead of C++.
  * Client/server separation.
    * A headless "server" binary that only knows the game logic and a protocol. no UI-related dependencies.
@@ -31,6 +33,24 @@ Doesn't work.
      The current plan is to do it anyway, which would cause a pretty significant divergence in playstyle between practice mode and hardcore mode.
      In practice mode, you drink every potion you find, then undo, to identify what potion it is.
      In hardcore mode, you need to be more careful.
+ * Perceived information is no longer accompanied by unambiguous "index" fields.
+   See [issue #39](https://github.com/thejoshwolfe/legend-of-swarkland/issues/39).
+   No more "id badges" or absolute coordinates.
+   * If you see a monster with normal vision, the sensation is accompanied by where the monster is relative to you.
+     Its relative position is sufficient to render the monster on a 2d grid representation of the world.
+   * If you hear rushing water, the sensation is accompanied by the general direction the sound is coming from, and a vague distance.
+     This is *not* sufficient to render the source of the sound on a 2d grid precisely.
+     Client implementations will need to represent the information somehow, TBD.
+   * If you hear someone speaking to you, the sensation will be accompanied by some kind of id number to identify who is doing the speaking.
+     While location may be easy enough to encode in cartesian coordinates, the identity of a speaker is less mathematically intuitive,
+     but intelligent beings nonetheless have a keen sense for speaker identities.
+     In the sensation protocol, this speaker identity will be represented by an arbitrary id number,
+     and if the client has observed the speaker introduce themselves and associate a name to the id number,
+     then the client will use that name to tell the player who is speaking.
+   * Polymorphing or other status effects (even getting an ear cut off in battle) can effect the sensitivity of your senses.
+     E.g. a canine nose gives you a sense of smell identity for nearly all biological things.
+   * Even the special identity fields are not guaranteed to be unique.
+     Identity collisions can be caused by shapeshifters or simply by the random identity generator, which might be deliberately coarse.
  * Try to eliminate grinding (where "grinding" is defined by repeating an action to gain some in-game benefit).
    * No more wait-to-win HP or MP regeneration.
      Favor a playstyle where you can feasibly avoid all damage.
