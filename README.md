@@ -27,9 +27,10 @@ Doesn't work.
      Hardcore mode would be preferred for any kind of competitive play, such as leaderboards.)
    * D&D-style dice-roll randomness makes a lot less sense with undo.
      Instead of attacks doing random damage, for example, all attacks do predictable damage.
-   * Unidentified items make a lot less sense with undo.
-     No more unidentified items. :(
-   * Exploring for hidden rooms makes a lot less sense.
+   * Spending resources to learn information that would persist through an undo makes a lot less sense.
+     The current plan is to do it anyway, which would cause a pretty significant divergence in playstyle between practice mode and hardcore mode.
+     In practice mode, you drink every potion you find, then undo, to identify what potion it is.
+     In hardcore mode, you need to be more careful.
  * Try to eliminate grinding (where "grinding" is defined by repeating an action to gain some in-game benefit).
    * No more wait-to-win HP or MP regeneration.
      Favor a playstyle where you can feasibly avoid all damage.
