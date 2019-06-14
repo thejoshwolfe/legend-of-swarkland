@@ -55,6 +55,7 @@ pub const StaticPerception = struct {
 /// Represents what you can observe with your eyes happening simultaneously.
 /// There can be multiple of these per turn.
 pub const PerceivedFrame = struct {
+    /// TODO: rename to something about movement
     individuals_by_location: []IndividualWithMotion,
     pub fn deinit(self: PerceivedFrame, allocator: *std.mem.Allocator) void {
         allocator.free(self.individuals_by_location);

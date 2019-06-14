@@ -67,7 +67,7 @@ pub const GameEngine = struct {
     }
 
     pub const Happenings = struct {
-        individual_to_perception: IdMap(ArrayList(PerceivedFrame)),
+        individual_to_perception: IdMap([]PerceivedFrame),
         state_changes: []StateDiff,
     };
 
@@ -136,24 +136,37 @@ pub const GameEngine = struct {
 
         // TODO: handle attacks
 
-        @panic("TODO");
-        //return Happenings{
-        //    .individual_to_perception = blk: {
-        //    },
-        //    .state_changes = [_]StateDiff{},
-        //};
+        return Happenings{
+            .individual_to_perception = blk: {
+                var ret = IdMap([]PerceivedFrame).init(self.allocator);
+                var iterator = individual_to_perception.iterator();
+                while (iterator.next()) |kv| {
+                    var perceived_frame = ArrayList(PerceivedFrame).init(self.allocator);
+                    for (kv.value.movement_frames.toSliceConst()) |movement_frame| {
+                        if (movement_frame.len > 0) {
+                            try perceived_frame.append(PerceivedFrame{
+                                .individuals_by_location = movement_frame.toOwnedSlice(),
+                            });
+                        }
+                    }
+                    try ret.putNoClobber(kv.key, perceived_frame.toOwnedSlice());
+                }
+                break :blk ret;
+            },
+            .state_changes = [_]StateDiff{},
+        };
     }
 
     fn observeMovement(self: *const GameEngine, perception: *Perception, previous_moves: *const IdMap(Coord), next_moves: *const IdMap(Coord)) !void {
         const zero_vector = makeCoord(0, 0);
         const yourself = perception.individual;
-        var movement_frame = try self.allocator.create(IdMap(PerceivedFrame.IndividualWithMotion));
-        movement_frame.* = IdMap(PerceivedFrame.IndividualWithMotion).init(self.allocator);
+        var movement_frame = try self.allocator.create(ArrayList(PerceivedFrame.IndividualWithMotion));
+        movement_frame.* = ArrayList(PerceivedFrame.IndividualWithMotion).init(self.allocator);
 
         var iterator = self.game_state.individuals.iterator();
         while (iterator.next()) |kv| {
             const other = kv.value;
-            try movement_frame.putNoClobber(other.id, PerceivedFrame.IndividualWithMotion{
+            try movement_frame.append(PerceivedFrame.IndividualWithMotion{
                 .prior_velocity = previous_moves.getValue(other.id) orelse zero_vector,
                 .abs_position = other.abs_position,
                 .species = other.species,
@@ -331,11 +344,11 @@ pub const GameState = struct {
 
 const Perception = struct {
     individual: Individual,
-    movement_frames: ArrayList(*IdMap(PerceivedFrame.IndividualWithMotion)),
+    movement_frames: ArrayList(*ArrayList(PerceivedFrame.IndividualWithMotion)),
     pub fn create(allocator: *std.mem.Allocator, individual: Individual) Perception {
         return Perception{
             .individual = individual,
-            .movement_frames = ArrayList(*IdMap(PerceivedFrame.IndividualWithMotion)).init(allocator),
+            .movement_frames = ArrayList(*ArrayList(PerceivedFrame.IndividualWithMotion)).init(allocator),
         };
     }
 };

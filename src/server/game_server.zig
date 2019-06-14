@@ -51,7 +51,7 @@ pub fn server_main(player_channel: *Channel) !void {
 
         const happenings = try game_engine.computeHappenings(actions);
         try game_engine.applyStateChanges(happenings.state_changes);
-        try player_channel.writeResponse(Response{ .stuff_happens = happenings.individual_to_perception.get(player_id).?.value.toOwnedSlice() });
+        try player_channel.writeResponse(Response{ .stuff_happens = happenings.individual_to_perception.get(player_id).?.value });
     }
 }
 
