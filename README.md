@@ -48,6 +48,37 @@ Doesn't work.
 
 ## Version History
 
+### 4.6.0 (unfinished)
+
+ * Weapons are equipped and unequipped manually, not automatically, and equipping/unequipping takes an action.
+ * Attacking a sucky monster (pink blob, tar elemental, air elemental) with an equipped weapon causes the weapon to be sucked up by the monster instead of the normal attack.
+ * New item: a stick equippable as a weapon
+   * The stick just pushes the target back 1 space and does no damage.
+ * Balance tweaks to snake lunge attack:
+   * Must wait to enable lunge attack, which better telegraphs when it will happen and how to avoid getting hit by it.
+   * Snakes will camp and wait for you to approach, then get bored if you're out of view.
+   * Can still lead to situations where a snake camps in a hallway forever and deals unavoidable damage.
+ * This list may be inaccurate; this version was never finished. See the git branch `4.6.0-wip`.
+
+Why the C++ code was abandoned:
+
+ * After pushing a monster, subtle timing details cause significant effects.
+   E.g. an ant having faster initiative than you means you can't see the effect of the push, because the ant steps forward before your next turn.
+   Initiative is supposed to be an insignificant implementation detail that you never need to think about,
+   but now it's a significant factor to whether a stick push is useful or useless.
+   This problem led to the timing overhaul favoring atomic, simultaneous decisions from everyone at once.
+ * With the introduction of equippable state, 4.6.0 overhauled how location is stored, making it a tagged union.
+   Tagged unions and switch statements are such a pain to work with in C++, that this motivated abandoning C++ in favor of Zig.
+   This problem and the timing issue above were the last straws in a list of reasons to rewrite everything from scratch.
+ * A client/server separation has always been planned, but it wasn't clear how it could be done with incremental changes.
+ * Perception relied on "thing ids", which are intuitive for programmers, but not for players or for the theming of the game.
+   Every monster was effectively wearing a name tag or id badge that identified it, and your id badge is how the monsters identified who they were supposed to be fighting.
+   Id badges allow monsters to identify you despite any polymorphing shenanigans, and generally give the player too much information,
+   e.g. the out-of-view placeholder for an individual will disappear when that individual dies.
+   See [issue #39](https://github.com/thejoshwolfe/legend-of-swarkland/issues/39) for even more discussion on this.
+   Getting rid of id badges would also have been such a significant change that it wasn't clear how to do it with incremental changes.
+ * General bad feelings about grinding. See the 5.0.0 notes for more discussion.
+
 ### 4.5.0
 
  * Added weapons
