@@ -5,7 +5,7 @@ PKG_CONFIG_DEPENDENCIES = SDL2_ttf sdl2
 RESOURCE_NAMES = version_resource font_resource spritesheet_resource
 OBJECT_NAMES = swarkland.o display.o load_image.o util.o path_finding.o map.o hashtable.o random.o decision.o serial.o byte_buffer.o item.o input.o event.o string.o text.o $(foreach f,$(RESOURCE_NAMES),$f.o)
 
-CPP_FLAGS += $(TARGET_SPECIFIC_CPP_FLAGS) -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror
+CPP_FLAGS += $(TARGET_SPECIFIC_CPP_FLAGS) -fno-omit-frame-pointer -fno-exceptions -fno-rtti -Ibuild/native -Isrc -g -Wall -Wextra -Werror -Wno-class-memaccess
 COMPILE_CPP = $(CROSS_PREFIX)g++ -c -std=c++14 -o $@ -MMD -MP -MF $@.d -I$(dir $@) $(CPP_FLAGS) $(shell $(CROSS_PREFIX)pkg-config --cflags $(PKG_CONFIG_DEPENDENCIES)) $<
 
 LINK_FLAGS += $(TARGET_SPECIFIC_LINK_FLAGS) -lm

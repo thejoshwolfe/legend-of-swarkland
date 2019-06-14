@@ -88,6 +88,7 @@ static inline void assert_valid_location_type(ThingType thing_type, const Locati
                 case Location::NOWHERE:
                     unreachable();
             }
+            unreachable();
         case ThingType_COUNT:
             unreachable();
     }
