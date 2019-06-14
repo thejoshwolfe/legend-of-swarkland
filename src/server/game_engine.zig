@@ -5,6 +5,7 @@ const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const makeCoord = core.geometry.makeCoord;
+const zero_vector = makeCoord(0, 0);
 
 const Action = core.protocol.Action;
 const Terrain = core.protocol.Terrain;
@@ -81,13 +82,17 @@ pub const GameEngine = struct {
     /// Computes what would happen but does not change the state of the engine.
     /// This is the entry point for all game rules.
     pub fn computeHappenings(self: *const GameEngine, actions: IdMap(Action)) !Happenings {
-        var individual_to_perception = IdMap(Perception).init(self.allocator);
+        // cache the set of keys so iterator is easier.
+        const everybody = try self.allocator.alloc(u32, self.game_state.individuals.count());
         {
             var iterator = self.game_state.individuals.iterator();
-            while (iterator.next()) |kv| {
-                try individual_to_perception.putNoClobber(kv.key, Perception.create(self.allocator, kv.value));
+            for (everybody) |*x| {
+                x.* = iterator.next().?.key;
             }
+            std.debug.assert(iterator.next() == null);
         }
+
+        var individual_to_perception = IdMap(Perception).init(self.allocator);
 
         var moves_history = ArrayList(*IdMap(Coord)).init(self.allocator);
         try moves_history.append(try createInit(self.allocator, IdMap(Coord)));
@@ -95,38 +100,58 @@ pub const GameEngine = struct {
         var next_moves = moves_history.at(moves_history.len - 1);
         var previous_moves = moves_history.at(moves_history.len - 2);
 
+        var positions_history = ArrayList(*IdMap(Coord)).init(self.allocator);
+        try positions_history.append(try createInit(self.allocator, IdMap(Coord)));
+        try positions_history.append(try createInit(self.allocator, IdMap(Coord)));
+        var next_positions = positions_history.at(positions_history.len - 1);
+        var current_positions = positions_history.at(positions_history.len - 2);
+
+        for (everybody) |id| {
+            try individual_to_perception.putNoClobber(id, Perception.create(self.allocator));
+            try current_positions.putNoClobber(id, self.game_state.individuals.getValue(id).?.abs_position);
+        }
+
         var attacks = IdMap(Coord).init(self.allocator);
 
-        {
-            var iterator = actions.iterator();
-            while (iterator.next()) |kv| {
-                var actor = &self.game_state.individuals.getValue(kv.key).?;
-                switch (kv.value) {
-                    .move => |direction| {
-                        try next_moves.putNoClobber(kv.key, direction);
-                    },
-                    .attack => |direction| {
-                        try attacks.putNoClobber(kv.key, direction);
-                    },
-                }
+        for (everybody) |id| {
+            var actor = &self.game_state.individuals.getValue(id).?;
+            switch (actions.getValue(id).?) {
+                .move => |direction| {
+                    try next_moves.putNoClobber(id, direction);
+                },
+                .attack => |direction| {
+                    try attacks.putNoClobber(id, direction);
+                },
             }
         }
 
         while (true) {
-            {
-                var iterator = individual_to_perception.iterator();
-                while (iterator.next()) |kv| {
-                    try self.observeMovement(&kv.value, previous_moves, next_moves);
-                }
+            for (everybody) |id| {
+                try self.observeMovement(
+                    everybody,
+                    self.game_state.individuals.getValue(id).?,
+                    &individual_to_perception.getValue(id).?,
+                    previous_moves,
+                    next_moves,
+                    current_positions,
+                );
             }
 
             if (next_moves.count() == 0) break;
 
-            // TODO: collisions detection/resolution
+            // TODO: collision detection/resolution
+
+            for (everybody) |id| {
+                try next_positions.putNoClobber(id, current_positions.getValue(id).?.plus(next_moves.getValue(id) orelse zero_vector));
+            }
 
             try moves_history.append(try createInit(self.allocator, IdMap(Coord)));
             next_moves = moves_history.at(moves_history.len - 1);
             previous_moves = moves_history.at(moves_history.len - 2);
+
+            try positions_history.append(try createInit(self.allocator, IdMap(Coord)));
+            next_positions = positions_history.at(positions_history.len - 1);
+            current_positions = positions_history.at(positions_history.len - 2);
         }
 
         // TODO: handle attacks
@@ -135,37 +160,57 @@ pub const GameEngine = struct {
             .individual_to_perception = blk: {
                 var ret = IdMap([]PerceivedFrame).init(self.allocator);
                 var iterator = individual_to_perception.iterator();
-                while (iterator.next()) |kv| {
+                for (everybody) |id| {
                     var perceived_frame = ArrayList(PerceivedFrame).init(self.allocator);
-                    for (kv.value.movement_frames.toSliceConst()) |movement_frame| {
+                    for (individual_to_perception.getValue(id).?.movement_frames.toSliceConst()) |movement_frame| {
                         if (movement_frame.len > 0) {
                             try perceived_frame.append(PerceivedFrame{
                                 .individuals_by_location = movement_frame.toOwnedSlice(),
                             });
                         }
                     }
-                    try ret.putNoClobber(kv.key, perceived_frame.toOwnedSlice());
+                    try ret.putNoClobber(id, perceived_frame.toOwnedSlice());
                 }
                 break :blk ret;
             },
-            .state_changes = [_]StateDiff{},
+            .state_changes = blk: {
+                var ret = ArrayList(StateDiff).init(self.allocator);
+                for (everybody) |id| {
+                    const from = self.game_state.individuals.getValue(id).?.abs_position;
+                    const to = current_positions.getValue(id).?;
+                    if (to.equals(from)) continue;
+                    const delta = to.minus(from);
+                    try ret.append(StateDiff{
+                        .move = StateDiff.IdAndCoord{
+                            .id = id,
+                            .coord = delta,
+                        },
+                    });
+                }
+                break :blk ret.toOwnedSlice();
+            },
         };
     }
 
-    fn observeMovement(self: *const GameEngine, perception: *Perception, previous_moves: *const IdMap(Coord), next_moves: *const IdMap(Coord)) !void {
-        const zero_vector = makeCoord(0, 0);
-        const yourself = perception.individual;
+    fn observeMovement(
+        self: *const GameEngine,
+        everybody: []const u32,
+        yourself: Individual,
+        perception: *Perception,
+        previous_moves: *const IdMap(Coord),
+        next_moves: *const IdMap(Coord),
+        current_positions: *const IdMap(Coord),
+    ) !void {
         var movement_frame = try self.allocator.create(ArrayList(PerceivedFrame.IndividualWithMotion));
         movement_frame.* = ArrayList(PerceivedFrame.IndividualWithMotion).init(self.allocator);
 
-        var iterator = self.game_state.individuals.iterator();
-        while (iterator.next()) |kv| {
-            const other = kv.value;
+        for (everybody) |other_id| {
             try movement_frame.append(PerceivedFrame.IndividualWithMotion{
-                .prior_velocity = previous_moves.getValue(other.id) orelse zero_vector,
-                .abs_position = other.abs_position,
-                .species = other.species,
-                .next_velocity = next_moves.getValue(other.id) orelse zero_vector,
+                .prior_velocity = previous_moves.getValue(other_id) orelse zero_vector,
+                .abs_position = current_positions.getValue(other_id).?,
+                // TODO: does species belong here?
+                .species = self.game_state.individuals.getValue(other_id).?.species,
+                .next_velocity = next_moves.getValue(other_id) orelse zero_vector,
             });
         }
 
@@ -338,11 +383,9 @@ pub const GameState = struct {
 };
 
 const Perception = struct {
-    individual: Individual,
     movement_frames: ArrayList(*ArrayList(PerceivedFrame.IndividualWithMotion)),
-    pub fn create(allocator: *std.mem.Allocator, individual: Individual) Perception {
+    pub fn create(allocator: *std.mem.Allocator) Perception {
         return Perception{
-            .individual = individual,
             .movement_frames = ArrayList(*ArrayList(PerceivedFrame.IndividualWithMotion)).init(allocator),
         };
     }
