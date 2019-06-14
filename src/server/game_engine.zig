@@ -19,6 +19,13 @@ pub fn IdMap(comptime V: type) type {
     return HashMap(u32, V, core.geometry.hashU32, std.hash_map.getTrivialEqlFn(u32));
 }
 
+/// Allocates and then calls `init(allocator)` on the new object.
+pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
+    var x = try allocator.create(T);
+    x.* = T.init(allocator);
+    return x;
+}
+
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
     game_state: GameState,
@@ -83,16 +90,8 @@ pub const GameEngine = struct {
         }
 
         var moves_history = ArrayList(*IdMap(Coord)).init(self.allocator);
-        try moves_history.append(blk: {
-            var x = try self.allocator.create(IdMap(Coord));
-            x.* = IdMap(Coord).init(self.allocator);
-            break :blk x;
-        });
-        try moves_history.append(blk: {
-            var x = try self.allocator.create(IdMap(Coord));
-            x.* = IdMap(Coord).init(self.allocator);
-            break :blk x;
-        });
+        try moves_history.append(try createInit(self.allocator, IdMap(Coord)));
+        try moves_history.append(try createInit(self.allocator, IdMap(Coord)));
         var next_moves = moves_history.at(moves_history.len - 1);
         var previous_moves = moves_history.at(moves_history.len - 2);
 
@@ -121,15 +120,11 @@ pub const GameEngine = struct {
                 }
             }
 
-            // TODO: collisions detection/resolution
-
             if (next_moves.count() == 0) break;
 
-            try moves_history.append(blk: {
-                var x = try self.allocator.create(IdMap(Coord));
-                x.* = IdMap(Coord).init(self.allocator);
-                break :blk x;
-            });
+            // TODO: collisions detection/resolution
+
+            try moves_history.append(try createInit(self.allocator, IdMap(Coord)));
             next_moves = moves_history.at(moves_history.len - 1);
             previous_moves = moves_history.at(moves_history.len - 2);
         }
