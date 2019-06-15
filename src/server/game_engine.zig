@@ -43,8 +43,10 @@ pub const GameEngine = struct {
             .history = HistoryList.init(),
             .next_id = 1,
         };
-        try self.game_state.applyStateChanges([_]StateDiff{StateDiff{ .spawn = Individual{ .id = 1, .species = Species.human, .abs_position = makeCoord(7, 14) } }});
-        //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(3, 2) } },
+        try self.game_state.applyStateChanges([_]StateDiff{
+            StateDiff{ .spawn = Individual{ .id = 1, .species = Species.human, .abs_position = makeCoord(7, 14) } },
+            StateDiff{ .spawn = Individual{ .id = 2, .species = Species.orc, .abs_position = makeCoord(3, 2) } },
+        });
         //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(5, 2) } },
         //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(12, 2) } },
         //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(14, 2) } },
