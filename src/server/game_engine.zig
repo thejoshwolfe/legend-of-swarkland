@@ -92,7 +92,7 @@ pub const GameEngine = struct {
             std.debug.assert(iterator.next() == null);
         }
 
-        var individual_to_perception = IdMap(Perception).init(self.allocator);
+        var individual_to_perception = IdMap(*Perception).init(self.allocator);
 
         var moves_history = ArrayList(*IdMap(Coord)).init(self.allocator);
         try moves_history.append(try createInit(self.allocator, IdMap(Coord)));
@@ -107,7 +107,7 @@ pub const GameEngine = struct {
         var current_positions = positions_history.at(positions_history.len - 2);
 
         for (everybody) |id| {
-            try individual_to_perception.putNoClobber(id, Perception.create(self.allocator));
+            try individual_to_perception.putNoClobber(id, try createInit(self.allocator, Perception));
             try current_positions.putNoClobber(id, self.game_state.individuals.getValue(id).?.abs_position);
         }
 
@@ -130,13 +130,12 @@ pub const GameEngine = struct {
                 try self.observeMovement(
                     everybody,
                     self.game_state.individuals.getValue(id).?,
-                    &individual_to_perception.getValue(id).?,
+                    individual_to_perception.getValue(id).?,
                     previous_moves,
                     next_moves,
                     current_positions,
                 );
             }
-            core.debug.deep_print("observations: ", individual_to_perception);
 
             if (next_moves.count() == 0) break;
 
@@ -216,7 +215,6 @@ pub const GameEngine = struct {
         }
 
         try perception.movement_frames.append(movement_frame);
-        core.debug.deep_print("perception: ", perception);
     }
 
     fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
@@ -386,7 +384,7 @@ pub const GameState = struct {
 
 const Perception = struct {
     movement_frames: ArrayList(*ArrayList(PerceivedFrame.IndividualWithMotion)),
-    pub fn create(allocator: *std.mem.Allocator) Perception {
+    pub fn init(allocator: *std.mem.Allocator) Perception {
         return Perception{
             .movement_frames = ArrayList(*ArrayList(PerceivedFrame.IndividualWithMotion)).init(allocator),
         };

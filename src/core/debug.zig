@@ -90,7 +90,7 @@ pub fn deep_print(prefix: []const u8, something: var) void {
                     return recurse(obj[0..], indent);
                 },
                 .Struct => {
-                    const multiline = @sizeOf(T) >= 20;
+                    const multiline = @sizeOf(T) >= 12;
                     comptime var field_i = 0;
                     std.debug.warn("{{");
                     inline while (field_i < @memberCount(T)) : (field_i += 1) {
