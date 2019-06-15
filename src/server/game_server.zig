@@ -50,6 +50,7 @@ pub fn server_main(player_channel: *Channel) !void {
         // TODO: populate with ai decisions
 
         const happenings = try game_engine.computeHappenings(actions);
+        core.debug.deep_print("happenings: ", happenings);
         try game_engine.applyStateChanges(happenings.state_changes);
         try player_channel.writeResponse(Response{ .stuff_happens = happenings.individual_to_perception.get(player_id).?.value });
     }

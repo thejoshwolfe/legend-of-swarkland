@@ -136,6 +136,7 @@ pub const GameEngine = struct {
                     current_positions,
                 );
             }
+            core.debug.deep_print("observations: ", individual_to_perception);
 
             if (next_moves.count() == 0) break;
 

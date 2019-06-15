@@ -45,3 +45,101 @@ pub fn nameThisThread(name: []const u8) void {
     }
     @panic("too many threads");
 }
+
+pub fn deep_print(prefix: []const u8, something: var) void {
+    std.debug.warn("{}", prefix);
+    struct {
+        pub fn recurse(obj: var, comptime indent: comptime_int) void {
+            const T = @typeOf(obj);
+            const indentation = ("  " ** indent)[0..];
+            if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_list.AlignedArrayList(")) {
+                if (obj.len == 0) {
+                    return std.debug.warn("[]");
+                }
+                std.debug.warn("[\n{}", indentation);
+                var iterator = obj.iterator();
+                while (iterator.next()) |x| {
+                    std.debug.warn("{}  ", indentation);
+                    recurse(x, indent + 1);
+                    std.debug.warn(",\n");
+                }
+                return std.debug.warn("{}]", indentation);
+            }
+            if (comptime std.mem.startsWith(u8, @typeName(T), "std.hash_map.HashMap(u32,")) {
+                if (obj.count() == 0) {
+                    return std.debug.warn("{{}}");
+                }
+                std.debug.warn("{{\n{}", indentation);
+                var iterator = obj.iterator();
+                while (iterator.next()) |kv| {
+                    std.debug.warn("{}  {}: ", indentation, kv.key);
+                    recurse(kv.value, indent + 1);
+                    std.debug.warn(",\n");
+                }
+                return std.debug.warn("{}}}", indentation);
+            }
+            switch (@typeInfo(T)) {
+                .Pointer => |ptr_info| switch (ptr_info.size) {
+                    .One => return recurse(obj.*, indent),
+                    .Slice => {
+                        if (obj.len == 0) {
+                            return std.debug.warn("[]");
+                        }
+                        std.debug.warn("[\n{}", indentation);
+                        for (obj) |x| {
+                            std.debug.warn("{}  ", indentation);
+                            recurse(x, indent + 1);
+                            std.debug.warn(",\n");
+                        }
+                        return std.debug.warn("{}]", indentation);
+                    },
+                    else => {},
+                },
+                .Array => {
+                    return recurse(obj[0..], indent);
+                },
+                .Struct => {
+                    const multiline = @sizeOf(T) >= 20;
+                    comptime var field_i = 0;
+                    std.debug.warn("{{");
+                    inline while (field_i < @memberCount(T)) : (field_i += 1) {
+                        if (field_i > 0) {
+                            if (!multiline) {
+                                std.debug.warn(", ");
+                            }
+                        } else if (!multiline) {
+                            std.debug.warn(" ");
+                        }
+                        if (multiline) {
+                            std.debug.warn("\n{}  ", indentation);
+                        }
+                        std.debug.warn(".{} = ", @memberName(T, field_i));
+                        recurse(@field(obj, @memberName(T, field_i)), indent + 1);
+                        if (multiline) std.debug.warn(",");
+                    }
+                    if (multiline) {
+                        std.debug.warn("\n{}}}", indentation);
+                    } else {
+                        std.debug.warn(" }}");
+                    }
+                    return;
+                },
+                .Union => |info| {
+                    if (info.tag_type) |UnionTagType| {
+                        std.debug.warn("{}.{} = ", @typeName(T), @tagName(UnionTagType(obj)));
+                        inline for (info.fields) |u_field| {
+                            if (@enumToInt(UnionTagType(obj)) == u_field.enum_field.?.value) {
+                                recurse(@field(obj, u_field.name), indent);
+                            }
+                        }
+                        return;
+                    }
+                },
+                else => {},
+            }
+            //std.debug.warn("TODO(else): {}\n", @typeName(T));
+            return std.debug.warn("{}", obj);
+        }
+    }.recurse(something, 0);
+    std.debug.warn("\n");
+}
