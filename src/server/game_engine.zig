@@ -216,6 +216,7 @@ pub const GameEngine = struct {
         }
 
         try perception.movement_frames.append(movement_frame);
+        core.debug.deep_print("perception: ", perception);
     }
 
     fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {

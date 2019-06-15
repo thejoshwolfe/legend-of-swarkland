@@ -46,6 +46,7 @@ pub fn nameThisThread(name: []const u8) void {
     @panic("too many threads");
 }
 
+/// i kinda wish std.fmt did this.
 pub fn deep_print(prefix: []const u8, something: var) void {
     std.debug.warn("{}", prefix);
     struct {
@@ -53,17 +54,7 @@ pub fn deep_print(prefix: []const u8, something: var) void {
             const T = @typeOf(obj);
             const indentation = ("  " ** indent)[0..];
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_list.AlignedArrayList(")) {
-                if (obj.len == 0) {
-                    return std.debug.warn("[]");
-                }
-                std.debug.warn("[\n{}", indentation);
-                var iterator = obj.iterator();
-                while (iterator.next()) |x| {
-                    std.debug.warn("{}  ", indentation);
-                    recurse(x, indent + 1);
-                    std.debug.warn(",\n");
-                }
-                return std.debug.warn("{}]", indentation);
+                return recurse(obj.toSliceConst(), indent);
             }
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.hash_map.HashMap(u32,")) {
                 if (obj.count() == 0) {
@@ -85,7 +76,7 @@ pub fn deep_print(prefix: []const u8, something: var) void {
                         if (obj.len == 0) {
                             return std.debug.warn("[]");
                         }
-                        std.debug.warn("[\n{}", indentation);
+                        std.debug.warn("[\n");
                         for (obj) |x| {
                             std.debug.warn("{}  ", indentation);
                             recurse(x, indent + 1);
@@ -135,9 +126,11 @@ pub fn deep_print(prefix: []const u8, something: var) void {
                         return;
                     }
                 },
+                .Enum => |info| {
+                    return std.debug.warn(".{}", @tagName(obj));
+                },
                 else => {},
             }
-            //std.debug.warn("TODO(else): {}\n", @typeName(T));
             return std.debug.warn("{}", obj);
         }
     }.recurse(something, 0);
