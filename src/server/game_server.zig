@@ -6,6 +6,7 @@ const Coord = core.geometry.Coord;
 const GameEngine = @import("./game_engine.zig").GameEngine;
 const GameState = @import("./game_engine.zig").GameState;
 const IdMap = @import("./game_engine.zig").IdMap;
+const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
 const Channel = core.protocol.Channel;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
@@ -20,7 +21,28 @@ pub fn server_main(main_player_channel: *Channel) !void {
     defer core.debug.warn("shutdown");
 
     var game_engine: GameEngine = undefined;
-    try game_engine.init(allocator);
+    game_engine.init(allocator);
+
+    var decision_makers = IdMap(*Channel).init(allocator);
+    var ai_clients = IdMap(*GameEngineClient).init(allocator);
+    {
+        const happenings = try game_engine.getStartGameHappenings();
+        try game_engine.game_state.applyStateChanges(happenings.state_changes);
+        for (happenings.state_changes) |diff, i| {
+            switch (diff) {
+                .spawn => |individual| {
+                    try decision_makers.putNoClobber(individual.id, blk: {
+                        if (i == 0) break :blk main_player_channel;
+                        // initialize ai channel
+                        var client = try allocator.create(GameEngineClient);
+                        try ai_clients.putNoClobber(individual.id, client);
+                        break :blk try client.startAsAi();
+                    });
+                },
+                else => unreachable,
+            }
+        }
+    }
     const main_player_id: u32 = 1;
     // TODO: initialize ai threads
 

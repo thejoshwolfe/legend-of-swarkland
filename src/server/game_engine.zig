@@ -36,20 +36,33 @@ pub const GameEngine = struct {
     const HistoryList = std.TailQueue([]StateDiff);
     const HistoryNode = HistoryList.Node;
 
-    pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) !void {
+    pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) void {
         self.* = GameEngine{
             .allocator = allocator,
             .game_state = GameState.init(allocator),
             .history = HistoryList.init(),
             .next_id = 1,
         };
-        try self.game_state.applyStateChanges([_]StateDiff{
-            StateDiff{ .spawn = Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 14) } },
-            StateDiff{ .spawn = Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(3, 2) } },
-        });
-        //StateDiff{ .spawn = Individual{ .id = 3, .species = .orc, .abs_position = makeCoord(5, 2) } },
-        //StateDiff{ .spawn = Individual{ .id = 4, .species = .orc, .abs_position = makeCoord(12, 2) } },
-        //StateDiff{ .spawn = Individual{ .id = 5, .species = .orc, .abs_position = makeCoord(14, 2) } },
+    }
+
+    pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
+        var individuals = ArrayList(Individual).init(self.allocator);
+        try individuals.append(Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 14) });
+        try individuals.append(Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(3, 2) });
+        //try individuals.append(Individual{ .id = 3, .species = .orc, .abs_position = makeCoord(5, 2) });
+        //try individuals.append(Individual{ .id = 4, .species = .orc, .abs_position = makeCoord(12, 2) });
+        //try individuals.append(Individual{ .id = 5, .species = .orc, .abs_position = makeCoord(14, 2) });
+        return Happenings{
+            // TODO: maybe put static perception in here or something.
+            .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
+            .state_changes = blk: {
+                var arr = try self.allocator.alloc(StateDiff, individuals.len);
+                for (arr) |*x, i| {
+                    x.* = StateDiff{ .spawn = individuals.at(i) };
+                }
+                break :blk arr;
+            },
+        };
     }
 
     pub fn getStaticPerception(self: *const GameEngine, individual_id: usize) !StaticPerception {

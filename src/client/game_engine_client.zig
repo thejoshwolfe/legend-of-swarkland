@@ -13,9 +13,17 @@ const allocator = std.heap.c_allocator;
 
 const Connection = union(enum) {
     child_process: *std.ChildProcess,
+
     thread: ThreadData,
     const ThreadData = struct {
         core_thread: *std.Thread,
+        send_pipe: [2]std.fs.File,
+        recv_pipe: [2]std.fs.File,
+        server_channel: Channel,
+    };
+
+    attach: AttachData,
+    const AttachData = struct {
         send_pipe: [2]std.fs.File,
         recv_pipe: [2]std.fs.File,
         server_channel: Channel,
@@ -46,6 +54,29 @@ pub const GameEngineClient = struct {
         self.recv_thread = try std.Thread.spawn(self, recvMain);
     }
 
+    /// returns the channel for the server to use to communicate with this client.
+    pub fn startAsAi(self: *GameEngineClient) !*Channel {
+        self.init();
+
+        var result: *Channel = undefined;
+
+        self.connection = Connection{ .attach = undefined };
+        switch (self.connection) {
+            // TODO: This switch is a workaround for lack of guaranteed copy elision.
+            .attach => |*data| {
+                data.send_pipe = try makePipe();
+                data.recv_pipe = try makePipe();
+                self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
+                data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
+                result = &data.server_channel;
+            },
+            else => unreachable,
+        }
+
+        try self.startThreads();
+
+        return result;
+    }
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
         self.init();
 
@@ -54,21 +85,19 @@ pub const GameEngineClient = struct {
         var path = try std.fs.path.join(allocator, [_][]const u8{ dir, "legend-of-swarkland_headless" });
         defer allocator.free(path);
 
-        self.connection = Connection{ .child_process = undefined };
-        switch (self.connection) {
-            // TODO: This switch is a workaround for lack of guaranteed copy elision.
-            Connection.child_process => |*child_process| {
+        self.connection = Connection{
+            .child_process = blk: {
                 const args = [_][]const u8{path};
-                child_process.* = try std.ChildProcess.init(args, allocator);
-                child_process.*.stdout_behavior = std.ChildProcess.StdIo.Pipe;
-                child_process.*.stdin_behavior = std.ChildProcess.StdIo.Pipe;
+                var child_process = try std.ChildProcess.init(args, allocator);
+                child_process.stdout_behavior = std.ChildProcess.StdIo.Pipe;
+                child_process.stdin_behavior = std.ChildProcess.StdIo.Pipe;
                 try child_process.*.spawn();
                 self.channel.init(allocator, child_process.*.stdout.?, child_process.*.stdin.?);
                 // FIXME: workaround for wait() trying to close stdin when it's already closed.
-                child_process.*.stdin = null;
+                child_process.stdin = null;
+                break :blk child_process;
             },
-            else => unreachable,
-        }
+        };
 
         try self.startThreads();
     }
@@ -78,7 +107,7 @@ pub const GameEngineClient = struct {
         self.connection = Connection{ .thread = undefined };
         switch (self.connection) {
             // TODO: This switch is a workaround for lack of guaranteed copy elision.
-            Connection.thread => |*data| {
+            .thread => |*data| {
                 data.send_pipe = try makePipe();
                 data.recv_pipe = try makePipe();
                 self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
@@ -106,14 +135,13 @@ pub const GameEngineClient = struct {
         core.debug.warn("close");
         self.channel.close();
         switch (self.connection) {
-            Connection.child_process => |child_process| {
+            .child_process => |child_process| {
                 _ = child_process.wait() catch undefined;
             },
-            Connection.thread => |*data| {
-                //data.send_pipe[1].close();
-                //data.recv_pipe[1].close();
+            .thread => |*data| {
                 data.core_thread.wait();
             },
+            .attach => {},
         }
         self.stay_alive.set(0);
         self.send_thread.wait();
