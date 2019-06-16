@@ -4,16 +4,16 @@ pub fn warn(comptime fmt: []const u8, args: ...) void {
     // posix write calls so that the output from multiple processes
     // doesn't interleave on the same line.
     var buffer: [0x1000]u8 = undefined;
-    const prefix_name = blk: {
+    const debug_thread_id = blk: {
         const me = std.Thread.getCurrentId();
         for (thread_names) |*maybe_it| {
             if (maybe_it.*) |it| {
-                if (it.id == me) break :blk it.name;
+                if (it.thread_id == me) break :blk it;
             }
         }
         @panic("thread not named");
     };
-    std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], "{}: " ++ fmt ++ "\n", prefix_name, args) catch {
+    std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], "{}({}): " ++ fmt ++ "\n", debug_thread_id.name, debug_thread_id.client_id, args) catch {
         @panic("make the buffer bigger");
     });
 }
@@ -23,23 +23,29 @@ pub fn init() void {
     mutex = std.Mutex.init();
 }
 
-const IdAndName = struct {
-    id: std.Thread.Id,
+const DebugThreadId = struct {
+    thread_id: std.Thread.Id,
     name: []const u8,
+    client_id: u32,
 };
-var thread_names = [_]?IdAndName{null} ** 100;
+var thread_names = [_]?DebugThreadId{null} ** 100;
 pub fn nameThisThread(name: []const u8) void {
+    return nameThisThreadWithClientId(name, 0);
+}
+pub fn nameThisThreadWithClientId(name: []const u8, client_id: u32) void {
     var held = mutex.?.acquire();
     defer held.release();
-    const me = std.Thread.getCurrentId();
+    const thread_id = std.Thread.getCurrentId();
     for (thread_names) |*maybe_it| {
         if (maybe_it.*) |it| {
-            std.debug.assert(it.id != me);
+            std.debug.assert(it.thread_id != thread_id);
+            std.debug.assert(!(std.mem.eql(u8, it.name, name) and it.client_id == client_id));
             continue;
         }
-        maybe_it.* = IdAndName{
-            .id = me,
+        maybe_it.* = DebugThreadId{
+            .thread_id = thread_id,
             .name = name,
+            .client_id = client_id,
         };
         return;
     }

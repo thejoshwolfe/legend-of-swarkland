@@ -42,11 +42,13 @@ pub const GameEngineClient = struct {
     request_outbox: std.atomic.Queue(Request),
     response_inbox: std.atomic.Queue(Response),
     stay_alive: std.atomic.Int(u8),
+    debug_client_id: u32,
 
     fn init(self: *GameEngineClient) void {
         self.request_outbox = std.atomic.Queue(Request).init();
         self.response_inbox = std.atomic.Queue(Response).init();
         self.stay_alive = std.atomic.Int(u8).init(1);
+        self.debug_client_id = 0;
     }
     fn startThreads(self: *GameEngineClient) !void {
         // start threads last
@@ -55,8 +57,9 @@ pub const GameEngineClient = struct {
     }
 
     /// returns the channel for the server to use to communicate with this client.
-    pub fn startAsAi(self: *GameEngineClient) !*Channel {
+    pub fn startAsAi(self: *GameEngineClient, debug_client_id: u32) !*Channel {
         self.init();
+        self.debug_client_id = debug_client_id;
 
         var result: *Channel = undefined;
 
@@ -157,7 +160,7 @@ pub const GameEngineClient = struct {
     }
 
     fn sendMain(self: *GameEngineClient) void {
-        core.debug.nameThisThread("client send");
+        core.debug.nameThisThreadWithClientId("client send", self.debug_client_id);
         core.debug.warn("init");
         defer core.debug.warn("shutdown");
         while (self.isAlive()) {
@@ -173,7 +176,7 @@ pub const GameEngineClient = struct {
     }
 
     fn recvMain(self: *GameEngineClient) void {
-        core.debug.nameThisThread("client recv");
+        core.debug.nameThisThreadWithClientId("client recv", self.debug_client_id);
         core.debug.warn("init");
         defer core.debug.warn("shutdown");
         while (self.isAlive()) {

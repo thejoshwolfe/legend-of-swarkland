@@ -23,6 +23,7 @@ pub fn server_main(main_player_channel: *Channel) !void {
     var game_engine: GameEngine = undefined;
     game_engine.init(allocator);
 
+    core.debug.warn("start ai clients and send welcome messages");
     var decision_makers = IdMap(*Channel).init(allocator);
     var ai_clients = IdMap(*GameEngineClient).init(allocator);
     {
@@ -31,22 +32,22 @@ pub fn server_main(main_player_channel: *Channel) !void {
         for (happenings.state_changes) |diff, i| {
             switch (diff) {
                 .spawn => |individual| {
-                    try decision_makers.putNoClobber(individual.id, blk: {
-                        if (i == 0) break :blk main_player_channel;
+                    var channel = if (i == 0) main_player_channel else blk: {
                         // initialize ai channel
                         var client = try allocator.create(GameEngineClient);
                         try ai_clients.putNoClobber(individual.id, client);
-                        break :blk try client.startAsAi();
-                    });
+                        break :blk try client.startAsAi(individual.id);
+                    };
+                    try decision_makers.putNoClobber(individual.id, channel);
+
+                    // welcome
+                    try channel.writeResponse(Response{ .static_perception = try game_engine.getStaticPerception(individual.id) });
                 },
                 else => unreachable,
             }
         }
     }
     const main_player_id: u32 = 1;
-    // TODO: initialize ai threads
-
-    try main_player_channel.writeResponse(Response{ .static_perception = try game_engine.getStaticPerception(main_player_id) });
 
     core.debug.warn("start main loop");
     mainLoop: while (true) {
