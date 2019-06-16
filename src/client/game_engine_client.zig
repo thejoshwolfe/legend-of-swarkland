@@ -240,7 +240,12 @@ test "basic interaction" {
 
     try client.move(makeCoord(1, 0));
     const post_move_response = pollSync(client);
-    const new_position = post_move_response.stuff_happens[1].individuals_by_location[0].abs_position;
+    const new_position = blk: {
+        for (post_move_response.stuff_happens[1].individuals_by_location) |x| {
+            if (x.species == .human) break :blk x.abs_position;
+        }
+        unreachable;
+    };
 
     std.testing.expect(new_position.minus(starting_position).equals(makeCoord(1, 0)));
 }
