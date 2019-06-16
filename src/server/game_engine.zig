@@ -44,12 +44,12 @@ pub const GameEngine = struct {
             .next_id = 1,
         };
         try self.game_state.applyStateChanges([_]StateDiff{
-            StateDiff{ .spawn = Individual{ .id = 1, .species = Species.human, .abs_position = makeCoord(7, 14) } },
-            StateDiff{ .spawn = Individual{ .id = 2, .species = Species.orc, .abs_position = makeCoord(3, 2) } },
+            StateDiff{ .spawn = Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 14) } },
+            StateDiff{ .spawn = Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(3, 2) } },
         });
-        //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(5, 2) } },
-        //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(12, 2) } },
-        //StateDiff{ .spawn = Individual{ .id = self.nextId(), .species = Species.orc, .abs_position = makeCoord(14, 2) } },
+        //StateDiff{ .spawn = Individual{ .id = 3, .species = .orc, .abs_position = makeCoord(5, 2) } },
+        //StateDiff{ .spawn = Individual{ .id = 4, .species = .orc, .abs_position = makeCoord(12, 2) } },
+        //StateDiff{ .spawn = Individual{ .id = 5, .species = .orc, .abs_position = makeCoord(14, 2) } },
     }
 
     pub fn getStaticPerception(self: *const GameEngine, individual_id: usize) !StaticPerception {
@@ -301,13 +301,11 @@ pub const StateDiff = union(enum) {
 };
 
 pub const GameState = struct {
-    allocator: *std.mem.Allocator,
     terrain: Terrain,
     individuals: IdMap(Individual),
 
     pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
-            .allocator = allocator,
             .terrain = blk: {
                 // someday move this outta here
                 var terrain: Terrain = undefined;
@@ -345,7 +343,7 @@ pub const GameState = struct {
         };
     }
     pub fn deinit(self: *GameState) void {
-        self.allocator.free(self.individuals);
+        self.individuals.deinit();
     }
 
     fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {

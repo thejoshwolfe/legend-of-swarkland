@@ -14,24 +14,24 @@ const Event = core.protocol.Event;
 
 const allocator = std.heap.c_allocator;
 
-pub fn server_main(player_channel: *Channel) !void {
+pub fn server_main(main_player_channel: *Channel) !void {
     core.debug.nameThisThread("core");
     core.debug.warn("init");
     defer core.debug.warn("shutdown");
 
     var game_engine: GameEngine = undefined;
     try game_engine.init(allocator);
-    const player_id: u32 = 1;
+    const main_player_id: u32 = 1;
     // TODO: initialize ai threads
 
-    try player_channel.writeResponse(Response{ .static_perception = try game_engine.getStaticPerception(player_id) });
+    try main_player_channel.writeResponse(Response{ .static_perception = try game_engine.getStaticPerception(main_player_id) });
 
     core.debug.warn("start main loop");
     mainLoop: while (true) {
         // input from player
-        var player_action = switch ((try player_channel.readRequest()) orelse {
+        var player_action = switch ((try main_player_channel.readRequest()) orelse {
             core.debug.warn("clean shutdown. close");
-            player_channel.close();
+            main_player_channel.close();
             break :mainLoop;
         }) {
             Request.act => |player_action| blk: {
@@ -46,13 +46,13 @@ pub fn server_main(player_channel: *Channel) !void {
 
         // get the rest of the decisions
         var actions = IdMap(Action).init(allocator);
-        _ = try actions.put(player_id, player_action);
+        _ = try actions.put(main_player_id, player_action);
         // TODO: populate with ai decisions
 
         const happenings = try game_engine.computeHappenings(actions);
         core.debug.deep_print("happenings: ", happenings);
         try game_engine.applyStateChanges(happenings.state_changes);
-        try player_channel.writeResponse(Response{ .stuff_happens = happenings.individual_to_perception.get(player_id).?.value });
+        try main_player_channel.writeResponse(Response{ .stuff_happens = happenings.individual_to_perception.get(main_player_id).?.value });
     }
 }
 
