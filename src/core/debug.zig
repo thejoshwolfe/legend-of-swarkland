@@ -66,14 +66,14 @@ pub fn deep_print(prefix: []const u8, something: var) void {
                 if (obj.count() == 0) {
                     return std.debug.warn("{{}}");
                 }
-                std.debug.warn("{{\n{}", indentation);
+                std.debug.warn("{{");
                 var iterator = obj.iterator();
                 while (iterator.next()) |kv| {
-                    std.debug.warn("{}  {}: ", indentation, kv.key);
+                    std.debug.warn("\n{}  {}: ", indentation, kv.key);
                     recurse(kv.value, indent + 1);
-                    std.debug.warn(",\n");
+                    std.debug.warn(",");
                 }
-                return std.debug.warn("{}}}", indentation);
+                return std.debug.warn("\n{}}}", indentation);
             }
             switch (@typeInfo(T)) {
                 .Pointer => |ptr_info| switch (ptr_info.size) {

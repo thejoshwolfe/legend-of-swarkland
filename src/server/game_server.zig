@@ -51,26 +51,39 @@ pub fn server_main(main_player_channel: *Channel) !void {
 
     core.debug.warn("start main loop");
     mainLoop: while (true) {
-        // input from player
-        var player_action = switch ((try main_player_channel.readRequest()) orelse {
-            core.debug.warn("clean shutdown. close");
-            main_player_channel.close();
-            break :mainLoop;
-        }) {
-            Request.act => |player_action| blk: {
-                if (!game_engine.validateAction(player_action)) continue;
-                break :blk player_action;
-            },
-            Request.rewind => {
-                @panic("TODO");
-            },
-        };
-        // normal action
+        // do ai
+        {
+            var iterator = ai_clients.iterator();
+            while (iterator.next()) |kv| {
+                var ai_client = kv.value;
+                // TODO: actual ai
+                try ai_client.move(Coord{ .x = 0, .y = 1 });
+            }
+        }
 
-        // get the rest of the decisions
+        // read all the inputs, which will block for the human client.
         var actions = IdMap(Action).init(allocator);
-        _ = try actions.put(main_player_id, player_action);
-        // TODO: populate with ai decisions
+        {
+            var iterator = decision_makers.iterator();
+            while (iterator.next()) |kv| {
+                var channel = kv.value;
+                switch ((try channel.readRequest()) orelse {
+                    std.debug.assert(kv.key == main_player_id);
+                    core.debug.warn("clean shutdown. close");
+                    channel.close();
+                    break :mainLoop;
+                }) {
+                    Request.act => |action| {
+                        std.debug.assert(game_engine.validateAction(action));
+                        try actions.putNoClobber(kv.key, action);
+                    },
+                    Request.rewind => {
+                        std.debug.assert(kv.key == main_player_id);
+                        @panic("TODO");
+                    },
+                }
+            }
+        }
 
         const happenings = try game_engine.computeHappenings(actions);
         core.debug.deep_print("happenings: ", happenings);
