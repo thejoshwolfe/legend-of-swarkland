@@ -11,8 +11,8 @@ const hashU32 = core.geometry.hashU32;
 const InputEngine = @import("./input_engine.zig").InputEngine;
 const Button = @import("./input_engine.zig").Button;
 const GameEngineClient = core.game_engine_client.GameEngineClient;
-const Floor = core.game_state.Floor;
-const Wall = core.game_state.Wall;
+const Floor = core.protocol.Floor;
+const Wall = core.protocol.Wall;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 
@@ -66,14 +66,15 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
 
         running: Running,
         const Running = struct {
-            g: GameEngineClient,
+            client: GameEngineClient,
+            client_state: ?ClientState,
             started_attack: bool,
             animations: Animations,
         };
     };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
     defer switch (game_state) {
-        GameState.running => |*state| state.g.stopEngine(),
+        GameState.running => |*state| state.client.stopEngine(),
         else => {},
     };
 
@@ -85,9 +86,20 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 main_menu_state.beginFrame();
             },
             GameState.running => |*state| {
-                if (try state.g.pollEvents()) |response| {
-                    defer core.protocol.deinitResponse(allocator, response);
-                    loadAnimations(&state.animations, response, now);
+                if (state.client.pollResponse()) |response| {
+                    if (state.client_state == null) {
+                        // this has to be a static perception
+                        state.client_state = ClientState{
+                            .terrain = response.static_perception.terrain,
+                        };
+                    } else switch (response) {
+                        .stuff_happens => |asdf| {
+                            //loadAnimations(&state.animations, response, now);
+                            @panic("TODO");
+                        },
+                        .undo => @panic("TODO"),
+                        .static_perception => unreachable,
+                    }
                 }
             },
         }
@@ -133,41 +145,41 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                 switch (button) {
                                     Button.left => {
                                         if (state.started_attack) {
-                                            try state.g.attack(makeCoord(-1, 0));
+                                            try state.client.attack(makeCoord(-1, 0));
                                             state.started_attack = false;
                                         } else {
-                                            try state.g.move(makeCoord(-1, 0));
+                                            try state.client.move(makeCoord(-1, 0));
                                         }
                                     },
                                     Button.right => {
                                         if (state.started_attack) {
-                                            try state.g.attack(makeCoord(1, 0));
+                                            try state.client.attack(makeCoord(1, 0));
                                             state.started_attack = false;
                                         } else {
-                                            try state.g.move(makeCoord(1, 0));
+                                            try state.client.move(makeCoord(1, 0));
                                         }
                                     },
                                     Button.up => {
                                         if (state.started_attack) {
-                                            try state.g.attack(makeCoord(0, -1));
+                                            try state.client.attack(makeCoord(0, -1));
                                             state.started_attack = false;
                                         } else {
-                                            try state.g.move(makeCoord(0, -1));
+                                            try state.client.move(makeCoord(0, -1));
                                         }
                                     },
                                     Button.down => {
                                         if (state.started_attack) {
-                                            try state.g.attack(makeCoord(0, 1));
+                                            try state.client.attack(makeCoord(0, 1));
                                             state.started_attack = false;
                                         } else {
-                                            try state.g.move(makeCoord(0, 1));
+                                            try state.client.move(makeCoord(0, 1));
                                         }
                                     },
                                     Button.start_attack => {
                                         state.started_attack = true;
                                     },
                                     Button.backspace => {
-                                        try state.g.rewind();
+                                        try state.client.rewind();
                                     },
                                     Button.escape => {
                                         state.started_attack = false;
@@ -199,7 +211,8 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 if (menu_renderer.button("New Game (Thread)")) {
                     game_state = GameState{
                         .running = GameState.Running{
-                            .g = undefined,
+                            .client = undefined,
+                            .client_state = null,
                             .started_attack = false,
                             .animations = Animations{
                                 .move_animations = [_]?MoveAnimation{null} ** 5,
@@ -208,20 +221,32 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             },
                         },
                     };
-                    try game_state.running.g.startAsThread();
+                    try game_state.running.client.startAsThread();
                 }
                 if (menu_renderer.button("Attach to Game (Process)")) {
-                    game_state = GameState{ .running = undefined };
-                    try game_state.running.g.startAsChildProcess();
+                    game_state = GameState{
+                        .running = GameState.Running{
+                            .client = undefined,
+                            .client_state = null,
+                            .started_attack = false,
+                            .animations = Animations{
+                                .move_animations = [_]?MoveAnimation{null} ** 5,
+                                .attack_animations = [_]?AttackAnimation{null} ** 5,
+                                .death_animations = [_]?DeathAnimation{null} ** 5,
+                            },
+                        },
+                    };
+                    try game_state.running.client.startAsChildProcess();
                 }
                 if (menu_renderer.button("Quit")) {
                     // quit
                     return;
                 }
             },
-            GameState.running => |state| {
+            GameState.running => |state| blk: {
+                if (state.client_state == null) break :blk;
                 // render terrain
-                for (state.g.game_state.terrain.floor) |row, y| {
+                for (state.client_state.?.terrain.floor) |row, y| {
                     for (row) |cell, x| {
                         const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
                         const texture = switch (cell) {
@@ -233,7 +258,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         textures.renderSprite(renderer, texture, coord.scaled(32));
                     }
                 }
-                for (state.g.game_state.terrain.walls) |row, y| {
+                for (state.client_state.?.terrain.walls) |row, y| {
                     for (row) |cell, x| {
                         const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
                         const texture = switch (cell) {
@@ -246,8 +271,8 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     }
                 }
 
-                // render the things
-                for (state.g.game_state.player_positions) |p, i| {
+                // TODO: render the things
+                for ([_]Coord{}) |p, i| {
                     var dying_texture: ?Rect = null;
                     if (state.animations.death_animations[i]) |animation| blk: {
                         const duration = animation.end_time - animation.start_time;
@@ -258,9 +283,6 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         }
                         // dying
                         dying_texture = textures.sprites.red_book;
-                    } else if (!state.g.game_state.player_is_alive[i]) {
-                        // ded
-                        continue;
                     }
 
                     var display_position = p.scaled(32);
@@ -319,6 +341,10 @@ fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
     return array[@intCast(usize, std.rand.limitRangeBiased(u32, hash, @intCast(u32, array.len)))];
 }
 
+const ClientState = struct {
+    terrain: core.protocol.Terrain,
+};
+
 const Animations = struct {
     move_animations: [5]?MoveAnimation,
     attack_animations: [5]?AttackAnimation,
@@ -343,7 +369,7 @@ const DeathAnimation = struct {
 
 fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
     switch (response) {
-        Response.events => |events| {
+        Response.stuff_happens => |events| {
             // animations
             for (events) |event| {
                 switch (event) {

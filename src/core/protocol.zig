@@ -57,9 +57,6 @@ pub const StaticPerception = struct {
 pub const PerceivedFrame = struct {
     /// TODO: rename to something about movement
     individuals_by_location: []IndividualWithMotion,
-    pub fn deinit(self: PerceivedFrame, allocator: *std.mem.Allocator) void {
-        allocator.free(self.individuals_by_location);
-    }
 
     // the tuple (prior velocity, abs_position) is guaranteed to be unique in this frame
     pub const IndividualWithMotion = struct {
@@ -292,20 +289,3 @@ pub const Channel = struct {
         try self.writeInt(coord.y);
     }
 };
-
-pub fn deinitResponse(allocator: *std.mem.Allocator, response: Response) void {
-    switch (response) {
-        .events => |events| {
-            deinitEvents(allocator, events);
-        },
-        .undo => |events| {
-            deinitEvents(allocator, events);
-        },
-    }
-}
-pub fn deinitEvents(allocator: *std.mem.Allocator, events: []Event) void {
-    for (events) |event| {
-        event.deinit(allocator);
-    }
-    allocator.free(events);
-}
