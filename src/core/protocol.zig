@@ -55,10 +55,8 @@ pub const StaticPerception = struct {
 /// Represents what you can observe with your eyes happening simultaneously.
 /// There can be multiple of these per turn.
 pub const PerceivedFrame = struct {
-    /// TODO: rename to something about movement
-    individuals_by_location: []IndividualWithMotion,
+    perceived_movements: []IndividualWithMotion,
 
-    // the tuple (prior velocity, abs_position) is guaranteed to be unique in this frame
     pub const IndividualWithMotion = struct {
         prior_velocity: Coord,
         abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
@@ -199,7 +197,7 @@ pub const Channel = struct {
 
     fn readPerceivedFrame(self: *Channel) !PerceivedFrame {
         return PerceivedFrame{
-            .individuals_by_location = blk: {
+            .perceived_movements = blk: {
                 const arr = try self.allocator.alloc(PerceivedFrame.IndividualWithMotion, try self.readArrayLength());
                 for (arr) |*x| {
                     x.* = PerceivedFrame.IndividualWithMotion{
@@ -214,8 +212,8 @@ pub const Channel = struct {
         };
     }
     fn writePerceivedFrame(self: *Channel, frame: PerceivedFrame) !void {
-        try self.writeArrayLength(frame.individuals_by_location.len);
-        for (frame.individuals_by_location) |individual_with_motion| {
+        try self.writeArrayLength(frame.perceived_movements.len);
+        for (frame.perceived_movements) |individual_with_motion| {
             try self.writeCoord(individual_with_motion.prior_velocity);
             try self.writeCoord(individual_with_motion.abs_position);
             try self.writeEnum(individual_with_motion.species);

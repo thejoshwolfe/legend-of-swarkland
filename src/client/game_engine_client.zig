@@ -231,7 +231,7 @@ test "basic interaction" {
     try client.move(makeCoord(1, 0));
     const post_move_response = pollSync(client);
     const new_position = blk: {
-        for (post_move_response.stuff_happens[1].individuals_by_location) |x| {
+        for (post_move_response.stuff_happens[1].perceived_movements) |x| {
             if (x.species == .human) break :blk x.abs_position;
         }
         unreachable;

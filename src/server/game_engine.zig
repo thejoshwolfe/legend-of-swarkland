@@ -180,7 +180,7 @@ pub const GameEngine = struct {
                     for (individual_to_perception.getValue(id).?.movement_frames.toSliceConst()) |movement_frame| {
                         if (movement_frame.len > 0) {
                             try perceived_frame.append(PerceivedFrame{
-                                .individuals_by_location = movement_frame.toOwnedSlice(),
+                                .perceived_movements = movement_frame.toOwnedSlice(),
                             });
                         }
                     }

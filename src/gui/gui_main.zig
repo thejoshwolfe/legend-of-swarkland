@@ -91,11 +91,25 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         // this has to be a static perception
                         state.client_state = ClientState{
                             .terrain = response.static_perception.terrain,
+                            .individuals = try std.mem.concat(allocator, StaticIndividual, [_][]const StaticIndividual{
+                                [_]StaticIndividual{response.static_perception.self},
+                                response.static_perception.others,
+                            }),
                         };
                     } else switch (response) {
-                        .stuff_happens => |asdf| {
-                            //loadAnimations(&state.animations, response, now);
-                            @panic("TODO");
+                        .stuff_happens => |perceived_frames| {
+                            // TODO: loadAnimations(&state.animations, response, now);
+                            state.client_state.?.individuals = blk: {
+                                const last_movements = perceived_frames[perceived_frames.len - 1].perceived_movements;
+                                var arr = try allocator.alloc(StaticIndividual, last_movements.len);
+                                for (arr) |*x, i| {
+                                    x.* = StaticIndividual{
+                                        .abs_position = last_movements[i].abs_position,
+                                        .species = last_movements[i].species,
+                                    };
+                                }
+                                break :blk arr;
+                            };
                         },
                         .undo => @panic("TODO"),
                         .static_perception => unreachable,
@@ -271,43 +285,44 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     }
                 }
 
-                // TODO: render the things
-                for ([_]Coord{}) |p, i| {
-                    var dying_texture: ?Rect = null;
-                    if (state.animations.death_animations[i]) |animation| blk: {
-                        const duration = animation.end_time - animation.start_time;
-                        const progress = now - animation.start_time;
-                        if (progress > duration) {
-                            // ded
-                            continue;
-                        }
-                        // dying
-                        dying_texture = textures.sprites.red_book;
+                // render the things
+                for (state.client_state.?.individuals) |individual| {
+                    //var dying_texture: ?Rect = null;
+                    //if (state.animations.death_animations[i]) |animation| blk: {
+                    //    const duration = animation.end_time - animation.start_time;
+                    //    const progress = now - animation.start_time;
+                    //    if (progress > duration) {
+                    //        // ded
+                    //        continue;
+                    //    }
+                    //    // dying
+                    //    dying_texture = textures.sprites.red_book;
+                    //}
+                    var display_position = individual.abs_position.scaled(32);
+                    //if (state.animations.move_animations[i]) |animation| blk: {
+                    //    const duration = animation.end_time - animation.start_time;
+                    //    const progress = now - animation.start_time;
+                    //    if (progress > duration) {
+                    //        break :blk;
+                    //    }
+                    //    const vector = animation.to.minus(animation.from).scaled(32);
+                    //    display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
+                    //}
+
+                    const sprite = switch (individual.species) {
+                        .human => textures.sprites.human,
+                        .orc => textures.sprites.orc,
+                    };
+                    textures.renderSprite(renderer, sprite, display_position);
+
+                    const is_self = true; // TODO
+                    if (is_self and state.started_attack) {
+                        textures.renderSprite(renderer, textures.sprites.dagger, display_position);
                     }
 
-                    var display_position = p.scaled(32);
-                    if (state.animations.move_animations[i]) |animation| blk: {
-                        const duration = animation.end_time - animation.start_time;
-                        const progress = now - animation.start_time;
-                        if (progress > duration) {
-                            break :blk;
-                        }
-                        const vector = animation.to.minus(animation.from).scaled(32);
-                        display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
-                    }
-
-                    if (i == 0) {
-                        textures.renderSprite(renderer, textures.sprites.human, display_position);
-                        if (state.started_attack) {
-                            textures.renderSprite(renderer, textures.sprites.dagger, display_position);
-                        }
-                    } else {
-                        textures.renderSprite(renderer, textures.sprites.orc, display_position);
-                    }
-
-                    if (dying_texture) |t| {
-                        textures.renderSprite(renderer, t, display_position);
-                    }
+                    //if (dying_texture) |t| {
+                    //    textures.renderSprite(renderer, t, display_position);
+                    //}
                 }
                 for (state.animations.attack_animations) |a, i| {
                     if (a) |animation| {
@@ -341,8 +356,10 @@ fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
     return array[@intCast(usize, std.rand.limitRangeBiased(u32, hash, @intCast(u32, array.len)))];
 }
 
+const StaticIndividual = core.protocol.StaticPerception.StaticIndividual;
 const ClientState = struct {
     terrain: core.protocol.Terrain,
+    individuals: []StaticIndividual,
 };
 
 const Animations = struct {
