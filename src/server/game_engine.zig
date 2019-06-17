@@ -27,6 +27,13 @@ pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
     return x;
 }
 
+/// Shallow copies the argument to a newly allocated pointer.
+pub fn clone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
+    var x = try allocator.create(@typeOf(obj));
+    x.* = obj;
+    return x;
+}
+
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
     game_state: GameState,
@@ -49,9 +56,9 @@ pub const GameEngine = struct {
         var individuals = ArrayList(Individual).init(self.allocator);
         try individuals.append(Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 14) });
         try individuals.append(Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(3, 2) });
-        //try individuals.append(Individual{ .id = 3, .species = .orc, .abs_position = makeCoord(5, 2) });
-        //try individuals.append(Individual{ .id = 4, .species = .orc, .abs_position = makeCoord(12, 2) });
-        //try individuals.append(Individual{ .id = 5, .species = .orc, .abs_position = makeCoord(14, 2) });
+        try individuals.append(Individual{ .id = 3, .species = .orc, .abs_position = makeCoord(5, 2) });
+        try individuals.append(Individual{ .id = 4, .species = .orc, .abs_position = makeCoord(12, 2) });
+        try individuals.append(Individual{ .id = 5, .species = .orc, .abs_position = makeCoord(14, 2) });
         return Happenings{
             // TODO: maybe put static perception in here or something.
             .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
@@ -129,7 +136,7 @@ pub const GameEngine = struct {
         var attacks = IdMap(Coord).init(self.allocator);
 
         for (everybody) |id| {
-            var actor = &self.game_state.individuals.getValue(id).?;
+            var actor = self.game_state.individuals.getValue(id).?;
             switch (actions.getValue(id).?) {
                 .move => |direction| {
                     try next_moves.putNoClobber(id, direction);
@@ -210,7 +217,7 @@ pub const GameEngine = struct {
     fn observeMovement(
         self: *const GameEngine,
         everybody: []const u32,
-        yourself: Individual,
+        yourself: *const Individual,
         perception: *Perception,
         previous_moves: *const IdMap(Coord),
         next_moves: *const IdMap(Coord),
@@ -314,11 +321,13 @@ pub const StateDiff = union(enum) {
 };
 
 pub const GameState = struct {
+    allocator: *std.mem.Allocator,
     terrain: Terrain,
-    individuals: IdMap(Individual),
+    individuals: IdMap(*Individual),
 
     pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
+            .allocator = allocator,
             .terrain = blk: {
                 // someday move this outta here
                 var terrain: Terrain = undefined;
@@ -352,10 +361,11 @@ pub const GameState = struct {
                 }
                 break :blk terrain;
             },
-            .individuals = IdMap(Individual).init(allocator),
+            .individuals = IdMap(*Individual).init(allocator),
         };
     }
     pub fn deinit(self: *GameState) void {
+        // TODO: it's more complicated than this
         self.individuals.deinit();
     }
 
@@ -363,14 +373,14 @@ pub const GameState = struct {
         for (state_changes) |diff| {
             switch (diff) {
                 .spawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, individual);
+                    try self.individuals.putNoClobber(individual.id, try clone(self.allocator, individual));
                 },
                 .die => |individual| {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
                 .move => |id_and_coord| {
-                    var abs_position = &self.individuals.getValue(id_and_coord.id).?.abs_position;
-                    abs_position.* = abs_position.plus(id_and_coord.coord);
+                    const individual = self.individuals.getValue(id_and_coord.id).?;
+                    individual.abs_position = individual.abs_position.plus(id_and_coord.coord);
                 },
             }
         }
@@ -381,14 +391,14 @@ pub const GameState = struct {
             const diff = state_changes[state_changes.len - 1 - forwards_i];
             switch (diff) {
                 .spawn => |individual| {
-                    self.individuals.removeAssertDiscard(individual.id);
+                    @panic("TODO: copy apply die");
                 },
                 .die => |individuall| {
-                    try self.individuals.putNoClobber(individual.id, individual);
+                    @panic("TODO: copy apply spawn");
                 },
                 .move => |_| {
-                    var abs_position = &self.individuals.getValue(id_and_coord.id).value.abs_position;
-                    abs_position.* = abs_position.minus(id_and_coord.coord);
+                    const individual = self.individuals.getValue(id_and_coord.id).?;
+                    individual.abs_position = individual.abs_position.minus(id_and_coord.coord);
                 },
             }
         }
