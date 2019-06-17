@@ -64,17 +64,12 @@ pub const GameEngineClient = struct {
         var result: *Channel = undefined;
 
         self.connection = Connection{ .attach = undefined };
-        switch (self.connection) {
-            // TODO: This switch is a workaround for lack of guaranteed copy elision.
-            .attach => |*data| {
-                data.send_pipe = try makePipe();
-                data.recv_pipe = try makePipe();
-                self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
-                data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
-                result = &data.server_channel;
-            },
-            else => unreachable,
-        }
+        var data = &self.connection.attach;
+        data.send_pipe = try makePipe();
+        data.recv_pipe = try makePipe();
+        self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
+        data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
+        result = &data.server_channel;
 
         try self.startThreads();
 
@@ -108,28 +103,23 @@ pub const GameEngineClient = struct {
         self.init();
 
         self.connection = Connection{ .thread = undefined };
-        switch (self.connection) {
-            // TODO: This switch is a workaround for lack of guaranteed copy elision.
-            .thread => |*data| {
-                data.send_pipe = try makePipe();
-                data.recv_pipe = try makePipe();
-                self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
-                data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
-                const LambdaPlease = struct {
-                    pub fn f(context: *Channel) void {
-                        game_server.server_main(context) catch |err| {
-                            std.debug.warn("error: {}", @errorName(err));
-                            if (@errorReturnTrace()) |trace| {
-                                std.debug.dumpStackTrace(trace.*);
-                            }
-                            @panic("");
-                        };
+        const data = &self.connection.thread;
+        data.send_pipe = try makePipe();
+        data.recv_pipe = try makePipe();
+        self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
+        data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
+        const LambdaPlease = struct {
+            pub fn f(context: *Channel) void {
+                game_server.server_main(context) catch |err| {
+                    std.debug.warn("error: {}", @errorName(err));
+                    if (@errorReturnTrace()) |trace| {
+                        std.debug.dumpStackTrace(trace.*);
                     }
+                    @panic("");
                 };
-                data.core_thread = try std.Thread.spawn(&data.server_channel, LambdaPlease.f);
-            },
-            else => unreachable,
-        }
+            }
+        };
+        data.core_thread = try std.Thread.spawn(&data.server_channel, LambdaPlease.f);
 
         try self.startThreads();
     }
