@@ -11,6 +11,7 @@ const hashU32 = core.geometry.hashU32;
 const InputEngine = @import("./input_engine.zig").InputEngine;
 const Button = @import("./input_engine.zig").Button;
 const GameEngineClient = core.game_engine_client.GameEngineClient;
+const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const Response = core.protocol.Response;
@@ -69,7 +70,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
             client: GameEngineClient,
             client_state: ?ClientState,
             started_attack: bool,
-            animations: Animations,
+            animations: ?Animations,
         };
     };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
@@ -98,7 +99,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         };
                     } else switch (response) {
                         .stuff_happens => |perceived_frames| {
-                            // TODO: loadAnimations(&state.animations, response, now);
+                            try loadAnimations(&state.animations, response, now);
                             state.client_state.?.individuals = blk: {
                                 const last_movements = perceived_frames[perceived_frames.len - 1].perceived_movements;
                                 var arr = try allocator.alloc(StaticIndividual, last_movements.len);
@@ -228,11 +229,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             .client = undefined,
                             .client_state = null,
                             .started_attack = false,
-                            .animations = Animations{
-                                .move_animations = [_]?MoveAnimation{null} ** 5,
-                                .attack_animations = [_]?AttackAnimation{null} ** 5,
-                                .death_animations = [_]?DeathAnimation{null} ** 5,
-                            },
+                            .animations = null,
                         },
                     };
                     try game_state.running.client.startAsThread();
@@ -243,11 +240,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             .client = undefined,
                             .client_state = null,
                             .started_attack = false,
-                            .animations = Animations{
-                                .move_animations = [_]?MoveAnimation{null} ** 5,
-                                .attack_animations = [_]?AttackAnimation{null} ** 5,
-                                .death_animations = [_]?DeathAnimation{null} ** 5,
-                            },
+                            .animations = null,
                         },
                     };
                     try game_state.running.client.startAsChildProcess();
@@ -257,7 +250,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     return;
                 }
             },
-            GameState.running => |state| blk: {
+            GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;
                 // render terrain
                 for (state.client_state.?.terrain.floor) |row, y| {
@@ -286,53 +279,51 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 }
 
                 // render the things
-                for (state.client_state.?.individuals) |individual| {
-                    //var dying_texture: ?Rect = null;
-                    //if (state.animations.death_animations[i]) |animation| blk: {
-                    //    const duration = animation.end_time - animation.start_time;
-                    //    const progress = now - animation.start_time;
-                    //    if (progress > duration) {
-                    //        // ded
-                    //        continue;
-                    //    }
-                    //    // dying
-                    //    dying_texture = textures.sprites.red_book;
-                    //}
-                    var display_position = individual.abs_position.scaled(32);
-                    //if (state.animations.move_animations[i]) |animation| blk: {
-                    //    const duration = animation.end_time - animation.start_time;
-                    //    const progress = now - animation.start_time;
-                    //    if (progress > duration) {
-                    //        break :blk;
-                    //    }
-                    //    const vector = animation.to.minus(animation.from).scaled(32);
-                    //    display_position = animation.from.scaled(32).plus(vector.scaled(progress).scaledDivTrunc(duration));
-                    //}
+                var animating = false;
+                if (state.animations) |animations| {
+                    const animation_time = @bitCast(u32, now -% animations.start_time);
+                    const move_frame_time = 100;
+                    const movement_phase = @divFloor(animation_time, move_frame_time);
+                    if (movement_phase < animations.move_animations.len) {
+                        animating = true;
 
-                    const sprite = switch (individual.species) {
-                        .human => textures.sprites.human,
-                        .orc => textures.sprites.orc,
-                    };
-                    textures.renderSprite(renderer, sprite, display_position);
-
-                    const is_self = true; // TODO
-                    if (is_self and state.started_attack) {
-                        textures.renderSprite(renderer, textures.sprites.dagger, display_position);
-                    }
-
-                    //if (dying_texture) |t| {
-                    //    textures.renderSprite(renderer, t, display_position);
-                    //}
-                }
-                for (state.animations.attack_animations) |a, i| {
-                    if (a) |animation| {
-                        const duration = animation.end_time - animation.start_time;
-                        const progress = now - animation.start_time;
-                        if (progress > duration) {
-                            continue;
+                        const progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
+                        const animation_group = animations.move_animations[movement_phase];
+                        for (animation_group) |a| {
+                            // Scale velocity to halfway, because each is redundant with a neighboring frame.
+                            const display_position = core.geometry.bezier3(
+                                a.abs_position.scaled(32).minus(a.prior_velocity.scaled(32 / 2)),
+                                a.abs_position.scaled(32),
+                                a.abs_position.scaled(32).plus(a.next_velocity.scaled(32 / 2)),
+                                progress,
+                                move_frame_time,
+                            );
+                            const sprite = switch (a.species) {
+                                // TODO: factor this into a function
+                                .human => textures.sprites.human,
+                                .orc => textures.sprites.orc,
+                            };
+                            textures.renderSprite(renderer, sprite, display_position);
                         }
-                        const display_position = animation.location.scaled(32);
-                        textures.renderSpriteRotated(renderer, textures.sprites.dagger, display_position, animation.rotation +% 1);
+                    } else {
+                        // stale
+                        state.animations = null;
+                    }
+                }
+                if (!animating) {
+                    // static
+                    for (state.client_state.?.individuals) |individual| {
+                        var display_position = individual.abs_position.scaled(32);
+                        const sprite = switch (individual.species) {
+                            .human => textures.sprites.human,
+                            .orc => textures.sprites.orc,
+                        };
+                        textures.renderSprite(renderer, sprite, display_position);
+
+                        const is_self = true; // TODO
+                        if (is_self and state.started_attack) {
+                            textures.renderSprite(renderer, textures.sprites.dagger, display_position);
+                        }
                     }
                 }
             },
@@ -363,65 +354,49 @@ const ClientState = struct {
 };
 
 const Animations = struct {
-    move_animations: [5]?MoveAnimation,
-    attack_animations: [5]?AttackAnimation,
-    death_animations: [5]?DeathAnimation,
+    start_time: i32,
+    move_animations: [][]MoveAnimation,
+    attack_animations: [0]AttackAnimation, // TODO
+    death_animations: [0]DeathAnimation, // TODO
 };
 const MoveAnimation = struct {
-    start_time: i32,
-    end_time: i32,
-    from: Coord,
-    to: Coord,
+    prior_velocity: Coord,
+    abs_position: Coord,
+    species: Species,
+    next_velocity: Coord,
 };
-const AttackAnimation = struct {
-    start_time: i32,
-    end_time: i32,
-    location: Coord,
-    rotation: u3,
-};
-const DeathAnimation = struct {
-    start_time: i32,
-    end_time: i32,
-};
+const AttackAnimation = struct {};
+const DeathAnimation = struct {};
 
-fn loadAnimations(animations: *Animations, response: Response, now: i32) void {
+fn loadAnimations(animations: *?Animations, response: Response, now: i32) !void {
     switch (response) {
-        Response.stuff_happens => |events| {
-            // animations
-            for (events) |event| {
-                switch (event) {
-                    Event.init_state => {},
-                    Event.moved => |e| {
-                        animations.move_animations[e.player_index] = MoveAnimation{
-                            .start_time = now,
-                            .end_time = now + 200,
-                            .from = e.locations[0],
-                            .to = e.locations[e.locations.len - 1],
-                        };
-                    },
-                    Event.attacked => |e| {
-                        animations.attack_animations[e.player_index] = AttackAnimation{
-                            .start_time = now,
-                            .end_time = now + 200,
-                            .location = e.attack_location,
-                            .rotation = directionToRotation(e.attack_location.minus(e.origin_position)),
-                        };
-                    },
-                    Event.died => |player_index| {
-                        animations.death_animations[player_index] = DeathAnimation{
-                            .start_time = now,
-                            .end_time = now + 200,
-                        };
-                    },
+        Response.static_perception => {},
+        Response.stuff_happens => |frames| {
+            animations.* = Animations{
+                .start_time = now,
+                .move_animations = try allocator.alloc([]MoveAnimation, frames.len),
+                .attack_animations = [_]AttackAnimation{},
+                .death_animations = [_]DeathAnimation{},
+            };
+            animations.*.?.start_time = now;
+            animations.*.?.move_animations = try allocator.alloc([]MoveAnimation, frames.len);
+            for (animations.*.?.move_animations) |*animation_group, i| {
+                const frame = frames[i];
+                animation_group.* = try allocator.alloc(MoveAnimation, frame.perceived_movements.len);
+                for (animation_group.*) |*animation, j| {
+                    const movement = frame.perceived_movements[j];
+                    animation.* = MoveAnimation{
+                        .prior_velocity = movement.prior_velocity,
+                        .abs_position = movement.abs_position,
+                        .species = movement.species,
+                        .next_velocity = movement.next_velocity,
+                    };
                 }
             }
         },
         Response.undo => |events| {
-            animations.* = Animations{
-                .move_animations = [_]?MoveAnimation{null} ** 5,
-                .attack_animations = [_]?AttackAnimation{null} ** 5,
-                .death_animations = [_]?DeathAnimation{null} ** 5,
-            };
+            // cancel animations
+            animations.* = null;
         },
     }
 }

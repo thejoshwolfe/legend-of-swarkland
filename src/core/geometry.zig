@@ -125,3 +125,30 @@ pub fn sign(x: var) @typeOf(x) {
     if (x == 0) return 0;
     return -1;
 }
+
+/// Quadratic version of bezier2.
+pub fn bezier3(
+    x0: Coord,
+    x1: Coord,
+    x2: Coord,
+    s: i32,
+    max_s: i32,
+) Coord {
+    return bezier2(
+        bezier2(x0, x1, s, max_s),
+        bezier2(x1, x2, s, max_s),
+        s,
+        max_s,
+    );
+}
+
+/// This is linear interpolation.
+/// Normally max_s is fixed at 1.0, but we're too cool for floats.
+pub fn bezier2(
+    x0: Coord,
+    x1: Coord,
+    s: i32,
+    max_s: i32,
+) Coord {
+    return x0.scaled(max_s - s).plus(x1.scaled(s)).scaledDivTrunc(max_s);
+}
