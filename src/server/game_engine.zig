@@ -161,8 +161,6 @@ pub const GameEngine = struct {
 
             if (next_moves.count() == 0) break;
 
-            // TODO: collision detection/resolution
-
             for (everybody) |id| {
                 try next_positions.putNoClobber(id, current_positions.getValue(id).?.plus(next_moves.getValue(id) orelse zero_vector));
             }
@@ -174,6 +172,18 @@ pub const GameEngine = struct {
             try positions_history.append(try createInit(self.allocator, IdMap(Coord)));
             next_positions = positions_history.at(positions_history.len - 1);
             current_positions = positions_history.at(positions_history.len - 2);
+
+            // ==================================
+            // Collision detection and resolution
+            // ==================================
+
+            for (everybody) |id| {
+                const position = current_positions.getValue(id).?;
+                if (!self.isOpenSpace(position)) {
+                    // bounce off the wall
+                    try next_moves.putNoClobber(id, previous_moves.getValue(id).?.scaled(-1));
+                }
+            }
         }
 
         // TODO: handle attacks
