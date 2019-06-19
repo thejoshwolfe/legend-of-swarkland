@@ -45,6 +45,10 @@ pub const Coord = struct {
     pub fn equals(a: Coord, b: Coord) bool {
         return a.x == b.x and a.y == b.y;
     }
+
+    pub fn hash(a: Coord) u32 {
+        return hashU32(hashU32(@bitCast(u32, a.x)) ^ @bitCast(u32, a.y));
+    }
 };
 
 pub fn makeCoord(x: i32, y: i32) Coord {

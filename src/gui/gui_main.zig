@@ -298,11 +298,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                 progress,
                                 move_frame_time,
                             );
-                            const sprite = switch (a.species) {
-                                // TODO: factor this into a function
-                                .human => textures.sprites.human,
-                                .orc => textures.sprites.orc,
-                            };
+                            const sprite = speciesToSprite(a.species);
                             textures.renderSprite(renderer, sprite, display_position);
                         }
                     } else {
@@ -314,10 +310,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     // static
                     for (state.client_state.?.individuals) |individual| {
                         var display_position = individual.abs_position.scaled(32);
-                        const sprite = switch (individual.species) {
-                            .human => textures.sprites.human,
-                            .orc => textures.sprites.orc,
-                        };
+                        const sprite = speciesToSprite(individual.species);
                         textures.renderSprite(renderer, sprite, display_position);
 
                         const is_self = true; // TODO
@@ -345,6 +338,16 @@ fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
     hash ^= @bitCast(u32, coord.y);
     hash = hashU32(hash);
     return array[@intCast(usize, std.rand.limitRangeBiased(u32, hash, @intCast(u32, array.len)))];
+}
+
+fn speciesToSprite(species: Species) Rect {
+    return switch (species) {
+        .human => textures.sprites.human,
+        .orc => textures.sprites.orc,
+        .ogre => textures.sprites.ogre,
+        .snake => textures.sprites.snake,
+        .ant => textures.sprites.ant,
+    };
 }
 
 const StaticIndividual = core.protocol.StaticPerception.StaticIndividual;

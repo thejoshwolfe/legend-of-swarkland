@@ -20,6 +20,10 @@ pub fn IdMap(comptime V: type) type {
     return HashMap(u32, V, core.geometry.hashU32, std.hash_map.getTrivialEqlFn(u32));
 }
 
+pub fn CoordMap(comptime V: type) type {
+    return HashMap(Coord, V, Coord.hash, Coord.equals);
+}
+
 /// Allocates and then calls `init(allocator)` on the new object.
 pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
     var x = try allocator.create(T);
@@ -55,10 +59,10 @@ pub const GameEngine = struct {
     pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
         var individuals = ArrayList(Individual).init(self.allocator);
         try individuals.append(Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 14) });
-        try individuals.append(Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(3, 2) });
-        try individuals.append(Individual{ .id = 3, .species = .orc, .abs_position = makeCoord(5, 2) });
-        try individuals.append(Individual{ .id = 4, .species = .orc, .abs_position = makeCoord(12, 2) });
-        try individuals.append(Individual{ .id = 5, .species = .orc, .abs_position = makeCoord(14, 2) });
+        try individuals.append(Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(6, 13) });
+        try individuals.append(Individual{ .id = 3, .species = .snake, .abs_position = makeCoord(5, 11) });
+        try individuals.append(Individual{ .id = 4, .species = .ogre, .abs_position = makeCoord(5, 10) });
+        try individuals.append(Individual{ .id = 5, .species = .ant, .abs_position = makeCoord(5, 8) });
         return Happenings{
             // TODO: maybe put static perception in here or something.
             .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
@@ -176,12 +180,48 @@ pub const GameEngine = struct {
             // ==================================
             // Collision detection and resolution
             // ==================================
+            var collision_counter = CoordMap(usize).init(self.allocator);
 
             for (everybody) |id| {
                 const position = current_positions.getValue(id).?;
+                // walls
                 if (!self.isOpenSpace(position)) {
                     // bounce off the wall
-                    try next_moves.putNoClobber(id, previous_moves.getValue(id).?.scaled(-1));
+                    try next_moves.putNoClobber(id, previous_moves.getValue(id).?.negated());
+                }
+                // and count entity collision
+                _ = try collision_counter.put(position, 1 + (collision_counter.getValue(position) orelse 0));
+            }
+
+            {
+                var ids = ArrayList(u32).init(self.allocator);
+                var iterator = collision_counter.iterator();
+                while (iterator.next()) |kv| {
+                    if (kv.value <= 1) continue;
+                    const position = kv.key;
+                    // collect the individuals involved in this collision
+                    ids.shrink(0);
+                    for (everybody) |id| {
+                        if (!current_positions.getValue(id).?.equals(position)) continue;
+                        try ids.append(id);
+                    }
+
+                    // treat each individual separately
+                    for (ids.toSliceConst()) |me| {
+                        // consider forces from everyone but yourself
+                        var external_force: u4 = 0;
+                        for (ids.toSliceConst()) |id| {
+                            if (id == me) continue;
+                            const prior_velocity = previous_moves.getValue(id) orelse zero_vector;
+                            external_force |= core.geometry.directionToCardinalBitmask(prior_velocity);
+                        }
+                        if (core.geometry.cardinalBitmaskToDirection(external_force)) |push_velocity| {
+                            try next_moves.putNoClobber(me, push_velocity);
+                        } else {
+                            @panic("TODO");
+                            // clusterfuck. reverse course.
+                        }
+                    }
                 }
             }
         }
