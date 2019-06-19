@@ -282,7 +282,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 var animating = false;
                 if (state.animations) |animations| {
                     const animation_time = @bitCast(u32, now -% animations.start_time);
-                    const move_frame_time = 100;
+                    const move_frame_time = 300;
                     const movement_phase = @divFloor(animation_time, move_frame_time);
                     if (movement_phase < animations.move_animations.len) {
                         animating = true;
