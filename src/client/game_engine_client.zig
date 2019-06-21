@@ -215,6 +215,7 @@ fn makePipe() ![2]std.fs.File {
 }
 
 test "basic interaction" {
+    // init
     core.debug.init();
     core.debug.nameThisThread("test main");
     core.debug.warn("start test");
@@ -225,19 +226,33 @@ test "basic interaction" {
     defer client.stopEngine();
 
     const startup_response = pollSync(client);
-    core.debug.warn("got response");
     const starting_position = startup_response.static_perception.self.abs_position;
+    core.debug.warn("startup done");
 
+    // move
     try client.move(makeCoord(1, 0));
-    const post_move_response = pollSync(client);
-    const new_position = blk: {
-        for (post_move_response.stuff_happens[1].perceived_movements) |x| {
-            if (x.species == .human) break :blk x.abs_position;
-        }
-        unreachable;
-    };
+    {
+        const response = pollSync(client);
+        const new_position = blk: {
+            for (response.stuff_happens[1].perceived_movements) |x| {
+                if (x.species == .human) break :blk x.abs_position;
+            }
+            unreachable;
+        };
 
-    std.testing.expect(new_position.minus(starting_position).equals(makeCoord(1, 0)));
+        std.testing.expect(new_position.minus(starting_position).equals(makeCoord(1, 0)));
+    }
+    core.debug.warn("move looks good");
+
+    // rewind
+    try client.rewind();
+    {
+        const response = pollSync(client);
+        const new_position = response.undo.self.abs_position;
+
+        std.testing.expect(new_position.equals(starting_position));
+    }
+    core.debug.warn("rewind looks good");
 }
 
 fn pollSync(client: *GameEngineClient) Response {

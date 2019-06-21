@@ -42,7 +42,7 @@ pub const Action = union(enum) {
 pub const Response = union(enum) {
     static_perception: StaticPerception,
     stuff_happens: []PerceivedFrame,
-    undo: PerceivedFrame,
+    undo: StaticPerception,
 };
 
 pub const StaticPerception = struct {
@@ -136,19 +136,7 @@ pub const Channel = struct {
             else => return err,
         }) {
             @enumToInt(Response.static_perception) => {
-                return Response{
-                    .static_perception = StaticPerception{
-                        .terrain = try self.readTerrain(),
-                        .self = try self.readStaticIndividual(),
-                        .others = blk: {
-                            var arr = try self.allocator.alloc(StaticPerception.StaticIndividual, try self.readArrayLength());
-                            for (arr) |*x| {
-                                x.* = try self.readStaticIndividual();
-                            }
-                            break :blk arr;
-                        },
-                    },
-                };
+                return Response{ .static_perception = try self.readStaticPerception() };
             },
             @enumToInt(Response.stuff_happens) => {
                 var frames = try self.allocator.alloc(PerceivedFrame, try self.readArrayLength());
@@ -158,7 +146,7 @@ pub const Channel = struct {
                 return Response{ .stuff_happens = frames };
             },
             @enumToInt(Response.undo) => {
-                return Response{ .undo = try self.readPerceivedFrame() };
+                return Response{ .undo = try self.readStaticPerception() };
             },
             else => return error.MalformedData,
         }
@@ -167,13 +155,7 @@ pub const Channel = struct {
         try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
         switch (response) {
             .static_perception => |static_perception| {
-                try self.writeTerrain(static_perception.terrain);
-                try self.writeStaticIndividual(static_perception.self);
-
-                try self.writeArrayLength(static_perception.others.len);
-                for (static_perception.others) |static_individual| {
-                    try self.writeStaticIndividual(static_individual);
-                }
+                try self.writeStaticPerception(static_perception);
             },
             .stuff_happens => |perception_frames| {
                 try self.writeArrayLength(perception_frames.len);
@@ -181,9 +163,32 @@ pub const Channel = struct {
                     try self.writePerceivedFrame(frame);
                 }
             },
-            .undo => |_| {
-                @panic("todo");
+            .undo => |static_perception| {
+                try self.writeStaticPerception(static_perception);
             },
+        }
+    }
+
+    fn readStaticPerception(self: *Channel) !StaticPerception {
+        return StaticPerception{
+            .terrain = try self.readTerrain(),
+            .self = try self.readStaticIndividual(),
+            .others = blk: {
+                var arr = try self.allocator.alloc(StaticPerception.StaticIndividual, try self.readArrayLength());
+                for (arr) |*x| {
+                    x.* = try self.readStaticIndividual();
+                }
+                break :blk arr;
+            },
+        };
+    }
+    fn writeStaticPerception(self: *Channel, static_perception: StaticPerception) !void {
+        try self.writeTerrain(static_perception.terrain);
+        try self.writeStaticIndividual(static_perception.self);
+
+        try self.writeArrayLength(static_perception.others.len);
+        for (static_perception.others) |static_individual| {
+            try self.writeStaticIndividual(static_individual);
         }
     }
 

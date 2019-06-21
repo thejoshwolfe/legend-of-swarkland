@@ -40,20 +40,9 @@ pub fn clone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
 
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
-    game_state: GameState,
-    history: HistoryList,
-    next_id: u32,
-
-    const HistoryList = std.TailQueue([]StateDiff);
-    const HistoryNode = HistoryList.Node;
 
     pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) void {
-        self.* = GameEngine{
-            .allocator = allocator,
-            .game_state = GameState.init(allocator),
-            .history = HistoryList.init(),
-            .next_id = 1,
-        };
+        self.* = GameEngine{ .allocator = allocator };
     }
 
     pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
@@ -76,10 +65,10 @@ pub const GameEngine = struct {
         };
     }
 
-    pub fn getStaticPerception(self: *const GameEngine, individual_id: usize) !StaticPerception {
+    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: usize) !StaticPerception {
         var yourself: StaticPerception.StaticIndividual = undefined;
         var others = ArrayList(StaticPerception.StaticIndividual).init(self.allocator);
-        var iterator = self.game_state.individuals.iterator();
+        var iterator = game_state.individuals.iterator();
         while (iterator.next()) |kv| {
             if (kv.key == individual_id) {
                 yourself = StaticPerception.StaticIndividual{
@@ -94,7 +83,7 @@ pub const GameEngine = struct {
             }
         }
         return StaticPerception{
-            .terrain = self.game_state.terrain,
+            .terrain = game_state.terrain,
             .self = yourself,
             .others = others.toOwnedSlice(),
         };
@@ -107,11 +96,11 @@ pub const GameEngine = struct {
 
     /// Computes what would happen but does not change the state of the engine.
     /// This is the entry point for all game rules.
-    pub fn computeHappenings(self: *const GameEngine, actions: IdMap(Action)) !Happenings {
+    pub fn computeHappenings(self: *const GameEngine, game_state: GameState, actions: IdMap(Action)) !Happenings {
         // cache the set of keys so iterator is easier.
-        const everybody = try self.allocator.alloc(u32, self.game_state.individuals.count());
+        const everybody = try self.allocator.alloc(u32, game_state.individuals.count());
         {
-            var iterator = self.game_state.individuals.iterator();
+            var iterator = game_state.individuals.iterator();
             for (everybody) |*x| {
                 x.* = iterator.next().?.key;
             }
@@ -134,13 +123,13 @@ pub const GameEngine = struct {
 
         for (everybody) |id| {
             try individual_to_perception.putNoClobber(id, try createInit(self.allocator, Perception));
-            try current_positions.putNoClobber(id, self.game_state.individuals.getValue(id).?.abs_position);
+            try current_positions.putNoClobber(id, game_state.individuals.getValue(id).?.abs_position);
         }
 
         var attacks = IdMap(Coord).init(self.allocator);
 
         for (everybody) |id| {
-            var actor = self.game_state.individuals.getValue(id).?;
+            var actor = game_state.individuals.getValue(id).?;
             switch (actions.getValue(id).?) {
                 .move => |direction| {
                     try next_moves.putNoClobber(id, direction);
@@ -154,8 +143,9 @@ pub const GameEngine = struct {
         while (true) {
             for (everybody) |id| {
                 try self.observeMovement(
+                    game_state,
                     everybody,
-                    self.game_state.individuals.getValue(id).?,
+                    game_state.individuals.getValue(id).?,
                     individual_to_perception.getValue(id).?,
                     previous_moves,
                     next_moves,
@@ -185,7 +175,7 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 const position = current_positions.getValue(id).?;
                 // walls
-                if (!self.isOpenSpace(position)) {
+                if (!isOpenSpace(game_state.wallAt(position))) {
                     // bounce off the wall
                     try next_moves.putNoClobber(id, previous_moves.getValue(id).?.negated());
                 }
@@ -248,7 +238,7 @@ pub const GameEngine = struct {
             .state_changes = blk: {
                 var ret = ArrayList(StateDiff).init(self.allocator);
                 for (everybody) |id| {
-                    const from = self.game_state.individuals.getValue(id).?.abs_position;
+                    const from = game_state.individuals.getValue(id).?.abs_position;
                     const to = current_positions.getValue(id).?;
                     if (to.equals(from)) continue;
                     const delta = to.minus(from);
@@ -266,6 +256,7 @@ pub const GameEngine = struct {
 
     fn observeMovement(
         self: *const GameEngine,
+        game_state: GameState,
         everybody: []const u32,
         yourself: *const Individual,
         perception: *Perception,
@@ -281,7 +272,7 @@ pub const GameEngine = struct {
                 .prior_velocity = previous_moves.getValue(other_id) orelse zero_vector,
                 .abs_position = current_positions.getValue(other_id).?,
                 // TODO: does species belong here?
-                .species = self.game_state.individuals.getValue(other_id).?.species,
+                .species = game_state.individuals.getValue(other_id).?.species,
                 .next_velocity = next_moves.getValue(other_id) orelse zero_vector,
             });
         }
@@ -289,64 +280,11 @@ pub const GameEngine = struct {
         try perception.movement_frames.append(movement_frame);
     }
 
-    fn isOpenSpace(self: *const GameEngine, coord: Coord) bool {
-        if (coord.x < 0 or coord.y < 0) return false;
-        if (coord.x >= 16 or coord.y >= 16) return false;
-        return self.game_state.terrain.walls[@intCast(usize, coord.y)][@intCast(usize, coord.x)] == Wall.air;
-    }
-
     pub fn validateAction(self: *const GameEngine, action: Action) bool {
         switch (action) {
             .move => |direction| return isCardinalDirection(direction),
             .attack => |direction| return isCardinalDirection(direction),
         }
-    }
-
-    pub fn applyStateChanges(self: *GameEngine, state_changes: []StateDiff) !void {
-        try self.pushHistoryRecord(state_changes);
-        try self.game_state.applyStateChanges(state_changes);
-
-        // advance our next_id cursor
-        for (state_changes) |diff| {
-            switch (diff) {
-                .spawn => |individual| {
-                    std.debug.assert(individual.id == self.next_id);
-                    self.next_id = individual.id + 1;
-                },
-                else => {},
-            }
-        }
-    }
-
-    pub fn rewind(self: *GameEngine) ?[]StateDiff {
-        if (self.history.len <= 1) {
-            // that's enough pal.
-            return null;
-        }
-        const node = self.history.pop() orelse return null;
-        const state_changes = node.data;
-        self.allocator.destroy(node);
-        try self.game_state.undoEvents(state_changes);
-
-        // move our next_id cursor backwards
-        for (state_changes) |_, forwards_i| {
-            // undo backwards
-            const diff = state_changes[state_changes.len - 1 - forwards_i];
-            switch (diff) {
-                .spawn => |individual| {
-                    std.debug.assert(individual.id == self.next_id - 1);
-                    self.next_id = Individual.id;
-                },
-                else => {},
-            }
-        }
-        return state_changes;
-    }
-
-    fn pushHistoryRecord(self: *GameEngine, state_changes: []StateDiff) !void {
-        const history_node: *HistoryNode = try self.allocator.create(HistoryNode);
-        history_node.data = state_changes;
-        self.history.append(history_node);
     }
 };
 
@@ -414,10 +352,6 @@ pub const GameState = struct {
             .individuals = IdMap(*Individual).init(allocator),
         };
     }
-    pub fn deinit(self: *GameState) void {
-        // TODO: it's more complicated than this
-        self.individuals.deinit();
-    }
 
     fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
         for (state_changes) |diff| {
@@ -435,23 +369,29 @@ pub const GameState = struct {
             }
         }
     }
-    fn undoEvents(self: *GameState, state_changes: []const StateDiff) void {
+    fn undoStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
         for (state_changes) |_, forwards_i| {
             // undo backwards
             const diff = state_changes[state_changes.len - 1 - forwards_i];
             switch (diff) {
                 .spawn => |individual| {
-                    @panic("TODO: copy apply die");
+                    self.individuals.removeAssertDiscard(individual.id);
                 },
-                .die => |individuall| {
-                    @panic("TODO: copy apply spawn");
+                .die => |individual| {
+                    try self.individuals.putNoClobber(individual.id, try clone(self.allocator, individual));
                 },
-                .move => |_| {
+                .move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
                     individual.abs_position = individual.abs_position.minus(id_and_coord.coord);
                 },
             }
         }
+    }
+
+    pub fn wallAt(self: GameState, coord: Coord) Wall {
+        if (coord.x < 0 or coord.y < 0) return .unknown;
+        if (coord.x >= 16 or coord.y >= 16) return .unknown;
+        return self.terrain.walls[@intCast(usize, coord.y)][@intCast(usize, coord.x)];
     }
 };
 
@@ -463,3 +403,7 @@ const Perception = struct {
         };
     }
 };
+
+fn isOpenSpace(wall: Wall) bool {
+    return wall == Wall.air;
+}

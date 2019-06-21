@@ -13,6 +13,10 @@ const Response = core.protocol.Response;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
 
+const StateDiff = @import("./game_engine.zig").StateDiff;
+const HistoryList = std.TailQueue([]StateDiff);
+const HistoryNode = HistoryList.Node;
+
 const allocator = std.heap.c_allocator;
 
 pub fn server_main(main_player_channel: *Channel) !void {
@@ -22,13 +26,14 @@ pub fn server_main(main_player_channel: *Channel) !void {
 
     var game_engine: GameEngine = undefined;
     game_engine.init(allocator);
+    var game_state = GameState.init(allocator);
 
     core.debug.warn("start ai clients and send welcome messages");
     var decision_makers = IdMap(*Channel).init(allocator);
     var ai_clients = IdMap(*GameEngineClient).init(allocator);
     {
         const happenings = try game_engine.getStartGameHappenings();
-        try game_engine.game_state.applyStateChanges(happenings.state_changes);
+        try game_state.applyStateChanges(happenings.state_changes);
         for (happenings.state_changes) |diff, i| {
             switch (diff) {
                 .spawn => |individual| {
@@ -41,13 +46,17 @@ pub fn server_main(main_player_channel: *Channel) !void {
                     try decision_makers.putNoClobber(individual.id, channel);
 
                     // welcome
-                    try channel.writeResponse(Response{ .static_perception = try game_engine.getStaticPerception(individual.id) });
+                    try channel.writeResponse(Response{
+                        .static_perception = try game_engine.getStaticPerception(game_state, individual.id),
+                    });
                 },
                 else => unreachable,
             }
         }
     }
     const main_player_id: u32 = 1;
+
+    var history = HistoryList.init();
 
     core.debug.warn("start main loop");
     mainLoop: while (true) {
@@ -63,6 +72,7 @@ pub fn server_main(main_player_channel: *Channel) !void {
 
         // read all the inputs, which will block for the human client.
         var actions = IdMap(Action).init(allocator);
+        var is_rewind = false;
         {
             var iterator = decision_makers.iterator();
             while (iterator.next()) |kv| {
@@ -79,17 +89,55 @@ pub fn server_main(main_player_channel: *Channel) !void {
                     },
                     Request.rewind => {
                         std.debug.assert(kv.key == main_player_id);
-                        @panic("TODO");
+                        // delay actually rewinding so that we receive all requests.
+                        is_rewind = true;
                     },
                 }
             }
         }
 
-        const happenings = try game_engine.computeHappenings(actions);
-        core.debug.deep_print("happenings: ", happenings);
-        try game_engine.applyStateChanges(happenings.state_changes);
-        try main_player_channel.writeResponse(Response{ .stuff_happens = happenings.individual_to_perception.get(main_player_id).?.value });
+        if (is_rewind) {
+
+            // Time goes backward.
+            if (rewind(&history)) |state_changes| {
+                try game_state.undoStateChanges(state_changes);
+            }
+            // Regardless of whether that succeeded, send the rewind to everyone.
+            var iterator = decision_makers.iterator();
+            while (iterator.next()) |kv| {
+                const id = kv.key;
+                const channel = kv.value;
+                try channel.writeResponse(Response{ .undo = try game_engine.getStaticPerception(game_state, id) });
+            }
+        } else {
+
+            // Time goes forward.
+            const happenings = try game_engine.computeHappenings(game_state, actions);
+            //core.debug.deep_print("happenings: ", happenings);
+            try pushHistoryRecord(&history, happenings.state_changes);
+            try game_state.applyStateChanges(happenings.state_changes);
+
+            var iterator = decision_makers.iterator();
+            while (iterator.next()) |kv| {
+                const id = kv.key;
+                const channel = kv.value;
+                try channel.writeResponse(Response{
+                    .stuff_happens = happenings.individual_to_perception.get(id).?.value,
+                });
+            }
+        }
     }
+}
+
+fn rewind(history: *HistoryList) ?[]StateDiff {
+    const node = history.pop() orelse return null;
+    return node.data;
+}
+
+fn pushHistoryRecord(history: *HistoryList, state_changes: []StateDiff) !void {
+    const history_node: *HistoryNode = try allocator.create(HistoryNode);
+    history_node.data = state_changes;
+    history.append(history_node);
 }
 
 fn getAiAction(human_relative_position: Coord) Action {
