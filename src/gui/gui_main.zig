@@ -88,16 +88,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
             },
             GameState.running => |*state| {
                 if (state.client.pollResponse()) |response| {
-                    if (state.client_state == null) {
-                        // this has to be a static perception
-                        state.client_state = ClientState{
-                            .terrain = response.static_perception.terrain,
-                            .individuals = try std.mem.concat(allocator, StaticIndividual, [_][]const StaticIndividual{
-                                [_]StaticIndividual{response.static_perception.self},
-                                response.static_perception.others,
-                            }),
-                        };
-                    } else switch (response) {
+                    switch (response) {
                         .stuff_happens => |perceived_frames| {
                             try loadAnimations(&state.animations, response, now);
                             state.client_state.?.individuals = blk: {
@@ -112,8 +103,28 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                 break :blk arr;
                             };
                         },
-                        .undo => @panic("TODO"),
-                        .static_perception => unreachable,
+                        .static_perception => |static_perception| {
+                            // FIXME duplicated
+                            state.animations = null;
+                            state.client_state = ClientState{
+                                .terrain = static_perception.terrain,
+                                .individuals = try std.mem.concat(allocator, StaticIndividual, [_][]const StaticIndividual{
+                                    [_]StaticIndividual{static_perception.self},
+                                    static_perception.others,
+                                }),
+                            };
+                        },
+                        .undo => |static_perception| {
+                            // FIXME duplicated
+                            state.animations = null;
+                            state.client_state = ClientState{
+                                .terrain = static_perception.terrain,
+                                .individuals = try std.mem.concat(allocator, StaticIndividual, [_][]const StaticIndividual{
+                                    [_]StaticIndividual{static_perception.self},
+                                    static_perception.others,
+                                }),
+                            };
+                        },
                     }
                 }
             },
@@ -282,7 +293,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 var animating = false;
                 if (state.animations) |animations| {
                     const animation_time = @bitCast(u32, now -% animations.start_time);
-                    const move_frame_time = 300;
+                    const move_frame_time = 150;
                     const movement_phase = @divFloor(animation_time, move_frame_time);
                     if (movement_phase < animations.move_animations.len) {
                         animating = true;
