@@ -324,7 +324,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         const sprite = speciesToSprite(individual.species);
                         textures.renderSprite(renderer, sprite, display_position);
 
-                        const is_self = true; // TODO
+                        const is_self = individual.species == .human;
                         if (is_self and state.started_attack) {
                             textures.renderSprite(renderer, textures.sprites.dagger, display_position);
                         }
