@@ -208,8 +208,8 @@ pub const GameEngine = struct {
                         if (core.geometry.cardinalBitmaskToDirection(external_force)) |push_velocity| {
                             try next_moves.putNoClobber(me, push_velocity);
                         } else {
-                            @panic("TODO");
                             // clusterfuck. reverse course.
+                            try next_moves.putNoClobber(me, (previous_moves.getValue(me) orelse zero_vector).negated());
                         }
                     }
                 }
