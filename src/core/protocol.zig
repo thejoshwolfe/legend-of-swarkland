@@ -302,7 +302,7 @@ pub fn initOutChannel(out_stream: var) OutChannel(@typeOf(out_stream.*)) {
 pub fn OutChannel(comptime OutStream: type) type {
     return struct {
         const Self = @This();
-        const Error = @typeInfo(@typeInfo(@typeOf(OutStream(undefined).stream.writeFn)).Fn.return_type.?).ErrorUnion.error_set;
+        const Error = @typeInfo(@typeInfo(@typeOf(OutStream(undefined).writeFn)).Fn.return_type.?).ErrorUnion.error_set;
 
         stream: *OutStream,
         pub fn init(stream: *OutStream) Self {
@@ -318,7 +318,7 @@ pub fn OutChannel(comptime OutStream: type) type {
             } else if (int_info.bits <= 8) {
                 // small enough to fit into a single byte
                 const T8 = @IntType(int_info.is_signed, 8);
-                return self.stream.stream.writeIntLittle(T8, x);
+                return self.stream.writeIntLittle(T8, x);
             }
             // variable length little-endian encoding
 
@@ -332,7 +332,7 @@ pub fn OutChannel(comptime OutStream: type) type {
                 if (!done) {
                     byte |= 0x80;
                 }
-                try self.stream.stream.writeIntLittle(u8, byte);
+                try self.stream.writeIntLittle(u8, byte);
                 if (done) return;
             }
         }
@@ -342,7 +342,7 @@ pub fn OutChannel(comptime OutStream: type) type {
 test "OutChannel" {
     var buffer = [_]u8{0} ** 256;
     var _stream = std.io.SliceOutStream.init(buffer[0..]);
-    var channel = initOutChannel(&_stream);
+    var channel = initOutChannel(&_stream.stream);
 
     _stream.reset();
     try channel.writeInt(u0(0)); // zero size
