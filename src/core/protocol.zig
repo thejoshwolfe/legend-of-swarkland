@@ -315,6 +315,11 @@ pub fn OutChannel(comptime OutStream: type) type {
                 .Int => return self.writeInt(x),
                 .Bool => return self.writeInt(@boolToInt(x)),
                 .Enum => return self.writeInt(@enumToInt(x)),
+                .Struct => |info| {
+                    inline for (info.fields) |field| {
+                        try self.write(@field(x, field.name));
+                    }
+                },
                 else => {
                     @compileError("not supported: " ++ @typeName(T));
                 },
@@ -378,7 +383,7 @@ test "OutChannel.writeInt" {
     std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{0x80} ** 8 ++ [_]u8{0x00}));
 }
 
-test "OutChannel.write scalars" {
+test "OutChannel.write" {
     var buffer = [_]u8{0} ** 256;
     var _stream = std.io.SliceOutStream.init(buffer[0..]);
     var channel = initOutChannel(&_stream.stream);
@@ -393,4 +398,9 @@ test "OutChannel.write scalars" {
     try channel.write(false);
     try channel.write(true);
     std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 0, 1 }));
+
+    // struct
+    _stream.reset();
+    try channel.write(Coord{ .x = 1, .y = 2 });
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 1, 2 }));
 }
