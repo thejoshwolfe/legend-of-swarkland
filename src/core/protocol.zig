@@ -309,6 +309,18 @@ pub fn OutChannel(comptime OutStream: type) type {
             return Self{ .stream = stream };
         }
 
+        pub fn write(self: Self, x: var) Error!void {
+            const T = @typeOf(x);
+            switch (@typeInfo(T)) {
+                .Int => return self.writeInt(x),
+                .Bool => return self.writeInt(@boolToInt(x)),
+                .Enum => return self.writeInt(@enumToInt(x)),
+                else => {
+                    @compileError("not supported: " ++ @typeName(T));
+                },
+            }
+        }
+
         pub fn writeInt(self: Self, x: var) Error!void {
             const T = @typeOf(x);
             const int_info = @typeInfo(T).Int;
@@ -339,7 +351,7 @@ pub fn OutChannel(comptime OutStream: type) type {
     };
 }
 
-test "OutChannel" {
+test "OutChannel.writeInt" {
     var buffer = [_]u8{0} ** 256;
     var _stream = std.io.SliceOutStream.init(buffer[0..]);
     var channel = initOutChannel(&_stream.stream);
@@ -362,6 +374,23 @@ test "OutChannel" {
 
     _stream.reset();
     try channel.writeInt(i64(-0x8000000000000000));
-    core.debug.deep_print("the answer:", _stream.getWritten());
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{0x80} ** 9 ++ [_]u8{0x01}));
+    // this might be wrong
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{0x80} ** 8 ++ [_]u8{0x00}));
+}
+
+test "OutChannel.write scalars" {
+    var buffer = [_]u8{0} ** 256;
+    var _stream = std.io.SliceOutStream.init(buffer[0..]);
+    var channel = initOutChannel(&_stream.stream);
+
+    // enum
+    _stream.reset();
+    try channel.write(Wall.stone);
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{u7(@enumToInt(Wall.stone))}));
+
+    // bool
+    _stream.reset();
+    try channel.write(false);
+    try channel.write(true);
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 0, 1 }));
 }
