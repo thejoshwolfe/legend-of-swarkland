@@ -295,3 +295,73 @@ pub const Channel = struct {
         try self.writeInt(coord.y);
     }
 };
+
+pub fn initOutChannel(out_stream: var) OutChannel(@typeOf(out_stream.*)) {
+    return OutChannel(@typeOf(out_stream.*)).init(out_stream);
+}
+pub fn OutChannel(comptime OutStream: type) type {
+    return struct {
+        const Self = @This();
+        const Error = @typeInfo(@typeInfo(@typeOf(OutStream(undefined).stream.writeFn)).Fn.return_type.?).ErrorUnion.error_set;
+
+        stream: *OutStream,
+        pub fn init(stream: *OutStream) Self {
+            return Self{ .stream = stream };
+        }
+
+        pub fn writeInt(self: Self, x: var) Error!void {
+            const T = @typeOf(x);
+            const int_info = @typeInfo(T).Int;
+            if (int_info.bits == 0) {
+                // nope
+                return;
+            } else if (int_info.bits <= 8) {
+                // small enough to fit into a single byte
+                const T8 = @IntType(int_info.is_signed, 8);
+                return self.stream.stream.writeIntLittle(T8, x);
+            }
+            // variable length little-endian encoding
+
+            const terminal_value = if (x < 0) T(-1) else T(0);
+            var remaining = x;
+            while (true) {
+                var byte = @intCast(u8, remaining & 0x7f);
+                remaining >>= 7;
+
+                const done = remaining == terminal_value;
+                if (!done) {
+                    byte |= 0x80;
+                }
+                try self.stream.stream.writeIntLittle(u8, byte);
+                if (done) return;
+            }
+        }
+    };
+}
+
+test "OutChannel" {
+    var buffer = [_]u8{0} ** 256;
+    var _stream = std.io.SliceOutStream.init(buffer[0..]);
+    var channel = initOutChannel(&_stream);
+
+    _stream.reset();
+    try channel.writeInt(u0(0)); // zero size
+    try channel.writeInt(u3(2));
+    try channel.writeInt(i3(-2));
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 2, 0xfe }));
+
+    _stream.reset();
+    try channel.writeInt(u64(3));
+    try channel.writeInt(i64(4));
+    try channel.writeInt(i64(-5));
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 3, 4, 0x7b }));
+
+    _stream.reset();
+    try channel.writeInt(u64(0xffffffffffffffff));
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{0xff} ** 9 ++ [_]u8{0x01}));
+
+    _stream.reset();
+    try channel.writeInt(i64(-0x8000000000000000));
+    core.debug.deep_print("the answer:", _stream.getWritten());
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{0x80} ** 9 ++ [_]u8{0x01}));
+}
