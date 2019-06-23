@@ -320,9 +320,32 @@ pub fn OutChannel(comptime OutStream: type) type {
                         try self.write(@field(x, field.name));
                     }
                 },
-                else => {
-                    @compileError("not supported: " ++ @typeName(T));
+                .Array => {
+                    for (x) |x_i| {
+                        try self.write(x_i);
+                    }
                 },
+                .Pointer => |info| {
+                    switch (info.size) {
+                        .Slice => {
+                            try self.writeInt(x.len);
+                            for (x) |x_i| {
+                                try self.write(x_i);
+                            }
+                        },
+                        else => @compileError("not supported: " ++ @typeName(T)),
+                    }
+                },
+                .Union => |info| {
+                    const tag_value = @enumToInt(info.tag_type.?(x));
+                    try self.writeInt(tag_value);
+                    inline for (info.fields) |u_field| {
+                        if (tag_value == u_field.enum_field.?.value) {
+                            try self.write(@field(x, u_field.name));
+                        }
+                    }
+                },
+                else => @compileError("not supported: " ++ @typeName(T)),
             }
         }
 
@@ -403,4 +426,19 @@ test "OutChannel.write" {
     _stream.reset();
     try channel.write(Coord{ .x = 1, .y = 2 });
     std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 1, 2 }));
+
+    // fixed-size array
+    _stream.reset();
+    try channel.write([_]u8{ 1, 2, 3 });
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 1, 2, 3 }));
+
+    // slice
+    _stream.reset();
+    try channel.write(([_]u8{ 1, 2, 3 })[0..]);
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 3, 1, 2, 3 }));
+
+    // union(enum)
+    _stream.reset();
+    try channel.write(Action{ .move = Coord{ .x = 3, .y = 4 } });
+    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ u7(@enumToInt(Action.move)), 3, 4 }));
 }
