@@ -32,6 +32,7 @@ pub const Terrain = struct {
 pub const Request = union(enum) {
     act: Action,
     rewind,
+    quit,
 };
 
 pub const Action = union(enum) {
@@ -40,6 +41,7 @@ pub const Action = union(enum) {
 };
 
 pub const Response = union(enum) {
+    game_over,
     static_perception: StaticPerception,
     stuff_happens: []PerceivedFrame,
     undo: StaticPerception,
@@ -68,231 +70,36 @@ pub const PerceivedFrame = struct {
     };
 };
 
-/// TODO: sort all arrays to hide iteration order from the server
-pub const Channel = struct {
-    allocator: *std.mem.Allocator,
-    in_file: std.fs.File,
-    out_file: std.fs.File,
-    in_adapter: std.fs.File.InStream,
-    out_adapter: std.fs.File.OutStream,
-    in_stream: *std.io.InStream(std.fs.File.ReadError),
-    out_stream: *std.io.OutStream(std.fs.File.WriteError),
+/// Despite all the generic elegance of the Channel classes,
+/// this is what we use everywhere.
+pub const Socket = struct {
+    in_stream: std.fs.File.InStream,
+    out_stream: std.fs.File.OutStream,
 
-    pub fn init(self: *Channel, allocator: *std.mem.Allocator, in_file: std.fs.File, out_file: std.fs.File) void {
-        self.allocator = allocator;
-        self.in_file = in_file;
-        self.out_file = out_file;
-        self.in_adapter = in_file.inStream();
-        self.out_adapter = out_file.outStream();
-        self.in_stream = &self.in_adapter.stream;
-        self.out_stream = &self.out_adapter.stream;
-    }
-    pub fn close(self: *Channel) void {
-        self.out_file.close();
-    }
-
-    pub fn writeRequest(self: *Channel, request: Request) !void {
-        try self.writeInt(u8(@enumToInt(@TagType(Request)(request))));
-        switch (request) {
-            .act => |action| {
-                try self.writeInt(u8(@enumToInt(@TagType(Action)(action))));
-                switch (action) {
-                    Action.move => |direction| try self.writeCoord(direction),
-                    Action.attack => |direction| try self.writeCoord(direction),
-                }
-            },
-            .rewind => {},
-        }
-    }
-
-    pub fn readRequest(self: *Channel) !?Request {
-        switch (self.readInt(u8) catch |err| switch (err) {
-            error.EndOfStream => return null,
-            else => return err,
-        }) {
-            @enumToInt(Request.act) => {
-                switch (Action.move) {
-                    Action.move => {},
-                    Action.attack => {},
-                }
-                switch (try self.readInt(u8)) {
-                    @enumToInt(Action.move) => {
-                        return Request{ .act = Action{ .move = try self.readCoord() } };
-                    },
-                    @enumToInt(Action.attack) => {
-                        return Request{ .act = Action{ .attack = try self.readCoord() } };
-                    },
-                    else => return error.MalformedData,
-                }
-            },
-            @enumToInt(Request.rewind) => return Request{ .rewind = {} },
-            else => return error.MalformedData,
-        }
-    }
-
-    pub fn readResponse(self: *Channel) !?Response {
-        switch (self.readInt(u8) catch |err| switch (err) {
-            error.EndOfStream => return null,
-            else => return err,
-        }) {
-            @enumToInt(Response.static_perception) => {
-                return Response{ .static_perception = try self.readStaticPerception() };
-            },
-            @enumToInt(Response.stuff_happens) => {
-                var frames = try self.allocator.alloc(PerceivedFrame, try self.readArrayLength());
-                for (frames) |*frame| {
-                    frame.* = try self.readPerceivedFrame();
-                }
-                return Response{ .stuff_happens = frames };
-            },
-            @enumToInt(Response.undo) => {
-                return Response{ .undo = try self.readStaticPerception() };
-            },
-            else => return error.MalformedData,
-        }
-    }
-    fn writeResponse(self: *Channel, response: Response) !void {
-        try self.writeInt(u8(@enumToInt(@TagType(Response)(response))));
-        switch (response) {
-            .static_perception => |static_perception| {
-                try self.writeStaticPerception(static_perception);
-            },
-            .stuff_happens => |perception_frames| {
-                try self.writeArrayLength(perception_frames.len);
-                for (perception_frames) |frame| {
-                    try self.writePerceivedFrame(frame);
-                }
-            },
-            .undo => |static_perception| {
-                try self.writeStaticPerception(static_perception);
-            },
-        }
-    }
-
-    fn readStaticPerception(self: *Channel) !StaticPerception {
-        return StaticPerception{
-            .terrain = try self.readTerrain(),
-            .self = try self.readStaticIndividual(),
-            .others = blk: {
-                var arr = try self.allocator.alloc(StaticPerception.StaticIndividual, try self.readArrayLength());
-                for (arr) |*x| {
-                    x.* = try self.readStaticIndividual();
-                }
-                break :blk arr;
-            },
+    pub fn init(
+        in_stream: std.fs.File.InStream,
+        out_stream: std.fs.File.OutStream,
+    ) Socket {
+        return Socket{
+            .in_stream = in_stream,
+            .out_stream = out_stream,
         };
     }
-    fn writeStaticPerception(self: *Channel, static_perception: StaticPerception) !void {
-        try self.writeTerrain(static_perception.terrain);
-        try self.writeStaticIndividual(static_perception.self);
 
-        try self.writeArrayLength(static_perception.others.len);
-        for (static_perception.others) |static_individual| {
-            try self.writeStaticIndividual(static_individual);
-        }
+    pub const FileInChannel = InChannel(std.fs.File.InStream.Stream);
+    pub fn in(self: *Socket, allocator: *std.mem.Allocator) FileInChannel {
+        return initInChannel(allocator, &self.in_stream.stream);
     }
 
-    fn readStaticIndividual(self: *Channel) !StaticPerception.StaticIndividual {
-        return StaticPerception.StaticIndividual{
-            .abs_position = try self.readCoord(),
-            .species = try self.readEnum(Species),
-        };
-    }
-    fn writeStaticIndividual(self: *Channel, static_individual: StaticPerception.StaticIndividual) !void {
-        try self.writeCoord(static_individual.abs_position);
-        try self.writeEnum(static_individual.species);
+    pub const FileOutChannel = OutChannel(std.fs.File.OutStream.Stream);
+    pub fn out(self: *Socket) FileOutChannel {
+        return initOutChannel(&self.out_stream.stream);
     }
 
-    fn readPerceivedFrame(self: *Channel) !PerceivedFrame {
-        return PerceivedFrame{
-            .perceived_movements = blk: {
-                const arr = try self.allocator.alloc(PerceivedFrame.IndividualWithMotion, try self.readArrayLength());
-                for (arr) |*x| {
-                    x.* = PerceivedFrame.IndividualWithMotion{
-                        .prior_velocity = try self.readCoord(),
-                        .abs_position = try self.readCoord(),
-                        .species = try self.readEnum(Species),
-                        .next_velocity = try self.readCoord(),
-                    };
-                }
-                break :blk arr;
-            },
-        };
-    }
-    fn writePerceivedFrame(self: *Channel, frame: PerceivedFrame) !void {
-        try self.writeArrayLength(frame.perceived_movements.len);
-        for (frame.perceived_movements) |individual_with_motion| {
-            try self.writeCoord(individual_with_motion.prior_velocity);
-            try self.writeCoord(individual_with_motion.abs_position);
-            try self.writeEnum(individual_with_motion.species);
-            try self.writeCoord(individual_with_motion.next_velocity);
-        }
-    }
-
-    fn readTerrain(self: *Channel) !Terrain {
-        var result: Terrain = undefined;
-        for (result.floor) |*row| {
-            for (row) |*cell| {
-                cell.* = try self.readEnum(Floor);
-            }
-        }
-        for (result.walls) |*row| {
-            for (row) |*cell| {
-                cell.* = try self.readEnum(Wall);
-            }
-        }
-        return result;
-    }
-    fn writeTerrain(self: *Channel, terrain: Terrain) !void {
-        for (terrain.floor) |row| {
-            for (row) |cell| {
-                try self.writeEnum(cell);
-            }
-        }
-        for (terrain.walls) |row| {
-            for (row) |cell| {
-                try self.writeEnum(cell);
-            }
-        }
-    }
-
-    fn readArrayLength(self: *Channel) !usize {
-        return usize(try self.readInt(u8));
-    }
-    fn writeArrayLength(self: *Channel, len: usize) !void {
-        try self.writeInt(@intCast(u8, len));
-    }
-
-    fn readEnum(self: *Channel, comptime T: type) !T {
-        const x = try self.readInt(u8);
-        if (x >= @memberCount(T)) return error.MalformedData;
-        return @intToEnum(T, @intCast(@TagType(T), x));
-    }
-    fn writeEnum(self: *Channel, x: var) !void {
-        try self.writeInt(u8(@enumToInt(x)));
-    }
-
-    fn readInt(self: *Channel, comptime T: type) !T {
-        const x = try self.in_stream.readIntLittle(T);
-        // core.debug.warn("readInt: {}", x);
-        return x;
-    }
-
-    /// TODO: switch to varint so we don't have to downcast to u8 unsafely
-    fn writeInt(self: *Channel, x: var) !void {
-        // core.debug.warn("writeInt: {}", x);
-        return self.out_stream.writeIntLittle(@typeOf(x), x);
-    }
-
-    fn readCoord(self: *Channel) !Coord {
-        return Coord{
-            .x = try self.readInt(i32),
-            .y = try self.readInt(i32),
-        };
-    }
-    fn writeCoord(self: *Channel, coord: Coord) !void {
-        try self.writeInt(coord.x);
-        try self.writeInt(coord.y);
+    pub fn close(self: *Socket, final_message: var) void {
+        self.out().write(final_message) catch {};
+        self.out_stream.file.close();
+        // FIXME: revisit closing the in_stream when we have async/await maybe.
     }
 };
 
@@ -302,14 +109,13 @@ pub fn initOutChannel(out_stream: var) OutChannel(@typeOf(out_stream.*)) {
 pub fn OutChannel(comptime OutStream: type) type {
     return struct {
         const Self = @This();
-        const Error = @typeInfo(@typeInfo(@typeOf(OutStream(undefined).writeFn)).Fn.return_type.?).ErrorUnion.error_set;
 
         stream: *OutStream,
         pub fn init(stream: *OutStream) Self {
             return Self{ .stream = stream };
         }
 
-        pub fn write(self: Self, x: var) Error!void {
+        pub fn write(self: Self, x: var) !void {
             const T = @typeOf(x);
             switch (@typeInfo(T)) {
                 .Int => return self.writeInt(x),
@@ -341,7 +147,10 @@ pub fn OutChannel(comptime OutStream: type) type {
                     try self.writeInt(tag_value);
                     inline for (info.fields) |u_field| {
                         if (tag_value == u_field.enum_field.?.value) {
-                            return self.write(@field(x, u_field.name));
+                            // FIXME: this `if` is because inferred error sets require at least one error.
+                            return if (u_field.field_type != void) {
+                                try self.write(@field(x, u_field.name));
+                            };
                         }
                     }
                     unreachable;
@@ -350,7 +159,7 @@ pub fn OutChannel(comptime OutStream: type) type {
             }
         }
 
-        pub fn writeInt(self: Self, x: var) Error!void {
+        pub fn writeInt(self: Self, x: var) !void {
             const int_info = @typeInfo(@typeOf(x)).Int;
             const T_aligned = @IntType(int_info.is_signed, @divTrunc(int_info.bits + 7, 8) * 8);
             try self.stream.writeIntLittle(T_aligned, x);
@@ -434,6 +243,17 @@ fn workaround1315(comptime UnionType: type, comptime tag_value: comptime_int, va
     if (UnionType == Action) {
         if (tag_value == @enumToInt(Action.move)) return Action{ .move = value };
         if (tag_value == @enumToInt(Action.attack)) return Action{ .attack = value };
+    }
+    if (UnionType == Request) {
+        if (tag_value == @enumToInt(Request.act)) return Request{ .act = value };
+        if (tag_value == @enumToInt(Request.rewind)) return Request{ .rewind = value };
+        if (tag_value == @enumToInt(Request.quit)) return Request{ .quit = value };
+    }
+    if (UnionType == Response) {
+        if (tag_value == @enumToInt(Response.game_over)) return Response{ .game_over = value };
+        if (tag_value == @enumToInt(Response.static_perception)) return Response{ .static_perception = value };
+        if (tag_value == @enumToInt(Response.stuff_happens)) return Response{ .stuff_happens = value };
+        if (tag_value == @enumToInt(Response.undo)) return Response{ .undo = value };
     }
     @compileError("add support for: " ++ @typeName(UnionType));
 }

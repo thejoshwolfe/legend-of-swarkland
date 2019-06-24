@@ -3,7 +3,7 @@ const core = @import("../index.zig");
 const game_server = @import("../server/game_server.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
-const Channel = core.protocol.Channel;
+const Socket = core.protocol.Socket;
 const Request = core.protocol.Request;
 const Action = core.protocol.Action;
 const Response = core.protocol.Response;
@@ -19,21 +19,21 @@ const Connection = union(enum) {
         core_thread: *std.Thread,
         send_pipe: [2]std.fs.File,
         recv_pipe: [2]std.fs.File,
-        server_channel: Channel,
+        server_socket: Socket,
     };
 
     attach: AttachData,
     const AttachData = struct {
         send_pipe: [2]std.fs.File,
         recv_pipe: [2]std.fs.File,
-        server_channel: Channel,
+        server_socket: Socket,
     };
 };
 
 pub const GameEngineClient = struct {
     // initialized in startAs*()
     connection: Connection,
-    channel: Channel,
+    socket: Socket,
     // initialized in startThreads()
     send_thread: *std.Thread,
     recv_thread: *std.Thread,
@@ -56,20 +56,20 @@ pub const GameEngineClient = struct {
         self.recv_thread = try std.Thread.spawn(self, recvMain);
     }
 
-    /// returns the channel for the server to use to communicate with this client.
-    pub fn startAsAi(self: *GameEngineClient, debug_client_id: u32) !*Channel {
+    /// returns the socket for the server to use to communicate with this client.
+    pub fn startAsAi(self: *GameEngineClient, debug_client_id: u32) !*Socket {
         self.init();
         self.debug_client_id = debug_client_id;
 
-        var result: *Channel = undefined;
+        var result: *Socket = undefined;
 
         self.connection = Connection{ .attach = undefined };
         var data = &self.connection.attach;
         data.send_pipe = try makePipe();
         data.recv_pipe = try makePipe();
-        self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
-        data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
-        result = &data.server_channel;
+        self.socket = Socket.init(data.recv_pipe[0].inStream(), data.send_pipe[1].outStream());
+        data.server_socket = Socket.init(data.send_pipe[0].inStream(), data.recv_pipe[1].outStream());
+        result = &data.server_socket;
 
         try self.startThreads();
 
@@ -90,7 +90,7 @@ pub const GameEngineClient = struct {
                 child_process.stdout_behavior = std.ChildProcess.StdIo.Pipe;
                 child_process.stdin_behavior = std.ChildProcess.StdIo.Pipe;
                 try child_process.*.spawn();
-                self.channel.init(allocator, child_process.*.stdout.?, child_process.*.stdin.?);
+                self.socket = Socket.init(child_process.*.stdout.?.inStream(), child_process.*.stdin.?.outStream());
                 // FIXME: workaround for wait() trying to close stdin when it's already closed.
                 child_process.stdin = null;
                 break :blk child_process;
@@ -106,10 +106,10 @@ pub const GameEngineClient = struct {
         const data = &self.connection.thread;
         data.send_pipe = try makePipe();
         data.recv_pipe = try makePipe();
-        self.channel.init(allocator, data.recv_pipe[0], data.send_pipe[1]);
-        data.server_channel.init(allocator, data.send_pipe[0], data.recv_pipe[1]);
+        self.socket = Socket.init(data.recv_pipe[0].inStream(), data.send_pipe[1].outStream());
+        data.server_socket = Socket.init(data.send_pipe[0].inStream(), data.recv_pipe[1].outStream());
         const LambdaPlease = struct {
-            pub fn f(context: *Channel) void {
+            pub fn f(context: *Socket) void {
                 game_server.server_main(context) catch |err| {
                     std.debug.warn("error: {}", @errorName(err));
                     if (@errorReturnTrace()) |trace| {
@@ -119,14 +119,14 @@ pub const GameEngineClient = struct {
                 };
             }
         };
-        data.core_thread = try std.Thread.spawn(&data.server_channel, LambdaPlease.f);
+        data.core_thread = try std.Thread.spawn(&data.server_socket, LambdaPlease.f);
 
         try self.startThreads();
     }
 
     pub fn stopEngine(self: *GameEngineClient) void {
         core.debug.warn("close");
-        self.channel.close();
+        self.socket.close(Request.quit);
         switch (self.connection) {
             .child_process => |child_process| {
                 _ = child_process.wait() catch undefined;
@@ -140,6 +140,14 @@ pub const GameEngineClient = struct {
         self.send_thread.wait();
         self.recv_thread.wait();
         core.debug.warn("all threads done");
+    }
+    pub fn stopAi(self: *GameEngineClient) void {
+        core.debug.warn("stop ai");
+        self.stay_alive.set(0);
+        self.connection.attach.server_socket.close(Response.game_over);
+        self.send_thread.wait();
+        self.recv_thread.wait();
+        core.debug.warn("ai threads done");
     }
     fn isAlive(self: *GameEngineClient) bool {
         return self.stay_alive.get() != 0;
@@ -159,7 +167,7 @@ pub const GameEngineClient = struct {
                 std.time.sleep(17 * std.time.millisecond);
                 continue;
             };
-            self.channel.writeRequest(request) catch |err| {
+            self.socket.out().write(request) catch |err| {
                 @panic("TODO: proper error handling");
             };
         }
@@ -170,15 +178,20 @@ pub const GameEngineClient = struct {
         core.debug.warn("init");
         defer core.debug.warn("shutdown");
         while (self.isAlive()) {
-            const response: Response = self.channel.readResponse() catch {
-                @panic("TODO: proper error handling");
-            } orelse {
-                core.debug.warn("clean shutdown");
-                break;
-            };
-            queuePut(Response, &self.response_inbox, response) catch |err| {
+            const response = self.socket.in(allocator).read(Response) catch {
                 @panic("TODO: proper error handling");
             };
+            switch (response) {
+                .game_over => {
+                    core.debug.warn("clean shutdown");
+                    return;
+                },
+                else => {
+                    queuePut(Response, &self.response_inbox, response) catch |err| {
+                        @panic("TODO: proper error handling");
+                    };
+                },
+            }
         }
     }
 

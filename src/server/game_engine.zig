@@ -38,6 +38,7 @@ pub fn clone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
     return x;
 }
 
+// TODO: sort all arrays to hide iteration order from the server
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
 

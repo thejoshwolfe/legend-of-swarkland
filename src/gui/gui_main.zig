@@ -125,6 +125,9 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                 }),
                             };
                         },
+                        .game_over => {
+                            @panic("did we die or something?");
+                        },
                     }
                 }
             },
@@ -384,8 +387,8 @@ const DeathAnimation = struct {};
 
 fn loadAnimations(animations: *?Animations, response: Response, now: i32) !void {
     switch (response) {
-        Response.static_perception => {},
-        Response.stuff_happens => |frames| {
+        .static_perception, .game_over => {},
+        .stuff_happens => |frames| {
             animations.* = Animations{
                 .start_time = now,
                 .move_animations = try allocator.alloc([]MoveAnimation, frames.len),
@@ -408,7 +411,7 @@ fn loadAnimations(animations: *?Animations, response: Response, now: i32) !void 
                 }
             }
         },
-        Response.undo => |events| {
+        .undo => |events| {
             // cancel animations
             animations.* = null;
         },
