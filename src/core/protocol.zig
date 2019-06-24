@@ -341,104 +341,207 @@ pub fn OutChannel(comptime OutStream: type) type {
                     try self.writeInt(tag_value);
                     inline for (info.fields) |u_field| {
                         if (tag_value == u_field.enum_field.?.value) {
-                            try self.write(@field(x, u_field.name));
+                            return self.write(@field(x, u_field.name));
                         }
                     }
+                    unreachable;
                 },
                 else => @compileError("not supported: " ++ @typeName(T)),
             }
         }
 
         pub fn writeInt(self: Self, x: var) Error!void {
-            const T = @typeOf(x);
-            const int_info = @typeInfo(T).Int;
-            if (int_info.bits == 0) {
-                // nope
-                return;
-            } else if (int_info.bits <= 8) {
-                // small enough to fit into a single byte
-                const T8 = @IntType(int_info.is_signed, 8);
-                return self.stream.writeIntLittle(T8, x);
-            }
-            // variable length little-endian encoding
-
-            const terminal_value = if (x < 0) T(-1) else T(0);
-            var remaining = x;
-            while (true) {
-                var byte = @intCast(u8, remaining & 0x7f);
-                remaining >>= 7;
-
-                const done = remaining == terminal_value;
-                if (!done) {
-                    byte |= 0x80;
-                }
-                try self.stream.writeIntLittle(u8, byte);
-                if (done) return;
-            }
+            const int_info = @typeInfo(@typeOf(x)).Int;
+            const T_aligned = @IntType(int_info.is_signed, @divTrunc(int_info.bits + 7, 8) * 8);
+            try self.stream.writeIntLittle(T_aligned, x);
         }
     };
 }
 
-test "OutChannel.writeInt" {
-    var buffer = [_]u8{0} ** 256;
-    var _stream = std.io.SliceOutStream.init(buffer[0..]);
-    var channel = initOutChannel(&_stream.stream);
+pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: var) InChannel(@typeOf(in_stream.*)) {
+    return InChannel(@typeOf(in_stream.*)).init(allocator, in_stream);
+}
+pub fn InChannel(comptime InStream: type) type {
+    return struct {
+        const Self = @This();
 
-    _stream.reset();
-    try channel.writeInt(u0(0)); // zero size
-    try channel.writeInt(u3(2));
-    try channel.writeInt(i3(-2));
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 2, 0xfe }));
+        allocator: *std.mem.Allocator,
+        stream: *InStream,
+        pub fn init(allocator: *std.mem.Allocator, stream: *InStream) Self {
+            return Self{
+                .allocator = allocator,
+                .stream = stream,
+            };
+        }
 
-    _stream.reset();
-    try channel.writeInt(u64(3));
-    try channel.writeInt(i64(4));
-    try channel.writeInt(i64(-5));
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 3, 4, 0x7b }));
+        pub fn read(self: Self, comptime T: type) !T {
+            switch (@typeInfo(T)) {
+                .Int => return self.readInt(T),
+                .Bool => return 0 != try self.readInt(u1),
+                .Enum => return @intToEnum(T, try self.readInt(@TagType(T))),
+                .Struct => |info| {
+                    var x: T = undefined;
+                    inline for (info.fields) |field| {
+                        @field(x, field.name) = try self.read(field.field_type);
+                    }
+                    return x;
+                },
+                .Array => {
+                    var x: T = undefined;
+                    for (x) |*x_i| {
+                        x_i.* = try self.read(@typeOf(x_i.*));
+                    }
+                    return x;
+                },
+                .Pointer => |info| {
+                    switch (info.size) {
+                        .Slice => {
+                            const len = try self.readInt(usize);
+                            var x = try self.allocator.alloc(info.child, len);
+                            for (x) |*x_i| {
+                                x_i.* = try self.read(info.child);
+                            }
+                            return x;
+                        },
+                        else => @compileError("not supported: " ++ @typeName(T)),
+                    }
+                },
+                .Union => |info| {
+                    const tag_value = @enumToInt(try self.read(info.tag_type.?));
+                    inline for (info.fields) |u_field| {
+                        if (tag_value == u_field.enum_field.?.value) {
+                            // FIXME: this `if` is because inferred error sets require at least one error.
+                            return workaround1315(T, u_field.enum_field.?.value, if (u_field.field_type == void) {} else try self.read(u_field.field_type));
+                        }
+                    }
+                    unreachable;
+                },
+                else => @compileError("not supported: " ++ @typeName(T)),
+            }
+        }
 
-    _stream.reset();
-    try channel.writeInt(u64(0xffffffffffffffff));
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{0xff} ** 9 ++ [_]u8{0x01}));
-
-    _stream.reset();
-    try channel.writeInt(i64(-0x8000000000000000));
-    // this might be wrong
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{0x80} ** 8 ++ [_]u8{0x00}));
+        pub fn readInt(self: Self, comptime T: type) !T {
+            const int_info = @typeInfo(T).Int;
+            const T_aligned = @IntType(int_info.is_signed, @divTrunc(int_info.bits + 7, 8) * 8);
+            const x_aligned = try self.stream.readIntLittle(T_aligned);
+            return std.math.cast(T, x_aligned);
+        }
+    };
 }
 
-test "OutChannel.write" {
+/// FIXME: https://github.com/ziglang/zig/issues/1315
+fn workaround1315(comptime UnionType: type, comptime tag_value: comptime_int, value: var) UnionType {
+    if (UnionType == Action) {
+        if (tag_value == @enumToInt(Action.move)) return Action{ .move = value };
+        if (tag_value == @enumToInt(Action.attack)) return Action{ .attack = value };
+    }
+    @compileError("add support for: " ++ @typeName(UnionType));
+}
+
+test "channel int" {
     var buffer = [_]u8{0} ** 256;
-    var _stream = std.io.SliceOutStream.init(buffer[0..]);
-    var channel = initOutChannel(&_stream.stream);
+    var _out_stream = std.io.SliceOutStream.init(buffer[0..]);
+    var _in_stream = std.io.SliceInStream.init(buffer[0..]);
+    var out_channel = initOutChannel(&_out_stream.stream);
+    var in_channel = initInChannel(std.debug.global_allocator, &_in_stream.stream);
+
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.writeInt(u0(0)); // zero size
+    try out_channel.writeInt(u3(2));
+    try out_channel.writeInt(i3(-2));
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{ 2, 0xfe }));
+    std.testing.expect(0 == try in_channel.read(u0));
+    std.testing.expect(2 == try in_channel.read(u3));
+    std.testing.expect(-2 == try in_channel.read(i3));
+
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.writeInt(u64(3));
+    try out_channel.writeInt(i64(4));
+    try out_channel.writeInt(i64(-5));
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+        3,    0,    0,    0,    0,    0,    0,    0,
+        4,    0,    0,    0,    0,    0,    0,    0,
+        0xfb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    }));
+    std.testing.expect(3 == try in_channel.read(u64));
+    std.testing.expect(4 == try in_channel.read(i64));
+    std.testing.expect(-5 == try in_channel.read(i64));
+
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.writeInt(u64(0xffffffffffffffff));
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    }));
+    std.testing.expect(0xffffffffffffffff == try in_channel.read(u64));
+
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.writeInt(i64(-0x8000000000000000));
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+        0, 0, 0, 0, 0, 0, 0, 0x80,
+    }));
+    std.testing.expect(-0x8000000000000000 == try in_channel.read(i64));
+}
+
+test "channel" {
+    var buffer = [_]u8{0} ** 256;
+    var _out_stream = std.io.SliceOutStream.init(buffer[0..]);
+    var _in_stream = std.io.SliceInStream.init(buffer[0..]);
+    var out_channel = initOutChannel(&_out_stream.stream);
+    var in_channel = initInChannel(std.debug.global_allocator, &_in_stream.stream);
 
     // enum
-    _stream.reset();
-    try channel.write(Wall.stone);
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{u7(@enumToInt(Wall.stone))}));
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.write(Wall.stone);
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{@enumToInt(Wall.stone)}));
+    std.testing.expect(Wall.stone == try in_channel.read(Wall));
 
     // bool
-    _stream.reset();
-    try channel.write(false);
-    try channel.write(true);
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 0, 1 }));
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.write(false);
+    try out_channel.write(true);
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{ 0, 1 }));
+    std.testing.expect(false == try in_channel.read(bool));
+    std.testing.expect(true == try in_channel.read(bool));
 
     // struct
-    _stream.reset();
-    try channel.write(Coord{ .x = 1, .y = 2 });
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 1, 2 }));
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.write(Coord{ .x = 1, .y = 2 });
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+        1, 0, 0, 0,
+        2, 0, 0, 0,
+    }));
+    std.testing.expect((Coord{ .x = 1, .y = 2 }).equals(try in_channel.read(Coord)));
 
     // fixed-size array
-    _stream.reset();
-    try channel.write([_]u8{ 1, 2, 3 });
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 1, 2, 3 }));
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.write([_]u8{ 1, 2, 3 });
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{ 1, 2, 3 }));
+    std.testing.expect(std.mem.eql(u8, [_]u8{ 1, 2, 3 }, try in_channel.read([3]u8)));
 
     // slice
-    _stream.reset();
-    try channel.write(([_]u8{ 1, 2, 3 })[0..]);
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ 3, 1, 2, 3 }));
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.write(([_]u8{ 1, 2, 3 })[0..]);
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+        3, 0, 0, 0, 0, 0, 0, 0,
+    } ++ [_]u8{ 1, 2, 3 }));
+    std.testing.expect(std.mem.eql(u8, [_]u8{ 1, 2, 3 }, try in_channel.read([]u8)));
 
     // union(enum)
-    _stream.reset();
-    try channel.write(Action{ .move = Coord{ .x = 3, .y = 4 } });
-    std.testing.expect(std.mem.eql(u8, _stream.getWritten(), [_]u8{ u7(@enumToInt(Action.move)), 3, 4 }));
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.write(Action{ .move = Coord{ .x = 3, .y = -4 } });
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{@enumToInt(Action.move)} ++ [_]u8{
+        3,    0,    0,    0,
+        0xfc, 0xff, 0xff, 0xff,
+    }));
+    std.testing.expect((Coord{ .x = 3, .y = -4 }).equals((try in_channel.read(Action)).move));
 }
