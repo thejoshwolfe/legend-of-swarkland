@@ -82,6 +82,15 @@ pub const PerceivedFrame = union(enum) {
         /// null means not attacking.
         direction: ?Coord,
     };
+
+    deaths: []PerceivedDeath,
+    pub const PerceivedDeath = struct {
+        abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
+        species: Species,
+
+        /// TODO: clearly there's a problem with this data model
+        actually_dies: bool,
+    };
 };
 
 /// Despite all the generic elegance of the Channel classes,
@@ -285,6 +294,7 @@ fn workaround1315(comptime UnionType: type, comptime tag_value: comptime_int, va
     if (UnionType == PerceivedFrame) {
         if (tag_value == @enumToInt(PerceivedFrame.movements)) return PerceivedFrame{ .movements = value };
         if (tag_value == @enumToInt(PerceivedFrame.attacks)) return PerceivedFrame{ .attacks = value };
+        if (tag_value == @enumToInt(PerceivedFrame.deaths)) return PerceivedFrame{ .deaths = value };
     }
     @compileError("add support for: " ++ @typeName(UnionType));
 }

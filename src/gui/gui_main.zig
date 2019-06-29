@@ -109,6 +109,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                         }
                                     },
                                     .attacks => {},
+                                    .deaths => |deaths| {},
                                 }
                             }
                         },
@@ -341,6 +342,16 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                             a.abs_position.scaled(32).plus(direction.scaled(32 * 3 / 4)),
                                             u3(directionToRotation(direction)) +% dagger_sprite_normalizing_rotation,
                                         );
+                                    }
+                                }
+                            },
+                            .deaths => |deaths| {
+                                for (deaths) |perceived_death| {
+                                    const a = perceived_death; // shorter name
+                                    const display_position = a.abs_position.scaled(32);
+                                    textures.renderSprite(renderer, speciesToSprite(a.species), display_position);
+                                    if (a.actually_dies) {
+                                        textures.renderSprite(renderer, textures.sprites.red_book, display_position);
                                     }
                                 }
                             },

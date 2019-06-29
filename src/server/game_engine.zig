@@ -225,6 +225,17 @@ pub const GameEngine = struct {
         }
 
         // Attacks
+        var deaths = IdMap(void).init(self.allocator);
+        for (everybody) |id| {
+            var attack_direction = attacks.getValue(id) orelse continue;
+            var attacker_position = current_positions.getValue(id).?;
+            var damage_position = attacker_position.plus(attack_direction);
+            for (everybody) |other_id| {
+                if (current_positions.getValue(other_id).?.equals(damage_position)) {
+                    _ = try deaths.put(other_id, {});
+                }
+            }
+        }
         for (everybody) |id| {
             try self.observeAttacks(
                 game_state,
@@ -233,11 +244,13 @@ pub const GameEngine = struct {
                 current_positions,
                 attacks,
             );
-        }
-        for (everybody) |id| {
-            var attack_direction = attacks.getValue(id) orelse continue;
-            var attacker_position = current_positions.getValue(id).?;
-            var damage_position = attacker_position.plus(attack_direction);
+            try self.observeDeaths(
+                game_state,
+                everybody,
+                individual_to_perception.getValue(id).?,
+                current_positions,
+                deaths,
+            );
         }
 
         return Happenings{
@@ -313,6 +326,32 @@ pub const GameEngine = struct {
 
         if (any_actual_attacks) {
             try perception.frames.append(PerceivedFrame{ .attacks = perceived_attacks.toOwnedSlice() });
+        }
+    }
+
+    fn observeDeaths(
+        self: *const GameEngine,
+        game_state: GameState,
+        everybody: []const u32,
+        perception: *MutablePerceivedHappening,
+        current_positions: *const IdMap(Coord),
+        deaths: IdMap(void),
+    ) !void {
+        var perceived_deaths = ArrayList(PerceivedFrame.PerceivedDeath).init(self.allocator);
+        var any_actual_deaths = false;
+
+        for (everybody) |other_id| {
+            const actually_dies = deaths.contains(other_id);
+            try perceived_deaths.append(PerceivedFrame.PerceivedDeath{
+                .abs_position = current_positions.getValue(other_id).?,
+                .species = game_state.individuals.getValue(other_id).?.species,
+                .actually_dies = actually_dies,
+            });
+            if (actually_dies) any_actual_deaths = true;
+        }
+
+        if (any_actual_deaths) {
+            try perception.frames.append(PerceivedFrame{ .deaths = perceived_deaths.toOwnedSlice() });
         }
     }
 };
