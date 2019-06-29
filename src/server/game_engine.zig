@@ -47,6 +47,13 @@ pub const GameEngine = struct {
         self.* = GameEngine{ .allocator = allocator };
     }
 
+    pub fn validateAction(self: *const GameEngine, action: Action) bool {
+        switch (action) {
+            .move => |direction| return isCardinalDirection(direction),
+            .attack => |direction| return isCardinalDirection(direction),
+        }
+    }
+
     pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
         var individuals = ArrayList(Individual).init(self.allocator);
         try individuals.append(Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 14) });
@@ -109,7 +116,7 @@ pub const GameEngine = struct {
             std.debug.assert(iterator.next() == null);
         }
 
-        var individual_to_perception = IdMap(*Perception).init(self.allocator);
+        var individual_to_perception = IdMap(*MutablePerceivedHappening).init(self.allocator);
 
         var moves_history = ArrayList(*IdMap(Coord)).init(self.allocator);
         try moves_history.append(try createInit(self.allocator, IdMap(Coord)));
@@ -124,7 +131,7 @@ pub const GameEngine = struct {
         var current_positions = positions_history.at(positions_history.len - 2);
 
         for (everybody) |id| {
-            try individual_to_perception.putNoClobber(id, try createInit(self.allocator, Perception));
+            try individual_to_perception.putNoClobber(id, try createInit(self.allocator, MutablePerceivedHappening));
             try current_positions.putNoClobber(id, game_state.individuals.getValue(id).?.abs_position);
         }
 
@@ -147,7 +154,6 @@ pub const GameEngine = struct {
                 try self.observeMovement(
                     game_state,
                     everybody,
-                    game_state.individuals.getValue(id).?,
                     individual_to_perception.getValue(id).?,
                     previous_moves,
                     next_moves,
@@ -218,22 +224,27 @@ pub const GameEngine = struct {
             }
         }
 
-        // TODO: handle attacks
+        // Attacks
+        for (everybody) |id| {
+            try self.observeAttacks(
+                game_state,
+                everybody,
+                individual_to_perception.getValue(id).?,
+                current_positions,
+                attacks,
+            );
+        }
+        for (everybody) |id| {
+            var attack_direction = attacks.getValue(id) orelse continue;
+            var attacker_position = current_positions.getValue(id).?;
+            var damage_position = attacker_position.plus(attack_direction);
+        }
 
         return Happenings{
             .individual_to_perception = blk: {
                 var ret = IdMap(PerceivedHappening).init(self.allocator);
-                var iterator = individual_to_perception.iterator();
                 for (everybody) |id| {
-                    var perceived_frame = ArrayList(PerceivedFrame).init(self.allocator);
-                    for (individual_to_perception.getValue(id).?.movement_frames.toSliceConst()) |movement_frame| {
-                        if (movement_frame.len > 0) {
-                            try perceived_frame.append(PerceivedFrame{
-                                .movements = movement_frame.toOwnedSlice(),
-                            });
-                        }
-                    }
-                    try ret.putNoClobber(id, PerceivedHappening{ .frames = perceived_frame.toOwnedSlice() });
+                    try ret.putNoClobber(id, PerceivedHappening{ .frames = individual_to_perception.getValue(id).?.frames.toOwnedSlice() });
                 }
                 break :blk ret;
             },
@@ -260,38 +271,46 @@ pub const GameEngine = struct {
         self: *const GameEngine,
         game_state: GameState,
         everybody: []const u32,
-        yourself: *const Individual,
-        perception: *Perception,
+        perception: *MutablePerceivedHappening,
         previous_moves: *const IdMap(Coord),
         next_moves: *const IdMap(Coord),
         current_positions: *const IdMap(Coord),
     ) !void {
-        var movement_frame = try self.allocator.create(ArrayList(PerceivedFrame.PerceivedMovement));
-        movement_frame.* = ArrayList(PerceivedFrame.PerceivedMovement).init(self.allocator);
+        var movements = ArrayList(PerceivedFrame.PerceivedMovement).init(self.allocator);
 
         for (everybody) |other_id| {
-            try movement_frame.append(PerceivedFrame.PerceivedMovement{
+            try movements.append(PerceivedFrame.PerceivedMovement{
                 .prior_velocity = previous_moves.getValue(other_id) orelse zero_vector,
                 .abs_position = current_positions.getValue(other_id).?,
-                // TODO: does species belong here?
                 .species = game_state.individuals.getValue(other_id).?.species,
                 .next_velocity = next_moves.getValue(other_id) orelse zero_vector,
             });
         }
 
-        try perception.movement_frames.append(movement_frame);
+        try perception.frames.append(PerceivedFrame{ .movements = movements.toOwnedSlice() });
     }
 
-    pub fn validateAction(self: *const GameEngine, action: Action) bool {
-        switch (action) {
-            .move => |direction| return isCardinalDirection(direction),
-            .attack => |direction| return isCardinalDirection(direction),
+    fn observeAttacks(
+        self: *const GameEngine,
+        game_state: GameState,
+        everybody: []const u32,
+        perception: *MutablePerceivedHappening,
+        current_positions: *const IdMap(Coord),
+        attacks: IdMap(Coord),
+    ) !void {
+        var perceived_attacks = ArrayList(PerceivedFrame.PerceivedAttack).init(self.allocator);
+
+        for (everybody) |other_id| {
+            const direction = attacks.getValue(other_id) orelse continue;
+            try perceived_attacks.append(PerceivedFrame.PerceivedAttack{
+                .abs_position = current_positions.getValue(other_id).?,
+                .species = game_state.individuals.getValue(other_id).?.species,
+                .direction = direction,
+            });
         }
-    }
-};
 
-pub const HistoryFrame = struct {
-    event: []Event,
+        try perception.frames.append(PerceivedFrame{ .attacks = perceived_attacks.toOwnedSlice() });
+    }
 };
 
 pub const Individual = struct {
@@ -397,11 +416,11 @@ pub const GameState = struct {
     }
 };
 
-const Perception = struct {
-    movement_frames: ArrayList(*ArrayList(PerceivedFrame.PerceivedMovement)),
-    pub fn init(allocator: *std.mem.Allocator) Perception {
-        return Perception{
-            .movement_frames = ArrayList(*ArrayList(PerceivedFrame.PerceivedMovement)).init(allocator),
+const MutablePerceivedHappening = struct {
+    frames: ArrayList(PerceivedFrame),
+    pub fn init(allocator: *std.mem.Allocator) MutablePerceivedHappening {
+        return MutablePerceivedHappening{
+            .frames = ArrayList(PerceivedFrame).init(allocator),
         };
     }
 };

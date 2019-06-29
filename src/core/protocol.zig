@@ -76,7 +76,9 @@ pub const PerceivedFrame = union(enum) {
 
     attacks: []PerceivedAttack,
     pub const PerceivedAttack = struct {
-        todo: bool,
+        abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
+        species: Species,
+        direction: Coord,
     };
 };
 
