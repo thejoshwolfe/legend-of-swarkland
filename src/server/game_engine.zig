@@ -229,7 +229,7 @@ pub const GameEngine = struct {
                     for (individual_to_perception.getValue(id).?.movement_frames.toSliceConst()) |movement_frame| {
                         if (movement_frame.len > 0) {
                             try perceived_frame.append(PerceivedFrame{
-                                .perceived_movements = movement_frame.toOwnedSlice(),
+                                .movements = movement_frame.toOwnedSlice(),
                             });
                         }
                     }
@@ -266,11 +266,11 @@ pub const GameEngine = struct {
         next_moves: *const IdMap(Coord),
         current_positions: *const IdMap(Coord),
     ) !void {
-        var movement_frame = try self.allocator.create(ArrayList(PerceivedFrame.IndividualWithMotion));
-        movement_frame.* = ArrayList(PerceivedFrame.IndividualWithMotion).init(self.allocator);
+        var movement_frame = try self.allocator.create(ArrayList(PerceivedFrame.PerceivedMovement));
+        movement_frame.* = ArrayList(PerceivedFrame.PerceivedMovement).init(self.allocator);
 
         for (everybody) |other_id| {
-            try movement_frame.append(PerceivedFrame.IndividualWithMotion{
+            try movement_frame.append(PerceivedFrame.PerceivedMovement{
                 .prior_velocity = previous_moves.getValue(other_id) orelse zero_vector,
                 .abs_position = current_positions.getValue(other_id).?,
                 // TODO: does species belong here?
@@ -398,10 +398,10 @@ pub const GameState = struct {
 };
 
 const Perception = struct {
-    movement_frames: ArrayList(*ArrayList(PerceivedFrame.IndividualWithMotion)),
+    movement_frames: ArrayList(*ArrayList(PerceivedFrame.PerceivedMovement)),
     pub fn init(allocator: *std.mem.Allocator) Perception {
         return Perception{
-            .movement_frames = ArrayList(*ArrayList(PerceivedFrame.IndividualWithMotion)).init(allocator),
+            .movement_frames = ArrayList(*ArrayList(PerceivedFrame.PerceivedMovement)).init(allocator),
         };
     }
 };

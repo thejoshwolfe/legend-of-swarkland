@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 const sdl = @import("./sdl.zig");
 const textures = @import("./textures.zig");
 const gui = @import("./gui.zig");
@@ -91,39 +92,45 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 if (state.client.pollResponse()) |response| {
                     switch (response) {
                         .stuff_happens => |happening| {
+                            // Show animations for what's going on.
                             try loadAnimations(&state.animations, response, now);
-                            state.client_state.?.individuals = blk: {
-                                const last_movements = happening.frames[happening.frames.len - 1].perceived_movements;
-                                var arr = try allocator.alloc(StaticIndividual, last_movements.len);
-                                for (arr) |*x, i| {
-                                    x.* = StaticIndividual{
-                                        .abs_position = last_movements[i].abs_position,
-                                        .species = last_movements[i].species,
-                                    };
+                            // Update our mental model of the world.
+                            for (happening.frames) |frame| {
+                                switch (frame) {
+                                    .movements => |movements| {
+                                        var individuals = &state.client_state.?.individuals;
+                                        // TODO: update in place instead of replacing everything.
+                                        individuals.shrink(0);
+                                        for (movements) |perceived_movement| {
+                                            try individuals.append(StaticIndividual{
+                                                .abs_position = perceived_movement.abs_position,
+                                                .species = perceived_movement.species,
+                                            });
+                                        }
+                                    },
+                                    .attacks => {},
                                 }
-                                break :blk arr;
-                            };
+                            }
                         },
-                        .static_perception => |static_perception| {
-                            // FIXME duplicated
+                        .static_perception, .undo => {
+                            // FIXME workaround https://github.com/ziglang/zig/issues/1107
+                            const static_perception = switch (response) {
+                                .static_perception => |x| x,
+                                .undo => |x| x,
+                                else => unreachable,
+                            };
                             state.animations = null;
                             state.client_state = ClientState{
                                 .terrain = static_perception.terrain,
-                                .individuals = try std.mem.concat(allocator, StaticIndividual, [_][]const StaticIndividual{
-                                    ([_]StaticIndividual{static_perception.self})[0..],
-                                    static_perception.others,
-                                }),
-                            };
-                        },
-                        .undo => |static_perception| {
-                            // FIXME duplicated
-                            state.animations = null;
-                            state.client_state = ClientState{
-                                .terrain = static_perception.terrain,
-                                .individuals = try std.mem.concat(allocator, StaticIndividual, [_][]const StaticIndividual{
-                                    ([_]StaticIndividual{static_perception.self})[0..],
-                                    static_perception.others,
-                                }),
+                                .individuals = blk: {
+                                    var individuals = ArrayList(StaticIndividual).init(allocator);
+                                    try individuals.ensureCapacity(1 + static_perception.others.len);
+                                    individuals.append(static_perception.self) catch unreachable;
+                                    for (static_perception.others) |other| {
+                                        individuals.append(other) catch unreachable;
+                                    }
+                                    break :blk individuals;
+                                },
                             };
                         },
                         .game_over => {
@@ -303,18 +310,25 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         animating = true;
 
                         const progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
-                        for (animations.happening.frames[movement_phase].perceived_movements) |perceived_individual| {
-                            const a = perceived_individual; // shorter name
-                            // Scale velocity to halfway, because each is redundant with a neighboring frame.
-                            const display_position = core.geometry.bezier3(
-                                a.abs_position.scaled(32).minus(a.prior_velocity.scaled(32 / 2)),
-                                a.abs_position.scaled(32),
-                                a.abs_position.scaled(32).plus(a.next_velocity.scaled(32 / 2)),
-                                progress,
-                                move_frame_time,
-                            );
-                            const sprite = speciesToSprite(a.species);
-                            textures.renderSprite(renderer, sprite, display_position);
+                        switch (animations.happening.frames[movement_phase]) {
+                            .movements => |movements| {
+                                for (movements) |perceived_movement| {
+                                    const a = perceived_movement; // shorter name
+                                    // Scale velocity to halfway, because each is redundant with a neighboring frame.
+                                    const display_position = core.geometry.bezier3(
+                                        a.abs_position.scaled(32).minus(a.prior_velocity.scaled(32 / 2)),
+                                        a.abs_position.scaled(32),
+                                        a.abs_position.scaled(32).plus(a.next_velocity.scaled(32 / 2)),
+                                        progress,
+                                        move_frame_time,
+                                    );
+                                    const sprite = speciesToSprite(a.species);
+                                    textures.renderSprite(renderer, sprite, display_position);
+                                }
+                            },
+                            .attacks => {
+                                @panic("TODO");
+                            },
                         }
                     } else {
                         // stale
@@ -323,7 +337,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 }
                 if (!animating) {
                     // static
-                    for (state.client_state.?.individuals) |individual| {
+                    for (state.client_state.?.individuals.toSliceConst()) |individual| {
                         var display_position = individual.abs_position.scaled(32);
                         const sprite = speciesToSprite(individual.species);
                         textures.renderSprite(renderer, sprite, display_position);
@@ -368,7 +382,7 @@ fn speciesToSprite(species: Species) Rect {
 const StaticIndividual = core.protocol.StaticPerception.StaticIndividual;
 const ClientState = struct {
     terrain: core.protocol.Terrain,
-    individuals: []StaticIndividual,
+    individuals: ArrayList(StaticIndividual),
 };
 
 const Animations = struct {

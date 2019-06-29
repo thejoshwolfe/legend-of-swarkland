@@ -65,14 +65,18 @@ pub const PerceivedHappening = struct {
 
 /// Represents what you can observe with your eyes happening simultaneously.
 /// There can be multiple of these per turn.
-pub const PerceivedFrame = struct {
-    perceived_movements: []IndividualWithMotion,
-
-    pub const IndividualWithMotion = struct {
+pub const PerceivedFrame = union(enum) {
+    movements: []PerceivedMovement,
+    pub const PerceivedMovement = struct {
         prior_velocity: Coord,
         abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
         species: Species,
         next_velocity: Coord,
+    };
+
+    attacks: []PerceivedAttack,
+    pub const PerceivedAttack = struct {
+        todo: bool,
     };
 };
 
@@ -260,6 +264,10 @@ fn workaround1315(comptime UnionType: type, comptime tag_value: comptime_int, va
         if (tag_value == @enumToInt(Response.static_perception)) return Response{ .static_perception = value };
         if (tag_value == @enumToInt(Response.stuff_happens)) return Response{ .stuff_happens = value };
         if (tag_value == @enumToInt(Response.undo)) return Response{ .undo = value };
+    }
+    if (UnionType == PerceivedFrame) {
+        if (tag_value == @enumToInt(PerceivedFrame.movements)) return PerceivedFrame{ .movements = value };
+        if (tag_value == @enumToInt(PerceivedFrame.attacks)) return PerceivedFrame{ .attacks = value };
     }
     @compileError("add support for: " ++ @typeName(UnionType));
 }
