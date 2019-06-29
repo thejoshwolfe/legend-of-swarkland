@@ -333,13 +333,15 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                         speciesToSprite(a.species),
                                         a.abs_position.scaled(32),
                                     );
-                                    const dagger_sprite_normalizing_rotation = 1;
-                                    textures.renderSpriteRotated(
-                                        renderer,
-                                        textures.sprites.dagger,
-                                        a.abs_position.scaled(32).plus(a.direction.scaled(32 * 3 / 4)),
-                                        u3(directionToRotation(a.direction)) +% dagger_sprite_normalizing_rotation,
-                                    );
+                                    if (a.direction) |direction| {
+                                        const dagger_sprite_normalizing_rotation = 1;
+                                        textures.renderSpriteRotated(
+                                            renderer,
+                                            textures.sprites.dagger,
+                                            a.abs_position.scaled(32).plus(direction.scaled(32 * 3 / 4)),
+                                            u3(directionToRotation(direction)) +% dagger_sprite_normalizing_rotation,
+                                        );
+                                    }
                                 }
                             },
                         }

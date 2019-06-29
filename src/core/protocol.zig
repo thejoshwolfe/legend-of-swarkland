@@ -78,7 +78,9 @@ pub const PerceivedFrame = union(enum) {
     pub const PerceivedAttack = struct {
         abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
         species: Species,
-        direction: Coord,
+
+        /// null means not attacking.
+        direction: ?Coord,
     };
 };
 
@@ -167,6 +169,14 @@ pub fn OutChannel(comptime OutStream: type) type {
                     }
                     unreachable;
                 },
+                .Optional => |info| {
+                    if (x) |child| {
+                        try self.write(true);
+                        try self.write(child);
+                    } else {
+                        try self.write(false);
+                    }
+                },
                 else => @compileError("not supported: " ++ @typeName(T)),
             }
         }
@@ -236,6 +246,11 @@ pub fn InChannel(comptime InStream: type) type {
                         }
                     }
                     unreachable;
+                },
+                .Optional => |info| {
+                    const non_null = try self.read(bool);
+                    if (!non_null) return null;
+                    return try self.read(info.child);
                 },
                 else => @compileError("not supported: " ++ @typeName(T)),
             }
@@ -385,4 +400,13 @@ test "channel" {
         0xfc, 0xff, 0xff, 0xff,
     }));
     std.testing.expect((Coord{ .x = 3, .y = -4 }).equals((try in_channel.read(Action)).move));
+
+    // nullable
+    _out_stream.reset();
+    _in_stream.pos = 0;
+    try out_channel.write((?u8)(null));
+    try out_channel.write((?u8)(5));
+    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{ 0, 1, 5 }));
+    std.testing.expect(null == try in_channel.read(?u8));
+    std.testing.expect(5 == (try in_channel.read(?u8)).?);
 }

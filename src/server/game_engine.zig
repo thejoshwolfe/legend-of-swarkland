@@ -299,17 +299,21 @@ pub const GameEngine = struct {
         attacks: IdMap(Coord),
     ) !void {
         var perceived_attacks = ArrayList(PerceivedFrame.PerceivedAttack).init(self.allocator);
+        var any_actual_attacks = false;
 
         for (everybody) |other_id| {
-            const direction = attacks.getValue(other_id) orelse continue;
+            const direction = attacks.getValue(other_id);
             try perceived_attacks.append(PerceivedFrame.PerceivedAttack{
                 .abs_position = current_positions.getValue(other_id).?,
                 .species = game_state.individuals.getValue(other_id).?.species,
                 .direction = direction,
             });
+            if (direction != null) any_actual_attacks = true;
         }
 
-        try perception.frames.append(PerceivedFrame{ .attacks = perceived_attacks.toOwnedSlice() });
+        if (any_actual_attacks) {
+            try perception.frames.append(PerceivedFrame{ .attacks = perceived_attacks.toOwnedSlice() });
+        }
     }
 };
 
