@@ -247,7 +247,7 @@ test "basic interaction" {
     {
         const response = pollSync(client);
         const new_position = blk: {
-            for (response.stuff_happens[1].perceived_movements) |x| {
+            for (response.stuff_happens.frames[1].movements) |x| {
                 if (x.species == .human) break :blk x.abs_position;
             }
             unreachable;
