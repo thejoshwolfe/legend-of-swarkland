@@ -322,12 +322,25 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                         progress,
                                         move_frame_time,
                                     );
-                                    const sprite = speciesToSprite(a.species);
-                                    textures.renderSprite(renderer, sprite, display_position);
+                                    textures.renderSprite(renderer, speciesToSprite(a.species), display_position);
                                 }
                             },
-                            .attacks => {
-                                @panic("TODO");
+                            .attacks => |attacks| {
+                                for (attacks) |perceived_attack| {
+                                    const a = perceived_attack; // shorter name
+                                    textures.renderSprite(
+                                        renderer,
+                                        speciesToSprite(a.species),
+                                        a.abs_position.scaled(32),
+                                    );
+                                    const dagger_sprite_normalizing_rotation = 1;
+                                    textures.renderSpriteRotated(
+                                        renderer,
+                                        textures.sprites.dagger,
+                                        a.abs_position.scaled(32).plus(a.direction.scaled(32 * 3 / 4)),
+                                        u3(directionToRotation(a.direction)) +% dagger_sprite_normalizing_rotation,
+                                    );
+                                }
                             },
                         }
                     } else {
