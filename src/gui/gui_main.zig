@@ -16,6 +16,7 @@ const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
+const PerceivedHappening = core.protocol.PerceivedHappening;
 
 const allocator = std.heap.c_allocator;
 
@@ -89,10 +90,10 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
             GameState.running => |*state| {
                 if (state.client.pollResponse()) |response| {
                     switch (response) {
-                        .stuff_happens => |perceived_frames| {
+                        .stuff_happens => |happening| {
                             try loadAnimations(&state.animations, response, now);
                             state.client_state.?.individuals = blk: {
-                                const last_movements = perceived_frames[perceived_frames.len - 1].perceived_movements;
+                                const last_movements = happening.frames[happening.frames.len - 1].perceived_movements;
                                 var arr = try allocator.alloc(StaticIndividual, last_movements.len);
                                 for (arr) |*x, i| {
                                     x.* = StaticIndividual{
@@ -298,12 +299,12 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     const animation_time = @bitCast(u32, now -% animations.start_time);
                     const move_frame_time = 150;
                     const movement_phase = @divFloor(animation_time, move_frame_time);
-                    if (movement_phase < animations.move_animations.len) {
+                    if (movement_phase < animations.happening.frames.len) {
                         animating = true;
 
                         const progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
-                        const animation_group = animations.move_animations[movement_phase];
-                        for (animation_group) |a| {
+                        for (animations.happening.frames[movement_phase].perceived_movements) |perceived_individual| {
+                            const a = perceived_individual; // shorter name
                             // Scale velocity to halfway, because each is redundant with a neighboring frame.
                             const display_position = core.geometry.bezier3(
                                 a.abs_position.scaled(32).minus(a.prior_velocity.scaled(32 / 2)),
@@ -372,15 +373,7 @@ const ClientState = struct {
 
 const Animations = struct {
     start_time: i32,
-    move_animations: [][]MoveAnimation,
-    attack_animations: [0]AttackAnimation, // TODO
-    death_animations: [0]DeathAnimation, // TODO
-};
-const MoveAnimation = struct {
-    prior_velocity: Coord,
-    abs_position: Coord,
-    species: Species,
-    next_velocity: Coord,
+    happening: PerceivedHappening,
 };
 const AttackAnimation = struct {};
 const DeathAnimation = struct {};
@@ -388,28 +381,11 @@ const DeathAnimation = struct {};
 fn loadAnimations(animations: *?Animations, response: Response, now: i32) !void {
     switch (response) {
         .static_perception, .game_over => {},
-        .stuff_happens => |frames| {
+        .stuff_happens => |happening| {
             animations.* = Animations{
                 .start_time = now,
-                .move_animations = try allocator.alloc([]MoveAnimation, frames.len),
-                .attack_animations = [_]AttackAnimation{},
-                .death_animations = [_]DeathAnimation{},
+                .happening = try core.protocol.deepClone(allocator, happening),
             };
-            animations.*.?.start_time = now;
-            animations.*.?.move_animations = try allocator.alloc([]MoveAnimation, frames.len);
-            for (animations.*.?.move_animations) |*animation_group, i| {
-                const frame = frames[i];
-                animation_group.* = try allocator.alloc(MoveAnimation, frame.perceived_movements.len);
-                for (animation_group.*) |*animation, j| {
-                    const movement = frame.perceived_movements[j];
-                    animation.* = MoveAnimation{
-                        .prior_velocity = movement.prior_velocity,
-                        .abs_position = movement.abs_position,
-                        .species = movement.species,
-                        .next_velocity = movement.next_velocity,
-                    };
-                }
-            }
         },
         .undo => |events| {
             // cancel animations

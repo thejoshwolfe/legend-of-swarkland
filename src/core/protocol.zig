@@ -43,7 +43,7 @@ pub const Action = union(enum) {
 pub const Response = union(enum) {
     game_over,
     static_perception: StaticPerception,
-    stuff_happens: []PerceivedFrame,
+    stuff_happens: PerceivedHappening,
     undo: StaticPerception,
 };
 
@@ -55,6 +55,12 @@ pub const StaticPerception = struct {
         abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
         species: Species,
     };
+};
+
+/// what you see each turn
+pub const PerceivedHappening = struct {
+    /// sequential order of simultaneous events
+    frames: []PerceivedFrame,
 };
 
 /// Represents what you can observe with your eyes happening simultaneously.
@@ -256,6 +262,11 @@ fn workaround1315(comptime UnionType: type, comptime tag_value: comptime_int, va
         if (tag_value == @enumToInt(Response.undo)) return Response{ .undo = value };
     }
     @compileError("add support for: " ++ @typeName(UnionType));
+}
+
+pub fn deepClone(allocator: *std.mem.Allocator, x: var) (error{OutOfMemory})!@typeOf(x) {
+    // TODO: actually do it
+    return x;
 }
 
 test "channel int" {

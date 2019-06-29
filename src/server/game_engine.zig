@@ -12,6 +12,7 @@ const Terrain = core.protocol.Terrain;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
+const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const StaticPerception = core.protocol.StaticPerception;
 
@@ -55,7 +56,7 @@ pub const GameEngine = struct {
         try individuals.append(Individual{ .id = 5, .species = .ant, .abs_position = makeCoord(5, 8) });
         return Happenings{
             // TODO: maybe put static perception in here or something.
-            .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
+            .individual_to_perception = IdMap(PerceivedHappening).init(self.allocator),
             .state_changes = blk: {
                 var arr = try self.allocator.alloc(StateDiff, individuals.len);
                 for (arr) |*x, i| {
@@ -91,7 +92,7 @@ pub const GameEngine = struct {
     }
 
     pub const Happenings = struct {
-        individual_to_perception: IdMap([]PerceivedFrame),
+        individual_to_perception: IdMap(PerceivedHappening),
         state_changes: []StateDiff,
     };
 
@@ -221,7 +222,7 @@ pub const GameEngine = struct {
 
         return Happenings{
             .individual_to_perception = blk: {
-                var ret = IdMap([]PerceivedFrame).init(self.allocator);
+                var ret = IdMap(PerceivedHappening).init(self.allocator);
                 var iterator = individual_to_perception.iterator();
                 for (everybody) |id| {
                     var perceived_frame = ArrayList(PerceivedFrame).init(self.allocator);
@@ -232,7 +233,7 @@ pub const GameEngine = struct {
                             });
                         }
                     }
-                    try ret.putNoClobber(id, perceived_frame.toOwnedSlice());
+                    try ret.putNoClobber(id, PerceivedHappening{ .frames = perceived_frame.toOwnedSlice() });
                 }
                 break :blk ret;
             },
