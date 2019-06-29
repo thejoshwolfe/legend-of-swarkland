@@ -109,7 +109,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             state.client_state = ClientState{
                                 .terrain = static_perception.terrain,
                                 .individuals = try std.mem.concat(allocator, StaticIndividual, [_][]const StaticIndividual{
-                                    [_]StaticIndividual{static_perception.self},
+                                    ([_]StaticIndividual{static_perception.self})[0..],
                                     static_perception.others,
                                 }),
                             };
@@ -120,7 +120,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             state.client_state = ClientState{
                                 .terrain = static_perception.terrain,
                                 .individuals = try std.mem.concat(allocator, StaticIndividual, [_][]const StaticIndividual{
-                                    [_]StaticIndividual{static_perception.self},
+                                    ([_]StaticIndividual{static_perception.self})[0..],
                                     static_perception.others,
                                 }),
                             };
