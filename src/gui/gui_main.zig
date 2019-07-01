@@ -18,12 +18,14 @@ const Wall = core.protocol.Wall;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
+const PerceivedFrame = core.protocol.PerceivedFrame;
 
 const allocator = std.heap.c_allocator;
 
 pub fn main() anyerror!void {
     core.debug.init();
     core.debug.nameThisThread("gui");
+    defer core.debug.unnameThisThread();
     core.debug.warn("init");
     defer core.debug.warn("shutdown");
 
@@ -93,46 +95,12 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     switch (response) {
                         .stuff_happens => |happening| {
                             // Show animations for what's going on.
-                            try loadAnimations(&state.animations, response, now);
-                            // Update our mental model of the world.
-                            for (happening.frames) |frame| {
-                                switch (frame) {
-                                    .movements => |movements| {
-                                        var individuals = &state.client_state.?.individuals;
-                                        // TODO: update in place instead of replacing everything.
-                                        individuals.shrink(0);
-                                        for (movements) |perceived_movement| {
-                                            try individuals.append(StaticIndividual{
-                                                .abs_position = perceived_movement.abs_position,
-                                                .species = perceived_movement.species,
-                                            });
-                                        }
-                                    },
-                                    .attacks => {},
-                                    .deaths => |deaths| {},
-                                }
-                            }
+                            state.animations = try loadAnimations(happening.frames, now);
+                            state.client_state = try loadStaticPerception(happening.static_perception);
                         },
-                        .static_perception, .undo => {
-                            // FIXME workaround https://github.com/ziglang/zig/issues/1107
-                            const static_perception = switch (response) {
-                                .static_perception => |x| x,
-                                .undo => |x| x,
-                                else => unreachable,
-                            };
+                        .load_state => |static_perception| {
                             state.animations = null;
-                            state.client_state = ClientState{
-                                .terrain = static_perception.terrain,
-                                .individuals = blk: {
-                                    var individuals = ArrayList(StaticIndividual).init(allocator);
-                                    try individuals.ensureCapacity(1 + static_perception.others.len);
-                                    individuals.append(static_perception.self) catch unreachable;
-                                    for (static_perception.others) |other| {
-                                        individuals.append(other) catch unreachable;
-                                    }
-                                    break :blk individuals;
-                                },
-                            };
+                            state.client_state = try loadStaticPerception(static_perception);
                         },
                         .game_over => {
                             @panic("did we die or something?");
@@ -307,11 +275,11 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     const animation_time = @bitCast(u32, now -% animations.start_time);
                     const move_frame_time = 150;
                     const movement_phase = @divFloor(animation_time, move_frame_time);
-                    if (movement_phase < animations.happening.frames.len) {
+                    if (movement_phase < animations.frames.len) {
                         animating = true;
 
                         const progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
-                        switch (animations.happening.frames[movement_phase]) {
+                        switch (animations.frames[movement_phase]) {
                             .movements => |movements| {
                                 for (movements) |perceived_movement| {
                                     const a = perceived_movement; // shorter name
@@ -413,23 +381,29 @@ const ClientState = struct {
 
 const Animations = struct {
     start_time: i32,
-    happening: PerceivedHappening,
+    frames: []PerceivedFrame,
 };
 const AttackAnimation = struct {};
 const DeathAnimation = struct {};
 
-fn loadAnimations(animations: *?Animations, response: Response, now: i32) !void {
-    switch (response) {
-        .static_perception, .game_over => {},
-        .stuff_happens => |happening| {
-            animations.* = Animations{
-                .start_time = now,
-                .happening = try core.protocol.deepClone(allocator, happening),
-            };
+fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
+    return Animations{
+        .start_time = now,
+        .frames = try core.protocol.deepClone(allocator, frames),
+    };
+}
+
+fn loadStaticPerception(static_perception: core.protocol.StaticPerception) !ClientState {
+    return ClientState{
+        .terrain = static_perception.terrain,
+        .individuals = blk: {
+            var individuals = ArrayList(StaticIndividual).init(allocator);
+            try individuals.ensureCapacity(1 + static_perception.others.len);
+            individuals.append(static_perception.self) catch unreachable;
+            for (static_perception.others) |other| {
+                individuals.append(other) catch unreachable;
+            }
+            break :blk individuals;
         },
-        .undo => |events| {
-            // cancel animations
-            animations.* = null;
-        },
-    }
+    };
 }

@@ -6,12 +6,14 @@ const Coord = core.geometry.Coord;
 const GameEngine = @import("./game_engine.zig").GameEngine;
 const GameState = @import("./game_engine.zig").GameState;
 const IdMap = @import("./game_engine.zig").IdMap;
+const Individual = @import("./game_engine.zig").Individual;
 const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
 const Socket = core.protocol.Socket;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
+const PerceivedHappening = core.protocol.PerceivedHappening;
 
 const StateDiff = @import("./game_engine.zig").StateDiff;
 const HistoryList = std.TailQueue([]StateDiff);
@@ -21,6 +23,7 @@ const allocator = std.heap.c_allocator;
 
 pub fn server_main(main_player_socket: *Socket) !void {
     core.debug.nameThisThread("core");
+    defer core.debug.unnameThisThread();
     core.debug.warn("init");
     defer core.debug.warn("shutdown");
 
@@ -31,30 +34,28 @@ pub fn server_main(main_player_socket: *Socket) !void {
     core.debug.warn("start ai clients and send welcome messages");
     var decision_makers = IdMap(*Socket).init(allocator);
     var ai_clients = IdMap(*GameEngineClient).init(allocator);
+    const main_player_id: u32 = 1;
+    try decision_makers.putNoClobber(main_player_id, main_player_socket);
     {
         const happenings = try game_engine.getStartGameHappenings();
         try game_state.applyStateChanges(happenings.state_changes);
-        for (happenings.state_changes) |diff, i| {
+        for (happenings.state_changes) |diff| {
             switch (diff) {
                 .spawn => |individual| {
-                    var socket = if (i == 0) main_player_socket else blk: {
-                        // initialize ai socket
-                        var client = try allocator.create(GameEngineClient);
-                        try ai_clients.putNoClobber(individual.id, client);
-                        break :blk try client.startAsAi(individual.id);
-                    };
-                    try decision_makers.putNoClobber(individual.id, socket);
-
-                    // welcome
-                    try socket.out().write(Response{
-                        .static_perception = try game_engine.getStaticPerception(game_state, individual.id),
-                    });
+                    if (individual.id == main_player_id) continue;
+                    try handleSpawn(&decision_makers, &ai_clients, individual);
                 },
                 else => unreachable,
             }
         }
+        // Welcome to swarkland!
+        var iterator = decision_makers.iterator();
+        while (iterator.next()) |kv| {
+            const id = kv.key;
+            const socket = kv.value;
+            try socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, id) });
+        }
     }
-    const main_player_id: u32 = 1;
 
     var history = HistoryList.init();
 
@@ -110,13 +111,26 @@ pub fn server_main(main_player_socket: *Socket) !void {
             // Time goes backward.
             if (rewind(&history)) |state_changes| {
                 try game_state.undoStateChanges(state_changes);
+                for (state_changes) |diff| {
+                    switch (diff) {
+                        .despawn => |individual| {
+                            try handleSpawn(&decision_makers, &ai_clients, individual);
+                        },
+                        .spawn => |individual| {
+                            handleDespawn(&decision_makers, &ai_clients, individual.id);
+                        },
+                        else => {},
+                    }
+                }
             }
-            // Regardless of whether that succeeded, send the rewind to everyone.
+            // The people demand a response from their decision.
+            // Even if we didn't actually do a rewind, send a response to everyone,
+            // (as long as they still exist).
             var iterator = decision_makers.iterator();
             while (iterator.next()) |kv| {
                 const id = kv.key;
                 const socket = kv.value;
-                try socket.out().write(Response{ .undo = try game_engine.getStaticPerception(game_state, id) });
+                try socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, id) });
             }
         } else {
 
@@ -125,13 +139,27 @@ pub fn server_main(main_player_socket: *Socket) !void {
             //core.debug.deep_print("happenings: ", happenings);
             try pushHistoryRecord(&history, happenings.state_changes);
             try game_state.applyStateChanges(happenings.state_changes);
+            for (happenings.state_changes) |diff| {
+                switch (diff) {
+                    .spawn => |individual| {
+                        try handleSpawn(&decision_makers, &ai_clients, individual);
+                    },
+                    .despawn => |individual| {
+                        handleDespawn(&decision_makers, &ai_clients, individual.id);
+                    },
+                    else => {},
+                }
+            }
 
             var iterator = decision_makers.iterator();
             while (iterator.next()) |kv| {
                 const id = kv.key;
                 const socket = kv.value;
                 try socket.out().write(Response{
-                    .stuff_happens = happenings.individual_to_perception.get(id).?.value,
+                    .stuff_happens = PerceivedHappening{
+                        .frames = happenings.individual_to_perception.get(id).?.value,
+                        .static_perception = try game_engine.getStaticPerception(game_state, id),
+                    },
                 });
             }
         }
@@ -147,4 +175,18 @@ fn pushHistoryRecord(history: *HistoryList, state_changes: []StateDiff) !void {
     const history_node: *HistoryNode = try allocator.create(HistoryNode);
     history_node.data = state_changes;
     history.append(history_node);
+}
+
+fn handleSpawn(decision_makers: *IdMap(*Socket), ai_clients: *IdMap(*GameEngineClient), individual: Individual) !void {
+    // initialize ai socket
+    var client = try allocator.create(GameEngineClient);
+    try ai_clients.putNoClobber(individual.id, client);
+    var ai_socket = try client.startAsAi(individual.id);
+    try decision_makers.putNoClobber(individual.id, ai_socket);
+}
+
+fn handleDespawn(decision_makers: *IdMap(*Socket), ai_clients: *IdMap(*GameEngineClient), id: u32) void {
+    ai_clients.getValue(id).?.stopAi();
+    ai_clients.removeAssertDiscard(id);
+    decision_makers.removeAssertDiscard(id);
 }

@@ -159,6 +159,7 @@ pub const GameEngineClient = struct {
 
     fn sendMain(self: *GameEngineClient) void {
         core.debug.nameThisThreadWithClientId("client send", self.debug_client_id);
+        defer core.debug.unnameThisThread();
         core.debug.warn("init");
         defer core.debug.warn("shutdown");
         while (self.isAlive()) {
@@ -175,6 +176,7 @@ pub const GameEngineClient = struct {
 
     fn recvMain(self: *GameEngineClient) void {
         core.debug.nameThisThreadWithClientId("client recv", self.debug_client_id);
+        defer core.debug.unnameThisThread();
         core.debug.warn("init");
         defer core.debug.warn("shutdown");
         while (self.isAlive()) {
@@ -231,6 +233,7 @@ test "basic interaction" {
     // init
     core.debug.init();
     core.debug.nameThisThread("test main");
+    defer core.debug.unnameThisThread();
     core.debug.warn("start test");
     defer core.debug.warn("exit test");
     var _client: GameEngineClient = undefined;

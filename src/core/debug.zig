@@ -6,10 +6,8 @@ pub fn warn(comptime fmt: []const u8, args: ...) void {
     var buffer: [0x1000]u8 = undefined;
     const debug_thread_id = blk: {
         const me = std.Thread.getCurrentId();
-        for (thread_names) |*maybe_it| {
-            if (maybe_it.*) |it| {
-                if (it.thread_id == me) break :blk it;
-            }
+        for (thread_names.toSliceConst()) |it| {
+            if (it.thread_id == me) break :blk it;
         }
         @panic("thread not named");
     };
@@ -28,7 +26,10 @@ const DebugThreadId = struct {
     name: []const u8,
     client_id: u32,
 };
-var thread_names = [_]?DebugThreadId{null} ** 100;
+var _thread_names_buffer = [_]u8{0} ** 0x1000;
+var _thread_names_allocator = std.heap.FixedBufferAllocator.init(_thread_names_buffer[0..]);
+var thread_names = std.ArrayList(DebugThreadId).init(&_thread_names_allocator.allocator);
+
 pub fn nameThisThread(name: []const u8) void {
     return nameThisThreadWithClientId(name, 0);
 }
@@ -36,20 +37,29 @@ pub fn nameThisThreadWithClientId(name: []const u8, client_id: u32) void {
     var held = mutex.?.acquire();
     defer held.release();
     const thread_id = std.Thread.getCurrentId();
-    for (thread_names) |*maybe_it| {
-        if (maybe_it.*) |it| {
-            std.debug.assert(it.thread_id != thread_id);
-            std.debug.assert(!(std.mem.eql(u8, it.name, name) and it.client_id == client_id));
-            continue;
-        }
-        maybe_it.* = DebugThreadId{
-            .thread_id = thread_id,
-            .name = name,
-            .client_id = client_id,
-        };
-        return;
+    for (thread_names.toSliceConst()) |it| {
+        std.debug.assert(it.thread_id != thread_id);
+        std.debug.assert(!(std.mem.eql(u8, it.name, name) and it.client_id == client_id));
+        continue;
     }
-    @panic("too many threads");
+    thread_names.append(DebugThreadId{
+        .thread_id = thread_id,
+        .name = name,
+        .client_id = client_id,
+    }) catch @panic("too many threads");
+}
+pub fn unnameThisThread() void {
+    var held = mutex.?.acquire();
+    defer held.release();
+    const me = std.Thread.getCurrentId();
+    for (thread_names.toSliceConst()) |it, i| {
+        if (it.thread_id == me) {
+            _ = thread_names.swapRemove(i);
+            return;
+        }
+    } else {
+        @panic("thread not named");
+    }
 }
 
 /// i kinda wish std.fmt did this.

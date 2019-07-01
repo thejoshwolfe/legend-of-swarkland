@@ -41,10 +41,14 @@ pub const Action = union(enum) {
 };
 
 pub const Response = union(enum) {
-    game_over,
-    static_perception: StaticPerception,
+    /// this happens on startup (from your perspective) and on rewind
+    load_state: StaticPerception,
+
+    /// a typical turn happens
     stuff_happens: PerceivedHappening,
-    undo: StaticPerception,
+
+    /// this only exists to get the ai's to shutdown cleanly
+    game_over,
 };
 
 pub const StaticPerception = struct {
@@ -61,6 +65,9 @@ pub const StaticPerception = struct {
 pub const PerceivedHappening = struct {
     /// sequential order of simultaneous events
     frames: []PerceivedFrame,
+
+    /// the state of what you can see after the frames
+    static_perception: StaticPerception,
 };
 
 /// Represents what you can observe with your eyes happening simultaneously.
@@ -286,10 +293,9 @@ fn workaround1315(comptime UnionType: type, comptime tag_value: comptime_int, va
         if (tag_value == @enumToInt(Request.quit)) return Request{ .quit = value };
     }
     if (UnionType == Response) {
-        if (tag_value == @enumToInt(Response.game_over)) return Response{ .game_over = value };
-        if (tag_value == @enumToInt(Response.static_perception)) return Response{ .static_perception = value };
+        if (tag_value == @enumToInt(Response.load_state)) return Response{ .load_state = value };
         if (tag_value == @enumToInt(Response.stuff_happens)) return Response{ .stuff_happens = value };
-        if (tag_value == @enumToInt(Response.undo)) return Response{ .undo = value };
+        if (tag_value == @enumToInt(Response.game_over)) return Response{ .game_over = value };
     }
     if (UnionType == PerceivedFrame) {
         if (tag_value == @enumToInt(PerceivedFrame.movements)) return PerceivedFrame{ .movements = value };

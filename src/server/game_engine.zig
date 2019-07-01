@@ -12,7 +12,6 @@ const Terrain = core.protocol.Terrain;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
-const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const StaticPerception = core.protocol.StaticPerception;
 
@@ -63,7 +62,7 @@ pub const GameEngine = struct {
         try individuals.append(Individual{ .id = 5, .species = .ant, .abs_position = makeCoord(5, 8) });
         return Happenings{
             // TODO: maybe put static perception in here or something.
-            .individual_to_perception = IdMap(PerceivedHappening).init(self.allocator),
+            .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
             .state_changes = blk: {
                 var arr = try self.allocator.alloc(StateDiff, individuals.len);
                 for (arr) |*x, i| {
@@ -99,7 +98,7 @@ pub const GameEngine = struct {
     }
 
     pub const Happenings = struct {
-        individual_to_perception: IdMap(PerceivedHappening),
+        individual_to_perception: IdMap([]PerceivedFrame),
         state_changes: []StateDiff,
     };
 
@@ -255,9 +254,9 @@ pub const GameEngine = struct {
 
         return Happenings{
             .individual_to_perception = blk: {
-                var ret = IdMap(PerceivedHappening).init(self.allocator);
+                var ret = IdMap([]PerceivedFrame).init(self.allocator);
                 for (everybody) |id| {
-                    try ret.putNoClobber(id, PerceivedHappening{ .frames = individual_to_perception.getValue(id).?.frames.toOwnedSlice() });
+                    try ret.putNoClobber(id, individual_to_perception.getValue(id).?.frames.toOwnedSlice());
                 }
                 break :blk ret;
             },
@@ -274,6 +273,12 @@ pub const GameEngine = struct {
                             .coord = delta,
                         },
                     });
+                }
+                {
+                    var iterator = deaths.iterator();
+                    while (iterator.next()) |kv| {
+                        try ret.append(StateDiff{ .despawn = game_state.individuals.getValue(kv.key).?.* });
+                    }
                 }
                 break :blk ret.toOwnedSlice();
             },
@@ -363,7 +368,7 @@ pub const Individual = struct {
 };
 pub const StateDiff = union(enum) {
     spawn: Individual,
-    die: Individual,
+    despawn: Individual,
     move: IdAndCoord,
 
     pub const IdAndCoord = struct {
@@ -423,7 +428,7 @@ pub const GameState = struct {
                 .spawn => |individual| {
                     try self.individuals.putNoClobber(individual.id, try clone(self.allocator, individual));
                 },
-                .die => |individual| {
+                .despawn => |individual| {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
                 .move => |id_and_coord| {
@@ -441,7 +446,7 @@ pub const GameState = struct {
                 .spawn => |individual| {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
-                .die => |individual| {
+                .despawn => |individual| {
                     try self.individuals.putNoClobber(individual.id, try clone(self.allocator, individual));
                 },
                 .move => |id_and_coord| {
