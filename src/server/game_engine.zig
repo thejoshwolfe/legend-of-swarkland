@@ -277,7 +277,13 @@ pub const GameEngine = struct {
                 {
                     var iterator = deaths.iterator();
                     while (iterator.next()) |kv| {
-                        try ret.append(StateDiff{ .despawn = game_state.individuals.getValue(kv.key).?.* });
+                        try ret.append(StateDiff{
+                            .despawn = blk: {
+                                var individual = game_state.individuals.getValue(kv.key).?.*;
+                                individual.abs_position = current_positions.getValue(individual.id).?;
+                                break :blk individual;
+                            },
+                        });
                     }
                 }
                 break :blk ret.toOwnedSlice();
