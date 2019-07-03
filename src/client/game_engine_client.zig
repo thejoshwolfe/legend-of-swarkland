@@ -134,7 +134,7 @@ pub const GameEngineClient = struct {
             .thread => |*data| {
                 data.core_thread.wait();
             },
-            .attach => {},
+            .attach => @panic("call stopAi()"),
         }
         self.stay_alive.set(0);
         self.send_thread.wait();
@@ -144,11 +144,13 @@ pub const GameEngineClient = struct {
     pub fn stopAi(self: *GameEngineClient) void {
         core.debug.warn("stop ai");
         self.stay_alive.set(0);
+        // The server tells us to shut down
         self.connection.attach.server_socket.close(Response.game_over);
         self.send_thread.wait();
         self.recv_thread.wait();
         core.debug.warn("ai threads done");
     }
+
     fn isAlive(self: *GameEngineClient) bool {
         return self.stay_alive.get() != 0;
     }
@@ -197,14 +199,17 @@ pub const GameEngineClient = struct {
         }
     }
 
+    pub fn act(self: *GameEngineClient, action: Action) !void {
+        try queuePut(Request, &self.request_outbox, Request{ .act = action });
+    }
     pub fn rewind(self: *GameEngineClient) !void {
         try queuePut(Request, &self.request_outbox, Request{ .rewind = {} });
     }
     pub fn move(self: *GameEngineClient, direction: Coord) !void {
-        try queuePut(Request, &self.request_outbox, Request{ .act = Action{ .move = direction } });
+        return self.act(Action{ .move = direction });
     }
     pub fn attack(self: *GameEngineClient, direction: Coord) !void {
-        try queuePut(Request, &self.request_outbox, Request{ .act = Action{ .attack = direction } });
+        return self.act(Action{ .attack = direction });
     }
 };
 
