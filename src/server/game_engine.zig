@@ -55,11 +55,11 @@ pub const GameEngine = struct {
 
     pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
         var individuals = ArrayList(Individual).init(self.allocator);
-        try individuals.append(Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 14) });
-        try individuals.append(Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(6, 13) });
-        try individuals.append(Individual{ .id = 3, .species = .snake, .abs_position = makeCoord(5, 11) });
-        try individuals.append(Individual{ .id = 4, .species = .ogre, .abs_position = makeCoord(5, 10) });
-        try individuals.append(Individual{ .id = 5, .species = .ant, .abs_position = makeCoord(5, 8) });
+        try individuals.append(Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 7) });
+        try individuals.append(Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(6, 6) });
+        try individuals.append(Individual{ .id = 3, .species = .snake, .abs_position = makeCoord(7, 8) });
+        try individuals.append(Individual{ .id = 4, .species = .ogre, .abs_position = makeCoord(9, 6) });
+        try individuals.append(Individual{ .id = 5, .species = .ant, .abs_position = makeCoord(5, 6) });
         return Happenings{
             // TODO: maybe put static perception in here or something.
             .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
