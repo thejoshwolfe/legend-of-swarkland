@@ -394,12 +394,15 @@ fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
 }
 
 fn loadStaticPerception(static_perception: core.protocol.StaticPerception) !ClientState {
+    //core.debug.deep_print("static_perception: ", static_perception);
     return ClientState{
         .terrain = static_perception.terrain,
         .individuals = blk: {
             var individuals = ArrayList(StaticIndividual).init(allocator);
             try individuals.ensureCapacity(1 + static_perception.others.len);
-            individuals.append(static_perception.self) catch unreachable;
+            if (static_perception.self) |self| {
+                individuals.append(self) catch unreachable;
+            }
             for (static_perception.others) |other| {
                 individuals.append(other) catch unreachable;
             }

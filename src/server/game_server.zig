@@ -37,6 +37,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
     var decision_makers = IdMap(*Socket).init(allocator);
     var ai_clients = IdMap(*GameEngineClient).init(allocator);
     const main_player_id: u32 = 1;
+    var you_are_alive = true;
     try decision_makers.putNoClobber(main_player_id, main_player_socket);
     {
         const happenings = try game_engine.getStartGameHappenings();
@@ -77,10 +78,11 @@ pub fn server_main(main_player_socket: *Socket) !void {
         {
             var iterator = decision_makers.iterator();
             while (iterator.next()) |kv| {
+                const id = kv.key;
                 var socket = kv.value;
                 switch (try socket.in(allocator).read(Request)) {
                     .quit => {
-                        std.debug.assert(kv.key == main_player_id);
+                        std.debug.assert(id == main_player_id);
                         core.debug.warn("clean shutdown. close");
                         // close all ai threads first, because the main player client doesn't know to wait for the ai threads.
                         var ai_iterator = ai_clients.iterator();
@@ -94,11 +96,17 @@ pub fn server_main(main_player_socket: *Socket) !void {
                         break :mainLoop;
                     },
                     .act => |action| {
-                        std.debug.assert(game_engine.validateAction(action));
-                        try actions.putNoClobber(kv.key, action);
+                        if (id == main_player_id and !you_are_alive) {
+                            // Don't send the game engine the actions you take while dead,
+                            // but advance the simulation.
+                        } else {
+                            // Normal action
+                            std.debug.assert(game_engine.validateAction(action));
+                            try actions.putNoClobber(id, action);
+                        }
                     },
                     .rewind => {
-                        std.debug.assert(kv.key == main_player_id);
+                        std.debug.assert(id == main_player_id);
                         // delay actually rewinding so that we receive all requests.
                         is_rewind = true;
                     },
@@ -114,10 +122,18 @@ pub fn server_main(main_player_socket: *Socket) !void {
                 for (state_changes) |diff| {
                     switch (diff) {
                         .despawn => |individual| {
-                            try handleSpawn(&decision_makers, &ai_clients, individual);
+                            if (individual.id == main_player_id) {
+                                you_are_alive = true;
+                            } else {
+                                try handleSpawn(&decision_makers, &ai_clients, individual);
+                            }
                         },
                         .spawn => |individual| {
-                            handleDespawn(&decision_makers, &ai_clients, individual.id);
+                            if (individual.id == main_player_id) {
+                                @panic("you can't unspawn midgame");
+                            } else {
+                                handleDespawn(&decision_makers, &ai_clients, individual.id);
+                            }
                         },
                         else => {},
                     }
@@ -142,10 +158,18 @@ pub fn server_main(main_player_socket: *Socket) !void {
             for (happenings.state_changes) |diff| {
                 switch (diff) {
                     .spawn => |individual| {
-                        try handleSpawn(&decision_makers, &ai_clients, individual);
+                        if (individual.id == main_player_id) {
+                            @panic("you can't spawn mid game");
+                        } else {
+                            try handleSpawn(&decision_makers, &ai_clients, individual);
+                        }
                     },
                     .despawn => |individual| {
-                        handleDespawn(&decision_makers, &ai_clients, individual.id);
+                        if (individual.id == main_player_id) {
+                            you_are_alive = false;
+                        } else {
+                            handleDespawn(&decision_makers, &ai_clients, individual.id);
+                        }
                     },
                     else => {},
                 }
@@ -210,7 +234,7 @@ fn doAi(client: *GameEngineClient) !void {
 }
 
 fn getNaiveAiDecision(static_perception: StaticPerception) Action {
-    const self_position = static_perception.self.abs_position;
+    const self_position = static_perception.self.?.abs_position;
     const target_position = blk: {
         // KILLKILLKILL HUMANS
         for (static_perception.others) |other| {

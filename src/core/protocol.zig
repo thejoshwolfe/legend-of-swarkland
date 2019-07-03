@@ -53,7 +53,9 @@ pub const Response = union(enum) {
 
 pub const StaticPerception = struct {
     terrain: Terrain,
-    self: StaticIndividual,
+
+    /// null means you're are dead
+    self: ?StaticIndividual,
     others: []StaticIndividual,
     pub const StaticIndividual = struct {
         abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position

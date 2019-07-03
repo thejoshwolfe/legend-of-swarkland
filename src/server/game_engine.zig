@@ -73,8 +73,8 @@ pub const GameEngine = struct {
         };
     }
 
-    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: usize) !StaticPerception {
-        var yourself: StaticPerception.StaticIndividual = undefined;
+    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: u32) !StaticPerception {
+        var yourself: ?StaticPerception.StaticIndividual = null;
         var others = ArrayList(StaticPerception.StaticIndividual).init(self.allocator);
         var iterator = game_state.individuals.iterator();
         while (iterator.next()) |kv| {
