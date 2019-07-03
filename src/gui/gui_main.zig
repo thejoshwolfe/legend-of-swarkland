@@ -105,6 +105,9 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         .game_over => {
                             @panic("did we die or something?");
                         },
+                        .reject_request => {
+                            // oh sorry.
+                        },
                     }
                 }
             },

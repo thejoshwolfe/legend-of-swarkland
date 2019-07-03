@@ -15,6 +15,7 @@ const Response = core.protocol.Response;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
+const PerceivedFrame = core.protocol.PerceivedFrame;
 const StaticPerception = core.protocol.StaticPerception;
 
 const StateDiff = @import("./game_engine.zig").StateDiff;
@@ -80,36 +81,38 @@ pub fn server_main(main_player_socket: *Socket) !void {
             while (iterator.next()) |kv| {
                 const id = kv.key;
                 var socket = kv.value;
-                switch (try socket.in(allocator).read(Request)) {
-                    .quit => {
-                        std.debug.assert(id == main_player_id);
-                        core.debug.warn("clean shutdown. close");
-                        // close all ai threads first, because the main player client doesn't know to wait for the ai threads.
-                        var ai_iterator = ai_clients.iterator();
-                        while (ai_iterator.next()) |ai_kv| {
-                            var ai_client = ai_kv.value;
-                            ai_client.stopAi();
-                        }
-                        core.debug.warn("all ais shutdown");
-                        // now shutdown the main player
-                        socket.close(Response.game_over);
-                        break :mainLoop;
-                    },
-                    .act => |action| {
-                        if (id == main_player_id and !you_are_alive) {
-                            // Don't send the game engine the actions you take while dead,
-                            // but advance the simulation.
-                        } else {
-                            // Normal action
+                retryRead: while (true) {
+                    switch (try socket.in(allocator).read(Request)) {
+                        .quit => {
+                            std.debug.assert(id == main_player_id);
+                            core.debug.warn("clean shutdown. close");
+                            // close all ai threads first, because the main player client doesn't know to wait for the ai threads.
+                            var ai_iterator = ai_clients.iterator();
+                            while (ai_iterator.next()) |ai_kv| {
+                                var ai_client = ai_kv.value;
+                                ai_client.stopAi();
+                            }
+                            core.debug.warn("all ais shutdown");
+                            // now shutdown the main player
+                            socket.close(Response.game_over);
+                            break :mainLoop;
+                        },
+                        .act => |action| {
+                            if (id == main_player_id and !you_are_alive) {
+                                // no. you're are dead.
+                                try socket.out().write(Response.reject_request);
+                                continue :retryRead;
+                            }
                             std.debug.assert(game_engine.validateAction(action));
                             try actions.putNoClobber(id, action);
-                        }
-                    },
-                    .rewind => {
-                        std.debug.assert(id == main_player_id);
-                        // delay actually rewinding so that we receive all requests.
-                        is_rewind = true;
-                    },
+                        },
+                        .rewind => {
+                            std.debug.assert(id == main_player_id);
+                            // delay actually rewinding so that we receive all requests.
+                            is_rewind = true;
+                        },
+                    }
+                    break;
                 }
             }
         }
@@ -181,7 +184,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
                 const socket = kv.value;
                 try socket.out().write(Response{
                     .stuff_happens = PerceivedHappening{
-                        .frames = happenings.individual_to_perception.get(id).?.value,
+                        .frames = happenings.individual_to_perception.getValue(id).?,
                         .static_perception = try game_engine.getStaticPerception(game_state, id),
                     },
                 });

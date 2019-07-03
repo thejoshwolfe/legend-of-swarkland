@@ -49,6 +49,9 @@ pub const Response = union(enum) {
 
     /// this only exists to get the ai's to shutdown cleanly
     game_over,
+
+    /// ur doin it rong, and nothing happened. try again.
+    reject_request,
 };
 
 pub const StaticPerception = struct {
@@ -298,6 +301,7 @@ fn workaround1315(comptime UnionType: type, comptime tag_value: comptime_int, va
         if (tag_value == @enumToInt(Response.load_state)) return Response{ .load_state = value };
         if (tag_value == @enumToInt(Response.stuff_happens)) return Response{ .stuff_happens = value };
         if (tag_value == @enumToInt(Response.game_over)) return Response{ .game_over = value };
+        if (tag_value == @enumToInt(Response.reject_request)) return Response{ .reject_request = value };
     }
     if (UnionType == PerceivedFrame) {
         if (tag_value == @enumToInt(PerceivedFrame.movements)) return PerceivedFrame{ .movements = value };
