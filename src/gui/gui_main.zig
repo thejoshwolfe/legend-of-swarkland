@@ -373,6 +373,7 @@ fn speciesToSprite(species: Species) Rect {
         .ogre => textures.sprites.ogre,
         .snake => textures.sprites.snake,
         .ant => textures.sprites.ant,
+        .centaur => textures.sprites.centaur_archer,
     };
 }
 

@@ -55,13 +55,14 @@ pub const GameEngine = struct {
 
     pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
         var individuals = ArrayList(Individual).init(self.allocator);
-        try individuals.append(Individual{ .id = 1, .species = .human, .abs_position = makeCoord(7, 7) });
-        try individuals.append(Individual{ .id = 2, .species = .orc, .abs_position = makeCoord(6, 6) });
-        try individuals.append(Individual{ .id = 3, .species = .snake, .abs_position = makeCoord(7, 8) });
-        try individuals.append(Individual{ .id = 4, .species = .ogre, .abs_position = makeCoord(9, 6) });
-        try individuals.append(Individual{ .id = 5, .species = .ant, .abs_position = makeCoord(5, 6) });
+        try individuals.append(Individual{ .id = 1, .abs_position = makeCoord(7, 7), .species = .human });
+        try individuals.append(Individual{ .id = 2, .abs_position = makeCoord(6, 6), .species = .orc });
+        try individuals.append(Individual{ .id = 3, .abs_position = makeCoord(7, 8), .species = .snake });
+        try individuals.append(Individual{ .id = 4, .abs_position = makeCoord(9, 6), .species = .ogre });
+        try individuals.append(Individual{ .id = 5, .abs_position = makeCoord(5, 6), .species = .ant });
+        try individuals.append(Individual{ .id = 6, .abs_position = makeCoord(4, 2), .species = .centaur });
+        try individuals.append(Individual{ .id = 7, .abs_position = makeCoord(10, 2), .species = .centaur });
         return Happenings{
-            // TODO: maybe put static perception in here or something.
             .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
             .state_changes = blk: {
                 var arr = try self.allocator.alloc(StateDiff, individuals.len);

@@ -22,6 +22,7 @@ pub const Species = enum {
     ogre,
     snake,
     ant,
+    centaur,
 };
 
 pub const Terrain = struct {
