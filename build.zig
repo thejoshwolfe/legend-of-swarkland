@@ -52,6 +52,7 @@ pub fn build(b: *Builder) void {
 
 fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u8, headless: bool) *std.build.Step {
     const exe = if (headless) b.addExecutable(name, "src/server/server_main.zig") else b.addExecutable(name, "src/gui/gui_main.zig");
+    exe.install();
     exe.addPackagePath("core", "src/index.zig");
     if (!headless) {
         exe.linkSystemLibrary("SDL2");
@@ -63,7 +64,5 @@ fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u
     // FIXME: workaround https://github.com/ziglang/zig/issues/855
     exe.setMainPkgPath(".");
     exe.setBuildMode(build_options);
-    // TODO: proper install target?
-    exe.setOutputDir("zig-cache");
     return &exe.step;
 }
