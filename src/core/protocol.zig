@@ -264,7 +264,7 @@ pub fn InChannel(comptime InStream: type) type {
                     inline for (info.fields) |u_field| {
                         if (tag_value == u_field.enum_field.?.value) {
                             // FIXME: this `if` is because inferred error sets require at least one error.
-                            return workaround1315(T, u_field.enum_field.?.value, if (u_field.field_type == void) {} else try self.read(u_field.field_type));
+                            return @unionInit(T, u_field.enum_field.?.name, if (u_field.field_type == void) {} else try self.read(u_field.field_type));
                         }
                     }
                     unreachable;
@@ -285,31 +285,6 @@ pub fn InChannel(comptime InStream: type) type {
             return std.math.cast(T, x_aligned);
         }
     };
-}
-
-/// FIXME: https://github.com/ziglang/zig/issues/1315
-fn workaround1315(comptime UnionType: type, comptime tag_value: comptime_int, value: var) UnionType {
-    if (UnionType == Action) {
-        if (tag_value == @enumToInt(Action.move)) return Action{ .move = value };
-        if (tag_value == @enumToInt(Action.attack)) return Action{ .attack = value };
-    }
-    if (UnionType == Request) {
-        if (tag_value == @enumToInt(Request.act)) return Request{ .act = value };
-        if (tag_value == @enumToInt(Request.rewind)) return Request{ .rewind = value };
-        if (tag_value == @enumToInt(Request.quit)) return Request{ .quit = value };
-    }
-    if (UnionType == Response) {
-        if (tag_value == @enumToInt(Response.load_state)) return Response{ .load_state = value };
-        if (tag_value == @enumToInt(Response.stuff_happens)) return Response{ .stuff_happens = value };
-        if (tag_value == @enumToInt(Response.game_over)) return Response{ .game_over = value };
-        if (tag_value == @enumToInt(Response.reject_request)) return Response{ .reject_request = value };
-    }
-    if (UnionType == PerceivedFrame) {
-        if (tag_value == @enumToInt(PerceivedFrame.movements)) return PerceivedFrame{ .movements = value };
-        if (tag_value == @enumToInt(PerceivedFrame.attacks)) return PerceivedFrame{ .attacks = value };
-        if (tag_value == @enumToInt(PerceivedFrame.deaths)) return PerceivedFrame{ .deaths = value };
-    }
-    @compileError("add support for: " ++ @typeName(UnionType));
 }
 
 pub fn deepClone(allocator: *std.mem.Allocator, x: var) (error{OutOfMemory})!@typeOf(x) {
