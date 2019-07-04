@@ -87,6 +87,17 @@ pub const Gui = struct {
         self._cursor.y += self._marginBottom * self._scale;
     }
 
+    pub fn imageAndText(self: *Gui, sprite: Rect, string: []const u8) void {
+        textures.renderSprite(self._renderer, sprite, self._cursor);
+        const text_position = Coord{
+            .x = self._cursor.x + sprite.width + 4,
+            .y = self._cursor.y,
+        };
+
+        self._cursor.y = textures.renderTextScaled(self._renderer, string, text_position, self._bold, self._scale).y;
+        self._cursor.y += self._marginBottom * self._scale;
+    }
+
     pub fn button(self: *Gui, string: []const u8) bool {
         var start_position = self._cursor;
         self.text(string);

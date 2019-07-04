@@ -216,7 +216,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                 menu_renderer.text("Legend of Swarkland");
                 menu_renderer.scale(1);
                 menu_renderer.bold(false);
-                menu_renderer.seekRelative(70, 0);
+                menu_renderer.seekRelative(70, 30);
                 if (menu_renderer.button("New Game (Thread)")) {
                     game_state = GameState{
                         .running = GameState.Running{
@@ -243,6 +243,17 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     // quit
                     return;
                 }
+
+                menu_renderer.seekRelative(-70, 50);
+                menu_renderer.text("Controls:");
+                menu_renderer.text(" Arrow keys: Move");
+                menu_renderer.text(" F: Start attack");
+                menu_renderer.text("   Arrow keys: Attack in direction");
+                menu_renderer.text(" Backspace: Undo");
+                menu_renderer.text(" Enter: Begin");
+
+                menu_renderer.seekRelative(140, 10);
+                menu_renderer.imageAndText(textures.sprites.human, "This is you");
             },
             GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;
