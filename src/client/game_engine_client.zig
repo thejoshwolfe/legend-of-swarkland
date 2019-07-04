@@ -247,7 +247,7 @@ test "basic interaction" {
     defer client.stopEngine();
 
     const startup_response = pollSync(client);
-    const starting_position = startup_response.load_state.self.abs_position;
+    const starting_position = startup_response.load_state.self.?.abs_position;
     core.debug.warn("startup done");
 
     // move
@@ -269,7 +269,7 @@ test "basic interaction" {
     try client.rewind();
     {
         const response = pollSync(client);
-        const new_position = response.load_state.self.abs_position;
+        const new_position = response.load_state.self.?.abs_position;
 
         std.testing.expect(new_position.equals(starting_position));
     }
