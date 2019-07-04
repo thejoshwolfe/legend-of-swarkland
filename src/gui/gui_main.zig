@@ -306,13 +306,30 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                         a.abs_position.scaled(32),
                                     );
                                     if (a.direction) |direction| {
-                                        const dagger_sprite_normalizing_rotation = 1;
-                                        textures.renderSpriteRotated(
-                                            renderer,
-                                            textures.sprites.dagger,
-                                            a.abs_position.scaled(32).plus(direction.scaled(32 * 3 / 4)),
-                                            u3(directionToRotation(direction)) +% dagger_sprite_normalizing_rotation,
-                                        );
+                                        // render the attack
+                                        const range = core.game_logic.getAttackRange(a.species);
+                                        if (range == 1) {
+                                            const dagger_sprite_normalizing_rotation = 1;
+                                            textures.renderSpriteRotated(
+                                                renderer,
+                                                textures.sprites.dagger,
+                                                a.abs_position.scaled(32).plus(direction.scaled(32 * 3 / 4)),
+                                                u3(directionToRotation(direction)) +% dagger_sprite_normalizing_rotation,
+                                            );
+                                        } else {
+                                            const arrow_sprite_normalizing_rotation = 4;
+                                            textures.renderSpriteRotated(
+                                                renderer,
+                                                textures.sprites.arrow,
+                                                core.geometry.bezier2(
+                                                    a.abs_position.scaled(32).plus(direction.scaled(32 * 3 / 4)),
+                                                    a.abs_position.plus(direction.scaled(range)).scaled(32),
+                                                    progress,
+                                                    move_frame_time,
+                                                ),
+                                                u3(directionToRotation(direction)) +% arrow_sprite_normalizing_rotation,
+                                            );
+                                        }
                                     }
                                 }
                             },
