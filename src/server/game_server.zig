@@ -251,16 +251,37 @@ fn getNaiveAiDecision(static_perception: StaticPerception) Action {
 
     const delta = target_position.minus(self_position);
     std.debug.assert(!(delta.x == 0 and delta.y == 0));
+    const range = switch (static_perception.self.?.species) {
+        .centaur => i32(16),
+        else => i32(1),
+    };
 
-    if (delta.x * delta.y == 0 and (delta.x + delta.y) * (delta.x + delta.y) == 1) {
-        return Action{ .attack = delta };
+    if (delta.x * delta.y == 0) {
+        // straight shot
+        if (delta.x * delta.x + delta.y * delta.y <= range * range) {
+            // within range
+            return Action{ .attack = Coord{ .x = sign(delta.x), .y = sign(delta.y) } };
+        } else {
+            // move straight twoard the target
+            return Action{ .move = Coord{ .x = sign(delta.x), .y = sign(delta.y) } };
+        }
     }
-    if (delta.x * delta.x > delta.y * delta.y) {
-        return Action{ .move = Coord{ .x = sign(delta.x), .y = 0 } };
-    } else if (delta.x * delta.x < delta.y * delta.y) {
-        return Action{ .move = Coord{ .x = 0, .y = sign(delta.y) } };
+    // move into range
+    if (range == 1) {
+        // approach by closing the longer distance first
+        if (delta.x * delta.x > delta.y * delta.y) {
+            return Action{ .move = Coord{ .x = sign(delta.x), .y = 0 } };
+        } else if (delta.x * delta.x < delta.y * delta.y) {
+            return Action{ .move = Coord{ .x = 0, .y = sign(delta.y) } };
+        }
     } else {
-        // exactly diagonal. move clockwise.
-        return Action{ .move = Coord{ .x = sign(delta.y + delta.x), .y = sign(delta.y - delta.x) } };
+        // approach by closing the shorter distance first, which gives us a straight shot
+        if (delta.x * delta.x > delta.y * delta.y) {
+            return Action{ .move = Coord{ .x = 0, .y = sign(delta.y) } };
+        } else if (delta.x * delta.x < delta.y * delta.y) {
+            return Action{ .move = Coord{ .x = sign(delta.x), .y = 0 } };
+        }
     }
+    // exactly diagonal. move clockwise.
+    return Action{ .move = Coord{ .x = sign(delta.y + delta.x), .y = sign(delta.y - delta.x) } };
 }
