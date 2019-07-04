@@ -255,9 +255,12 @@ fn getNaiveAiDecision(static_perception: StaticPerception) Action {
     if (delta.x * delta.y == 0 and (delta.x + delta.y) * (delta.x + delta.y) == 1) {
         return Action{ .attack = delta };
     }
-    if (delta.x * delta.x >= delta.y * delta.y) {
+    if (delta.x * delta.x > delta.y * delta.y) {
         return Action{ .move = Coord{ .x = sign(delta.x), .y = 0 } };
-    } else {
+    } else if (delta.x * delta.x < delta.y * delta.y) {
         return Action{ .move = Coord{ .x = 0, .y = sign(delta.y) } };
+    } else {
+        // exactly diagonal. move clockwise.
+        return Action{ .move = Coord{ .x = sign(delta.y + delta.x), .y = sign(delta.y - delta.x) } };
     }
 }
