@@ -251,10 +251,7 @@ fn getNaiveAiDecision(static_perception: StaticPerception) Action {
 
     const delta = target_position.minus(self_position);
     std.debug.assert(!(delta.x == 0 and delta.y == 0));
-    const range = switch (static_perception.self.?.species) {
-        .centaur => i32(16),
-        else => i32(1),
-    };
+    const range = core.game_logic.getAttackRange(static_perception.self.?.species);
 
     if (delta.x * delta.y == 0) {
         // straight shot

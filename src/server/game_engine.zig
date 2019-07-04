@@ -183,7 +183,7 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 const position = current_positions.getValue(id).?;
                 // walls
-                if (!isOpenSpace(game_state.wallAt(position))) {
+                if (!core.game_logic.isOpenSpace(game_state.wallAt(position))) {
                     // bounce off the wall
                     try next_moves.putNoClobber(id, previous_moves.getValue(id).?.negated());
                 }
@@ -229,10 +229,14 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             var attack_direction = attacks.getValue(id) orelse continue;
             var attacker_position = current_positions.getValue(id).?;
-            var damage_position = attacker_position.plus(attack_direction);
-            for (everybody) |other_id| {
-                if (current_positions.getValue(other_id).?.equals(damage_position)) {
-                    _ = try deaths.put(other_id, {});
+            var attack_distance: i32 = 1;
+            const range = core.game_logic.getAttackRange(game_state.individuals.getValue(id).?.species);
+            while (attack_distance <= range) : (attack_distance += 1) {
+                var damage_position = attacker_position.plus(attack_direction.scaled(attack_distance));
+                for (everybody) |other_id| {
+                    if (current_positions.getValue(other_id).?.equals(damage_position)) {
+                        _ = try deaths.put(other_id, {});
+                    }
                 }
             }
         }
@@ -479,7 +483,3 @@ const MutablePerceivedHappening = struct {
         };
     }
 };
-
-fn isOpenSpace(wall: Wall) bool {
-    return wall == Wall.air;
-}
