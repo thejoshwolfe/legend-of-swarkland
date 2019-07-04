@@ -250,12 +250,14 @@ fn getNaiveAiDecision(static_perception: StaticPerception) Action {
     };
 
     const delta = target_position.minus(self_position);
-    if (delta.x * delta.y == 0) {
-        if ((delta.x + delta.y) * (delta.x + delta.y) == 1) {
-            return Action{ .attack = delta };
-        }
+    std.debug.assert(!(delta.x == 0 and delta.y == 0));
+
+    if (delta.x * delta.y == 0 and (delta.x + delta.y) * (delta.x + delta.y) == 1) {
+        return Action{ .attack = delta };
     }
-    if (delta.x != 0) return Action{ .move = Coord{ .x = sign(delta.x), .y = 0 } };
-    if (delta.y != 0) return Action{ .move = Coord{ .y = sign(delta.y), .x = 0 } };
-    @panic("standing on top of target");
+    if (delta.x * delta.x >= delta.y * delta.y) {
+        return Action{ .move = Coord{ .x = sign(delta.x), .y = 0 } };
+    } else {
+        return Action{ .move = Coord{ .x = 0, .y = sign(delta.y) } };
+    }
 }
