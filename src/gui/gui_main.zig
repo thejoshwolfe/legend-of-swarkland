@@ -339,7 +339,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                                     const display_position = a.abs_position.scaled(32);
                                     textures.renderSprite(renderer, speciesToSprite(a.species), display_position);
                                     if (a.actually_dies) {
-                                        textures.renderSprite(renderer, textures.sprites.red_book, display_position);
+                                        textures.renderSprite(renderer, textures.sprites.death, display_position);
                                     }
                                 }
                             },
