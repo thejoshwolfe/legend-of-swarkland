@@ -259,26 +259,44 @@ fn getNaiveAiDecision(static_perception: StaticPerception) Action {
             // within range
             return Action{ .attack = Coord{ .x = sign(delta.x), .y = sign(delta.y) } };
         } else {
-            // move straight twoard the target
+            // move straight twoard the target, even if someone else is in the way
             return Action{ .move = Coord{ .x = sign(delta.x), .y = sign(delta.y) } };
         }
     }
-    // move into range
-    if (range == 1) {
-        // approach by closing the longer distance first
+    // We have a diagonal space to traverse.
+    // We need to choose between the long leg of the rectangle and the short leg.
+    const options = [_]Coord{
+        Coord{ .x = sign(delta.x), .y = 0 },
+        Coord{ .x = 0, .y = sign(delta.y) },
+    };
+    const long_index = blk: {
         if (delta.x * delta.x > delta.y * delta.y) {
-            return Action{ .move = Coord{ .x = sign(delta.x), .y = 0 } };
+            // x is longer
+            break :blk usize(0);
         } else if (delta.x * delta.x < delta.y * delta.y) {
-            return Action{ .move = Coord{ .x = 0, .y = sign(delta.y) } };
+            // y is longer
+            break :blk usize(1);
+        } else {
+            // exactly diagonal. let's say that clockwise is longer.
+            break :blk @boolToInt(delta.x != delta.y);
         }
-    } else {
-        // approach by closing the shorter distance first, which gives us a straight shot
-        if (delta.x * delta.x > delta.y * delta.y) {
-            return Action{ .move = Coord{ .x = 0, .y = sign(delta.y) } };
-        } else if (delta.x * delta.x < delta.y * delta.y) {
-            return Action{ .move = Coord{ .x = sign(delta.x), .y = 0 } };
+    };
+    // Archers want to line up for a shot; melee wants to avoid lining up for a shot.
+    var option_index = if (range == 1) long_index else 1 - long_index;
+    // If someone's in the way, then prefer the other way.
+    // If someone's in the way in both directions, then go with our initial preference.
+    {
+        var flip_flop_counter = usize(0);
+        while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
+            const move_into_position = self_position.plus(options[option_index]);
+            for (static_perception.others) |perceived_other| {
+                if (perceived_other.abs_position.equals(move_into_position)) {
+                    // somebody's there already.
+                    option_index = 1 - option_index;
+                    break;
+                }
+            }
         }
     }
-    // exactly diagonal. move clockwise.
-    return Action{ .move = Coord{ .x = sign(delta.y + delta.x), .y = sign(delta.y - delta.x) } };
+    return Action{ .move = options[option_index] };
 }
