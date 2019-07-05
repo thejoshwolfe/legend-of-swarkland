@@ -122,7 +122,8 @@ pub fn server_main(main_player_socket: *Socket) !void {
             // Time goes backward.
             if (rewind(&history)) |state_changes| {
                 try game_state.undoStateChanges(state_changes);
-                for (state_changes) |diff| {
+                for (state_changes) |_, i| {
+                    const diff = state_changes[state_changes.len - 1 - i];
                     switch (diff) {
                         .despawn => |individual| {
                             if (individual.id == main_player_id) {

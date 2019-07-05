@@ -268,7 +268,7 @@ pub const GameEngine = struct {
             // check for someone on the stairs
             for (everybody) |id| {
                 if (deaths.contains(id)) continue;
-                if (game_state.floorAt(current_positions.getValue(id).?) == Floor.stairs_down) {
+                if (game_state.floorAt(current_positions.getValue(id).?) == if (spawn_the_stairs) Floor.hatch else Floor.stairs_down) {
                     do_transition = true;
                 }
             }
