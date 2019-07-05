@@ -7,6 +7,7 @@ pub const Floor = enum {
     dirt,
     marble,
     lava,
+    stairs_down,
 };
 
 pub const Wall = enum {

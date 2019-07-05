@@ -257,6 +257,26 @@ pub const GameEngine = struct {
             );
         }
 
+        var spawn_stairs_position: ?Coord = null;
+        if (deaths.count() > 0 and game_state.individuals.count() - deaths.count() <= 1) {
+            // Only one person left. You win!
+            // Spawn the stairs onward.
+            const typical_position = makeCoord(8, 8);
+            spawn_stairs_position = blk: {
+                for (everybody) |id| {
+                    if (deaths.contains(id)) continue;
+                    if (current_positions.getValue(id).?.distanceOrtho(typical_position) >= 2) {
+                        break :blk typical_position;
+                    } else {
+                        // don't spawn the stairs too close to you
+                        break :blk typical_position.plus(makeCoord(-2, -2));
+                    }
+                }
+                // nobody's alive
+                break :blk typical_position;
+            };
+        }
+
         return Happenings{
             .individual_to_perception = blk: {
                 var ret = IdMap([]PerceivedFrame).init(self.allocator);
@@ -290,6 +310,18 @@ pub const GameEngine = struct {
                             },
                         });
                     }
+                }
+                if (spawn_stairs_position) |stairs_position| {
+                    try ret.append(StateDiff{
+                        .terrain_update = StateDiff.TerrainDiff{
+                            .from = game_state.terrain,
+                            .to = blk: {
+                                var terrain = game_state.terrain;
+                                terrain.floor[@intCast(usize, stairs_position.y)][@intCast(usize, stairs_position.x)] = Floor.stairs_down;
+                                break :blk terrain;
+                            },
+                        },
+                    });
                 }
                 break :blk ret.toOwnedSlice();
             },
@@ -381,10 +413,16 @@ pub const StateDiff = union(enum) {
     spawn: Individual,
     despawn: Individual,
     move: IdAndCoord,
+    terrain_update: TerrainDiff,
 
     pub const IdAndCoord = struct {
         id: u32,
         coord: Coord,
+    };
+
+    pub const TerrainDiff = struct {
+        from: Terrain,
+        to: Terrain,
     };
 };
 
@@ -446,6 +484,9 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
                     individual.abs_position = individual.abs_position.plus(id_and_coord.coord);
                 },
+                .terrain_update => |terrain_diff| {
+                    self.terrain = terrain_diff.to;
+                },
             }
         }
     }
@@ -463,6 +504,9 @@ pub const GameState = struct {
                 .move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
                     individual.abs_position = individual.abs_position.minus(id_and_coord.coord);
+                },
+                .terrain_update => |terrain_diff| {
+                    self.terrain = terrain_diff.from;
                 },
             }
         }

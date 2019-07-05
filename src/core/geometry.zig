@@ -42,6 +42,19 @@ pub const Coord = struct {
         };
     }
 
+    pub fn abs(a: Coord) Coord {
+        return Coord{
+            .x = if (a.x < 0) -a.x else a.x,
+            .y = if (a.y < 0) -a.y else a.y,
+        };
+    }
+
+    /// How many orthogonal steps to get from a to b.
+    pub fn distanceOrtho(a: Coord, b: Coord) i32 {
+        const abs_delta = b.minus(a).abs();
+        return abs_delta.x + abs_delta.y;
+    }
+
     pub fn equals(a: Coord, b: Coord) bool {
         return a.x == b.x and a.y == b.y;
     }
