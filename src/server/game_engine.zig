@@ -38,6 +38,28 @@ pub fn clone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
     return x;
 }
 
+const starting_individuals = [_]Individual{
+    Individual{ .id = 0, .abs_position = makeCoord(6, 6), .species = .orc },
+    Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .snake },
+    Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .ogre },
+    Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .ant },
+    Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
+    Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+};
+
+fn assignId(individual: Individual, id: u32) Individual {
+    var ret = individual;
+    ret.id = id;
+    return ret;
+}
+fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
+    while (usedIds.contains(cursor.*)) {
+        cursor.* += 1;
+    }
+    defer cursor.* += 1;
+    return cursor.*;
+}
+
 // TODO: sort all arrays to hide iteration order from the server
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
@@ -54,20 +76,14 @@ pub const GameEngine = struct {
     }
 
     pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
-        var individuals = ArrayList(Individual).init(self.allocator);
-        try individuals.append(Individual{ .id = 1, .abs_position = makeCoord(7, 7), .species = .human });
-        try individuals.append(Individual{ .id = 2, .abs_position = makeCoord(6, 6), .species = .orc });
-        try individuals.append(Individual{ .id = 3, .abs_position = makeCoord(7, 8), .species = .snake });
-        try individuals.append(Individual{ .id = 4, .abs_position = makeCoord(9, 6), .species = .ogre });
-        try individuals.append(Individual{ .id = 5, .abs_position = makeCoord(5, 6), .species = .ant });
-        try individuals.append(Individual{ .id = 6, .abs_position = makeCoord(4, 2), .species = .centaur });
-        try individuals.append(Individual{ .id = 7, .abs_position = makeCoord(10, 2), .species = .centaur });
         return Happenings{
             .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
             .state_changes = blk: {
-                var arr = try self.allocator.alloc(StateDiff, individuals.len);
-                for (arr) |*x, i| {
-                    x.* = StateDiff{ .spawn = individuals.at(i) };
+                var arr = try self.allocator.alloc(StateDiff, 1 + starting_individuals.len);
+                // human is always id 1
+                arr[0] = StateDiff{ .spawn = Individual{ .id = 1, .abs_position = makeCoord(7, 7), .species = .human } };
+                for (starting_individuals) |individual, i| {
+                    arr[i + 1] = StateDiff{ .spawn = assignId(individual, @intCast(u32, i) + 2) };
                 }
                 break :blk arr;
             },
@@ -275,15 +291,8 @@ pub const GameEngine = struct {
         }
 
         // spawn new level
-        var new_individuals = ArrayList(Individual).init(self.allocator);
-        if (do_transition) {
-            try new_individuals.append(Individual{ .id = 2, .abs_position = makeCoord(6, 6), .species = .orc });
-            try new_individuals.append(Individual{ .id = 3, .abs_position = makeCoord(7, 8), .species = .snake });
-            try new_individuals.append(Individual{ .id = 4, .abs_position = makeCoord(9, 6), .species = .ogre });
-            try new_individuals.append(Individual{ .id = 5, .abs_position = makeCoord(5, 6), .species = .ant });
-            try new_individuals.append(Individual{ .id = 6, .abs_position = makeCoord(4, 2), .species = .centaur });
-            try new_individuals.append(Individual{ .id = 7, .abs_position = makeCoord(10, 2), .species = .centaur });
-        }
+        const new_individuals = starting_individuals[0..];
+        var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
 
         return Happenings{
             .individual_to_perception = blk: {
@@ -332,8 +341,9 @@ pub const GameEngine = struct {
                     });
                 }
                 if (do_transition) {
-                    for (new_individuals.toSliceConst()) |individual| {
-                        try ret.append(StateDiff{ .spawn = individual });
+                    for (new_individuals) |individual| {
+                        const id = findAvailableId(&new_id_cursor, game_state.individuals);
+                        try ret.append(StateDiff{ .spawn = assignId(individual, id) });
                     }
                 }
                 break :blk ret.toOwnedSlice();
