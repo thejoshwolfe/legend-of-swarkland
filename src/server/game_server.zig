@@ -27,14 +27,14 @@ const allocator = std.heap.c_allocator;
 pub fn server_main(main_player_socket: *Socket) !void {
     core.debug.nameThisThread("core");
     defer core.debug.unnameThisThread();
-    core.debug.warn("init");
-    defer core.debug.warn("shutdown");
+    core.debug.thread_lifecycle.print("init");
+    defer core.debug.thread_lifecycle.print("shutdown");
 
     var game_engine: GameEngine = undefined;
     game_engine.init(allocator);
     var game_state = GameState.init(allocator);
 
-    core.debug.warn("start ai clients and send welcome messages");
+    // start ai clients and send welcome messages
     var decision_makers = IdMap(*Socket).init(allocator);
     var ai_clients = IdMap(*GameEngineClient).init(allocator);
     const main_player_id: u32 = 1;
@@ -63,7 +63,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
 
     var history = HistoryList.init();
 
-    core.debug.warn("start main loop");
+    // start main loop
     mainLoop: while (true) {
         // do ai
         {
@@ -85,14 +85,14 @@ pub fn server_main(main_player_socket: *Socket) !void {
                     switch (try socket.in(allocator).read(Request)) {
                         .quit => {
                             std.debug.assert(id == main_player_id);
-                            core.debug.warn("clean shutdown. close");
+                            core.debug.thread_lifecycle.print("clean shutdown. close");
                             // close all ai threads first, because the main player client doesn't know to wait for the ai threads.
                             var ai_iterator = ai_clients.iterator();
                             while (ai_iterator.next()) |ai_kv| {
                                 var ai_client = ai_kv.value;
                                 ai_client.stopAi();
                             }
-                            core.debug.warn("all ais shutdown");
+                            core.debug.thread_lifecycle.print("all ais shutdown");
                             // now shutdown the main player
                             socket.close(Response.game_over);
                             break :mainLoop;
@@ -156,7 +156,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
 
             // Time goes forward.
             const happenings = try game_engine.computeHappenings(game_state, actions);
-            //core.debug.deep_print("happenings: ", happenings);
+            core.debug.happening.deepPrint("happenings: ", happenings);
             try pushHistoryRecord(&history, happenings.state_changes);
             try game_state.applyStateChanges(happenings.state_changes);
             for (happenings.state_changes) |diff| {

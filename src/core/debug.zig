@@ -1,5 +1,24 @@
 const std = @import("std");
-pub fn warn(comptime fmt: []const u8, args: ...) void {
+
+const Logger = struct {
+    is_enabled: bool,
+
+    pub fn print(comptime self: Logger, comptime fmt: []const u8, args: ...) void {
+        if (!self.is_enabled) return;
+        warn(fmt, args);
+    }
+
+    pub fn deepPrint(comptime self: Logger, prefix: []const u8, something: var) void {
+        if (!self.is_enabled) return;
+        deep_print(prefix, something);
+    }
+};
+
+pub const thread_lifecycle = Logger{ .is_enabled = false };
+pub const testing = Logger{ .is_enabled = true };
+pub const happening = Logger{ .is_enabled = false };
+
+fn warn(comptime fmt: []const u8, args: ...) void {
     // format to a buffer, then write in a single (or as few as possible)
     // posix write calls so that the output from multiple processes
     // doesn't interleave on the same line.
@@ -63,7 +82,7 @@ pub fn unnameThisThread() void {
 }
 
 /// i kinda wish std.fmt did this.
-pub fn deep_print(prefix: []const u8, something: var) void {
+fn deep_print(prefix: []const u8, something: var) void {
     std.debug.warn("{}", prefix);
     struct {
         pub fn recurse(obj: var, comptime indent: comptime_int) void {

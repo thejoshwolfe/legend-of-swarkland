@@ -46,6 +46,15 @@ const starting_individuals = [_]Individual{
     Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
     Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
 };
+const next_individuals = [_]Individual{
+    Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
+    Individual{ .id = 0, .abs_position = makeCoord(5, 2), .species = .centaur },
+    Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
+    Individual{ .id = 0, .abs_position = makeCoord(7, 2), .species = .centaur },
+    Individual{ .id = 0, .abs_position = makeCoord(8, 2), .species = .centaur },
+    Individual{ .id = 0, .abs_position = makeCoord(9, 2), .species = .centaur },
+    Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+};
 
 fn assignId(individual: Individual, id: u32) Individual {
     var ret = individual;
@@ -291,7 +300,7 @@ pub const GameEngine = struct {
         }
 
         // spawn new level
-        const new_individuals = starting_individuals[0..];
+        const new_individuals = next_individuals[0..];
         var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
 
         return Happenings{

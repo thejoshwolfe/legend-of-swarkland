@@ -125,7 +125,7 @@ pub const GameEngineClient = struct {
     }
 
     pub fn stopEngine(self: *GameEngineClient) void {
-        core.debug.warn("close");
+        core.debug.thread_lifecycle.print("close");
         self.socket.close(Request.quit);
         switch (self.connection) {
             .child_process => |child_process| {
@@ -139,16 +139,16 @@ pub const GameEngineClient = struct {
         self.stay_alive.set(0);
         self.send_thread.wait();
         self.recv_thread.wait();
-        core.debug.warn("all threads done");
+        core.debug.thread_lifecycle.print("all threads done");
     }
     pub fn stopAi(self: *GameEngineClient) void {
-        core.debug.warn("stop ai");
+        core.debug.thread_lifecycle.print("stop ai");
         self.stay_alive.set(0);
         // The server tells us to shut down
         self.connection.attach.server_socket.close(Response.game_over);
         self.send_thread.wait();
         self.recv_thread.wait();
-        core.debug.warn("ai threads done");
+        core.debug.thread_lifecycle.print("ai threads done");
     }
 
     fn isAlive(self: *GameEngineClient) bool {
@@ -162,8 +162,8 @@ pub const GameEngineClient = struct {
     fn sendMain(self: *GameEngineClient) void {
         core.debug.nameThisThreadWithClientId("client send", self.debug_client_id);
         defer core.debug.unnameThisThread();
-        core.debug.warn("init");
-        defer core.debug.warn("shutdown");
+        core.debug.thread_lifecycle.print("init");
+        defer core.debug.thread_lifecycle.print("shutdown");
         while (self.isAlive()) {
             const request = queueGet(Request, &self.request_outbox) orelse {
                 // :ResidentSleeper:
@@ -179,15 +179,15 @@ pub const GameEngineClient = struct {
     fn recvMain(self: *GameEngineClient) void {
         core.debug.nameThisThreadWithClientId("client recv", self.debug_client_id);
         defer core.debug.unnameThisThread();
-        core.debug.warn("init");
-        defer core.debug.warn("shutdown");
+        core.debug.thread_lifecycle.print("init");
+        defer core.debug.thread_lifecycle.print("shutdown");
         while (self.isAlive()) {
             const response = self.socket.in(allocator).read(Response) catch {
                 @panic("TODO: proper error handling");
             };
             switch (response) {
                 .game_over => {
-                    core.debug.warn("clean shutdown");
+                    core.debug.thread_lifecycle.print("clean shutdown");
                     return;
                 },
                 else => {
@@ -239,8 +239,8 @@ test "basic interaction" {
     core.debug.init();
     core.debug.nameThisThread("test main");
     defer core.debug.unnameThisThread();
-    core.debug.warn("start test");
-    defer core.debug.warn("exit test");
+    core.debug.testing.print("start test");
+    defer core.debug.testing.print("exit test");
     var _client: GameEngineClient = undefined;
     var client = &_client;
     try client.startAsThread();
@@ -248,7 +248,7 @@ test "basic interaction" {
 
     const startup_response = pollSync(client);
     const starting_position = startup_response.load_state.self.?.abs_position;
-    core.debug.warn("startup done");
+    core.debug.testing.print("startup done");
 
     // move
     try client.move(makeCoord(1, 0));
@@ -263,7 +263,7 @@ test "basic interaction" {
 
         std.testing.expect(new_position.minus(starting_position).equals(makeCoord(1, 0)));
     }
-    core.debug.warn("move looks good");
+    core.debug.testing.print("move looks good");
 
     // rewind
     try client.rewind();
@@ -273,7 +273,7 @@ test "basic interaction" {
 
         std.testing.expect(new_position.equals(starting_position));
     }
-    core.debug.warn("rewind looks good");
+    core.debug.testing.print("rewind looks good");
 }
 
 fn pollSync(client: *GameEngineClient) Response {
