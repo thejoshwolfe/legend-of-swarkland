@@ -266,6 +266,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                             Floor.dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, coord),
                             Floor.marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, coord),
                             Floor.lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, coord),
+                            Floor.hatch => textures.sprites.hatch,
                             Floor.stairs_down => textures.sprites.stairs_down,
                         };
                         textures.renderSprite(renderer, texture, coord.scaled(32));

@@ -257,24 +257,11 @@ pub const GameEngine = struct {
             );
         }
 
-        var spawn_stairs_position: ?Coord = null;
+        var spawn_the_stairs = false;
         if (deaths.count() > 0 and game_state.individuals.count() - deaths.count() <= 1) {
             // Only one person left. You win!
             // Spawn the stairs onward.
-            const typical_position = makeCoord(8, 8);
-            spawn_stairs_position = blk: {
-                for (everybody) |id| {
-                    if (deaths.contains(id)) continue;
-                    if (current_positions.getValue(id).?.distanceOrtho(typical_position) >= 2) {
-                        break :blk typical_position;
-                    } else {
-                        // don't spawn the stairs too close to you
-                        break :blk typical_position.plus(makeCoord(-2, -2));
-                    }
-                }
-                // nobody's alive
-                break :blk typical_position;
-            };
+            spawn_the_stairs = true;
         }
 
         return Happenings{
@@ -311,13 +298,13 @@ pub const GameEngine = struct {
                         });
                     }
                 }
-                if (spawn_stairs_position) |stairs_position| {
+                if (spawn_the_stairs) {
                     try ret.append(StateDiff{
                         .terrain_update = StateDiff.TerrainDiff{
                             .from = game_state.terrain,
                             .to = blk: {
                                 var terrain = game_state.terrain;
-                                terrain.floor[@intCast(usize, stairs_position.y)][@intCast(usize, stairs_position.x)] = Floor.stairs_down;
+                                terrain.floor[8][8] = Floor.stairs_down;
                                 break :blk terrain;
                             },
                         },
@@ -465,6 +452,8 @@ pub const GameState = struct {
                         }
                     }
                 }
+                // will become stairs
+                terrain.floor[8][8] = Floor.hatch;
                 break :blk terrain;
             },
             .individuals = IdMap(*Individual).init(allocator),
