@@ -69,7 +69,19 @@ const the_levels = [_]Level{
     // the last level must have no enemies so that you can't win it.
     Level{
         .individuals = [_]Individual{},
-        .hatch_positions = [_]Coord{makeCoord(8, 8)},
+        .hatch_positions = [_]Coord{
+            makeCoord(2, 2), makeCoord(3, 3), makeCoord(4, 2), makeCoord(3, 4),
+        } ++ [_]Coord{
+            makeCoord(7, 2), makeCoord(8, 3), makeCoord(7, 4), makeCoord(6, 3),
+        } ++ [_]Coord{
+            makeCoord(10, 3), makeCoord(11, 4), makeCoord(12, 3),
+        } ++ [_]Coord{
+            makeCoord(2, 6), makeCoord(2, 7), makeCoord(3, 8), makeCoord(4, 7), makeCoord(5, 8), makeCoord(6, 7), makeCoord(6, 6),
+        } ++ [_]Coord{
+            makeCoord(8, 6), makeCoord(8, 7), makeCoord(8, 8),
+        } ++ [_]Coord{
+            makeCoord(10, 6), makeCoord(10, 7), makeCoord(10, 8), makeCoord(11, 6), makeCoord(12, 7), makeCoord(12, 8),
+        },
     },
 };
 
