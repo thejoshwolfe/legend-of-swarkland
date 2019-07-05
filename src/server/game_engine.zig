@@ -38,22 +38,26 @@ pub fn clone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
     return x;
 }
 
-const starting_individuals = [_]Individual{
-    Individual{ .id = 0, .abs_position = makeCoord(6, 6), .species = .orc },
-    Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .snake },
-    Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .ogre },
-    Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .ant },
-    Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
-    Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
-};
-const next_individuals = [_]Individual{
-    Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
-    Individual{ .id = 0, .abs_position = makeCoord(5, 2), .species = .centaur },
-    Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
-    Individual{ .id = 0, .abs_position = makeCoord(7, 2), .species = .centaur },
-    Individual{ .id = 0, .abs_position = makeCoord(8, 2), .species = .centaur },
-    Individual{ .id = 0, .abs_position = makeCoord(9, 2), .species = .centaur },
-    Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+const the_levels = [_][]const Individual{
+    [_]Individual{
+        Individual{ .id = 0, .abs_position = makeCoord(6, 6), .species = .orc },
+        Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .snake },
+        Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .ogre },
+        Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .ant },
+        Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
+        Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+    },
+    [_]Individual{
+        Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
+        Individual{ .id = 0, .abs_position = makeCoord(5, 2), .species = .centaur },
+        Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
+        Individual{ .id = 0, .abs_position = makeCoord(7, 2), .species = .centaur },
+        Individual{ .id = 0, .abs_position = makeCoord(8, 2), .species = .centaur },
+        Individual{ .id = 0, .abs_position = makeCoord(9, 2), .species = .centaur },
+        Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+    },
+    // the last level should have no enemies so that you can't win it.
+    [_]Individual{},
 };
 
 fn assignId(individual: Individual, id: u32) Individual {
@@ -88,10 +92,10 @@ pub const GameEngine = struct {
         return Happenings{
             .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
             .state_changes = blk: {
-                var arr = try self.allocator.alloc(StateDiff, 1 + starting_individuals.len);
+                var arr = try self.allocator.alloc(StateDiff, 1 + the_levels[0].len);
                 // human is always id 1
                 arr[0] = StateDiff{ .spawn = Individual{ .id = 1, .abs_position = makeCoord(7, 7), .species = .human } };
-                for (starting_individuals) |individual, i| {
+                for (the_levels[0]) |individual, i| {
                     arr[i + 1] = StateDiff{ .spawn = assignId(individual, @intCast(u32, i) + 2) };
                 }
                 break :blk arr;
@@ -300,7 +304,6 @@ pub const GameEngine = struct {
         }
 
         // spawn new level
-        const new_individuals = next_individuals[0..];
         var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
 
         return Happenings{
@@ -350,7 +353,8 @@ pub const GameEngine = struct {
                     });
                 }
                 if (do_transition) {
-                    for (new_individuals) |individual| {
+                    try ret.append(StateDiff.transition_to_next_level);
+                    for (the_levels[game_state.level_number + 1]) |individual| {
                         const id = findAvailableId(&new_id_cursor, game_state.individuals);
                         try ret.append(StateDiff{ .spawn = assignId(individual, id) });
                     }
@@ -445,23 +449,25 @@ pub const StateDiff = union(enum) {
     spawn: Individual,
     despawn: Individual,
     move: IdAndCoord,
-    terrain_update: TerrainDiff,
-
     pub const IdAndCoord = struct {
         id: u32,
         coord: Coord,
     };
 
+    terrain_update: TerrainDiff,
     pub const TerrainDiff = struct {
         from: Terrain,
         to: Terrain,
     };
+
+    transition_to_next_level,
 };
 
 pub const GameState = struct {
     allocator: *std.mem.Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
+    level_number: usize,
 
     pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
@@ -502,6 +508,7 @@ pub const GameState = struct {
                 break :blk terrain;
             },
             .individuals = IdMap(*Individual).init(allocator),
+            .level_number = 0,
         };
     }
 
@@ -520,6 +527,9 @@ pub const GameState = struct {
                 },
                 .terrain_update => |terrain_diff| {
                     self.terrain = terrain_diff.to;
+                },
+                .transition_to_next_level => {
+                    self.level_number += 1;
                 },
             }
         }
@@ -541,6 +551,9 @@ pub const GameState = struct {
                 },
                 .terrain_update => |terrain_diff| {
                     self.terrain = terrain_diff.from;
+                },
+                .transition_to_next_level => {
+                    self.level_number -= 1;
                 },
             }
         }
