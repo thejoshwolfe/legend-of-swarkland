@@ -2,71 +2,127 @@
 
 ## Status
 
-Doesn't work.
+Simple turn-based action fantasy puzzle game.
+
+## Design goals
+
+Legend of Swarkland aims to be an interesting, fair, complex, challenging experience.
+The primary inspiration for this game is the fabulous complexity of [NetHack](https://www.nethack.org/).
+After getting into NetHack, I became frustrated by several core aspects of its design,
+and this project was born as an attempt to realize what I believe is even greater potential.
+
+### Client/server architecture
+
+A significant NetHack community grew around the [alt.org](https://alt.org/nethack/) servers,
+where players log in via Telnet and play the game in a terminal.
+The server facilitates leaderboards, spectating, and even some limited interaction between players.
+
+However, because the interface was limited to a terminal using Telnet, this simultaneously created both
+a strong motivation for custom client interfaces and significant friction to implementing such interfaces.
+For example, instead of seeing all monsters as single letters like `a` for ant and `b` for blob,
+you might want a client with a graphical tileset where ants actually look like ants.
+The problem is that `a` is also the letter for bees, `b` is also for slimes, and so on.
+This ambiguity can be somewhat mitigated by using terminal colors to distinguish between the different variants,
+but that can only take you so far.
+There are 28 different `&`s, 58 different `@`s, and 74 `)`s (not counting artifact weapons).
+Furthermore, the terminal interface does not distinguish between unexplored squares and dark tiles (that have no items/traps/etc).
+In some cases the ambiguity is even intentional, such as the purple `@` Wizard of Yendor summoning a purple `@` elvenking as a decoy.
+
+These ambiguities in NetHack's interface can be further mitigated with the `v` command,
+which allows you to move a cursor around the map and inspect each square.
+The game will give you a textual description of what you see there.
+So it would technically be possible for a custom client interface to constantly use the `v` command in the background
+to populate its model of the game state, but this creates tons of problems when it's not clear when the `v` command can be used.
+
+(It's worth noting that a project called [Nethack 4](http://nethack4.org/) addressed many of these concerns
+by creating a fork of NetHack that overhauled a significant amount of the game's core.
+That's a great thing they did, and I'm happy for them.
+But the client/server interface is only one problem I have with NetHack's design.)
+
+Legend of Swarkland considers client/server separation as a core design principle.
+It's so fundamental that the official "rules" for what information is fair game is exactly the information in the network protocol.
+Down to the sort order of the information presented in the network packets,
+it's all deliberate and designed to only reveal exactly what the human player is supposed to know.
+
+Contrast this with [Minecraft](https://www.minecraft.net/),
+where, unlike NetHack which sends too little information, the Minecraft server sends the client too much information:
+full 3d terrain data in a radius around the player,
+including precious information about the location of nearby buried treasure.
+However, "X-Ray Texture Packs" that reveal the client's data to the human player are generally considered cheating.
+
+This is even more problematic if someone were to write a fair AI that played Minecraft by using the network protocol
+(a project I [dabbled in](https://github.com/PrismarineJS/mineflayer) back in 2011).
+The AI would need very complex 3d ray-casting logic to restrict its knowledge to what a human is supposed to know in order to play "fairly".
+
+Of course, simply using an AI to play Legend of Swarkland for you would be considered cheating
+just like if you were to do that in a game of online chess.
+But writing an AI sophisticated enough to outperform humans should be encouraged as a challenge,
+and respectfully asked to be kept out of the humans-only leaderboards.
+There should be separate leaderboards for AIs to compete,
+and both human and AI players are first-class citizens of the Legend of Swarkland community.
+
+But of course, you shall always be able to play Legend of Swarkland offline thanks to the client program
+including all the code for running a server.
+(Running everything in a single process also helps debug the program while it's in development.)
+
+As another convenience to server maintainers, the `legend-of-swarkland.headless` executable program has no dependencies on any UI-related libraries,
+so it can be built and run on a server without SDL or even X installed.
+
+### Learning the game should not be frustrating
+
+TODO elaborate.
+
+ * undo button in practice mode
+ * builtin wiki
+
+### Fabulous complexity
+
+TODO elaborate.
+
+ * perception types, blindness, telepathy
+ * ambiguous id, shapeshifters, AI dilemmas
+ * consistent physics
+
+### Avoid grinding
+
+TODO elaborate.
+
+Grinding is defined by repeating an action to gain some in-game benefit.
+
+ * 1-hit KOs
+ * If an entity does take multiple hits to kill, each hit should be unique.
+   Perhaps the first hit lops off an arm, which removes a possible action, but changes the AI to be "enraged" or something.
+ * Enemy difficulty can be implemented by complete immunity to certain attacks rather than imperfect resistance to them.
+   If an enemy is immune to arrows but not swords, then you have to adjust your strategy.
+   If an enemy is immune to all attacks, but not falling in lava, that's interesting.
+   If an enemy is simply undefeatable with your current abilities, maybe come back later.
+ * The navigable space should be relatively small to avoid long boring walks through empty corridors.
 
 ## Roadmap
 
-### 5.0.0
+### 5.1.0
 
-TODO: separate release notes from design goals when 5.0.0 is "released" in some form.
-
- * Complete rewrite from scratch in Zig instead of C++.
- * Client/server separation.
-   * A headless "server" binary that only knows the game logic and a protocol. no UI-related dependencies.
-   * A GUI-enabled binary that uses SDL, which also includes all the code in the headless "server".
-   * The GUI can either run everything in its process, which helps debuggers,
-     or it can spawn a headless child process and communicate with stdio to demonstrate and test the client/server separation.
-     Remote communication with TCP is planned but not yet implemented.
-   * The plan is that all information and apis available in the protocol are fair game wrt online play (leaderboards, pvp, etc.).
-     So an AI that uses the API directly is no more privaledged than a human using a GUI.
-     Also, the official GUI will be as helpful as possible for exposing all the features you might want.
- * All decision makers decide simultaneously on each turn, and all actions are resolved at once.
-   * Introduces complex collision resolution when multiple entities want to move into the same space at once.
-   * Removes slow and fast movement speeds in favor of temporary stun statuses (slow) and move actions that can leap farther than normal (fast).
- * Undo button.
-   * Always available in "practice" mode, which is currently the only mode.
-     ("Hardcore" mode would simply disable the undo button, and that's all.
-     Hardcore mode would be preferred for any kind of competitive play, such as leaderboards.)
-   * D&D-style dice-roll randomness makes a lot less sense with undo.
-     Instead of attacks doing random damage, for example, all attacks do predictable damage.
-   * Spending resources to learn information that would persist through an undo makes a lot less sense.
-     The current plan is to do it anyway, which would cause a pretty significant divergence in playstyle between practice mode and hardcore mode.
-     In practice mode, you drink every potion you find, then undo, to identify what potion it is.
-     In hardcore mode, you need to be more careful.
- * Perceived information is no longer accompanied by unambiguous "index" fields.
-   See [issue #39](https://github.com/thejoshwolfe/legend-of-swarkland/issues/39).
-   No more "id badges" or absolute coordinates.
-   * If you see a monster with normal vision, the sensation is accompanied by where the monster is relative to you.
-     Its relative position is sufficient to render the monster on a 2d grid representation of the world.
-   * If you hear rushing water, the sensation is accompanied by the general direction the sound is coming from, and a vague distance.
-     This is *not* sufficient to render the source of the sound on a 2d grid precisely.
-     Client implementations will need to represent the information somehow, TBD.
-   * If you hear someone speaking to you, the sensation will be accompanied by some kind of id number to identify who is doing the speaking.
-     While location may be easy enough to encode in cartesian coordinates, the identity of a speaker is less mathematically intuitive,
-     but intelligent beings nonetheless have a keen sense for speaker identities.
-     In the sensation protocol, this speaker identity will be represented by an arbitrary id number,
-     and if the client has observed the speaker introduce themselves and associate a name to the id number,
-     then the client will use that name to tell the player who is speaking.
-   * Polymorphing or other status effects (even getting an ear cut off in battle) can effect the sensitivity of your senses.
-     E.g. a canine nose gives you a sense of smell identity for nearly all biological things.
-   * Even the special identity fields are not guaranteed to be unique.
-     Identity collisions can be caused by shapeshifters or simply by the random identity generator, which might be deliberately coarse.
- * Try to eliminate grinding (where "grinding" is defined by repeating an action to gain some in-game benefit).
-   * No more wait-to-win HP or MP regeneration.
-     Favor a playstyle where you can feasibly avoid all damage.
-     (More like Crypt of the Necrodancer than Nethack in this regard.)
-   * All entities have greatly reduced HP, usually one-hit kills all around.
-     This avoids smacking a boss 20 times until it dies, for example.
-   * If an entity does take multiple hits to kill, each hit should be unique.
-     Perhaps the first hit lops off an arm, which removes a possible action, but changes the AI to be "enraged" or something.
-   * Enemy difficulty can be implemented by complete immunity to certain attacks rather than imperfect resistance to them.
-     If an enemy is immune to arrows but not swords, then you have to adjust your strategy.
-     If an enemy is immune to all attacks, but not falling in lava, that's interesting.
-     If an enemy is simply undefeatable with your current abilities, maybe come back later.
-   * Make the navigable space smaller. This avoids long boring walks through empty corridors.
- * Overall, more of a puzzle feel than an action feel.
+TBD
 
 ## Version History
+
+### 5.0.0
+
+ * Deleted all C++ code and started over in Zig.
+ * Client/server separation.
+   * Headless server with no dependency on SDL.
+   * Client that uses SDL and also includes the server.
+   * Run as a single process with the server in a separate thread,
+     or run the server as a child process and communicate over stdio.
+ * All decision makers decide simultaneously on each turn, and all actions are resolved at once.
+   * Bouncy collision resolution when multiple entities want to move into the same space at once.
+ * Undo button.
+ * Individuals:
+   * human: equipped with a dagger
+   * orc: equipped with a dagger, and wants to kill humans
+   * centaur archer: fires arrows that pierce infinitely, and wants to kill humans
+ * Sequence of predesigned levels with increasing difficulty, and a win screen at the end.
+ * A main menu with a how-to-play blurb.
 
 ### 4.6.0 (unfinished)
 
