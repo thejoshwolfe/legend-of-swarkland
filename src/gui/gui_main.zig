@@ -15,6 +15,7 @@ const GameEngineClient = core.game_engine_client.GameEngineClient;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
+const Terrain = core.protocol.Terrain;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
@@ -95,7 +96,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     switch (response) {
                         .stuff_happens => |happening| {
                             // Show animations for what's going on.
-                            state.animations = try loadAnimations(happening.frames, now);
+                            state.animations = try loadAnimations(happening.frames, now, state.client_state.?.terrain);
                             state.client_state = try loadStaticPerception(happening.static_perception);
                         },
                         .load_state => |static_perception| {
@@ -260,7 +261,8 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
             GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;
                 // render terrain
-                for (state.client_state.?.terrain.floor) |row, y| {
+                const terrain = if (state.animations) |animations| animations.terrain else state.client_state.?.terrain;
+                for (terrain.floor) |row, y| {
                     for (row) |cell, x| {
                         const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
                         const texture = switch (cell) {
@@ -274,7 +276,7 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                         textures.renderSprite(renderer, texture, coord.scaled(32));
                     }
                 }
-                for (state.client_state.?.terrain.walls) |row, y| {
+                for (terrain.walls) |row, y| {
                     for (row) |cell, x| {
                         const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
                         const texture = switch (cell) {
@@ -411,21 +413,23 @@ fn speciesToSprite(species: Species) Rect {
 
 const StaticIndividual = core.protocol.StaticPerception.StaticIndividual;
 const ClientState = struct {
-    terrain: core.protocol.Terrain,
+    terrain: Terrain,
     individuals: ArrayList(StaticIndividual),
 };
 
 const Animations = struct {
     start_time: i32,
     frames: []PerceivedFrame,
+    terrain: Terrain,
 };
 const AttackAnimation = struct {};
 const DeathAnimation = struct {};
 
-fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
+fn loadAnimations(frames: []PerceivedFrame, now: i32, previous_terrain: Terrain) !Animations {
     return Animations{
         .start_time = now,
         .frames = try core.protocol.deepClone(allocator, frames),
+        .terrain = previous_terrain,
     };
 }
 
