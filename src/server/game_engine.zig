@@ -44,18 +44,50 @@ const Level = struct {
 };
 const the_levels = [_]Level{
     Level{
-        .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(6, 6), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .snake },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .ogre },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .ant },
-            Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
-        },
-        .hatch_positions = [_]Coord{makeCoord(8, 8)},
+        .individuals = [_]Individual{Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc }},
+        .hatch_positions = [_]Coord{makeCoord(7, 5)},
     },
     Level{
         .individuals = [_]Individual{
+            Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(12, 2), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .orc },
+        },
+        .hatch_positions = [_]Coord{makeCoord(7, 5)},
+    },
+    Level{
+        .individuals = [_]Individual{
+            // human at 7,5
+            Individual{ .id = 0, .abs_position = makeCoord(2, 5), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(3, 5), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(4, 5), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 5), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 4), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(7, 6), .species = .orc },
+        },
+        .hatch_positions = [_]Coord{makeCoord(6, 2)},
+    },
+    Level{
+        .individuals = [_]Individual{
+            // human at 6,2
+            Individual{ .id = 0, .abs_position = makeCoord(11, 1), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(11, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(11, 3), .species = .orc },
+        },
+        .hatch_positions = [_]Coord{makeCoord(6, 6)},
+    },
+    Level{
+        .individuals = [_]Individual{
+            // human at 6, 6
+            Individual{ .id = 0, .abs_position = makeCoord(3, 5), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(11, 10), .species = .centaur },
+        },
+        .hatch_positions = [_]Coord{makeCoord(7, 7)},
+    },
+    Level{
+        .individuals = [_]Individual{
+            // human at 7,7
             Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(5, 2), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
@@ -64,7 +96,27 @@ const the_levels = [_]Level{
             Individual{ .id = 0, .abs_position = makeCoord(9, 2), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
         },
-        .hatch_positions = [_]Coord{makeCoord(8, 2)},
+        .hatch_positions = [_]Coord{makeCoord(7, 7)},
+    },
+    Level{
+        .individuals = [_]Individual{
+            // human at 7,7
+            Individual{ .id = 0, .abs_position = makeCoord(5, 5), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 7), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 8), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 9), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 5), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 7), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 8), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 9), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 1), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 1), .species = .centaur },
+        },
+        .hatch_positions = [_]Coord{makeCoord(8, 6)},
     },
     // the last level must have no enemies so that you can't win it.
     Level{
@@ -74,7 +126,7 @@ const the_levels = [_]Level{
         } ++ [_]Coord{
             makeCoord(7, 2), makeCoord(8, 3), makeCoord(7, 4), makeCoord(6, 3),
         } ++ [_]Coord{
-            makeCoord(10, 3), makeCoord(11, 4), makeCoord(12, 3),
+            makeCoord(10, 2), makeCoord(10, 3), makeCoord(11, 4), makeCoord(12, 4), makeCoord(12, 3), makeCoord(12, 2),
         } ++ [_]Coord{
             makeCoord(2, 6), makeCoord(2, 7), makeCoord(3, 8), makeCoord(4, 7), makeCoord(5, 8), makeCoord(6, 7), makeCoord(6, 6),
         } ++ [_]Coord{
