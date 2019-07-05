@@ -49,7 +49,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
                     if (individual.id == main_player_id) continue;
                     try handleSpawn(&decision_makers, &ai_clients, individual);
                 },
-                else => unreachable,
+                else => {},
             }
         }
         // Welcome to swarkland!

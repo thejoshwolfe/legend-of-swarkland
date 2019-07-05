@@ -38,26 +38,39 @@ pub fn clone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
     return x;
 }
 
-const the_levels = [_][]const Individual{
-    [_]Individual{
-        Individual{ .id = 0, .abs_position = makeCoord(6, 6), .species = .orc },
-        Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .snake },
-        Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .ogre },
-        Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .ant },
-        Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
-        Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+const Level = struct {
+    individuals: []const Individual,
+    hatch_positions: []const Coord,
+};
+const the_levels = [_]Level{
+    Level{
+        .individuals = [_]Individual{
+            Individual{ .id = 0, .abs_position = makeCoord(6, 6), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .snake },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .ogre },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .ant },
+            Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+        },
+        .hatch_positions = [_]Coord{makeCoord(8, 8)},
     },
-    [_]Individual{
-        Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
-        Individual{ .id = 0, .abs_position = makeCoord(5, 2), .species = .centaur },
-        Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
-        Individual{ .id = 0, .abs_position = makeCoord(7, 2), .species = .centaur },
-        Individual{ .id = 0, .abs_position = makeCoord(8, 2), .species = .centaur },
-        Individual{ .id = 0, .abs_position = makeCoord(9, 2), .species = .centaur },
-        Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+    Level{
+        .individuals = [_]Individual{
+            Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(7, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(8, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+        },
+        .hatch_positions = [_]Coord{makeCoord(8, 2)},
     },
-    // the last level should have no enemies so that you can't win it.
-    [_]Individual{},
+    // the last level must have no enemies so that you can't win it.
+    Level{
+        .individuals = [_]Individual{},
+        .hatch_positions = [_]Coord{makeCoord(8, 8)},
+    },
 };
 
 fn assignId(individual: Individual, id: u32) Individual {
@@ -92,13 +105,19 @@ pub const GameEngine = struct {
         return Happenings{
             .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
             .state_changes = blk: {
-                var arr = try self.allocator.alloc(StateDiff, 1 + the_levels[0].len);
+                var ret = ArrayList(StateDiff).init(self.allocator);
                 // human is always id 1
-                arr[0] = StateDiff{ .spawn = Individual{ .id = 1, .abs_position = makeCoord(7, 7), .species = .human } };
-                for (the_levels[0]) |individual, i| {
-                    arr[i + 1] = StateDiff{ .spawn = assignId(individual, @intCast(u32, i) + 2) };
+                try ret.append(StateDiff{ .spawn = Individual{ .id = 1, .abs_position = makeCoord(7, 7), .species = .human } });
+                for (the_levels[0].individuals) |individual, i| {
+                    try ret.append(StateDiff{ .spawn = assignId(individual, @intCast(u32, i) + 2) });
                 }
-                break :blk arr;
+                try ret.append(StateDiff{
+                    .terrain_update = StateDiff.TerrainDiff{
+                        .from = makeTerrain([_]Coord{}, false),
+                        .to = makeTerrain(the_levels[0].hatch_positions, false),
+                    },
+                });
+                break :blk ret.toOwnedSlice();
             },
         };
     }
@@ -288,6 +307,7 @@ pub const GameEngine = struct {
 
         var spawn_the_stairs = false;
         var do_transition = false;
+        var current_level_number = game_state.level_number;
         if (game_state.individuals.count() - deaths.count() <= 1) {
             // Only one person left. You win!
             if (deaths.count() > 0) {
@@ -299,6 +319,7 @@ pub const GameEngine = struct {
                 if (deaths.contains(id)) continue;
                 if (game_state.floorAt(current_positions.getValue(id).?) == if (spawn_the_stairs) Floor.hatch else Floor.stairs_down) {
                     do_transition = true;
+                    current_level_number += 1;
                 }
             }
         }
@@ -340,21 +361,23 @@ pub const GameEngine = struct {
                         });
                     }
                 }
-                if (spawn_the_stairs != do_transition) {
+                if (spawn_the_stairs or do_transition) {
                     try ret.append(StateDiff{
                         .terrain_update = StateDiff.TerrainDiff{
                             .from = game_state.terrain,
                             .to = blk: {
-                                var terrain = game_state.terrain;
-                                terrain.floor[8][8] = if (spawn_the_stairs) Floor.stairs_down else Floor.hatch;
-                                break :blk terrain;
+                                if (do_transition) {
+                                    break :blk makeTerrain(the_levels[game_state.level_number + 1].hatch_positions, false);
+                                } else {
+                                    break :blk makeTerrain(the_levels[game_state.level_number].hatch_positions, true);
+                                }
                             },
                         },
                     });
                 }
                 if (do_transition) {
                     try ret.append(StateDiff.transition_to_next_level);
-                    for (the_levels[game_state.level_number + 1]) |individual| {
+                    for (the_levels[game_state.level_number + 1].individuals) |individual| {
                         const id = findAvailableId(&new_id_cursor, game_state.individuals);
                         try ret.append(StateDiff{ .spawn = assignId(individual, id) });
                     }
@@ -463,6 +486,44 @@ pub const StateDiff = union(enum) {
     transition_to_next_level,
 };
 
+fn makeTerrain(hatch_positions: []const Coord, turn_hatches_into_stairs: bool) Terrain {
+    // someday move this outta here
+    var terrain: Terrain = undefined;
+    {
+        var x: usize = 0;
+        while (x < 16) : (x += 1) {
+            terrain.floor[0][x] = Floor.unknown;
+            terrain.floor[16 - 1][x] = Floor.unknown;
+            terrain.walls[0][x] = Wall.stone;
+            terrain.walls[16 - 1][x] = Wall.stone;
+        }
+    }
+    {
+        var y: usize = 1;
+        while (y < 16 - 1) : (y += 1) {
+            terrain.floor[y][0] = Floor.unknown;
+            terrain.floor[y][16 - 1] = Floor.unknown;
+            terrain.walls[y][0] = Wall.stone;
+            terrain.walls[y][16 - 1] = Wall.stone;
+        }
+    }
+    {
+        var y: usize = 1;
+        while (y < 16 - 1) : (y += 1) {
+            var x: usize = 1;
+            while (x < 16 - 1) : (x += 1) {
+                terrain.floor[y][x] = Floor.dirt;
+                terrain.walls[y][x] = Wall.air;
+            }
+        }
+    }
+    const hatch_or_stairs = if (turn_hatches_into_stairs) Floor.stairs_down else Floor.hatch;
+    for (hatch_positions) |coord| {
+        terrain.floor[@intCast(usize, coord.y)][@intCast(usize, coord.x)] = hatch_or_stairs;
+    }
+    return terrain;
+}
+
 pub const GameState = struct {
     allocator: *std.mem.Allocator,
     terrain: Terrain,
@@ -472,41 +533,7 @@ pub const GameState = struct {
     pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
             .allocator = allocator,
-            .terrain = blk: {
-                // someday move this outta here
-                var terrain: Terrain = undefined;
-                {
-                    var x: usize = 0;
-                    while (x < 16) : (x += 1) {
-                        terrain.floor[0][x] = Floor.unknown;
-                        terrain.floor[16 - 1][x] = Floor.unknown;
-                        terrain.walls[0][x] = Wall.stone;
-                        terrain.walls[16 - 1][x] = Wall.stone;
-                    }
-                }
-                {
-                    var y: usize = 1;
-                    while (y < 16 - 1) : (y += 1) {
-                        terrain.floor[y][0] = Floor.unknown;
-                        terrain.floor[y][16 - 1] = Floor.unknown;
-                        terrain.walls[y][0] = Wall.stone;
-                        terrain.walls[y][16 - 1] = Wall.stone;
-                    }
-                }
-                {
-                    var y: usize = 1;
-                    while (y < 16 - 1) : (y += 1) {
-                        var x: usize = 1;
-                        while (x < 16 - 1) : (x += 1) {
-                            terrain.floor[y][x] = Floor.dirt;
-                            terrain.walls[y][x] = Wall.air;
-                        }
-                    }
-                }
-                // will become stairs
-                terrain.floor[8][8] = Floor.hatch;
-                break :blk terrain;
-            },
+            .terrain = makeTerrain([_]Coord{}, false),
             .individuals = IdMap(*Individual).init(allocator),
             .level_number = 0,
         };
