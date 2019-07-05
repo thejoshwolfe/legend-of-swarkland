@@ -45,9 +45,13 @@ pub fn renderTextScaled(renderer: *sdl.Renderer, text: []const u8, location: Coo
     return lower_right;
 }
 
+pub fn getCharRect(c: u8, bold: bool) Rect {
+    return (if (bold) fonts.console_bold else fonts.console)[c - ' '];
+}
+
 fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
     std.debug.assert(scale > 0);
-    const char_rect = (if (bold) fonts.console_bold else fonts.console)[c - ' '];
+    const char_rect = getCharRect(c, bold);
     const dest = Rect{
         .x = location.x,
         .y = location.y,

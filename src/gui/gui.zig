@@ -89,12 +89,17 @@ pub const Gui = struct {
 
     pub fn imageAndText(self: *Gui, sprite: Rect, string: []const u8) void {
         textures.renderSprite(self._renderer, sprite, self._cursor);
+        const text_heigh = textures.getCharRect(' ', self._bold).height * self._scale;
         const text_position = Coord{
             .x = self._cursor.x + sprite.width + 4,
-            .y = self._cursor.y,
+            .y = self._cursor.y + if (sprite.height < text_heigh) 0 else @divTrunc(sprite.height, 2) - @divTrunc(text_heigh, 2),
         };
 
+        const starting_y = self._cursor.y;
         self._cursor.y = textures.renderTextScaled(self._renderer, string, text_position, self._bold, self._scale).y;
+        if (self._cursor.y < starting_y + sprite.height) {
+            self._cursor.y = starting_y + sprite.height;
+        }
         self._cursor.y += self._marginBottom * self._scale;
     }
 
