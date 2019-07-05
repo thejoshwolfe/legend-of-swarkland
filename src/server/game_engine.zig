@@ -258,10 +258,31 @@ pub const GameEngine = struct {
         }
 
         var spawn_the_stairs = false;
-        if (deaths.count() > 0 and game_state.individuals.count() - deaths.count() <= 1) {
+        var do_transition = false;
+        if (game_state.individuals.count() - deaths.count() <= 1) {
             // Only one person left. You win!
-            // Spawn the stairs onward.
-            spawn_the_stairs = true;
+            if (deaths.count() > 0) {
+                // Spawn the stairs onward.
+                spawn_the_stairs = true;
+            }
+            // check for someone on the stairs
+            for (everybody) |id| {
+                if (deaths.contains(id)) continue;
+                if (game_state.floorAt(current_positions.getValue(id).?) == Floor.stairs_down) {
+                    do_transition = true;
+                }
+            }
+        }
+
+        // spawn new level
+        var new_individuals = ArrayList(Individual).init(self.allocator);
+        if (do_transition) {
+            try new_individuals.append(Individual{ .id = 2, .abs_position = makeCoord(6, 6), .species = .orc });
+            try new_individuals.append(Individual{ .id = 3, .abs_position = makeCoord(7, 8), .species = .snake });
+            try new_individuals.append(Individual{ .id = 4, .abs_position = makeCoord(9, 6), .species = .ogre });
+            try new_individuals.append(Individual{ .id = 5, .abs_position = makeCoord(5, 6), .species = .ant });
+            try new_individuals.append(Individual{ .id = 6, .abs_position = makeCoord(4, 2), .species = .centaur });
+            try new_individuals.append(Individual{ .id = 7, .abs_position = makeCoord(10, 2), .species = .centaur });
         }
 
         return Happenings{
@@ -298,17 +319,22 @@ pub const GameEngine = struct {
                         });
                     }
                 }
-                if (spawn_the_stairs) {
+                if (spawn_the_stairs != do_transition) {
                     try ret.append(StateDiff{
                         .terrain_update = StateDiff.TerrainDiff{
                             .from = game_state.terrain,
                             .to = blk: {
                                 var terrain = game_state.terrain;
-                                terrain.floor[8][8] = Floor.stairs_down;
+                                terrain.floor[8][8] = if (spawn_the_stairs) Floor.stairs_down else Floor.hatch;
                                 break :blk terrain;
                             },
                         },
                     });
+                }
+                if (do_transition) {
+                    for (new_individuals.toSliceConst()) |individual| {
+                        try ret.append(StateDiff{ .spawn = individual });
+                    }
                 }
                 break :blk ret.toOwnedSlice();
             },
@@ -505,6 +531,11 @@ pub const GameState = struct {
         if (coord.x < 0 or coord.y < 0) return .unknown;
         if (coord.x >= 16 or coord.y >= 16) return .unknown;
         return self.terrain.walls[@intCast(usize, coord.y)][@intCast(usize, coord.x)];
+    }
+    pub fn floorAt(self: GameState, coord: Coord) Floor {
+        if (coord.x < 0 or coord.y < 0) return .unknown;
+        if (coord.x >= 16 or coord.y >= 16) return .unknown;
+        return self.terrain.floor[@intCast(usize, coord.y)][@intCast(usize, coord.x)];
     }
 };
 

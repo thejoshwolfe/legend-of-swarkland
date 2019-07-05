@@ -184,7 +184,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
                 const socket = kv.value;
                 try socket.out().write(Response{
                     .stuff_happens = PerceivedHappening{
-                        .frames = happenings.individual_to_perception.getValue(id).?,
+                        .frames = happenings.individual_to_perception.getValue(id) orelse [_]PerceivedFrame{},
                         .static_perception = try game_engine.getStaticPerception(game_state, id),
                     },
                 });
