@@ -34,7 +34,7 @@ The game will give you a textual description of what you see there.
 So it would technically be possible for a custom client interface to constantly use the `v` command in the background
 to populate its model of the game state, but this creates tons of problems when it's not clear when the `v` command can be used.
 
-(It's worth noting that a project called [Nethack 4](http://nethack4.org/) addressed many of these concerns
+(It's worth noting that a project called [NetHack 4](http://nethack4.org/) addressed many of these concerns
 by creating a fork of NetHack that overhauled a significant amount of the game's core.
 That's a great thing they did, and I'm happy for them.
 But the client/server interface is only one problem I have with NetHack's design.)
@@ -70,10 +70,71 @@ so it can be built and run on a server without SDL or even X installed.
 
 ### Learning the game should not be frustrating
 
-TODO elaborate.
+One of the most delightful aspects of NetHack is how many ways there are to lose the game.
+You might try praying for help while in Gehennom.
+You might get attacked by an electric eel while hovering above water wearing a ring of levitation.
+You might try descending stairs while encumbered and wielding a cockatrice corpse.
+The NetHack wiki has [an article](https://nethackwiki.com/wiki/Yet_Another_Stupid_Death) devoted to listing hilarious ways to die.
 
- * undo button in practice mode
- * builtin wiki
+The sting of failure makes victory even sweeter, and comedic misfortune has its place in our hearts.
+But when you don't know what you're doing, sudden death sucks.
+NetHack is brutally punishing, which is fun when you know what you're doing, and terribly frustrating when you don't.
+
+Most beginners will turn to [the wiki](https://nethackwiki.com/wiki/Strategy) as a guide for learning the game.
+Some consider this "cheating" or not within the spirit of the game, but NetHack is so complex, cryptic, tedious, and punishing
+that attempting to learn the game through pure trial and error is unreasonably demanding of your time and patience.
+Does eating Medusa's corpse grant immunity to petrification or does it instantly stone you?
+Answering that question through trial and error would probably be a 4 hour investment for a beginner who manages to make it that far.
+
+NetHack is unplayable without the wiki, but by reading the wiki, you're missing out on the joy of discovery and exploration.
+
+Legend of Swarkland aims to solve this in two big ways.
+
+First, Legend of Swarkland features a practice mode where you get an unlimited undo button.
+This is similar to how the old adventure games like [Monkey Island](https://en.wikipedia.org/wiki/Monkey_Island_(series%29)
+or [Return to Zork](https://en.wikipedia.org/wiki/Return_to_Zork)
+let you save the game anywhere and maintain multiple save files.
+Now if you want to know what happens when you eat Medusa's corpse, just try it and undo.
+Rather than losing 4 hours of progress, you spend 5 seconds peeking into the game's mechanics.
+You are rewarded for experimenting, not punished for it.
+
+When you're ready to play competitively, play in hardcore mode,
+which is identical to practice mode, except that there's no undo button.
+
+The second way Legend of Swarkland aims to discourage spoilers from a wiki is by including the wiki in the game itself.
+Games with enough complexity really need a wiki to organize information about the game.
+Wikis are useful and important and structured perfectly for navigating around to explore concepts and content.
+The big downside of a wiki is the spoilers,
+but in the builtin wiki for Legend of Swarkland, the wiki will only contain information that you have learned by playing the game.
+The article on Medusa won't say what happens when you eat her corpse until you try it and find out.
+The wiki starts out empty, and fills itself out as you explore the game.
+
+The wiki's completion will persist across multiple playthroughs, and persist through undo.
+The wiki will have vacant placeholders for missing information to give you a sense of progress toward 100%.
+For some of the more obscure facts that could not reasonably be learned with first hand experience,
+there will be a variety of ways to fill in the gaps such as fortune cookies,
+rumours from NPCs, and literal guide books that you can find and read in game.
+
+The UI for the wiki will probably be the system web browser, and the `legend-of-swarkland` binary will serve the content on localhost.
+Unlocking wiki content will happen client-side.
+
+For those who really want spoilers, that's fine; there will be a 100% completed wiki readily available on the web somewhere.
+Legend of Swarkland is open source, so there's no point in trying to keep any secrets.
+The purpose of the slowly unlocking wiki is not to keep the player in the dark;
+it's to encourage players to experience the game the intended way without missing out on the structural features that a wiki provides.
+
+The builtin wiki concept is similar to an in-game journal that fills itself out with journal entries as you play the game.
+But the problem with the journals in games like [Spelunky](https://spelunky.fandom.com/wiki/Journal/HD) is that they're useless.
+Spelunky says about the scorpion enemy "A predatory arachnid with a poisonous stringer on its tail",
+but does not mention that it has 2 HP and is therefore possible to sacrifice on altars, and doing so grants 4 points of favor.
+The [wiki article](https://spelunky.fandom.com/wiki/Scorpion) mentions all of those things and more.
+Legend of Swarkland's in-game "journal" will actually be helpful, not worthless flavor text.
+
+A critical aspect of wikis that has not been mentioned yet is the collaborative editing from the community.
+Legend of Swarkland's builtin wiki will be personalized for the player, and the player can add any notes they wish.
+The core of the content of the wiki, however, will come from the official, centralized source repository.
+Edits to the source of truth would be pull requests or some other curated submission process.
+There can be a feature that automates creating reviewable patches from your edits to your personalized wiki to streamline the process for non-programmers.
 
 ### Fabulous complexity
 
@@ -97,6 +158,13 @@ Grinding is defined by repeating an action to gain some in-game benefit.
    If an enemy is immune to all attacks, but not falling in lava, that's interesting.
    If an enemy is simply undefeatable with your current abilities, maybe come back later.
  * The navigable space should be relatively small to avoid long boring walks through empty corridors.
+
+### Open source
+
+Legend of Swarkland is a passion project, not a business venture.
+I will always keep my contributions to this project free and open source.
+
+Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Roadmap
 
