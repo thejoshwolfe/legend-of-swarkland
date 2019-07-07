@@ -91,7 +91,7 @@ NetHack is unplayable without the wiki, but by reading the wiki, you're missing 
 Legend of Swarkland aims to solve this in two big ways.
 
 First, Legend of Swarkland features a practice mode where you get an unlimited undo button.
-This is similar to how the old adventure games like [Monkey Island](https://en.wikipedia.org/wiki/Monkey_Island_(series%29)
+This is similar to how the old adventure games like [Monkey Island](https://en.wikipedia.org/wiki/Monkey_Island_%28series%29)
 or [Return to Zork](https://en.wikipedia.org/wiki/Return_to_Zork)
 let you save the game anywhere and maintain multiple save files.
 Now if you want to know what happens when you eat Medusa's corpse, just try it and undo.
@@ -152,6 +152,8 @@ Here is another excerpt from the [guide](https://nethackwiki.com/wiki/Curse_remo
 > 2. If the cursed object is causing you to levitate, float over a sink. You will crash to the floor, and the item will be removed.
 > 3. If the cursed object is armor or a weapon, polymorph into something that can't wear armor or wield weapons. Changing into were-form also works; werewolves will destroy armor they are wearing, while werejackals and wererats will shrink out of it.
 
+This should give you a sense for just how sophisticated the simulation is in NetHack.
+
 However, NetHack has a problem with its complexity.
 The game rules are almost consistent, but several rules are different for you and for enemies.
 While polymorphed into a vampire, you can perform the vampire's life-draining attack on your enemies,
@@ -166,17 +168,65 @@ It seems arbitrary and unfair.
 
 In Legend of Swarkland, one of the most important game design principles is that
 everything should be fair to everyone in the game world; you are not special.
-The code that runs the game rules is so fair that it won't even be aware of
-which individual in the world is being controlled by the player,
-(except perhaps for a few practical restrictions like only simulating the world around you).
+Starting in version 5.0.0, the code that runs the game rules is so fair that it isn't even aware of
+which individual in the world is being controlled by the player.
+(There may end up being a few practical exceptions to this, such as only simulating the world around the player.)
 
-Already in version 5.0.0, an easter egg of emergent complexity is that the game will only unlock the stairs to the next level
-when all individuals but one have been killed, but that last standing individual doesn't have to be you.
+To accomplish this, the server-side code is divided into two components:
+
+1. The facilitator, which accepts connections from player clients, creates new games,
+   and manages the lifecycle of AI clients that control enemies.
+2. The game engine, which implements all the complex game rules,
+   but has no concept of which individual is being controlled by which decision maker.
+
+The player client along with the AI clients are collectively known as decision makers.
+They get information about what their characters can see,
+and then have to decide what to do next and send that decision to the server.
+
+The server-side facilitator collects the decisions that everyone is making and sends them all to the game engine.
+The game engine runs a (pure) function that determines the consequences of those decisions
+including personalized observational information for each decision maker from their perspective.
+The facilitator then distributes that information back to each decision maker, and the cycle repeats.
+All communication with decision makers happens through a serial protocol that is the same for AI clients and the player client.
+
+The AIs do not have privileged information about the game state;
+they're playing by the same rules you are.
+The only reason why the monsters want to attack you instead of each other,
+is that all the AIs are programmed to attack humans and not any other species.
+
+One consequence of this fair design that already exists in version 5.0.0 is that
+the game will only unlock the stairs to the next level when all individuals but one have been killed,
+but that last standing individual doesn't have to be you.
 If you get yourself killed while the last living enemy is already standing on the stairs,
-the game will advance that enemy to the next level,
-and you can even manage to see the "you win" screen with a lone enemy standing triumphant.
+the game will advance that enemy to the next level.
+As what I would call an emergent easter egg, you can even manage to see the "you win" screen with a lone enemy standing triumphant
+over your (not shown) dead corpse.
 
-This is only the beginning of the game logic design that will be in Legend of Swarkland.
+Legend of Swarkland's rigorous dedication to fairness will have several consequences on the game design.
+It will be generally good for making the game engine make sense to players,
+but it will also become impossible to implement several beloved features of NetHack.
+For example, the "conflict" effect in NetHack causes all monsters to attack everything in sight instead of just you.
+It's not possible to mind control the human player (without removing their agency),
+and so because conflict cannot be used against the player, it would not be fair to use it against the AI.
+An additional consideration is that super powerful abilities, like genocide, need careful balance scrutiny
+if monsters can use that super powerful ability against you.
+
+In the now-deleted code of Legend of Swarkland 4.5.0,
+we were starting to see several good ideas emerge from the fairness oriented game design.
+Most of the examples involved enemies having limited perception, just like you have.
+Monsters (and you) can have blindness, invisibility, telepathic vision, or any combination of the above,
+which led to situations where monsters could be convinced to attack each other if they couldn't tell who exactly they were attacking.
+Additionally, item identification was fair for both the player and the monsters.
+You wouldn't know if the wand in your hand was a helpful or harmful wand until you observed it in action,
+and the same goes for the enemies.
+This led to situations like an ogre guessing that an unidentified wand is harmful, and angrily zapping it at you,
+only to find by seeing the effect on you that it's a helpful wand of speed, so the ogre then zaps themself with the wand.
+All these ideas worked very well in a fair game engine, and will probably return in the new code of version 5+.
+
+There is a long list of features I'm considering adding to the game someday,
+but this is a discussion of design goals, and is not the place for an exhaustive list.
+If I formalize a list of planned features someday, I will link it here.
+For now, it's mostly just a bunch of ideas floating around in my head.
 
 ### Avoid grinding
 
