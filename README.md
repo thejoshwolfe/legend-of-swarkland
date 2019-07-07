@@ -138,11 +138,45 @@ There can be a feature that automates creating reviewable patches from your edit
 
 ### Fabulous complexity
 
-TODO elaborate.
+Legend of Swarkland aims to have comparable complexity to the gold standard of complex game design, NetHack.
+Although the details of Legend of Swarkland's complexity have not yet been fully fleshed out,
+it will be heavily inspired by what NetHack has already accomplished.
 
- * perception types, blindness, telepathy
- * ambiguous id, shapeshifters, AI dilemmas
- * consistent physics
+To illustrate a glimpse of the fabulous complexity of NetHack, here is an excerpt from the wiki article on [mirrors](https://nethackwiki.com/wiki/Mirror):
+
+> You can apply a mirror to a monster to scare it; this only works if they can see it (i.e. are not blind, have eyes, you and the monster are not invisible (unless the monster can see invisible), etc.). [...] Humanoid foes (and unicorns) are not fooled by a mirror and won't be frightened. A cursed mirror only works half the time, the rest of the time it will "fog up" instead.
+
+Here is another excerpt from the [guide](https://nethackwiki.com/wiki/Curse_removal) for how to remove cursed equipment that is stuck to you:
+
+> 1. If the cursed object is armor, let an incubus or succubus remove it with their seduction attack.
+> 2. If the cursed object is causing you to levitate, float over a sink. You will crash to the floor, and the item will be removed.
+> 3. If the cursed object is armor or a weapon, polymorph into something that can't wear armor or wield weapons. Changing into were-form also works; werewolves will destroy armor they are wearing, while werejackals and wererats will shrink out of it.
+
+However, NetHack has a problem with its complexity.
+The game rules are almost consistent, but several rules are different for you and for enemies.
+While polymorphed into a vampire, you can perform the vampire's life-draining attack on your enemies,
+but as an incubus, but you cannot perform the seduction attack.
+When you polymorph into a nymph, you can perform the item stealing maneuver just like an enemy nymph would against you,
+but you cannot teleport away afterward like an enemy nymph would after stealing from you.
+
+A clever player might think to polymorph into a nymph in order to steal an item from an enemy, and that intuition would be rewarded.
+But if the same player polymorphs into a nymph intending to teleport, that intuition would be punished.
+Why can't players teleport while polymorphed into a nymph? I don't know.
+It seems arbitrary and unfair.
+
+In Legend of Swarkland, one of the most important game design principles is that
+everything should be fair to everyone in the game world; you are not special.
+The code that runs the game rules is so fair that it won't even be aware of
+which individual in the world is being controlled by the player,
+(except perhaps for a few practical restrictions like only simulating the world around you).
+
+Already in version 5.0.0, an easter egg of emergent complexity is that the game will only unlock the stairs to the next level
+when all individuals but one have been killed, but that last standing individual doesn't have to be you.
+If you get yourself killed while the last living enemy is already standing on the stairs,
+the game will advance that enemy to the next level,
+and you can even manage to see the "you win" screen with a lone enemy standing triumphant.
+
+This is only the beginning of the game logic design that will be in Legend of Swarkland.
 
 ### Avoid grinding
 
