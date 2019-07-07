@@ -157,7 +157,7 @@ This should give you a sense for just how sophisticated the simulation is in Net
 However, NetHack has a problem with its complexity.
 The game rules are almost consistent, but several rules are different for you and for enemies.
 While polymorphed into a vampire, you can perform the vampire's life-draining attack on your enemies,
-but as an incubus, but you cannot perform the seduction attack.
+but as an incubus you cannot perform the seduction attack.
 When you polymorph into a nymph, you can perform the item stealing maneuver just like an enemy nymph would against you,
 but you cannot teleport away afterward like an enemy nymph would after stealing from you.
 
@@ -192,7 +192,8 @@ All communication with decision makers happens through a serial protocol that is
 The AIs do not have privileged information about the game state;
 they're playing by the same rules you are.
 The only reason why the monsters want to attack you instead of each other,
-is that all the AIs are programmed to attack humans and not any other species.
+is that the AIs are programmed to attack humans and not any other species.
+Note that the AIs are *not* part of the game engine, but instead are managed by the facilitator.
 
 One consequence of this fair design that already exists in version 5.0.0 is that
 the game will only unlock the stairs to the next level when all individuals but one have been killed,
@@ -230,18 +231,111 @@ For now, it's mostly just a bunch of ideas floating around in my head.
 
 ### Avoid grinding
 
-TODO elaborate.
+Grinding is defined by the player repeating an action to gain some in-game benefit.
+Grinding is pervasive in video game design, and it is often used to make games more compelling to play.
+RPGs are notorious for being rife with grindy elements, like fishing for hours trying to get that 1-in-2000 rare fish for a quest.
+NetHack has its own [problems](https://nethackwiki.com/wiki/Death_by_boredom) with grinding,
+but they're certainly not the worst industry has seen.
 
-Grinding is defined by repeating an action to gain some in-game benefit.
+Legend of Swarkland aims to avoid grinding by design.
 
- * 1-hit KOs
- * If an entity does take multiple hits to kill, each hit should be unique.
-   Perhaps the first hit lops off an arm, which removes a possible action, but changes the AI to be "enraged" or something.
- * Enemy difficulty can be implemented by complete immunity to certain attacks rather than imperfect resistance to them.
-   If an enemy is immune to arrows but not swords, then you have to adjust your strategy.
-   If an enemy is immune to all attacks, but not falling in lava, that's interesting.
-   If an enemy is simply undefeatable with your current abilities, maybe come back later.
- * The navigable space should be relatively small to avoid long boring walks through empty corridors.
+One red flag in game design that there might be grinding is simply having large numbers, where large means above 6 or so.
+Some common places for these numbers: hit points (hundreds?), gold pieces (thousands?), experience points (tens of thousands?).
+The trope of "weapon damage vs health bar" is so prevalent in action game design
+that people seem to accept that that's just the way action games should be designed.
+But consider instead the Mr Freeze fight in [Batman: Arkham City](https://en.wikipedia.org/wiki/Batman:_Arkham_City),
+in which you must outsmart the enemy by using 8 or so *different* attacks on him.
+This isn't a boss encounter where you pelt bullets repeatedly until some number in memory eventually reduces to zero.
+Each hit on the boss is unique content; no grinding.
+
+Legend of Swarkland currently has the ambitious goal of having no health bars anywhere.
+
+When health bars are in an action game, they usually serve a few distinct purposes:
+
+1. Your health bar can enable you to make a limited number of mistakes without reaching a failure state.
+   e.g. [The Legend of Zelda](https://en.wikipedia.org/wiki/The_Legend_of_Zelda),
+   [Crypt of the Necrodancer](https://en.wikipedia.org/wiki/Crypt_of_the_NecroDancer)
+2. Your health bar can additionally be a resource that you spend and manage strategically.
+   e.g. [The Binding of Isaac](https://en.wikipedia.org/wiki/The_Binding_of_Isaac_%28video_game%29),
+   [Slay the Spire](https://en.wikipedia.org/wiki/Slay_the_Spire)
+3. An enemy health bar can be used to elongate the encounter while you constantly pelt the enemy with attacks.
+   e.g. [Contra](https://en.wikipedia.org/wiki/Contra_%28series%29),
+   [Metroid](https://en.wikipedia.org/wiki/Metroid)
+4. An enemy health bar can additionally function as a "level check" barrier
+   that you cannot get past without leveling up elsewhere first.
+   e.g. [Final Fantasy](https://en.wikipedia.org/wiki/Final_Fantasy),
+   [Dark Souls](https://en.wikipedia.org/wiki/Dark_Souls)
+
+Legend of Swarkland aims to achieve all those goals without relying on health bars.
+Here are some alternative solutions:
+
+1. For mistake forgiveness, a mistake may inflict you with a slow inevitable death
+   that you can recover from by using life saving resources such as drinking potions or calling in a divine favor.
+   In practice mode, you can always use the undo button.
+   In hardcore mode, you don't necessarily need much mistake forgiveness.
+2. There will be plenty of resources to manage strategically that aren't a health bar.
+3. Elongating boss encounters can be done through boss design.
+   Perhaps the first hit lops off an arm, which changes the available attacks and enrages the AI.
+   Perhaps the goal of the boss encounter is to navigate them around obstacles toward a pit of lava and get them to fall in.
+   And it's ok for there to be obscure powerful strategies that instakill certain bosses, like throwing cockatrice eggs.
+4. Level check barriers can be done by making an enemy simply immune to all of your available attacks.
+   Then instead of theoretically being able to grind in place and eventually get past the enemy,
+   you have to go looking for a weapon or trick that will get past them.
+   This makes it more of a metroidvania or puzzle barrier than a big-numbers check.
+
+Legend of Swarkland will have lots of 1-hit kills when the attacks are with weapons like swords or axes.
+More variety in combat can happen in the form of inflicting status conditions rather than outright killing opponents.
+Perhaps a giant mosquito infects you with a disease, and then attempts to flee.
+Perhaps a dog bite causes a bleeding condition, and subsequent attacks can cause limping.
+Perhaps getting hit with a thrown rock causes a dizzy condition.
+
+There is also lots of opportunity for content in enemy AI design.
+Instead of everything being dead set on killing humans, perhaps some monsters are simply territorial, and running away deaggros them.
+Perhaps some monsters will retreat from attacking you if you demonstrate to them that you are a formidable threat.
+There can even be monsters that naturally fight each other, like a mongoose attacking a snake, or elves attacking dwarves.
+
+By resisting the game design tropes of big number stats, Legend of Swarkland will naturally avoid boring filler content
+like NetHack's [rock troll](https://nethackwiki.com/wiki/Troll#Rock_Troll), which is just a troll but with bigger numbers.
+Every addition to the game must be justified with unique content.
+
+Another more subtle source of grinding in games does not take the form of big numbers but of big spaces.
+Walking down a hallway in NetHack can cause a "Death by Boredom" if you hold down the movement key
+and don't react quickly enough when a floating eye shows up in the darkness just in front of you.
+In this example, pressing the "move to the right" button repeatedly is considered grinding.
+
+NetHack also has a problem with Gehennom having too many long boring maze levels.
+A good strategy for Gehennom is to meticulously pickaxe through the walls to connect the stairs with a straight shot path.
+The amount of time that takes depends on the number of randomly generated maze levels in Gehennom,
+which is something the devs just typed into a text file.
+There's no difference in the amount of content between 5 maze levels and 10 maze levels.
+There's only a difference in the amount of time it takes a player to get through them.
+
+The Rogue-like room-and-corridor design of NetHack's level layouts are to blame for this.
+Legend of Swarkland will try to avoid long corridors, and instead have smaller, more interesting spaces where every move counts.
+
+Legend of Swarkland also intends to have an open world design, so to avoid long boring walks,
+there will need to be lots of fast travel available.
+Teleportation is easy to implement, but I want to try to avoid teleportation for the sake of balance and fairness.
+Perhaps you will open Portal-style portals that connect areas that you or anyone else can walk through.
+
+### Seeded randomness
+
+A well established feature of modern roguelikes is seeded playthroughs.
+This is useful if players wish to race each other in real time
+and don't want the random nature of roguelikes to favor one player over another.
+A seeded playthrough will guarantee that both racers see the same world
+with the same items and enemies generated in the same places.
+
+Legend of Swarkland will have multiple uses for randomness in the game,
+and they should all be deterministic from the initial world seed and the sequence of player decisions.
+In this way, any playthrough of the game can be recorded and replayed using only the world seed and the sequence of decisions.
+This means that TAS tools are effectively builtin in the form of practice mode.
+In the now-deleted code of Legend of Swarkland 4.5.0,
+this reply feature powered the mechanism for restoring saved games and even for running unit tests.
+
+One of the notable implications of deterministic randomness and client/server separation
+is that enemy AIs have to be specifically programmed to be deterministic as well,
+especially in the event that a player in practice mode hits undo.
 
 ### Open source
 
