@@ -310,13 +310,14 @@ which is something the devs just typed into a text file.
 There's no difference in the amount of content between 5 maze levels and 10 maze levels.
 There's only a difference in the amount of time it takes a player to get through them.
 
-The Rogue-like room-and-corridor design of NetHack's level layouts are to blame for this.
 Legend of Swarkland will try to avoid long corridors, and instead have smaller, more interesting spaces where every move counts.
 
-Legend of Swarkland also intends to have an open world design, so to avoid long boring walks,
+Legend of Swarkland also intends to have a large open world design, so to avoid long boring walks,
 there will need to be lots of fast travel available.
 Teleportation is easy to implement, but I want to try to avoid teleportation for the sake of balance and fairness.
-Perhaps you will open Portal-style portals that connect areas that you or anyone else can walk through.
+Perhaps you will open [Portal](https://en.wikipedia.org/wiki/Portal_%28series%29)-style portals
+that connect areas that you or anyone else can walk through.
+(This would also mean that sufficiently capable enemies could also open such portals.)
 
 ### Seeded randomness
 
@@ -399,7 +400,7 @@ Why the C++ code was abandoned:
    e.g. the out-of-view placeholder for an individual will disappear when that individual dies.
    See [issue #39](https://github.com/thejoshwolfe/legend-of-swarkland/issues/39) for even more discussion on this.
    Getting rid of id badges would also have been such a significant change that it wasn't clear how to do it with incremental changes.
- * General bad feelings about grinding. See the 5.0.0 notes for more discussion.
+ * General bad feelings about grinding. See the design goals above.
 
 ### 4.5.0
 
