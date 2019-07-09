@@ -4,12 +4,32 @@
 
 Simple turn-based action fantasy puzzle game.
 
+## How do I play it
+
+Windows build coming soon.
+
+Here's how to build from source on Linux:
+
+1. Get a very recent build of [zig](https://ziglang.org/).
+   I'm developing off of zig's master branch, so check my commit log for "updated to zig xxxxxx" commits to know which version to use.
+2. `sudo apt-get install libsdl2-dev`
+3. `git submodule update --init`
+4. `zig build`
+5. `./zig-cache/bin/legend-of-swarkland`
+
 ## Design goals
 
 Legend of Swarkland aims to be an interesting, fair, complex, challenging experience.
 The primary inspiration for this game is the fabulous complexity of [NetHack](https://www.nethack.org/).
 After getting into NetHack, I became frustrated by several core aspects of its design,
 and this project was born as an attempt to realize what I believe is even greater potential.
+
+1. Client/server architecture
+2. Learning the game should not be frustrating
+3. Fabulous complexity
+4. Avoid grinding
+5. Seeded randomness
+6. Open source
 
 ### Client/server architecture
 
