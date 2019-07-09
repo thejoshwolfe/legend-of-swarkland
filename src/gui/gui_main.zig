@@ -23,6 +23,12 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 
 const allocator = std.heap.c_allocator;
 
+const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
+
+/// changes when the window resizes
+/// FIXME: should initialize to logical_window_size, but workaround https://github.com/ziglang/zig/issues/2855
+var output_rect = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
+
 pub fn main() anyerror!void {
     core.debug.init();
     core.debug.nameThisThread("gui");
@@ -43,8 +49,8 @@ pub fn main() anyerror!void {
         c"Legend of Swarkland",
         sdl.SDL_WINDOWPOS_UNDEFINED,
         sdl.SDL_WINDOWPOS_UNDEFINED,
-        512,
-        512,
+        logical_window_size.w,
+        logical_window_size.h,
         sdl.c.SDL_WINDOW_OPENGL | sdl.c.SDL_WINDOW_RESIZABLE,
     ) orelse {
         std.debug.panic("SDL_CreateWindow failed: {c}\n", sdl.c.SDL_GetError());
@@ -56,13 +62,32 @@ pub fn main() anyerror!void {
     };
     defer sdl.c.SDL_DestroyRenderer(renderer);
 
+    {
+        var renderer_info: sdl.c.SDL_RendererInfo = undefined;
+        sdl.assertZero(sdl.c.SDL_GetRendererInfo(renderer, &renderer_info));
+        if (renderer_info.flags & sdl.c.SDL_RENDERER_TARGETTEXTURE == 0) {
+            std.debug.panic("rendering to a temporary texture is not supported");
+        }
+    }
+
+    const screen_buffer: *sdl.Texture = sdl.c.SDL_CreateTexture(
+        renderer,
+        sdl.c.SDL_PIXELFORMAT_ABGR8888,
+        sdl.c.SDL_TEXTUREACCESS_TARGET,
+        logical_window_size.w,
+        logical_window_size.h,
+    ) orelse {
+        std.debug.panic("SDL_CreateTexture failed: {c}\n", sdl.c.SDL_GetError());
+    };
+    defer sdl.c.SDL_DestroyTexture(screen_buffer);
+
     textures.init(renderer);
     defer textures.deinit();
 
-    try doMainLoop(renderer);
+    try doMainLoop(renderer, screen_buffer);
 }
 
-fn doMainLoop(renderer: *sdl.Renderer) !void {
+fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     const aesthetic_seed = 0xbee894fc;
     var input_engine = InputEngine.init();
     var inputs_considered_harmful = true;
@@ -204,7 +229,8 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
             }
         }
 
-        _ = sdl.c.SDL_RenderClear(renderer);
+        sdl.assertZero(sdl.c.SDL_SetRenderTarget(renderer, screen_buffer));
+        sdl.assertZero(sdl.c.SDL_RenderClear(renderer));
 
         switch (game_state) {
             GameState.main_menu => |*main_menu_state| {
@@ -380,6 +406,30 @@ fn doMainLoop(renderer: *sdl.Renderer) !void {
                     }
                 }
             },
+        }
+
+        {
+            sdl.assertZero(sdl.c.SDL_SetRenderTarget(renderer, null));
+            sdl.assertZero(sdl.c.SDL_GetRendererOutputSize(renderer, &output_rect.w, &output_rect.h));
+            // preserve aspect ratio
+            const source_aspect_ratio = comptime @intToFloat(f32, logical_window_size.w) / @intToFloat(f32, logical_window_size.h);
+            const dest_aspect_ratio = @intToFloat(f32, output_rect.w) / @intToFloat(f32, output_rect.h);
+            if (source_aspect_ratio > dest_aspect_ratio) {
+                // use width
+                const new_height = @floatToInt(c_int, @intToFloat(f32, output_rect.w) / source_aspect_ratio);
+                output_rect.x = 0;
+                output_rect.y = @divTrunc(output_rect.h - new_height, 2);
+                output_rect.h = new_height;
+            } else {
+                // use height
+                const new_width = @floatToInt(c_int, @intToFloat(f32, output_rect.h) * source_aspect_ratio);
+                output_rect.x = @divTrunc(output_rect.w - new_width, 2);
+                output_rect.y = 0;
+                output_rect.w = new_width;
+            }
+
+            sdl.assertZero(sdl.c.SDL_RenderClear(renderer));
+            sdl.assertZero(sdl.c.SDL_RenderCopy(renderer, screen_buffer, &logical_window_size, &output_rect));
         }
 
         sdl.c.SDL_RenderPresent(renderer);

@@ -61,7 +61,7 @@ fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale
 
     const source_sdl = sdl.makeRect(char_rect);
     const dest_sdl = sdl.makeRect(dest);
-    _ = sdl.SDL_RenderCopy(renderer, fonts_texture, &source_sdl, &dest_sdl);
+    sdl.assertZero(sdl.SDL_RenderCopy(renderer, fonts_texture, &source_sdl, &dest_sdl));
 
     return makeCoord(dest.x + dest.width, dest.y + dest.height);
 }
@@ -76,7 +76,7 @@ pub fn renderSprite(renderer: *sdl.Renderer, sprite: Rect, location: Coord) void
 
     const source_sdl = sdl.makeRect(sprite);
     const dest_sdl = sdl.makeRect(dest);
-    _ = sdl.SDL_RenderCopy(renderer, sprites_texture, &source_sdl, &dest_sdl);
+    sdl.assertZero(sdl.SDL_RenderCopy(renderer, sprites_texture, &source_sdl, &dest_sdl));
 }
 pub fn renderSpriteRotated(renderer: *sdl.Renderer, sprite: Rect, location: Coord, rotation: u3) void {
     const dest = Rect{
@@ -90,5 +90,5 @@ pub fn renderSpriteRotated(renderer: *sdl.Renderer, sprite: Rect, location: Coor
     const dest_sdl = sdl.makeRect(dest);
 
     const angle = @intToFloat(f64, rotation) * 45.0;
-    _ = sdl.SDL_RenderCopyEx(renderer, sprites_texture, &source_sdl, &dest_sdl, angle, null, sdl.c.SDL_FLIP_NONE);
+    sdl.assertZero(sdl.SDL_RenderCopyEx(renderer, sprites_texture, &source_sdl, &dest_sdl, angle, null, sdl.c.SDL_FLIP_NONE));
 }

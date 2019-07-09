@@ -1,3 +1,4 @@
+const std = @import("std");
 const sdl = @This();
 
 // this is technically all we need
@@ -42,4 +43,10 @@ pub fn makeRect(rect: geometry.Rect) sdl.c.SDL_Rect {
     };
 }
 
+pub fn assertZero(ret: c_int) void {
+    if (ret == 0) return;
+    std.debug.panic("sdl function returned an error: {c}", sdl.c.SDL_GetError());
+}
+
 pub const Renderer = sdl.c.SDL_Renderer;
+pub const Texture = sdl.c.SDL_Texture;
