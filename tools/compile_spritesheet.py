@@ -5,6 +5,8 @@ import sys
 import math
 import time
 import struct
+import re
+from collections import defaultdict
 
 # make sure you call this script with the right PYTHONPATH
 import simplepng
@@ -14,58 +16,108 @@ def cli():
   parser = argparse.ArgumentParser()
   parser.add_argument("DIR")
   parser.add_argument("--glob")
-  parser.add_argument("--tilesize", type=int, required=True)
-  parser.add_argument("--spritesheet", required=True)
-  parser.add_argument("--header")
+  tiling_group = parser.add_mutually_exclusive_group(required=True)
+  tiling_group.add_argument("--tile-size", type=int)
+  tiling_group.add_argument("--slice-tiles", metavar="WxH")
+  parser.add_argument("--spritesheet-path", required=True)
+  parser.add_argument("--defs-path", required=True)
   parser.add_argument("--deps")
 
   args = parser.parse_args()
   source_dir = args.DIR
   glob_pattern = args.glob
-  tilesize = args.tilesize
-  spritesheet_path = args.spritesheet
-  header_path = args.header
+  tile_size = args.tile_size
+  if args.slice_tiles != None:
+    match = re.match(r"^(\d+)x(\d+)$", args.slice_tiles)
+    if match == None:
+      parser.error("--slice-tiles wrong format: " + repr(args.slice_tiles))
+    slice_dimensions = tuple(int(x) for x in match.groups())
+  else:
+    slice_dimensions = None
+  spritesheet_path = args.spritesheet_path
+  defs_path = args.defs_path
   deps_path = args.deps
 
   if glob_pattern != "*.png":
     parser.error("you must specify glob pattern '*.png'")
 
-  main(source_dir, tilesize, spritesheet_path, header_path, deps_path)
+  main(source_dir, tile_size, slice_dimensions, spritesheet_path, defs_path, deps_path)
 
-def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
+def main(source_dir, tile_size, slice_dimensions, spritesheet_path, defs_path, deps_path):
+  item_dimensions = slice_dimensions or (tile_size, tile_size)
+
   dependencies = [source_dir]
   # find all the input files
-  item_paths = []
-  for (item_path, is_file) in find_files(source_dir):
+  input_paths = []
+  for (input_path, is_file) in find_files(source_dir):
     if not is_file:
-      dependencies.append(os.path.join(source_dir, item_path))
+      dependencies.append(os.path.join(source_dir, input_path))
       continue
-    if not item_path.endswith(".png"): continue
-    item_paths.append(item_path)
-    dependencies.append(os.path.join(source_dir, item_path))
-  item_paths.sort()
+    if not input_path.endswith(".png"): continue
+    input_paths.append(input_path)
+    dependencies.append(os.path.join(source_dir, input_path))
+  input_paths.sort()
+
+  input_images = []
+  item_count = 0
+  for input_path in input_paths:
+    with open(os.path.join(source_dir, input_path), "rb") as f:
+      input_image = simplepng.read_png(f)
+    if tile_size != None:
+      if (input_image.width, input_image.height) != item_dimensions:
+        sys.exit("ERROR: {}: expected {}x{}. found {}x{}".format(
+          input_path, tile_size, tile_size, input_image.width, input_image.height
+        ))
+      item_count += 1
+    else:
+      if (input_image.width % item_dimensions[0], input_image.height % item_dimensions[1]) != (0, 0):
+        sys.exit("ERROR: {}: expected multiple of {}x{}. found {}x{}".format(
+          input_path, item_dimensions[0], item_dimensions[1], input_image.width, input_image.height
+        ))
+      item_count += (input_image.width // item_dimensions[0]) * (input_image.height // item_dimensions[1])
+    input_images.append(input_image)
 
   # output should be the smallest power-of-2-sized square to fit everything
-  sprites_per_row = 1 << math.ceil(math.log(math.sqrt(len(item_paths)), 2))
-  spritesheet_image = simplepng.ImageBuffer(sprites_per_row * tilesize, sprites_per_row * tilesize)
+  output_size = 1
+  while True:
+    sprites_per_row = output_size // item_dimensions[0]
+    sprites_per_col = output_size // item_dimensions[1]
+    if sprites_per_row * sprites_per_col >= item_count: break
+    output_size <<= 1
+  spritesheet_image = simplepng.ImageBuffer(output_size, output_size)
 
   # composite spritesheet
-  x = 0
-  y = 0
-  header_items = []
-  for item_path in item_paths:
-    with open(os.path.join(source_dir, item_path), "rb") as f:
-      item_image = simplepng.read_png(f)
-    if not (item_image.width == tilesize and item_image.height == tilesize):
-      sys.exit("ERROR: {}: expected {}x{}. found {}x{}".format(item_path, tilesize, tilesize, item_image.width, item_image.height))
-    spritesheet_image.paste(item_image, dx=x*tilesize, dy=y*tilesize)
+  dx, dy = 0, 0
+  defs_items = []
+  defs_groups = defaultdict(dict)
+  for input_path, input_image in zip(input_paths, input_images):
+    sx, sy = 0, 0
+    coordinates = []
+    while True:
+      spritesheet_image.paste(input_image, sx=sx, sy=sy, dx=dx, dy=dy, width=item_dimensions[0], height=item_dimensions[1])
 
-    header_items.append((mangle_item_name(item_path), x * tilesize, y * tilesize))
+      coordinates.append((dx, dy))
 
-    x += 1
-    if x == sprites_per_row:
-      x = 0
-      y += 1
+      dx += item_dimensions[0]
+      if dx > output_size - item_dimensions[0]:
+        dx = 0
+        dy += item_dimensions[1]
+
+      sx += item_dimensions[0]
+      if sx >= input_image.width:
+        sx = 0
+        sy += item_dimensions[1]
+
+      if sy >= input_image.height:
+        # next input image
+        break
+    mangled_name = mangle_item_name(input_path)
+    sequence_match = re.match(r'^(.*?)([0-9]+)$', mangled_name)
+    if sequence_match != None:
+        base_name = sequence_match.group(1)
+        defs_groups[base_name][int(sequence_match.group(2), 10)] = coordinates[0]
+    else:
+        defs_items.append((mangled_name, coordinates))
 
   # output spritesheet in RGBA8888 format
   with open(spritesheet_path + ".tmp", "wb") as f:
@@ -73,24 +125,51 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   with open(spritesheet_path + "_reference.png", "wb") as f:
     simplepng.write_png(f, spritesheet_image)
 
-  # check header
-  header_item_format = "static constexpr Rect %s = {{%i, %i}, {32, 32}};";
-  header_contents = header_format.format(
-    sprites_per_row * tilesize,
-    sprites_per_row * tilesize,
-    "\n".join(
-      header_item_format % header_item for header_item in header_items
+  # check defs
+  if tile_size != None:
+    defs_item_format = "pub const %%s = Rect{.x = %%i, .y = %%i, .width = %i, .height = %i};" % (item_dimensions[0], item_dimensions[1]);
+    defs_group_format = "pub const %s = [_]Rect{\n%s\n};"
+    defs_group_item_format = "    Rect{.x = %%i, .y = %%i, .width = %i, .height = %i}," % (item_dimensions[0], item_dimensions[1]);
+    defs_contents = defs_format.format(
+      os.path.relpath(spritesheet_path, os.path.dirname(defs_path)),
+      spritesheet_image.width,
+      spritesheet_image.height,
+      "\n".join([
+        defs_item_format % (defs_item[0], defs_item[1][0][0], defs_item[1][0][1])
+        for defs_item in defs_items
+      ] + [
+        defs_group_format % (group_name, "\n".join(
+          defs_group_item_format % group_dict[i]
+          for i in range(len(group_dict))
+        )) for group_name, group_dict in sorted(defs_groups.items())
+      ])
     )
-  )
-  def maybe_update_header():
+  else:
+    defs_item_format       = "pub const %s = [_]Rect{\n%s};";
+    defs_item_child_format = "    Rect{.x = %i, .y = %i, .width = %i, .height = %i},\n";
+    defs_contents = defs_format.format(
+      os.path.relpath(spritesheet_path, os.path.dirname(defs_path)),
+      spritesheet_image.width,
+      spritesheet_image.height,
+      "\n".join(
+        defs_item_format % (defs_item[0],
+          "".join(
+            defs_item_child_format % (child[0], child[1], item_dimensions[0], item_dimensions[1])
+            for child in defs_item[1]
+          )
+        ) for defs_item in defs_items
+      )
+    )
+
+  def maybe_update_defs():
     try:
-      with open(header_path, "r") as f:
-        if f.read() == header_contents: return
+      with open(defs_path, "r") as f:
+        if f.read() == defs_contents: return
     except IOError: pass
-    with open(header_path + ".tmp", "w") as f:
-      f.write(header_contents)
-    os.rename(header_path + ".tmp", header_path)
-  maybe_update_header()
+    with open(defs_path + ".tmp", "w") as f:
+      f.write(defs_contents)
+    os.rename(defs_path + ".tmp", defs_path)
+  maybe_update_defs()
 
   # output dependencies
   if deps_path != None:
@@ -101,24 +180,23 @@ def main(source_dir, tilesize, spritesheet_path, header_path, deps_path):
   # now we're done
   os.rename(spritesheet_path + ".tmp", spritesheet_path)
 
-header_format = """\
-#ifndef SPRITESHEET_HPP
-#define SPRITESHEET_HPP
+defs_format = """\
+const Rect = @import("core").geometry.Rect;
 
-#include "geometry.hpp"
+pub const buffer = @embedFile("./{}");
 
-static const int spritesheet_width = {};
-static const int spritesheet_height = {};
+pub const width = {};
+pub const height = {};
 
 {}
-
-#endif
 """
 
-def mangle_item_name(item_path):
-  name = item_path[:-len(".png")]
+def mangle_item_name(input_path):
+  name = input_path[:-len(".png")]
   name = os.path.basename(name)
-  return "sprite_location_" + name
+  if not re.match(r'^[a-z][a-z_0-9]*$', name):
+      sys.exit("ERROR: name has bad characters: {}".format(input_path))
+  return name
 
 def find_files(root):
   for name in os.listdir(root):
