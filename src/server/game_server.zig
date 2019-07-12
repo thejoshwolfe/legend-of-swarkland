@@ -34,12 +34,10 @@ pub fn server_main(main_player_socket: *Socket) !void {
     game_engine.init(allocator);
     var game_state = GameState.init(allocator);
 
-    // start ai clients and send welcome messages
-    var decision_makers = IdMap(*Socket).init(allocator);
+    // create ai clients
     var ai_clients = IdMap(*GameEngineClient).init(allocator);
     const main_player_id: u32 = 1;
     var you_are_alive = true;
-    try decision_makers.putNoClobber(main_player_id, main_player_socket);
     {
         const happenings = try game_engine.getStartGameHappenings();
         try game_state.applyStateChanges(happenings.state_changes);
@@ -47,73 +45,59 @@ pub fn server_main(main_player_socket: *Socket) !void {
             switch (diff) {
                 .spawn => |individual| {
                     if (individual.id == main_player_id) continue;
-                    try handleSpawn(&decision_makers, &ai_clients, individual);
+                    try handleSpawn(&ai_clients, individual);
                 },
                 else => {},
             }
         }
-        // Welcome to swarkland!
-        var iterator = decision_makers.iterator();
-        while (iterator.next()) |kv| {
-            const id = kv.key;
-            const socket = kv.value;
-            try socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, id) });
-        }
     }
+    // Welcome to swarkland!
+    try main_player_socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
 
+    var response_for_ais = IdMap(Response).init(allocator);
     var history = HistoryList.init();
 
     // start main loop
     mainLoop: while (true) {
+        var actions = IdMap(Action).init(allocator);
+
         // do ai
         {
             var iterator = ai_clients.iterator();
             while (iterator.next()) |kv| {
-                try doAi(kv.value);
+                const id = kv.key;
+                const response = response_for_ais.getValue(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
+                try actions.putNoClobber(id, doAi(response));
             }
         }
+        response_for_ais.clear();
 
         // read all the inputs, which will block for the human client.
-        var actions = IdMap(Action).init(allocator);
         var is_rewind = false;
         {
-            var iterator = decision_makers.iterator();
-            while (iterator.next()) |kv| {
-                const id = kv.key;
-                var socket = kv.value;
-                retryRead: while (true) {
-                    switch (try socket.in(allocator).read(Request)) {
-                        .quit => {
-                            std.debug.assert(id == main_player_id);
-                            core.debug.thread_lifecycle.print("clean shutdown. close");
-                            // close all ai threads first, because the main player client doesn't know to wait for the ai threads.
-                            var ai_iterator = ai_clients.iterator();
-                            while (ai_iterator.next()) |ai_kv| {
-                                var ai_client = ai_kv.value;
-                                ai_client.stopAi();
-                            }
-                            core.debug.thread_lifecycle.print("all ais shutdown");
-                            // now shutdown the main player
-                            socket.close(Response.game_over);
-                            break :mainLoop;
-                        },
-                        .act => |action| {
-                            if (id == main_player_id and !you_are_alive) {
-                                // no. you're are dead.
-                                try socket.out().write(Response.reject_request);
-                                continue :retryRead;
-                            }
-                            std.debug.assert(game_engine.validateAction(action));
-                            try actions.putNoClobber(id, action);
-                        },
-                        .rewind => {
-                            std.debug.assert(id == main_player_id);
-                            // delay actually rewinding so that we receive all requests.
-                            is_rewind = true;
-                        },
-                    }
-                    break;
+            retryRead: while (true) {
+                switch (try main_player_socket.in(allocator).read(Request)) {
+                    .quit => {
+                        core.debug.thread_lifecycle.print("clean shutdown. close");
+                        // shutdown the main player
+                        main_player_socket.close(Response.game_over);
+                        break :mainLoop;
+                    },
+                    .act => |action| {
+                        if (!you_are_alive) {
+                            // no. you're are dead.
+                            try main_player_socket.out().write(Response.reject_request);
+                            continue :retryRead;
+                        }
+                        std.debug.assert(game_engine.validateAction(action));
+                        try actions.putNoClobber(main_player_id, action);
+                    },
+                    .rewind => {
+                        // delay actually rewinding so that we receive all requests.
+                        is_rewind = true;
+                    },
                 }
+                break;
             }
         }
 
@@ -129,29 +113,22 @@ pub fn server_main(main_player_socket: *Socket) !void {
                             if (individual.id == main_player_id) {
                                 you_are_alive = true;
                             } else {
-                                try handleSpawn(&decision_makers, &ai_clients, individual);
+                                try handleSpawn(&ai_clients, individual);
                             }
                         },
                         .spawn => |individual| {
                             if (individual.id == main_player_id) {
                                 @panic("you can't unspawn midgame");
                             } else {
-                                handleDespawn(&decision_makers, &ai_clients, individual.id);
+                                handleDespawn(&ai_clients, individual.id);
                             }
                         },
                         else => {},
                     }
                 }
             }
-            // The people demand a response from their decision.
-            // Even if we didn't actually do a rewind, send a response to everyone,
-            // (as long as they still exist).
-            var iterator = decision_makers.iterator();
-            while (iterator.next()) |kv| {
-                const id = kv.key;
-                const socket = kv.value;
-                try socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, id) });
-            }
+            // Even if we didn't actually do a rewind, send a response to keep the communication in sync.
+            try main_player_socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
         } else {
 
             // Time goes forward.
@@ -165,30 +142,34 @@ pub fn server_main(main_player_socket: *Socket) !void {
                         if (individual.id == main_player_id) {
                             @panic("you can't spawn mid game");
                         } else {
-                            try handleSpawn(&decision_makers, &ai_clients, individual);
+                            try handleSpawn(&ai_clients, individual);
                         }
                     },
                     .despawn => |individual| {
                         if (individual.id == main_player_id) {
                             you_are_alive = false;
                         } else {
-                            handleDespawn(&decision_makers, &ai_clients, individual.id);
+                            handleDespawn(&ai_clients, individual.id);
                         }
                     },
                     else => {},
                 }
             }
 
-            var iterator = decision_makers.iterator();
+            var iterator = happenings.individual_to_perception.iterator();
             while (iterator.next()) |kv| {
                 const id = kv.key;
-                const socket = kv.value;
-                try socket.out().write(Response{
+                const response = Response{
                     .stuff_happens = PerceivedHappening{
-                        .frames = happenings.individual_to_perception.getValue(id) orelse [_]PerceivedFrame{},
+                        .frames = kv.value,
                         .static_perception = try game_engine.getStaticPerception(game_state, id),
                     },
-                });
+                };
+                if (id == main_player_id) {
+                    try main_player_socket.out().write(response);
+                } else {
+                    try response_for_ais.putNoClobber(id, response);
+                }
             }
         }
     }
@@ -205,36 +186,25 @@ fn pushHistoryRecord(history: *HistoryList, state_changes: []StateDiff) !void {
     history.append(history_node);
 }
 
-fn handleSpawn(decision_makers: *IdMap(*Socket), ai_clients: *IdMap(*GameEngineClient), individual: Individual) !void {
+fn handleSpawn(ai_clients: *IdMap(*GameEngineClient), individual: Individual) !void {
     // initialize ai socket
     var client = try allocator.create(GameEngineClient);
+    client.startAsAi(individual.id);
     try ai_clients.putNoClobber(individual.id, client);
-    var ai_socket = try client.startAsAi(individual.id);
-    try decision_makers.putNoClobber(individual.id, ai_socket);
 }
 
-fn handleDespawn(decision_makers: *IdMap(*Socket), ai_clients: *IdMap(*GameEngineClient), id: u32) void {
-    ai_clients.getValue(id).?.stopAi();
+fn handleDespawn(ai_clients: *IdMap(*GameEngineClient), id: u32) void {
     ai_clients.removeAssertDiscard(id);
-    decision_makers.removeAssertDiscard(id);
 }
 
-fn doAi(client: *GameEngineClient) !void {
+fn doAi(response: Response) Action {
     // This should be sitting waiting for us already, since we just wrote it earlier.
-    var response = blk: {
-        var retry_count: usize = 0;
-        while (retry_count < 10) : (retry_count += 1) {
-            if (client.pollResponse()) |response| break :blk response;
-            std.time.sleep(17 * std.time.millisecond);
-        } else @panic("no response for ai to read");
-    };
     var static_perception = switch (response) {
         .load_state => |static_perception| static_perception,
         .stuff_happens => |perceived_happening| perceived_happening.static_perception,
         else => @panic("unexpected response type in AI"),
     };
-    var action = getNaiveAiDecision(static_perception);
-    try client.act(action);
+    return getNaiveAiDecision(static_perception);
 }
 
 fn getNaiveAiDecision(static_perception: StaticPerception) Action {

@@ -14,7 +14,7 @@ const Logger = struct {
     }
 };
 
-pub const thread_lifecycle = Logger{ .is_enabled = false };
+pub const thread_lifecycle = Logger{ .is_enabled = true };
 pub const testing = Logger{ .is_enabled = true };
 pub const happening = Logger{ .is_enabled = false };
 

@@ -22,12 +22,7 @@ const Connection = union(enum) {
         server_socket: Socket,
     };
 
-    attach: AttachData,
-    const AttachData = struct {
-        send_pipe: [2]std.fs.File,
-        recv_pipe: [2]std.fs.File,
-        server_socket: Socket,
-    };
+    attach,
 };
 
 pub const GameEngineClient = struct {
@@ -35,8 +30,8 @@ pub const GameEngineClient = struct {
     connection: Connection,
     socket: Socket,
     // initialized in startThreads()
-    send_thread: *std.Thread,
-    recv_thread: *std.Thread,
+    send_thread: ?*std.Thread,
+    recv_thread: ?*std.Thread,
 
     // initialized in init()
     request_outbox: std.atomic.Queue(Request),
@@ -57,23 +52,14 @@ pub const GameEngineClient = struct {
     }
 
     /// returns the socket for the server to use to communicate with this client.
-    pub fn startAsAi(self: *GameEngineClient, debug_client_id: u32) !*Socket {
+    pub fn startAsAi(self: *GameEngineClient, debug_client_id: u32) void {
         self.init();
         self.debug_client_id = debug_client_id;
 
-        var result: *Socket = undefined;
+        self.connection = Connection.attach;
 
-        self.connection = Connection{ .attach = undefined };
-        var data = &self.connection.attach;
-        data.send_pipe = try makePipe();
-        data.recv_pipe = try makePipe();
-        self.socket = Socket.init(data.recv_pipe[0].inStream(), data.send_pipe[1].outStream());
-        data.server_socket = Socket.init(data.send_pipe[0].inStream(), data.recv_pipe[1].outStream());
-        result = &data.server_socket;
-
-        try self.startThreads();
-
-        return result;
+        self.send_thread = null;
+        self.recv_thread = null;
     }
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
         self.init();
@@ -134,21 +120,12 @@ pub const GameEngineClient = struct {
             .thread => |*data| {
                 data.core_thread.wait();
             },
-            .attach => @panic("call stopAi()"),
+            .attach => @panic("ai clients have nothing to stop"),
         }
         self.stay_alive.set(0);
-        self.send_thread.wait();
-        self.recv_thread.wait();
+        self.send_thread.?.wait();
+        self.recv_thread.?.wait();
         core.debug.thread_lifecycle.print("all threads done");
-    }
-    pub fn stopAi(self: *GameEngineClient) void {
-        core.debug.thread_lifecycle.print("stop ai");
-        self.stay_alive.set(0);
-        // The server tells us to shut down
-        self.connection.attach.server_socket.close(Response.game_over);
-        self.send_thread.wait();
-        self.recv_thread.wait();
-        core.debug.thread_lifecycle.print("ai threads done");
     }
 
     fn isAlive(self: *GameEngineClient) bool {
@@ -200,9 +177,11 @@ pub const GameEngineClient = struct {
     }
 
     pub fn act(self: *GameEngineClient, action: Action) !void {
+        std.debug.assert(@TagType(Connection)(self.connection) != Connection.attach);
         try queuePut(Request, &self.request_outbox, Request{ .act = action });
     }
     pub fn rewind(self: *GameEngineClient) !void {
+        std.debug.assert(@TagType(Connection)(self.connection) != Connection.attach);
         try queuePut(Request, &self.request_outbox, Request{ .rewind = {} });
     }
     pub fn move(self: *GameEngineClient, direction: Coord) !void {
