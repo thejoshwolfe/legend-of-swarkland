@@ -3,7 +3,8 @@ const builtin = @import("builtin");
 const Builder = std.build.Builder;
 
 pub fn build(b: *Builder) void {
-    const build_options = b.standardReleaseOptions();
+    const build_mode = b.standardReleaseOptions();
+    const target = b.standardTargetOptions(null);
 
     const compile_image_commands = [_]*std.build.RunStep{
         b.addSystemCommand([_][]const u8{
@@ -29,8 +30,8 @@ pub fn build(b: *Builder) void {
         compile_image_command.setEnvironmentVariable("PYTHONPATH", "deps/simplepng.py/");
     }
 
-    const headless_build = make_binary_variant(b, build_options, "legend-of-swarkland_headless", true);
-    const gui_build = make_binary_variant(b, build_options, "legend-of-swarkland", false);
+    const headless_build = make_binary_variant(b, build_mode, target, "legend-of-swarkland_headless", true);
+    const gui_build = make_binary_variant(b, build_mode, target, "legend-of-swarkland", false);
     for (compile_image_commands) |compile_image_command| {
         gui_build.dependOn(&compile_image_command.step);
     }
@@ -50,8 +51,15 @@ pub fn build(b: *Builder) void {
     }
 }
 
-fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u8, headless: bool) *std.build.Step {
+fn make_binary_variant(
+    b: *Builder,
+    build_mode: builtin.Mode,
+    target: std.build.Target,
+    name: []const u8,
+    headless: bool,
+) *std.build.Step {
     const exe = if (headless) b.addExecutable(name, "src/server/server_main.zig") else b.addExecutable(name, "src/gui/gui_main.zig");
+    exe.setTheTarget(target);
     exe.install();
     exe.addPackagePath("core", "src/index.zig");
     if (!headless) {
@@ -63,6 +71,6 @@ fn make_binary_variant(b: *Builder, build_options: builtin.Mode, name: []const u
     }
     // FIXME: workaround https://github.com/ziglang/zig/issues/855
     exe.setMainPkgPath(".");
-    exe.setBuildMode(build_options);
+    exe.setBuildMode(build_mode);
     return &exe.step;
 }
