@@ -20,7 +20,7 @@ const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
-
+const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 
 const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
@@ -98,7 +98,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         running: Running,
         const Running = struct {
             client: GameEngineClient,
-            client_state: ?ClientState,
+            client_state: ?PerceivedFrame,
             started_attack: bool,
             animations: ?Animations,
         };
@@ -121,12 +121,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     switch (response) {
                         .stuff_happens => |happening| {
                             // Show animations for what's going on.
-                            state.animations = try loadAnimations(happening.frames, now, state.client_state.?.terrain);
-                            state.client_state = try loadStaticPerception(happening.static_perception);
+                            state.animations = try loadAnimations(happening.frames, now);
+                            state.client_state = happening.frames[happening.frames.len - 1];
                         },
-                        .load_state => |static_perception| {
+                        .load_state => |frame| {
                             state.animations = null;
-                            state.client_state = try loadStaticPerception(static_perception);
+                            state.client_state = frame;
                         },
                         .reject_request => {
                             // oh sorry.
@@ -283,8 +283,30 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             },
             GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;
+
+                const move_frame_time = 150;
+
+                // at one point in what frame should we render?
+                var frame = state.client_state.?;
+                var progress: i32 = 0;
+                var show_poised_attack = true;
+                if (state.animations) |animations| {
+                    const animation_time = @bitCast(u32, now -% animations.start_time);
+                    const movement_phase = @divFloor(animation_time, move_frame_time);
+
+                    if (movement_phase < animations.frames.len) {
+                        // animating
+                        frame = animations.frames[movement_phase];
+                        progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
+                        show_poised_attack = false;
+                    } else {
+                        // stale
+                        state.animations = null;
+                    }
+                }
+
                 // render terrain
-                const terrain = if (state.animations) |animations| animations.terrain else state.client_state.?.terrain;
+                const terrain = frame.terrain;
                 for (terrain.floor) |row, y| {
                     for (row) |cell, x| {
                         const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
@@ -313,93 +335,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 // render the things
-                var animating = false;
-                if (state.animations) |animations| {
-                    const animation_time = @bitCast(u32, now -% animations.start_time);
-                    const move_frame_time = 150;
-                    const movement_phase = @divFloor(animation_time, move_frame_time);
-                    if (movement_phase < animations.frames.len) {
-                        animating = true;
-
-                        const progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
-                        switch (animations.frames[movement_phase]) {
-                            .movements => |movements| {
-                                for (movements) |perceived_movement| {
-                                    const a = perceived_movement; // shorter name
-                                    // Scale velocity to halfway, because each is redundant with a neighboring frame.
-                                    const display_position = core.geometry.bezier3(
-                                        a.abs_position.scaled(32).minus(a.prior_velocity.scaled(32 / 2)),
-                                        a.abs_position.scaled(32),
-                                        a.abs_position.scaled(32).plus(a.next_velocity.scaled(32 / 2)),
-                                        progress,
-                                        move_frame_time,
-                                    );
-                                    textures.renderSprite(renderer, speciesToSprite(a.species), display_position);
-                                }
-                            },
-                            .attacks => |attacks| {
-                                for (attacks) |perceived_attack| {
-                                    const a = perceived_attack; // shorter name
-                                    textures.renderSprite(
-                                        renderer,
-                                        speciesToSprite(a.species),
-                                        a.abs_position.scaled(32),
-                                    );
-                                    if (a.direction) |direction| {
-                                        // render the attack
-                                        const range = core.game_logic.getAttackRange(a.species);
-                                        if (range == 1) {
-                                            const dagger_sprite_normalizing_rotation = 1;
-                                            textures.renderSpriteRotated(
-                                                renderer,
-                                                textures.sprites.dagger,
-                                                a.abs_position.scaled(32).plus(direction.scaled(32 * 3 / 4)),
-                                                u3(directionToRotation(direction)) +% dagger_sprite_normalizing_rotation,
-                                            );
-                                        } else {
-                                            const arrow_sprite_normalizing_rotation = 4;
-                                            textures.renderSpriteRotated(
-                                                renderer,
-                                                textures.sprites.arrow,
-                                                core.geometry.bezier2(
-                                                    a.abs_position.scaled(32).plus(direction.scaled(32 * 3 / 4)),
-                                                    a.abs_position.plus(direction.scaled(range)).scaled(32),
-                                                    progress,
-                                                    move_frame_time,
-                                                ),
-                                                u3(directionToRotation(direction)) +% arrow_sprite_normalizing_rotation,
-                                            );
-                                        }
-                                    }
-                                }
-                            },
-                            .deaths => |deaths| {
-                                for (deaths) |perceived_death| {
-                                    const a = perceived_death; // shorter name
-                                    const display_position = a.abs_position.scaled(32);
-                                    textures.renderSprite(renderer, speciesToSprite(a.species), display_position);
-                                    if (a.actually_dies) {
-                                        textures.renderSprite(renderer, textures.sprites.death, display_position);
-                                    }
-                                }
-                            },
-                        }
-                    } else {
-                        // stale
-                        state.animations = null;
-                    }
+                for (frame.others) |other| {
+                    _ = renderThing(renderer, progress, move_frame_time, other);
                 }
-                if (!animating) {
-                    // static
-                    for (state.client_state.?.individuals.toSliceConst()) |individual| {
-                        var display_position = individual.abs_position.scaled(32);
-                        const sprite = speciesToSprite(individual.species);
-                        textures.renderSprite(renderer, sprite, display_position);
-
-                        const is_self = individual.species == .human;
-                        if (is_self and state.started_attack) {
-                            textures.renderSprite(renderer, textures.sprites.dagger, display_position);
-                        }
+                if (frame.self) |yourself| {
+                    const display_position = renderThing(renderer, progress, move_frame_time, yourself);
+                    if (show_poised_attack and state.started_attack) {
+                        textures.renderSprite(renderer, textures.sprites.dagger, display_position);
                     }
                 }
             },
@@ -438,6 +380,57 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     }
 }
 
+fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, thing: PerceivedThing) Coord {
+    const display_position = switch (thing.activity) {
+        .movement => |data| core.geometry.bezier3(
+            thing.abs_position.scaled(32).minus(data.prior_velocity.scaled(32 / 2)),
+            thing.abs_position.scaled(32),
+            thing.abs_position.scaled(32).plus(data.next_velocity.scaled(32 / 2)),
+            progress,
+            progress_denominator,
+        ),
+        else => thing.abs_position.scaled(32),
+    };
+    textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
+
+    switch (thing.activity) {
+        .none => {},
+        .movement => {},
+
+        .attack => |data| {
+            const range = core.game_logic.getAttackRange(thing.species);
+            if (range == 1) {
+                const dagger_sprite_normalizing_rotation = 1;
+                textures.renderSpriteRotated(
+                    renderer,
+                    textures.sprites.dagger,
+                    display_position.plus(data.direction.scaled(32 * 3 / 4)),
+                    u3(directionToRotation(data.direction)) +% dagger_sprite_normalizing_rotation,
+                );
+            } else {
+                const arrow_sprite_normalizing_rotation = 4;
+                textures.renderSpriteRotated(
+                    renderer,
+                    textures.sprites.arrow,
+                    core.geometry.bezier2(
+                        display_position.plus(data.direction.scaled(32 * 3 / 4)),
+                        display_position.plus(data.direction.scaled(32 * range)),
+                        progress,
+                        progress_denominator,
+                    ),
+                    u3(directionToRotation(data.direction)) +% arrow_sprite_normalizing_rotation,
+                );
+            }
+        },
+
+        .death => {
+            textures.renderSprite(renderer, textures.sprites.death, display_position);
+        },
+    }
+
+    return display_position;
+}
+
 fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
     var hash = seed;
     hash ^= @bitCast(u32, coord.x);
@@ -458,42 +451,16 @@ fn speciesToSprite(species: Species) Rect {
     };
 }
 
-const StaticIndividual = core.protocol.StaticPerception.StaticIndividual;
-const ClientState = struct {
-    terrain: Terrain,
-    individuals: ArrayList(StaticIndividual),
-};
-
 const Animations = struct {
     start_time: i32,
     frames: []PerceivedFrame,
-    terrain: Terrain,
 };
 const AttackAnimation = struct {};
 const DeathAnimation = struct {};
 
-fn loadAnimations(frames: []PerceivedFrame, now: i32, previous_terrain: Terrain) !Animations {
+fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
     return Animations{
         .start_time = now,
         .frames = try core.protocol.deepClone(allocator, frames),
-        .terrain = previous_terrain,
-    };
-}
-
-fn loadStaticPerception(static_perception: core.protocol.StaticPerception) !ClientState {
-    //core.debug.deep_print("static_perception: ", static_perception);
-    return ClientState{
-        .terrain = static_perception.terrain,
-        .individuals = blk: {
-            var individuals = ArrayList(StaticIndividual).init(allocator);
-            try individuals.ensureCapacity(1 + static_perception.others.len);
-            if (static_perception.self) |self| {
-                individuals.append(self) catch unreachable;
-            }
-            for (static_perception.others) |other| {
-                individuals.append(other) catch unreachable;
-            }
-            break :blk individuals;
-        },
     };
 }

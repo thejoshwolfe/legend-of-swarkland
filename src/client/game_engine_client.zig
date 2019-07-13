@@ -284,13 +284,8 @@ test "basic interaction" {
     try client.move(makeCoord(1, 0));
     {
         const response = client.queues.waitAndTakeResponse().?;
-        const new_position = blk: {
-            for (response.stuff_happens.frames[1].movements) |x| {
-                if (x.species == .human) break :blk x.abs_position;
-            }
-            unreachable;
-        };
-
+        const frames = response.stuff_happens.frames;
+        const new_position = frames[frames.len - 1].self.?.abs_position;
         std.testing.expect(new_position.minus(starting_position).equals(makeCoord(1, 0)));
     }
     core.debug.testing.print("move looks good");

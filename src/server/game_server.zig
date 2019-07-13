@@ -15,7 +15,6 @@ const Action = core.protocol.Action;
 const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
-const StaticPerception = core.protocol.StaticPerception;
 
 const StateDiff = @import("./game_engine.zig").StateDiff;
 const HistoryList = std.TailQueue([]StateDiff);
@@ -127,7 +126,6 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                 const response = Response{
                     .stuff_happens = PerceivedHappening{
                         .frames = kv.value,
-                        .static_perception = try game_engine.getStaticPerception(game_state, id),
                     },
                 };
                 if (id == main_player_id) {
@@ -153,30 +151,30 @@ fn pushHistoryRecord(history: *HistoryList, state_changes: []StateDiff) !void {
 
 fn doAi(response: Response) Action {
     // This should be sitting waiting for us already, since we just wrote it earlier.
-    var static_perception = switch (response) {
-        .load_state => |static_perception| static_perception,
-        .stuff_happens => |perceived_happening| perceived_happening.static_perception,
+    var last_frame = switch (response) {
+        .load_state => |frame| frame,
+        .stuff_happens => |perceived_happening| perceived_happening.frames[perceived_happening.frames.len - 1],
         else => @panic("unexpected response type in AI"),
     };
-    return getNaiveAiDecision(static_perception);
+    return getNaiveAiDecision(last_frame);
 }
 
-fn getNaiveAiDecision(static_perception: StaticPerception) Action {
-    const self_position = static_perception.self.?.abs_position;
+fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
+    const self_position = last_frame.self.?.abs_position;
     const target_position = blk: {
         // KILLKILLKILL HUMANS
-        for (static_perception.others) |other| {
+        for (last_frame.others) |other| {
             if (other.species == .human) break :blk other.abs_position;
         }
         // no human? kill each other then!
-        for (static_perception.others) |other| break :blk other.abs_position;
+        for (last_frame.others) |other| break :blk other.abs_position;
         // i'm the last one? dance!
         return Action{ .move = Coord{ .x = 0, .y = 1 } };
     };
 
     const delta = target_position.minus(self_position);
     std.debug.assert(!(delta.x == 0 and delta.y == 0));
-    const range = core.game_logic.getAttackRange(static_perception.self.?.species);
+    const range = core.game_logic.getAttackRange(last_frame.self.?.species);
 
     if (delta.x * delta.y == 0) {
         // straight shot
@@ -214,7 +212,7 @@ fn getNaiveAiDecision(static_perception: StaticPerception) Action {
         var flip_flop_counter = usize(0);
         while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
             const move_into_position = self_position.plus(options[option_index]);
-            for (static_perception.others) |perceived_other| {
+            for (last_frame.others) |perceived_other| {
                 if (perceived_other.abs_position.equals(move_into_position)) {
                     // somebody's there already.
                     option_index = 1 - option_index;

@@ -13,7 +13,8 @@ const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const PerceivedFrame = core.protocol.PerceivedFrame;
-const StaticPerception = core.protocol.StaticPerception;
+const PerceivedThing = core.protocol.PerceivedThing;
+const PerceivedActivity = core.protocol.PerceivedActivity;
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
@@ -186,24 +187,26 @@ pub const GameEngine = struct {
         };
     }
 
-    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: u32) !StaticPerception {
-        var yourself: ?StaticPerception.StaticIndividual = null;
-        var others = ArrayList(StaticPerception.StaticIndividual).init(self.allocator);
+    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: u32) !PerceivedFrame {
+        var yourself: ?PerceivedThing = null;
+        var others = ArrayList(PerceivedThing).init(self.allocator);
         var iterator = game_state.individuals.iterator();
         while (iterator.next()) |kv| {
             if (kv.key == individual_id) {
-                yourself = StaticPerception.StaticIndividual{
+                yourself = PerceivedThing{
                     .species = kv.value.species,
                     .abs_position = kv.value.abs_position,
+                    .activity = .none,
                 };
             } else {
-                try others.append(StaticPerception.StaticIndividual{
+                try others.append(PerceivedThing{
                     .species = kv.value.species,
                     .abs_position = kv.value.abs_position,
+                    .activity = .none,
                 });
             }
         }
-        return StaticPerception{
+        return PerceivedFrame{
             .terrain = game_state.terrain,
             .self = yourself,
             .others = others.toOwnedSlice(),
@@ -263,13 +266,18 @@ pub const GameEngine = struct {
 
         while (true) {
             for (everybody) |id| {
-                try self.observeMovement(
+                try self.observeFrame(
                     game_state,
-                    everybody,
+                    id,
                     individual_to_perception.getValue(id).?,
-                    previous_moves,
-                    next_moves,
+                    everybody,
                     current_positions,
+                    Activities{
+                        .movement = Activities.Movement{
+                            .previous_moves = previous_moves,
+                            .next_moves = next_moves,
+                        },
+                    },
                 );
             }
 
@@ -353,19 +361,21 @@ pub const GameEngine = struct {
             }
         }
         for (everybody) |id| {
-            try self.observeAttacks(
+            try self.observeFrame(
                 game_state,
-                everybody,
+                id,
                 individual_to_perception.getValue(id).?,
+                everybody,
                 current_positions,
-                attacks,
+                Activities{ .attacks = &attacks },
             );
-            try self.observeDeaths(
+            try self.observeFrame(
                 game_state,
-                everybody,
+                id,
                 individual_to_perception.getValue(id).?,
+                everybody,
                 current_positions,
-                deaths,
+                Activities{ .deaths = &deaths },
             );
         }
 
@@ -451,79 +461,69 @@ pub const GameEngine = struct {
         };
     }
 
-    fn observeMovement(
+    const Activities = union(enum) {
+        movement: Movement,
+        const Movement = struct {
+            previous_moves: *const IdMap(Coord),
+            next_moves: *const IdMap(Coord),
+        };
+
+        attacks: *const IdMap(Coord),
+        deaths: *const IdMap(void),
+    };
+    fn observeFrame(
         self: *const GameEngine,
         game_state: GameState,
-        everybody: []const u32,
+        my_id: u32,
         perception: *MutablePerceivedHappening,
-        previous_moves: *const IdMap(Coord),
-        next_moves: *const IdMap(Coord),
-        current_positions: *const IdMap(Coord),
-    ) !void {
-        var movements = ArrayList(PerceivedFrame.PerceivedMovement).init(self.allocator);
-
-        for (everybody) |other_id| {
-            try movements.append(PerceivedFrame.PerceivedMovement{
-                .prior_velocity = previous_moves.getValue(other_id) orelse zero_vector,
-                .abs_position = current_positions.getValue(other_id).?,
-                .species = game_state.individuals.getValue(other_id).?.species,
-                .next_velocity = next_moves.getValue(other_id) orelse zero_vector,
-            });
-        }
-
-        try perception.frames.append(PerceivedFrame{ .movements = movements.toOwnedSlice() });
-    }
-
-    fn observeAttacks(
-        self: *const GameEngine,
-        game_state: GameState,
         everybody: []const u32,
-        perception: *MutablePerceivedHappening,
         current_positions: *const IdMap(Coord),
-        attacks: IdMap(Coord),
+        activities: Activities,
     ) !void {
-        var perceived_attacks = ArrayList(PerceivedFrame.PerceivedAttack).init(self.allocator);
-        var any_actual_attacks = false;
+        var yourself: ?PerceivedThing = null;
+        var others = ArrayList(PerceivedThing).init(self.allocator);
 
-        for (everybody) |other_id| {
-            const direction = attacks.getValue(other_id);
-            try perceived_attacks.append(PerceivedFrame.PerceivedAttack{
-                .abs_position = current_positions.getValue(other_id).?,
-                .species = game_state.individuals.getValue(other_id).?.species,
-                .direction = direction,
-            });
-            if (direction != null) any_actual_attacks = true;
+        for (everybody) |id| {
+            const activity = switch (activities) {
+                .movement => |data| blk: {
+                    const a = PerceivedActivity{
+                        .movement = PerceivedActivity.Movement{
+                            .prior_velocity = data.previous_moves.getValue(id) orelse zero_vector,
+                            .next_velocity = data.next_moves.getValue(id) orelse zero_vector,
+                        },
+                    };
+                    break :blk a;
+                },
+
+                .attacks => |data| if (data.getValue(id)) |direction|
+                    PerceivedActivity{
+                        .attack = PerceivedActivity.Attack{ .direction = direction },
+                    }
+                else
+                    PerceivedActivity{ .none = {} },
+
+                .deaths => |data| if (data.getValue(id)) |_|
+                    PerceivedActivity{ .death = {} }
+                else
+                    PerceivedActivity{ .none = {} },
+            };
+            const thing = PerceivedThing{
+                .species = game_state.individuals.getValue(id).?.species,
+                .abs_position = current_positions.getValue(id).?,
+                .activity = activity,
+            };
+            if (id == my_id) {
+                yourself = thing;
+            } else {
+                try others.append(thing);
+            }
         }
 
-        if (any_actual_attacks) {
-            try perception.frames.append(PerceivedFrame{ .attacks = perceived_attacks.toOwnedSlice() });
-        }
-    }
-
-    fn observeDeaths(
-        self: *const GameEngine,
-        game_state: GameState,
-        everybody: []const u32,
-        perception: *MutablePerceivedHappening,
-        current_positions: *const IdMap(Coord),
-        deaths: IdMap(void),
-    ) !void {
-        var perceived_deaths = ArrayList(PerceivedFrame.PerceivedDeath).init(self.allocator);
-        var any_actual_deaths = false;
-
-        for (everybody) |other_id| {
-            const actually_dies = deaths.contains(other_id);
-            try perceived_deaths.append(PerceivedFrame.PerceivedDeath{
-                .abs_position = current_positions.getValue(other_id).?,
-                .species = game_state.individuals.getValue(other_id).?.species,
-                .actually_dies = actually_dies,
-            });
-            if (actually_dies) any_actual_deaths = true;
-        }
-
-        if (any_actual_deaths) {
-            try perception.frames.append(PerceivedFrame{ .deaths = perceived_deaths.toOwnedSlice() });
-        }
+        try perception.frames.append(PerceivedFrame{
+            .self = yourself,
+            .others = others.toOwnedSlice(),
+            .terrain = game_state.terrain,
+        });
     }
 };
 

@@ -44,7 +44,7 @@ pub const Action = union(enum) {
 
 pub const Response = union(enum) {
     /// this happens on startup (from your perspective) and on rewind
-    load_state: StaticPerception,
+    load_state: PerceivedFrame,
 
     /// a typical turn happens
     stuff_happens: PerceivedHappening,
@@ -53,55 +53,45 @@ pub const Response = union(enum) {
     reject_request,
 };
 
-pub const StaticPerception = struct {
-    terrain: Terrain,
-
-    /// null means you're are dead
-    self: ?StaticIndividual,
-    others: []StaticIndividual,
-    pub const StaticIndividual = struct {
-        abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
-        species: Species,
-    };
-};
-
 /// what you see each turn
 pub const PerceivedHappening = struct {
-    /// sequential order of simultaneous events
+    /// Sequential order of simultaneous events.
+    /// The last frame will always have all things with .none PerceivedActivity.
     frames: []PerceivedFrame,
-
-    /// the state of what you can see after the frames
-    static_perception: StaticPerception,
 };
 
 /// Represents what you can observe with your eyes happening simultaneously.
 /// There can be multiple of these per turn.
-pub const PerceivedFrame = union(enum) {
-    movements: []PerceivedMovement,
-    pub const PerceivedMovement = struct {
+pub const PerceivedFrame = struct {
+    terrain: Terrain,
+
+    /// null means you're are dead
+    self: ?PerceivedThing,
+    others: []PerceivedThing,
+};
+
+pub const PerceivedThing = struct {
+    abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
+    species: Species,
+
+    activity: PerceivedActivity,
+};
+
+pub const PerceivedActivity = union(enum) {
+    none,
+
+    movement: Movement,
+    pub const Movement = struct {
         prior_velocity: Coord,
-        abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
-        species: Species,
         next_velocity: Coord,
     };
 
-    attacks: []PerceivedAttack,
-    pub const PerceivedAttack = struct {
-        abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
-        species: Species,
-
-        /// null means not attacking.
-        direction: ?Coord,
+    attack: Attack,
+    pub const Attack = struct {
+        direction: Coord,
     };
 
-    deaths: []PerceivedDeath,
-    pub const PerceivedDeath = struct {
-        abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
-        species: Species,
-
-        /// TODO: clearly there's a problem with this data model
-        actually_dies: bool,
-    };
+    death,
 };
 
 /// Despite all the generic elegance of the Channel classes,
