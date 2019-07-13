@@ -64,8 +64,7 @@ fn make_binary_variant(
     exe.addPackagePath("core", "src/index.zig");
     if (!headless) {
         if (target.getOs() == .windows and target.getAbi() == .gnu) {
-            const sdl2_dep = @import("deps/zig-sdl/build.zig");
-            exe.linkLibrary(sdl2_dep.getLibrary(b, build_mode, target, "deps/zig-sdl"));
+            @import("deps/zig-sdl/build.zig").linkArtifact(b, exe, "deps/zig-sdl");
         } else {
             exe.linkSystemLibrary("SDL2");
         }
