@@ -8,7 +8,6 @@ const GameEngine = @import("./game_engine.zig").GameEngine;
 const GameState = @import("./game_engine.zig").GameState;
 const IdMap = @import("./game_engine.zig").IdMap;
 const Individual = @import("./game_engine.zig").Individual;
-const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
 const Socket = core.protocol.Socket;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
@@ -35,21 +34,11 @@ pub fn server_main(main_player_socket: *Socket) !void {
     var game_state = GameState.init(allocator);
 
     // create ai clients
-    var ai_clients = IdMap(*GameEngineClient).init(allocator);
     const main_player_id: u32 = 1;
     var you_are_alive = true;
     {
         const happenings = try game_engine.getStartGameHappenings();
         try game_state.applyStateChanges(happenings.state_changes);
-        for (happenings.state_changes) |diff| {
-            switch (diff) {
-                .spawn => |individual| {
-                    if (individual.id == main_player_id) continue;
-                    try handleSpawn(&ai_clients, individual);
-                },
-                else => {},
-            }
-        }
     }
     // Welcome to swarkland!
     try main_player_socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
@@ -63,9 +52,10 @@ pub fn server_main(main_player_socket: *Socket) !void {
 
         // do ai
         {
-            var iterator = ai_clients.iterator();
+            var iterator = game_state.individuals.iterator();
             while (iterator.next()) |kv| {
                 const id = kv.key;
+                if (id == main_player_id) continue;
                 const response = response_for_ais.getValue(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
                 try actions.putNoClobber(id, doAi(response));
             }
@@ -112,15 +102,6 @@ pub fn server_main(main_player_socket: *Socket) !void {
                         .despawn => |individual| {
                             if (individual.id == main_player_id) {
                                 you_are_alive = true;
-                            } else {
-                                try handleSpawn(&ai_clients, individual);
-                            }
-                        },
-                        .spawn => |individual| {
-                            if (individual.id == main_player_id) {
-                                @panic("you can't unspawn midgame");
-                            } else {
-                                handleDespawn(&ai_clients, individual.id);
                             }
                         },
                         else => {},
@@ -138,18 +119,9 @@ pub fn server_main(main_player_socket: *Socket) !void {
             try game_state.applyStateChanges(happenings.state_changes);
             for (happenings.state_changes) |diff| {
                 switch (diff) {
-                    .spawn => |individual| {
-                        if (individual.id == main_player_id) {
-                            @panic("you can't spawn mid game");
-                        } else {
-                            try handleSpawn(&ai_clients, individual);
-                        }
-                    },
                     .despawn => |individual| {
                         if (individual.id == main_player_id) {
                             you_are_alive = false;
-                        } else {
-                            handleDespawn(&ai_clients, individual.id);
                         }
                     },
                     else => {},
@@ -184,17 +156,6 @@ fn pushHistoryRecord(history: *HistoryList, state_changes: []StateDiff) !void {
     const history_node: *HistoryNode = try allocator.create(HistoryNode);
     history_node.data = state_changes;
     history.append(history_node);
-}
-
-fn handleSpawn(ai_clients: *IdMap(*GameEngineClient), individual: Individual) !void {
-    // initialize ai socket
-    var client = try allocator.create(GameEngineClient);
-    client.startAsAi(individual.id);
-    try ai_clients.putNoClobber(individual.id, client);
-}
-
-fn handleDespawn(ai_clients: *IdMap(*GameEngineClient), id: u32) void {
-    ai_clients.removeAssertDiscard(id);
 }
 
 fn doAi(response: Response) Action {

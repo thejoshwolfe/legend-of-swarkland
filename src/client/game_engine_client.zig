@@ -21,8 +21,6 @@ const Connection = union(enum) {
         recv_pipe: [2]std.fs.File,
         server_socket: Socket,
     };
-
-    attach,
 };
 
 pub const GameEngineClient = struct {
@@ -51,16 +49,6 @@ pub const GameEngineClient = struct {
         self.recv_thread = try std.Thread.spawn(self, recvMain);
     }
 
-    /// returns the socket for the server to use to communicate with this client.
-    pub fn startAsAi(self: *GameEngineClient, debug_client_id: u32) void {
-        self.init();
-        self.debug_client_id = debug_client_id;
-
-        self.connection = Connection.attach;
-
-        self.send_thread = null;
-        self.recv_thread = null;
-    }
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
         self.init();
 
@@ -120,7 +108,6 @@ pub const GameEngineClient = struct {
             .thread => |*data| {
                 data.core_thread.wait();
             },
-            .attach => @panic("ai clients have nothing to stop"),
         }
         self.stay_alive.set(0);
         self.send_thread.?.wait();
@@ -177,11 +164,9 @@ pub const GameEngineClient = struct {
     }
 
     pub fn act(self: *GameEngineClient, action: Action) !void {
-        std.debug.assert(@TagType(Connection)(self.connection) != Connection.attach);
         try queuePut(Request, &self.request_outbox, Request{ .act = action });
     }
     pub fn rewind(self: *GameEngineClient) !void {
-        std.debug.assert(@TagType(Connection)(self.connection) != Connection.attach);
         try queuePut(Request, &self.request_outbox, Request{ .rewind = {} });
     }
     pub fn move(self: *GameEngineClient, direction: Coord) !void {
