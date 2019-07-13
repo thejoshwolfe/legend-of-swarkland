@@ -117,7 +117,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 main_menu_state.beginFrame();
             },
             GameState.running => |*state| {
-                if (state.client.pollResponse()) |response| {
+                if (state.client.queues.takeResponse()) |response| {
                     switch (response) {
                         .stuff_happens => |happening| {
                             // Show animations for what's going on.
@@ -127,9 +127,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .load_state => |static_perception| {
                             state.animations = null;
                             state.client_state = try loadStaticPerception(static_perception);
-                        },
-                        .game_over => {
-                            @panic("did we die or something?");
                         },
                         .reject_request => {
                             // oh sorry.

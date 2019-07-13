@@ -35,7 +35,6 @@ pub const Terrain = struct {
 pub const Request = union(enum) {
     act: Action,
     rewind,
-    quit,
 };
 
 pub const Action = union(enum) {
@@ -49,9 +48,6 @@ pub const Response = union(enum) {
 
     /// a typical turn happens
     stuff_happens: PerceivedHappening,
-
-    /// this only exists to get the ai's to shutdown cleanly
-    game_over,
 
     /// ur doin it rong, and nothing happened. try again.
     reject_request,

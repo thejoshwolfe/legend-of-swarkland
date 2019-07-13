@@ -11,42 +11,148 @@ const Event = core.protocol.Event;
 
 const allocator = std.heap.c_allocator;
 
+const QueueToFdAdapter = struct {
+    socket: Socket,
+    send_thread: *std.Thread,
+    recv_thread: *std.Thread,
+    queues: *SomeQueues,
+
+    pub fn init(
+        self: *QueueToFdAdapter,
+        in_stream: std.fs.File.InStream,
+        out_stream: std.fs.File.OutStream,
+        queues: *SomeQueues,
+    ) !void {
+        self.socket = Socket.init(in_stream, out_stream);
+        self.queues = queues;
+        self.send_thread = try std.Thread.spawn(self, sendMain);
+        self.recv_thread = try std.Thread.spawn(self, recvMain);
+    }
+
+    pub fn wait(self: *QueueToFdAdapter) void {
+        self.send_thread.wait();
+        self.recv_thread.wait();
+    }
+
+    fn sendMain(self: *QueueToFdAdapter) void {
+        core.debug.nameThisThread("client send");
+        defer core.debug.unnameThisThread();
+        core.debug.thread_lifecycle.print("init");
+        defer core.debug.thread_lifecycle.print("shutdown");
+
+        while (true) {
+            const request = self.queues.waitAndTakeRequest() orelse {
+                core.debug.thread_lifecycle.print("clean shutdown");
+                break;
+            };
+            self.socket.out().write(request) catch |err| {
+                @panic("TODO: proper error handling");
+            };
+        }
+    }
+
+    fn recvMain(self: *QueueToFdAdapter) void {
+        core.debug.nameThisThread("client recv");
+        defer core.debug.unnameThisThread();
+        core.debug.thread_lifecycle.print("init");
+        defer core.debug.thread_lifecycle.print("shutdown");
+
+        while (true) {
+            const response = self.socket.in(allocator).read(Response) catch |err| {
+                switch (err) {
+                    error.EndOfStream => {
+                        core.debug.thread_lifecycle.print("clean shutdown");
+                        break;
+                    },
+                    else => @panic("TODO: proper error handling"),
+                }
+            };
+            self.queues.enqueueResponse(response) catch |err| {
+                @panic("TODO: proper error handling");
+            };
+        }
+    }
+};
+
+pub const SomeQueues = struct {
+    requests_alive: std.atomic.Int(u8),
+    requests: std.atomic.Queue(Request),
+    responses_alive: std.atomic.Int(u8),
+    responses: std.atomic.Queue(Response),
+
+    pub fn init(self: *SomeQueues) void {
+        self.requests_alive = std.atomic.Int(u8).init(1);
+        self.requests = std.atomic.Queue(Request).init();
+        self.responses_alive = std.atomic.Int(u8).init(1);
+        self.responses = std.atomic.Queue(Response).init();
+    }
+
+    pub fn closeRequests(self: *SomeQueues) void {
+        self.requests_alive.set(0);
+    }
+    pub fn enqueueRequest(self: *SomeQueues, request: Request) !void {
+        try queuePut(Request, &self.requests, request);
+    }
+
+    /// null means requests have been closed
+    pub fn waitAndTakeRequest(self: *SomeQueues) ?Request {
+        while (self.requests_alive.get() != 0) {
+            if (queueGet(Request, &self.requests)) |response| {
+                return response;
+            }
+            // :ResidentSleeper:
+            std.time.sleep(17 * std.time.millisecond);
+        }
+        return null;
+    }
+
+    pub fn closeResponses(self: *SomeQueues) void {
+        self.responses_alive.set(0);
+    }
+    pub fn enqueueResponse(self: *SomeQueues, response: Response) !void {
+        try queuePut(Response, &self.responses, response);
+    }
+    pub fn takeResponse(self: *SomeQueues) ?Response {
+        return queueGet(Response, &self.responses);
+    }
+
+    /// null means responses have been closed
+    pub fn waitAndTakeResponse(self: *SomeQueues) ?Response {
+        while (self.responses_alive.get() != 0) {
+            if (self.takeResponse()) |response| {
+                return response;
+            }
+            // :ResidentSleeper:
+            std.time.sleep(17 * std.time.millisecond);
+        }
+        return null;
+    }
+};
+pub const ClientQueues = SomeQueues(Response, Request);
+pub const ServerQueues = SomeQueues(Request, Response);
+
 const Connection = union(enum) {
-    child_process: *std.ChildProcess,
+    child_process: ChildProcessData,
+    const ChildProcessData = struct {
+        child_process: *std.ChildProcess,
+        adapter: *QueueToFdAdapter,
+    };
 
     thread: ThreadData,
     const ThreadData = struct {
         core_thread: *std.Thread,
-        send_pipe: [2]std.fs.File,
-        recv_pipe: [2]std.fs.File,
-        server_socket: Socket,
     };
 };
 
 pub const GameEngineClient = struct {
     // initialized in startAs*()
     connection: Connection,
-    socket: Socket,
-    // initialized in startThreads()
-    send_thread: ?*std.Thread,
-    recv_thread: ?*std.Thread,
 
     // initialized in init()
-    request_outbox: std.atomic.Queue(Request),
-    response_inbox: std.atomic.Queue(Response),
-    stay_alive: std.atomic.Int(u8),
-    debug_client_id: u32,
+    queues: SomeQueues,
 
     fn init(self: *GameEngineClient) void {
-        self.request_outbox = std.atomic.Queue(Request).init();
-        self.response_inbox = std.atomic.Queue(Response).init();
-        self.stay_alive = std.atomic.Int(u8).init(1);
-        self.debug_client_id = 0;
-    }
-    fn startThreads(self: *GameEngineClient) !void {
-        // start threads last
-        self.send_thread = try std.Thread.spawn(self, sendMain);
-        self.recv_thread = try std.Thread.spawn(self, recvMain);
+        self.queues.init();
     }
 
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
@@ -64,111 +170,78 @@ pub const GameEngineClient = struct {
                 child_process.stdout_behavior = std.ChildProcess.StdIo.Pipe;
                 child_process.stdin_behavior = std.ChildProcess.StdIo.Pipe;
                 try child_process.*.spawn();
-                self.socket = Socket.init(child_process.*.stdout.?.inStream(), child_process.*.stdin.?.outStream());
-                // FIXME: workaround for wait() trying to close stdin when it's already closed.
-                child_process.stdin = null;
-                break :blk child_process;
+
+                const adapter = try allocator.create(QueueToFdAdapter);
+                try adapter.init(
+                    child_process.*.stdout.?.inStream(),
+                    child_process.*.stdin.?.outStream(),
+                    &self.queues,
+                );
+
+                break :blk Connection.ChildProcessData{
+                    .child_process = child_process,
+                    .adapter = adapter,
+                };
             },
         };
-
-        try self.startThreads();
     }
     pub fn startAsThread(self: *GameEngineClient) !void {
         self.init();
 
-        self.connection = Connection{ .thread = undefined };
-        const data = &self.connection.thread;
-        data.send_pipe = try makePipe();
-        data.recv_pipe = try makePipe();
-        self.socket = Socket.init(data.recv_pipe[0].inStream(), data.send_pipe[1].outStream());
-        data.server_socket = Socket.init(data.send_pipe[0].inStream(), data.recv_pipe[1].outStream());
-        const LambdaPlease = struct {
-            pub fn f(context: *Socket) void {
-                game_server.server_main(context) catch |err| {
-                    std.debug.warn("error: {}", @errorName(err));
-                    if (@errorReturnTrace()) |trace| {
-                        std.debug.dumpStackTrace(trace.*);
-                    }
-                    @panic("");
-                };
-            }
-        };
-        data.core_thread = try std.Thread.spawn(&data.server_socket, LambdaPlease.f);
+        self.connection = Connection{
+            .thread = blk: {
+                const LambdaPlease = struct {
+                    pub fn f(context: *SomeQueues) void {
+                        core.debug.nameThisThread("server thread");
+                        defer core.debug.unnameThisThread();
+                        core.debug.thread_lifecycle.print("init");
+                        defer core.debug.thread_lifecycle.print("shutdown");
 
-        try self.startThreads();
+                        game_server.server_main(context) catch |err| {
+                            std.debug.warn("error: {}", @errorName(err));
+                            if (@errorReturnTrace()) |trace| {
+                                std.debug.dumpStackTrace(trace.*);
+                            }
+                            @panic("");
+                        };
+                    }
+                };
+                break :blk Connection.ThreadData{
+                    .core_thread = try std.Thread.spawn(&self.queues, LambdaPlease.f),
+                };
+            },
+        };
     }
 
     pub fn stopEngine(self: *GameEngineClient) void {
         core.debug.thread_lifecycle.print("close");
-        self.socket.close(Request.quit);
+        self.queues.closeRequests();
         switch (self.connection) {
-            .child_process => |child_process| {
-                _ = child_process.wait() catch undefined;
+            .child_process => |*data| {
+                data.child_process.stdin.?.close();
+                // FIXME: workaround for wait() trying to close already closed fds
+                data.child_process.stdin = null;
+
+                core.debug.thread_lifecycle.print("join adapter threads");
+                data.adapter.wait();
+
+                core.debug.thread_lifecycle.print("join child process");
+                _ = data.child_process.wait() catch undefined;
             },
             .thread => |*data| {
                 data.core_thread.wait();
             },
         }
-        self.stay_alive.set(0);
-        self.send_thread.?.wait();
-        self.recv_thread.?.wait();
         core.debug.thread_lifecycle.print("all threads done");
     }
 
-    fn isAlive(self: *GameEngineClient) bool {
-        return self.stay_alive.get() != 0;
-    }
-
-    pub fn pollResponse(self: *GameEngineClient) ?Response {
-        return queueGet(Response, &self.response_inbox) orelse return null;
-    }
-
-    fn sendMain(self: *GameEngineClient) void {
-        core.debug.nameThisThreadWithClientId("client send", self.debug_client_id);
-        defer core.debug.unnameThisThread();
-        core.debug.thread_lifecycle.print("init");
-        defer core.debug.thread_lifecycle.print("shutdown");
-        while (self.isAlive()) {
-            const request = queueGet(Request, &self.request_outbox) orelse {
-                // :ResidentSleeper:
-                std.time.sleep(17 * std.time.millisecond);
-                continue;
-            };
-            self.socket.out().write(request) catch |err| {
-                @panic("TODO: proper error handling");
-            };
-        }
-    }
-
-    fn recvMain(self: *GameEngineClient) void {
-        core.debug.nameThisThreadWithClientId("client recv", self.debug_client_id);
-        defer core.debug.unnameThisThread();
-        core.debug.thread_lifecycle.print("init");
-        defer core.debug.thread_lifecycle.print("shutdown");
-        while (self.isAlive()) {
-            const response = self.socket.in(allocator).read(Response) catch {
-                @panic("TODO: proper error handling");
-            };
-            switch (response) {
-                .game_over => {
-                    core.debug.thread_lifecycle.print("clean shutdown");
-                    return;
-                },
-                else => {
-                    queuePut(Response, &self.response_inbox, response) catch |err| {
-                        @panic("TODO: proper error handling");
-                    };
-                },
-            }
-        }
-    }
-
     pub fn act(self: *GameEngineClient, action: Action) !void {
-        try queuePut(Request, &self.request_outbox, Request{ .act = action });
+        try self.queues.enqueueRequest(Request{ .act = action });
     }
     pub fn rewind(self: *GameEngineClient) !void {
-        try queuePut(Request, &self.request_outbox, Request{ .rewind = {} });
+        try self.queues.enqueueRequest(Request{ .rewind = {} });
     }
+
     pub fn move(self: *GameEngineClient, direction: Coord) !void {
         return self.act(Action{ .move = direction });
     }
@@ -190,13 +263,6 @@ fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
     const hack = node.data; // TODO: https://github.com/ziglang/zig/issues/961
     return hack;
 }
-fn makePipe() ![2]std.fs.File {
-    var fds: [2]i32 = try std.os.pipe();
-    return [_]std.fs.File{
-        std.fs.File.openHandle(fds[0]),
-        std.fs.File.openHandle(fds[1]),
-    };
-}
 
 test "basic interaction" {
     // init
@@ -210,14 +276,14 @@ test "basic interaction" {
     try client.startAsThread();
     defer client.stopEngine();
 
-    const startup_response = pollSync(client);
+    const startup_response = client.queues.waitAndTakeResponse().?;
     const starting_position = startup_response.load_state.self.?.abs_position;
     core.debug.testing.print("startup done");
 
     // move
     try client.move(makeCoord(1, 0));
     {
-        const response = pollSync(client);
+        const response = client.queues.waitAndTakeResponse().?;
         const new_position = blk: {
             for (response.stuff_happens.frames[1].movements) |x| {
                 if (x.species == .human) break :blk x.abs_position;
@@ -232,19 +298,10 @@ test "basic interaction" {
     // rewind
     try client.rewind();
     {
-        const response = pollSync(client);
+        const response = client.queues.waitAndTakeResponse().?;
         const new_position = response.load_state.self.?.abs_position;
 
         std.testing.expect(new_position.equals(starting_position));
     }
     core.debug.testing.print("rewind looks good");
-}
-
-fn pollSync(client: *GameEngineClient) Response {
-    while (true) {
-        if (client.pollResponse()) |response| {
-            return response;
-        }
-        std.time.sleep(17 * std.time.millisecond);
-    }
 }

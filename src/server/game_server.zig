@@ -8,7 +8,7 @@ const GameEngine = @import("./game_engine.zig").GameEngine;
 const GameState = @import("./game_engine.zig").GameState;
 const IdMap = @import("./game_engine.zig").IdMap;
 const Individual = @import("./game_engine.zig").Individual;
-const Socket = core.protocol.Socket;
+const SomeQueues = @import("../client/game_engine_client.zig").SomeQueues;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
 const Action = core.protocol.Action;
@@ -23,12 +23,7 @@ const HistoryNode = HistoryList.Node;
 
 const allocator = std.heap.c_allocator;
 
-pub fn server_main(main_player_socket: *Socket) !void {
-    core.debug.nameThisThread("core");
-    defer core.debug.unnameThisThread();
-    core.debug.thread_lifecycle.print("init");
-    defer core.debug.thread_lifecycle.print("shutdown");
-
+pub fn server_main(main_player_queues: *SomeQueues) !void {
     var game_engine: GameEngine = undefined;
     game_engine.init(allocator);
     var game_state = GameState.init(allocator);
@@ -41,7 +36,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
         try game_state.applyStateChanges(happenings.state_changes);
     }
     // Welcome to swarkland!
-    try main_player_socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
+    try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
 
     var response_for_ais = IdMap(Response).init(allocator);
     var history = HistoryList.init();
@@ -66,17 +61,15 @@ pub fn server_main(main_player_socket: *Socket) !void {
         var is_rewind = false;
         {
             retryRead: while (true) {
-                switch (try main_player_socket.in(allocator).read(Request)) {
-                    .quit => {
-                        core.debug.thread_lifecycle.print("clean shutdown. close");
-                        // shutdown the main player
-                        main_player_socket.close(Response.game_over);
-                        break :mainLoop;
-                    },
+                switch (main_player_queues.waitAndTakeRequest() orelse {
+                    core.debug.thread_lifecycle.print("clean shutdown. close");
+                    main_player_queues.closeResponses();
+                    break :mainLoop;
+                }) {
                     .act => |action| {
                         if (!you_are_alive) {
                             // no. you're are dead.
-                            try main_player_socket.out().write(Response.reject_request);
+                            try main_player_queues.enqueueResponse(Response.reject_request);
                             continue :retryRead;
                         }
                         std.debug.assert(game_engine.validateAction(action));
@@ -109,7 +102,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
                 }
             }
             // Even if we didn't actually do a rewind, send a response to keep the communication in sync.
-            try main_player_socket.out().write(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
+            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
         } else {
 
             // Time goes forward.
@@ -138,7 +131,7 @@ pub fn server_main(main_player_socket: *Socket) !void {
                     },
                 };
                 if (id == main_player_id) {
-                    try main_player_socket.out().write(response);
+                    try main_player_queues.enqueueResponse(response);
                 } else {
                     try response_for_ais.putNoClobber(id, response);
                 }
