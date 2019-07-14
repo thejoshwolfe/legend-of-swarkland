@@ -105,7 +105,8 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         } else {
 
             // Time goes forward.
-            const happenings = try game_engine.computeHappenings(game_state, actions);
+            var scratch_game_state = try game_state.clone();
+            const happenings = try game_engine.computeHappenings(&scratch_game_state, actions);
             core.debug.happening.deepPrint("happenings: ", happenings);
             try pushHistoryRecord(&history, happenings.state_changes);
             try game_state.applyStateChanges(happenings.state_changes);

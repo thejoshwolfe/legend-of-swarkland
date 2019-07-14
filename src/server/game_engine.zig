@@ -33,7 +33,7 @@ pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
 }
 
 /// Shallow copies the argument to a newly allocated pointer.
-pub fn clone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
+fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
     var x = try allocator.create(@typeOf(obj));
     x.* = obj;
     return x;
@@ -218,9 +218,10 @@ pub const GameEngine = struct {
         state_changes: []StateDiff,
     };
 
-    /// Computes what would happen but does not change the state of the engine.
+    /// Computes what would happen to the state of the game.
+    /// The game_state object passed in should be distroyed and forgotten after this function returns.
     /// This is the entry point for all game rules.
-    pub fn computeHappenings(self: *const GameEngine, game_state: GameState, actions: IdMap(Action)) !Happenings {
+    pub fn computeHappenings(self: *const GameEngine, game_state: *GameState, actions: IdMap(Action)) !Happenings {
         // cache the set of keys so iterator is easier.
         const everybody = try self.allocator.alloc(u32, game_state.individuals.count());
         {
@@ -270,7 +271,6 @@ pub const GameEngine = struct {
                     game_state,
                     id,
                     individual_to_perception.getValue(id).?,
-                    everybody,
                     current_positions,
                     Activities{
                         .movement = Activities.Movement{
@@ -361,22 +361,24 @@ pub const GameEngine = struct {
             }
         }
         for (everybody) |id| {
-            try self.observeFrame(
-                game_state,
-                id,
-                individual_to_perception.getValue(id).?,
-                everybody,
-                current_positions,
-                Activities{ .attacks = &attacks },
-            );
-            try self.observeFrame(
-                game_state,
-                id,
-                individual_to_perception.getValue(id).?,
-                everybody,
-                current_positions,
-                Activities{ .deaths = &deaths },
-            );
+            if (attacks.count() != 0) {
+                try self.observeFrame(
+                    game_state,
+                    id,
+                    individual_to_perception.getValue(id).?,
+                    current_positions,
+                    Activities{ .attacks = &attacks },
+                );
+            }
+            if (deaths.count() != 0) {
+                try self.observeFrame(
+                    game_state,
+                    id,
+                    individual_to_perception.getValue(id).?,
+                    current_positions,
+                    Activities{ .deaths = &deaths },
+                );
+            }
         }
 
         var spawn_the_stairs = false;
@@ -398,8 +400,68 @@ pub const GameEngine = struct {
             }
         }
 
-        // spawn new level
         var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
+
+        // build state changes
+        var state_changes = ArrayList(StateDiff).init(self.allocator);
+        for (everybody) |id| {
+            const from = game_state.individuals.getValue(id).?.abs_position;
+            const to = current_positions.getValue(id).?;
+            if (to.equals(from)) continue;
+            const delta = to.minus(from);
+            try state_changes.append(StateDiff{
+                .move = StateDiff.IdAndCoord{
+                    .id = id,
+                    .coord = delta,
+                },
+            });
+        }
+        {
+            var iterator = deaths.iterator();
+            while (iterator.next()) |kv| {
+                try state_changes.append(StateDiff{
+                    .despawn = blk: {
+                        var individual = game_state.individuals.getValue(kv.key).?.*;
+                        individual.abs_position = current_positions.getValue(individual.id).?;
+                        break :blk individual;
+                    },
+                });
+            }
+        }
+        if (spawn_the_stairs or do_transition) {
+            try state_changes.append(StateDiff{
+                .terrain_update = StateDiff.TerrainDiff{
+                    .from = game_state.terrain,
+                    .to = blk: {
+                        if (do_transition) {
+                            break :blk makeTerrain(the_levels[game_state.level_number + 1].hatch_positions, false);
+                        } else {
+                            break :blk makeTerrain(the_levels[game_state.level_number].hatch_positions, true);
+                        }
+                    },
+                },
+            });
+        }
+        if (do_transition) {
+            try state_changes.append(StateDiff.transition_to_next_level);
+            for (the_levels[game_state.level_number + 1].individuals) |individual| {
+                const id = findAvailableId(&new_id_cursor, game_state.individuals);
+                try state_changes.append(StateDiff{ .spawn = assignId(individual, id) });
+            }
+        }
+
+        // final observations
+        try game_state.applyStateChanges(state_changes.toSliceConst());
+        current_positions.clear();
+        for (everybody) |id| {
+            try self.observeFrame(
+                game_state,
+                id,
+                individual_to_perception.getValue(id).?,
+                current_positions,
+                Activities.static_state,
+            );
+        }
 
         return Happenings{
             .individual_to_perception = blk: {
@@ -409,59 +471,12 @@ pub const GameEngine = struct {
                 }
                 break :blk ret;
             },
-            .state_changes = blk: {
-                var ret = ArrayList(StateDiff).init(self.allocator);
-                for (everybody) |id| {
-                    const from = game_state.individuals.getValue(id).?.abs_position;
-                    const to = current_positions.getValue(id).?;
-                    if (to.equals(from)) continue;
-                    const delta = to.minus(from);
-                    try ret.append(StateDiff{
-                        .move = StateDiff.IdAndCoord{
-                            .id = id,
-                            .coord = delta,
-                        },
-                    });
-                }
-                {
-                    var iterator = deaths.iterator();
-                    while (iterator.next()) |kv| {
-                        try ret.append(StateDiff{
-                            .despawn = blk: {
-                                var individual = game_state.individuals.getValue(kv.key).?.*;
-                                individual.abs_position = current_positions.getValue(individual.id).?;
-                                break :blk individual;
-                            },
-                        });
-                    }
-                }
-                if (spawn_the_stairs or do_transition) {
-                    try ret.append(StateDiff{
-                        .terrain_update = StateDiff.TerrainDiff{
-                            .from = game_state.terrain,
-                            .to = blk: {
-                                if (do_transition) {
-                                    break :blk makeTerrain(the_levels[game_state.level_number + 1].hatch_positions, false);
-                                } else {
-                                    break :blk makeTerrain(the_levels[game_state.level_number].hatch_positions, true);
-                                }
-                            },
-                        },
-                    });
-                }
-                if (do_transition) {
-                    try ret.append(StateDiff.transition_to_next_level);
-                    for (the_levels[game_state.level_number + 1].individuals) |individual| {
-                        const id = findAvailableId(&new_id_cursor, game_state.individuals);
-                        try ret.append(StateDiff{ .spawn = assignId(individual, id) });
-                    }
-                }
-                break :blk ret.toOwnedSlice();
-            },
+            .state_changes = state_changes.toOwnedSlice(),
         };
     }
 
     const Activities = union(enum) {
+        static_state,
         movement: Movement,
         const Movement = struct {
             previous_moves: *const IdMap(Coord),
@@ -473,17 +488,18 @@ pub const GameEngine = struct {
     };
     fn observeFrame(
         self: *const GameEngine,
-        game_state: GameState,
+        game_state: *const GameState,
         my_id: u32,
         perception: *MutablePerceivedHappening,
-        everybody: []const u32,
         current_positions: *const IdMap(Coord),
         activities: Activities,
     ) !void {
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
 
-        for (everybody) |id| {
+        var iterator = game_state.individuals.iterator();
+        while (iterator.next()) |kv| {
+            const id = kv.key;
             const activity = switch (activities) {
                 .movement => |data| blk: {
                     const a = PerceivedActivity{
@@ -506,10 +522,12 @@ pub const GameEngine = struct {
                     PerceivedActivity{ .death = {} }
                 else
                     PerceivedActivity{ .none = {} },
+
+                .static_state => PerceivedActivity{ .none = {} },
             };
             const thing = PerceivedThing{
                 .species = game_state.individuals.getValue(id).?.species,
-                .abs_position = current_positions.getValue(id).?,
+                .abs_position = current_positions.getValue(id) orelse game_state.individuals.getValue(id).?.abs_position,
                 .activity = activity,
             };
             if (id == my_id) {
@@ -603,11 +621,27 @@ pub const GameState = struct {
         };
     }
 
+    pub fn clone(self: GameState) !GameState {
+        return GameState{
+            .allocator = self.allocator,
+            .terrain = self.terrain,
+            .individuals = blk: {
+                var ret = IdMap(*Individual).init(self.allocator);
+                var iterator = self.individuals.iterator();
+                while (iterator.next()) |kv| {
+                    try ret.putNoClobber(kv.key, try allocClone(self.allocator, kv.value.*));
+                }
+                break :blk ret;
+            },
+            .level_number = self.level_number,
+        };
+    }
+
     fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
         for (state_changes) |diff| {
             switch (diff) {
                 .spawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try clone(self.allocator, individual));
+                    try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
                 },
                 .despawn => |individual| {
                     self.individuals.removeAssertDiscard(individual.id);
@@ -634,7 +668,7 @@ pub const GameState = struct {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
                 .despawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try clone(self.allocator, individual));
+                    try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
                 },
                 .move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
