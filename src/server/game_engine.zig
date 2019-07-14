@@ -21,6 +21,8 @@ pub fn IdMap(comptime V: type) type {
     return HashMap(u32, V, core.geometry.hashU32, std.hash_map.getTrivialEqlFn(u32));
 }
 
+const empty_id_to_coord_map = IdMap(Coord).init(std.debug.failing_allocator);
+
 pub fn CoordMap(comptime V: type) type {
     return HashMap(Coord, V, Coord.hash, Coord.equals);
 }
@@ -190,33 +192,6 @@ pub const GameEngine = struct {
                 });
                 break :blk ret.toOwnedSlice();
             },
-        };
-    }
-
-    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: u32) !PerceivedFrame {
-        const your_position = game_state.individuals.getValue(individual_id).?.abs_position;
-        var yourself: ?PerceivedThing = null;
-        var others = ArrayList(PerceivedThing).init(self.allocator);
-        var iterator = game_state.individuals.iterator();
-        while (iterator.next()) |kv| {
-            const thing = PerceivedThing{
-                .species = kv.value.species,
-                .rel_position = kv.value.abs_position.minus(your_position),
-                .activity = .none,
-            };
-            if (kv.key == individual_id) {
-                yourself = thing;
-            } else {
-                try others.append(thing);
-            }
-        }
-        return PerceivedFrame{
-            .terrain = core.protocol.TerrainChunk{
-                .rel_position = your_position.negated(),
-                .matrix = try game_state.terrain.clone(self.allocator),
-            },
-            .self = yourself.?,
-            .others = others.toOwnedSlice(),
         };
     }
 
@@ -503,7 +478,33 @@ pub const GameEngine = struct {
         current_positions: *const IdMap(Coord),
         activities: Activities,
     ) !void {
-        const your_position = game_state.individuals.getValue(my_id).?.abs_position;
+        try perception.frames.append(try getPerceivedFrame(
+            self,
+            game_state,
+            my_id,
+            current_positions,
+            activities,
+        ));
+    }
+
+    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: u32) !PerceivedFrame {
+        return getPerceivedFrame(
+            self,
+            &game_state,
+            individual_id,
+            &empty_id_to_coord_map,
+            Activities.static_state,
+        );
+    }
+
+    fn getPerceivedFrame(
+        self: *const GameEngine,
+        game_state: *const GameState,
+        my_id: u32,
+        current_positions: *const IdMap(Coord),
+        activities: Activities,
+    ) !PerceivedFrame {
+        const your_position = current_positions.getValue(my_id) orelse game_state.individuals.getValue(my_id).?.abs_position;
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
 
@@ -548,14 +549,28 @@ pub const GameEngine = struct {
             }
         }
 
-        try perception.frames.append(PerceivedFrame{
+        const view_distance = 8;
+        const view_size = view_distance * 2 + 1;
+        var terrain_chunk = core.protocol.TerrainChunk{
+            .rel_position = makeCoord(-view_distance, -view_distance),
+            .matrix = try Terrain.initFill(self.allocator, view_size, view_size, oob_terrain),
+        };
+        const view_origin = your_position.minus(makeCoord(view_distance, view_distance));
+        var cursor = Coord{ .x = undefined, .y = 0 };
+        while (cursor.y < view_size) : (cursor.y += 1) {
+            cursor.x = 0;
+            while (cursor.x < view_size) : (cursor.x += 1) {
+                if (game_state.terrain.getCoord(cursor.plus(view_origin))) |cell| {
+                    terrain_chunk.matrix.atCoord(cursor).?.* = cell;
+                }
+            }
+        }
+
+        return PerceivedFrame{
             .self = yourself.?,
             .others = others.toOwnedSlice(),
-            .terrain = core.protocol.TerrainChunk{
-                .rel_position = your_position.negated(),
-                .matrix = try game_state.terrain.clone(self.allocator),
-            },
-        });
+            .terrain = terrain_chunk,
+        };
     }
 };
 
