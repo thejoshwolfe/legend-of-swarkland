@@ -6,7 +6,7 @@ Simple turn-based action fantasy puzzle game.
 
 ## How do I play it
 
-Windows build coming soon.
+A Windows build can be downloaded from here: https://wolfesoftware.com/legend-of-swarkland/
 
 Here's how to build from source on Linux:
 
