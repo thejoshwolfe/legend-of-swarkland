@@ -161,19 +161,18 @@ fn doAi(response: Response) Action {
 }
 
 fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
-    const self_position = last_frame.self.?.abs_position;
     const target_position = blk: {
         // KILLKILLKILL HUMANS
         for (last_frame.others) |other| {
-            if (other.species == .human) break :blk other.abs_position;
+            if (other.species == .human) break :blk other.rel_position;
         }
         // no human? kill each other then!
-        for (last_frame.others) |other| break :blk other.abs_position;
+        for (last_frame.others) |other| break :blk other.rel_position;
         // i'm the last one? dance!
         return Action{ .move = Coord{ .x = 0, .y = 1 } };
     };
 
-    const delta = target_position.minus(self_position);
+    const delta = target_position;
     std.debug.assert(!(delta.x == 0 and delta.y == 0));
     const range = core.game_logic.getAttackRange(last_frame.self.?.species);
 
@@ -212,9 +211,9 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     {
         var flip_flop_counter = usize(0);
         while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
-            const move_into_position = self_position.plus(options[option_index]);
+            const move_into_position = options[option_index];
             for (last_frame.others) |perceived_other| {
-                if (perceived_other.abs_position.equals(move_into_position)) {
+                if (perceived_other.rel_position.equals(move_into_position)) {
                     // somebody's there already.
                     option_index = 1 - option_index;
                     break;

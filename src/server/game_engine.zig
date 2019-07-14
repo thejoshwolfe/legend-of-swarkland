@@ -188,22 +188,20 @@ pub const GameEngine = struct {
     }
 
     pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: u32) !PerceivedFrame {
+        const your_position = game_state.individuals.getValue(individual_id).?.abs_position;
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
         var iterator = game_state.individuals.iterator();
         while (iterator.next()) |kv| {
+            const thing = PerceivedThing{
+                .species = kv.value.species,
+                .rel_position = kv.value.abs_position.minus(your_position),
+                .activity = .none,
+            };
             if (kv.key == individual_id) {
-                yourself = PerceivedThing{
-                    .species = kv.value.species,
-                    .abs_position = kv.value.abs_position,
-                    .activity = .none,
-                };
+                yourself = thing;
             } else {
-                try others.append(PerceivedThing{
-                    .species = kv.value.species,
-                    .abs_position = kv.value.abs_position,
-                    .activity = .none,
-                });
+                try others.append(thing);
             }
         }
         return PerceivedFrame{
@@ -454,13 +452,15 @@ pub const GameEngine = struct {
         try game_state.applyStateChanges(state_changes.toSliceConst());
         current_positions.clear();
         for (everybody) |id| {
-            try self.observeFrame(
-                game_state,
-                id,
-                individual_to_perception.getValue(id).?,
-                current_positions,
-                Activities.static_state,
-            );
+            if (!deaths.contains(id)) {
+                try self.observeFrame(
+                    game_state,
+                    id,
+                    individual_to_perception.getValue(id).?,
+                    current_positions,
+                    Activities.static_state,
+                );
+            }
         }
 
         return Happenings{
@@ -494,6 +494,7 @@ pub const GameEngine = struct {
         current_positions: *const IdMap(Coord),
         activities: Activities,
     ) !void {
+        const your_position = game_state.individuals.getValue(my_id).?.abs_position;
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
 
@@ -525,9 +526,10 @@ pub const GameEngine = struct {
 
                 .static_state => PerceivedActivity{ .none = {} },
             };
+            const abs_position = current_positions.getValue(id) orelse game_state.individuals.getValue(id).?.abs_position;
             const thing = PerceivedThing{
                 .species = game_state.individuals.getValue(id).?.species,
-                .abs_position = current_positions.getValue(id) orelse game_state.individuals.getValue(id).?.abs_position,
+                .rel_position = abs_position.minus(your_position),
                 .activity = activity,
             };
             if (id == my_id) {

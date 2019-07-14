@@ -305,6 +305,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                 }
 
+                const center_screen = makeCoord(7, 7).scaled(32).plus(makeCoord(32 / 2, 32 / 2));
+                const camera_offset = center_screen.minus(getRelDisplayPosition(progress, move_frame_time, frame.self.?));
+
                 // render terrain
                 const terrain = frame.terrain;
                 for (terrain.floor) |row, y| {
@@ -336,10 +339,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // render the things
                 for (frame.others) |other| {
-                    _ = renderThing(renderer, progress, move_frame_time, other);
+                    _ = renderThing(renderer, progress, move_frame_time, camera_offset, other);
                 }
                 if (frame.self) |yourself| {
-                    const display_position = renderThing(renderer, progress, move_frame_time, yourself);
+                    const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, yourself);
                     if (show_poised_attack and state.started_attack) {
                         textures.renderSprite(renderer, textures.sprites.dagger, display_position);
                     }
@@ -380,17 +383,22 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     }
 }
 
-fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, thing: PerceivedThing) Coord {
-    const display_position = switch (thing.activity) {
+fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: PerceivedThing) Coord {
+    return switch (thing.activity) {
         .movement => |data| core.geometry.bezier3(
-            thing.abs_position.scaled(32).minus(data.prior_velocity.scaled(32 / 2)),
-            thing.abs_position.scaled(32),
-            thing.abs_position.scaled(32).plus(data.next_velocity.scaled(32 / 2)),
+            thing.rel_position.scaled(32).minus(data.prior_velocity.scaled(32 / 2)),
+            thing.rel_position.scaled(32),
+            thing.rel_position.scaled(32).plus(data.next_velocity.scaled(32 / 2)),
             progress,
             progress_denominator,
         ),
-        else => thing.abs_position.scaled(32),
+        else => thing.rel_position.scaled(32),
     };
+}
+
+fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
+    const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
+    const display_position = rel_display_position.plus(camera_offset);
     textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
 
     switch (thing.activity) {

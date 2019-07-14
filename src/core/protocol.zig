@@ -71,7 +71,7 @@ pub const PerceivedFrame = struct {
 };
 
 pub const PerceivedThing = struct {
-    abs_position: Coord, // TODO: when we have scrolling, change abs_position to rel_position
+    rel_position: Coord,
     species: Species,
 
     activity: PerceivedActivity,

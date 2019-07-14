@@ -277,7 +277,7 @@ test "basic interaction" {
     defer client.stopEngine();
 
     const startup_response = client.queues.waitAndTakeResponse().?;
-    const starting_position = startup_response.load_state.self.?.abs_position;
+    std.testing.expect(startup_response.load_state.self.?.rel_position.equals(makeCoord(0, 0)));
     core.debug.testing.print("startup done");
 
     // move
@@ -285,8 +285,7 @@ test "basic interaction" {
     {
         const response = client.queues.waitAndTakeResponse().?;
         const frames = response.stuff_happens.frames;
-        const new_position = frames[frames.len - 1].self.?.abs_position;
-        std.testing.expect(new_position.minus(starting_position).equals(makeCoord(1, 0)));
+        std.testing.expect(frames[frames.len - 1].self.?.rel_position.equals(makeCoord(0, 0)));
     }
     core.debug.testing.print("move looks good");
 
@@ -294,9 +293,9 @@ test "basic interaction" {
     try client.rewind();
     {
         const response = client.queues.waitAndTakeResponse().?;
-        const new_position = response.load_state.self.?.abs_position;
+        const new_position = response.load_state.self.?.rel_position;
 
-        std.testing.expect(new_position.equals(starting_position));
+        std.testing.expect(response.load_state.self.?.rel_position.equals(makeCoord(0, 0)));
     }
     core.debug.testing.print("rewind looks good");
 }
