@@ -367,11 +367,15 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Roadmap
 
+### 5.1.0
+
+ * Camera follows you around an open world instead of fixed camera on a sequence of levels.
+
+## Version History
+
 ### 5.0.1
 
  * Support building `legend-of-swarkland.exe` for Windows.
-
-## Version History
 
 ### 5.0.0
 
