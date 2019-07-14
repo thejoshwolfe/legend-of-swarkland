@@ -367,9 +367,9 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Roadmap
 
-### 5.1.0
+### 5.0.1
 
-TBD
+ * Support building `legend-of-swarkland.exe` for Windows.
 
 ## Version History
 

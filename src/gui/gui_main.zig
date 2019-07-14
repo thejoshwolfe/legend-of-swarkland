@@ -51,7 +51,7 @@ pub fn main() anyerror!void {
         sdl.SDL_WINDOWPOS_UNDEFINED,
         logical_window_size.w,
         logical_window_size.h,
-        sdl.c.SDL_WINDOW_OPENGL | sdl.c.SDL_WINDOW_RESIZABLE,
+        sdl.c.SDL_WINDOW_RESIZABLE,
     ) orelse {
         std.debug.panic("SDL_CreateWindow failed: {c}\n", sdl.c.SDL_GetError());
     };
@@ -252,7 +252,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     try game_state.running.client.startAsThread();
                 }
-                if (menu_renderer.button("Attach to Game (Process)")) {
+                if (std.os.linux.is_the_target and menu_renderer.button("Attach to Game (Process)")) {
                     game_state = GameState{
                         .running = GameState.Running{
                             .client = undefined,
