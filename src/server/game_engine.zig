@@ -206,7 +206,7 @@ pub const GameEngine = struct {
         }
         return PerceivedFrame{
             .terrain = game_state.terrain,
-            .self = yourself,
+            .self = yourself.?,
             .others = others.toOwnedSlice(),
         };
     }
@@ -540,7 +540,7 @@ pub const GameEngine = struct {
         }
 
         try perception.frames.append(PerceivedFrame{
-            .self = yourself,
+            .self = yourself.?,
             .others = others.toOwnedSlice(),
             .terrain = game_state.terrain,
         });

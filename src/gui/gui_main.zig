@@ -306,7 +306,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 const center_screen = makeCoord(7, 7).scaled(32).plus(makeCoord(32 / 2, 32 / 2));
-                const camera_offset = center_screen.minus(getRelDisplayPosition(progress, move_frame_time, frame.self.?));
+                const camera_offset = center_screen.minus(getRelDisplayPosition(progress, move_frame_time, frame.self));
 
                 // render terrain
                 const terrain = frame.terrain;
@@ -341,11 +341,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 for (frame.others) |other| {
                     _ = renderThing(renderer, progress, move_frame_time, camera_offset, other);
                 }
-                if (frame.self) |yourself| {
-                    const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, yourself);
-                    if (show_poised_attack and state.started_attack) {
-                        textures.renderSprite(renderer, textures.sprites.dagger, display_position);
-                    }
+                const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, frame.self);
+                if (show_poised_attack and state.started_attack) {
+                    textures.renderSprite(renderer, textures.sprites.dagger, display_position);
                 }
             },
         }

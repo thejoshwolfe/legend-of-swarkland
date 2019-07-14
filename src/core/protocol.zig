@@ -56,7 +56,8 @@ pub const Response = union(enum) {
 /// what you see each turn
 pub const PerceivedHappening = struct {
     /// Sequential order of simultaneous events.
-    /// The last frame will always have all things with .none PerceivedActivity.
+    /// The last frame will always have all things with .none PerceivedActivity,
+    /// unless you're are dead, in which case, the last frame includes your death.
     frames: []PerceivedFrame,
 };
 
@@ -66,7 +67,7 @@ pub const PerceivedFrame = struct {
     terrain: Terrain,
 
     /// null means you're are dead
-    self: ?PerceivedThing,
+    self: PerceivedThing,
     others: []PerceivedThing,
 };
 

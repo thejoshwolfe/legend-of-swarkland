@@ -174,7 +174,7 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     const delta = target_position;
     std.debug.assert(!(delta.x == 0 and delta.y == 0));
-    const range = core.game_logic.getAttackRange(last_frame.self.?.species);
+    const range = core.game_logic.getAttackRange(last_frame.self.species);
 
     if (delta.x * delta.y == 0) {
         // straight shot
