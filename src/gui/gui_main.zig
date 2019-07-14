@@ -15,7 +15,6 @@ const GameEngineClient = core.game_engine_client.GameEngineClient;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
-const Terrain = core.protocol.Terrain;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
@@ -309,31 +308,33 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 const camera_offset = center_screen.minus(getRelDisplayPosition(progress, move_frame_time, frame.self));
 
                 // render terrain
-                const terrain = frame.terrain;
-                for (terrain.floor) |row, y| {
-                    for (row) |cell, x| {
-                        const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
-                        const texture = switch (cell) {
-                            Floor.unknown => textures.sprites.unknown_floor,
-                            Floor.dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, coord),
-                            Floor.marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, coord),
-                            Floor.lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, coord),
-                            Floor.hatch => textures.sprites.hatch,
-                            Floor.stairs_down => textures.sprites.stairs_down,
-                        };
-                        textures.renderSprite(renderer, texture, coord.scaled(32));
-                    }
-                }
-                for (terrain.walls) |row, y| {
-                    for (row) |cell, x| {
-                        const coord = makeCoord(@intCast(i32, x), @intCast(i32, y));
-                        const texture = switch (cell) {
-                            Wall.unknown => textures.sprites.unknown_wall,
-                            Wall.air => continue,
-                            Wall.dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, coord),
-                            Wall.stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, coord),
-                        };
-                        textures.renderSprite(renderer, texture, coord.scaled(32));
+                {
+                    const terrain_offset = frame.terrain.rel_position.scaled(32).plus(camera_offset);
+                    const terrain = frame.terrain.matrix;
+                    var cursor = makeCoord(undefined, 0);
+                    while (cursor.y <= i32(terrain.height)) : (cursor.y += 1) {
+                        cursor.x = 0;
+                        while (cursor.x <= i32(terrain.width)) : (cursor.x += 1) {
+                            if (terrain.getCoord(cursor)) |cell| {
+                                const display_position = cursor.scaled(32).plus(terrain_offset);
+                                const floor_texture = switch (cell.floor) {
+                                    Floor.unknown => textures.sprites.unknown_floor,
+                                    Floor.dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
+                                    Floor.marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, cursor),
+                                    Floor.lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
+                                    Floor.hatch => textures.sprites.hatch,
+                                    Floor.stairs_down => textures.sprites.stairs_down,
+                                };
+                                textures.renderSprite(renderer, floor_texture, display_position);
+                                const wall_texture = switch (cell.wall) {
+                                    Wall.unknown => textures.sprites.unknown_wall,
+                                    Wall.air => continue,
+                                    Wall.dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, cursor),
+                                    Wall.stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, cursor),
+                                };
+                                textures.renderSprite(renderer, wall_texture, display_position);
+                            }
+                        }
                     }
                 }
 

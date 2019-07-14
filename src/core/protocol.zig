@@ -1,6 +1,7 @@
 const std = @import("std");
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
+const Matrix = core.matrix.Matrix;
 
 pub const Floor = enum {
     unknown,
@@ -27,9 +28,13 @@ pub const Species = enum {
     centaur,
 };
 
-pub const Terrain = struct {
-    floor: [16][16]Floor,
-    walls: [16][16]Wall,
+pub const TerrainChunk = struct {
+    rel_position: Coord,
+    matrix: Matrix(TerrainSpace),
+};
+pub const TerrainSpace = struct {
+    floor: Floor,
+    wall: Wall,
 };
 
 pub const Request = union(enum) {
@@ -64,7 +69,7 @@ pub const PerceivedHappening = struct {
 /// Represents what you can observe with your eyes happening simultaneously.
 /// There can be multiple of these per turn.
 pub const PerceivedFrame = struct {
-    terrain: Terrain,
+    terrain: TerrainChunk,
 
     /// null means you're are dead
     self: PerceivedThing,

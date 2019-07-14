@@ -25,7 +25,7 @@ const allocator = std.heap.c_allocator;
 pub fn server_main(main_player_queues: *SomeQueues) !void {
     var game_engine: GameEngine = undefined;
     game_engine.init(allocator);
-    var game_state = GameState.init(allocator);
+    var game_state = try GameState.init(allocator);
 
     // create ai clients
     const main_player_id: u32 = 1;

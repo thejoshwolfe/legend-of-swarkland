@@ -1,5 +1,5 @@
-// TODO: why is this 1 directory too high?
 pub const geometry = @import("./core/geometry.zig");
+pub const matrix = @import("./core/matrix.zig");
 pub const protocol = @import("./core/protocol.zig");
 pub const debug = @import("./core/debug.zig");
 pub const game_logic = @import("./core/game_logic.zig");

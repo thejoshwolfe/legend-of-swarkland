@@ -8,13 +8,13 @@ const makeCoord = core.geometry.makeCoord;
 const zero_vector = makeCoord(0, 0);
 
 const Action = core.protocol.Action;
-const Terrain = core.protocol.Terrain;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
+const TerrainSpace = core.protocol.TerrainSpace;
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
@@ -24,6 +24,12 @@ pub fn IdMap(comptime V: type) type {
 pub fn CoordMap(comptime V: type) type {
     return HashMap(Coord, V, Coord.hash, Coord.equals);
 }
+
+const Terrain = core.matrix.Matrix(TerrainSpace);
+const oob_terrain = TerrainSpace{
+    .floor = Floor.unknown,
+    .wall = Wall.stone,
+};
 
 /// Allocates and then calls `init(allocator)` on the new object.
 pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
@@ -178,8 +184,8 @@ pub const GameEngine = struct {
                 }
                 try ret.append(StateDiff{
                     .terrain_update = StateDiff.TerrainDiff{
-                        .from = makeTerrain([_]Coord{}, false),
-                        .to = makeTerrain(the_levels[0].hatch_positions, false),
+                        .from = try makeTerrain(self.allocator, [_]Coord{}, false),
+                        .to = try makeTerrain(self.allocator, the_levels[0].hatch_positions, false),
                     },
                 });
                 break :blk ret.toOwnedSlice();
@@ -205,7 +211,10 @@ pub const GameEngine = struct {
             }
         }
         return PerceivedFrame{
-            .terrain = game_state.terrain,
+            .terrain = core.protocol.TerrainChunk{
+                .rel_position = your_position.negated(),
+                .matrix = try game_state.terrain.clone(self.allocator),
+            },
             .self = yourself.?,
             .others = others.toOwnedSlice(),
         };
@@ -301,7 +310,7 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 const position = current_positions.getValue(id).?;
                 // walls
-                if (!core.game_logic.isOpenSpace(game_state.wallAt(position))) {
+                if (!core.game_logic.isOpenSpace((game_state.terrain.getCoord(position) orelse oob_terrain).wall)) {
                     // bounce off the wall
                     try next_moves.putNoClobber(id, previous_moves.getValue(id).?.negated());
                 }
@@ -391,7 +400,7 @@ pub const GameEngine = struct {
             // check for someone on the stairs
             for (everybody) |id| {
                 if (deaths.contains(id)) continue;
-                if (game_state.floorAt(current_positions.getValue(id).?) == if (spawn_the_stairs) Floor.hatch else Floor.stairs_down) {
+                if ((game_state.terrain.getCoord(current_positions.getValue(id).?) orelse oob_terrain).floor == if (spawn_the_stairs) Floor.hatch else Floor.stairs_down) {
                     do_transition = true;
                     current_level_number += 1;
                 }
@@ -432,9 +441,9 @@ pub const GameEngine = struct {
                     .from = game_state.terrain,
                     .to = blk: {
                         if (do_transition) {
-                            break :blk makeTerrain(the_levels[game_state.level_number + 1].hatch_positions, false);
+                            break :blk try makeTerrain(self.allocator, the_levels[game_state.level_number + 1].hatch_positions, false);
                         } else {
-                            break :blk makeTerrain(the_levels[game_state.level_number].hatch_positions, true);
+                            break :blk try makeTerrain(self.allocator, the_levels[game_state.level_number].hatch_positions, true);
                         }
                     },
                 },
@@ -542,7 +551,10 @@ pub const GameEngine = struct {
         try perception.frames.append(PerceivedFrame{
             .self = yourself.?,
             .others = others.toOwnedSlice(),
-            .terrain = game_state.terrain,
+            .terrain = core.protocol.TerrainChunk{
+                .rel_position = your_position.negated(),
+                .matrix = try game_state.terrain.clone(self.allocator),
+            },
         });
     }
 };
@@ -570,40 +582,33 @@ pub const StateDiff = union(enum) {
     transition_to_next_level,
 };
 
-fn makeTerrain(hatch_positions: []const Coord, turn_hatches_into_stairs: bool) Terrain {
-    // someday move this outta here
-    var terrain: Terrain = undefined;
+fn makeTerrain(allocator: *std.mem.Allocator, hatch_positions: []const Coord, turn_hatches_into_stairs: bool) !Terrain {
+    var terrain = try Terrain.initFill(allocator, 16, 16, TerrainSpace{
+        .floor = Floor.dirt,
+        .wall = Wall.air,
+    });
+    const border_wall = TerrainSpace{
+        .floor = Floor.unknown,
+        .wall = Wall.stone,
+    };
+
     {
-        var x: usize = 0;
+        var x: u16 = 0;
         while (x < 16) : (x += 1) {
-            terrain.floor[0][x] = Floor.unknown;
-            terrain.floor[16 - 1][x] = Floor.unknown;
-            terrain.walls[0][x] = Wall.stone;
-            terrain.walls[16 - 1][x] = Wall.stone;
+            terrain.atUnchecked(x, 0).* = border_wall;
+            terrain.atUnchecked(x, 16 - 1).* = border_wall;
         }
     }
     {
-        var y: usize = 1;
+        var y: u16 = 1;
         while (y < 16 - 1) : (y += 1) {
-            terrain.floor[y][0] = Floor.unknown;
-            terrain.floor[y][16 - 1] = Floor.unknown;
-            terrain.walls[y][0] = Wall.stone;
-            terrain.walls[y][16 - 1] = Wall.stone;
-        }
-    }
-    {
-        var y: usize = 1;
-        while (y < 16 - 1) : (y += 1) {
-            var x: usize = 1;
-            while (x < 16 - 1) : (x += 1) {
-                terrain.floor[y][x] = Floor.dirt;
-                terrain.walls[y][x] = Wall.air;
-            }
+            terrain.atUnchecked(0, y).* = border_wall;
+            terrain.atUnchecked(16 - 1, y).* = border_wall;
         }
     }
     const hatch_or_stairs = if (turn_hatches_into_stairs) Floor.stairs_down else Floor.hatch;
     for (hatch_positions) |coord| {
-        terrain.floor[@intCast(usize, coord.y)][@intCast(usize, coord.x)] = hatch_or_stairs;
+        terrain.atCoord(coord).?.floor = hatch_or_stairs;
     }
     return terrain;
 }
@@ -614,10 +619,10 @@ pub const GameState = struct {
     individuals: IdMap(*Individual),
     level_number: usize,
 
-    pub fn init(allocator: *std.mem.Allocator) GameState {
+    pub fn init(allocator: *std.mem.Allocator) !GameState {
         return GameState{
             .allocator = allocator,
-            .terrain = makeTerrain([_]Coord{}, false),
+            .terrain = try makeTerrain(allocator, [_]Coord{}, false),
             .individuals = IdMap(*Individual).init(allocator),
             .level_number = 0,
         };
@@ -684,17 +689,6 @@ pub const GameState = struct {
                 },
             }
         }
-    }
-
-    pub fn wallAt(self: GameState, coord: Coord) Wall {
-        if (coord.x < 0 or coord.y < 0) return .unknown;
-        if (coord.x >= 16 or coord.y >= 16) return .unknown;
-        return self.terrain.walls[@intCast(usize, coord.y)][@intCast(usize, coord.x)];
-    }
-    pub fn floorAt(self: GameState, coord: Coord) Floor {
-        if (coord.x < 0 or coord.y < 0) return .unknown;
-        if (coord.x >= 16 or coord.y >= 16) return .unknown;
-        return self.terrain.floor[@intCast(usize, coord.y)][@intCast(usize, coord.x)];
     }
 };
 
