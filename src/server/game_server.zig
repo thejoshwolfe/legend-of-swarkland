@@ -75,6 +75,11 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                         try actions.putNoClobber(main_player_id, action);
                     },
                     .rewind => {
+                        if (history.len == 0) {
+                            // What do you want me to do, send you back to the main menu?
+                            try main_player_queues.enqueueResponse(Response.reject_request);
+                            continue :retryRead;
+                        }
                         // delay actually rewinding so that we receive all requests.
                         is_rewind = true;
                     },
@@ -86,21 +91,19 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         if (is_rewind) {
 
             // Time goes backward.
-            if (rewind(&history)) |state_changes| {
-                try game_state.undoStateChanges(state_changes);
-                for (state_changes) |_, i| {
-                    const diff = state_changes[state_changes.len - 1 - i];
-                    switch (diff) {
-                        .despawn => |individual| {
-                            if (individual.id == main_player_id) {
-                                you_are_alive = true;
-                            }
-                        },
-                        else => {},
-                    }
+            const state_changes = rewind(&history).?;
+            try game_state.undoStateChanges(state_changes);
+            for (state_changes) |_, i| {
+                const diff = state_changes[state_changes.len - 1 - i];
+                switch (diff) {
+                    .despawn => |individual| {
+                        if (individual.id == main_player_id) {
+                            you_are_alive = true;
+                        }
+                    },
+                    else => {},
                 }
             }
-            // Even if we didn't actually do a rewind, send a response to keep the communication in sync.
             try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
         } else {
 
