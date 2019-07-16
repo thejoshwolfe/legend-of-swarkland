@@ -55,6 +55,15 @@ pub const Coord = struct {
         return abs_delta.x + abs_delta.y;
     }
 
+    /// How many diagonal or orthoganl steps to get from a to b.
+    pub fn distanceDiag(a: Coord, b: Coord) i32 {
+        return b.minus(a).magnitudeDiag();
+    }
+    pub fn magnitudeDiag(a: Coord) i32 {
+        const abs_delta = a.abs();
+        return if (abs_delta.x < abs_delta.y) abs_delta.y else abs_delta.x;
+    }
+
     pub fn equals(a: Coord, b: Coord) bool {
         return a.x == b.x and a.y == b.y;
     }

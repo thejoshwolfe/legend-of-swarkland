@@ -1,5 +1,7 @@
 const core = @import("../index.zig");
 
+pub const view_distance = 8;
+
 pub fn getAttackRange(species: core.protocol.Species) i32 {
     switch (species) {
         .centaur => return 16,

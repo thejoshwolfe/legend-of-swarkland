@@ -16,6 +16,8 @@ const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
 
+const view_distance = core.game_logic.view_distance;
+
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
     return HashMap(u32, V, core.geometry.hashU32, std.hash_map.getTrivialEqlFn(u32));
@@ -146,8 +148,47 @@ const the_levels = [_]Level{
     },
 };
 
-fn assignId(individual: Individual, id: u32) Individual {
+fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
+    var width = u16(0);
+    var height = u16(16);
+    for (the_levels) |level| width += 16;
+
+    var terrain = try Terrain.initFill(allocator, width, height, TerrainSpace{
+        .floor = Floor.dirt,
+        .wall = Wall.air,
+    });
+    const border_wall = TerrainSpace{
+        .floor = Floor.unknown,
+        .wall = Wall.stone,
+    };
+
+    var level_x = u16(0);
+    for (the_levels) |level| {
+        defer level_x += 16;
+        {
+            var x: u16 = 0;
+            while (x < 16) : (x += 1) {
+                terrain.atUnchecked(level_x + x, 0).* = border_wall;
+                terrain.atUnchecked(level_x + x, 16 - 1).* = border_wall;
+            }
+        }
+        {
+            var y: u16 = 1;
+            while (y < 16 - 1) : (y += 1) {
+                terrain.atUnchecked(level_x + 0, y).* = border_wall;
+                terrain.atUnchecked(level_x + 16 - 1, y).* = border_wall;
+            }
+        }
+        for (level.hatch_positions) |coord| {
+            terrain.at(level_x + @intCast(u16, coord.x), coord.y).?.floor = Floor.hatch;
+        }
+    }
+    return terrain;
+}
+
+fn assignId(individual: Individual, level_x: i32, id: u32) Individual {
     var ret = individual;
+    ret.abs_position.x += level_x;
     ret.id = id;
     return ret;
 }
@@ -181,14 +222,12 @@ pub const GameEngine = struct {
                 var ret = ArrayList(StateDiff).init(self.allocator);
                 // human is always id 1
                 try ret.append(StateDiff{ .spawn = Individual{ .id = 1, .abs_position = makeCoord(7, 7), .species = .human } });
+                const level_x = 0;
                 for (the_levels[0].individuals) |individual, i| {
-                    try ret.append(StateDiff{ .spawn = assignId(individual, @intCast(u32, i) + 2) });
+                    try ret.append(StateDiff{ .spawn = assignId(individual, level_x, @intCast(u32, i) + 2) });
                 }
                 try ret.append(StateDiff{
-                    .terrain_update = StateDiff.TerrainDiff{
-                        .from = try makeTerrain(self.allocator, [_]Coord{}, false),
-                        .to = try makeTerrain(self.allocator, the_levels[0].hatch_positions, false),
-                    },
+                    .terrain_init = try buildTheTerrain(self.allocator),
                 });
                 break :blk ret.toOwnedSlice();
             },
@@ -410,25 +449,33 @@ pub const GameEngine = struct {
                 });
             }
         }
-        if (spawn_the_stairs or do_transition) {
-            try state_changes.append(StateDiff{
-                .terrain_update = StateDiff.TerrainDiff{
-                    .from = game_state.terrain,
-                    .to = blk: {
-                        if (do_transition) {
-                            break :blk try makeTerrain(self.allocator, the_levels[game_state.level_number + 1].hatch_positions, false);
-                        } else {
-                            break :blk try makeTerrain(self.allocator, the_levels[game_state.level_number].hatch_positions, true);
-                        }
+
+        if (spawn_the_stairs) {
+            const level_x = game_state.level_number * 16;
+            for (the_levels[game_state.level_number].hatch_positions) |hatch_position| {
+                var coord = hatch_position;
+                coord.x += i32(level_x);
+                try state_changes.append(StateDiff{
+                    .terrain_update = StateDiff.TerrainDiff{
+                        .at = coord,
+                        .from = game_state.terrain.getCoord(coord).?,
+                        .to = TerrainSpace{
+                            .floor = Floor.stairs_down,
+                            .wall = Wall.air,
+                        },
                     },
-                },
-            });
+                });
+            }
         }
+
         if (do_transition) {
+            core.debug.testing.print("do transition");
             try state_changes.append(StateDiff.transition_to_next_level);
-            for (the_levels[game_state.level_number + 1].individuals) |individual| {
+            const new_level_number = game_state.level_number + 1;
+            const level_x = new_level_number * 16;
+            for (the_levels[new_level_number].individuals) |individual| {
                 const id = findAvailableId(&new_id_cursor, game_state.individuals);
-                try state_changes.append(StateDiff{ .spawn = assignId(individual, id) });
+                try state_changes.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
             }
         }
 
@@ -537,9 +584,11 @@ pub const GameEngine = struct {
                 .static_state => PerceivedActivity{ .none = {} },
             };
             const abs_position = current_positions.getValue(id) orelse game_state.individuals.getValue(id).?.abs_position;
+            const delta = abs_position.minus(your_position);
+            if (delta.magnitudeDiag() > view_distance) continue;
             const thing = PerceivedThing{
                 .species = game_state.individuals.getValue(id).?.species,
-                .rel_position = abs_position.minus(your_position),
+                .rel_position = delta,
                 .activity = activity,
             };
             if (id == my_id) {
@@ -549,7 +598,6 @@ pub const GameEngine = struct {
             }
         }
 
-        const view_distance = 8;
         const view_size = view_distance * 2 + 1;
         var terrain_chunk = core.protocol.TerrainChunk{
             .rel_position = makeCoord(-view_distance, -view_distance),
@@ -588,56 +636,29 @@ pub const StateDiff = union(enum) {
         coord: Coord,
     };
 
+    /// can only be in the start game events. can never be undone.
+    terrain_init: Terrain,
+
     terrain_update: TerrainDiff,
     pub const TerrainDiff = struct {
-        from: Terrain,
-        to: Terrain,
+        at: Coord,
+        from: TerrainSpace,
+        to: TerrainSpace,
     };
 
     transition_to_next_level,
 };
 
-fn makeTerrain(allocator: *std.mem.Allocator, hatch_positions: []const Coord, turn_hatches_into_stairs: bool) !Terrain {
-    var terrain = try Terrain.initFill(allocator, 16, 16, TerrainSpace{
-        .floor = Floor.dirt,
-        .wall = Wall.air,
-    });
-    const border_wall = TerrainSpace{
-        .floor = Floor.unknown,
-        .wall = Wall.stone,
-    };
-
-    {
-        var x: u16 = 0;
-        while (x < 16) : (x += 1) {
-            terrain.atUnchecked(x, 0).* = border_wall;
-            terrain.atUnchecked(x, 16 - 1).* = border_wall;
-        }
-    }
-    {
-        var y: u16 = 1;
-        while (y < 16 - 1) : (y += 1) {
-            terrain.atUnchecked(0, y).* = border_wall;
-            terrain.atUnchecked(16 - 1, y).* = border_wall;
-        }
-    }
-    const hatch_or_stairs = if (turn_hatches_into_stairs) Floor.stairs_down else Floor.hatch;
-    for (hatch_positions) |coord| {
-        terrain.atCoord(coord).?.floor = hatch_or_stairs;
-    }
-    return terrain;
-}
-
 pub const GameState = struct {
     allocator: *std.mem.Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
-    level_number: usize,
+    level_number: u16,
 
-    pub fn init(allocator: *std.mem.Allocator) !GameState {
+    pub fn init(allocator: *std.mem.Allocator) GameState {
         return GameState{
             .allocator = allocator,
-            .terrain = try makeTerrain(allocator, [_]Coord{}, false),
+            .terrain = Terrain.initEmpty(),
             .individuals = IdMap(*Individual).init(allocator),
             .level_number = 0,
         };
@@ -672,8 +693,11 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
                     individual.abs_position = individual.abs_position.plus(id_and_coord.coord);
                 },
-                .terrain_update => |terrain_diff| {
-                    self.terrain = terrain_diff.to;
+                .terrain_init => |terrain| {
+                    self.terrain = terrain;
+                },
+                .terrain_update => |data| {
+                    self.terrain.atCoord(data.at).?.* = data.to;
                 },
                 .transition_to_next_level => {
                     self.level_number += 1;
@@ -696,8 +720,11 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
                     individual.abs_position = individual.abs_position.minus(id_and_coord.coord);
                 },
-                .terrain_update => |terrain_diff| {
-                    self.terrain = terrain_diff.from;
+                .terrain_init => {
+                    @panic("can't undo terrain init");
+                },
+                .terrain_update => |data| {
+                    self.terrain.atCoord(data.at).?.* = data.from;
                 },
                 .transition_to_next_level => {
                     self.level_number -= 1;

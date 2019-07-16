@@ -10,6 +10,13 @@ pub fn Matrix(comptime T: type) type {
         height: u16,
         data: []T,
 
+        pub fn initEmpty() Self {
+            return Self{
+                .width = 0,
+                .height = 0,
+                .data = [_]T{},
+            };
+        }
         fn init(allocator: *std.mem.Allocator, width: u16, height: u16) !Self {
             return Self{
                 .width = width,
