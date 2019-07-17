@@ -50,62 +50,78 @@ fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
 }
 
 const Level = struct {
+    width: u16,
+    height: u16,
     individuals: []const Individual,
     hatch_positions: []const Coord,
 };
 const the_levels = [_]Level{
     Level{
+        .width = 10,
+        .height = 10,
         .hatch_positions = [_]Coord{},
         .individuals = [_]Individual{Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc }},
     },
     Level{
-        .hatch_positions = [_]Coord{makeCoord(7, 5)},
+        .width = 10,
+        .height = 10,
+        .hatch_positions = [_]Coord{makeCoord(4, 4)},
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(12, 2), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(1, 1), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(7, 1), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(4, 7), .species = .orc },
         },
     },
     Level{
-        .hatch_positions = [_]Coord{makeCoord(7, 5)},
+        .width = 14,
+        .height = 10,
+        .hatch_positions = [_]Coord{makeCoord(6, 5)},
         .individuals = [_]Individual{
+            Individual{ .id = 0, .abs_position = makeCoord(1, 5), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(2, 5), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(3, 5), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(4, 5), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 5), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 4), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(7, 6), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(4, 4), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(4, 6), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(6, 6), .species = .orc },
         },
     },
     Level{
-        .hatch_positions = [_]Coord{makeCoord(6, 2)},
+        .width = 8,
+        .height = 5,
+        .hatch_positions = [_]Coord{makeCoord(1, 2)},
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(11, 1), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(11, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(11, 3), .species = .orc },
-        },
-    },
-    Level{
-        .hatch_positions = [_]Coord{makeCoord(6, 6)},
-        .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(3, 5), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(11, 10), .species = .centaur },
-        },
-    },
-    Level{
-        .hatch_positions = [_]Coord{makeCoord(7, 7)},
-        .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(6, 1), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(7, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(8, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(6, 3), .species = .orc },
         },
     },
     Level{
+        .width = 11,
+        .height = 8,
+        .hatch_positions = [_]Coord{makeCoord(4, 2)},
+        .individuals = [_]Individual{
+            Individual{ .id = 0, .abs_position = makeCoord(1, 1), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .centaur },
+        },
+    },
+    Level{
+        .width = 15,
+        .height = 10,
+        .hatch_positions = [_]Coord{makeCoord(7, 2)},
+        .individuals = [_]Individual{
+            Individual{ .id = 0, .abs_position = makeCoord(4, 7), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(5, 7), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(6, 7), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(7, 7), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(8, 7), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(9, 7), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(10, 7), .species = .centaur },
+        },
+    },
+    Level{
+        .width = 15,
+        .height = 13,
         .hatch_positions = [_]Coord{makeCoord(7, 7)},
         .individuals = [_]Individual{
             Individual{ .id = 0, .abs_position = makeCoord(5, 5), .species = .orc },
@@ -126,6 +142,8 @@ const the_levels = [_]Level{
     },
     // the last level must have no enemies so that you can't win it.
     Level{
+        .width = 15,
+        .height = 10,
         .hatch_positions = [_]Coord{
             makeCoord(2, 2), makeCoord(3, 3), makeCoord(4, 2), makeCoord(3, 4),
         } ++ [_]Coord{
@@ -145,8 +163,11 @@ const the_levels = [_]Level{
 
 fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
     var width = u16(0);
-    var height = u16(16);
-    for (the_levels) |level| width += 16;
+    var height = u16(1);
+    for (the_levels) |level| {
+        width += level.width;
+        height = std.math.max(height, level.height);
+    }
 
     var terrain = try Terrain.initFill(allocator, width, height, TerrainSpace{
         .floor = Floor.dirt,
@@ -159,19 +180,22 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
 
     var level_x = u16(0);
     for (the_levels) |level| {
-        defer level_x += 16;
+        defer level_x += level.width;
         {
             var x: u16 = 0;
-            while (x < 16) : (x += 1) {
+            while (x < level.width) : (x += 1) {
                 terrain.atUnchecked(level_x + x, 0).* = border_wall;
-                terrain.atUnchecked(level_x + x, 16 - 1).* = border_wall;
+                var y: u16 = level.height - 1;
+                while (y < height) : (y += 1) {
+                    terrain.atUnchecked(level_x + x, y).* = border_wall;
+                }
             }
         }
         {
             var y: u16 = 1;
-            while (y < 16 - 1) : (y += 1) {
+            while (y < level.height - 1) : (y += 1) {
                 terrain.atUnchecked(level_x + 0, y).* = border_wall;
-                terrain.atUnchecked(level_x + 16 - 1, y).* = border_wall;
+                terrain.atUnchecked(level_x + level.width - 1, y).* = border_wall;
             }
         }
         for (level.hatch_positions) |coord| {
@@ -445,11 +469,16 @@ pub const GameEngine = struct {
             }
         }
 
-        if (open_the_way) {
-            const level_x = game_state.level_number * 16;
+        if (open_the_way and game_state.level_number + 1 < the_levels.len) {
+            var level_x = u16(0);
+            for (the_levels[0..game_state.level_number]) |level| {
+                level_x += level.width;
+            }
+            const level = the_levels[game_state.level_number];
+            const the_way_y = the_levels[game_state.level_number + 1].hatch_positions[0].y;
             for ([_]Coord{
-                makeCoord(level_x + 15, 7),
-                makeCoord(level_x + 16, 7),
+                makeCoord(level_x + level.width - 1, the_way_y),
+                makeCoord(level_x + level.width - 0, the_way_y),
             }) |coord| {
                 try state_changes.append(StateDiff{
                     .terrain_update = StateDiff.TerrainDiff{
@@ -473,11 +502,15 @@ pub const GameEngine = struct {
                     break :blk game_state.level_number;
                 }
             };
-            const level_x = new_level_number * 16;
+            var level_x = u16(0);
+            for (the_levels[0..new_level_number]) |level| {
+                level_x += level.width;
+            }
             // close the way
+            const the_way_y = the_levels[new_level_number].hatch_positions[0].y;
             for ([_]Coord{
-                makeCoord(level_x - 1, 7),
-                makeCoord(level_x + 0, 7),
+                makeCoord(level_x - 1, the_way_y),
+                makeCoord(level_x + 0, the_way_y),
             }) |coord| {
                 try state_changes.append(StateDiff{
                     .terrain_update = StateDiff.TerrainDiff{
