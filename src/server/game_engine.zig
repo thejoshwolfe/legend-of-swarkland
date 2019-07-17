@@ -55,20 +55,20 @@ const Level = struct {
 };
 const the_levels = [_]Level{
     Level{
+        .hatch_positions = [_]Coord{},
         .individuals = [_]Individual{Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc }},
-        .hatch_positions = [_]Coord{makeCoord(7, 5)},
     },
     Level{
+        .hatch_positions = [_]Coord{makeCoord(7, 5)},
         .individuals = [_]Individual{
             Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(12, 2), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(7, 8), .species = .orc },
         },
-        .hatch_positions = [_]Coord{makeCoord(7, 5)},
     },
     Level{
+        .hatch_positions = [_]Coord{makeCoord(7, 5)},
         .individuals = [_]Individual{
-            // human at 7,5
             Individual{ .id = 0, .abs_position = makeCoord(2, 5), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(3, 5), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(4, 5), .species = .orc },
@@ -77,28 +77,25 @@ const the_levels = [_]Level{
             Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(7, 6), .species = .orc },
         },
-        .hatch_positions = [_]Coord{makeCoord(6, 2)},
     },
     Level{
+        .hatch_positions = [_]Coord{makeCoord(6, 2)},
         .individuals = [_]Individual{
-            // human at 6,2
             Individual{ .id = 0, .abs_position = makeCoord(11, 1), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(11, 2), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(11, 3), .species = .orc },
         },
-        .hatch_positions = [_]Coord{makeCoord(6, 6)},
     },
     Level{
+        .hatch_positions = [_]Coord{makeCoord(6, 6)},
         .individuals = [_]Individual{
-            // human at 6, 6
             Individual{ .id = 0, .abs_position = makeCoord(3, 5), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(11, 10), .species = .centaur },
         },
-        .hatch_positions = [_]Coord{makeCoord(7, 7)},
     },
     Level{
+        .hatch_positions = [_]Coord{makeCoord(7, 7)},
         .individuals = [_]Individual{
-            // human at 7,7
             Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(5, 2), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
@@ -107,11 +104,10 @@ const the_levels = [_]Level{
             Individual{ .id = 0, .abs_position = makeCoord(9, 2), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
         },
-        .hatch_positions = [_]Coord{makeCoord(7, 7)},
     },
     Level{
+        .hatch_positions = [_]Coord{makeCoord(7, 7)},
         .individuals = [_]Individual{
-            // human at 7,7
             Individual{ .id = 0, .abs_position = makeCoord(5, 5), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(5, 7), .species = .orc },
@@ -127,11 +123,9 @@ const the_levels = [_]Level{
             Individual{ .id = 0, .abs_position = makeCoord(9, 1), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(5, 1), .species = .centaur },
         },
-        .hatch_positions = [_]Coord{makeCoord(8, 6)},
     },
     // the last level must have no enemies so that you can't win it.
     Level{
-        .individuals = [_]Individual{},
         .hatch_positions = [_]Coord{
             makeCoord(2, 2), makeCoord(3, 3), makeCoord(4, 2), makeCoord(3, 4),
         } ++ [_]Coord{
@@ -145,6 +139,7 @@ const the_levels = [_]Level{
         } ++ [_]Coord{
             makeCoord(10, 6), makeCoord(10, 7), makeCoord(10, 8), makeCoord(11, 6), makeCoord(12, 7), makeCoord(12, 8),
         },
+        .individuals = [_]Individual{},
     },
 };
 
@@ -402,21 +397,21 @@ pub const GameEngine = struct {
             }
         }
 
-        var spawn_the_stairs = false;
-        var victor_id: ?u32 = null;
-        var current_level_number = game_state.level_number;
+        var open_the_way = false;
+        var button_getting_pressed: ?Coord = null;
         if (game_state.individuals.count() - deaths.count() <= 1) {
             // Only one person left. You win!
             if (deaths.count() > 0) {
                 // Spawn the stairs onward.
-                spawn_the_stairs = true;
+                open_the_way = true;
             }
-            // check for someone on the stairs
+            // check for someone on the button
             for (everybody) |id| {
                 if (deaths.contains(id)) continue;
-                if ((game_state.terrain.getCoord(current_positions.getValue(id).?) orelse oob_terrain).floor == if (spawn_the_stairs) Floor.hatch else Floor.stairs_down) {
-                    victor_id = id;
-                    current_level_number += 1;
+                const coord = current_positions.getValue(id).?;
+                if ((game_state.terrain.getCoord(coord) orelse oob_terrain).floor == Floor.hatch) {
+                    button_getting_pressed = coord;
+                    break;
                 }
             }
         }
@@ -450,17 +445,18 @@ pub const GameEngine = struct {
             }
         }
 
-        if (spawn_the_stairs) {
+        if (open_the_way) {
             const level_x = game_state.level_number * 16;
-            for (the_levels[game_state.level_number].hatch_positions) |hatch_position| {
-                var coord = hatch_position;
-                coord.x += i32(level_x);
+            for ([_]Coord{
+                makeCoord(level_x + 15, 7),
+                makeCoord(level_x + 16, 7),
+            }) |coord| {
                 try state_changes.append(StateDiff{
                     .terrain_update = StateDiff.TerrainDiff{
                         .at = coord,
                         .from = game_state.terrain.getCoord(coord).?,
                         .to = TerrainSpace{
-                            .floor = Floor.stairs_down,
+                            .floor = Floor.dirt,
                             .wall = Wall.air,
                         },
                     },
@@ -468,23 +464,48 @@ pub const GameEngine = struct {
             }
         }
 
-        if (victor_id) |the_victor| {
-            core.debug.testing.print("do transition");
-            try state_changes.append(StateDiff.transition_to_next_level);
-            const new_level_number = game_state.level_number + 1;
+        if (button_getting_pressed) |button_coord| {
+            const new_level_number = blk: {
+                if (game_state.level_number + 1 < the_levels.len) {
+                    try state_changes.append(StateDiff.transition_to_next_level);
+                    break :blk game_state.level_number + 1;
+                } else {
+                    break :blk game_state.level_number;
+                }
+            };
             const level_x = new_level_number * 16;
+            // close the way
+            for ([_]Coord{
+                makeCoord(level_x - 1, 7),
+                makeCoord(level_x + 0, 7),
+            }) |coord| {
+                try state_changes.append(StateDiff{
+                    .terrain_update = StateDiff.TerrainDiff{
+                        .at = coord,
+                        .from = game_state.terrain.getCoord(coord).?,
+                        .to = TerrainSpace{
+                            .floor = Floor.unknown,
+                            .wall = Wall.stone,
+                        },
+                    },
+                });
+            }
+            // destroy the button
+            try state_changes.append(StateDiff{
+                .terrain_update = StateDiff.TerrainDiff{
+                    .at = button_coord,
+                    .from = game_state.terrain.getCoord(button_coord).?,
+                    .to = TerrainSpace{
+                        .floor = Floor.dirt,
+                        .wall = Wall.air,
+                    },
+                },
+            });
+            // spawn enemies
             for (the_levels[new_level_number].individuals) |individual| {
                 const id = findAvailableId(&new_id_cursor, game_state.individuals);
                 try state_changes.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
             }
-
-            // warp the player to the next level
-            try state_changes.append(StateDiff{
-                .move = StateDiff.IdAndCoord{
-                    .id = the_victor,
-                    .coord = makeCoord(16, 0),
-                },
-            });
         }
 
         // final observations
