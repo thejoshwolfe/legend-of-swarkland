@@ -403,7 +403,7 @@ pub const GameEngine = struct {
         }
 
         var spawn_the_stairs = false;
-        var do_transition = false;
+        var victor_id: ?u32 = null;
         var current_level_number = game_state.level_number;
         if (game_state.individuals.count() - deaths.count() <= 1) {
             // Only one person left. You win!
@@ -415,7 +415,7 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 if (deaths.contains(id)) continue;
                 if ((game_state.terrain.getCoord(current_positions.getValue(id).?) orelse oob_terrain).floor == if (spawn_the_stairs) Floor.hatch else Floor.stairs_down) {
-                    do_transition = true;
+                    victor_id = id;
                     current_level_number += 1;
                 }
             }
@@ -468,7 +468,7 @@ pub const GameEngine = struct {
             }
         }
 
-        if (do_transition) {
+        if (victor_id) |the_victor| {
             core.debug.testing.print("do transition");
             try state_changes.append(StateDiff.transition_to_next_level);
             const new_level_number = game_state.level_number + 1;
@@ -477,6 +477,14 @@ pub const GameEngine = struct {
                 const id = findAvailableId(&new_id_cursor, game_state.individuals);
                 try state_changes.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
             }
+
+            // warp the player to the next level
+            try state_changes.append(StateDiff{
+                .move = StateDiff.IdAndCoord{
+                    .id = the_victor,
+                    .coord = makeCoord(16, 0),
+                },
+            });
         }
 
         // final observations
