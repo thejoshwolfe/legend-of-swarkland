@@ -169,9 +169,7 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         for (last_frame.others) |other| {
             if (other.species == .human) break :blk other.rel_position;
         }
-        // no human? kill each other then!
-        for (last_frame.others) |other| break :blk other.rel_position;
-        // i'm the last one? dance!
+        // if you can't find anyone to kill, dance!
         return Action{ .move = Coord{ .x = 0, .y = 1 } };
     };
 
