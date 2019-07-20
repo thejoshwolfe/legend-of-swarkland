@@ -207,17 +207,24 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     };
     // Archers want to line up for a shot; melee wants to avoid lining up for a shot.
     var option_index = if (range == 1) long_index else 1 - long_index;
-    // If someone's in the way, then prefer the other way.
-    // If someone's in the way in both directions, then go with our initial preference.
+    // If somethings's in the way, then prefer the other way.
+    // If somethings's in the way in both directions, then go with our initial preference.
     {
         var flip_flop_counter = usize(0);
-        while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
+        flip_flop_loop: while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
             const move_into_position = options[option_index];
+            if (last_frame.terrain.matrix.getCoord(move_into_position.minus(last_frame.terrain.rel_position))) |cell| {
+                if (!core.game_logic.isOpenSpace(cell.wall)) {
+                    // wall in the way.
+                    option_index = 1 - option_index;
+                    continue :flip_flop_loop;
+                }
+            }
             for (last_frame.others) |perceived_other| {
                 if (perceived_other.rel_position.equals(move_into_position)) {
                     // somebody's there already.
                     option_index = 1 - option_index;
-                    break;
+                    continue :flip_flop_loop;
                 }
             }
         }
