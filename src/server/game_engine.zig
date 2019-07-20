@@ -451,7 +451,20 @@ pub const GameEngine = struct {
             .individual_to_perception = blk: {
                 var ret = IdMap([]PerceivedFrame).init(self.allocator);
                 for (everybody) |id| {
-                    try ret.putNoClobber(id, individual_to_perception.getValue(id).?.frames.toOwnedSlice());
+                    var frame_list = individual_to_perception.getValue(id).?.frames;
+                    // remove empty frames, except the last one
+                    var i: usize = 0;
+                    frameLoop: while (i + 1 < frame_list.len) : (i +%= 1) {
+                        const frame = frame_list.at(i);
+                        if (frame.self.activity != PerceivedActivity.none) continue :frameLoop;
+                        for (frame.others) |other| {
+                            if (other.activity != PerceivedActivity.none) continue :frameLoop;
+                        }
+                        // delete this frame
+                        _ = frame_list.orderedRemove(i);
+                        i -%= 1;
+                    }
+                    try ret.putNoClobber(id, frame_list.toOwnedSlice());
                 }
                 break :blk ret;
             },
@@ -513,10 +526,15 @@ pub const GameEngine = struct {
             const id = kv.key;
             const activity = switch (activities) {
                 .movement => |data| blk: {
+                    const prior_velocity = data.previous_moves.getValue(id) orelse zero_vector;
+                    const next_velocity = data.next_moves.getValue(id) orelse zero_vector;
+                    if (prior_velocity.equals(zero_vector) and next_velocity.equals(zero_vector)) {
+                        break :blk PerceivedActivity{ .none = {} };
+                    }
                     const a = PerceivedActivity{
                         .movement = PerceivedActivity.Movement{
-                            .prior_velocity = data.previous_moves.getValue(id) orelse zero_vector,
-                            .next_velocity = data.next_moves.getValue(id) orelse zero_vector,
+                            .prior_velocity = prior_velocity,
+                            .next_velocity = next_velocity,
                         },
                     };
                     break :blk a;

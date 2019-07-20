@@ -140,7 +140,12 @@ fn deep_print(prefix: []const u8, something: var) void {
                             std.debug.warn("\n{}  ", indentation);
                         }
                         std.debug.warn(".{} = ", @memberName(T, field_i));
-                        recurse(@field(obj, @memberName(T, field_i)), indent + 1);
+                        if (std.mem.eql(u8, @memberName(T, field_i), "terrain")) {
+                            // hide terrain, because it's so bulky.
+                            std.debug.warn("<...>");
+                        } else {
+                            recurse(@field(obj, @memberName(T, field_i)), indent + 1);
+                        }
                         if (multiline) std.debug.warn(",");
                     }
                     if (multiline) {
@@ -163,6 +168,9 @@ fn deep_print(prefix: []const u8, something: var) void {
                 },
                 .Enum => |info| {
                     return std.debug.warn(".{}", @tagName(obj));
+                },
+                .Void => {
+                    return std.debug.warn("{{}}");
                 },
                 else => {},
             }
