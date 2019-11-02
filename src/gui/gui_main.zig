@@ -331,6 +331,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 if (show_poised_attack and state.started_attack) {
                     textures.renderSprite(renderer, textures.sprites.dagger, display_position);
                 }
+
+                // if we're showing you dead, show a tutorial.
+                if (frame.self.activity == .death) {
+                    // something
+                    var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
+                    if (animated_y > 10) animated_y = 20 - animated_y;
+                    const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
+                    const size = textures.renderTextScaled(renderer, "you died. use Backspace to undo.", coord, true, 1);
+                }
             },
         }
 
