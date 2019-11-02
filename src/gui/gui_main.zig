@@ -230,7 +230,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
         switch (game_state) {
             GameState.main_menu => |*main_menu_state| {
-                var menu_renderer = gui.Gui.init(renderer, main_menu_state, textures.sprites.shiny_purple_wand);
+                var menu_renderer = gui.Gui.init(renderer, main_menu_state, textures.sprites.human);
 
                 menu_renderer.seek(10, 10);
                 menu_renderer.scale(2);
@@ -240,7 +240,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.scale(1);
                 menu_renderer.bold(false);
                 menu_renderer.seekRelative(70, 30);
-                if (menu_renderer.button("New Game (Thread)")) {
+                if (menu_renderer.button(" ")) {
                     game_state = GameState{
                         .running = GameState.Running{
                             .client = undefined,
@@ -251,21 +251,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     try game_state.running.client.startAsThread();
                 }
-                if (std.os.linux.is_the_target and menu_renderer.button("Attach to Game (Process)")) {
-                    game_state = GameState{
-                        .running = GameState.Running{
-                            .client = undefined,
-                            .client_state = null,
-                            .started_attack = false,
-                            .animations = null,
-                        },
-                    };
-                    try game_state.running.client.startAsChildProcess();
-                }
-                if (menu_renderer.button("Quit")) {
-                    // quit
-                    return;
-                }
 
                 menu_renderer.seekRelative(-70, 50);
                 menu_renderer.text("Controls:");
@@ -273,7 +258,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" F: Start attack");
                 menu_renderer.text("   Arrow keys: Attack in direction");
                 menu_renderer.text(" Backspace: Undo");
-                menu_renderer.text(" Enter: Begin");
+                menu_renderer.text(" Enter: Start Game");
 
                 menu_renderer.seekRelative(140, 10);
                 menu_renderer.imageAndText(textures.sprites.human, "This is you");
