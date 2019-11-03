@@ -269,11 +269,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" Backspace: Undo");
                 menu_renderer.text(" Ctrl+R: Quit to this menu");
                 menu_renderer.text(" Enter: Start Game");
-
-                menu_renderer.seekRelative(140, 10);
-                menu_renderer.imageAndText(textures.sprites.human, "This is you");
-                menu_renderer.imageAndText(textures.sprites.hatch, "Unlock the stairs");
-                menu_renderer.imageAndText(textures.sprites.stairs_down, "Go down the stairs");
             },
             GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;
