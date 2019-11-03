@@ -16,47 +16,52 @@ pub const Button = enum {
     escape,
 };
 
+/// TODO: suppress key repeat
 pub const InputEngine = struct {
-    const button_count = @memberCount(Button);
-    button_states: [button_count]bool,
-
     pub fn init() InputEngine {
-        return InputEngine{ .button_states = [_]bool{false} ** button_count };
+        return InputEngine{};
     }
 
     pub fn handleEvent(self: *InputEngine, event: sdl.c.SDL_Event) ?Button {
         switch (event.@"type") {
             sdl.c.SDL_KEYUP => {
-                if (self.scancodeToButton(@enumToInt(event.key.keysym.scancode))) |button| {
-                    self.button_states[@enumToInt(button)] = false;
-                }
                 return null;
             },
             sdl.c.SDL_KEYDOWN => {
-                // TODO
-                const button = self.scancodeToButton(@enumToInt(event.key.keysym.scancode)) orelse return null;
-                if (self.button_states[@enumToInt(button)]) {
-                    // keyrepeat
-                    return null;
-                }
-                self.button_states[@enumToInt(button)] = true;
-                return button;
+                return self.scancodeToButton(self.getModifiers(), @enumToInt(event.key.keysym.scancode)) orelse return null;
             },
             else => unreachable,
         }
     }
 
-    fn scancodeToButton(self: *InputEngine, scancode: c_int) ?Button {
+    fn scancodeToButton(self: InputEngine, modifiers: Modifiers, scancode: c_int) ?Button {
         switch (scancode) {
-            sdl.c.SDL_SCANCODE_LEFT => return Button.left,
-            sdl.c.SDL_SCANCODE_RIGHT => return Button.right,
-            sdl.c.SDL_SCANCODE_UP => return Button.up,
-            sdl.c.SDL_SCANCODE_DOWN => return Button.down,
-            sdl.c.SDL_SCANCODE_F => return Button.start_attack,
-            sdl.c.SDL_SCANCODE_BACKSPACE => return Button.backspace,
-            sdl.c.SDL_SCANCODE_RETURN => return Button.enter,
-            sdl.c.SDL_SCANCODE_ESCAPE => return Button.escape,
+            sdl.c.SDL_SCANCODE_LEFT => return if (modifiers == 0) Button.left else null,
+            sdl.c.SDL_SCANCODE_RIGHT => return if (modifiers == 0) Button.right else null,
+            sdl.c.SDL_SCANCODE_UP => return if (modifiers == 0) Button.up else null,
+            sdl.c.SDL_SCANCODE_DOWN => return if (modifiers == 0) Button.down else null,
+            sdl.c.SDL_SCANCODE_F => return if (modifiers == 0) Button.start_attack else null,
+            sdl.c.SDL_SCANCODE_BACKSPACE => return if (modifiers == 0) Button.backspace else null,
+            sdl.c.SDL_SCANCODE_RETURN => return if (modifiers == 0) Button.enter else null,
+            sdl.c.SDL_SCANCODE_ESCAPE => return if (modifiers == 0) Button.escape else null,
             else => return null,
         }
+    }
+
+    const Modifiers = u4;
+    const shift = 1;
+    const ctrl = 2;
+    const alt = 3;
+    const meta = 4;
+
+    fn getModifiers(self: InputEngine) Modifiers {
+        const sdl_modifiers = @enumToInt(sdl.c.SDL_GetModState());
+        var result: Modifiers = 0;
+        if (sdl_modifiers & (sdl.c.KMOD_LSHIFT | sdl.c.KMOD_RSHIFT) != 0) result |= shift;
+        if (sdl_modifiers & (sdl.c.KMOD_LCTRL | sdl.c.KMOD_RCTRL) != 0) result |= ctrl;
+        if (sdl_modifiers & (sdl.c.KMOD_LALT | sdl.c.KMOD_RALT) != 0) result |= alt;
+        if (sdl_modifiers & (sdl.c.KMOD_LGUI | sdl.c.KMOD_RGUI) != 0) result |= meta;
+
+        return result;
     }
 };
