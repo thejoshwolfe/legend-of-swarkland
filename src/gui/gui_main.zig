@@ -214,7 +214,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.started_attack = true;
                                     },
                                     Button.backspace => {
-                                        try state.client.rewind();
+                                        if (state.started_attack) {
+                                            state.started_attack = false;
+                                        } else {
+                                            try state.client.rewind();
+                                        }
                                     },
                                     Button.escape => {
                                         state.started_attack = false;
