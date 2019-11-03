@@ -219,6 +219,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     Button.escape => {
                                         state.started_attack = false;
                                     },
+                                    Button.restart => {
+                                        state.client.stopEngine();
+                                        game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
+                                    },
                                     else => {},
                                 }
                             },
@@ -263,6 +267,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" F: Start attack");
                 menu_renderer.text("   Arrow keys: Attack in direction");
                 menu_renderer.text(" Backspace: Undo");
+                menu_renderer.text(" Ctrl+R: Quit to this menu");
                 menu_renderer.text(" Enter: Start Game");
 
                 menu_renderer.seekRelative(140, 10);

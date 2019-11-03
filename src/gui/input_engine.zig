@@ -14,6 +14,7 @@ pub const Button = enum {
     backspace,
     enter,
     escape,
+    restart,
 };
 
 /// TODO: suppress key repeat
@@ -41,6 +42,7 @@ pub const InputEngine = struct {
             sdl.c.SDL_SCANCODE_UP => return if (modifiers == 0) Button.up else null,
             sdl.c.SDL_SCANCODE_DOWN => return if (modifiers == 0) Button.down else null,
             sdl.c.SDL_SCANCODE_F => return if (modifiers == 0) Button.start_attack else null,
+            sdl.c.SDL_SCANCODE_R => return if (modifiers == ctrl) Button.restart else null,
             sdl.c.SDL_SCANCODE_BACKSPACE => return if (modifiers == 0) Button.backspace else null,
             sdl.c.SDL_SCANCODE_RETURN => return if (modifiers == 0) Button.enter else null,
             sdl.c.SDL_SCANCODE_ESCAPE => return if (modifiers == 0) Button.escape else null,
