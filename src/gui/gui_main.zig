@@ -103,6 +103,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
             /// only tracked to display aesthetics consistently through movement.
             total_journey_offset: Coord,
+
+            /// only tracked to show the restart tutorial
+            all_buttons_done: bool,
         };
     };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
@@ -126,10 +129,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             state.animations = try loadAnimations(happening.frames, now);
                             state.client_state = happening.frames[happening.frames.len - 1];
                             state.total_journey_offset = state.total_journey_offset.plus(state.animations.?.frame_index_to_aesthetic_offset[happening.frames.len - 1]);
+                            core.debug.testing.print("total: {}", state.total_journey_offset.x);
+                            state.all_buttons_done = areAllButtonsDone(state.client_state.?);
                         },
                         .load_state => |frame| {
                             state.animations = null;
                             state.client_state = frame;
+                            state.all_buttons_done = areAllButtonsDone(state.client_state.?);
                         },
                         .reject_request => {
                             // oh sorry.
@@ -260,6 +266,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .started_attack = false,
                             .animations = null,
                             .total_journey_offset = makeCoord(0, 0),
+                            .all_buttons_done = false,
                         },
                     };
                     try game_state.running.client.startAsThread();
@@ -346,11 +353,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // if we're showing you dead, show a tutorial.
                 if (frame.self.activity == .death) {
-                    // something
+                    // gentle up/down bob
                     var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
                     if (animated_y > 10) animated_y = 20 - animated_y;
                     const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
                     const size = textures.renderTextScaled(renderer, "you died. use Backspace to undo.", coord, true, 1);
+                } else if (state.total_journey_offset.x >= 73 and state.all_buttons_done) {
+                    // gentle up/down bob
+                    var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
+                    if (animated_y > 10) animated_y = 20 - animated_y;
+                    const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
+                    const size = textures.renderTextScaled(renderer, "you are win. use Ctrl+R to quit.", coord, true, 1);
                 }
             },
         }
@@ -490,4 +503,11 @@ fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
         .frames = try core.protocol.deepClone(allocator, frames),
         .frame_index_to_aesthetic_offset = frame_index_to_aesthetic_offset,
     };
+}
+
+fn areAllButtonsDone(frame: PerceivedFrame) bool {
+    for (frame.terrain.matrix.data) |space| {
+        if (space.floor == Floor.hatch) return false;
+    }
+    return true;
 }
