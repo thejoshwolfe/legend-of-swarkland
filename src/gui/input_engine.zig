@@ -17,7 +17,6 @@ pub const Button = enum {
     restart,
 };
 
-/// TODO: suppress key repeat
 pub const InputEngine = struct {
     pub fn init() InputEngine {
         return InputEngine{};
@@ -29,6 +28,7 @@ pub const InputEngine = struct {
                 return null;
             },
             sdl.c.SDL_KEYDOWN => {
+                if (event.key.repeat != 0) return null;
                 return self.scancodeToButton(self.getModifiers(), @enumToInt(event.key.keysym.scancode)) orelse return null;
             },
             else => unreachable,
