@@ -346,11 +346,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // if we're showing you dead, show a tutorial.
                 if (frame.self.activity == .death) {
-                    // something
+                    // gentle up/down bob
                     var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
                     if (animated_y > 10) animated_y = 20 - animated_y;
                     const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
                     const size = textures.renderTextScaled(renderer, "you died. use Backspace to undo.", coord, true, 1);
+                } else if (frame.you_win) {
+                    // gentle up/down bob
+                    var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
+                    if (animated_y > 10) animated_y = 20 - animated_y;
+                    const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
+                    const size = textures.renderTextScaled(renderer, "you are win. use Ctrl+R to quit.", coord, true, 1);
                 }
             },
         }
