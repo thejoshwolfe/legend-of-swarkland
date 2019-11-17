@@ -21,6 +21,7 @@ const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
+const getHeadPosition = core.game_logic.getHeadPosition;
 
 const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
 
@@ -398,15 +399,16 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 }
 
 fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: PerceivedThing) Coord {
+    const rel_position = getHeadPosition(thing.rel_position);
     return switch (thing.activity) {
         .movement => |data| core.geometry.bezier3(
-            thing.rel_position.scaled(32).minus(data.prior_velocity.scaled(32 / 2)),
-            thing.rel_position.scaled(32),
-            thing.rel_position.scaled(32).plus(data.next_velocity.scaled(32 / 2)),
+            rel_position.scaled(32).minus(data.prior_velocity.scaled(32 / 2)),
+            rel_position.scaled(32),
+            rel_position.scaled(32).plus(data.next_velocity.scaled(32 / 2)),
             progress,
             progress_denominator,
         ),
-        else => thing.rel_position.scaled(32),
+        else => rel_position.scaled(32),
     };
 }
 

@@ -7,7 +7,6 @@ const sign = core.geometry.sign;
 const GameEngine = @import("./game_engine.zig").GameEngine;
 const GameState = @import("./game_engine.zig").GameState;
 const IdMap = @import("./game_engine.zig").IdMap;
-const Individual = @import("./game_engine.zig").Individual;
 const SomeQueues = @import("../client/game_engine_client.zig").SomeQueues;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
@@ -15,6 +14,8 @@ const Action = core.protocol.Action;
 const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
+const getHeadPosition = core.game_logic.getHeadPosition;
+const getAllPositions = core.game_logic.getAllPositions;
 
 const StateDiff = @import("./game_engine.zig").StateDiff;
 const HistoryList = std.TailQueue([]StateDiff);
@@ -167,9 +168,9 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     const target_position = blk: {
         // KILLKILLKILL HUMANS
         for (last_frame.others) |other| {
-            if (other.species == .human) break :blk other.rel_position;
+            if (other.species == .human) break :blk getHeadPosition(other.rel_position);
         }
-        // if you can't find anyone to kill, dance!
+        // nothing to do.
         return .wait;
     };
 
@@ -229,10 +230,12 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 }
             }
             for (last_frame.others) |perceived_other| {
-                if (perceived_other.rel_position.equals(move_into_position)) {
-                    // somebody's there already.
-                    option_index = 1 - option_index;
-                    continue :flip_flop_loop;
+                for (getAllPositions(perceived_other.rel_position)) |rel_position| {
+                    if (rel_position.equals(move_into_position)) {
+                        // somebody's there already.
+                        option_index = 1 - option_index;
+                        continue :flip_flop_loop;
+                    }
                 }
             }
         }

@@ -12,11 +12,13 @@ const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const PerceivedFrame = core.protocol.PerceivedFrame;
+const ThingPosition = core.protocol.ThingPosition;
 const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
 
 const view_distance = core.game_logic.view_distance;
+const getHeadPosition = core.game_logic.getHeadPosition;
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
@@ -49,6 +51,14 @@ fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
     return x;
 }
 
+fn makeIndividual(small_position: Coord, species: Species) Individual {
+    return Individual{
+        .id = 0,
+        .species = species,
+        .abs_position = ThingPosition{ .small = small_position },
+    };
+}
+
 const Level = struct {
     width: u16,
     height: u16,
@@ -62,7 +72,7 @@ const the_levels = [_]Level{
         .height = 10,
         .hatch_positions = [_]Coord{},
         .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc }},
+        .individuals = [_]Individual{makeIndividual(makeCoord(2, 2), .orc)},
     },
     Level{
         .width = 10,
@@ -70,9 +80,9 @@ const the_levels = [_]Level{
         .hatch_positions = [_]Coord{makeCoord(4, 4)},
         .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(1, 1), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(7, 1), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(4, 7), .species = .orc },
+            makeIndividual(makeCoord(1, 1), .orc),
+            makeIndividual(makeCoord(7, 1), .orc),
+            makeIndividual(makeCoord(4, 7), .orc),
         },
     },
     Level{
@@ -84,8 +94,8 @@ const the_levels = [_]Level{
             makeCoord(5, 4), makeCoord(5, 5), makeCoord(5, 6),
         },
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(7, 3), .species = .turtle },
-            Individual{ .id = 0, .abs_position = makeCoord(2, 5), .species = .turtle },
+            makeIndividual(makeCoord(7, 3), .turtle),
+            makeIndividual(makeCoord(2, 5), .turtle),
         },
     },
     Level{
@@ -97,9 +107,9 @@ const the_levels = [_]Level{
             makeCoord(1, 5), makeCoord(2, 5), makeCoord(3, 5), makeCoord(4, 5), makeCoord(5, 5), makeCoord(6, 5),
         },
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(6, 3), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(6, 4), .species = .orc },
+            makeIndividual(makeCoord(6, 2), .orc),
+            makeIndividual(makeCoord(6, 3), .centaur),
+            makeIndividual(makeCoord(6, 4), .orc),
         },
     },
     Level{
@@ -108,8 +118,8 @@ const the_levels = [_]Level{
         .hatch_positions = [_]Coord{makeCoord(4, 2)},
         .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(1, 1), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .centaur },
+            makeIndividual(makeCoord(1, 1), .centaur),
+            makeIndividual(makeCoord(9, 6), .centaur),
         },
     },
     Level{
@@ -118,13 +128,13 @@ const the_levels = [_]Level{
         .hatch_positions = [_]Coord{makeCoord(7, 2)},
         .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(4, 7), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 7), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(6, 7), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(7, 7), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(8, 7), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 7), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(10, 7), .species = .centaur },
+            makeIndividual(makeCoord(4, 7), .centaur),
+            makeIndividual(makeCoord(5, 7), .centaur),
+            makeIndividual(makeCoord(6, 7), .centaur),
+            makeIndividual(makeCoord(7, 7), .centaur),
+            makeIndividual(makeCoord(8, 7), .centaur),
+            makeIndividual(makeCoord(9, 7), .centaur),
+            makeIndividual(makeCoord(10, 7), .centaur),
         },
     },
     Level{
@@ -133,20 +143,20 @@ const the_levels = [_]Level{
         .hatch_positions = [_]Coord{makeCoord(7, 7)},
         .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(5, 5), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 7), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 8), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 9), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 5), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 7), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 8), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 9), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(4, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(10, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(9, 1), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(5, 1), .species = .centaur },
+            makeIndividual(makeCoord(5, 5), .orc),
+            makeIndividual(makeCoord(5, 6), .orc),
+            makeIndividual(makeCoord(5, 7), .orc),
+            makeIndividual(makeCoord(5, 8), .orc),
+            makeIndividual(makeCoord(5, 9), .orc),
+            makeIndividual(makeCoord(9, 5), .orc),
+            makeIndividual(makeCoord(9, 6), .orc),
+            makeIndividual(makeCoord(9, 7), .orc),
+            makeIndividual(makeCoord(9, 8), .orc),
+            makeIndividual(makeCoord(9, 9), .orc),
+            makeIndividual(makeCoord(4, 2), .centaur),
+            makeIndividual(makeCoord(10, 2), .centaur),
+            makeIndividual(makeCoord(9, 1), .centaur),
+            makeIndividual(makeCoord(5, 1), .centaur),
         },
     },
     // the last level must have no enemies so that you can't win it.
@@ -220,7 +230,16 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
 
 fn assignId(individual: Individual, level_x: i32, id: u32) Individual {
     var ret = individual;
-    ret.abs_position.x += level_x;
+    switch (ret.abs_position) {
+        .small => |*coord| {
+            coord.x += level_x;
+        },
+        .large => |*coords| {
+            for (coords) |*coord| {
+                coord.x += level_x;
+            }
+        },
+    }
     ret.id = id;
     return ret;
 }
@@ -254,7 +273,7 @@ pub const GameEngine = struct {
             .state_changes = blk: {
                 var ret = ArrayList(StateDiff).init(self.allocator);
                 // human is always id 1
-                try ret.append(StateDiff{ .spawn = Individual{ .id = 1, .abs_position = makeCoord(7, 7), .species = .human } });
+                try ret.append(StateDiff{ .spawn = Individual{ .id = 1, .abs_position = .{ .small = makeCoord(7, 7) }, .species = .human } });
                 const level_x = 0;
                 for (the_levels[0].individuals) |individual, i| {
                     try ret.append(StateDiff{ .spawn = assignId(individual, level_x, @intCast(u32, i) + 2) });
@@ -302,7 +321,7 @@ pub const GameEngine = struct {
 
         for (everybody) |id| {
             try individual_to_perception.putNoClobber(id, try createInit(self.allocator, MutablePerceivedHappening));
-            try current_positions.putNoClobber(id, game_state.individuals.getValue(id).?.abs_position);
+            try current_positions.putNoClobber(id, getHeadPosition(game_state.individuals.getValue(id).?.abs_position));
         }
 
         var attacks = IdMap(Coord).init(self.allocator);
@@ -467,12 +486,12 @@ pub const GameEngine = struct {
         // build state changes
         var state_changes = ArrayList(StateDiff).init(self.allocator);
         for (everybody) |id| {
-            const from = game_state.individuals.getValue(id).?.abs_position;
+            const from = getHeadPosition(game_state.individuals.getValue(id).?.abs_position);
             const to = current_positions.getValue(id).?;
             if (to.equals(from)) continue;
             const delta = to.minus(from);
             try state_changes.append(StateDiff{
-                .move = StateDiff.IdAndCoord{
+                .small_move = StateDiff.IdAndCoord{
                     .id = id,
                     .coord = delta,
                 },
@@ -484,7 +503,7 @@ pub const GameEngine = struct {
                 try state_changes.append(StateDiff{
                     .despawn = blk: {
                         var individual = game_state.individuals.getValue(kv.key).?.*;
-                        individual.abs_position = current_positions.getValue(individual.id).?;
+                        individual.abs_position = .{ .small = current_positions.getValue(individual.id).? };
                         break :blk individual;
                     },
                 });
@@ -648,7 +667,7 @@ pub const GameEngine = struct {
         current_positions: *const IdMap(Coord),
         activities: Activities,
     ) !PerceivedFrame {
-        const your_position = current_positions.getValue(my_id) orelse game_state.individuals.getValue(my_id).?.abs_position;
+        const your_position = current_positions.getValue(my_id) orelse getHeadPosition(game_state.individuals.getValue(my_id).?.abs_position);
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
 
@@ -685,12 +704,12 @@ pub const GameEngine = struct {
 
                 .static_state => PerceivedActivity{ .none = {} },
             };
-            const abs_position = current_positions.getValue(id) orelse game_state.individuals.getValue(id).?.abs_position;
-            const delta = abs_position.minus(your_position);
+            const abs_head_position = current_positions.getValue(id) orelse getHeadPosition(game_state.individuals.getValue(id).?.abs_position);
+            const delta = abs_head_position.minus(your_position);
             if (delta.magnitudeDiag() > view_distance) continue;
             const thing = PerceivedThing{
                 .species = game_state.individuals.getValue(id).?.species,
-                .rel_position = delta,
+                .rel_position = .{ .small = delta }, // TODO: wrong
                 .activity = activity,
             };
             if (id == my_id) {
@@ -734,12 +753,12 @@ pub const GameEngine = struct {
 pub const Individual = struct {
     id: u32,
     species: Species,
-    abs_position: Coord,
+    abs_position: ThingPosition,
 };
 pub const StateDiff = union(enum) {
     spawn: Individual,
     despawn: Individual,
-    move: IdAndCoord,
+    small_move: IdAndCoord,
     pub const IdAndCoord = struct {
         id: u32,
         coord: Coord,
@@ -798,9 +817,9 @@ pub const GameState = struct {
                 .despawn => |individual| {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
-                .move => |id_and_coord| {
+                .small_move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
-                    individual.abs_position = individual.abs_position.plus(id_and_coord.coord);
+                    individual.abs_position.small = individual.abs_position.small.plus(id_and_coord.coord);
                 },
                 .terrain_init => |terrain| {
                     self.terrain = terrain;
@@ -825,9 +844,9 @@ pub const GameState = struct {
                 .despawn => |individual| {
                     try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
                 },
-                .move => |id_and_coord| {
+                .small_move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
-                    individual.abs_position = individual.abs_position.minus(id_and_coord.coord);
+                    individual.abs_position.small = individual.abs_position.small.minus(id_and_coord.coord);
                 },
                 .terrain_init => {
                     @panic("can't undo terrain init");

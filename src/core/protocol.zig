@@ -75,8 +75,15 @@ pub const PerceivedFrame = struct {
     you_win: bool,
 };
 
+pub const ThingPosition = union(enum) {
+    small: Coord,
+
+    /// 0: head, 1: tail
+    large: [2]Coord,
+};
+
 pub const PerceivedThing = struct {
-    rel_position: Coord,
+    rel_position: ThingPosition,
     species: Species,
 
     activity: PerceivedActivity,
