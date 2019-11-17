@@ -61,10 +61,7 @@ const the_levels = [_]Level{
         .width = 10,
         .height = 10,
         .hatch_positions = [_]Coord{},
-        .lava_positions = [_]Coord{
-            makeCoord(1, 1), makeCoord(1, 2), makeCoord(1, 3), makeCoord(1, 4),
-            makeCoord(1, 5), makeCoord(1, 6), makeCoord(1, 7), makeCoord(1, 8),
-        },
+        .lava_positions = [_]Coord{},
         .individuals = [_]Individual{Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc }},
     },
     Level{
@@ -76,6 +73,19 @@ const the_levels = [_]Level{
             Individual{ .id = 0, .abs_position = makeCoord(1, 1), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(7, 1), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(4, 7), .species = .orc },
+        },
+    },
+    Level{
+        .width = 10,
+        .height = 10,
+        .hatch_positions = [_]Coord{makeCoord(7, 5)},
+        .lava_positions = [_]Coord{
+            makeCoord(4, 4), makeCoord(4, 5), makeCoord(4, 6),
+            makeCoord(5, 4), makeCoord(5, 5), makeCoord(5, 6),
+        },
+        .individuals = [_]Individual{
+            Individual{ .id = 0, .abs_position = makeCoord(7, 3), .species = .turtle },
+            Individual{ .id = 0, .abs_position = makeCoord(2, 5), .species = .turtle },
         },
     },
     Level{
@@ -409,9 +419,9 @@ pub const GameEngine = struct {
             while (attack_distance <= range) : (attack_distance += 1) {
                 var damage_position = attacker_position.plus(attack_direction.scaled(attack_distance));
                 for (everybody) |other_id| {
-                    if (current_positions.getValue(other_id).?.equals(damage_position)) {
-                        _ = try deaths.put(other_id, {});
-                    }
+                    if (!current_positions.getValue(other_id).?.equals(damage_position)) continue;
+                    if (!core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species)) continue;
+                    _ = try deaths.put(other_id, {});
                 }
             }
         }

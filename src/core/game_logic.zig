@@ -9,6 +9,13 @@ pub fn getAttackRange(species: core.protocol.Species) i32 {
     }
 }
 
+pub fn isAffectedByAttacks(species: core.protocol.Species) bool {
+    return switch (species) {
+        .turtle => false,
+        else => true,
+    };
+}
+
 pub fn isOpenSpace(wall: core.protocol.Wall) bool {
-    return wall == core.protocol.Wall.air;
+    return wall == .air;
 }

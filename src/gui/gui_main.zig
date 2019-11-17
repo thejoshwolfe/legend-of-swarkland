@@ -463,10 +463,8 @@ fn speciesToSprite(species: Species) Rect {
     return switch (species) {
         .human => textures.sprites.human,
         .orc => textures.sprites.orc,
-        .ogre => textures.sprites.ogre,
-        .snake => textures.sprites.snake,
-        .ant => textures.sprites.ant,
         .centaur => textures.sprites.centaur_archer,
+        .turtle => textures.sprites.turtle,
     };
 }
 

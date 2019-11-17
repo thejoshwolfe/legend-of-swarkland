@@ -22,10 +22,8 @@ pub const Wall = enum {
 pub const Species = enum {
     human,
     orc,
-    ogre,
-    snake,
-    ant,
     centaur,
+    turtle,
 };
 
 pub const TerrainChunk = struct {
