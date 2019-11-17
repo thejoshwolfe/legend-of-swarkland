@@ -254,6 +254,7 @@ pub const GameEngine = struct {
 
     pub fn validateAction(self: *const GameEngine, action: Action) bool {
         switch (action) {
+            .wait => return true,
             .move => |direction| return isCardinalDirection(direction),
             .attack => |direction| return isCardinalDirection(direction),
         }
@@ -321,6 +322,7 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             var actor = game_state.individuals.getValue(id).?;
             switch (actions.getValue(id).?) {
+                .wait => {},
                 .move => |direction| {
                     try next_moves.putNoClobber(id, direction);
                 },

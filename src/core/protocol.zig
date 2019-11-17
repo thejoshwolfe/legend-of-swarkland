@@ -41,6 +41,7 @@ pub const Request = union(enum) {
 };
 
 pub const Action = union(enum) {
+    wait,
     move: Coord,
     attack: Coord,
 };

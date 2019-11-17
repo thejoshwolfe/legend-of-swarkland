@@ -170,7 +170,7 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             if (other.species == .human) break :blk other.rel_position;
         }
         // if you can't find anyone to kill, dance!
-        return Action{ .move = Coord{ .x = 0, .y = 1 } };
+        return .wait;
     };
 
     const delta = target_position;
@@ -183,8 +183,16 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             // within range
             return Action{ .attack = Coord{ .x = sign(delta.x), .y = sign(delta.y) } };
         } else {
-            // move straight twoard the target, even if someone else is in the way
-            return Action{ .move = Coord{ .x = sign(delta.x), .y = sign(delta.y) } };
+            // We want to get closer.
+            const move_into_position = Coord{ .x = sign(delta.x), .y = sign(delta.y) };
+            if (last_frame.terrain.matrix.getCoord(move_into_position.minus(last_frame.terrain.rel_position))) |cell| {
+                if (cell.floor == .lava) {
+                    // I'm scared of lava
+                    return .wait;
+                }
+            }
+            // Move straight twoard the target, even if someone else is in the way
+            return Action{ .move = move_into_position };
         }
     }
     // We have a diagonal space to traverse.
@@ -214,8 +222,8 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         flip_flop_loop: while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
             const move_into_position = options[option_index];
             if (last_frame.terrain.matrix.getCoord(move_into_position.minus(last_frame.terrain.rel_position))) |cell| {
-                if (!core.game_logic.isOpenSpace(cell.wall)) {
-                    // wall in the way.
+                if (cell.floor == .lava or !core.game_logic.isOpenSpace(cell.wall)) {
+                    // Can't go that way.
                     option_index = 1 - option_index;
                     continue :flip_flop_loop;
                 }
