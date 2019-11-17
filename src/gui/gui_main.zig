@@ -311,9 +311,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     const terrain_offset = frame.terrain.rel_position.scaled(32).plus(camera_offset);
                     const terrain = frame.terrain.matrix;
                     var cursor = makeCoord(undefined, 0);
-                    while (cursor.y <= i32(terrain.height)) : (cursor.y += 1) {
+                    while (cursor.y <= @as(i32, terrain.height)) : (cursor.y += 1) {
                         cursor.x = 0;
-                        while (cursor.x <= i32(terrain.width)) : (cursor.x += 1) {
+                        while (cursor.x <= @as(i32, terrain.width)) : (cursor.x += 1) {
                             if (terrain.getCoord(cursor)) |cell| {
                                 const display_position = cursor.scaled(32).plus(terrain_offset);
                                 const aesthetic_coord = cursor.plus(state.total_journey_offset).plus(animated_aesthetic_offset);
@@ -427,7 +427,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                     renderer,
                     textures.sprites.dagger,
                     display_position.plus(data.direction.scaled(32 * 3 / 4)),
-                    u3(directionToRotation(data.direction)) +% dagger_sprite_normalizing_rotation,
+                    @as(u3, directionToRotation(data.direction)) +% dagger_sprite_normalizing_rotation,
                 );
             } else {
                 const arrow_sprite_normalizing_rotation = 4;
@@ -440,7 +440,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                         progress,
                         progress_denominator,
                     ),
-                    u3(directionToRotation(data.direction)) +% arrow_sprite_normalizing_rotation,
+                    @as(u3, directionToRotation(data.direction)) +% arrow_sprite_normalizing_rotation,
                 );
             }
         },
