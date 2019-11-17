@@ -585,10 +585,17 @@ pub const GameEngine = struct {
             }
         }
 
+        var you_win = blk: for (game_state.terrain.data) |space| {
+            if (space.floor == Floor.hatch) {
+                break :blk false;
+            }
+        } else true;
+
         return PerceivedFrame{
             .self = yourself.?,
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
+            .you_win = you_win,
         };
     }
 };

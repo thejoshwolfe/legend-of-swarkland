@@ -71,9 +71,9 @@ pub const PerceivedHappening = struct {
 pub const PerceivedFrame = struct {
     terrain: TerrainChunk,
 
-    /// null means you're are dead
     self: PerceivedThing,
     others: []PerceivedThing,
+    you_win: bool,
 };
 
 pub const PerceivedThing = struct {

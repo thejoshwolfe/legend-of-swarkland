@@ -100,6 +100,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             client_state: ?PerceivedFrame,
             started_attack: bool,
             animations: ?Animations,
+
+            /// only tracked to display aesthetics consistently through movement.
+            total_journey_offset: Coord,
         };
     };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
@@ -122,6 +125,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             // Show animations for what's going on.
                             state.animations = try loadAnimations(happening.frames, now);
                             state.client_state = happening.frames[happening.frames.len - 1];
+                            state.total_journey_offset = state.total_journey_offset.plus(state.animations.?.frame_index_to_aesthetic_offset[happening.frames.len - 1]);
                         },
                         .load_state => |frame| {
                             state.animations = null;
@@ -210,10 +214,18 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.started_attack = true;
                                     },
                                     Button.backspace => {
-                                        try state.client.rewind();
+                                        if (state.started_attack) {
+                                            state.started_attack = false;
+                                        } else {
+                                            try state.client.rewind();
+                                        }
                                     },
                                     Button.escape => {
                                         state.started_attack = false;
+                                    },
+                                    Button.restart => {
+                                        state.client.stopEngine();
+                                        game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
                                     },
                                     else => {},
                                 }
@@ -230,7 +242,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
         switch (game_state) {
             GameState.main_menu => |*main_menu_state| {
-                var menu_renderer = gui.Gui.init(renderer, main_menu_state, textures.sprites.shiny_purple_wand);
+                var menu_renderer = gui.Gui.init(renderer, main_menu_state, textures.sprites.human);
 
                 menu_renderer.seek(10, 10);
                 menu_renderer.scale(2);
@@ -240,31 +252,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.scale(1);
                 menu_renderer.bold(false);
                 menu_renderer.seekRelative(70, 30);
-                if (menu_renderer.button("New Game (Thread)")) {
+                if (menu_renderer.button(" ")) {
                     game_state = GameState{
                         .running = GameState.Running{
                             .client = undefined,
                             .client_state = null,
                             .started_attack = false,
                             .animations = null,
-                        },
-                    };
-                    try game_state.running.client.startAsThread();
-                }
-                if (std.os.linux.is_the_target and menu_renderer.button("Attach to Game (Process)")) {
-                    game_state = GameState{
-                        .running = GameState.Running{
-                            .client = undefined,
-                            .client_state = null,
-                            .started_attack = false,
-                            .animations = null,
+                            .total_journey_offset = makeCoord(0, 0),
                         },
                     };
                     try game_state.running.client.startAsChildProcess();
-                }
-                if (menu_renderer.button("Quit")) {
-                    // quit
-                    return;
                 }
 
                 menu_renderer.seekRelative(-70, 50);
@@ -273,12 +271,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" F: Start attack");
                 menu_renderer.text("   Arrow keys: Attack in direction");
                 menu_renderer.text(" Backspace: Undo");
-                menu_renderer.text(" Enter: Begin");
-
-                menu_renderer.seekRelative(140, 10);
-                menu_renderer.imageAndText(textures.sprites.human, "This is you");
-                menu_renderer.imageAndText(textures.sprites.hatch, "Unlock the stairs");
-                menu_renderer.imageAndText(textures.sprites.stairs_down, "Go down the stairs");
+                menu_renderer.text(" Ctrl+R: Quit to this menu");
+                menu_renderer.text(" Enter: Start Game");
             },
             GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;
@@ -289,6 +283,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 var frame = state.client_state.?;
                 var progress: i32 = 0;
                 var show_poised_attack = true;
+                var animated_aesthetic_offset = makeCoord(0, 0);
                 if (state.animations) |animations| {
                     const animation_time = @bitCast(u32, now -% animations.start_time);
                     const movement_phase = @divFloor(animation_time, move_frame_time);
@@ -298,6 +293,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         frame = animations.frames[movement_phase];
                         progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
                         show_poised_attack = false;
+                        animated_aesthetic_offset = animations.frame_index_to_aesthetic_offset[movement_phase].minus(animations.frame_index_to_aesthetic_offset[animations.frame_index_to_aesthetic_offset.len - 1]);
                     } else {
                         // stale
                         state.animations = null;
@@ -317,11 +313,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         while (cursor.x <= i32(terrain.width)) : (cursor.x += 1) {
                             if (terrain.getCoord(cursor)) |cell| {
                                 const display_position = cursor.scaled(32).plus(terrain_offset);
+                                const aesthetic_coord = cursor.plus(state.total_journey_offset).plus(animated_aesthetic_offset);
                                 const floor_texture = switch (cell.floor) {
                                     Floor.unknown => textures.sprites.unknown_floor,
-                                    Floor.dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
-                                    Floor.marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, cursor),
-                                    Floor.lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
+                                    Floor.dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, aesthetic_coord),
+                                    Floor.marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, aesthetic_coord),
+                                    Floor.lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, aesthetic_coord),
                                     Floor.hatch => textures.sprites.hatch,
                                     Floor.stairs_down => textures.sprites.stairs_down,
                                 };
@@ -329,8 +326,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 const wall_texture = switch (cell.wall) {
                                     Wall.unknown => textures.sprites.unknown_wall,
                                     Wall.air => continue,
-                                    Wall.dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, cursor),
-                                    Wall.stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, cursor),
+                                    Wall.dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
+                                    Wall.stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
                                 };
                                 textures.renderSprite(renderer, wall_texture, display_position);
                             }
@@ -345,6 +342,21 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, frame.self);
                 if (show_poised_attack and state.started_attack) {
                     textures.renderSprite(renderer, textures.sprites.dagger, display_position);
+                }
+
+                // if we're showing you dead, show a tutorial.
+                if (frame.self.activity == .death) {
+                    // gentle up/down bob
+                    var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
+                    if (animated_y > 10) animated_y = 20 - animated_y;
+                    const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
+                    const size = textures.renderTextScaled(renderer, "you died. use Backspace to undo.", coord, true, 1);
+                } else if (frame.you_win) {
+                    // gentle up/down bob
+                    var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
+                    if (animated_y > 10) animated_y = 20 - animated_y;
+                    const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
+                    const size = textures.renderTextScaled(renderer, "you are win. use Ctrl+R to quit.", coord, true, 1);
                 }
             },
         }
@@ -461,13 +473,27 @@ fn speciesToSprite(species: Species) Rect {
 const Animations = struct {
     start_time: i32,
     frames: []PerceivedFrame,
+    frame_index_to_aesthetic_offset: []Coord,
 };
 const AttackAnimation = struct {};
 const DeathAnimation = struct {};
 
 fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
+    var frame_index_to_aesthetic_offset = try allocator.alloc(Coord, frames.len);
+    var current_offset = makeCoord(0, 0);
+    for (frames) |frame, i| {
+        frame_index_to_aesthetic_offset[i] = current_offset;
+        switch (frame.self.activity) {
+            .movement => |movement| {
+                current_offset = current_offset.plus(movement.next_velocity);
+            },
+            else => {},
+        }
+    }
+
     return Animations{
         .start_time = now,
         .frames = try core.protocol.deepClone(allocator, frames),
+        .frame_index_to_aesthetic_offset = frame_index_to_aesthetic_offset,
     };
 }
