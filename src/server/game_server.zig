@@ -201,13 +201,13 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         Coord{ .x = sign(delta.x), .y = 0 },
         Coord{ .x = 0, .y = sign(delta.y) },
     };
-    const long_index = blk: {
+    const long_index: usize = blk: {
         if (delta.x * delta.x > delta.y * delta.y) {
             // x is longer
-            break :blk usize(0);
+            break :blk 0;
         } else if (delta.x * delta.x < delta.y * delta.y) {
             // y is longer
-            break :blk usize(1);
+            break :blk 1;
         } else {
             // exactly diagonal. let's say that clockwise is longer.
             break :blk @boolToInt(delta.x != delta.y);
@@ -218,7 +218,7 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     // If somethings's in the way, then prefer the other way.
     // If somethings's in the way in both directions, then go with our initial preference.
     {
-        var flip_flop_counter = usize(0);
+        var flip_flop_counter: usize = 0;
         flip_flop_loop: while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
             const move_into_position = options[option_index];
             if (last_frame.terrain.matrix.getCoord(move_into_position.minus(last_frame.terrain.rel_position))) |cell| {

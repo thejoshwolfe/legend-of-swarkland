@@ -172,8 +172,8 @@ const the_levels = [_]Level{
 };
 
 fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
-    var width = u16(0);
-    var height = u16(1);
+    var width: u16 = 0;
+    var height: u16 = 1;
     for (the_levels) |level| {
         width += level.width;
         height = std.math.max(height, level.height);
@@ -188,7 +188,7 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
         .wall = .stone,
     };
 
-    var level_x = u16(0);
+    var level_x: u16 = 0;
     for (the_levels) |level| {
         defer level_x += level.width;
         {
@@ -492,7 +492,7 @@ pub const GameEngine = struct {
         }
 
         if (open_the_way and game_state.level_number + 1 < the_levels.len) {
-            var level_x = u16(0);
+            var level_x: u16 = 0;
             for (the_levels[0..game_state.level_number]) |level| {
                 level_x += level.width;
             }
@@ -524,7 +524,7 @@ pub const GameEngine = struct {
                     break :blk game_state.level_number;
                 }
             };
-            var level_x = u16(0);
+            var level_x: u16 = 0;
             for (the_levels[0..new_level_number]) |level| {
                 level_x += level.width;
             }

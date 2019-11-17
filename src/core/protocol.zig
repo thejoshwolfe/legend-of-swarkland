@@ -172,7 +172,7 @@ pub fn OutChannel(comptime OutStream: type) type {
                     }
                 },
                 .Union => |info| {
-                    const tag_value = @enumToInt(info.tag_type.?(x));
+                    const tag_value = @enumToInt(@as(info.tag_type.?, x));
                     try self.writeInt(tag_value);
                     inline for (info.fields) |u_field| {
                         if (tag_value == u_field.enum_field.?.value) {

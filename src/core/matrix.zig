@@ -46,8 +46,8 @@ pub fn Matrix(comptime T: type) type {
             return self.at(coord.x, coord.y);
         }
         pub fn at(self: Self, x: i32, y: i32) ?*T {
-            if (0 <= x and x < i32(self.width) and
-                0 <= y and y < i32(self.height))
+            if (0 <= x and x < @as(i32, self.width) and
+                0 <= y and y < @as(i32, self.height))
             {
                 return self.atUnchecked(@intCast(usize, x), @intCast(usize, y));
             }
@@ -61,8 +61,8 @@ pub fn Matrix(comptime T: type) type {
             return self.get(coord.x, coord.y);
         }
         pub fn get(self: Self, x: i32, y: i32) ?T {
-            if (0 <= x and x < i32(self.width) and
-                0 <= y and y < i32(self.height))
+            if (0 <= x and x < @as(i32, self.width) and
+                0 <= y and y < @as(i32, self.height))
             {
                 return self.getUnchecked(@intCast(usize, x), @intCast(usize, y));
             }
