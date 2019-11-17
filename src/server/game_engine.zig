@@ -31,8 +31,8 @@ pub fn CoordMap(comptime V: type) type {
 
 const Terrain = core.matrix.Matrix(TerrainSpace);
 const oob_terrain = TerrainSpace{
-    .floor = Floor.unknown,
-    .wall = Wall.stone,
+    .floor = .unknown,
+    .wall = .stone,
 };
 
 /// Allocates and then calls `init(allocator)` on the new object.
@@ -52,20 +52,26 @@ fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
 const Level = struct {
     width: u16,
     height: u16,
-    individuals: []const Individual,
     hatch_positions: []const Coord,
+    lava_positions: []const Coord,
+    individuals: []const Individual,
 };
 const the_levels = [_]Level{
     Level{
         .width = 10,
         .height = 10,
         .hatch_positions = [_]Coord{},
+        .lava_positions = [_]Coord{
+            makeCoord(1, 1), makeCoord(1, 2), makeCoord(1, 3), makeCoord(1, 4),
+            makeCoord(1, 5), makeCoord(1, 6), makeCoord(1, 7), makeCoord(1, 8),
+        },
         .individuals = [_]Individual{Individual{ .id = 0, .abs_position = makeCoord(2, 2), .species = .orc }},
     },
     Level{
         .width = 10,
         .height = 10,
         .hatch_positions = [_]Coord{makeCoord(4, 4)},
+        .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
             Individual{ .id = 0, .abs_position = makeCoord(1, 1), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(7, 1), .species = .orc },
@@ -76,6 +82,7 @@ const the_levels = [_]Level{
         .width = 14,
         .height = 10,
         .hatch_positions = [_]Coord{makeCoord(6, 5)},
+        .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
             Individual{ .id = 0, .abs_position = makeCoord(1, 5), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(2, 5), .species = .orc },
@@ -90,6 +97,7 @@ const the_levels = [_]Level{
         .width = 8,
         .height = 5,
         .hatch_positions = [_]Coord{makeCoord(1, 2)},
+        .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
             Individual{ .id = 0, .abs_position = makeCoord(6, 1), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
@@ -100,6 +108,7 @@ const the_levels = [_]Level{
         .width = 11,
         .height = 8,
         .hatch_positions = [_]Coord{makeCoord(4, 2)},
+        .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
             Individual{ .id = 0, .abs_position = makeCoord(1, 1), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(9, 6), .species = .centaur },
@@ -109,6 +118,7 @@ const the_levels = [_]Level{
         .width = 15,
         .height = 10,
         .hatch_positions = [_]Coord{makeCoord(7, 2)},
+        .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
             Individual{ .id = 0, .abs_position = makeCoord(4, 7), .species = .centaur },
             Individual{ .id = 0, .abs_position = makeCoord(5, 7), .species = .centaur },
@@ -123,6 +133,7 @@ const the_levels = [_]Level{
         .width = 15,
         .height = 13,
         .hatch_positions = [_]Coord{makeCoord(7, 7)},
+        .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
             Individual{ .id = 0, .abs_position = makeCoord(5, 5), .species = .orc },
             Individual{ .id = 0, .abs_position = makeCoord(5, 6), .species = .orc },
@@ -157,6 +168,7 @@ const the_levels = [_]Level{
         } ++ [_]Coord{
             makeCoord(10, 6), makeCoord(10, 7), makeCoord(10, 8), makeCoord(11, 6), makeCoord(12, 7), makeCoord(12, 8),
         },
+        .lava_positions = [_]Coord{},
         .individuals = [_]Individual{},
     },
 };
@@ -170,12 +182,12 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
     }
 
     var terrain = try Terrain.initFill(allocator, width, height, TerrainSpace{
-        .floor = Floor.dirt,
-        .wall = Wall.air,
+        .floor = .dirt,
+        .wall = .air,
     });
     const border_wall = TerrainSpace{
-        .floor = Floor.unknown,
-        .wall = Wall.stone,
+        .floor = .unknown,
+        .wall = .stone,
     };
 
     var level_x = u16(0);
@@ -199,7 +211,10 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
             }
         }
         for (level.hatch_positions) |coord| {
-            terrain.at(level_x + @intCast(u16, coord.x), coord.y).?.floor = Floor.hatch;
+            terrain.at(level_x + @intCast(u16, coord.x), coord.y).?.floor = .hatch;
+        }
+        for (level.lava_positions) |coord| {
+            terrain.at(level_x + @intCast(u16, coord.x), coord.y).?.floor = .lava;
         }
     }
     return terrain;
@@ -400,6 +415,13 @@ pub const GameEngine = struct {
                 }
             }
         }
+        // Lava
+        for (everybody) |id| {
+            if ((game_state.terrain.getCoord(current_positions.getValue(id).?) orelse oob_terrain).floor == .lava) {
+                _ = try deaths.put(id, {});
+            }
+        }
+        // Perception of Attacks and Death
         for (everybody) |id| {
             if (attacks.count() != 0) {
                 try self.observeFrame(
@@ -433,7 +455,7 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 if (deaths.contains(id)) continue;
                 const coord = current_positions.getValue(id).?;
-                if ((game_state.terrain.getCoord(coord) orelse oob_terrain).floor == Floor.hatch) {
+                if ((game_state.terrain.getCoord(coord) orelse oob_terrain).floor == .hatch) {
                     button_getting_pressed = coord;
                     break;
                 }
@@ -485,8 +507,8 @@ pub const GameEngine = struct {
                         .at = coord,
                         .from = game_state.terrain.getCoord(coord).?,
                         .to = TerrainSpace{
-                            .floor = Floor.dirt,
-                            .wall = Wall.air,
+                            .floor = .dirt,
+                            .wall = .air,
                         },
                     },
                 });
@@ -517,8 +539,8 @@ pub const GameEngine = struct {
                         .at = coord,
                         .from = game_state.terrain.getCoord(coord).?,
                         .to = TerrainSpace{
-                            .floor = Floor.unknown,
-                            .wall = Wall.stone,
+                            .floor = .unknown,
+                            .wall = .stone,
                         },
                     },
                 });
@@ -529,8 +551,8 @@ pub const GameEngine = struct {
                     .at = button_coord,
                     .from = game_state.terrain.getCoord(button_coord).?,
                     .to = TerrainSpace{
-                        .floor = Floor.dirt,
-                        .wall = Wall.air,
+                        .floor = .dirt,
+                        .wall = .air,
                     },
                 },
             });
@@ -695,7 +717,7 @@ pub const GameEngine = struct {
         }
 
         var you_win = blk: for (game_state.terrain.data) |space| {
-            if (space.floor == Floor.hatch) {
+            if (space.floor == .hatch) {
                 break :blk false;
             }
         } else true;
