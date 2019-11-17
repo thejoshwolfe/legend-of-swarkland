@@ -17,7 +17,7 @@ const Logger = struct {
 pub const thread_lifecycle = Logger{ .is_enabled = false };
 pub const testing = Logger{ .is_enabled = true };
 pub const happening = Logger{ .is_enabled = false };
-pub const record_macro = Logger{ .is_enabled = true };
+pub const record_macro = Logger{ .is_enabled = false };
 
 fn warn(comptime fmt: []const u8, args: ...) void {
     // format to a buffer, then write in a single (or as few as possible)
