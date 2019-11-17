@@ -262,7 +262,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .total_journey_offset = makeCoord(0, 0),
                         },
                     };
-                    try game_state.running.client.startAsChildProcess();
+                    try game_state.running.client.startAsThread();
                 }
 
                 menu_renderer.seekRelative(-70, 50);
