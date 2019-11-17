@@ -150,9 +150,11 @@ pub const GameEngineClient = struct {
 
     // initialized in init()
     queues: SomeQueues,
+    beat_level_macro_index: usize,
 
     fn init(self: *GameEngineClient) void {
         self.queues.init();
+        self.beat_level_macro_index = 0;
     }
 
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
@@ -240,6 +242,55 @@ pub const GameEngineClient = struct {
     }
     pub fn rewind(self: *GameEngineClient) !void {
         try self.queues.enqueueRequest(Request{ .rewind = {} });
+    }
+    pub fn beatLevelMacro(self: *GameEngineClient) !void {
+        const actions: []const Action = switch (self.beat_level_macro_index) {
+            0 => comptime [_]Action{
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .attack = makeCoord(0, -1) },
+                Action{ .move = makeCoord(0, 1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+            },
+            1 => comptime [_]Action{
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .attack = makeCoord(1, 0) },
+                Action{ .attack = makeCoord(-1, 0) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .attack = makeCoord(0, -1) },
+                Action{ .move = makeCoord(0, 1) },
+                Action{ .move = makeCoord(0, 1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(0, 1) },
+                Action{ .move = makeCoord(0, 1) },
+            },
+            else => [_]Action{},
+        };
+        for (actions) |action| {
+            try self.queues.enqueueRequest(Request{ .act = action });
+        }
+        self.beat_level_macro_index += 1;
     }
 
     pub fn move(self: *GameEngineClient, direction: Coord) !void {
