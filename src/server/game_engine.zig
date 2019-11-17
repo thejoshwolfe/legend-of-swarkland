@@ -89,29 +89,17 @@ const the_levels = [_]Level{
         },
     },
     Level{
-        .width = 14,
-        .height = 10,
-        .hatch_positions = [_]Coord{makeCoord(6, 5)},
-        .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(1, 5), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(2, 5), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(3, 5), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(4, 5), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(4, 4), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(4, 6), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(6, 6), .species = .orc },
-        },
-    },
-    Level{
         .width = 8,
-        .height = 5,
-        .hatch_positions = [_]Coord{makeCoord(1, 2)},
-        .lava_positions = [_]Coord{},
+        .height = 7,
+        .hatch_positions = [_]Coord{makeCoord(1, 3)},
+        .lava_positions = [_]Coord{
+            makeCoord(1, 1), makeCoord(2, 1), makeCoord(3, 1), makeCoord(4, 1), makeCoord(5, 1), makeCoord(6, 1),
+            makeCoord(1, 5), makeCoord(2, 5), makeCoord(3, 5), makeCoord(4, 5), makeCoord(5, 5), makeCoord(6, 5),
+        },
         .individuals = [_]Individual{
-            Individual{ .id = 0, .abs_position = makeCoord(6, 1), .species = .orc },
-            Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .centaur },
-            Individual{ .id = 0, .abs_position = makeCoord(6, 3), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(6, 2), .species = .orc },
+            Individual{ .id = 0, .abs_position = makeCoord(6, 3), .species = .centaur },
+            Individual{ .id = 0, .abs_position = makeCoord(6, 4), .species = .orc },
         },
     },
     Level{

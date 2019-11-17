@@ -239,6 +239,12 @@ pub const GameEngineClient = struct {
 
     pub fn act(self: *GameEngineClient, action: Action) !void {
         try self.queues.enqueueRequest(Request{ .act = action });
+
+        switch (action) {
+            .wait => core.debug.record_macro.print("Action{{ .wait = {{}} }},"),
+            .move => |direction| core.debug.record_macro.print("Action{{ .move = makeCoord({}, {}) }},", direction.x, direction.y),
+            .attack => |direction| core.debug.record_macro.print("Action{{ .attack = makeCoord({}, {}) }},", direction.x, direction.y),
+        }
     }
     pub fn rewind(self: *GameEngineClient) !void {
         try self.queues.enqueueRequest(Request{ .rewind = {} });
@@ -284,6 +290,46 @@ pub const GameEngineClient = struct {
                 Action{ .move = makeCoord(1, 0) },
                 Action{ .move = makeCoord(0, 1) },
                 Action{ .move = makeCoord(0, 1) },
+            },
+            2 => comptime [_]Action{
+                Action{ .move = makeCoord(-1, 0) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(-1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(0, 1) },
+                Action{ .move = makeCoord(0, 1) },
+                Action{ .attack = makeCoord(0, -1) },
+                Action{ .attack = makeCoord(0, -1) },
+                Action{ .move = makeCoord(-1, 0) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(-1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+            },
+            3 => comptime [_]Action{
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(0, 1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(0, 1) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(0, -1) },
+                Action{ .attack = makeCoord(0, 1) },
+                Action{ .attack = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
+                Action{ .move = makeCoord(1, 0) },
             },
             else => [_]Action{},
         };
