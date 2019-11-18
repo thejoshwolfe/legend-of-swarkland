@@ -4,6 +4,7 @@ const HashMap = std.HashMap;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const isCardinalDirection = core.geometry.isCardinalDirection;
+const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
 const makeCoord = core.geometry.makeCoord;
 const zero_vector = makeCoord(0, 0);
 
@@ -268,7 +269,8 @@ pub const GameEngine = struct {
     pub fn validateAction(self: *const GameEngine, action: Action) bool {
         switch (action) {
             .wait => return true,
-            .move => |direction| return isCardinalDirection(direction),
+            .move => |move_delta| return isCardinalDirection(move_delta),
+            .fast_move => |move_delta| return isScaledCardinalDirection(move_delta, 2),
             .attack => |direction| return isCardinalDirection(direction),
         }
     }
@@ -340,8 +342,11 @@ pub const GameEngine = struct {
             var actor = game_state.individuals.getValue(id).?;
             switch (actions.getValue(id).?) {
                 .wait => {},
-                .move => |direction| {
-                    try next_moves.putNoClobber(id, direction);
+                .move => |move_delta| {
+                    try next_moves.putNoClobber(id, move_delta);
+                },
+                .fast_move => |move_delta| {
+                    try next_moves.putNoClobber(id, move_delta);
                 },
                 .attack => |direction| {
                     try attacks.putNoClobber(id, direction);
@@ -394,7 +399,7 @@ pub const GameEngine = struct {
                             next_position = .{
                                 .large = .{
                                     next_head_coord,
-                                    coords[0], // tail trails behind into previous head position
+                                    next_head_coord.minus(next_move.signumed()),
                                 },
                             };
                         },

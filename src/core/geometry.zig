@@ -48,6 +48,12 @@ pub const Coord = struct {
             .y = if (a.y < 0) -a.y else a.y,
         };
     }
+    pub fn signumed(a: Coord) Coord {
+        return Coord{
+            .x = sign(a.x),
+            .y = sign(a.y),
+        };
+    }
 
     /// How many orthogonal steps to get from a to b.
     pub fn distanceOrtho(a: Coord, b: Coord) i32 {
@@ -81,8 +87,11 @@ pub fn makeCoord(x: i32, y: i32) Coord {
 }
 
 pub fn isCardinalDirection(direction: Coord) bool {
+    return isScaledCardinalDirection(direction, 1);
+}
+pub fn isScaledCardinalDirection(direction: Coord, scale: i32) bool {
     if (direction.x * direction.y != 0) return false;
-    if ((direction.x + direction.y) * (direction.x + direction.y) != 1) return false;
+    if ((direction.x + direction.y) * (direction.x + direction.y) != scale * scale) return false;
     return true;
 }
 

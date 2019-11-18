@@ -242,7 +242,8 @@ pub const GameEngineClient = struct {
 
         switch (action) {
             .wait => core.debug.record_macro.print("Action{{ .wait = {{}} }},"),
-            .move => |direction| core.debug.record_macro.print("Action{{ .move = makeCoord({}, {}) }},", direction.x, direction.y),
+            .move => |move_delta| core.debug.record_macro.print("Action{{ .move = makeCoord({}, {}) }},", move_delta.x, move_delta.y),
+            .fast_move => |move_delta| core.debug.record_macro.print("Action{{ .fast_move = makeCoord({}, {}) }},", move_delta.x, move_delta.y),
             .attack => |direction| core.debug.record_macro.print("Action{{ .attack = makeCoord({}, {}) }},", direction.x, direction.y),
         }
     }
