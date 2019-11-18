@@ -19,13 +19,12 @@ const TerrainSpace = core.protocol.TerrainSpace;
 
 const view_distance = core.game_logic.view_distance;
 const getHeadPosition = core.game_logic.getHeadPosition;
+const getAllPositions = core.game_logic.getAllPositions;
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
     return HashMap(u32, V, core.geometry.hashU32, std.hash_map.getTrivialEqlFn(u32));
 }
-
-const empty_id_to_coord_map = IdMap(Coord).init(std.debug.failing_allocator);
 
 pub fn CoordMap(comptime V: type) type {
     return HashMap(Coord, V, Coord.hash, Coord.equals);
@@ -52,10 +51,17 @@ fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
 }
 
 fn makeIndividual(small_position: Coord, species: Species) Individual {
-    return Individual{
+    return .{
         .id = 0,
         .species = species,
-        .abs_position = ThingPosition{ .small = small_position },
+        .abs_position = .{ .small = small_position },
+    };
+}
+fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Species) Individual {
+    return .{
+        .id = 0,
+        .species = species,
+        .abs_position = .{ .large = .{ head_position, tail_position } },
     };
 }
 
@@ -72,7 +78,7 @@ const the_levels = [_]Level{
         .height = 10,
         .hatch_positions = [_]Coord{},
         .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{makeIndividual(makeCoord(2, 2), .orc)},
+        .individuals = [_]Individual{makeLargeIndividual(makeCoord(2, 2), makeCoord(1, 2), .rhino)},
     },
     Level{
         .width = 10,
@@ -486,16 +492,32 @@ pub const GameEngine = struct {
         // build state changes
         var state_changes = ArrayList(StateDiff).init(self.allocator);
         for (everybody) |id| {
-            const from = getHeadPosition(game_state.individuals.getValue(id).?.abs_position);
-            const to = current_positions.getValue(id).?;
-            if (to.equals(from)) continue;
-            const delta = to.minus(from);
-            try state_changes.append(StateDiff{
-                .small_move = StateDiff.IdAndCoord{
-                    .id = id,
-                    .coord = delta,
+            switch (game_state.individuals.getValue(id).?.abs_position) {
+                .small => |coord| {
+                    const from = coord;
+                    const to = current_positions.getValue(id).?;
+                    if (to.equals(from)) continue;
+                    const delta = to.minus(from);
+                    try state_changes.append(StateDiff{
+                        .small_move = .{
+                            .id = id,
+                            .coord = delta,
+                        },
+                    });
                 },
-            });
+                .large => |coords| {
+                    const head_from = coords[0];
+                    const head_to = current_positions.getValue(id).?;
+                    if (head_to.equals(head_from)) continue;
+                    const delta = head_to.minus(head_from);
+                    try state_changes.append(StateDiff{
+                        .large_move = .{
+                            .id = id,
+                            .coords = .{ delta, delta }, // TODO: wrong
+                        },
+                    });
+                },
+            }
         }
         {
             var iterator = deaths.iterator();
@@ -591,7 +613,7 @@ pub const GameEngine = struct {
                     game_state,
                     id,
                     individual_to_perception.getValue(id).?,
-                    current_positions,
+                    null,
                     Activities.static_state,
                 );
             }
@@ -638,7 +660,7 @@ pub const GameEngine = struct {
         game_state: *const GameState,
         my_id: u32,
         perception: *MutablePerceivedHappening,
-        current_positions: *const IdMap(Coord),
+        current_positions: ?*const IdMap(Coord),
         activities: Activities,
     ) !void {
         try perception.frames.append(try getPerceivedFrame(
@@ -655,7 +677,7 @@ pub const GameEngine = struct {
             self,
             &game_state,
             individual_id,
-            &empty_id_to_coord_map,
+            null,
             Activities.static_state,
         );
     }
@@ -664,10 +686,13 @@ pub const GameEngine = struct {
         self: *const GameEngine,
         game_state: *const GameState,
         my_id: u32,
-        current_positions: *const IdMap(Coord),
+        maybe_current_positions: ?*const IdMap(Coord),
         activities: Activities,
     ) !PerceivedFrame {
-        const your_position = current_positions.getValue(my_id) orelse getHeadPosition(game_state.individuals.getValue(my_id).?.abs_position);
+        const your_position = if (maybe_current_positions) |current_positions|
+            current_positions.getValue(my_id).?
+        else
+            getHeadPosition(game_state.individuals.getValue(my_id).?.abs_position);
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
 
@@ -704,12 +729,34 @@ pub const GameEngine = struct {
 
                 .static_state => PerceivedActivity{ .none = {} },
             };
-            const abs_head_position = current_positions.getValue(id) orelse getHeadPosition(game_state.individuals.getValue(id).?.abs_position);
-            const delta = abs_head_position.minus(your_position);
-            if (delta.magnitudeDiag() > view_distance) continue;
+            var abs_position: ThingPosition = undefined;
+            if (maybe_current_positions) |current_positions| {
+                abs_position = .{ .small = current_positions.getValue(id).? };
+            } else {
+                abs_position = game_state.individuals.getValue(id).?.abs_position;
+            }
+            var rel_position: ThingPosition = undefined;
+            switch (abs_position) {
+                .small => |coord| {
+                    rel_position = .{ .small = coord.minus(your_position) };
+                },
+                .large => |coords| {
+                    rel_position = .{
+                        .large = .{
+                            coords[0].minus(your_position),
+                            coords[1].minus(your_position),
+                        },
+                    };
+                },
+            }
+            // if any position is within view, we can see all of it.
+            const within_view = blk: for (getAllPositions(rel_position)) |delta| {
+                if (delta.magnitudeDiag() <= view_distance) break :blk true;
+            } else false;
+            if (!within_view) continue;
             const thing = PerceivedThing{
                 .species = game_state.individuals.getValue(id).?.species,
-                .rel_position = .{ .small = delta }, // TODO: wrong
+                .rel_position = rel_position,
                 .activity = activity,
             };
             if (id == my_id) {
@@ -762,6 +809,12 @@ pub const StateDiff = union(enum) {
     pub const IdAndCoord = struct {
         id: u32,
         coord: Coord,
+    };
+
+    large_move: IdAndCoords,
+    pub const IdAndCoords = struct {
+        id: u32,
+        coords: [2]Coord,
     };
 
     /// can only be in the start game events. can never be undone.
@@ -821,6 +874,13 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
                     individual.abs_position.small = individual.abs_position.small.plus(id_and_coord.coord);
                 },
+                .large_move => |id_and_coords| {
+                    const individual = self.individuals.getValue(id_and_coords.id).?;
+                    individual.abs_position.large = .{
+                        individual.abs_position.large[0].plus(id_and_coords.coords[0]),
+                        individual.abs_position.large[1].plus(id_and_coords.coords[1]),
+                    };
+                },
                 .terrain_init => |terrain| {
                     self.terrain = terrain;
                 },
@@ -847,6 +907,13 @@ pub const GameState = struct {
                 .small_move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
                     individual.abs_position.small = individual.abs_position.small.minus(id_and_coord.coord);
+                },
+                .large_move => |id_and_coords| {
+                    const individual = self.individuals.getValue(id_and_coords.id).?;
+                    individual.abs_position.large = .{
+                        individual.abs_position.large[0].minus(id_and_coords.coords[0]),
+                        individual.abs_position.large[1].minus(id_and_coords.coords[1]),
+                    };
                 },
                 .terrain_init => {
                     @panic("can't undo terrain init");

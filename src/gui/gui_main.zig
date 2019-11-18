@@ -416,6 +416,14 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
     const display_position = rel_display_position.plus(camera_offset);
     textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
+    switch (thing.rel_position) {
+        .small => {},
+        .large => |coords| {
+            const oriented_delta = coords[1].minus(coords[0]);
+            const tail_display_position = display_position.plus(oriented_delta.scaled(32));
+            textures.renderSprite(renderer, speciesToTailSprite(thing.species), tail_display_position);
+        },
+    }
 
     switch (thing.activity) {
         .none => {},
@@ -470,6 +478,14 @@ fn speciesToSprite(species: Species) Rect {
         .orc => textures.sprites.orc,
         .centaur => textures.sprites.centaur_archer,
         .turtle => textures.sprites.turtle,
+        .rhino => textures.sprites.rhino[0],
+    };
+}
+
+fn speciesToTailSprite(species: Species) Rect {
+    return switch (species) {
+        .rhino => textures.sprites.rhino[1],
+        .human, .orc, .centaur, .turtle => unreachable,
     };
 }
 
