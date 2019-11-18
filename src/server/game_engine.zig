@@ -302,7 +302,7 @@ pub const GameEngine = struct {
     /// This is the entry point for all game rules.
     pub fn computeHappenings(self: *const GameEngine, game_state: *GameState, actions: IdMap(Action)) !Happenings {
         // cache the set of keys so iterator is easier.
-        const everybody = try self.allocator.alloc(u32, game_state.individuals.count());
+        var everybody = try self.allocator.alloc(u32, game_state.individuals.count());
         {
             var iterator = game_state.individuals.iterator();
             for (everybody) |*x| {
@@ -310,6 +310,7 @@ pub const GameEngine = struct {
             }
             std.debug.assert(iterator.next() == null);
         }
+        const everybody_including_dead = try std.mem.dupe(self.allocator, u32, everybody);
 
         var individual_to_perception = IdMap(*MutablePerceivedHappening).init(self.allocator);
 
@@ -319,18 +320,21 @@ pub const GameEngine = struct {
         var next_moves = moves_history.at(moves_history.len - 1);
         var previous_moves = moves_history.at(moves_history.len - 2);
 
-        var positions_history = ArrayList(*IdMap(Coord)).init(self.allocator);
-        try positions_history.append(try createInit(self.allocator, IdMap(Coord)));
-        try positions_history.append(try createInit(self.allocator, IdMap(Coord)));
+        var positions_history = ArrayList(*IdMap(ThingPosition)).init(self.allocator);
+        try positions_history.append(try createInit(self.allocator, IdMap(ThingPosition)));
+        try positions_history.append(try createInit(self.allocator, IdMap(ThingPosition)));
         var next_positions = positions_history.at(positions_history.len - 1);
         var current_positions = positions_history.at(positions_history.len - 2);
 
         for (everybody) |id| {
             try individual_to_perception.putNoClobber(id, try createInit(self.allocator, MutablePerceivedHappening));
-            try current_positions.putNoClobber(id, getHeadPosition(game_state.individuals.getValue(id).?.abs_position));
+            try current_positions.putNoClobber(id, game_state.individuals.getValue(id).?.abs_position);
         }
 
+        var total_deaths = IdMap(void).init(self.allocator);
+
         var attacks = IdMap(Coord).init(self.allocator);
+        var trample_deaths = IdMap(void).init(self.allocator);
 
         for (everybody) |id| {
             var actor = game_state.individuals.getValue(id).?;
@@ -359,19 +363,58 @@ pub const GameEngine = struct {
                         },
                     },
                 );
+                if (trample_deaths.count() != 0) {
+                    try self.observeFrame(
+                        game_state,
+                        id,
+                        individual_to_perception.getValue(id).?,
+                        current_positions,
+                        Activities{ .deaths = &trample_deaths },
+                    );
+                }
             }
+            try flushDeaths(&total_deaths, &trample_deaths, &everybody);
 
+            // Check for steady state.
             if (next_moves.count() == 0) break;
 
+            // Record everyone's intended movement.
             for (everybody) |id| {
-                try next_positions.putNoClobber(id, current_positions.getValue(id).?.plus(next_moves.getValue(id) orelse zero_vector));
+                const current_position = current_positions.getValue(id).?;
+                var next_position = current_position;
+                if (next_moves.getValue(id)) |next_move| {
+                    var next_head_coord: Coord = undefined;
+                    switch (current_position) {
+                        .small => |coord| {
+                            next_head_coord = coord.plus(next_move);
+                            next_position = .{ .small = next_head_coord };
+                        },
+                        .large => |coords| {
+                            next_head_coord = coords[0].plus(next_move);
+                            next_position = .{
+                                .large = .{
+                                    next_head_coord,
+                                    coords[0], // tail trails behind into previous head position
+                                },
+                            };
+                        },
+                    }
+                    if (!core.game_logic.isOpenSpace((game_state.terrain.getCoord(next_head_coord) orelse oob_terrain).wall)) {
+                        // can't run into a wall. don't even wiggle.
+                        next_moves.removeAssertDiscard(id);
+                        next_position = current_position;
+                    }
+                }
+                try next_positions.putNoClobber(id, next_position);
             }
+
+            // Commit the intended movements.
 
             try moves_history.append(try createInit(self.allocator, IdMap(Coord)));
             next_moves = moves_history.at(moves_history.len - 1);
             previous_moves = moves_history.at(moves_history.len - 2);
 
-            try positions_history.append(try createInit(self.allocator, IdMap(Coord)));
+            try positions_history.append(try createInit(self.allocator, IdMap(ThingPosition)));
             next_positions = positions_history.at(positions_history.len - 1);
             current_positions = positions_history.at(positions_history.len - 2);
 
@@ -382,13 +425,13 @@ pub const GameEngine = struct {
 
             for (everybody) |id| {
                 const position = current_positions.getValue(id).?;
-                // walls
-                if (!core.game_logic.isOpenSpace((game_state.terrain.getCoord(position) orelse oob_terrain).wall)) {
-                    // bounce off the wall
-                    try next_moves.putNoClobber(id, previous_moves.getValue(id).?.negated());
+                // You can't be in a wall.
+                std.debug.assert(core.game_logic.isOpenSpace((game_state.terrain.getCoord(getHeadPosition(position)) orelse oob_terrain).wall));
+
+                // Count how many people are in this one spot.
+                for (getAllPositions(position)) |coord| {
+                    _ = try collision_counter.put(coord, 1 + (collision_counter.getValue(coord) orelse 0));
                 }
-                // and count entity collision
-                _ = try collision_counter.put(position, 1 + (collision_counter.getValue(position) orelse 0));
             }
 
             {
@@ -396,28 +439,51 @@ pub const GameEngine = struct {
                 var iterator = collision_counter.iterator();
                 while (iterator.next()) |kv| {
                     if (kv.value <= 1) continue;
-                    const position = kv.key;
-                    // collect the individuals involved in this collision
+                    const here_coord = kv.key;
+                    // find individuals involved in this collision
+                    var large_boi_count: usize = 0;
                     ids.shrink(0);
                     for (everybody) |id| {
-                        if (!current_positions.getValue(id).?.equals(position)) continue;
-                        try ids.append(id);
+                        switch (current_positions.getValue(id).?) {
+                            .small => |coord| if (here_coord.equals(coord)) try ids.append(id),
+                            .large => |coords| if (here_coord.equals(coords[0]) or here_coord.equals(coords[1])) {
+                                large_boi_count += 1;
+                                try ids.append(id);
+                            },
+                        }
                     }
 
-                    // treat each individual separately
-                    for (ids.toSliceConst()) |me| {
-                        // consider forces from everyone but yourself
-                        var external_force: u4 = 0;
-                        for (ids.toSliceConst()) |id| {
-                            if (id == me) continue;
-                            const prior_velocity = previous_moves.getValue(id) orelse zero_vector;
-                            external_force |= core.geometry.directionToCardinalBitmask(prior_velocity);
+                    if (large_boi_count > 0) {
+                        // large boi tramples/gores everyone else.
+                        for (ids.toSliceConst()) |me| {
+                            if (current_positions.getValue(me).? == .large) {
+                                if (large_boi_count >= 2) {
+                                    // large boi gets trampled by other large bois
+                                    _ = try trample_deaths.put(me, {});
+                                } else {
+                                    // large boi is unaffected
+                                }
+                            } else {
+                                // small bois get wrecked
+                                _ = try trample_deaths.put(me, {});
+                            }
                         }
-                        if (core.geometry.cardinalBitmaskToDirection(external_force)) |push_velocity| {
-                            try next_moves.putNoClobber(me, push_velocity);
-                        } else {
-                            // clusterfuck. reverse course.
-                            try next_moves.putNoClobber(me, (previous_moves.getValue(me) orelse zero_vector).negated());
+                    } else {
+                        // bounce off of each other.
+                        for (ids.toSliceConst()) |me| {
+                            // consider forces from everyone but yourself
+                            var external_force: u4 = 0;
+                            for (ids.toSliceConst()) |id| {
+                                if (id == me) continue;
+                                const prior_velocity = previous_moves.getValue(id) orelse zero_vector;
+                                external_force |= core.geometry.directionToCardinalBitmask(prior_velocity);
+                            }
+                            if (core.geometry.cardinalBitmaskToDirection(external_force)) |push_velocity| {
+                                try next_moves.putNoClobber(me, push_velocity);
+                            } else {
+                                // clusterfuck. reverse course.
+                                try next_moves.putNoClobber(me, (previous_moves.getValue(me) orelse zero_vector).negated());
+                            }
                         }
                     }
                 }
@@ -425,25 +491,29 @@ pub const GameEngine = struct {
         }
 
         // Attacks
-        var deaths = IdMap(void).init(self.allocator);
+        var attack_deaths = IdMap(void).init(self.allocator);
         for (everybody) |id| {
             var attack_direction = attacks.getValue(id) orelse continue;
-            var attacker_position = current_positions.getValue(id).?;
+            var attacker_coord = getHeadPosition(current_positions.getValue(id).?);
             var attack_distance: i32 = 1;
             const range = core.game_logic.getAttackRange(game_state.individuals.getValue(id).?.species);
             while (attack_distance <= range) : (attack_distance += 1) {
-                var damage_position = attacker_position.plus(attack_direction.scaled(attack_distance));
+                var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
                 for (everybody) |other_id| {
-                    if (!current_positions.getValue(other_id).?.equals(damage_position)) continue;
-                    if (!core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species)) continue;
-                    _ = try deaths.put(other_id, {});
+                    for (getAllPositions(current_positions.getValue(other_id).?)) |coord, i| {
+                        if (!coord.equals(damage_position)) continue;
+                        if (!core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species, i)) continue;
+                        _ = try attack_deaths.put(other_id, {});
+                    }
                 }
             }
         }
         // Lava
         for (everybody) |id| {
-            if ((game_state.terrain.getCoord(current_positions.getValue(id).?) orelse oob_terrain).floor == .lava) {
-                _ = try deaths.put(id, {});
+            for (getAllPositions(current_positions.getValue(id).?)) |coord| {
+                if ((game_state.terrain.getCoord(coord) orelse oob_terrain).floor == .lava) {
+                    _ = try attack_deaths.put(id, {});
+                }
             }
         }
         // Perception of Attacks and Death
@@ -457,32 +527,33 @@ pub const GameEngine = struct {
                     Activities{ .attacks = &attacks },
                 );
             }
-            if (deaths.count() != 0) {
+            if (attack_deaths.count() != 0) {
                 try self.observeFrame(
                     game_state,
                     id,
                     individual_to_perception.getValue(id).?,
                     current_positions,
-                    Activities{ .deaths = &deaths },
+                    Activities{ .deaths = &attack_deaths },
                 );
             }
         }
+        try flushDeaths(&total_deaths, &attack_deaths, &everybody);
 
         var open_the_way = false;
         var button_getting_pressed: ?Coord = null;
-        if (game_state.individuals.count() - deaths.count() <= 1) {
+        if (game_state.individuals.count() - total_deaths.count() <= 1) {
             // Only one person left. You win!
-            if (deaths.count() > 0) {
+            if (total_deaths.count() > 0) {
                 // Spawn the stairs onward.
                 open_the_way = true;
             }
             // check for someone on the button
             for (everybody) |id| {
-                if (deaths.contains(id)) continue;
-                const coord = current_positions.getValue(id).?;
-                if ((game_state.terrain.getCoord(coord) orelse oob_terrain).floor == .hatch) {
-                    button_getting_pressed = coord;
-                    break;
+                for (getAllPositions(current_positions.getValue(id).?)) |coord| {
+                    if ((game_state.terrain.getCoord(coord) orelse oob_terrain).floor == .hatch) {
+                        button_getting_pressed = coord;
+                        break;
+                    }
                 }
             }
         }
@@ -491,11 +562,11 @@ pub const GameEngine = struct {
 
         // build state changes
         var state_changes = ArrayList(StateDiff).init(self.allocator);
-        for (everybody) |id| {
+        for (everybody_including_dead) |id| {
             switch (game_state.individuals.getValue(id).?.abs_position) {
                 .small => |coord| {
                     const from = coord;
-                    const to = current_positions.getValue(id).?;
+                    const to = current_positions.getValue(id).?.small;
                     if (to.equals(from)) continue;
                     const delta = to.minus(from);
                     try state_changes.append(StateDiff{
@@ -506,26 +577,28 @@ pub const GameEngine = struct {
                     });
                 },
                 .large => |coords| {
-                    const head_from = coords[0];
-                    const head_to = current_positions.getValue(id).?;
-                    if (head_to.equals(head_from)) continue;
-                    const delta = head_to.minus(head_from);
+                    const from = coords;
+                    const to = current_positions.getValue(id).?.large;
+                    if (to[0].equals(from[0]) and to[1].equals(from[1])) continue;
                     try state_changes.append(StateDiff{
                         .large_move = .{
                             .id = id,
-                            .coords = .{ delta, delta }, // TODO: wrong
+                            .coords = .{
+                                to[0].minus(from[0]),
+                                to[1].minus(from[1]),
+                            },
                         },
                     });
                 },
             }
         }
         {
-            var iterator = deaths.iterator();
+            var iterator = total_deaths.iterator();
             while (iterator.next()) |kv| {
                 try state_changes.append(StateDiff{
                     .despawn = blk: {
                         var individual = game_state.individuals.getValue(kv.key).?.*;
-                        individual.abs_position = .{ .small = current_positions.getValue(individual.id).? };
+                        individual.abs_position = current_positions.getValue(individual.id).?;
                         break :blk individual;
                     },
                 });
@@ -608,21 +681,19 @@ pub const GameEngine = struct {
         try game_state.applyStateChanges(state_changes.toSliceConst());
         current_positions.clear();
         for (everybody) |id| {
-            if (!deaths.contains(id)) {
-                try self.observeFrame(
-                    game_state,
-                    id,
-                    individual_to_perception.getValue(id).?,
-                    null,
-                    Activities.static_state,
-                );
-            }
+            try self.observeFrame(
+                game_state,
+                id,
+                individual_to_perception.getValue(id).?,
+                null,
+                Activities.static_state,
+            );
         }
 
         return Happenings{
             .individual_to_perception = blk: {
                 var ret = IdMap([]PerceivedFrame).init(self.allocator);
-                for (everybody) |id| {
+                for (everybody_including_dead) |id| {
                     var frame_list = individual_to_perception.getValue(id).?.frames;
                     // remove empty frames, except the last one
                     var i: usize = 0;
@@ -660,14 +731,14 @@ pub const GameEngine = struct {
         game_state: *const GameState,
         my_id: u32,
         perception: *MutablePerceivedHappening,
-        current_positions: ?*const IdMap(Coord),
+        maybe_current_positions: ?*const IdMap(ThingPosition),
         activities: Activities,
     ) !void {
         try perception.frames.append(try getPerceivedFrame(
             self,
             game_state,
             my_id,
-            current_positions,
+            maybe_current_positions,
             activities,
         ));
     }
@@ -686,13 +757,13 @@ pub const GameEngine = struct {
         self: *const GameEngine,
         game_state: *const GameState,
         my_id: u32,
-        maybe_current_positions: ?*const IdMap(Coord),
+        maybe_current_positions: ?*const IdMap(ThingPosition),
         activities: Activities,
     ) !PerceivedFrame {
-        const your_position = if (maybe_current_positions) |current_positions|
+        const your_coord = getHeadPosition(if (maybe_current_positions) |current_positions|
             current_positions.getValue(my_id).?
         else
-            getHeadPosition(game_state.individuals.getValue(my_id).?.abs_position);
+            game_state.individuals.getValue(my_id).?.abs_position);
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
 
@@ -729,22 +800,21 @@ pub const GameEngine = struct {
 
                 .static_state => PerceivedActivity{ .none = {} },
             };
-            var abs_position: ThingPosition = undefined;
-            if (maybe_current_positions) |current_positions| {
-                abs_position = .{ .small = current_positions.getValue(id).? };
-            } else {
-                abs_position = game_state.individuals.getValue(id).?.abs_position;
-            }
+
+            var abs_position = if (maybe_current_positions) |current_positions|
+                current_positions.getValue(id).?
+            else
+                game_state.individuals.getValue(id).?.abs_position;
             var rel_position: ThingPosition = undefined;
             switch (abs_position) {
                 .small => |coord| {
-                    rel_position = .{ .small = coord.minus(your_position) };
+                    rel_position = .{ .small = coord.minus(your_coord) };
                 },
                 .large => |coords| {
                     rel_position = .{
                         .large = .{
-                            coords[0].minus(your_position),
-                            coords[1].minus(your_position),
+                            coords[0].minus(your_coord),
+                            coords[1].minus(your_coord),
                         },
                     };
                 },
@@ -771,7 +841,7 @@ pub const GameEngine = struct {
             .rel_position = makeCoord(-view_distance, -view_distance),
             .matrix = try Terrain.initFill(self.allocator, view_size, view_size, oob_terrain),
         };
-        const view_origin = your_position.minus(makeCoord(view_distance, view_distance));
+        const view_origin = your_coord.minus(makeCoord(view_distance, view_distance));
         var cursor = Coord{ .x = undefined, .y = 0 };
         while (cursor.y < view_size) : (cursor.y += 1) {
             cursor.x = 0;
@@ -937,3 +1007,19 @@ const MutablePerceivedHappening = struct {
         };
     }
 };
+
+fn flushDeaths(total_deaths: *IdMap(void), local_deaths: *IdMap(void), everybody: *[]u32) !void {
+    var iterator = local_deaths.iterator();
+    while (iterator.next()) |kv| {
+        const id = kv.key;
+        // write local deaths to total deaths
+        if (null == try total_deaths.put(id, {})) {
+            // actually removed.
+            const index = std.mem.indexOfScalar(u32, everybody.*, id).?;
+            // swap remove
+            everybody.*[index] = everybody.*[everybody.len - 1];
+            everybody.len -= 1;
+        }
+    }
+    local_deaths.clear();
+}

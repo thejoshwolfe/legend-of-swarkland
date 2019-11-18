@@ -13,9 +13,11 @@ pub fn getAttackRange(species: Species) i32 {
     }
 }
 
-pub fn isAffectedByAttacks(species: Species) bool {
+pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
     return switch (species) {
         .turtle => false,
+        // only rhino's tail is affected, not head.
+        .rhino => position_index == 1,
         else => true,
     };
 }
