@@ -182,13 +182,13 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (delta.x * delta.y == 0) {
         // straight shot
-        const delta_unit = Coord{ .x = sign(delta.x), .y = sign(delta.y) };
+        const delta_unit = delta.signumed();
         if (hasFastMove(last_frame.self.species) and isFastMoveAligned(last_frame.self.rel_position, delta_unit.scaled(2))) {
             // charge!
             return Action{ .fast_move = delta_unit.scaled(2) };
         } else if (delta.x * delta.x + delta.y * delta.y <= range * range) {
             // within attack range
-            return Action{ .attack = Coord{ .x = sign(delta.x), .y = sign(delta.y) } };
+            return Action{ .attack = delta_unit };
         } else {
             // We want to get closer.
             if (last_frame.terrain.matrix.getCoord(delta_unit.minus(last_frame.terrain.rel_position))) |cell| {

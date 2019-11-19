@@ -4,7 +4,7 @@ const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
 const Wall = core.protocol.Wall;
 
-const std = @import("std");
+const assert = @import("std").debug.assert;
 
 pub const view_distance = 8;
 
@@ -24,7 +24,7 @@ pub fn hasFastMove(species: Species) bool {
 }
 
 pub fn isFastMoveAligned(position: ThingPosition, move_delta: Coord) bool {
-    std.debug.assert(core.geometry.isScaledCardinalDirection(move_delta, 2));
+    assert(core.geometry.isScaledCardinalDirection(move_delta, 2));
     const facing_delta = position.large[0].minus(position.large[1]);
     return facing_delta.scaled(2).equals(move_delta);
 }
@@ -54,4 +54,21 @@ pub fn getAllPositions(thing_position: ThingPosition) []const Coord {
         .small => |*coord| @as(*const [1]Coord, coord),
         .large => |*coords| coords[0..],
     };
+}
+
+pub fn applyMovementToPosition(position: ThingPosition, move_delta: Coord) ThingPosition {
+    switch (position) {
+        .small => |coord| {
+            return .{ .small = coord.plus(move_delta) };
+        },
+        .large => |coords| {
+            const next_head_coord = coords[0].plus(move_delta);
+            return .{
+                .large = .{
+                    next_head_coord,
+                    next_head_coord.minus(move_delta.signumed()),
+                },
+            };
+        },
+    }
 }

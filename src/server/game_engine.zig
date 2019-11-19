@@ -21,6 +21,7 @@ const TerrainSpace = core.protocol.TerrainSpace;
 const view_distance = core.game_logic.view_distance;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
+const applyMovementToPosition = core.game_logic.applyMovementToPosition;
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
@@ -355,6 +356,19 @@ pub const GameEngine = struct {
         }
 
         while (true) {
+            // Adjust next_moves so that they aren't entering walls.
+            for (everybody) |id| {
+                const next_move = next_moves.getValue(id) orelse continue;
+                const current_position = current_positions.getValue(id).?;
+                var next_position = applyMovementToPosition(current_position, next_move);
+                var next_head_coord = getHeadPosition(next_position);
+                if (!core.game_logic.isOpenSpace((game_state.terrain.getCoord(next_head_coord) orelse oob_terrain).wall)) {
+                    // can't run into a wall. don't even wiggle.
+                    next_moves.removeAssertDiscard(id);
+                    next_position = current_position;
+                }
+            }
+
             for (everybody) |id| {
                 try self.observeFrame(
                     game_state,
@@ -386,30 +400,10 @@ pub const GameEngine = struct {
             // Record everyone's intended movement.
             for (everybody) |id| {
                 const current_position = current_positions.getValue(id).?;
-                var next_position = current_position;
-                if (next_moves.getValue(id)) |next_move| {
-                    var next_head_coord: Coord = undefined;
-                    switch (current_position) {
-                        .small => |coord| {
-                            next_head_coord = coord.plus(next_move);
-                            next_position = .{ .small = next_head_coord };
-                        },
-                        .large => |coords| {
-                            next_head_coord = coords[0].plus(next_move);
-                            next_position = .{
-                                .large = .{
-                                    next_head_coord,
-                                    next_head_coord.minus(next_move.signumed()),
-                                },
-                            };
-                        },
-                    }
-                    if (!core.game_logic.isOpenSpace((game_state.terrain.getCoord(next_head_coord) orelse oob_terrain).wall)) {
-                        // can't run into a wall. don't even wiggle.
-                        next_moves.removeAssertDiscard(id);
-                        next_position = current_position;
-                    }
-                }
+                const next_position = if (next_moves.getValue(id)) |move_delta|
+                    applyMovementToPosition(current_position, move_delta)
+                else
+                    current_position;
                 try next_positions.putNoClobber(id, next_position);
             }
 
