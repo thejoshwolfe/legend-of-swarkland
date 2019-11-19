@@ -80,7 +80,10 @@ const the_levels = [_]Level{
         .height = 10,
         .hatch_positions = [_]Coord{},
         .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{makeLargeIndividual(makeCoord(2, 2), makeCoord(1, 2), .rhino)},
+        .individuals = [_]Individual{
+            makeLargeIndividual(makeCoord(2, 2), makeCoord(1, 2), .rhino),
+            makeIndividual(makeCoord(1, 1), .orc),
+        },
     },
     Level{
         .width = 10,
