@@ -358,14 +358,28 @@ pub const GameEngine = struct {
         while (true) {
             // Adjust next_moves so that they aren't entering walls.
             for (everybody) |id| {
-                const next_move = next_moves.getValue(id) orelse continue;
+                var move_delta = next_moves.getValue(id) orelse continue;
                 const current_position = current_positions.getValue(id).?;
-                var next_position = applyMovementToPosition(current_position, next_move);
-                var next_head_coord = getHeadPosition(next_position);
-                if (!core.game_logic.isOpenSpace((game_state.terrain.getCoord(next_head_coord) orelse oob_terrain).wall)) {
-                    // can't run into a wall. don't even wiggle.
+                var anything_changed = false;
+                while (true) {
+                    var next_position = applyMovementToPosition(current_position, move_delta);
+                    if (core.game_logic.isOpenSpace((game_state.terrain.getCoord(getHeadPosition(next_position)) orelse oob_terrain).wall)) {
+                        // This move is allowed.
+                        if (anything_changed) {
+                            _ = next_moves.putAssumeCapacity(id, move_delta);
+                        }
+                        break;
+                    }
+                    // Can't move into a wall.
+                    if (move_delta.magnitudeSquared() > 1) {
+                        // Fast move into a wall. Try moving less to snap against the wall.
+                        move_delta = move_delta.minus(move_delta.signumed());
+                        anything_changed = true;
+                        continue;
+                    }
+                    // Normal move into a wall. Cancel movement.
                     next_moves.removeAssertDiscard(id);
-                    next_position = current_position;
+                    break;
                 }
             }
 
