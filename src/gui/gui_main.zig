@@ -423,7 +423,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             const oriented_delta = coords[1].minus(coords[0]);
             const tail_display_position = display_position.plus(oriented_delta.scaled(32));
             const rhino_sprite_normalizing_rotation = 0;
-            const rotation = @as(u3, directionToRotation(oriented_delta)) +% rhino_sprite_normalizing_rotation;
+            const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
             textures.renderSpriteRotated(renderer, speciesToSprite(thing.species), display_position, rotation);
             textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.species), tail_display_position, rotation);
         },
@@ -441,7 +441,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                     renderer,
                     textures.sprites.dagger,
                     display_position.plus(data.direction.scaled(32 * 3 / 4)),
-                    @as(u3, directionToRotation(data.direction)) +% dagger_sprite_normalizing_rotation,
+                    directionToRotation(data.direction) +% dagger_sprite_normalizing_rotation,
                 );
             } else {
                 const arrow_sprite_normalizing_rotation = 4;
@@ -454,7 +454,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                         progress,
                         progress_denominator,
                     ),
-                    @as(u3, directionToRotation(data.direction)) +% arrow_sprite_normalizing_rotation,
+                    directionToRotation(data.direction) +% arrow_sprite_normalizing_rotation,
                 );
             }
         },
