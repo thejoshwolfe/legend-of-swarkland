@@ -21,6 +21,7 @@ const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
+const getHeadPosition = core.game_logic.getHeadPosition;
 
 const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
 
@@ -311,9 +312,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     const terrain_offset = frame.terrain.rel_position.scaled(32).plus(camera_offset);
                     const terrain = frame.terrain.matrix;
                     var cursor = makeCoord(undefined, 0);
-                    while (cursor.y <= i32(terrain.height)) : (cursor.y += 1) {
+                    while (cursor.y <= @as(i32, terrain.height)) : (cursor.y += 1) {
                         cursor.x = 0;
-                        while (cursor.x <= i32(terrain.width)) : (cursor.x += 1) {
+                        while (cursor.x <= @as(i32, terrain.width)) : (cursor.x += 1) {
                             if (terrain.getCoord(cursor)) |cell| {
                                 const display_position = cursor.scaled(32).plus(terrain_offset);
                                 const aesthetic_coord = cursor.plus(state.total_journey_offset).plus(animated_aesthetic_offset);
@@ -398,22 +399,35 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 }
 
 fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: PerceivedThing) Coord {
+    const rel_position = getHeadPosition(thing.rel_position);
     return switch (thing.activity) {
         .movement => |data| core.geometry.bezier3(
-            thing.rel_position.scaled(32).minus(data.prior_velocity.scaled(32 / 2)),
-            thing.rel_position.scaled(32),
-            thing.rel_position.scaled(32).plus(data.next_velocity.scaled(32 / 2)),
+            rel_position.scaled(32).minus(data.prior_velocity.scaled(32 / 2)),
+            rel_position.scaled(32),
+            rel_position.scaled(32).plus(data.next_velocity.scaled(32 / 2)),
             progress,
             progress_denominator,
         ),
-        else => thing.rel_position.scaled(32),
+        else => rel_position.scaled(32),
     };
 }
 
 fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
     const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
     const display_position = rel_display_position.plus(camera_offset);
-    textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
+    switch (thing.rel_position) {
+        .small => {
+            textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
+        },
+        .large => |coords| {
+            const oriented_delta = coords[1].minus(coords[0]);
+            const tail_display_position = display_position.plus(oriented_delta.scaled(32));
+            const rhino_sprite_normalizing_rotation = 0;
+            const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
+            textures.renderSpriteRotated(renderer, speciesToSprite(thing.species), display_position, rotation);
+            textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.species), tail_display_position, rotation);
+        },
+    }
 
     switch (thing.activity) {
         .none => {},
@@ -427,7 +441,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                     renderer,
                     textures.sprites.dagger,
                     display_position.plus(data.direction.scaled(32 * 3 / 4)),
-                    u3(directionToRotation(data.direction)) +% dagger_sprite_normalizing_rotation,
+                    directionToRotation(data.direction) +% dagger_sprite_normalizing_rotation,
                 );
             } else {
                 const arrow_sprite_normalizing_rotation = 4;
@@ -440,7 +454,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                         progress,
                         progress_denominator,
                     ),
-                    u3(directionToRotation(data.direction)) +% arrow_sprite_normalizing_rotation,
+                    directionToRotation(data.direction) +% arrow_sprite_normalizing_rotation,
                 );
             }
         },
@@ -468,6 +482,14 @@ fn speciesToSprite(species: Species) Rect {
         .orc => textures.sprites.orc,
         .centaur => textures.sprites.centaur_archer,
         .turtle => textures.sprites.turtle,
+        .rhino => textures.sprites.rhino[0],
+    };
+}
+
+fn speciesToTailSprite(species: Species) Rect {
+    return switch (species) {
+        .rhino => textures.sprites.rhino[1],
+        .human, .orc, .centaur, .turtle => unreachable,
     };
 }
 

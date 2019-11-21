@@ -7,7 +7,6 @@ const sign = core.geometry.sign;
 const GameEngine = @import("./game_engine.zig").GameEngine;
 const GameState = @import("./game_engine.zig").GameState;
 const IdMap = @import("./game_engine.zig").IdMap;
-const Individual = @import("./game_engine.zig").Individual;
 const SomeQueues = @import("../client/game_engine_client.zig").SomeQueues;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
@@ -15,6 +14,10 @@ const Action = core.protocol.Action;
 const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
+const getHeadPosition = core.game_logic.getHeadPosition;
+const getAllPositions = core.game_logic.getAllPositions;
+const hasFastMove = core.game_logic.hasFastMove;
+const isFastMoveAligned = core.game_logic.isFastMoveAligned;
 
 const StateDiff = @import("./game_engine.zig").StateDiff;
 const HistoryList = std.TailQueue([]StateDiff);
@@ -167,9 +170,9 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     const target_position = blk: {
         // KILLKILLKILL HUMANS
         for (last_frame.others) |other| {
-            if (other.species == .human) break :blk other.rel_position;
+            if (other.species == .human) break :blk getHeadPosition(other.rel_position);
         }
-        // if you can't find anyone to kill, dance!
+        // nothing to do.
         return .wait;
     };
 
@@ -179,20 +182,23 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (delta.x * delta.y == 0) {
         // straight shot
-        if (delta.x * delta.x + delta.y * delta.y <= range * range) {
-            // within range
-            return Action{ .attack = Coord{ .x = sign(delta.x), .y = sign(delta.y) } };
+        const delta_unit = delta.signumed();
+        if (hasFastMove(last_frame.self.species) and isFastMoveAligned(last_frame.self.rel_position, delta_unit.scaled(2))) {
+            // charge!
+            return Action{ .fast_move = delta_unit.scaled(2) };
+        } else if (delta.x * delta.x + delta.y * delta.y <= range * range) {
+            // within attack range
+            return Action{ .attack = delta_unit };
         } else {
             // We want to get closer.
-            const move_into_position = Coord{ .x = sign(delta.x), .y = sign(delta.y) };
-            if (last_frame.terrain.matrix.getCoord(move_into_position.minus(last_frame.terrain.rel_position))) |cell| {
+            if (last_frame.terrain.matrix.getCoord(delta_unit.minus(last_frame.terrain.rel_position))) |cell| {
                 if (cell.floor == .lava) {
                     // I'm scared of lava
                     return .wait;
                 }
             }
             // Move straight twoard the target, even if someone else is in the way
-            return Action{ .move = move_into_position };
+            return Action{ .move = delta_unit };
         }
     }
     // We have a diagonal space to traverse.
@@ -201,13 +207,13 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         Coord{ .x = sign(delta.x), .y = 0 },
         Coord{ .x = 0, .y = sign(delta.y) },
     };
-    const long_index = blk: {
+    const long_index: usize = blk: {
         if (delta.x * delta.x > delta.y * delta.y) {
             // x is longer
-            break :blk usize(0);
+            break :blk 0;
         } else if (delta.x * delta.x < delta.y * delta.y) {
             // y is longer
-            break :blk usize(1);
+            break :blk 1;
         } else {
             // exactly diagonal. let's say that clockwise is longer.
             break :blk @boolToInt(delta.x != delta.y);
@@ -218,7 +224,7 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     // If somethings's in the way, then prefer the other way.
     // If somethings's in the way in both directions, then go with our initial preference.
     {
-        var flip_flop_counter = usize(0);
+        var flip_flop_counter: usize = 0;
         flip_flop_loop: while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
             const move_into_position = options[option_index];
             if (last_frame.terrain.matrix.getCoord(move_into_position.minus(last_frame.terrain.rel_position))) |cell| {
@@ -229,10 +235,12 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 }
             }
             for (last_frame.others) |perceived_other| {
-                if (perceived_other.rel_position.equals(move_into_position)) {
-                    // somebody's there already.
-                    option_index = 1 - option_index;
-                    continue :flip_flop_loop;
+                for (getAllPositions(perceived_other.rel_position)) |rel_position| {
+                    if (rel_position.equals(move_into_position)) {
+                        // somebody's there already.
+                        option_index = 1 - option_index;
+                        continue :flip_flop_loop;
+                    }
                 }
             }
         }

@@ -24,6 +24,7 @@ pub const Species = enum {
     orc,
     centaur,
     turtle,
+    rhino,
 };
 
 pub const TerrainChunk = struct {
@@ -43,6 +44,7 @@ pub const Request = union(enum) {
 pub const Action = union(enum) {
     wait,
     move: Coord,
+    fast_move: Coord,
     attack: Coord,
 };
 
@@ -75,8 +77,15 @@ pub const PerceivedFrame = struct {
     you_win: bool,
 };
 
+pub const ThingPosition = union(enum) {
+    small: Coord,
+
+    /// 0: head, 1: tail
+    large: [2]Coord,
+};
+
 pub const PerceivedThing = struct {
-    rel_position: Coord,
+    rel_position: ThingPosition,
     species: Species,
 
     activity: PerceivedActivity,
@@ -172,7 +181,7 @@ pub fn OutChannel(comptime OutStream: type) type {
                     }
                 },
                 .Union => |info| {
-                    const tag_value = @enumToInt(info.tag_type.?(x));
+                    const tag_value = @enumToInt(@as(info.tag_type.?, x));
                     try self.writeInt(tag_value);
                     inline for (info.fields) |u_field| {
                         if (tag_value == u_field.enum_field.?.value) {

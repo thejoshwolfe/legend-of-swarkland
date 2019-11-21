@@ -85,8 +85,8 @@ pub fn main() anyerror!void {
 
     var adapter: FdToQueueAdapter = undefined;
     try adapter.init(
-        (try std.io.getStdIn()).inStream(),
-        (try std.io.getStdOut()).outStream(),
+        std.io.getStdIn().inStream(),
+        std.io.getStdOut().outStream(),
         &queues,
     );
     defer {

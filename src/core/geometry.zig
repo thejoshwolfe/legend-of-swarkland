@@ -48,6 +48,12 @@ pub const Coord = struct {
             .y = if (a.y < 0) -a.y else a.y,
         };
     }
+    pub fn signumed(a: Coord) Coord {
+        return Coord{
+            .x = sign(a.x),
+            .y = sign(a.y),
+        };
+    }
 
     /// How many orthogonal steps to get from a to b.
     pub fn distanceOrtho(a: Coord, b: Coord) i32 {
@@ -55,13 +61,23 @@ pub const Coord = struct {
         return abs_delta.x + abs_delta.y;
     }
 
-    /// How many diagonal or orthoganl steps to get from a to b.
+    /// How many diagonal or orthogonal steps to get from a to b.
     pub fn distanceDiag(a: Coord, b: Coord) i32 {
         return b.minus(a).magnitudeDiag();
     }
     pub fn magnitudeDiag(a: Coord) i32 {
         const abs_delta = a.abs();
         return if (abs_delta.x < abs_delta.y) abs_delta.y else abs_delta.x;
+    }
+
+    /// Returns true iff at least one dimension is 0.
+    pub fn isOrthogonalOrZero(a: Coord) bool {
+        return a.x * a.y == 0;
+    }
+
+    /// Euclidean distance squared.
+    pub fn magnitudeSquared(a: Coord) i32 {
+        return a.x * a.x + a.y * a.y;
     }
 
     pub fn equals(a: Coord, b: Coord) bool {
@@ -81,9 +97,10 @@ pub fn makeCoord(x: i32, y: i32) Coord {
 }
 
 pub fn isCardinalDirection(direction: Coord) bool {
-    if (direction.x * direction.y != 0) return false;
-    if ((direction.x + direction.y) * (direction.x + direction.y) != 1) return false;
-    return true;
+    return isScaledCardinalDirection(direction, 1);
+}
+pub fn isScaledCardinalDirection(direction: Coord, scale: i32) bool {
+    return direction.isOrthogonalOrZero() and direction.magnitudeSquared() == scale * scale;
 }
 
 // TODO: why is this here
@@ -100,8 +117,8 @@ pub fn hashU32(input: u32) u32 {
     return x;
 }
 
-// rotation is a number 0 <= r < 8
-// representing the number of 45 degree clockwise turns from right.
+/// rotation is a number 0 <= r < 8
+/// representing the number of 45 degree clockwise turns from right.
 pub fn directionToRotation(direction: Coord) u3 {
     if (direction.x == 1 and direction.y == 0) return 0;
     if (direction.x == 0 and direction.y == 1) return 2;
@@ -110,8 +127,8 @@ pub fn directionToRotation(direction: Coord) u3 {
     unreachable;
 }
 
-// cardinal bitmask is: 1 for right, 2 for down, 4 for left, and 8 for up.
-// diagonal would be a combination of them, such as 3 or 9.
+/// cardinal bitmask is: 1 for right, 2 for down, 4 for left, and 8 for up.
+/// diagonal would be a combination of them, such as 3 or 9.
 pub fn directionToCardinalBitmask(direction: Coord) u4 {
     var mask: u4 = 0;
     if (direction.x == 1) {
@@ -129,7 +146,7 @@ pub fn directionToCardinalBitmask(direction: Coord) u4 {
     return mask;
 }
 
-// if there's no obvious direction, returns null
+/// if there's no obvious direction, returns null
 pub fn cardinalBitmaskToDirection(mask: u4) ?Coord {
     if (mask & 0b0101 == 0b0101 or mask & 0b1010 == 0b1010) return null;
     var direction = makeCoord(0, 0);
@@ -146,7 +163,7 @@ pub fn cardinalBitmaskToDirection(mask: u4) ?Coord {
     return direction;
 }
 
-pub fn sign(x: var) @typeOf(x) {
+pub fn sign(x: i32) i32 {
     if (x > 0) return 1;
     if (x == 0) return 0;
     return -1;
