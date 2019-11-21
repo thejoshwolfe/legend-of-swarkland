@@ -415,13 +415,17 @@ fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: Percei
 fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
     const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
     const display_position = rel_display_position.plus(camera_offset);
-    textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
     switch (thing.rel_position) {
-        .small => {},
+        .small => {
+            textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
+        },
         .large => |coords| {
             const oriented_delta = coords[1].minus(coords[0]);
             const tail_display_position = display_position.plus(oriented_delta.scaled(32));
-            textures.renderSprite(renderer, speciesToTailSprite(thing.species), tail_display_position);
+            const rhino_sprite_normalizing_rotation = 0;
+            const rotation = @as(u3, directionToRotation(oriented_delta)) +% rhino_sprite_normalizing_rotation;
+            textures.renderSpriteRotated(renderer, speciesToSprite(thing.species), display_position, rotation);
+            textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.species), tail_display_position, rotation);
         },
     }
 
