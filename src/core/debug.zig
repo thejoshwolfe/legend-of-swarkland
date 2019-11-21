@@ -2,10 +2,11 @@ const std = @import("std");
 
 const Logger = struct {
     is_enabled: bool,
+    show_thread_id: bool,
 
     pub fn print(comptime self: Logger, comptime fmt: []const u8, args: ...) void {
         if (!self.is_enabled) return;
-        warn(fmt, args);
+        warn(self.show_thread_id, fmt, args);
     }
 
     pub fn deepPrint(comptime self: Logger, prefix: []const u8, something: var) void {
@@ -14,26 +15,32 @@ const Logger = struct {
     }
 };
 
-pub const thread_lifecycle = Logger{ .is_enabled = false };
-pub const testing = Logger{ .is_enabled = true };
-pub const happening = Logger{ .is_enabled = false };
-pub const record_macro = Logger{ .is_enabled = false };
+pub const thread_lifecycle = Logger{ .is_enabled = false, .show_thread_id = true };
+pub const testing = Logger{ .is_enabled = true, .show_thread_id = true };
+pub const happening = Logger{ .is_enabled = false, .show_thread_id = true };
+pub const record_macro = Logger{ .is_enabled = true, .show_thread_id = false };
 
-fn warn(comptime fmt: []const u8, args: ...) void {
+fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: ...) void {
     // format to a buffer, then write in a single (or as few as possible)
     // posix write calls so that the output from multiple processes
     // doesn't interleave on the same line.
     var buffer: [0x1000]u8 = undefined;
-    const debug_thread_id = blk: {
-        const me = std.Thread.getCurrentId();
-        for (thread_names.toSliceConst()) |it| {
-            if (it.thread_id == me) break :blk it;
-        }
-        @panic("thread not named");
-    };
-    std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], "{}({}): " ++ fmt ++ "\n", debug_thread_id.name, debug_thread_id.client_id, args) catch {
-        @panic("make the buffer bigger");
-    });
+    if (show_thread_id) {
+        const debug_thread_id = blk: {
+            const me = std.Thread.getCurrentId();
+            for (thread_names.toSliceConst()) |it| {
+                if (it.thread_id == me) break :blk it;
+            }
+            @panic("thread not named");
+        };
+        std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], "{}({}): " ++ fmt ++ "\n", debug_thread_id.name, debug_thread_id.client_id, args) catch {
+            @panic("make the buffer bigger");
+        });
+    } else {
+        std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], fmt ++ "\n", args) catch {
+            @panic("make the buffer bigger");
+        });
+    }
 }
 
 var mutex: ?std.Mutex = null;
