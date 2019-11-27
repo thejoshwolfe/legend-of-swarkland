@@ -354,22 +354,18 @@ pub const GameEngine = struct {
 
         var total_deaths = IdMap(void).init(self.allocator);
 
-        var attacks = IdMap(Coord).init(self.allocator);
         var trample_deaths = IdMap(void).init(self.allocator);
 
         for (everybody) |id| {
             var actor = game_state.individuals.getValue(id).?;
             switch (actions.getValue(id).?) {
-                .wait => {},
                 .move => |move_delta| {
                     try next_moves.putNoClobber(id, move_delta);
                 },
                 .fast_move => |move_delta| {
                     try next_moves.putNoClobber(id, move_delta);
                 },
-                .attack => |direction| {
-                    try attacks.putNoClobber(id, direction);
-                },
+                else => {},
             }
         }
 
@@ -522,6 +518,16 @@ pub const GameEngine = struct {
         }
 
         // Attacks
+        var attacks = IdMap(Coord).init(self.allocator);
+        for (everybody) |id| {
+            var actor = game_state.individuals.getValue(id).?;
+            switch (actions.getValue(id).?) {
+                .attack => |direction| {
+                    try attacks.putNoClobber(id, direction);
+                },
+                else => {},
+            }
+        }
         var attack_deaths = IdMap(void).init(self.allocator);
         for (everybody) |id| {
             var attack_direction = attacks.getValue(id) orelse continue;
