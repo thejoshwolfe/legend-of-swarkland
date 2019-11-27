@@ -82,6 +82,10 @@ const the_levels = [_]Level{
         .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
             makeIndividual(makeCoord(2, 2), .orc),
+            makeIndividual(makeCoord(1, 7), .centaur),
+            makeIndividual(makeCoord(2, 7), .orc),
+            makeIndividual(makeCoord(3, 7), .orc),
+            makeIndividual(makeCoord(4, 7), .orc),
         },
     },
     Level{
@@ -534,13 +538,17 @@ pub const GameEngine = struct {
             var attacker_coord = getHeadPosition(current_positions.getValue(id).?);
             var attack_distance: i32 = 1;
             const range = core.game_logic.getAttackRange(game_state.individuals.getValue(id).?.species);
-            while (attack_distance <= range) : (attack_distance += 1) {
+            range_loop: while (attack_distance <= range) : (attack_distance += 1) {
                 var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
                 for (everybody) |other_id| {
                     for (getAllPositions(current_positions.getValue(other_id).?)) |coord, i| {
                         if (!coord.equals(damage_position)) continue;
-                        if (!core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species, i)) continue;
-                        _ = try attack_deaths.put(other_id, {});
+                        // hit something.
+                        if (core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species, i)) {
+                            // get wrecked
+                            _ = try attack_deaths.put(other_id, {});
+                        }
+                        break :range_loop;
                     }
                 }
             }
