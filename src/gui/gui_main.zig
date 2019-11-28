@@ -277,6 +277,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" Backspace: Undo");
                 menu_renderer.text(" Ctrl+R: Quit to this menu");
                 menu_renderer.text(" Enter: Start Game");
+                menu_renderer.text(" ");
+                menu_renderer.text(" ");
+                menu_renderer.text("version: " ++ textures.version_string);
             },
             GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;

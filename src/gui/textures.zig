@@ -5,6 +5,8 @@ const Rect = core.geometry.Rect;
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 
+pub const version_string = @embedFile("../../zig-cache/version.txt");
+
 pub const sprites = @import("../../zig-cache/spritesheet.zig");
 pub const fonts = @import("../../zig-cache/fontsheet.zig");
 
