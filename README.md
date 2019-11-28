@@ -367,6 +367,12 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Roadmap
 
+### 5.2.0
+
+???
+
+## Version History
+
 ### 5.1.0
 
  * added lava: anyone who ends their movement on top of a lava tile dies to lava damage.
@@ -384,8 +390,6 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
    * attack damage: daggers and arrows
  * arrows no longer pierce targets.
  * introduced a bug where the collision resolution can infinite loop crash when too many individuals bump into each other near a wall.
-
-## Version History
 
 ### 5.0.1
 
