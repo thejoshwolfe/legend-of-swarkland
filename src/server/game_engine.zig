@@ -82,10 +82,6 @@ const the_levels = [_]Level{
         .lava_positions = [_]Coord{},
         .individuals = [_]Individual{
             makeIndividual(makeCoord(2, 2), .orc),
-            makeIndividual(makeCoord(1, 7), .centaur),
-            makeIndividual(makeCoord(2, 7), .orc),
-            makeIndividual(makeCoord(3, 7), .orc),
-            makeIndividual(makeCoord(4, 7), .orc),
         },
     },
     Level{
