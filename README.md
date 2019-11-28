@@ -369,7 +369,21 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ### 5.1.0
 
- * Camera follows you around an open world instead of fixed camera on a sequence of levels.
+ * added lava: anyone who ends their movement on top of a lava tile dies to lava damage.
+ * new enemies:
+   * turtle: immune to attack damage.
+   * rhino:
+     * occupies 2 tiles.
+     * head is immune to attack damage.
+     * anyone colliding with a rhino dies to trample damage.
+     * cannot attack.
+     * can move double speed in the "forward" direction relative to its body at the start of the movement.
+ * there are now three types of damage:
+   * trample damage: happens during collision resolution, which may thwart someone's intention to attack.
+   * lava damage: happens simultaneously with attacks, and only happens after all collision resolution has resolved.
+   * attack damage: daggers and arrows
+ * arrows no longer pierce targets.
+ * introduced a bug where the collision resolution can infinite loop crash when too many individuals bump into each other near a wall.
 
 ## Version History
 
