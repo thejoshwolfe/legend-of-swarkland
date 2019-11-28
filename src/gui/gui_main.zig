@@ -37,7 +37,7 @@ pub fn main() anyerror!void {
     defer core.debug.thread_lifecycle.print("shutdown");
 
     // SDL handling SIGINT blocks propagation to child threads.
-    if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, c"1", sdl.c.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.c.SDL_bool.SDL_FALSE)) {
+    if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, "1", sdl.c.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.c.SDL_bool.SDL_FALSE)) {
         std.debug.panic("failed to disable sdl signal handlers\n");
     }
     if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
@@ -46,7 +46,7 @@ pub fn main() anyerror!void {
     defer sdl.c.SDL_Quit();
 
     const screen = sdl.c.SDL_CreateWindow(
-        c"Legend of Swarkland",
+        "Legend of Swarkland",
         sdl.SDL_WINDOWPOS_UNDEFINED,
         sdl.SDL_WINDOWPOS_UNDEFINED,
         logical_window_size.w,
