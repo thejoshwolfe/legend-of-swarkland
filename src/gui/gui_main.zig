@@ -434,8 +434,8 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
         .movement => {},
 
         .attack => |data| {
-            const range = core.game_logic.getAttackRange(thing.species);
-            if (range == 1) {
+            const max_range = core.game_logic.getAttackRange(thing.species);
+            if (max_range == 1) {
                 const dagger_sprite_normalizing_rotation = 1;
                 textures.renderSpriteRotated(
                     renderer,
@@ -444,15 +444,21 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                     directionToRotation(data.direction) +% dagger_sprite_normalizing_rotation,
                 );
             } else {
+                // The animated bullet speed is determined by the max range,
+                // but interrupt the progress if the arrow hits something.
+                var clamped_progress = progress * max_range;
+                if (clamped_progress > data.distance * progress_denominator) {
+                    clamped_progress = data.distance * progress_denominator;
+                }
                 const arrow_sprite_normalizing_rotation = 4;
                 textures.renderSpriteRotated(
                     renderer,
                     textures.sprites.arrow,
                     core.geometry.bezier2(
-                        display_position.plus(data.direction.scaled(32 * 3 / 4)),
-                        display_position.plus(data.direction.scaled(32 * range)),
-                        progress,
-                        progress_denominator,
+                        display_position,
+                        display_position.plus(data.direction.scaled(32 * max_range)),
+                        clamped_progress,
+                        progress_denominator * max_range,
                     ),
                     directionToRotation(data.direction) +% arrow_sprite_normalizing_rotation,
                 );

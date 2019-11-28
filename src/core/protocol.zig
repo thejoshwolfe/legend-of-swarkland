@@ -103,6 +103,7 @@ pub const PerceivedActivity = union(enum) {
     attack: Attack,
     pub const Attack = struct {
         direction: Coord,
+        distance: i32,
     };
 
     death,

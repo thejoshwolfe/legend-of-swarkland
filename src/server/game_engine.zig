@@ -361,7 +361,6 @@ pub const GameEngine = struct {
         var trample_deaths = IdMap(void).init(self.allocator);
 
         for (everybody) |id| {
-            var actor = game_state.individuals.getValue(id).?;
             switch (actions.getValue(id).?) {
                 .move => |move_delta| {
                     try next_moves.putNoClobber(id, move_delta);
@@ -522,19 +521,13 @@ pub const GameEngine = struct {
         }
 
         // Attacks
-        var attacks = IdMap(Coord).init(self.allocator);
-        for (everybody) |id| {
-            var actor = game_state.individuals.getValue(id).?;
-            switch (actions.getValue(id).?) {
-                .attack => |direction| {
-                    try attacks.putNoClobber(id, direction);
-                },
-                else => {},
-            }
-        }
+        var attacks = IdMap(Activities.Attack).init(self.allocator);
         var attack_deaths = IdMap(void).init(self.allocator);
         for (everybody) |id| {
-            var attack_direction = attacks.getValue(id) orelse continue;
+            var attack_direction: Coord = switch (actions.getValue(id).?) {
+                .attack => |direction| direction,
+                else => continue,
+            };
             var attacker_coord = getHeadPosition(current_positions.getValue(id).?);
             var attack_distance: i32 = 1;
             const range = core.game_logic.getAttackRange(game_state.individuals.getValue(id).?.species);
@@ -552,6 +545,10 @@ pub const GameEngine = struct {
                     }
                 }
             }
+            try attacks.putNoClobber(id, Activities.Attack{
+                .direction = attack_direction,
+                .distance = attack_distance,
+            });
         }
         // Lava
         for (everybody) |id| {
@@ -768,7 +765,12 @@ pub const GameEngine = struct {
             next_moves: *const IdMap(Coord),
         };
 
-        attacks: *const IdMap(Coord),
+        attacks: *const IdMap(Attack),
+        const Attack = struct {
+            direction: Coord,
+            distance: i32,
+        };
+
         deaths: *const IdMap(void),
     };
     fn observeFrame(
@@ -831,9 +833,12 @@ pub const GameEngine = struct {
                     break :blk a;
                 },
 
-                .attacks => |data| if (data.getValue(id)) |direction|
+                .attacks => |data| if (data.getValue(id)) |attack|
                     PerceivedActivity{
-                        .attack = PerceivedActivity.Attack{ .direction = direction },
+                        .attack = PerceivedActivity.Attack{
+                            .direction = attack.direction,
+                            .distance = attack.distance,
+                        },
                     }
                 else
                     PerceivedActivity{ .none = {} },
