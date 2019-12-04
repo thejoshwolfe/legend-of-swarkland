@@ -7,7 +7,7 @@ pub fn build(b: *Builder) void {
     const target = b.standardTargetOptions(null);
 
     const compile_image_commands = [_]*std.build.RunStep{
-        b.addSystemCommand([_][]const u8{
+        b.addSystemCommand(&[_][]const u8{
             "./tools/compile_spritesheet.py",
             "assets/img/",
             "--glob=*.png",
@@ -16,7 +16,7 @@ pub fn build(b: *Builder) void {
             "--defs-path=zig-cache/spritesheet.zig",
             "--deps=zig-cache/spritesheet_resource.d",
         }),
-        b.addSystemCommand([_][]const u8{
+        b.addSystemCommand(&[_][]const u8{
             "./tools/compile_spritesheet.py",
             "assets/font/",
             "--glob=*.png",
@@ -25,7 +25,7 @@ pub fn build(b: *Builder) void {
             "--defs-path=zig-cache/fontsheet.zig",
             "--deps=zig-cache/fontsheet_resource.d",
         }),
-        b.addSystemCommand([_][]const u8{
+        b.addSystemCommand(&[_][]const u8{
             "python3",
             "-c",
                 \\import subprocess
@@ -49,7 +49,7 @@ pub fn build(b: *Builder) void {
 
     const do_fmt = b.option(bool, "fmt", "zig fmt before building") orelse true;
     if (do_fmt) {
-        const fmt_command = b.addFmt([_][]const u8{
+        const fmt_command = b.addFmt(&[_][]const u8{
             "build.zig",
             "src/core",
             "src/gui",
@@ -72,7 +72,10 @@ fn make_binary_variant(
     exe.addPackagePath("core", "src/index.zig");
     if (!headless) {
         if (target.getOs() == .windows and target.getAbi() == .gnu) {
-            @import("deps/zig-sdl/build.zig").linkArtifact(b, exe, "deps/zig-sdl");
+            @import("deps/zig-sdl/build.zig").linkArtifact(b, .{
+                .artifact = exe,
+                .prefix = "deps/zig-sdl",
+            });
         } else {
             exe.linkSystemLibrary("SDL2");
         }

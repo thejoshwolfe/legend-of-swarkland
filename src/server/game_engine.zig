@@ -78,18 +78,18 @@ const the_levels = [_]Level{
     Level{
         .width = 10,
         .height = 10,
-        .hatch_positions = [_]Coord{},
-        .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{
+        .hatch_positions = &[_]Coord{},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
             makeIndividual(makeCoord(2, 2), .orc),
         },
     },
     Level{
         .width = 10,
         .height = 10,
-        .hatch_positions = [_]Coord{makeCoord(4, 4)},
-        .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{
+        .hatch_positions = &[_]Coord{makeCoord(4, 4)},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
             makeIndividual(makeCoord(3, 3), .orc),
             makeIndividual(makeCoord(3, 4), .orc),
             makeIndividual(makeCoord(4, 3), .orc),
@@ -99,12 +99,12 @@ const the_levels = [_]Level{
     Level{
         .width = 8,
         .height = 7,
-        .hatch_positions = [_]Coord{makeCoord(1, 3)},
-        .lava_positions = [_]Coord{
+        .hatch_positions = &[_]Coord{makeCoord(1, 3)},
+        .lava_positions = &[_]Coord{
             makeCoord(1, 1), makeCoord(2, 1), makeCoord(3, 1), makeCoord(4, 1), makeCoord(5, 1), makeCoord(6, 1),
             makeCoord(1, 5), makeCoord(2, 5), makeCoord(3, 5), makeCoord(4, 5), makeCoord(5, 5), makeCoord(6, 5),
         },
-        .individuals = [_]Individual{
+        .individuals = &[_]Individual{
             makeIndividual(makeCoord(6, 2), .orc),
             makeIndividual(makeCoord(6, 3), .centaur),
             makeIndividual(makeCoord(6, 4), .orc),
@@ -113,9 +113,9 @@ const the_levels = [_]Level{
     Level{
         .width = 11,
         .height = 8,
-        .hatch_positions = [_]Coord{makeCoord(4, 2)},
-        .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{
+        .hatch_positions = &[_]Coord{makeCoord(4, 2)},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
             makeIndividual(makeCoord(1, 1), .centaur),
             makeIndividual(makeCoord(9, 6), .centaur),
         },
@@ -123,14 +123,14 @@ const the_levels = [_]Level{
     Level{
         .width = 14,
         .height = 10,
-        .hatch_positions = [_]Coord{makeCoord(6, 2)},
-        .lava_positions = [_]Coord{
+        .hatch_positions = &[_]Coord{makeCoord(6, 2)},
+        .lava_positions = &[_]Coord{
             makeCoord(1, 1), makeCoord(2, 1), makeCoord(3, 1), makeCoord(4, 1),  makeCoord(5, 1),  makeCoord(6, 1),
             makeCoord(7, 1), makeCoord(8, 1), makeCoord(9, 1), makeCoord(10, 1), makeCoord(11, 1), makeCoord(12, 1),
             makeCoord(1, 8), makeCoord(2, 8), makeCoord(3, 8), makeCoord(4, 8),  makeCoord(5, 8),  makeCoord(6, 8),
             makeCoord(7, 8), makeCoord(8, 8), makeCoord(9, 8), makeCoord(10, 8), makeCoord(11, 8), makeCoord(12, 8),
         },
-        .individuals = [_]Individual{
+        .individuals = &[_]Individual{
             makeIndividual(makeCoord(3, 7), .centaur),
             makeIndividual(makeCoord(4, 7), .centaur),
             makeIndividual(makeCoord(5, 7), .centaur),
@@ -143,12 +143,12 @@ const the_levels = [_]Level{
     Level{
         .width = 10,
         .height = 10,
-        .hatch_positions = [_]Coord{makeCoord(7, 5)},
-        .lava_positions = [_]Coord{
+        .hatch_positions = &[_]Coord{makeCoord(7, 5)},
+        .lava_positions = &[_]Coord{
             makeCoord(4, 4), makeCoord(4, 5), makeCoord(4, 6),
             makeCoord(5, 4), makeCoord(5, 5), makeCoord(5, 6),
         },
-        .individuals = [_]Individual{
+        .individuals = &[_]Individual{
             makeIndividual(makeCoord(7, 3), .turtle),
             makeIndividual(makeCoord(2, 5), .turtle),
         },
@@ -156,21 +156,21 @@ const the_levels = [_]Level{
     Level{
         .width = 8,
         .height = 10,
-        .hatch_positions = [_]Coord{makeCoord(2, 4)},
-        .lava_positions = [_]Coord{
+        .hatch_positions = &[_]Coord{makeCoord(2, 4)},
+        .lava_positions = &[_]Coord{
             makeCoord(1, 1), makeCoord(2, 1), makeCoord(3, 1), makeCoord(4, 1), makeCoord(5, 1), makeCoord(6, 1),
             makeCoord(1, 8), makeCoord(2, 8), makeCoord(3, 8), makeCoord(4, 8), makeCoord(5, 8), makeCoord(6, 8),
         },
-        .individuals = [_]Individual{
+        .individuals = &[_]Individual{
             makeLargeIndividual(makeCoord(5, 3), makeCoord(6, 3), .rhino),
         },
     },
     Level{
         .width = 10,
         .height = 10,
-        .hatch_positions = [_]Coord{makeCoord(4, 7)},
-        .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{
+        .hatch_positions = &[_]Coord{makeCoord(4, 7)},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
             makeLargeIndividual(makeCoord(3, 2), makeCoord(2, 2), .rhino),
             makeIndividual(makeCoord(7, 5), .centaur),
         },
@@ -178,9 +178,9 @@ const the_levels = [_]Level{
     Level{
         .width = 10,
         .height = 10,
-        .hatch_positions = [_]Coord{makeCoord(4, 7)},
-        .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{
+        .hatch_positions = &[_]Coord{makeCoord(4, 7)},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
             makeLargeIndividual(makeCoord(3, 2), makeCoord(2, 2), .rhino),
             makeIndividual(makeCoord(7, 5), .orc),
         },
@@ -189,7 +189,7 @@ const the_levels = [_]Level{
     Level{
         .width = 15,
         .height = 10,
-        .hatch_positions = [_]Coord{
+        .hatch_positions = &[_]Coord{
             makeCoord(2, 2), makeCoord(3, 3), makeCoord(4, 2), makeCoord(3, 4),
         } ++ [_]Coord{
             makeCoord(7, 2), makeCoord(8, 3), makeCoord(7, 4), makeCoord(6, 3),
@@ -202,8 +202,8 @@ const the_levels = [_]Level{
         } ++ [_]Coord{
             makeCoord(10, 6), makeCoord(10, 7), makeCoord(10, 8), makeCoord(11, 6), makeCoord(12, 7), makeCoord(12, 8),
         },
-        .lava_positions = [_]Coord{},
-        .individuals = [_]Individual{},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{},
     },
 };
 
