@@ -284,7 +284,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;
 
-                const move_frame_time = 150;
+                const move_frame_time = 300;
 
                 // at one point in what frame should we render?
                 var frame = state.client_state.?;
@@ -403,16 +403,51 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
 fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: PerceivedThing) Coord {
     const rel_position = getHeadPosition(thing.rel_position);
-    return switch (thing.activity) {
-        .movement => |data| core.geometry.bezier3(
-            rel_position.scaled(32).minus(data.prior_velocity.scaled(32 / 2)),
-            rel_position.scaled(32),
-            rel_position.scaled(32).plus(data.next_velocity.scaled(32 / 2)),
-            progress,
-            progress_denominator,
-        ),
-        else => rel_position.scaled(32),
-    };
+    switch (thing.activity) {
+        .movement => |move_delta| {
+            if (progress < @divFloor(progress_denominator, 2)) {
+                // in the first half, speed up toward the halfway point.
+                return core.geometry.bezier3(
+                    rel_position.scaled(32),
+                    rel_position.scaled(32),
+                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
+                    progress,
+                    @divFloor(progress_denominator, 2),
+                );
+            } else {
+                // in the second half, slow down from the halfway point.
+                return core.geometry.bezier3(
+                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
+                    rel_position.scaled(32).plus(move_delta.scaled(32)),
+                    rel_position.scaled(32).plus(move_delta.scaled(32)),
+                    progress - @divFloor(progress_denominator, 2),
+                    @divFloor(progress_denominator, 2),
+                );
+            }
+        },
+        .failed_movement => |move_delta| {
+            if (progress < @divFloor(progress_denominator, 2)) {
+                // in the first half, speed up toward the halfway point of the would-be movement.
+                return core.geometry.bezier3(
+                    rel_position.scaled(32),
+                    rel_position.scaled(32),
+                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
+                    progress,
+                    @divFloor(progress_denominator, 2),
+                );
+            } else {
+                // in the second half, abruptly reverse course and do the opposite of the above.
+                return core.geometry.bezier3(
+                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
+                    rel_position.scaled(32),
+                    rel_position.scaled(32),
+                    progress - @divFloor(progress_denominator, 2),
+                    @divFloor(progress_denominator, 2),
+                );
+            }
+        },
+        else => return rel_position.scaled(32),
+    }
 }
 
 fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
@@ -435,6 +470,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     switch (thing.activity) {
         .none => {},
         .movement => {},
+        .failed_movement => {},
 
         .attack => |data| {
             const max_range = core.game_logic.getAttackRange(thing.species);
@@ -516,8 +552,8 @@ fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
     for (frames) |frame, i| {
         frame_index_to_aesthetic_offset[i] = current_offset;
         switch (frame.self.activity) {
-            .movement => |movement| {
-                current_offset = current_offset.plus(movement.next_velocity);
+            .movement => |move_delta| {
+                current_offset = current_offset.plus(move_delta);
             },
             else => {},
         }

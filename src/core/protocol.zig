@@ -94,11 +94,8 @@ pub const PerceivedThing = struct {
 pub const PerceivedActivity = union(enum) {
     none,
 
-    movement: Movement,
-    pub const Movement = struct {
-        prior_velocity: Coord,
-        next_velocity: Coord,
-    };
+    movement: Coord,
+    failed_movement: Coord,
 
     attack: Attack,
     pub const Attack = struct {
