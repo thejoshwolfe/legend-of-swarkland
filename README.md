@@ -369,7 +369,7 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ### 5.2.0
 
-???
+ * change collision physics to make them less bouncy and hopefully more intuitive.
 
 ## Version History
 
