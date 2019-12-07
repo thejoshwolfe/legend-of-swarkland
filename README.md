@@ -389,7 +389,7 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
    * lava damage: happens simultaneously with attacks, and only happens after all collision resolution has resolved.
    * attack damage: daggers and arrows
  * arrows no longer pierce targets.
- * introduced a bug where the collision resolution can infinite loop crash when too many individuals bump into each other near a wall.
+ * introduced a bug where the collision resolution can infinite loop crash when too many individuals bump into each other near a wall. ([Issue #56](https://github.com/thejoshwolfe/legend-of-swarkland/issues/56))
 
 ### 5.0.1
 
