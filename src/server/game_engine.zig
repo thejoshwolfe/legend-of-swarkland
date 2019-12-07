@@ -1031,24 +1031,24 @@ fn cardinalIndexBitSetToCollisionWinnerIndex(cardinal_index_bit_set: u4) ?u2 {
         // nobody here.
         0b0000 => return null,
         // only one person
-        0b0001 => return @as(u2, 0),
-        0b0010 => return @as(u2, 1),
-        0b0100 => return @as(u2, 2),
-        0b1000 => return @as(u2, 3),
+        0b0001 => return 0,
+        0b0010 => return 1,
+        0b0100 => return 2,
+        0b1000 => return 3,
         // 2-way head-on collision
         0b0101 => return null,
         0b1010 => return null,
         // 2-way right-angle collision.
         // give right of way to the one on the right.
-        0b0011 => return @as(u2, 0),
-        0b0110 => return @as(u2, 1),
-        0b1100 => return @as(u2, 2),
-        0b1001 => return @as(u2, 3),
+        0b0011 => return 0,
+        0b0110 => return 1,
+        0b1100 => return 2,
+        0b1001 => return 3,
         // 3-way collision. the middle one wins.
-        0b1011 => return @as(u2, 0),
-        0b0111 => return @as(u2, 1),
-        0b1110 => return @as(u2, 2),
-        0b1101 => return @as(u2, 3),
+        0b1011 => return 0,
+        0b0111 => return 1,
+        0b1110 => return 2,
+        0b1101 => return 3,
         // 4-way collision
         0b1111 => return null,
     }
