@@ -49,8 +49,8 @@ pub fn getHeadPosition(thing_position: ThingPosition) Coord {
     };
 }
 
-pub fn getAllPositions(thing_position: ThingPosition) []const Coord {
-    return switch (thing_position) {
+pub fn getAllPositions(thing_position: *const ThingPosition) []const Coord {
+    return switch (thing_position.*) {
         .small => |*coord| @as(*const [1]Coord, coord)[0..],
         .large => |*coords| coords[0..],
     };

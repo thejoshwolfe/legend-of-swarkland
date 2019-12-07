@@ -235,7 +235,7 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 }
             }
             for (last_frame.others) |perceived_other| {
-                for (getAllPositions(perceived_other.rel_position)) |rel_position| {
+                for (getAllPositions(&perceived_other.rel_position)) |rel_position| {
                     if (rel_position.equals(move_into_position)) {
                         // somebody's there already.
                         option_index = 1 - option_index;
