@@ -245,6 +245,7 @@ pub const GameEngineClient = struct {
             .move => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .move = makeCoord({}, {}) }} }},", move_delta.x, move_delta.y),
             .fast_move => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .fast_move = makeCoord({}, {}) }} }},", move_delta.x, move_delta.y),
             .attack => |direction| core.debug.record_macro.print("Request{{ .act = Action{{ .attack = makeCoord({}, {}) }} }},", direction.x, direction.y),
+            .kick => |direction| core.debug.record_macro.print("Request{{ .act = Action{{ .kick = makeCoord({}, {}) }} }},", direction.x, direction.y),
         }
     }
     pub fn rewind(self: *GameEngineClient) !void {
@@ -461,6 +462,9 @@ pub const GameEngineClient = struct {
     }
     pub fn attack(self: *GameEngineClient, direction: Coord) !void {
         return self.act(Action{ .attack = direction });
+    }
+    pub fn kick(self: *GameEngineClient, direction: Coord) !void {
+        return self.act(Action{ .kick = direction });
     }
 };
 

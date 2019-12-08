@@ -151,8 +151,8 @@ const the_levels = [_]Level{
             makeCoord(5, 4), makeCoord(5, 5), makeCoord(5, 6),
         },
         .individuals = &[_]Individual{
-            makeIndividual(makeCoord(7, 3), .orc),
-            makeIndividual(makeCoord(2, 5), .orc),
+            makeIndividual(makeCoord(7, 3), .turtle),
+            makeIndividual(makeCoord(2, 5), .turtle),
         },
     },
     Level{
@@ -273,6 +273,7 @@ pub const GameEngine = struct {
             .move => |move_delta| return isCardinalDirection(move_delta),
             .fast_move => |move_delta| return isScaledCardinalDirection(move_delta, 2),
             .attack => |direction| return isCardinalDirection(direction),
+            .kick => |direction| return isCardinalDirection(direction),
         }
     }
 
@@ -409,7 +410,8 @@ pub const GameEngine = struct {
                 const next_position = next_positions.getValue(id) orelse continue;
                 for (getAllPositions(&next_position)) |coord| {
                     var collision = coord_to_collision.getValue(coord).?;
-                    if (!if (collision.winner_id) |w| w == id else false) {
+                    // TODO: https://github.com/ziglang/zig/issues/1332 if (collision.winner_id != id) {
+                    if (!(collision.winner_id != null and collision.winner_id.? == id)) {
                         // i lose.
                         next_positions.removeAssertDiscard(id);
                         continue :id_loop;

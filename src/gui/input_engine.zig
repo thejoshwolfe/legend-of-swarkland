@@ -11,6 +11,7 @@ pub const Button = enum {
     left,
     right,
     start_attack,
+    start_kick,
     backspace,
     enter,
     escape,
@@ -30,19 +31,20 @@ pub const InputEngine = struct {
             },
             sdl.c.SDL_KEYDOWN => {
                 if (event.key.repeat != 0) return null;
-                return self.scancodeToButton(self.getModifiers(), @enumToInt(event.key.keysym.scancode)) orelse return null;
+                return self.handleKeydown(self.getModifiers(), @enumToInt(event.key.keysym.scancode));
             },
             else => unreachable,
         }
     }
 
-    fn scancodeToButton(self: InputEngine, modifiers: Modifiers, scancode: c_int) ?Button {
+    fn handleKeydown(self: InputEngine, modifiers: Modifiers, scancode: c_int) ?Button {
         switch (scancode) {
             sdl.c.SDL_SCANCODE_LEFT => return if (modifiers == 0) Button.left else null,
             sdl.c.SDL_SCANCODE_RIGHT => return if (modifiers == 0) Button.right else null,
             sdl.c.SDL_SCANCODE_UP => return if (modifiers == 0) Button.up else null,
             sdl.c.SDL_SCANCODE_DOWN => return if (modifiers == 0) Button.down else null,
             sdl.c.SDL_SCANCODE_F => return if (modifiers == 0) Button.start_attack else null,
+            sdl.c.SDL_SCANCODE_K => return if (modifiers == 0) Button.start_kick else null,
             sdl.c.SDL_SCANCODE_R => return if (modifiers == ctrl) Button.restart else null,
             sdl.c.SDL_SCANCODE_BACKSPACE => return if (modifiers == 0) Button.backspace else null,
             sdl.c.SDL_SCANCODE_RETURN => return if (modifiers == 0) Button.enter else null,
