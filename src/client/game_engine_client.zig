@@ -200,7 +200,7 @@ pub const GameEngineClient = struct {
                         defer core.debug.thread_lifecycle.print("shutdown");
 
                         game_server.server_main(context) catch |err| {
-                            std.debug.warn("error: {}", @errorName(err));
+                            std.debug.warn("error: {}", .{@errorName(err)});
                             if (@errorReturnTrace()) |trace| {
                                 std.debug.dumpStackTrace(trace.*);
                             }

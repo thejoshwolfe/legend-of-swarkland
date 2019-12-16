@@ -94,7 +94,7 @@ fn deep_print(prefix: []const u8, something: var) void {
     std.debug.warn("{}", prefix);
     struct {
         pub fn recurse(obj: var, comptime indent: comptime_int) void {
-            const T = @typeOf(obj);
+            const T = @TypeOf(obj);
             const indentation = ("  " ** indent)[0..];
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_list.AlignedArrayList(")) {
                 return recurse(obj.toSliceConst(), indent);
