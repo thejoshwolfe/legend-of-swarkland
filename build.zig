@@ -75,6 +75,7 @@ fn make_binary_variant(
             @import("deps/zig-sdl/build.zig").linkArtifact(b, .{
                 .artifact = exe,
                 .prefix = "deps/zig-sdl",
+                .override_mode = .ReleaseFast,
             });
         } else {
             exe.linkSystemLibrary("SDL2");
