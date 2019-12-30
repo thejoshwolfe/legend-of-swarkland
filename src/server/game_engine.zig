@@ -145,6 +145,15 @@ const the_levels = [_]Level{
     Level{
         .width = 10,
         .height = 10,
+        .hatch_positions = &[_]Coord{makeCoord(3, 5)},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
+            makeIndividual(makeCoord(7, 5), .kangaroo),
+        },
+    },
+    Level{
+        .width = 10,
+        .height = 10,
         .hatch_positions = &[_]Coord{makeCoord(7, 5)},
         .lava_positions = &[_]Coord{
             makeCoord(4, 4), makeCoord(4, 5), makeCoord(4, 6),

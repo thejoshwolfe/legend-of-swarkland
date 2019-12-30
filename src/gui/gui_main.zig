@@ -577,13 +577,14 @@ fn speciesToSprite(species: Species) Rect {
         .centaur => textures.sprites.centaur_archer,
         .turtle => textures.sprites.turtle,
         .rhino => textures.sprites.rhino[0],
+        .kangaroo => textures.sprites.kangaroo,
     };
 }
 
 fn speciesToTailSprite(species: Species) Rect {
     return switch (species) {
         .rhino => textures.sprites.rhino[1],
-        .human, .orc, .centaur, .turtle => unreachable,
+        else => unreachable,
     };
 }
 

@@ -25,6 +25,7 @@ pub const Species = enum {
     centaur,
     turtle,
     rhino,
+    kangaroo,
 };
 
 pub const TerrainChunk = struct {
