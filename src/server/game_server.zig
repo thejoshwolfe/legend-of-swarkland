@@ -65,7 +65,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         {
             retryRead: while (true) {
                 switch (main_player_queues.waitAndTakeRequest() orelse {
-                    core.debug.thread_lifecycle.print("clean shutdown. close");
+                    core.debug.thread_lifecycle.print("clean shutdown. close", .{});
                     main_player_queues.closeResponses();
                     break :mainLoop;
                 }) {

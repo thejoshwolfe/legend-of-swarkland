@@ -4,7 +4,7 @@ const Logger = struct {
     is_enabled: bool,
     show_thread_id: bool,
 
-    pub fn print(comptime self: Logger, comptime fmt: []const u8, args: ...) void {
+    pub fn print(comptime self: Logger, comptime fmt: []const u8, args: var) void {
         if (!self.is_enabled) return;
         warn(self.show_thread_id, fmt, args);
     }
@@ -20,11 +20,13 @@ pub const testing = Logger{ .is_enabled = true, .show_thread_id = true };
 pub const happening = Logger{ .is_enabled = false, .show_thread_id = true };
 pub const record_macro = Logger{ .is_enabled = false, .show_thread_id = false };
 
-fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: ...) void {
+fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: var) void {
     // format to a buffer, then write in a single (or as few as possible)
     // posix write calls so that the output from multiple processes
     // doesn't interleave on the same line.
     var buffer: [0x1000]u8 = undefined;
+    var buffer1: [0x1000]u8 = undefined;
+    var buffer2: [0x1000]u8 = undefined;
     if (show_thread_id) {
         const debug_thread_id = blk: {
             const me = std.Thread.getCurrentId();
@@ -33,13 +35,14 @@ fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: ...) void
             }
             @panic("thread not named");
         };
-        std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], "{}({}): " ++ fmt ++ "\n", debug_thread_id.name, debug_thread_id.client_id, args) catch {
-            @panic("make the buffer bigger");
-        });
+        const prefix: []const u8 = std.fmt.bufPrint(buffer1[0..], "{}({})", .{ debug_thread_id.name, debug_thread_id.client_id }) catch @panic("make the buffer bigger");
+        const msg: []const u8 = std.fmt.bufPrint(buffer2[0..], fmt, args) catch @panic("make the buffer bigger");
+        const line: []const u8 = std.fmt.bufPrint(buffer[0..], "{}: {}\n", .{ prefix, msg }) catch @panic("make the buffer bigger");
+        std.debug.warn("{}", .{line});
     } else {
-        std.debug.warn("{}", std.fmt.bufPrint(buffer[0..], fmt ++ "\n", args) catch {
+        std.debug.warn("{}", .{std.fmt.bufPrint(buffer[0..], fmt ++ "\n", args) catch {
             @panic("make the buffer bigger");
-        });
+        }});
     }
 }
 
@@ -91,7 +94,7 @@ pub fn unnameThisThread() void {
 
 /// i kinda wish std.fmt did this.
 fn deep_print(prefix: []const u8, something: var) void {
-    std.debug.warn("{}", prefix);
+    std.debug.warn("{}", .{prefix});
     struct {
         pub fn recurse(obj: var, comptime indent: comptime_int) void {
             const T = @TypeOf(obj);
@@ -101,31 +104,31 @@ fn deep_print(prefix: []const u8, something: var) void {
             }
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.hash_map.HashMap(u32,")) {
                 if (obj.count() == 0) {
-                    return std.debug.warn("{{}}");
+                    return std.debug.warn("{{}}", .{});
                 }
-                std.debug.warn("{{");
+                std.debug.warn("{{", .{});
                 var iterator = obj.iterator();
                 while (iterator.next()) |kv| {
-                    std.debug.warn("\n{}  {}: ", indentation, kv.key);
+                    std.debug.warn("\n{}  {}: ", .{ indentation, kv.key });
                     recurse(kv.value, indent + 1);
-                    std.debug.warn(",");
+                    std.debug.warn(",", .{});
                 }
-                return std.debug.warn("\n{}}}", indentation);
+                return std.debug.warn("\n{}}}", .{indentation});
             }
             switch (@typeInfo(T)) {
                 .Pointer => |ptr_info| switch (ptr_info.size) {
                     .One => return recurse(obj.*, indent),
                     .Slice => {
                         if (obj.len == 0) {
-                            return std.debug.warn("[]");
+                            return std.debug.warn("[]", .{});
                         }
-                        std.debug.warn("[\n");
+                        std.debug.warn("[\n", .{});
                         for (obj) |x| {
-                            std.debug.warn("{}  ", indentation);
+                            std.debug.warn("{}  ", .{indentation});
                             recurse(x, indent + 1);
-                            std.debug.warn(",\n");
+                            std.debug.warn(",\n", .{});
                         }
-                        return std.debug.warn("{}]", indentation);
+                        return std.debug.warn("{}]", .{indentation});
                     },
                     else => {},
                 },
@@ -135,39 +138,39 @@ fn deep_print(prefix: []const u8, something: var) void {
                 .Struct => {
                     const multiline = @sizeOf(T) >= 12;
                     comptime var field_i = 0;
-                    std.debug.warn("{{");
+                    std.debug.warn("{{", .{});
                     inline while (field_i < @memberCount(T)) : (field_i += 1) {
                         if (field_i > 0) {
                             if (!multiline) {
-                                std.debug.warn(", ");
+                                std.debug.warn(", ", .{});
                             }
                         } else if (!multiline) {
-                            std.debug.warn(" ");
+                            std.debug.warn(" ", .{});
                         }
                         if (multiline) {
-                            std.debug.warn("\n{}  ", indentation);
+                            std.debug.warn("\n{}  ", .{indentation});
                         }
-                        std.debug.warn(".{} = ", @memberName(T, field_i));
+                        std.debug.warn(".{} = ", .{@memberName(T, field_i)});
                         if (std.mem.eql(u8, @memberName(T, field_i), "terrain")) {
                             // hide terrain, because it's so bulky.
-                            std.debug.warn("<...>");
+                            std.debug.warn("<...>", .{});
                         } else {
                             recurse(@field(obj, @memberName(T, field_i)), indent + 1);
                         }
-                        if (multiline) std.debug.warn(",");
+                        if (multiline) std.debug.warn(",", .{});
                     }
                     if (multiline) {
-                        std.debug.warn("\n{}}}", indentation);
+                        std.debug.warn("\n{}}}", .{indentation});
                     } else {
-                        std.debug.warn(" }}");
+                        std.debug.warn(" }}", .{});
                     }
                     return;
                 },
                 .Union => |info| {
-                    if (info.tag_type) |UnionTagType| {
-                        std.debug.warn("{}.{} = ", @typeName(T), @tagName(UnionTagType(obj)));
+                    if (info.tag_type) |_| {
+                        std.debug.warn("{}.{} = ", .{ @typeName(T), @tagName(obj) });
                         inline for (info.fields) |u_field| {
-                            if (@enumToInt(UnionTagType(obj)) == u_field.enum_field.?.value) {
+                            if (@enumToInt(obj) == u_field.enum_field.?.value) {
                                 recurse(@field(obj, u_field.name), indent);
                             }
                         }
@@ -175,15 +178,15 @@ fn deep_print(prefix: []const u8, something: var) void {
                     }
                 },
                 .Enum => |info| {
-                    return std.debug.warn(".{}", @tagName(obj));
+                    return std.debug.warn(".{}", .{@tagName(obj)});
                 },
                 .Void => {
-                    return std.debug.warn("{{}}");
+                    return std.debug.warn("{{}}", .{});
                 },
                 else => {},
             }
-            return std.debug.warn("{}", obj);
+            return std.debug.warn("{}", .{obj});
         }
     }.recurse(something, 0);
-    std.debug.warn("\n");
+    std.debug.warn("\n", .{});
 }

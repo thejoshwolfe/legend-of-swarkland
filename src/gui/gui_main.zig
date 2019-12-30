@@ -33,8 +33,8 @@ pub fn main() anyerror!void {
     core.debug.init();
     core.debug.nameThisThread("gui");
     defer core.debug.unnameThisThread();
-    core.debug.thread_lifecycle.print("init");
-    defer core.debug.thread_lifecycle.print("shutdown");
+    core.debug.thread_lifecycle.print("init", .{});
+    defer core.debug.thread_lifecycle.print("shutdown", .{});
 
     // SDL handling SIGINT blocks propagation to child threads.
     if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, "1", sdl.c.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.c.SDL_bool.SDL_FALSE)) {
@@ -149,7 +149,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
                 sdl.c.SDL_QUIT => {
-                    core.debug.thread_lifecycle.print("sdl quit");
+                    core.debug.thread_lifecycle.print("sdl quit", .{});
                     return;
                 },
                 sdl.c.SDL_WINDOWEVENT => {
