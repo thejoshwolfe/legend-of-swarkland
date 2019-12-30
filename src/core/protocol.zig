@@ -139,8 +139,8 @@ pub const Socket = struct {
     }
 };
 
-pub fn initOutChannel(out_stream: var) OutChannel(@typeOf(out_stream.*)) {
-    return OutChannel(@typeOf(out_stream.*)).init(out_stream);
+pub fn initOutChannel(out_stream: var) OutChannel(@TypeOf(out_stream.*)) {
+    return OutChannel(@TypeOf(out_stream.*)).init(out_stream);
 }
 pub fn OutChannel(comptime OutStream: type) type {
     return struct {
@@ -152,7 +152,7 @@ pub fn OutChannel(comptime OutStream: type) type {
         }
 
         pub fn write(self: Self, x: var) !void {
-            const T = @typeOf(x);
+            const T = @TypeOf(x);
             switch (@typeInfo(T)) {
                 .Int => return self.writeInt(x),
                 .Bool => return self.writeInt(@boolToInt(x)),
@@ -204,15 +204,15 @@ pub fn OutChannel(comptime OutStream: type) type {
         }
 
         pub fn writeInt(self: Self, x: var) !void {
-            const int_info = @typeInfo(@typeOf(x)).Int;
+            const int_info = @typeInfo(@TypeOf(x)).Int;
             const T_aligned = @IntType(int_info.is_signed, @divTrunc(int_info.bits + 7, 8) * 8);
             try self.stream.writeIntLittle(T_aligned, x);
         }
     };
 }
 
-pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: var) InChannel(@typeOf(in_stream.*)) {
-    return InChannel(@typeOf(in_stream.*)).init(allocator, in_stream);
+pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: var) InChannel(@TypeOf(in_stream.*)) {
+    return InChannel(@TypeOf(in_stream.*)).init(allocator, in_stream);
 }
 pub fn InChannel(comptime InStream: type) type {
     return struct {
@@ -242,7 +242,7 @@ pub fn InChannel(comptime InStream: type) type {
                 .Array => {
                     var x: T = undefined;
                     for (x) |*x_i| {
-                        x_i.* = try self.read(@typeOf(x_i.*));
+                        x_i.* = try self.read(@TypeOf(x_i.*));
                     }
                     return x;
                 },
@@ -287,7 +287,7 @@ pub fn InChannel(comptime InStream: type) type {
     };
 }
 
-pub fn deepClone(allocator: *std.mem.Allocator, x: var) (error{OutOfMemory})!@typeOf(x) {
+pub fn deepClone(allocator: *std.mem.Allocator, x: var) (error{OutOfMemory})!@TypeOf(x) {
     // TODO: actually do it
     return x;
 }

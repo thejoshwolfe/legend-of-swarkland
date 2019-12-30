@@ -38,10 +38,10 @@ pub fn main() anyerror!void {
 
     // SDL handling SIGINT blocks propagation to child threads.
     if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, "1", sdl.c.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.c.SDL_bool.SDL_FALSE)) {
-        std.debug.panic("failed to disable sdl signal handlers\n");
+        std.debug.panic("failed to disable sdl signal handlers\n", .{});
     }
     if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
-        std.debug.panic("SDL_Init failed: {c}\n", sdl.c.SDL_GetError());
+        std.debug.panic("SDL_Init failed: {c}\n", .{sdl.c.SDL_GetError()});
     }
     defer sdl.c.SDL_Quit();
 
@@ -53,12 +53,12 @@ pub fn main() anyerror!void {
         logical_window_size.h,
         sdl.c.SDL_WINDOW_RESIZABLE,
     ) orelse {
-        std.debug.panic("SDL_CreateWindow failed: {c}\n", sdl.c.SDL_GetError());
+        std.debug.panic("SDL_CreateWindow failed: {c}\n", .{sdl.c.SDL_GetError()});
     };
     defer sdl.c.SDL_DestroyWindow(screen);
 
     const renderer: *sdl.Renderer = sdl.c.SDL_CreateRenderer(screen, -1, 0) orelse {
-        std.debug.panic("SDL_CreateRenderer failed: {c}\n", sdl.c.SDL_GetError());
+        std.debug.panic("SDL_CreateRenderer failed: {c}\n", .{sdl.c.SDL_GetError()});
     };
     defer sdl.c.SDL_DestroyRenderer(renderer);
 
@@ -66,7 +66,7 @@ pub fn main() anyerror!void {
         var renderer_info: sdl.c.SDL_RendererInfo = undefined;
         sdl.assertZero(sdl.c.SDL_GetRendererInfo(renderer, &renderer_info));
         if (renderer_info.flags & sdl.c.SDL_RENDERER_TARGETTEXTURE == 0) {
-            std.debug.panic("rendering to a temporary texture is not supported");
+            std.debug.panic("rendering to a temporary texture is not supported", .{});
         }
     }
 
@@ -77,7 +77,7 @@ pub fn main() anyerror!void {
         logical_window_size.w,
         logical_window_size.h,
     ) orelse {
-        std.debug.panic("SDL_CreateTexture failed: {c}\n", sdl.c.SDL_GetError());
+        std.debug.panic("SDL_CreateTexture failed: {c}\n", .{sdl.c.SDL_GetError()});
     };
     defer sdl.c.SDL_DestroyTexture(screen_buffer);
 

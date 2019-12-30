@@ -48,8 +48,8 @@ pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
 }
 
 /// Shallow copies the argument to a newly allocated pointer.
-fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@typeOf(obj) {
-    var x = try allocator.create(@typeOf(obj));
+fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@TypeOf(obj) {
+    var x = try allocator.create(@TypeOf(obj));
     x.* = obj;
     return x;
 }
