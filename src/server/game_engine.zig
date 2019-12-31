@@ -630,21 +630,32 @@ pub const GameEngine = struct {
 
     fn doMovementAndCollisions(self: *const GameEngine, game_state: *GameState, everybody: []u32, individual_to_perception: *IdMap(*MutablePerceivedHappening), current_positions: *IdMap(ThingPosition), intended_moves: *IdMap(Coord)) !void {
         var next_positions = IdMap(ThingPosition).init(self.allocator);
-        for (everybody) |id| {
-            const move_delta = intended_moves.getValue(id) orelse continue;
-            // assume all moves succeed and remove the ones that don't.
-            try next_positions.putNoClobber(id, applyMovementToPosition(current_positions.getValue(id).?, move_delta));
-        }
 
-        // If anyone is moving into a wall, the move is failure.
-        id_loop: for (everybody) |id| {
-            const next_position = next_positions.getValue(id) orelse continue;
-            for (getAllPositions(&next_position)) |coord| {
-                if (!isOpenSpace(game_state.terrainAt(coord).wall)) {
-                    next_positions.removeAssertDiscard(id);
-                    continue :id_loop;
+        for (everybody) |id| {
+            // seek forward and stop at any wall.
+            const initial_head_coord = getHeadPosition(current_positions.getValue(id).?);
+            const move_delta = intended_moves.getValue(id) orelse continue;
+            const move_unit = move_delta.signumed();
+            const move_magnitude = move_delta.magnitudeDiag();
+            var distance: i32 = 1;
+            while (true) : (distance += 1) {
+                const new_head_coord = initial_head_coord.plus(move_unit.scaled(distance));
+                if (!isOpenSpace(game_state.terrainAt(new_head_coord).wall)) {
+                    // bonk
+                    distance -= 1;
+                    break;
                 }
+                if (distance >= move_magnitude)
+                    break;
             }
+            if (distance == 0) {
+                // no move for you
+                continue;
+            }
+            // found an open space
+            const adjusted_move_delta = move_unit.scaled(distance);
+            _ = intended_moves.put(id, adjusted_move_delta) catch unreachable;
+            try next_positions.putNoClobber(id, applyMovementToPosition(current_positions.getValue(id).?, adjusted_move_delta));
         }
 
         // Collision detection and resolution.
