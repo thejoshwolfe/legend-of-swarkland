@@ -37,12 +37,12 @@ const QueueToFdAdapter = struct {
     fn sendMain(self: *QueueToFdAdapter) void {
         core.debug.nameThisThread("client send");
         defer core.debug.unnameThisThread();
-        core.debug.thread_lifecycle.print("init");
-        defer core.debug.thread_lifecycle.print("shutdown");
+        core.debug.thread_lifecycle.print("init", .{});
+        defer core.debug.thread_lifecycle.print("shutdown", .{});
 
         while (true) {
             const request = self.queues.waitAndTakeRequest() orelse {
-                core.debug.thread_lifecycle.print("clean shutdown");
+                core.debug.thread_lifecycle.print("clean shutdown", .{});
                 break;
             };
             self.socket.out().write(request) catch |err| {
@@ -54,14 +54,14 @@ const QueueToFdAdapter = struct {
     fn recvMain(self: *QueueToFdAdapter) void {
         core.debug.nameThisThread("client recv");
         defer core.debug.unnameThisThread();
-        core.debug.thread_lifecycle.print("init");
-        defer core.debug.thread_lifecycle.print("shutdown");
+        core.debug.thread_lifecycle.print("init", .{});
+        defer core.debug.thread_lifecycle.print("shutdown", .{});
 
         while (true) {
             const response = self.socket.in(allocator).read(Response) catch |err| {
                 switch (err) {
                     error.EndOfStream => {
-                        core.debug.thread_lifecycle.print("clean shutdown");
+                        core.debug.thread_lifecycle.print("clean shutdown", .{});
                         break;
                     },
                     else => @panic("TODO: proper error handling"),
@@ -196,8 +196,8 @@ pub const GameEngineClient = struct {
                     pub fn f(context: *SomeQueues) void {
                         core.debug.nameThisThread("server thread");
                         defer core.debug.unnameThisThread();
-                        core.debug.thread_lifecycle.print("init");
-                        defer core.debug.thread_lifecycle.print("shutdown");
+                        core.debug.thread_lifecycle.print("init", .{});
+                        defer core.debug.thread_lifecycle.print("shutdown", .{});
 
                         game_server.server_main(context) catch |err| {
                             std.debug.warn("error: {}", .{@errorName(err)});
@@ -216,7 +216,7 @@ pub const GameEngineClient = struct {
     }
 
     pub fn stopEngine(self: *GameEngineClient) void {
-        core.debug.thread_lifecycle.print("close");
+        core.debug.thread_lifecycle.print("close", .{});
         self.queues.closeRequests();
         switch (self.connection) {
             .child_process => |*data| {
@@ -224,32 +224,33 @@ pub const GameEngineClient = struct {
                 // FIXME: workaround for wait() trying to close already closed fds
                 data.child_process.stdin = null;
 
-                core.debug.thread_lifecycle.print("join adapter threads");
+                core.debug.thread_lifecycle.print("join adapter threads", .{});
                 data.adapter.wait();
 
-                core.debug.thread_lifecycle.print("join child process");
+                core.debug.thread_lifecycle.print("join child process", .{});
                 _ = data.child_process.wait() catch undefined;
             },
             .thread => |*data| {
                 data.core_thread.wait();
             },
         }
-        core.debug.thread_lifecycle.print("all threads done");
+        core.debug.thread_lifecycle.print("all threads done", .{});
     }
 
     pub fn act(self: *GameEngineClient, action: Action) !void {
         try self.queues.enqueueRequest(Request{ .act = action });
 
         switch (action) {
-            .wait => core.debug.record_macro.print("Request{{ .act = Action{{ .wait = {{}} }} }},"),
-            .move => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .move = makeCoord({}, {}) }} }},", move_delta.x, move_delta.y),
-            .fast_move => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .fast_move = makeCoord({}, {}) }} }},", move_delta.x, move_delta.y),
-            .attack => |direction| core.debug.record_macro.print("Request{{ .act = Action{{ .attack = makeCoord({}, {}) }} }},", direction.x, direction.y),
+            .wait => core.debug.record_macro.print("Request{{ .act = Action{{ .wait = {{}} }} }},", .{}),
+            .move => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .move = makeCoord({}, {}) }} }},", .{ move_delta.x, move_delta.y }),
+            .fast_move => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .fast_move = makeCoord({}, {}) }} }},", .{ move_delta.x, move_delta.y }),
+            .attack => |direction| core.debug.record_macro.print("Request{{ .act = Action{{ .attack = makeCoord({}, {}) }} }},", .{ direction.x, direction.y }),
+            .kick => |direction| core.debug.record_macro.print("Request{{ .act = Action{{ .kick = makeCoord({}, {}) }} }},", .{ direction.x, direction.y }),
         }
     }
     pub fn rewind(self: *GameEngineClient) !void {
         try self.queues.enqueueRequest(Request{ .rewind = {} });
-        core.debug.record_macro.print("Request{{ .rewind = {{}} }},");
+        core.debug.record_macro.print("Request{{ .rewind = {{}} }},", .{});
     }
 
     pub fn beatLevelMacro(self: *GameEngineClient) !void {
@@ -349,33 +350,52 @@ pub const GameEngineClient = struct {
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
-                Request{ .act = Action{ .move = makeCoord(0, -1) } },
-                Request{ .act = Action{ .move = makeCoord(0, -1) } },
-                Request{ .act = Action{ .move = makeCoord(1, 0) } },
-                Request{ .act = Action{ .move = makeCoord(1, 0) } },
-                Request{ .act = Action{ .move = makeCoord(1, 0) } },
-                Request{ .act = Action{ .move = makeCoord(1, 0) } },
-                Request{ .act = Action{ .move = makeCoord(0, 1) } },
-                Request{ .act = Action{ .move = makeCoord(0, 1) } },
             },
 
             5 => comptime &[_]Request{
-                Request{ .act = Action{ .attack = makeCoord(0, -1) } },
                 Request{ .act = Action{ .move = makeCoord(0, -1) } },
-                Request{ .act = Action{ .move = makeCoord(0, -1) } },
-                Request{ .act = Action{ .move = makeCoord(-1, 0) } },
-                Request{ .act = Action{ .attack = makeCoord(-1, 0) } },
-                Request{ .act = Action{ .attack = makeCoord(-1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(0, 1) } },
+                Request{ .act = Action{ .attack = makeCoord(-1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(0, 1) } },
+                Request{ .act = Action{ .move = makeCoord(0, 1) } },
+            },
+
+            6 => comptime &[_]Request{
+                Request{ .act = Action{ .move = makeCoord(-1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .kick = makeCoord(-1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(0, 1) } },
+                Request{ .act = Action{ .move = makeCoord(0, 1) } },
+                Request{ .act = Action{ .move = makeCoord(0, 1) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .kick = makeCoord(-1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
             },
 
-            6 => comptime &[_]Request{
+            7 => comptime &[_]Request{
                 Request{ .act = Action{ .move = makeCoord(0, 1) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(0, 1) } },
@@ -395,7 +415,7 @@ pub const GameEngineClient = struct {
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
             },
 
-            7 => comptime &[_]Request{
+            8 => comptime &[_]Request{
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
@@ -462,6 +482,9 @@ pub const GameEngineClient = struct {
     pub fn attack(self: *GameEngineClient, direction: Coord) !void {
         return self.act(Action{ .attack = direction });
     }
+    pub fn kick(self: *GameEngineClient, direction: Coord) !void {
+        return self.act(Action{ .kick = direction });
+    }
 };
 
 fn queuePut(comptime T: type, queue: *std.atomic.Queue(T), x: T) !void {
@@ -483,8 +506,8 @@ test "basic interaction" {
     core.debug.init();
     core.debug.nameThisThread("test main");
     defer core.debug.unnameThisThread();
-    core.debug.testing.print("start test");
-    defer core.debug.testing.print("exit test");
+    core.debug.testing.print("start test", .{});
+    defer core.debug.testing.print("exit test", .{});
     var _client: GameEngineClient = undefined;
     var client = &_client;
     try client.startAsThread();
@@ -492,7 +515,7 @@ test "basic interaction" {
 
     const startup_response = client.queues.waitAndTakeResponse().?;
     std.testing.expect(startup_response.load_state.self.rel_position.equals(makeCoord(0, 0)));
-    core.debug.testing.print("startup done");
+    core.debug.testing.print("startup done", .{});
 
     // move
     try client.move(makeCoord(1, 0));
@@ -501,7 +524,7 @@ test "basic interaction" {
         const frames = response.stuff_happens.frames;
         std.testing.expect(frames[frames.len - 1].self.rel_position.equals(makeCoord(0, 0)));
     }
-    core.debug.testing.print("move looks good");
+    core.debug.testing.print("move looks good", .{});
 
     // rewind
     try client.rewind();
@@ -511,5 +534,5 @@ test "basic interaction" {
 
         std.testing.expect(response.load_state.self.rel_position.equals(makeCoord(0, 0)));
     }
-    core.debug.testing.print("rewind looks good");
+    core.debug.testing.print("rewind looks good", .{});
 }

@@ -34,12 +34,12 @@ const FdToQueueAdapter = struct {
     fn sendMain(self: *FdToQueueAdapter) void {
         core.debug.nameThisThread("server send");
         defer core.debug.unnameThisThread();
-        core.debug.thread_lifecycle.print("init");
-        defer core.debug.thread_lifecycle.print("shutdown");
+        core.debug.thread_lifecycle.print("init", .{});
+        defer core.debug.thread_lifecycle.print("shutdown", .{});
 
         while (true) {
             const msg = self.queues.waitAndTakeResponse() orelse {
-                core.debug.thread_lifecycle.print("clean shutdown");
+                core.debug.thread_lifecycle.print("clean shutdown", .{});
                 break;
             };
             self.socket.out().write(msg) catch |err| {
@@ -51,14 +51,14 @@ const FdToQueueAdapter = struct {
     fn recvMain(self: *FdToQueueAdapter) void {
         core.debug.nameThisThread("server recv");
         defer core.debug.unnameThisThread();
-        core.debug.thread_lifecycle.print("init");
-        defer core.debug.thread_lifecycle.print("shutdown");
+        core.debug.thread_lifecycle.print("init", .{});
+        defer core.debug.thread_lifecycle.print("shutdown", .{});
 
         while (true) {
             const msg = self.socket.in(allocator).read(Request) catch |err| {
                 switch (err) {
                     error.EndOfStream => {
-                        core.debug.thread_lifecycle.print("clean shutdown");
+                        core.debug.thread_lifecycle.print("clean shutdown", .{});
                         self.queues.closeRequests();
                         break;
                     },
@@ -77,8 +77,8 @@ pub fn main() anyerror!void {
 
     core.debug.nameThisThread("server process");
     defer core.debug.unnameThisThread();
-    core.debug.thread_lifecycle.print("init");
-    defer core.debug.thread_lifecycle.print("shutdown");
+    core.debug.thread_lifecycle.print("init", .{});
+    defer core.debug.thread_lifecycle.print("shutdown", .{});
 
     var queues: SomeQueues = undefined;
     queues.init();
@@ -90,7 +90,7 @@ pub fn main() anyerror!void {
         &queues,
     );
     defer {
-        core.debug.thread_lifecycle.print("join adapter threads");
+        core.debug.thread_lifecycle.print("join adapter threads", .{});
         adapter.wait();
     }
 

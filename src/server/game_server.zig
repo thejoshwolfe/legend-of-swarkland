@@ -12,6 +12,7 @@ const Request = core.protocol.Request;
 const Response = core.protocol.Response;
 const Action = core.protocol.Action;
 const Event = core.protocol.Event;
+const Species = core.protocol.Species;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const getHeadPosition = core.game_logic.getHeadPosition;
@@ -64,7 +65,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         {
             retryRead: while (true) {
                 switch (main_player_queues.waitAndTakeRequest() orelse {
-                    core.debug.thread_lifecycle.print("clean shutdown. close");
+                    core.debug.thread_lifecycle.print("clean shutdown. close", .{});
                     main_player_queues.closeResponses();
                     break :mainLoop;
                 }) {
@@ -183,10 +184,19 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     if (delta.x * delta.y == 0) {
         // straight shot
         const delta_unit = delta.signumed();
+        if (hesitatesOneSpaceAway(last_frame.self.species) and delta.magnitudeOrtho() == 2) {
+            // preemptive attack
+            return Action{ .kick = delta_unit };
+        }
+
         if (hasFastMove(last_frame.self.species) and isFastMoveAligned(last_frame.self.rel_position, delta_unit.scaled(2))) {
             // charge!
             return Action{ .fast_move = delta_unit.scaled(2) };
         } else if (delta.x * delta.x + delta.y * delta.y <= range * range) {
+            if (hesitatesOneSpaceAway(last_frame.self.species)) {
+                // just kick
+                return Action{ .kick = delta_unit };
+            }
             // within attack range
             return Action{ .attack = delta_unit };
         } else {
@@ -221,8 +231,8 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     };
     // Archers want to line up for a shot; melee wants to avoid lining up for a shot.
     var option_index = if (range == 1) long_index else 1 - long_index;
-    // If somethings's in the way, then prefer the other way.
-    // If somethings's in the way in both directions, then go with our initial preference.
+    // If something's in the way, then prefer the other way.
+    // If something's in the way in both directions, then go with our initial preference.
     {
         var flip_flop_counter: usize = 0;
         flip_flop_loop: while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
@@ -245,5 +255,18 @@ fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             }
         }
     }
-    return Action{ .move = options[option_index] };
+
+    if (hesitatesOneSpaceAway(last_frame.self.species) and delta.magnitudeOrtho() == 2) {
+        // preemptive attack
+        return Action{ .kick = options[option_index] };
+    } else {
+        return Action{ .move = options[option_index] };
+    }
+}
+
+fn hesitatesOneSpaceAway(species: Species) bool {
+    switch (species) {
+        .kangaroo => return true,
+        else => return false,
+    }
 }

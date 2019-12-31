@@ -33,8 +33,8 @@ pub fn main() anyerror!void {
     core.debug.init();
     core.debug.nameThisThread("gui");
     defer core.debug.unnameThisThread();
-    core.debug.thread_lifecycle.print("init");
-    defer core.debug.thread_lifecycle.print("shutdown");
+    core.debug.thread_lifecycle.print("init", .{});
+    defer core.debug.thread_lifecycle.print("shutdown", .{});
 
     // SDL handling SIGINT blocks propagation to child threads.
     if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, "1", sdl.c.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.c.SDL_bool.SDL_FALSE)) {
@@ -92,6 +92,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     var input_engine = InputEngine.init();
     var inputs_considered_harmful = true;
 
+    const InputPrompt = enum {
+        none, // TODO: https://github.com/ziglang/zig/issues/1332 and use null instead of this.
+        attack,
+        kick,
+    };
     const GameState = union(enum) {
         main_menu: gui.LinearMenuState,
 
@@ -99,7 +104,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         const Running = struct {
             client: GameEngineClient,
             client_state: ?PerceivedFrame,
-            started_attack: bool,
+            input_prompt: InputPrompt = .none,
             animations: ?Animations,
 
             /// only tracked to display aesthetics consistently through movement.
@@ -144,7 +149,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.@"type") {
                 sdl.c.SDL_QUIT => {
-                    core.debug.thread_lifecycle.print("sdl quit");
+                    core.debug.thread_lifecycle.print("sdl quit", .{});
                     return;
                 },
                 sdl.c.SDL_WINDOWEVENT => {
@@ -179,56 +184,83 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             },
                             GameState.running => |*state| {
                                 switch (button) {
-                                    Button.left => {
-                                        if (state.started_attack) {
-                                            try state.client.attack(makeCoord(-1, 0));
-                                            state.started_attack = false;
-                                        } else {
-                                            try state.client.move(makeCoord(-1, 0));
+                                    .left => {
+                                        switch (state.input_prompt) {
+                                            .none => {
+                                                try state.client.move(makeCoord(-1, 0));
+                                            },
+                                            .attack => {
+                                                try state.client.attack(makeCoord(-1, 0));
+                                            },
+                                            .kick => {
+                                                try state.client.kick(makeCoord(-1, 0));
+                                            },
                                         }
+                                        state.input_prompt = .none;
                                     },
-                                    Button.right => {
-                                        if (state.started_attack) {
-                                            try state.client.attack(makeCoord(1, 0));
-                                            state.started_attack = false;
-                                        } else {
-                                            try state.client.move(makeCoord(1, 0));
+                                    .right => {
+                                        switch (state.input_prompt) {
+                                            .none => {
+                                                try state.client.move(makeCoord(1, 0));
+                                            },
+                                            .attack => {
+                                                try state.client.attack(makeCoord(1, 0));
+                                            },
+                                            .kick => {
+                                                try state.client.kick(makeCoord(1, 0));
+                                            },
                                         }
+                                        state.input_prompt = .none;
                                     },
-                                    Button.up => {
-                                        if (state.started_attack) {
-                                            try state.client.attack(makeCoord(0, -1));
-                                            state.started_attack = false;
-                                        } else {
-                                            try state.client.move(makeCoord(0, -1));
+                                    .up => {
+                                        switch (state.input_prompt) {
+                                            .none => {
+                                                try state.client.move(makeCoord(0, -1));
+                                            },
+                                            .attack => {
+                                                try state.client.attack(makeCoord(0, -1));
+                                            },
+                                            .kick => {
+                                                try state.client.kick(makeCoord(0, -1));
+                                            },
                                         }
+                                        state.input_prompt = .none;
                                     },
-                                    Button.down => {
-                                        if (state.started_attack) {
-                                            try state.client.attack(makeCoord(0, 1));
-                                            state.started_attack = false;
-                                        } else {
-                                            try state.client.move(makeCoord(0, 1));
+                                    .down => {
+                                        switch (state.input_prompt) {
+                                            .none => {
+                                                try state.client.move(makeCoord(0, 1));
+                                            },
+                                            .attack => {
+                                                try state.client.attack(makeCoord(0, 1));
+                                            },
+                                            .kick => {
+                                                try state.client.kick(makeCoord(0, 1));
+                                            },
                                         }
+                                        state.input_prompt = .none;
                                     },
-                                    Button.start_attack => {
-                                        state.started_attack = true;
+                                    .start_attack => {
+                                        state.input_prompt = .attack;
                                     },
-                                    Button.backspace => {
-                                        if (state.started_attack) {
-                                            state.started_attack = false;
+                                    .start_kick => {
+                                        state.input_prompt = .kick;
+                                    },
+                                    .backspace => {
+                                        if (state.input_prompt != .none) {
+                                            state.input_prompt = .none;
                                         } else {
                                             try state.client.rewind();
                                         }
                                     },
-                                    Button.escape => {
-                                        state.started_attack = false;
+                                    .escape => {
+                                        state.input_prompt = .none;
                                     },
-                                    Button.restart => {
+                                    .restart => {
                                         state.client.stopEngine();
                                         game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
                                     },
-                                    Button.beat_level => {
+                                    .beat_level => {
                                         try state.client.beatLevelMacro();
                                     },
                                     else => {},
@@ -261,7 +293,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .running = GameState.Running{
                             .client = undefined,
                             .client_state = null,
-                            .started_attack = false,
                             .animations = null,
                             .total_journey_offset = makeCoord(0, 0),
                         },
@@ -274,6 +305,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" Arrow keys: Move");
                 menu_renderer.text(" F: Start attack");
                 menu_renderer.text("   Arrow keys: Attack in direction");
+                menu_renderer.text(" K: Start kick");
+                menu_renderer.text("   Arrow keys: Kick in direction");
                 menu_renderer.text(" Backspace: Undo");
                 menu_renderer.text(" Ctrl+R: Quit to this menu");
                 menu_renderer.text(" Enter: Start Game");
@@ -289,7 +322,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 // at one point in what frame should we render?
                 var frame = state.client_state.?;
                 var progress: i32 = 0;
-                var show_poised_attack = true;
+                var display_any_input_prompt = true;
                 var animated_aesthetic_offset = makeCoord(0, 0);
                 if (state.animations) |animations| {
                     const animation_time = @bitCast(u32, now -% animations.start_time);
@@ -299,7 +332,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         // animating
                         frame = animations.frames[movement_phase];
                         progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
-                        show_poised_attack = false;
+                        display_any_input_prompt = false;
                         animated_aesthetic_offset = animations.frame_index_to_aesthetic_offset[movement_phase].minus(animations.frame_index_to_aesthetic_offset[animations.frame_index_to_aesthetic_offset.len - 1]);
                     } else {
                         // stale
@@ -347,8 +380,16 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     _ = renderThing(renderer, progress, move_frame_time, camera_offset, other);
                 }
                 const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, frame.self);
-                if (show_poised_attack and state.started_attack) {
-                    textures.renderSprite(renderer, textures.sprites.dagger, display_position);
+                if (display_any_input_prompt) {
+                    switch (state.input_prompt) {
+                        .none => {},
+                        .attack => {
+                            textures.renderSprite(renderer, textures.sprites.dagger, display_position);
+                        },
+                        .kick => {
+                            textures.renderSprite(renderer, textures.sprites.kick, display_position);
+                        },
+                    }
                 }
 
                 // if we're showing you dead, show a tutorial.
@@ -504,6 +545,16 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             }
         },
 
+        .kick => |coord| {
+            const kick_sprite_normalizing_rotation = 6;
+            textures.renderSpriteRotated(
+                renderer,
+                textures.sprites.kick,
+                display_position.plus(coord.scaled(32 * 1 / 2)),
+                directionToRotation(coord) +% kick_sprite_normalizing_rotation,
+            );
+        },
+
         .death => {
             textures.renderSprite(renderer, textures.sprites.death, display_position);
         },
@@ -528,13 +579,14 @@ fn speciesToSprite(species: Species) Rect {
         .centaur => textures.sprites.centaur_archer,
         .turtle => textures.sprites.turtle,
         .rhino => textures.sprites.rhino[0],
+        .kangaroo => textures.sprites.kangaroo,
     };
 }
 
 fn speciesToTailSprite(species: Species) Rect {
     return switch (species) {
         .rhino => textures.sprites.rhino[1],
-        .human, .orc, .centaur, .turtle => unreachable,
+        else => unreachable,
     };
 }
 

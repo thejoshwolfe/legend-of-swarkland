@@ -57,8 +57,11 @@ pub const Coord = struct {
 
     /// How many orthogonal steps to get from a to b.
     pub fn distanceOrtho(a: Coord, b: Coord) i32 {
-        const abs_delta = b.minus(a).abs();
-        return abs_delta.x + abs_delta.y;
+        return b.minus(a).magnitudeOrtho();
+    }
+    pub fn magnitudeOrtho(a: Coord) i32 {
+        const abs_vec = a.abs();
+        return abs_vec.x + abs_vec.y;
     }
 
     /// How many diagonal or orthogonal steps to get from a to b.

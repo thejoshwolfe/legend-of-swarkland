@@ -25,6 +25,7 @@ pub const Species = enum {
     centaur,
     turtle,
     rhino,
+    kangaroo,
 };
 
 pub const TerrainChunk = struct {
@@ -46,6 +47,7 @@ pub const Action = union(enum) {
     move: Coord,
     fast_move: Coord,
     attack: Coord,
+    kick: Coord,
 };
 
 pub const Response = union(enum) {
@@ -102,6 +104,8 @@ pub const PerceivedActivity = union(enum) {
         direction: Coord,
         distance: i32,
     };
+
+    kick: Coord,
 
     death,
 };

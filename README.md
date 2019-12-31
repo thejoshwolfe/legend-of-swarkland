@@ -367,13 +367,22 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Roadmap
 
-### 5.2.0
+### 5.3.0
 
- * change collision physics to make them less bouncy and hopefully more intuitive.
+ * overhauled collision physics to make them less bouncy and hopefully more intuitive.
+   * moves either succeed or fail. you can no longer be pushed into a space you didn't try to move into.
+   * when multiple individuals try to move into the same space, there are some right-of-way rules that determine who wins sometimes.
+ * added kicking:
+   * does no damage. instead pushes the target 1 space.
+   * happens after movement and before attacks.
+ * new enemy: kangaroo:
+   * doesn't attack. kicks instead of attacking.
+   * preemptively kicks when you're 2 spaces away instead of walking into your attack.
+ * TODO: fix trample damage and give rhinos high enough inertia to resist kicks and always win right-of-way competitions.
 
 ## Version History
 
-### 5.1.0
+### 5.2.0
 
  * added lava: anyone who ends their movement on top of a lava tile dies to lava damage.
  * new enemies:
@@ -390,6 +399,10 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
    * attack damage: daggers and arrows
  * arrows no longer pierce targets.
  * introduced a bug where the collision resolution can infinite loop crash when too many individuals bump into each other near a wall. ([Issue #56](https://github.com/thejoshwolfe/legend-of-swarkland/issues/56))
+
+### 5.1.0
+
+ * accidentally skipped this version number.
 
 ### 5.0.1
 

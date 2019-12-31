@@ -145,14 +145,23 @@ const the_levels = [_]Level{
     Level{
         .width = 10,
         .height = 10,
+        .hatch_positions = &[_]Coord{makeCoord(3, 5)},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
+            makeIndividual(makeCoord(7, 5), .kangaroo),
+        },
+    },
+    Level{
+        .width = 10,
+        .height = 10,
         .hatch_positions = &[_]Coord{makeCoord(7, 5)},
         .lava_positions = &[_]Coord{
             makeCoord(4, 4), makeCoord(4, 5), makeCoord(4, 6),
             makeCoord(5, 4), makeCoord(5, 5), makeCoord(5, 6),
         },
         .individuals = &[_]Individual{
-            makeIndividual(makeCoord(7, 3), .orc),
-            makeIndividual(makeCoord(2, 5), .orc),
+            makeIndividual(makeCoord(7, 3), .turtle),
+            makeIndividual(makeCoord(2, 5), .turtle),
         },
     },
     Level{
@@ -273,6 +282,7 @@ pub const GameEngine = struct {
             .move => |move_delta| return isCardinalDirection(move_delta),
             .fast_move => |move_delta| return isScaledCardinalDirection(move_delta, 2),
             .attack => |direction| return isCardinalDirection(direction),
+            .kick => |direction| return isCardinalDirection(direction),
         }
     }
 
@@ -325,145 +335,55 @@ pub const GameEngine = struct {
             try current_positions.putNoClobber(id, game_state.individuals.getValue(id).?.abs_position);
         }
 
-        var intended_moves = IdMap(Coord).init(self.allocator);
-        var next_positions = IdMap(ThingPosition).init(self.allocator);
-        for (everybody) |id| {
-            const move_delta: Coord = switch (actions.getValue(id).?) {
-                .move, .fast_move => |move_delta| move_delta,
-                else => continue,
-            };
-            try intended_moves.putNoClobber(id, move_delta);
-            // assume all moves succeed and remove the ones that don't.
-            try next_positions.putNoClobber(id, applyMovementToPosition(game_state.individuals.getValue(id).?.abs_position, move_delta));
-        }
-
-        // If anyone is moving into a wall, the move is failure.
-        id_loop: for (everybody) |id| {
-            const next_position = next_positions.getValue(id) orelse continue;
-            for (getAllPositions(&next_position)) |coord| {
-                if (!isOpenSpace(game_state.terrainAt(coord).wall)) {
-                    next_positions.removeAssertDiscard(id);
-                    continue :id_loop;
-                }
-            }
-        }
-
-        // Collision detection and resolution.
         {
-            const Collision = struct {
-                const Self = @This();
-                stationary_id: ?u32 = null,
-                cardinal_index_to_enterer: [4]?u32 = [_]?u32{null} ** 4,
-                cardinal_index_to_fast_enterer: [4]?u32 = [_]?u32{null} ** 4,
-                winner_id: ?u32 = null,
-            };
-
-            // Collect collision information.
-            var coord_to_collision = CoordMap(Collision).init(self.allocator);
+            var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
-                const old_position = game_state.individuals.getValue(id).?.abs_position;
-                const new_position = next_positions.getValue(id) orelse old_position;
-                for (getAllPositions(&new_position)) |new_coord, i| {
-                    const old_coord = getAllPositions(&old_position)[i];
-                    const delta = new_coord.minus(old_coord);
-                    var collision = coord_to_collision.getValue(new_coord) orelse Collision{};
-                    if (delta.equals(zero_vector)) {
-                        collision.stationary_id = id;
-                    } else if (isCardinalDirection(delta)) {
-                        collision.cardinal_index_to_enterer[directionToCardinalIndex(delta)] = id;
-                    } else if (isScaledCardinalDirection(delta, 2)) {
-                        collision.cardinal_index_to_fast_enterer[directionToCardinalIndex(delta.scaledDivTrunc(2))] = id;
-                    } else unreachable;
-                    _ = try coord_to_collision.put(new_coord, collision);
-                }
+                const move_delta: Coord = switch (actions.getValue(id).?) {
+                    .move, .fast_move => |move_delta| move_delta,
+                    else => continue,
+                };
+                try intended_moves.putNoClobber(id, move_delta);
             }
 
-            // Determine who wins each collision
-            {
-                var iterator = coord_to_collision.iterator();
-                while (iterator.next()) |kv| {
-                    var collision: *Collision = &kv.value;
-                    var incoming_vector_set: u9 = 0;
-                    if (collision.stationary_id != null) incoming_vector_set |= 1 << 0;
-                    for (collision.cardinal_index_to_enterer) |maybe_id, i| {
-                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
-                    }
-                    for (collision.cardinal_index_to_fast_enterer) |maybe_id, i| {
-                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
-                    }
-                    if (incoming_vector_set & 1 != 0) {
-                        // Stationary entities always win.
-                        collision.winner_id = collision.stationary_id;
-                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
-                        // fast bois beat slow bois.
-                        collision.winner_id = collision.cardinal_index_to_fast_enterer[index].?;
-                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
-                        // fast bois beat slow bois.
-                        collision.winner_id = collision.cardinal_index_to_enterer[index].?;
-                    } else {
-                        // nobody wins. winner stays null.
-                    }
-                }
-            }
-            id_loop: for (everybody) |id| {
-                const next_position = next_positions.getValue(id) orelse continue;
-                for (getAllPositions(&next_position)) |coord| {
-                    var collision = coord_to_collision.getValue(coord).?;
-                    if (!if (collision.winner_id) |w| w == id else false) {
-                        // i lose.
-                        next_positions.removeAssertDiscard(id);
-                        continue :id_loop;
-                    }
-                }
-            }
-
-            // Check for unsuccessful conga lines.
-            // for example:
-            //   🐕 -> 🐕
-            //         V
-            //   🐕 <- 🐕
-            // This conga line would be unsuccessful because the head of the line isn't successfully moving.
-            for (everybody) |head_id| {
-                // anyone who fails to move could be the head of a sad conga line.
-                if (next_positions.contains(head_id)) continue;
-                var id = head_id;
-                conga_loop: while (true) {
-                    const position = game_state.individuals.getValue(id).?.abs_position;
-                    for (getAllPositions(&position)) |coord| {
-                        const follower_id = (coord_to_collision.remove(coord) orelse continue).value.winner_id orelse continue;
-                        if (follower_id == id) continue; // your tail is always allowed to follow your head.
-                        // sorry follower. conga line is botched.
-                        _ = next_positions.remove(follower_id);
-                        // and now you get to pass on the bad news.
-                        id = follower_id;
-                        continue :conga_loop;
-                    }
-                    // no one wants to move into this space.
-                    break;
-                }
-            }
+            try self.doMovementAndCollisions(game_state, everybody, &individual_to_perception, &current_positions, &intended_moves);
         }
 
-        // Observe movement.
-        for (everybody) |id| {
-            try self.observeFrame(
-                game_state,
-                id,
-                individual_to_perception.getValue(id).?,
-                &current_positions,
-                Activities{
-                    .movement = .{
-                        .intended_moves = &intended_moves,
-                        .next_positions = &next_positions,
-                    },
-                },
-            );
-        }
+        // Kicks
+        {
+            var kicks = IdMap(Coord).init(self.allocator);
+            var intended_moves = IdMap(Coord).init(self.allocator);
+            for (everybody) |id| {
+                var kick_direction: Coord = switch (actions.getValue(id).?) {
+                    .kick => |direction| direction,
+                    else => continue,
+                };
+                var attacker_coord = getHeadPosition(current_positions.getValue(id).?);
+                var kick_position = attacker_coord.plus(kick_direction);
+                for (everybody) |other_id| {
+                    const position = current_positions.getValue(other_id).?;
+                    for (getAllPositions(&position)) |coord, i| {
+                        if (!coord.equals(kick_position)) continue;
+                        // gotchya
+                        try intended_moves.putNoClobber(other_id, kick_direction);
+                    }
+                }
+                try kicks.putNoClobber(id, kick_direction);
+            }
+            if (kicks.count() > 0) {
+                for (everybody) |id| {
+                    try self.observeFrame(
+                        game_state,
+                        id,
+                        individual_to_perception.getValue(id).?,
+                        &current_positions,
+                        Activities{
+                            .kicks = &kicks,
+                        },
+                    );
+                }
 
-        // Update positions from movement.
-        for (everybody) |id| {
-            const next_position = next_positions.getValue(id) orelse continue;
-            current_positions.get(id).?.value = next_position;
+                try self.doMovementAndCollisions(game_state, everybody, &individual_to_perception, &current_positions, &intended_moves);
+            }
         }
 
         var total_deaths = IdMap(void).init(self.allocator);
@@ -708,6 +628,145 @@ pub const GameEngine = struct {
         };
     }
 
+    fn doMovementAndCollisions(self: *const GameEngine, game_state: *GameState, everybody: []u32, individual_to_perception: *IdMap(*MutablePerceivedHappening), current_positions: *IdMap(ThingPosition), intended_moves: *IdMap(Coord)) !void {
+        var next_positions = IdMap(ThingPosition).init(self.allocator);
+        for (everybody) |id| {
+            const move_delta = intended_moves.getValue(id) orelse continue;
+            // assume all moves succeed and remove the ones that don't.
+            try next_positions.putNoClobber(id, applyMovementToPosition(current_positions.getValue(id).?, move_delta));
+        }
+
+        // If anyone is moving into a wall, the move is failure.
+        id_loop: for (everybody) |id| {
+            const next_position = next_positions.getValue(id) orelse continue;
+            for (getAllPositions(&next_position)) |coord| {
+                if (!isOpenSpace(game_state.terrainAt(coord).wall)) {
+                    next_positions.removeAssertDiscard(id);
+                    continue :id_loop;
+                }
+            }
+        }
+
+        // Collision detection and resolution.
+        {
+            const Collision = struct {
+                const Self = @This();
+                stationary_id: ?u32 = null,
+                cardinal_index_to_enterer: [4]?u32 = [_]?u32{null} ** 4,
+                cardinal_index_to_fast_enterer: [4]?u32 = [_]?u32{null} ** 4,
+                winner_id: ?u32 = null,
+            };
+
+            // Collect collision information.
+            var coord_to_collision = CoordMap(Collision).init(self.allocator);
+            for (everybody) |id| {
+                const old_position = current_positions.getValue(id).?;
+                const new_position = next_positions.getValue(id) orelse old_position;
+                for (getAllPositions(&new_position)) |new_coord, i| {
+                    const old_coord = getAllPositions(&old_position)[i];
+                    const delta = new_coord.minus(old_coord);
+                    var collision = coord_to_collision.getValue(new_coord) orelse Collision{};
+                    if (delta.equals(zero_vector)) {
+                        collision.stationary_id = id;
+                    } else if (isCardinalDirection(delta)) {
+                        collision.cardinal_index_to_enterer[directionToCardinalIndex(delta)] = id;
+                    } else if (isScaledCardinalDirection(delta, 2)) {
+                        collision.cardinal_index_to_fast_enterer[directionToCardinalIndex(delta.scaledDivTrunc(2))] = id;
+                    } else unreachable;
+                    _ = try coord_to_collision.put(new_coord, collision);
+                }
+            }
+
+            // Determine who wins each collision
+            {
+                var iterator = coord_to_collision.iterator();
+                while (iterator.next()) |kv| {
+                    var collision: *Collision = &kv.value;
+                    var incoming_vector_set: u9 = 0;
+                    if (collision.stationary_id != null) incoming_vector_set |= 1 << 0;
+                    for (collision.cardinal_index_to_enterer) |maybe_id, i| {
+                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
+                    }
+                    for (collision.cardinal_index_to_fast_enterer) |maybe_id, i| {
+                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
+                    }
+                    if (incoming_vector_set & 1 != 0) {
+                        // Stationary entities always win.
+                        collision.winner_id = collision.stationary_id;
+                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
+                        // fast bois beat slow bois.
+                        collision.winner_id = collision.cardinal_index_to_fast_enterer[index].?;
+                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
+                        // fast bois beat slow bois.
+                        collision.winner_id = collision.cardinal_index_to_enterer[index].?;
+                    } else {
+                        // nobody wins. winner stays null.
+                    }
+                }
+            }
+            id_loop: for (everybody) |id| {
+                const next_position = next_positions.getValue(id) orelse continue;
+                for (getAllPositions(&next_position)) |coord| {
+                    var collision = coord_to_collision.getValue(coord).?;
+                    // TODO: https://github.com/ziglang/zig/issues/1332 if (collision.winner_id != id) {
+                    if (!(collision.winner_id != null and collision.winner_id.? == id)) {
+                        // i lose.
+                        next_positions.removeAssertDiscard(id);
+                        continue :id_loop;
+                    }
+                }
+            }
+
+            // Check for unsuccessful conga lines.
+            // for example:
+            //   🐕 -> 🐕
+            //         V
+            //   🐕 <- 🐕
+            // This conga line would be unsuccessful because the head of the line isn't successfully moving.
+            for (everybody) |head_id| {
+                // anyone who fails to move could be the head of a sad conga line.
+                if (next_positions.contains(head_id)) continue;
+                var id = head_id;
+                conga_loop: while (true) {
+                    const position = current_positions.getValue(id).?;
+                    for (getAllPositions(&position)) |coord| {
+                        const follower_id = (coord_to_collision.remove(coord) orelse continue).value.winner_id orelse continue;
+                        if (follower_id == id) continue; // your tail is always allowed to follow your head.
+                        // sorry follower. conga line is botched.
+                        _ = next_positions.remove(follower_id);
+                        // and now you get to pass on the bad news.
+                        id = follower_id;
+                        continue :conga_loop;
+                    }
+                    // no one wants to move into this space.
+                    break;
+                }
+            }
+        }
+
+        // Observe movement.
+        for (everybody) |id| {
+            try self.observeFrame(
+                game_state,
+                id,
+                individual_to_perception.getValue(id).?,
+                current_positions,
+                Activities{
+                    .movement = .{
+                        .intended_moves = intended_moves,
+                        .next_positions = &next_positions,
+                    },
+                },
+            );
+        }
+
+        // Update positions from movement.
+        for (everybody) |id| {
+            const next_position = next_positions.getValue(id) orelse continue;
+            current_positions.get(id).?.value = next_position;
+        }
+    }
+
     const Activities = union(enum) {
         static_state,
         movement: Movement,
@@ -721,6 +780,8 @@ pub const GameEngine = struct {
             direction: Coord,
             distance: i32,
         };
+
+        kicks: *const IdMap(Coord),
 
         deaths: *const IdMap(void),
     };
@@ -784,6 +845,11 @@ pub const GameEngine = struct {
                             .distance = attack.distance,
                         },
                     }
+                else
+                    PerceivedActivity{ .none = {} },
+
+                .kicks => |data| if (data.getValue(id)) |coord|
+                    PerceivedActivity{ .kick = coord }
                 else
                     PerceivedActivity{ .none = {} },
 
