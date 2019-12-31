@@ -23,6 +23,13 @@ pub fn hasFastMove(species: Species) bool {
     };
 }
 
+pub fn getInertiaIndex(species: Species) u1 {
+    switch (species) {
+        .rhino => return 1,
+        else => return 0,
+    }
+}
+
 pub fn isFastMoveAligned(position: ThingPosition, move_delta: Coord) bool {
     assert(core.geometry.isScaledCardinalDirection(move_delta, 2));
     const facing_delta = position.large[0].minus(position.large[1]);
