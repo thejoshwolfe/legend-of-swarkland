@@ -305,6 +305,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" Arrow keys: Move");
                 menu_renderer.text(" F: Start attack");
                 menu_renderer.text("   Arrow keys: Attack in direction");
+                menu_renderer.text(" K: Start kick");
+                menu_renderer.text("   Arrow keys: Kick in direction");
                 menu_renderer.text(" Backspace: Undo");
                 menu_renderer.text(" Ctrl+R: Quit to this menu");
                 menu_renderer.text(" Enter: Start Game");
