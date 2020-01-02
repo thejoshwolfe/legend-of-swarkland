@@ -24,6 +24,7 @@ const isOpenSpace = core.game_logic.isOpenSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
 const applyMovementToPosition = core.game_logic.applyMovementToPosition;
+const getInertiaIndex = core.game_logic.getInertiaIndex;
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
@@ -335,6 +336,8 @@ pub const GameEngine = struct {
             try current_positions.putNoClobber(id, game_state.individuals.getValue(id).?.abs_position);
         }
 
+        var total_deaths = IdMap(void).init(self.allocator);
+
         {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
@@ -345,7 +348,14 @@ pub const GameEngine = struct {
                 try intended_moves.putNoClobber(id, move_delta);
             }
 
-            try self.doMovementAndCollisions(game_state, everybody, &individual_to_perception, &current_positions, &intended_moves);
+            try self.doMovementAndCollisions(
+                game_state,
+                &everybody,
+                &individual_to_perception,
+                &current_positions,
+                &intended_moves,
+                &total_deaths,
+            );
         }
 
         // Kicks
@@ -364,6 +374,10 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord, i| {
                         if (!coord.equals(kick_position)) continue;
                         // gotchya
+                        if (getInertiaIndex(game_state.individuals.getValue(other_id).?.species) > 0) {
+                            // Your kick is not stronk enough.
+                            continue;
+                        }
                         try intended_moves.putNoClobber(other_id, kick_direction);
                     }
                 }
@@ -382,11 +396,16 @@ pub const GameEngine = struct {
                     );
                 }
 
-                try self.doMovementAndCollisions(game_state, everybody, &individual_to_perception, &current_positions, &intended_moves);
+                try self.doMovementAndCollisions(
+                    game_state,
+                    &everybody,
+                    &individual_to_perception,
+                    &current_positions,
+                    &intended_moves,
+                    &total_deaths,
+                );
             }
         }
-
-        var total_deaths = IdMap(void).init(self.allocator);
 
         // Attacks
         var attacks = IdMap(Activities.Attack).init(self.allocator);
@@ -628,38 +647,60 @@ pub const GameEngine = struct {
         };
     }
 
-    fn doMovementAndCollisions(self: *const GameEngine, game_state: *GameState, everybody: []u32, individual_to_perception: *IdMap(*MutablePerceivedHappening), current_positions: *IdMap(ThingPosition), intended_moves: *IdMap(Coord)) !void {
+    fn doMovementAndCollisions(
+        self: *const GameEngine,
+        game_state: *GameState,
+        everybody: *[]u32,
+        individual_to_perception: *IdMap(*MutablePerceivedHappening),
+        current_positions: *IdMap(ThingPosition),
+        intended_moves: *IdMap(Coord),
+        total_deaths: *IdMap(void),
+    ) !void {
         var next_positions = IdMap(ThingPosition).init(self.allocator);
-        for (everybody) |id| {
+
+        for (everybody.*) |id| {
+            // seek forward and stop at any wall.
+            const initial_head_coord = getHeadPosition(current_positions.getValue(id).?);
             const move_delta = intended_moves.getValue(id) orelse continue;
-            // assume all moves succeed and remove the ones that don't.
-            try next_positions.putNoClobber(id, applyMovementToPosition(current_positions.getValue(id).?, move_delta));
+            const move_unit = move_delta.signumed();
+            const move_magnitude = move_delta.magnitudeDiag();
+            var distance: i32 = 1;
+            while (true) : (distance += 1) {
+                const new_head_coord = initial_head_coord.plus(move_unit.scaled(distance));
+                if (!isOpenSpace(game_state.terrainAt(new_head_coord).wall)) {
+                    // bonk
+                    distance -= 1;
+                    break;
+                }
+                if (distance >= move_magnitude)
+                    break;
+            }
+            if (distance == 0) {
+                // no move for you
+                continue;
+            }
+            // found an open space
+            const adjusted_move_delta = move_unit.scaled(distance);
+            _ = intended_moves.put(id, adjusted_move_delta) catch unreachable;
+            try next_positions.putNoClobber(id, applyMovementToPosition(current_positions.getValue(id).?, adjusted_move_delta));
         }
 
-        // If anyone is moving into a wall, the move is failure.
-        id_loop: for (everybody) |id| {
-            const next_position = next_positions.getValue(id) orelse continue;
-            for (getAllPositions(&next_position)) |coord| {
-                if (!isOpenSpace(game_state.terrainAt(coord).wall)) {
-                    next_positions.removeAssertDiscard(id);
-                    continue :id_loop;
-                }
-            }
-        }
+        var trample_deaths = IdMap(void).init(self.allocator);
 
         // Collision detection and resolution.
         {
             const Collision = struct {
-                const Self = @This();
-                stationary_id: ?u32 = null,
-                cardinal_index_to_enterer: [4]?u32 = [_]?u32{null} ** 4,
-                cardinal_index_to_fast_enterer: [4]?u32 = [_]?u32{null} ** 4,
+                /// this has at most one entry
+                inertia_index_to_stationary_id: [2]?u32 = [_]?u32{null} ** 2,
+                inertia_index_to_cardinal_index_to_enterer: [2][4]?u32 = [_][4]?u32{[_]?u32{null} ** 4} ** 2,
+                inertia_index_to_cardinal_index_to_fast_enterer: [2][4]?u32 = [_][4]?u32{[_]?u32{null} ** 4} ** 2,
                 winner_id: ?u32 = null,
             };
 
             // Collect collision information.
             var coord_to_collision = CoordMap(Collision).init(self.allocator);
-            for (everybody) |id| {
+            for (everybody.*) |id| {
+                const inertia_index = getInertiaIndex(game_state.individuals.getValue(id).?.species);
                 const old_position = current_positions.getValue(id).?;
                 const new_position = next_positions.getValue(id) orelse old_position;
                 for (getAllPositions(&new_position)) |new_coord, i| {
@@ -667,11 +708,11 @@ pub const GameEngine = struct {
                     const delta = new_coord.minus(old_coord);
                     var collision = coord_to_collision.getValue(new_coord) orelse Collision{};
                     if (delta.equals(zero_vector)) {
-                        collision.stationary_id = id;
+                        collision.inertia_index_to_stationary_id[inertia_index] = id;
                     } else if (isCardinalDirection(delta)) {
-                        collision.cardinal_index_to_enterer[directionToCardinalIndex(delta)] = id;
+                        collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][directionToCardinalIndex(delta)] = id;
                     } else if (isScaledCardinalDirection(delta, 2)) {
-                        collision.cardinal_index_to_fast_enterer[directionToCardinalIndex(delta.scaledDivTrunc(2))] = id;
+                        collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][directionToCardinalIndex(delta.scaledDivTrunc(2))] = id;
                     } else unreachable;
                     _ = try coord_to_collision.put(new_coord, collision);
                 }
@@ -682,33 +723,63 @@ pub const GameEngine = struct {
                 var iterator = coord_to_collision.iterator();
                 while (iterator.next()) |kv| {
                     var collision: *Collision = &kv.value;
-                    var incoming_vector_set: u9 = 0;
-                    if (collision.stationary_id != null) incoming_vector_set |= 1 << 0;
-                    for (collision.cardinal_index_to_enterer) |maybe_id, i| {
-                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
-                    }
-                    for (collision.cardinal_index_to_fast_enterer) |maybe_id, i| {
-                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
-                    }
-                    if (incoming_vector_set & 1 != 0) {
-                        // Stationary entities always win.
-                        collision.winner_id = collision.stationary_id;
-                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
-                        // fast bois beat slow bois.
-                        collision.winner_id = collision.cardinal_index_to_fast_enterer[index].?;
-                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
-                        // fast bois beat slow bois.
-                        collision.winner_id = collision.cardinal_index_to_enterer[index].?;
-                    } else {
-                        // nobody wins. winner stays null.
+                    var is_trample = false;
+                    // higher inertia trumps any lower inertia
+                    for ([_]u1{ 1, 0 }) |inertia_index| {
+                        if (is_trample) {
+                            // You can't win. You can only get trampled.
+                            for ([_]?u32{
+                                collision.inertia_index_to_stationary_id[inertia_index],
+                                collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][0],
+                                collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][1],
+                                collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][2],
+                                collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][3],
+                                collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][0],
+                                collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][1],
+                                collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][2],
+                                collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][3],
+                            }) |maybe_id| {
+                                if (maybe_id) |trampled_id| {
+                                    try trample_deaths.putNoClobber(trampled_id, {});
+                                }
+                            }
+                        } else {
+                            var incoming_vector_set: u9 = 0;
+                            if (collision.inertia_index_to_stationary_id[inertia_index] != null) incoming_vector_set |= 1 << 0;
+                            for (collision.inertia_index_to_cardinal_index_to_enterer[inertia_index]) |maybe_id, i| {
+                                if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
+                            }
+                            for (collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index]) |maybe_id, i| {
+                                if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
+                            }
+                            if (incoming_vector_set & 1 != 0) {
+                                // Stationary entities always win.
+                                collision.winner_id = collision.inertia_index_to_stationary_id[inertia_index];
+                                // Standing still doesn't trample.
+                            } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
+                                // fast bois beat slow bois.
+                                collision.winner_id = collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][index].?;
+                                is_trample = inertia_index > 0;
+                            } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
+                                // a slow boi wins.
+                                collision.winner_id = collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][index].?;
+                                is_trample = inertia_index > 0;
+                            } else {
+                                // nobody wins. winner stays null.
+                            }
+                        }
                     }
                 }
             }
-            id_loop: for (everybody) |id| {
+            id_loop: for (everybody.*) |id| {
+                if (trample_deaths.contains(id)) {
+                    // The move succeeds so that we see where the squashing happens.
+                    continue;
+                }
                 const next_position = next_positions.getValue(id) orelse continue;
                 for (getAllPositions(&next_position)) |coord| {
                     var collision = coord_to_collision.getValue(coord).?;
-                    // TODO: https://github.com/ziglang/zig/issues/1332 if (collision.winner_id != id) {
+                    // TODO: https://github.com/ziglang/zig/issues/1332 if (collision.winner_id != id)
                     if (!(collision.winner_id != null and collision.winner_id.? == id)) {
                         // i lose.
                         next_positions.removeAssertDiscard(id);
@@ -723,16 +794,28 @@ pub const GameEngine = struct {
             //         V
             //   🐕 <- 🐕
             // This conga line would be unsuccessful because the head of the line isn't successfully moving.
-            for (everybody) |head_id| {
+            for (everybody.*) |head_id| {
                 // anyone who fails to move could be the head of a sad conga line.
                 if (next_positions.contains(head_id)) continue;
+                if (trample_deaths.contains(head_id)) {
+                    // You're dead to me.
+                    continue;
+                }
                 var id = head_id;
                 conga_loop: while (true) {
                     const position = current_positions.getValue(id).?;
                     for (getAllPositions(&position)) |coord| {
                         const follower_id = (coord_to_collision.remove(coord) orelse continue).value.winner_id orelse continue;
                         if (follower_id == id) continue; // your tail is always allowed to follow your head.
-                        // sorry follower. conga line is botched.
+                        // conga line is botched.
+                        if (getInertiaIndex(game_state.individuals.getValue(follower_id).?.species) >
+                            getInertiaIndex(game_state.individuals.getValue(head_id).?.species))
+                        {
+                            // Outta my way!
+                            try trample_deaths.putNoClobber(head_id, {});
+                            // Party don't stop for this pushover's failure! Viva la conga!
+                            break :conga_loop;
+                        }
                         _ = next_positions.remove(follower_id);
                         // and now you get to pass on the bad news.
                         id = follower_id;
@@ -745,7 +828,7 @@ pub const GameEngine = struct {
         }
 
         // Observe movement.
-        for (everybody) |id| {
+        for (everybody.*) |id| {
             try self.observeFrame(
                 game_state,
                 id,
@@ -761,10 +844,21 @@ pub const GameEngine = struct {
         }
 
         // Update positions from movement.
-        for (everybody) |id| {
+        for (everybody.*) |id| {
             const next_position = next_positions.getValue(id) orelse continue;
             current_positions.get(id).?.value = next_position;
         }
+
+        for (everybody.*) |id| {
+            try self.observeFrame(
+                game_state,
+                id,
+                individual_to_perception.getValue(id).?,
+                current_positions,
+                Activities{ .deaths = &trample_deaths },
+            );
+        }
+        try flushDeaths(total_deaths, &trample_deaths, everybody);
     }
 
     const Activities = union(enum) {
