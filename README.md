@@ -375,10 +375,10 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
  * added kicking:
    * does no damage. instead pushes the target 1 space.
    * happens after movement and before attacks.
+   * does not affect rhinos.
  * new enemy: kangaroo:
    * doesn't attack. kicks instead of attacking.
    * preemptively kicks when you're 2 spaces away instead of walking into your attack.
- * TODO: fix trample damage and give rhinos high enough inertia to resist kicks and always win right-of-way competitions.
 
 ## Version History
 

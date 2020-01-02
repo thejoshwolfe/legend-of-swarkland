@@ -177,6 +177,27 @@ const the_levels = [_]Level{
             makeLargeIndividual(makeCoord(5, 3), makeCoord(6, 3), .rhino),
         },
     },
+    Level{
+        .width = 10,
+        .height = 10,
+        .hatch_positions = &[_]Coord{makeCoord(4, 7)},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
+            makeLargeIndividual(makeCoord(3, 2), makeCoord(2, 2), .rhino),
+            makeIndividual(makeCoord(7, 5), .centaur),
+        },
+    },
+    Level{
+        .width = 10,
+        .height = 10,
+        .hatch_positions = &[_]Coord{makeCoord(4, 7)},
+        .lava_positions = &[_]Coord{},
+        .individuals = &[_]Individual{
+            makeLargeIndividual(makeCoord(3, 2), makeCoord(2, 2), .rhino),
+            makeIndividual(makeCoord(7, 5), .orc),
+        },
+    },
+
     // the last level must have no enemies so that you can't win it.
     Level{
         .width = 15,
