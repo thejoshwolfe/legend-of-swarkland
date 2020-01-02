@@ -374,6 +374,10 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord, i| {
                         if (!coord.equals(kick_position)) continue;
                         // gotchya
+                        if (getInertiaIndex(game_state.individuals.getValue(other_id).?.species) > 0) {
+                            // Your kick is not stronk enough.
+                            continue;
+                        }
                         try intended_moves.putNoClobber(other_id, kick_direction);
                     }
                 }
