@@ -87,6 +87,7 @@ const the_levels = [_]Level{
             makeIndividual(makeCoord(2, 2), .orc),
         },
     },
+
     Level{
         .width = 10,
         .height = 10,
@@ -99,6 +100,7 @@ const the_levels = [_]Level{
             makeIndividual(makeCoord(5, 4), .orc),
         },
     },
+
     Level{
         .width = 8,
         .height = 7,
@@ -113,6 +115,7 @@ const the_levels = [_]Level{
             makeIndividual(makeCoord(6, 4), .orc),
         },
     },
+
     Level{
         .width = 11,
         .height = 8,
@@ -123,6 +126,7 @@ const the_levels = [_]Level{
             makeIndividual(makeCoord(9, 6), .centaur),
         },
     },
+
     Level{
         .width = 14,
         .height = 10,
@@ -143,6 +147,7 @@ const the_levels = [_]Level{
             makeIndividual(makeCoord(9, 7), .centaur),
         },
     },
+
     Level{
         .width = 10,
         .height = 10,
@@ -152,6 +157,7 @@ const the_levels = [_]Level{
             makeIndividual(makeCoord(7, 5), .kangaroo),
         },
     },
+
     Level{
         .width = 10,
         .height = 10,
@@ -165,6 +171,7 @@ const the_levels = [_]Level{
             makeIndividual(makeCoord(2, 5), .turtle),
         },
     },
+
     Level{
         .width = 8,
         .height = 10,
@@ -177,6 +184,7 @@ const the_levels = [_]Level{
             makeLargeIndividual(makeCoord(5, 3), makeCoord(6, 3), .rhino),
         },
     },
+
     Level{
         .width = 10,
         .height = 10,
@@ -187,6 +195,7 @@ const the_levels = [_]Level{
             makeIndividual(makeCoord(7, 5), .centaur),
         },
     },
+
     Level{
         .width = 10,
         .height = 10,
@@ -195,6 +204,23 @@ const the_levels = [_]Level{
         .individuals = &[_]Individual{
             makeLargeIndividual(makeCoord(3, 2), makeCoord(2, 2), .rhino),
             makeIndividual(makeCoord(7, 5), .orc),
+        },
+    },
+
+    Level{
+        .width = 10,
+        .height = 11,
+        .hatch_positions = &[_]Coord{makeCoord(2, 7)},
+        .lava_positions = &[_]Coord{
+            makeCoord(6, 1), makeCoord(6, 2), makeCoord(6, 3), makeCoord(6, 4),
+            makeCoord(6, 6), makeCoord(6, 7), makeCoord(6, 8), makeCoord(6, 9),
+        },
+        .individuals = &[_]Individual{
+            makeIndividual(makeCoord(1, 8), .kangaroo),
+            makeIndividual(makeCoord(3, 7), .orc),
+            makeIndividual(makeCoord(2, 8), .orc),
+            makeIndividual(makeCoord(7, 5), .centaur),
+            makeIndividual(makeCoord(2, 3), .kangaroo),
         },
     },
 
