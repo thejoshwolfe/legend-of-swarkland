@@ -409,13 +409,14 @@ pub const GameEngine = struct {
         {
             var kicks = IdMap(Coord).init(self.allocator);
             var intended_moves = IdMap(Coord).init(self.allocator);
+            var kicked_too_much = IdMap(void).init(self.allocator);
             for (everybody) |id| {
-                var kick_direction: Coord = switch (actions.getValue(id).?) {
+                const kick_direction: Coord = switch (actions.getValue(id).?) {
                     .kick => |direction| direction,
                     else => continue,
                 };
-                var attacker_coord = getHeadPosition(current_positions.getValue(id).?);
-                var kick_position = attacker_coord.plus(kick_direction);
+                const attacker_coord = getHeadPosition(current_positions.getValue(id).?);
+                const kick_position = attacker_coord.plus(kick_direction);
                 for (everybody) |other_id| {
                     const position = current_positions.getValue(other_id).?;
                     for (getAllPositions(&position)) |coord, i| {
@@ -425,7 +426,10 @@ pub const GameEngine = struct {
                             // Your kick is not stronk enough.
                             continue;
                         }
-                        try intended_moves.putNoClobber(other_id, kick_direction);
+                        if (try intended_moves.put(other_id, kick_direction)) |_| {
+                            // kicked multiple times at once!
+                            _ = try kicked_too_much.put(other_id, {});
+                        }
                     }
                 }
                 try kicks.putNoClobber(id, kick_direction);
@@ -441,6 +445,12 @@ pub const GameEngine = struct {
                             .kicks = &kicks,
                         },
                     );
+                }
+
+                // for now, multiple kicks at once just fail.
+                var iterator = kicked_too_much.iterator();
+                while (iterator.next()) |kv| {
+                    intended_moves.removeAssertDiscard(kv.key);
                 }
 
                 try self.doMovementAndCollisions(
