@@ -173,6 +173,21 @@ const the_levels = [_]Level{
     },
 
     Level{
+        .width = 10,
+        .height = 10,
+        .hatch_positions = &[_]Coord{makeCoord(2, 4)},
+        .lava_positions = &[_]Coord{
+            makeCoord(4, 4), makeCoord(4, 5), makeCoord(4, 6),
+            makeCoord(5, 4), makeCoord(5, 5), makeCoord(5, 6),
+        },
+        .individuals = &[_]Individual{
+            makeIndividual(makeCoord(3, 4), .turtle),
+            makeIndividual(makeCoord(2, 5), .turtle),
+            makeIndividual(makeCoord(7, 5), .centaur),
+        },
+    },
+
+    Level{
         .width = 8,
         .height = 10,
         .hatch_positions = &[_]Coord{makeCoord(2, 4)},
