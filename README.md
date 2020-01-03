@@ -371,6 +371,8 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
  * items???
 
+## Version History
+
 ### 5.3.0
 
  * overhauled collision physics to make them less bouncy and hopefully more intuitive.
@@ -384,8 +386,6 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
    * doesn't attack. kicks instead of attacking.
    * preemptively kicks when you're 2 spaces away instead of walking into your attack.
    * killing a kangaroo unlocks the tutorial for kicking, although you've had the ability all along.
-
-## Version History
 
 ### 5.2.0
 
