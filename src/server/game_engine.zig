@@ -217,8 +217,11 @@ const the_levels = [_]Level{
         .hatch_positions = &[_]Coord{makeCoord(4, 7)},
         .lava_positions = &[_]Coord{},
         .individuals = &[_]Individual{
-            makeLargeIndividual(makeCoord(3, 2), makeCoord(2, 2), .rhino),
-            makeIndividual(makeCoord(7, 5), .orc),
+            makeLargeIndividual(makeCoord(4, 3), makeCoord(3, 3), .rhino),
+            makeIndividual(makeCoord(5, 7), .turtle),
+            makeIndividual(makeCoord(4, 5), .turtle),
+            makeIndividual(makeCoord(6, 6), .turtle),
+            makeIndividual(makeCoord(1, 8), .centaur),
         },
     },
 
