@@ -402,6 +402,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         },
                     }
                 }
+                // render effects in front of things
+                for (frame.others) |other| {
+                    renderActivity(renderer, progress, move_frame_time, camera_offset, other);
+                }
+                renderActivity(renderer, progress, move_frame_time, camera_offset, frame.self);
 
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;
@@ -521,6 +526,13 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
         },
     }
 
+    return display_position;
+}
+
+fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) void {
+    const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
+    const display_position = rel_display_position.plus(camera_offset);
+
     switch (thing.activity) {
         .none => {},
         .movement => {},
@@ -572,8 +584,6 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             textures.renderSprite(renderer, textures.sprites.death, display_position);
         },
     }
-
-    return display_position;
 }
 
 fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
