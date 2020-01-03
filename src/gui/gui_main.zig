@@ -65,7 +65,7 @@ pub fn main() anyerror!void {
     {
         var renderer_info: sdl.c.SDL_RendererInfo = undefined;
         sdl.assertZero(sdl.c.SDL_GetRendererInfo(renderer, &renderer_info));
-        if (renderer_info.flags & sdl.c.SDL_RENDERER_TARGETTEXTURE == 0) {
+        if (renderer_info.flags & @bitCast(u32, sdl.c.SDL_RENDERER_TARGETTEXTURE) == 0) {
             std.debug.panic("rendering to a temporary texture is not supported", .{});
         }
     }
