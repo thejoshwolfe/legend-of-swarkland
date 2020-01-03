@@ -103,12 +103,18 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         running: Running,
         const Running = struct {
             client: GameEngineClient,
-            client_state: ?PerceivedFrame,
+            client_state: ?PerceivedFrame = null,
             input_prompt: InputPrompt = .none,
-            animations: ?Animations,
+            animations: ?Animations = null,
 
             /// only tracked to display aesthetics consistently through movement.
-            total_journey_offset: Coord,
+            total_journey_offset: Coord = Coord{ .x = 0, .y = 0 },
+
+            // tutorial state should *not* reset through undo.
+
+            /// 0, 1, infinity
+            kicks_performed: u2 = 0,
+            observed_kangaroo_death: bool = false,
         };
     };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
@@ -132,6 +138,16 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             state.animations = try loadAnimations(happening.frames, now);
                             state.client_state = happening.frames[happening.frames.len - 1];
                             state.total_journey_offset = state.total_journey_offset.plus(state.animations.?.frame_index_to_aesthetic_offset[happening.frames.len - 1]);
+                            for (happening.frames) |frame| {
+                                for (frame.others) |other| {
+                                    if (other.activity == .death and other.species == .kangaroo) {
+                                        state.observed_kangaroo_death = true;
+                                    }
+                                }
+                                if (frame.self.activity == .kick) {
+                                    if (state.kicks_performed < 2) state.kicks_performed += 1;
+                                }
+                            }
                         },
                         .load_state => |frame| {
                             state.animations = null;
@@ -292,9 +308,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     game_state = GameState{
                         .running = GameState.Running{
                             .client = undefined,
-                            .client_state = null,
-                            .animations = null,
-                            .total_journey_offset = makeCoord(0, 0),
                         },
                     };
                     try game_state.running.client.startAsThread();
@@ -305,8 +318,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" Arrow keys: Move");
                 menu_renderer.text(" F: Start attack");
                 menu_renderer.text("   Arrow keys: Attack in direction");
-                menu_renderer.text(" K: Start kick");
-                menu_renderer.text("   Arrow keys: Kick in direction");
                 menu_renderer.text(" Backspace: Undo");
                 menu_renderer.text(" Ctrl+R: Quit to this menu");
                 menu_renderer.text(" Enter: Start Game");
@@ -392,19 +403,21 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                 }
 
-                // if we're showing you dead, show a tutorial.
+                // tutorials
+                var maybe_tutorial_text: ?[]const u8 = null;
                 if (frame.self.activity == .death) {
-                    // gentle up/down bob
-                    var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
-                    if (animated_y > 10) animated_y = 20 - animated_y;
-                    const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
-                    const size = textures.renderTextScaled(renderer, "you died. use Backspace to undo.", coord, true, 1);
+                    maybe_tutorial_text = "you died. use Backspace to undo.";
                 } else if (frame.you_win) {
+                    maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
+                } else if (state.observed_kangaroo_death and state.kicks_performed < 2) {
+                    maybe_tutorial_text = "You learned to kick! Use K+Arrows.";
+                }
+                if (maybe_tutorial_text) |tutorial_text| {
                     // gentle up/down bob
                     var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
                     if (animated_y > 10) animated_y = 20 - animated_y;
                     const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
-                    const size = textures.renderTextScaled(renderer, "you are win. use Ctrl+R to quit.", coord, true, 1);
+                    const size = textures.renderTextScaled(renderer, tutorial_text, coord, true, 1);
                 }
             },
         }
