@@ -46,7 +46,10 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
 }
 
 pub fn isOpenSpace(wall: Wall) bool {
-    return wall == .air;
+    switch (wall) {
+        .air, .centaur_transformer => return true,
+        else => return false,
+    }
 }
 
 pub fn getHeadPosition(thing_position: ThingPosition) Coord {

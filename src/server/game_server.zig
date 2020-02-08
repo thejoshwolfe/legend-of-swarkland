@@ -168,16 +168,25 @@ fn doAi(response: Response) Action {
 }
 
 fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
-    const target_position = blk: {
-        // KILLKILLKILL HUMANS
-        for (last_frame.others) |other| {
-            if (other.species == .human) break :blk getHeadPosition(other.rel_position);
+    var target_position: ?Coord = null;
+    for (last_frame.others) |other| {
+        if (!isHostile(last_frame.self.species, other.species)) continue;
+        const other_coord = getHeadPosition(other.rel_position);
+        if (target_position) |previous_coord| {
+            // target whichever is closest.
+            if (other_coord.magnitudeOrtho() < previous_coord.magnitudeOrtho()) {
+                target_position = other_coord;
+            }
+        } else {
+            target_position = other_coord;
         }
+    }
+    if (target_position == null) {
         // nothing to do.
         return .wait;
-    };
+    }
 
-    const delta = target_position;
+    const delta = target_position.?;
     std.debug.assert(!(delta.x == 0 and delta.y == 0));
     const range = core.game_logic.getAttackRange(last_frame.self.species);
 
@@ -269,4 +278,9 @@ fn hesitatesOneSpaceAway(species: Species) bool {
         .kangaroo => return true,
         else => return false,
     }
+}
+
+fn isHostile(me: Species, you: Species) bool {
+    // humans vs everyone.
+    return (me == .human) != (you == .human);
 }

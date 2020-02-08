@@ -379,6 +379,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     Wall.air => continue,
                                     Wall.dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
                                     Wall.stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
+                                    Wall.centaur_transformer => textures.sprites.polymorph_trap,
                                 };
                                 textures.renderSprite(renderer, wall_texture, display_position);
                             }
@@ -578,6 +579,12 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                 display_position.plus(coord.scaled(32 * 1 / 2)),
                 directionToRotation(coord) +% kick_sprite_normalizing_rotation,
             );
+        },
+
+        .polymorph => {
+            const sprites = textures.sprites.polymorph_effect[4..];
+            const sprite_index = @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator);
+            textures.renderSprite(renderer, sprites[@intCast(usize, sprite_index)], display_position);
         },
 
         .death => {

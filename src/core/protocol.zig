@@ -17,6 +17,7 @@ pub const Wall = enum {
     air,
     dirt,
     stone,
+    centaur_transformer,
 };
 
 pub const Species = enum {
@@ -106,6 +107,7 @@ pub const PerceivedActivity = union(enum) {
     };
 
     kick: Coord,
+    polymorph: Species,
 
     death,
 };
