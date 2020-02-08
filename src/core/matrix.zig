@@ -80,6 +80,13 @@ pub fn Matrix(comptime T: type) type {
             return self.atUnchecked(x, y).*;
         }
 
+        pub fn indexToCoord(self: Self, index: usize) Coord {
+            return Coord{
+                .x = @intCast(i32, index % self.width),
+                .y = @intCast(i32, index / self.width),
+            };
+        }
+
         pub fn copy(dest: Self, source: Self, dx: u16, dy: u16, sx: u16, sy: u16, width: u16, height: u16) void {
             std.debug.assert(dx + width <= dest.width);
             std.debug.assert(dy + height <= dest.height);

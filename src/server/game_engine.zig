@@ -81,7 +81,6 @@ fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Spec
 const Level = struct {
     width: u16,
     height: u16,
-    the_way_y: u16,
     transformer: ?Species,
     terrain: Terrain,
     individuals: []const Individual,
@@ -93,7 +92,6 @@ fn compileLevel(comptime source: []const u8, transformer: ?Species) Level {
     comptime var level = Level{
         .width = width,
         .height = height,
-        .the_way_y = height,
         .transformer = transformer,
         .terrain = Terrain.initData(
             width,
@@ -116,6 +114,12 @@ fn compileLevel(comptime source: []const u8, transformer: ?Species) Level {
                             .wall = .stone,
                         };
                     },
+                    '+' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                            .floor = .unknown,
+                            .wall = .dirt,
+                        };
+                    },
                     ' ' => {
                         level.terrain.atUnchecked(x, y).* = TerrainSpace{
                             .floor = .dirt,
@@ -133,10 +137,6 @@ fn compileLevel(comptime source: []const u8, transformer: ?Species) Level {
                             .floor = .hatch,
                             .wall = .air,
                         };
-                        if (level.the_way_y == height) {
-                            // the first encountered hatch determines the way.
-                            level.the_way_y = y;
-                        }
                     },
                     'o' => {
                         level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
@@ -205,164 +205,164 @@ const the_levels = blk: {
     @setEvalBranchQuota(10000);
     break :blk [_]Level{
         compileLevel(
-            \\##########
-            \\#        #
-            \\# o      #
-            \\#        #
-            \\#        #
-            \\#        #
-            \\#        #
-            \\#      h #
-            \\#        #
-            \\##########
+            \\#########
+            \\        #
+            \\ o      #
+            \\        #
+            \\        +
+            \\        #
+            \\        #
+            \\      h #
+            \\        #
+            \\#########
+        , null),
+        compileLevel(
+            \\#########
+            \\        #
+            \\        #
+            \\  oo    +
+            \\  o_o   #
+            \\        #
+            \\        #
+            \\        #
+            \\        #
+            \\#########
+        , null),
+        compileLevel(
+            \\#######
+            \\;;;;;;#
+            \\     o+
+            \\_    C#
+            \\     o#
+            \\;;;;;;#
+            \\#######
         , null),
         compileLevel(
             \\##########
-            \\#        #
-            \\#        #
-            \\#  oo    #
-            \\#  o_o   #
-            \\#        #
-            \\#        #
-            \\#        #
-            \\#        #
+            \\C        #
+            \\   _     +
+            \\         #
+            \\         #
+            \\         #
+            \\        C#
             \\##########
         , null),
         compileLevel(
-            \\########
-            \\#;;;;;;#
-            \\#     o#
-            \\#_    C#
-            \\#     o#
-            \\#;;;;;;#
-            \\########
+            \\#############
+            \\;;;;;;;;;;;;#
+            \\     _      #
+            \\            #
+            \\            #
+            \\            +
+            \\            #
+            \\  CCCCCCC   #
+            \\;;;;;;;;;;;;#
+            \\#############
         , null),
         compileLevel(
-            \\###########
-            \\#C        #
-            \\#   _     #
-            \\#         #
-            \\#         #
-            \\#         #
-            \\#        C#
-            \\###########
+            \\#########
+            \\        #
+            \\        #
+            \\        #
+            \\        #
+            \\  _ k   +
+            \\        #
+            \\        #
+            \\        #
+            \\#########
         , null),
         compileLevel(
-            \\##############
-            \\#;;;;;;;;;;;;#
-            \\#     _      #
-            \\#            #
-            \\#            #
-            \\#            #
-            \\#            #
-            \\#  CCCCCCC   #
-            \\#;;;;;;;;;;;;#
-            \\##############
+            \\#########
+            \\        #
+            \\        #
+            \\      t #
+            \\   ;;   +
+            \\ t ;; _ #
+            \\   ;;   #
+            \\        #
+            \\        #
+            \\#########
         , null),
         compileLevel(
-            \\##########
-            \\#        #
-            \\#        #
-            \\#        #
-            \\#        #
-            \\#  _ k   #
-            \\#        #
-            \\#        #
-            \\#        #
-            \\##########
+            \\#########
+            \\        #
+            \\        #
+            \\        #
+            \\ _t;;   +
+            \\ t ;; C #
+            \\   ;;   #
+            \\        #
+            \\        #
+            \\#########
         , null),
         compileLevel(
-            \\##########
-            \\#        #
-            \\#        #
-            \\#      t #
-            \\#   ;;   #
-            \\# t ;; _ #
-            \\#   ;;   #
-            \\#        #
-            \\#        #
-            \\##########
+            \\#######
+            \\;;;;;;#
+            \\      #
+            \\    < #
+            \\ _    #
+            \\      #
+            \\      #
+            \\      +
+            \\;;;;;;#
+            \\#######
         , null),
         compileLevel(
-            \\##########
-            \\#        #
-            \\#        #
-            \\#        #
-            \\# _t;;   #
-            \\# t ;; C #
-            \\#   ;;   #
-            \\#        #
-            \\#        #
-            \\##########
+            \\#########
+            \\        #
+            \\  >     #
+            \\        #
+            \\        #
+            \\      C #
+            \\        #
+            \\   _    +
+            \\        #
+            \\#########
         , null),
         compileLevel(
-            \\########
-            \\#;;;;;;#
-            \\#      #
-            \\#    < #
-            \\# _    #
-            \\#      #
-            \\#      #
-            \\#      #
-            \\#;;;;;;#
-            \\########
+            \\#########
+            \\        #
+            \\        #
+            \\   >    #
+            \\        #
+            \\   t    #
+            \\     t  #
+            \\   _t   +
+            \\C       #
+            \\#########
         , null),
         compileLevel(
-            \\##########
-            \\#        #
-            \\#  >     #
-            \\#        #
-            \\#        #
-            \\#      C #
-            \\#        #
-            \\#   _    #
-            \\#        #
-            \\##########
+            \\#########
+            \\     ;  #
+            \\     ;  +
+            \\ k   ;  #
+            \\     ;  #
+            \\      C #
+            \\     ;  #
+            \\ _o  ;  #
+            \\ko   ;  #
+            \\     ;  #
+            \\#########
         , null),
         compileLevel(
-            \\##########
-            \\#        #
-            \\#        #
-            \\#   >    #
-            \\#        #
-            \\#   t    #
-            \\#     t  #
-            \\#   _t   #
-            \\#C       #
-            \\##########
-        , null),
-        compileLevel(
-            \\##########
-            \\#     ;  #
-            \\#     ;  #
-            \\# k   ;  #
-            \\#     ;  #
-            \\#      C #
-            \\#     ;  #
-            \\# _o  ;  #
-            \\#ko   ;  #
-            \\#     ;  #
-            \\##########
-        , null),
-        compileLevel(
-            \\##########
-            \\#        #
-            \\# _      #
-            \\#      h #
-            \\#        #
-            \\##########
+            \\#########
+            \\        #
+            \\ _      +
+            \\      h #
+            \\        #
+            \\#########
         , .centaur),
         compileLevel(
-            \\###############
-            \\#             #
-            \\# _ _  _  _ _ #
-            \\#  _  _ _ _ _ #
-            \\#  _   _   __ #
-            \\#             #
-            \\# _   _ _ __  #
-            \\# _ _ _ _ _ _ #
-            \\#  _ _  _ _ _ #
-            \\###############
+            \\##############
+            \\             #
+            \\ _ _  _  _ _ #
+            \\  _  _ _ _ _ #
+            \\  _   _   __ #
+            \\             #
+            \\ _   _ _ __  #
+            \\ _ _ _ _ _ _ #
+            \\  _ _  _ _ _ #
+            \\##############
         , null),
     };
 };
@@ -386,9 +386,6 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
 
     var level_x: u16 = 0;
     for (the_levels) |level| {
-        if (level.transformer != null) {
-            level_x += 1;
-        }
         terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
         level_x += level.width;
     }
@@ -743,62 +740,27 @@ pub const GameEngine = struct {
 
         if (open_the_way and game_state.level_number + 1 < the_levels.len) {
             // open the way
-            var level_x: u16 = 0;
-            for (the_levels[0..game_state.level_number]) |level| {
-                level_x += level.width;
-                if (level.transformer != null) {
-                    level_x += 1;
-                }
-            }
-            const level = the_levels[game_state.level_number];
-            const next_level = the_levels[game_state.level_number + 1];
-            const the_way_y = next_level.the_way_y;
-            if (next_level.transformer) |transformer| {
-                for ([_]Coord{
-                    makeCoord(level_x + level.width - 1, the_way_y),
-                    makeCoord(level_x + level.width + 1, the_way_y),
-                }) |coord| {
-                    try state_changes.append(StateDiff{
-                        .terrain_update = StateDiff.TerrainDiff{
-                            .at = coord,
-                            .from = game_state.terrain.getCoord(coord).?,
-                            .to = TerrainSpace{
-                                .floor = .dirt,
-                                .wall = .air,
+            var x: u31 = 0;
+            find_the_doors: while (x < game_state.terrain.width) : (x += 1) {
+                var y: u31 = 0;
+                while (y < game_state.terrain.height) : (y += 1) {
+                    const terrain_space = game_state.terrain.atUnchecked(x, y);
+                    if (terrain_space.wall == .dirt) {
+                        const coord = makeCoord(x, y);
+                        try state_changes.append(StateDiff{
+                            .terrain_update = StateDiff.TerrainDiff{
+                                .at = coord,
+                                .from = game_state.terrain.getCoord(coord).?,
+                                .to = TerrainSpace{
+                                    .floor = .marble,
+                                    .wall = .air,
+                                },
                             },
-                        },
-                    });
-                }
-
-                // the transformer
-                const coord = makeCoord(level_x + level.width, the_way_y);
-                try state_changes.append(StateDiff{
-                    .terrain_update = StateDiff.TerrainDiff{
-                        .at = coord,
-                        .from = game_state.terrain.getCoord(coord).?,
-                        .to = TerrainSpace{
-                            .floor = .dirt,
-                            .wall = .centaur_transformer,
-                        },
-                    },
-                });
-            } else {
-
-                // no transformer
-                for ([_]Coord{
-                    makeCoord(level_x + level.width - 1, the_way_y),
-                    makeCoord(level_x + level.width - 0, the_way_y),
-                }) |coord| {
-                    try state_changes.append(StateDiff{
-                        .terrain_update = StateDiff.TerrainDiff{
-                            .at = coord,
-                            .from = game_state.terrain.getCoord(coord).?,
-                            .to = TerrainSpace{
-                                .floor = .dirt,
-                                .wall = .air,
-                            },
-                        },
-                    });
+                        });
+                    } else if (terrain_space.floor == .hatch) {
+                        // only open doors until the next hatch
+                        break :find_the_doors;
+                    }
                 }
             }
         }
@@ -812,43 +774,22 @@ pub const GameEngine = struct {
                     break :blk game_state.level_number;
                 }
             };
-            var level_x: u16 = 0;
-            for (the_levels[0..new_level_number]) |level| {
-                level_x += level.width;
-                if (level.transformer != null) {
-                    level_x += 1;
+
+            // close any open paths
+            for (game_state.terrain.data) |terrain_space, i| {
+                if (terrain_space.floor == .marble) {
+                    const coord = game_state.terrain.indexToCoord(i);
+                    try state_changes.append(StateDiff{
+                        .terrain_update = StateDiff.TerrainDiff{
+                            .at = coord,
+                            .from = game_state.terrain.getCoord(coord).?,
+                            .to = TerrainSpace{
+                                .floor = .unknown,
+                                .wall = .stone,
+                            },
+                        },
+                    });
                 }
-            }
-            // close the way
-            const the_way_y = the_levels[new_level_number].the_way_y;
-            for ([_]Coord{
-                makeCoord(level_x - 1, the_way_y),
-                makeCoord(level_x + 0, the_way_y),
-            }) |coord| {
-                try state_changes.append(StateDiff{
-                    .terrain_update = StateDiff.TerrainDiff{
-                        .at = coord,
-                        .from = game_state.terrain.getCoord(coord).?,
-                        .to = TerrainSpace{
-                            .floor = .unknown,
-                            .wall = .stone,
-                        },
-                    },
-                });
-            }
-            if (the_levels[new_level_number].transformer != null) {
-                // one extra space
-                const coord = makeCoord(level_x + 1, the_way_y);
-                try state_changes.append(StateDiff{
-                    .terrain_update = StateDiff.TerrainDiff{
-                        .at = coord,
-                        .from = game_state.terrain.getCoord(coord).?,
-                        .to = TerrainSpace{
-                            .floor = .unknown,
-                            .wall = .stone,
-                        },
-                    },
-                });
             }
 
             // destroy the button
@@ -862,7 +803,15 @@ pub const GameEngine = struct {
                     },
                 },
             });
+
             // spawn enemies
+            var level_x: u16 = 0;
+            for (the_levels[0..new_level_number]) |level| {
+                level_x += level.width;
+                if (level.transformer != null) {
+                    level_x += 1;
+                }
+            }
             for (the_levels[new_level_number].individuals) |individual| {
                 const id = findAvailableId(&new_id_cursor, game_state.individuals);
                 try state_changes.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
