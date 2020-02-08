@@ -40,6 +40,14 @@ const oob_terrain = TerrainSpace{
     .floor = .unknown,
     .wall = .stone,
 };
+const dirt_floor_terrain = TerrainSpace{
+    .floor = .dirt,
+    .wall = .air,
+};
+const stone_wall_terrain = TerrainSpace{
+    .floor = .unknown,
+    .wall = .stone,
+};
 
 /// Allocates and then calls `init(allocator)` on the new object.
 pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
@@ -73,195 +81,276 @@ fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Spec
 const Level = struct {
     width: u16,
     height: u16,
-    hatch_positions: []const Coord,
-    lava_positions: []const Coord,
+    the_way_y: u16,
+    terrain: Terrain,
     individuals: []const Individual,
 };
-const the_levels = [_]Level{
-    Level{
-        .width = 10,
-        .height = 10,
-        .hatch_positions = &[_]Coord{},
-        .lava_positions = &[_]Coord{},
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(2, 2), .orc),
-        },
-    },
-
-    Level{
-        .width = 10,
-        .height = 10,
-        .hatch_positions = &[_]Coord{makeCoord(4, 4)},
-        .lava_positions = &[_]Coord{},
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(3, 3), .orc),
-            makeIndividual(makeCoord(3, 4), .orc),
-            makeIndividual(makeCoord(4, 3), .orc),
-            makeIndividual(makeCoord(5, 4), .orc),
-        },
-    },
-
-    Level{
-        .width = 8,
-        .height = 7,
-        .hatch_positions = &[_]Coord{makeCoord(1, 3)},
-        .lava_positions = &[_]Coord{
-            makeCoord(1, 1), makeCoord(2, 1), makeCoord(3, 1), makeCoord(4, 1), makeCoord(5, 1), makeCoord(6, 1),
-            makeCoord(1, 5), makeCoord(2, 5), makeCoord(3, 5), makeCoord(4, 5), makeCoord(5, 5), makeCoord(6, 5),
-        },
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(6, 2), .orc),
-            makeIndividual(makeCoord(6, 3), .centaur),
-            makeIndividual(makeCoord(6, 4), .orc),
-        },
-    },
-
-    Level{
-        .width = 11,
-        .height = 8,
-        .hatch_positions = &[_]Coord{makeCoord(4, 2)},
-        .lava_positions = &[_]Coord{},
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(1, 1), .centaur),
-            makeIndividual(makeCoord(9, 6), .centaur),
-        },
-    },
-
-    Level{
-        .width = 14,
-        .height = 10,
-        .hatch_positions = &[_]Coord{makeCoord(6, 2)},
-        .lava_positions = &[_]Coord{
-            makeCoord(1, 1), makeCoord(2, 1), makeCoord(3, 1), makeCoord(4, 1),  makeCoord(5, 1),  makeCoord(6, 1),
-            makeCoord(7, 1), makeCoord(8, 1), makeCoord(9, 1), makeCoord(10, 1), makeCoord(11, 1), makeCoord(12, 1),
-            makeCoord(1, 8), makeCoord(2, 8), makeCoord(3, 8), makeCoord(4, 8),  makeCoord(5, 8),  makeCoord(6, 8),
-            makeCoord(7, 8), makeCoord(8, 8), makeCoord(9, 8), makeCoord(10, 8), makeCoord(11, 8), makeCoord(12, 8),
-        },
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(3, 7), .centaur),
-            makeIndividual(makeCoord(4, 7), .centaur),
-            makeIndividual(makeCoord(5, 7), .centaur),
-            makeIndividual(makeCoord(6, 7), .centaur),
-            makeIndividual(makeCoord(7, 7), .centaur),
-            makeIndividual(makeCoord(8, 7), .centaur),
-            makeIndividual(makeCoord(9, 7), .centaur),
-        },
-    },
-
-    Level{
-        .width = 10,
-        .height = 10,
-        .hatch_positions = &[_]Coord{makeCoord(3, 5)},
-        .lava_positions = &[_]Coord{},
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(7, 5), .kangaroo),
-        },
-    },
-
-    Level{
-        .width = 10,
-        .height = 10,
-        .hatch_positions = &[_]Coord{makeCoord(7, 5)},
-        .lava_positions = &[_]Coord{
-            makeCoord(4, 4), makeCoord(4, 5), makeCoord(4, 6),
-            makeCoord(5, 4), makeCoord(5, 5), makeCoord(5, 6),
-        },
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(7, 3), .turtle),
-            makeIndividual(makeCoord(2, 5), .turtle),
-        },
-    },
-
-    Level{
-        .width = 10,
-        .height = 10,
-        .hatch_positions = &[_]Coord{makeCoord(2, 4)},
-        .lava_positions = &[_]Coord{
-            makeCoord(4, 4), makeCoord(4, 5), makeCoord(4, 6),
-            makeCoord(5, 4), makeCoord(5, 5), makeCoord(5, 6),
-        },
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(3, 4), .turtle),
-            makeIndividual(makeCoord(2, 5), .turtle),
-            makeIndividual(makeCoord(7, 5), .centaur),
-        },
-    },
-
-    Level{
-        .width = 8,
-        .height = 10,
-        .hatch_positions = &[_]Coord{makeCoord(2, 4)},
-        .lava_positions = &[_]Coord{
-            makeCoord(1, 1), makeCoord(2, 1), makeCoord(3, 1), makeCoord(4, 1), makeCoord(5, 1), makeCoord(6, 1),
-            makeCoord(1, 8), makeCoord(2, 8), makeCoord(3, 8), makeCoord(4, 8), makeCoord(5, 8), makeCoord(6, 8),
-        },
-        .individuals = &[_]Individual{
-            makeLargeIndividual(makeCoord(5, 3), makeCoord(6, 3), .rhino),
-        },
-    },
-
-    Level{
-        .width = 10,
-        .height = 10,
-        .hatch_positions = &[_]Coord{makeCoord(4, 7)},
-        .lava_positions = &[_]Coord{},
-        .individuals = &[_]Individual{
-            makeLargeIndividual(makeCoord(3, 2), makeCoord(2, 2), .rhino),
-            makeIndividual(makeCoord(7, 5), .centaur),
-        },
-    },
-
-    Level{
-        .width = 10,
-        .height = 10,
-        .hatch_positions = &[_]Coord{makeCoord(4, 7)},
-        .lava_positions = &[_]Coord{},
-        .individuals = &[_]Individual{
-            makeLargeIndividual(makeCoord(4, 3), makeCoord(3, 3), .rhino),
-            makeIndividual(makeCoord(5, 7), .turtle),
-            makeIndividual(makeCoord(4, 5), .turtle),
-            makeIndividual(makeCoord(6, 6), .turtle),
-            makeIndividual(makeCoord(1, 8), .centaur),
-        },
-    },
-
-    Level{
-        .width = 10,
-        .height = 11,
-        .hatch_positions = &[_]Coord{makeCoord(2, 7)},
-        .lava_positions = &[_]Coord{
-            makeCoord(6, 1), makeCoord(6, 2), makeCoord(6, 3), makeCoord(6, 4),
-            makeCoord(6, 6), makeCoord(6, 7), makeCoord(6, 8), makeCoord(6, 9),
-        },
-        .individuals = &[_]Individual{
-            makeIndividual(makeCoord(1, 8), .kangaroo),
-            makeIndividual(makeCoord(3, 7), .orc),
-            makeIndividual(makeCoord(2, 8), .orc),
-            makeIndividual(makeCoord(7, 5), .centaur),
-            makeIndividual(makeCoord(2, 3), .kangaroo),
-        },
-    },
-
-    // the last level must have no enemies so that you can't win it.
-    Level{
-        .width = 15,
-        .height = 10,
-        .hatch_positions = &[_]Coord{
-            makeCoord(2, 2), makeCoord(3, 3), makeCoord(4, 2), makeCoord(3, 4),
-        } ++ [_]Coord{
-            makeCoord(7, 2), makeCoord(8, 3), makeCoord(7, 4), makeCoord(6, 3),
-        } ++ [_]Coord{
-            makeCoord(10, 2), makeCoord(10, 3), makeCoord(11, 4), makeCoord(12, 4), makeCoord(12, 3), makeCoord(12, 2),
-        } ++ [_]Coord{
-            makeCoord(2, 6), makeCoord(2, 7), makeCoord(3, 8), makeCoord(4, 7), makeCoord(5, 8), makeCoord(6, 7), makeCoord(6, 6),
-        } ++ [_]Coord{
-            makeCoord(8, 6), makeCoord(8, 7), makeCoord(8, 8),
-        } ++ [_]Coord{
-            makeCoord(10, 6), makeCoord(10, 7), makeCoord(10, 8), makeCoord(11, 6), makeCoord(12, 7), makeCoord(12, 8),
-        },
-        .lava_positions = &[_]Coord{},
+fn compileLevel(comptime source: []const u8) Level {
+    // measure dimensions.
+    const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
+    const height = @intCast(u16, @divExact(source.len + 1, width + 1));
+    comptime var level = Level{
+        .width = width,
+        .height = height,
+        .the_way_y = height,
+        .terrain = Terrain.initData(
+            width,
+            height,
+            &([_]TerrainSpace{oob_terrain} ** (width * height)),
+        ),
         .individuals = &[_]Individual{},
-    },
+    };
+
+    {
+        comptime var cursor: usize = 0;
+        comptime var y: u16 = 0;
+        while (y < height) : (y += 1) {
+            comptime var x: u16 = 0;
+            while (x < width) : (x += 1) {
+                switch (source[cursor]) {
+                    '#' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                            .floor = .unknown,
+                            .wall = .stone,
+                        };
+                    },
+                    ' ' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                            .floor = .dirt,
+                            .wall = .air,
+                        };
+                    },
+                    ';' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                            .floor = .lava,
+                            .wall = .air,
+                        };
+                    },
+                    '_' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                            .floor = .hatch,
+                            .wall = .air,
+                        };
+                        if (level.the_way_y == height) {
+                            // the first encountered hatch determines the way.
+                            level.the_way_y = y;
+                        }
+                    },
+                    'o' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .orc)};
+                    },
+                    'C' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .centaur)};
+                    },
+                    'k' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .kangaroo)};
+                    },
+                    't' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .turtle)};
+                    },
+                    '<' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
+                            makeCoord(x, y),
+                            makeCoord(x + 1, y),
+                            .rhino,
+                        )};
+                    },
+                    '>' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
+                            makeCoord(x, y),
+                            makeCoord(x - 1, y),
+                            .rhino,
+                        )};
+                    },
+                    '^' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
+                            makeCoord(x, y),
+                            makeCoord(x, y + 1),
+                            .rhino,
+                        )};
+                    },
+                    'v' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
+                            makeCoord(x, y),
+                            makeCoord(x, y - 1),
+                            .rhino,
+                        )};
+                    },
+                    else => unreachable,
+                }
+                cursor += 1;
+            }
+            cursor += 1;
+        }
+    }
+
+    return level;
+}
+
+const the_levels = blk: {
+    @setEvalBranchQuota(10000);
+    break :blk [_]Level{
+        compileLevel(
+            \\##########
+            \\#        #
+            \\# o      #
+            \\#        #
+            \\#        #
+            \\#        #
+            \\#        #
+            \\#        #
+            \\#        #
+            \\##########
+        ),
+        compileLevel(
+            \\##########
+            \\#        #
+            \\#        #
+            \\#  oo    #
+            \\#  o_o   #
+            \\#        #
+            \\#        #
+            \\#        #
+            \\#        #
+            \\##########
+        ),
+        compileLevel(
+            \\########
+            \\#;;;;;;#
+            \\#     o#
+            \\#_    C#
+            \\#     o#
+            \\#;;;;;;#
+            \\########
+        ),
+        compileLevel(
+            \\###########
+            \\#C        #
+            \\#   _     #
+            \\#         #
+            \\#         #
+            \\#         #
+            \\#        C#
+            \\###########
+        ),
+        compileLevel(
+            \\##############
+            \\#;;;;;;;;;;;;#
+            \\#     _      #
+            \\#            #
+            \\#            #
+            \\#            #
+            \\#            #
+            \\#  CCCCCCC   #
+            \\#;;;;;;;;;;;;#
+            \\##############
+        ),
+        compileLevel(
+            \\##########
+            \\#        #
+            \\#        #
+            \\#        #
+            \\#        #
+            \\#  _ k   #
+            \\#        #
+            \\#        #
+            \\#        #
+            \\##########
+        ),
+        compileLevel(
+            \\##########
+            \\#        #
+            \\#        #
+            \\#      t #
+            \\#   ;;   #
+            \\# t ;; _ #
+            \\#   ;;   #
+            \\#        #
+            \\#        #
+            \\##########
+        ),
+        compileLevel(
+            \\##########
+            \\#        #
+            \\#        #
+            \\#        #
+            \\# _t;;   #
+            \\# t ;; C #
+            \\#   ;;   #
+            \\#        #
+            \\#        #
+            \\##########
+        ),
+        compileLevel(
+            \\########
+            \\#;;;;;;#
+            \\#      #
+            \\#    < #
+            \\# _    #
+            \\#      #
+            \\#      #
+            \\#      #
+            \\#;;;;;;#
+            \\########
+        ),
+        compileLevel(
+            \\##########
+            \\#        #
+            \\#  >     #
+            \\#        #
+            \\#        #
+            \\#      C #
+            \\#        #
+            \\#   _    #
+            \\#        #
+            \\##########
+        ),
+        compileLevel(
+            \\##########
+            \\#        #
+            \\#        #
+            \\#   >    #
+            \\#        #
+            \\#   t    #
+            \\#     t  #
+            \\#   _t   #
+            \\#C       #
+            \\##########
+        ),
+        compileLevel(
+            \\##########
+            \\#     ;  #
+            \\#     ;  #
+            \\# k   ;  #
+            \\#     ;  #
+            \\#      C #
+            \\#     ;  #
+            \\# _o  ;  #
+            \\#ko   ;  #
+            \\#     ;  #
+            \\##########
+        ),
+        compileLevel(
+            \\###############
+            \\#             #
+            \\# _ _  _  _ _ #
+            \\#  _  _ _ _ _ #
+            \\#  _   _   __ #
+            \\#             #
+            \\# _   _ _ __  #
+            \\# _ _ _ _ _ _ #
+            \\#  _ _  _ _ _ #
+            \\###############
+        ),
+    };
 };
 
 fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
@@ -272,42 +361,18 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
         height = std.math.max(height, level.height);
     }
 
-    var terrain = try Terrain.initFill(allocator, width, height, TerrainSpace{
-        .floor = .dirt,
-        .wall = .air,
-    });
     const border_wall = TerrainSpace{
         .floor = .unknown,
         .wall = .stone,
     };
+    var terrain = try Terrain.initFill(allocator, width, height, border_wall);
 
     var level_x: u16 = 0;
     for (the_levels) |level| {
-        defer level_x += level.width;
-        {
-            var x: u16 = 0;
-            while (x < level.width) : (x += 1) {
-                terrain.atUnchecked(level_x + x, 0).* = border_wall;
-                var y: u16 = level.height - 1;
-                while (y < height) : (y += 1) {
-                    terrain.atUnchecked(level_x + x, y).* = border_wall;
-                }
-            }
-        }
-        {
-            var y: u16 = 1;
-            while (y < level.height - 1) : (y += 1) {
-                terrain.atUnchecked(level_x + 0, y).* = border_wall;
-                terrain.atUnchecked(level_x + level.width - 1, y).* = border_wall;
-            }
-        }
-        for (level.hatch_positions) |coord| {
-            terrain.at(level_x + @intCast(u16, coord.x), coord.y).?.floor = .hatch;
-        }
-        for (level.lava_positions) |coord| {
-            terrain.at(level_x + @intCast(u16, coord.x), coord.y).?.floor = .lava;
-        }
+        terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
+        level_x += level.width;
     }
+
     return terrain;
 }
 
@@ -618,7 +683,7 @@ pub const GameEngine = struct {
                 level_x += level.width;
             }
             const level = the_levels[game_state.level_number];
-            const the_way_y = the_levels[game_state.level_number + 1].hatch_positions[0].y;
+            const the_way_y = the_levels[game_state.level_number + 1].the_way_y;
             for ([_]Coord{
                 makeCoord(level_x + level.width - 1, the_way_y),
                 makeCoord(level_x + level.width - 0, the_way_y),
@@ -650,7 +715,7 @@ pub const GameEngine = struct {
                 level_x += level.width;
             }
             // close the way
-            const the_way_y = the_levels[new_level_number].hatch_positions[0].y;
+            const the_way_y = the_levels[new_level_number].the_way_y;
             for ([_]Coord{
                 makeCoord(level_x - 1, the_way_y),
                 makeCoord(level_x + 0, the_way_y),

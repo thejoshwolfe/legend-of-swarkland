@@ -29,6 +29,14 @@ pub fn Matrix(comptime T: type) type {
             self.fill(fill_value);
             return self;
         }
+        pub fn initData(width: u16, height: u16, data: []T) Self {
+            std.debug.assert(data.len == height * width);
+            return Self{
+                .width = width,
+                .height = height,
+                .data = data,
+            };
+        }
 
         pub fn clone(self: Self, allocator: *std.mem.Allocator) !Self {
             var other = try Self.init(allocator, self.width, self.height);
@@ -70,6 +78,21 @@ pub fn Matrix(comptime T: type) type {
         }
         pub fn getUnchecked(self: Self, x: usize, y: usize) T {
             return self.atUnchecked(x, y).*;
+        }
+
+        pub fn copy(dest: Self, source: Self, dx: u16, dy: u16, sx: u16, sy: u16, width: u16, height: u16) void {
+            std.debug.assert(dx + width <= dest.width);
+            std.debug.assert(dy + height <= dest.height);
+            std.debug.assert(sx + width <= source.width);
+            std.debug.assert(sy + height <= source.height);
+
+            var y: u16 = 0;
+            while (y < height) : (y += 1) {
+                var x: u16 = 0;
+                while (x < width) : (x += 1) {
+                    dest.atUnchecked(dx + x, dy + y).* = source.getUnchecked(sx + x, sy + y);
+                }
+            }
         }
     };
 }
