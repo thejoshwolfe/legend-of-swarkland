@@ -581,6 +581,12 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
             );
         },
 
+        .polymorph => {
+            const sprites = textures.sprites.polymorph_effect[4..];
+            const sprite_index = @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator);
+            textures.renderSprite(renderer, sprites[@intCast(usize, sprite_index)], display_position);
+        },
+
         .death => {
             textures.renderSprite(renderer, textures.sprites.death, display_position);
         },

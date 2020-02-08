@@ -630,6 +630,28 @@ pub const GameEngine = struct {
         }
         try flushDeaths(&total_deaths, &attack_deaths, &everybody);
 
+        // Traps
+        var polymorphs = IdMap(Species).init(self.allocator);
+        for (everybody) |id| {
+            const position = current_positions.getValue(id).?;
+            for (getAllPositions(&position)) |coord| {
+                if (game_state.terrainAt(coord).wall == .centaur_transformer) {
+                    try polymorphs.putNoClobber(id, .centaur);
+                }
+            }
+        }
+        if (polymorphs.count() != 0) {
+            for (everybody) |id| {
+                try self.observeFrame(
+                    game_state,
+                    id,
+                    individual_to_perception.getValue(id).?,
+                    &current_positions,
+                    Activities{ .polymorphs = &polymorphs },
+                );
+            }
+        }
+
         var open_the_way = false;
         var button_getting_pressed: ?Coord = null;
         if (game_state.individuals.count() - total_deaths.count() <= 1) {
@@ -682,6 +704,18 @@ pub const GameEngine = struct {
                         },
                     });
                 },
+            }
+        }
+        {
+            var iterator = polymorphs.iterator();
+            while (iterator.next()) |kv| {
+                try state_changes.append(StateDiff{
+                    .polymorph = .{
+                        .id = kv.key,
+                        .from = game_state.individuals.getValue(kv.key).?.species,
+                        .to = kv.value,
+                    },
+                });
             }
         }
         {
@@ -1092,6 +1126,7 @@ pub const GameEngine = struct {
         };
 
         kicks: *const IdMap(Coord),
+        polymorphs: *const IdMap(Species),
 
         deaths: *const IdMap(void),
     };
@@ -1160,6 +1195,11 @@ pub const GameEngine = struct {
 
                 .kicks => |data| if (data.getValue(id)) |coord|
                     PerceivedActivity{ .kick = coord }
+                else
+                    PerceivedActivity{ .none = {} },
+
+                .polymorphs => |data| if (data.getValue(id)) |species|
+                    PerceivedActivity{ .polymorph = species }
                 else
                     PerceivedActivity{ .none = {} },
 
@@ -1257,6 +1297,13 @@ pub const StateDiff = union(enum) {
         coords: [2]Coord,
     };
 
+    polymorph: Polymorph,
+    pub const Polymorph = struct {
+        id: u32,
+        from: Species,
+        to: Species,
+    };
+
     /// can only be in the start game events. can never be undone.
     terrain_init: Terrain,
 
@@ -1321,6 +1368,10 @@ pub const GameState = struct {
                         individual.abs_position.large[1].plus(id_and_coords.coords[1]),
                     };
                 },
+                .polymorph => |polymorph| {
+                    const individual = self.individuals.getValue(polymorph.id).?;
+                    individual.species = polymorph.to;
+                },
                 .terrain_init => |terrain| {
                     self.terrain = terrain;
                 },
@@ -1354,6 +1405,10 @@ pub const GameState = struct {
                         individual.abs_position.large[0].minus(id_and_coords.coords[0]),
                         individual.abs_position.large[1].minus(id_and_coords.coords[1]),
                     };
+                },
+                .polymorph => |polymorph| {
+                    const individual = self.individuals.getValue(polymorph.id).?;
+                    individual.species = polymorph.from;
                 },
                 .terrain_init => {
                     @panic("can't undo terrain init");
