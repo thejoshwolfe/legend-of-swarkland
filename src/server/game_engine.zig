@@ -212,7 +212,7 @@ const the_levels = blk: {
             \\#        #
             \\#        #
             \\#        #
-            \\#        #
+            \\#      h #
             \\#        #
             \\##########
         , null),
@@ -443,11 +443,21 @@ pub const GameEngine = struct {
             .state_changes = blk: {
                 var ret = ArrayList(StateDiff).init(self.allocator);
                 // human is always id 1
-                try ret.append(StateDiff{ .spawn = Individual{ .id = 1, .abs_position = .{ .small = makeCoord(7, 7) }, .species = .human } });
+                var non_human_id_cursor: u32 = 2;
+                var found_human = false;
                 const level_x = 0;
                 for (the_levels[0].individuals) |individual, i| {
-                    try ret.append(StateDiff{ .spawn = assignId(individual, level_x, @intCast(u32, i) + 2) });
+                    var id: u32 = undefined;
+                    if (individual.species == .human) {
+                        id = 1;
+                        found_human = true;
+                    } else {
+                        id = non_human_id_cursor;
+                        non_human_id_cursor += 1;
+                    }
+                    try ret.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
                 }
+                std.debug.assert(found_human);
                 try ret.append(StateDiff{
                     .terrain_init = try buildTheTerrain(self.allocator),
                 });
