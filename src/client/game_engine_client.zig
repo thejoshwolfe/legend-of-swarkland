@@ -523,7 +523,9 @@ pub const GameEngineClient = struct {
             12 => comptime &[_]Request{
                 Request{ .act = Action{ .move = makeCoord(0, 1) } },
                 Request{ .act = Action{ .attack = makeCoord(1, 0) } },
-                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(0, 1) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
@@ -536,6 +538,24 @@ pub const GameEngineClient = struct {
             },
 
             13 => comptime &[_]Request{
+                Request{ .act = Action{ .attack = makeCoord(0, -1) } },
+                Request{ .act = Action{ .attack = makeCoord(0, -1) } },
+                Request{ .act = Action{ .attack = makeCoord(-1, 0) } },
+                Request{ .act = Action{ .attack = makeCoord(-1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(0, 1) } },
+                Request{ .act = Action{ .attack = makeCoord(-1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+            },
+
+            14 => comptime &[_]Request{
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
