@@ -81,18 +81,16 @@ fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Spec
 const Level = struct {
     width: u16,
     height: u16,
-    transformer: ?Species,
     terrain: Terrain,
     individuals: []const Individual,
 };
-fn compileLevel(comptime source: []const u8, transformer: ?Species) Level {
+fn compileLevel(comptime source: []const u8) Level {
     // measure dimensions.
     const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
     const height = @intCast(u16, @divExact(source.len + 1, width + 1));
     comptime var level = Level{
         .width = width,
         .height = height,
-        .transformer = transformer,
         .terrain = Terrain.initData(
             width,
             height,
@@ -136,6 +134,12 @@ fn compileLevel(comptime source: []const u8, transformer: ?Species) Level {
                         level.terrain.atUnchecked(x, y).* = TerrainSpace{
                             .floor = .hatch,
                             .wall = .air,
+                        };
+                    },
+                    '=' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                            .floor = .dirt,
+                            .wall = .centaur_transformer,
                         };
                     },
                     'o' => {
@@ -215,7 +219,7 @@ const the_levels = blk: {
             \\      h #
             \\        #
             \\#########
-        , null),
+        ),
         compileLevel(
             \\#########
             \\        #
@@ -227,7 +231,7 @@ const the_levels = blk: {
             \\        #
             \\        #
             \\#########
-        , null),
+        ),
         compileLevel(
             \\#######
             \\;;;;;;#
@@ -236,7 +240,7 @@ const the_levels = blk: {
             \\     o#
             \\;;;;;;#
             \\#######
-        , null),
+        ),
         compileLevel(
             \\##########
             \\C        #
@@ -246,7 +250,7 @@ const the_levels = blk: {
             \\         #
             \\        C#
             \\##########
-        , null),
+        ),
         compileLevel(
             \\#############
             \\;;;;;;;;;;;;#
@@ -258,7 +262,7 @@ const the_levels = blk: {
             \\  CCCCCCC   #
             \\;;;;;;;;;;;;#
             \\#############
-        , null),
+        ),
         compileLevel(
             \\#########
             \\        #
@@ -270,7 +274,7 @@ const the_levels = blk: {
             \\        #
             \\        #
             \\#########
-        , null),
+        ),
         compileLevel(
             \\#########
             \\        #
@@ -282,7 +286,7 @@ const the_levels = blk: {
             \\        #
             \\        #
             \\#########
-        , null),
+        ),
         compileLevel(
             \\#########
             \\        #
@@ -294,7 +298,7 @@ const the_levels = blk: {
             \\        #
             \\        #
             \\#########
-        , null),
+        ),
         compileLevel(
             \\#######
             \\;;;;;;#
@@ -306,7 +310,7 @@ const the_levels = blk: {
             \\      +
             \\;;;;;;#
             \\#######
-        , null),
+        ),
         compileLevel(
             \\#########
             \\        #
@@ -318,7 +322,7 @@ const the_levels = blk: {
             \\   _    +
             \\        #
             \\#########
-        , null),
+        ),
         compileLevel(
             \\#########
             \\        #
@@ -330,7 +334,7 @@ const the_levels = blk: {
             \\   _t   +
             \\C       #
             \\#########
-        , null),
+        ),
         compileLevel(
             \\#########
             \\     ;  #
@@ -343,15 +347,15 @@ const the_levels = blk: {
             \\ko   ;  #
             \\     ;  #
             \\#########
-        , null),
+        ),
         compileLevel(
-            \\#########
-            \\        #
-            \\ _      +
-            \\      h #
-            \\        #
-            \\#########
-        , .centaur),
+            \\###########
+            \\##        #
+            \\=+ _      +
+            \\##      h #
+            \\##        #
+            \\###########
+        ),
         compileLevel(
             \\##############
             \\             #
@@ -363,7 +367,7 @@ const the_levels = blk: {
             \\ _ _ _ _ _ _ #
             \\  _ _  _ _ _ #
             \\##############
-        , null),
+        ),
     };
 };
 
@@ -372,9 +376,6 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
     var height: u16 = 1;
     for (the_levels) |level| {
         width += level.width;
-        if (level.transformer != null) {
-            width += 1;
-        }
         height = std.math.max(height, level.height);
     }
 
@@ -808,9 +809,6 @@ pub const GameEngine = struct {
             var level_x: u16 = 0;
             for (the_levels[0..new_level_number]) |level| {
                 level_x += level.width;
-                if (level.transformer != null) {
-                    level_x += 1;
-                }
             }
             for (the_levels[new_level_number].individuals) |individual| {
                 const id = findAvailableId(&new_id_cursor, game_state.individuals);
