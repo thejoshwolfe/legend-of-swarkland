@@ -17,6 +17,7 @@ pub const Wall = enum {
     air,
     dirt,
     stone,
+    centaur_transformer,
 };
 
 pub const Species = enum {

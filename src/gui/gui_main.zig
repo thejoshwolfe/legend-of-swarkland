@@ -379,6 +379,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     Wall.air => continue,
                                     Wall.dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
                                     Wall.stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
+                                    Wall.centaur_transformer => textures.sprites.polymorph_trap,
                                 };
                                 textures.renderSprite(renderer, wall_texture, display_position);
                             }

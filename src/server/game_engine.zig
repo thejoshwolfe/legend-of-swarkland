@@ -82,10 +82,11 @@ const Level = struct {
     width: u16,
     height: u16,
     the_way_y: u16,
+    transformer: ?Species,
     terrain: Terrain,
     individuals: []const Individual,
 };
-fn compileLevel(comptime source: []const u8) Level {
+fn compileLevel(comptime source: []const u8, transformer: ?Species) Level {
     // measure dimensions.
     const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
     const height = @intCast(u16, @divExact(source.len + 1, width + 1));
@@ -93,6 +94,7 @@ fn compileLevel(comptime source: []const u8) Level {
         .width = width,
         .height = height,
         .the_way_y = height,
+        .transformer = transformer,
         .terrain = Terrain.initData(
             width,
             height,
@@ -152,6 +154,10 @@ fn compileLevel(comptime source: []const u8) Level {
                         level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
                         level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .turtle)};
                     },
+                    'h' => {
+                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .human)};
+                    },
                     '<' => {
                         level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
                         level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
@@ -209,7 +215,7 @@ const the_levels = blk: {
             \\#        #
             \\#        #
             \\##########
-        ),
+        , null),
         compileLevel(
             \\##########
             \\#        #
@@ -221,7 +227,7 @@ const the_levels = blk: {
             \\#        #
             \\#        #
             \\##########
-        ),
+        , null),
         compileLevel(
             \\########
             \\#;;;;;;#
@@ -230,7 +236,7 @@ const the_levels = blk: {
             \\#     o#
             \\#;;;;;;#
             \\########
-        ),
+        , null),
         compileLevel(
             \\###########
             \\#C        #
@@ -240,7 +246,7 @@ const the_levels = blk: {
             \\#         #
             \\#        C#
             \\###########
-        ),
+        , null),
         compileLevel(
             \\##############
             \\#;;;;;;;;;;;;#
@@ -252,7 +258,7 @@ const the_levels = blk: {
             \\#  CCCCCCC   #
             \\#;;;;;;;;;;;;#
             \\##############
-        ),
+        , null),
         compileLevel(
             \\##########
             \\#        #
@@ -264,7 +270,7 @@ const the_levels = blk: {
             \\#        #
             \\#        #
             \\##########
-        ),
+        , null),
         compileLevel(
             \\##########
             \\#        #
@@ -276,7 +282,7 @@ const the_levels = blk: {
             \\#        #
             \\#        #
             \\##########
-        ),
+        , null),
         compileLevel(
             \\##########
             \\#        #
@@ -288,7 +294,7 @@ const the_levels = blk: {
             \\#        #
             \\#        #
             \\##########
-        ),
+        , null),
         compileLevel(
             \\########
             \\#;;;;;;#
@@ -300,7 +306,7 @@ const the_levels = blk: {
             \\#      #
             \\#;;;;;;#
             \\########
-        ),
+        , null),
         compileLevel(
             \\##########
             \\#        #
@@ -312,7 +318,7 @@ const the_levels = blk: {
             \\#   _    #
             \\#        #
             \\##########
-        ),
+        , null),
         compileLevel(
             \\##########
             \\#        #
@@ -324,7 +330,7 @@ const the_levels = blk: {
             \\#   _t   #
             \\#C       #
             \\##########
-        ),
+        , null),
         compileLevel(
             \\##########
             \\#     ;  #
@@ -337,7 +343,15 @@ const the_levels = blk: {
             \\#ko   ;  #
             \\#     ;  #
             \\##########
-        ),
+        , null),
+        compileLevel(
+            \\##########
+            \\#        #
+            \\# _      #
+            \\#      h #
+            \\#        #
+            \\##########
+        , .centaur),
         compileLevel(
             \\###############
             \\#             #
@@ -349,7 +363,7 @@ const the_levels = blk: {
             \\# _ _ _ _ _ _ #
             \\#  _ _  _ _ _ #
             \\###############
-        ),
+        , null),
     };
 };
 
@@ -358,6 +372,9 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
     var height: u16 = 1;
     for (the_levels) |level| {
         width += level.width;
+        if (level.transformer != null) {
+            width += 1;
+        }
         height = std.math.max(height, level.height);
     }
 
@@ -369,6 +386,9 @@ fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
 
     var level_x: u16 = 0;
     for (the_levels) |level| {
+        if (level.transformer != null) {
+            level_x += 1;
+        }
         terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
         level_x += level.width;
     }
@@ -678,26 +698,64 @@ pub const GameEngine = struct {
         }
 
         if (open_the_way and game_state.level_number + 1 < the_levels.len) {
+            // open the way
             var level_x: u16 = 0;
             for (the_levels[0..game_state.level_number]) |level| {
                 level_x += level.width;
+                if (level.transformer != null) {
+                    level_x += 1;
+                }
             }
             const level = the_levels[game_state.level_number];
-            const the_way_y = the_levels[game_state.level_number + 1].the_way_y;
-            for ([_]Coord{
-                makeCoord(level_x + level.width - 1, the_way_y),
-                makeCoord(level_x + level.width - 0, the_way_y),
-            }) |coord| {
+            const next_level = the_levels[game_state.level_number + 1];
+            const the_way_y = next_level.the_way_y;
+            if (next_level.transformer) |transformer| {
+                for ([_]Coord{
+                    makeCoord(level_x + level.width - 1, the_way_y),
+                    makeCoord(level_x + level.width + 1, the_way_y),
+                }) |coord| {
+                    try state_changes.append(StateDiff{
+                        .terrain_update = StateDiff.TerrainDiff{
+                            .at = coord,
+                            .from = game_state.terrain.getCoord(coord).?,
+                            .to = TerrainSpace{
+                                .floor = .dirt,
+                                .wall = .air,
+                            },
+                        },
+                    });
+                }
+
+                // the transformer
+                const coord = makeCoord(level_x + level.width, the_way_y);
                 try state_changes.append(StateDiff{
                     .terrain_update = StateDiff.TerrainDiff{
                         .at = coord,
                         .from = game_state.terrain.getCoord(coord).?,
                         .to = TerrainSpace{
                             .floor = .dirt,
-                            .wall = .air,
+                            .wall = .centaur_transformer,
                         },
                     },
                 });
+            } else {
+
+                // no transformer
+                for ([_]Coord{
+                    makeCoord(level_x + level.width - 1, the_way_y),
+                    makeCoord(level_x + level.width - 0, the_way_y),
+                }) |coord| {
+                    try state_changes.append(StateDiff{
+                        .terrain_update = StateDiff.TerrainDiff{
+                            .at = coord,
+                            .from = game_state.terrain.getCoord(coord).?,
+                            .to = TerrainSpace{
+                                .floor = .dirt,
+                                .wall = .air,
+                            },
+                        },
+                    });
+                }
             }
         }
 
@@ -713,6 +771,9 @@ pub const GameEngine = struct {
             var level_x: u16 = 0;
             for (the_levels[0..new_level_number]) |level| {
                 level_x += level.width;
+                if (level.transformer != null) {
+                    level_x += 1;
+                }
             }
             // close the way
             const the_way_y = the_levels[new_level_number].the_way_y;
@@ -731,6 +792,21 @@ pub const GameEngine = struct {
                     },
                 });
             }
+            if (the_levels[new_level_number].transformer != null) {
+                // one extra space
+                const coord = makeCoord(level_x + 1, the_way_y);
+                try state_changes.append(StateDiff{
+                    .terrain_update = StateDiff.TerrainDiff{
+                        .at = coord,
+                        .from = game_state.terrain.getCoord(coord).?,
+                        .to = TerrainSpace{
+                            .floor = .unknown,
+                            .wall = .stone,
+                        },
+                    },
+                });
+            }
+
             // destroy the button
             try state_changes.append(StateDiff{
                 .terrain_update = StateDiff.TerrainDiff{
