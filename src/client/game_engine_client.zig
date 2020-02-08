@@ -516,9 +516,26 @@ pub const GameEngineClient = struct {
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
             },
 
             12 => comptime &[_]Request{
+                Request{ .act = Action{ .move = makeCoord(0, 1) } },
+                Request{ .act = Action{ .attack = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(0, -1) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+                Request{ .act = Action{ .move = makeCoord(1, 0) } },
+            },
+
+            13 => comptime &[_]Request{
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
                 Request{ .act = Action{ .move = makeCoord(1, 0) } },
