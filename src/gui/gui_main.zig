@@ -131,7 +131,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 main_menu_state.beginFrame();
             },
             GameState.running => |*state| {
-                if (state.client.queues.takeResponse()) |response| {
+                while (state.client.queues.takeResponse()) |response| {
                     switch (response) {
                         .stuff_happens => |happening| {
                             // Show animations for what's going on.
