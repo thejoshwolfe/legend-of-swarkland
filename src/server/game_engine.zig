@@ -358,13 +358,13 @@ const the_levels = blk: {
         ),
         compileLevel(
             \\########
-            \\  ooo  #
+            \\  CCC  #
             \\      h+
             \\C     h#
             \\C  _   #
             \\C     h#
             \\      h#
-            \\       #
+            \\  ooo  #
             \\########
         ),
         compileLevel(

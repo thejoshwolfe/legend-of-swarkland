@@ -169,11 +169,17 @@ fn doAi(response: Response) Action {
 
 fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     var target_position: ?Coord = null;
+    var target_priority: i32 = -0x80000000;
     for (last_frame.others) |other| {
-        if (!isHostile(last_frame.self.species, other.species)) continue;
+        const other_priority = getTargetHostilityPriority(last_frame.self.species, other.species) orelse continue;
+        if (target_priority > other_priority) continue;
+        if (other_priority > target_priority) {
+            target_position = null;
+            target_priority = other_priority;
+        }
         const other_coord = getHeadPosition(other.rel_position);
         if (target_position) |previous_coord| {
-            // target whichever is closest.
+            // target whichever is closest. (positions are relative to me.)
             if (other_coord.magnitudeOrtho() < previous_coord.magnitudeOrtho()) {
                 target_position = other_coord;
             }
@@ -280,7 +286,22 @@ fn hesitatesOneSpaceAway(species: Species) bool {
     }
 }
 
-fn isHostile(me: Species, you: Species) bool {
-    // humans vs everyone.
-    return (me == .human) != (you == .human);
+fn getTargetHostilityPriority(me: Species, you: Species) ?i32 {
+    // this is straight up racism.
+    if (me == you) return null;
+
+    if (me == .human) {
+        // humans, being the enlightened race, want to murder everything else equally.
+        return 9;
+    }
+    switch (you) {
+        // humans are just the worst.
+        .human => return 9,
+        // orcs are like humans.
+        .orc => return 6,
+        // half human.
+        .centaur => return 5,
+        // whatever.
+        else => return 1,
+    }
 }
