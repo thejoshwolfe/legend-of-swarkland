@@ -211,7 +211,12 @@ pub fn OutChannel(comptime OutStream: type) type {
 
         pub fn writeInt(self: Self, x: var) !void {
             const int_info = @typeInfo(@TypeOf(x)).Int;
-            const T_aligned = @IntType(int_info.is_signed, @divTrunc(int_info.bits + 7, 8) * 8);
+            const T_aligned = @Type(std.builtin.TypeInfo{
+                .Int = .{
+                    .is_signed = int_info.is_signed,
+                    .bits = @divTrunc(int_info.bits + 7, 8) * 8,
+                },
+            });
             try self.stream.writeIntLittle(T_aligned, x);
         }
     };
@@ -286,7 +291,12 @@ pub fn InChannel(comptime InStream: type) type {
 
         pub fn readInt(self: Self, comptime T: type) !T {
             const int_info = @typeInfo(T).Int;
-            const T_aligned = @IntType(int_info.is_signed, @divTrunc(int_info.bits + 7, 8) * 8);
+            const T_aligned = @Type(std.builtin.TypeInfo{
+                .Int = .{
+                    .is_signed = int_info.is_signed,
+                    .bits = @divTrunc(int_info.bits + 7, 8) * 8,
+                },
+            });
             const x_aligned = try self.stream.readIntLittle(T_aligned);
             return std.math.cast(T, x_aligned);
         }

@@ -4,7 +4,7 @@ const Builder = std.build.Builder;
 
 pub fn build(b: *Builder) void {
     const build_mode = b.standardReleaseOptions();
-    const target = b.standardTargetOptions(null);
+    const target = b.standardTargetOptions(.{});
 
     const compile_image_commands = [_]*std.build.RunStep{
         b.addSystemCommand(&[_][]const u8{
@@ -67,11 +67,11 @@ fn make_binary_variant(
     headless: bool,
 ) *std.build.Step {
     const exe = if (headless) b.addExecutable(name, "src/server/server_main.zig") else b.addExecutable(name, "src/gui/gui_main.zig");
-    exe.setTheTarget(target);
+    exe.setTarget(target);
     exe.install();
     exe.addPackagePath("core", "src/index.zig");
     if (!headless) {
-        if (target.getOs() == .windows and target.getAbi() == .gnu) {
+        if (target.getOsTag() == .windows and target.getAbi() == .gnu) {
             @import("deps/zig-sdl/build.zig").linkArtifact(b, .{
                 .artifact = exe,
                 .prefix = "deps/zig-sdl",
