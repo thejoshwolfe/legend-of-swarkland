@@ -367,11 +367,16 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Roadmap
 
-### 5.4.0
+### 5.5.0
 
- * items???
+ * ???
 
 ## Version History
+
+### 5.4.0
+
+ * added a polymorph trap in a hallway so you turn into a centaur.
+ * adjusted AI so that you team up with your own race.
 
 ### 5.3.0
 
