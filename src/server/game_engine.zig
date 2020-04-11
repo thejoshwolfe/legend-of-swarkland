@@ -88,14 +88,11 @@ fn compileLevel(comptime source: []const u8) Level {
     // measure dimensions.
     const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
     const height = @intCast(u16, @divExact(source.len + 1, width + 1));
+    var terrain_space = [_]TerrainSpace{oob_terrain} ** (width * height);
     comptime var level = Level{
         .width = width,
         .height = height,
-        .terrain = Terrain.initData(
-            width,
-            height,
-            &([_]TerrainSpace{oob_terrain} ** (width * height)),
-        ),
+        .terrain = Terrain.initData(width, height, &terrain_space),
         .individuals = &[_]Individual{},
     };
 
@@ -847,7 +844,7 @@ pub const GameEngine = struct {
                     var frame_list = individual_to_perception.getValue(id).?.frames;
                     // remove empty frames, except the last one
                     var i: usize = 0;
-                    frameLoop: while (i + 1 < frame_list.len) : (i +%= 1) {
+                    frameLoop: while (i + 1 < frame_list.items.len) : (i +%= 1) {
                         const frame = frame_list.at(i);
                         if (frame.self.activity != PerceivedActivity.none) continue :frameLoop;
                         for (frame.others) |other| {

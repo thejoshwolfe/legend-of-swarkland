@@ -128,14 +128,14 @@ pub const Socket = struct {
         };
     }
 
-    pub const FileInChannel = InChannel(std.fs.File.InStream.Stream);
+    pub const FileInChannel = InChannel(std.fs.File.InStream);
     pub fn in(self: *Socket, allocator: *std.mem.Allocator) FileInChannel {
-        return initInChannel(allocator, &self.in_stream.stream);
+        return initInChannel(allocator, self.in_stream);
     }
 
-    pub const FileOutChannel = OutChannel(std.fs.File.OutStream.Stream);
+    pub const FileOutChannel = OutChannel(std.fs.File.OutStream);
     pub fn out(self: *Socket) FileOutChannel {
-        return initOutChannel(&self.out_stream.stream);
+        return initOutChannel(self.out_stream);
     }
 
     pub fn close(self: *Socket, final_message: var) void {
@@ -145,15 +145,15 @@ pub const Socket = struct {
     }
 };
 
-pub fn initOutChannel(out_stream: var) OutChannel(@TypeOf(out_stream.*)) {
-    return OutChannel(@TypeOf(out_stream.*)).init(out_stream);
+pub fn initOutChannel(out_stream: var) OutChannel(@TypeOf(out_stream)) {
+    return OutChannel(@TypeOf(out_stream)).init(out_stream);
 }
 pub fn OutChannel(comptime OutStream: type) type {
     return struct {
         const Self = @This();
 
-        stream: *OutStream,
-        pub fn init(stream: *OutStream) Self {
+        stream: OutStream,
+        pub fn init(stream: OutStream) Self {
             return Self{ .stream = stream };
         }
 
@@ -222,16 +222,16 @@ pub fn OutChannel(comptime OutStream: type) type {
     };
 }
 
-pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: var) InChannel(@TypeOf(in_stream.*)) {
-    return InChannel(@TypeOf(in_stream.*)).init(allocator, in_stream);
+pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: var) InChannel(@TypeOf(in_stream)) {
+    return InChannel(@TypeOf(in_stream)).init(allocator, in_stream);
 }
 pub fn InChannel(comptime InStream: type) type {
     return struct {
         const Self = @This();
 
         allocator: *std.mem.Allocator,
-        stream: *InStream,
-        pub fn init(allocator: *std.mem.Allocator, stream: *InStream) Self {
+        stream: InStream,
+        pub fn init(allocator: *std.mem.Allocator, stream: InStream) Self {
             return Self{
                 .allocator = allocator,
                 .stream = stream,
