@@ -7,7 +7,8 @@ const makeCoord = core.geometry.makeCoord;
 
 pub const version_string = @embedFile("../../zig-cache/version.txt");
 
-pub const sprites = @import("../../zig-cache/spritesheet.zig");
+pub const sprites = @import("../../zig-cache/spritesheet32.zig");
+pub const large_sprites = @import("../../zig-cache/spritesheet200.zig");
 pub const fonts = @import("../../zig-cache/fontsheet.zig");
 
 var sprites_texture: *sdl.c.SDL_Texture = undefined;
