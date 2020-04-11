@@ -23,11 +23,16 @@ const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 
-const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
+const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 712, .height = 512 });
 
 /// changes when the window resizes
 /// FIXME: should initialize to logical_window_size, but workaround https://github.com/ziglang/zig/issues/2855
-var output_rect = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
+var output_rect = sdl.makeRect(Rect{
+    .x = logical_window_size.x,
+    .y = logical_window_size.y,
+    .width = logical_window_size.w,
+    .height = logical_window_size.h,
+});
 
 pub fn main() anyerror!void {
     core.debug.init();
@@ -408,6 +413,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     renderActivity(renderer, progress, move_frame_time, camera_offset, other);
                 }
                 renderActivity(renderer, progress, move_frame_time, camera_offset, frame.self);
+
+                // sidebar
+                const anatomy_diagram = switch (core.game_logic.getAnatomy(frame.self.species)) {
+                    .humanoid => textures.large_sprites.humanoid,
+                    else => {
+                        std.debug.panic("TODO\n", .{});
+                    },
+                };
+                textures.renderLargeSprite(renderer, anatomy_diagram, makeCoord(512, 0));
 
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;

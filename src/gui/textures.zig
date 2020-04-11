@@ -12,14 +12,17 @@ pub const large_sprites = @import("../../zig-cache/spritesheet200.zig");
 pub const fonts = @import("../../zig-cache/fontsheet.zig");
 
 var sprites_texture: *sdl.c.SDL_Texture = undefined;
+var large_sprites_texture: *sdl.c.SDL_Texture = undefined;
 var fonts_texture: *sdl.c.SDL_Texture = undefined;
 pub fn init(renderer: *sdl.Renderer) void {
     sprites_texture = loadTexture(renderer, sprites.buffer, sprites.width, sprites.height);
+    large_sprites_texture = loadTexture(renderer, large_sprites.buffer, large_sprites.width, large_sprites.height);
     fonts_texture = loadTexture(renderer, fonts.buffer, fonts.width, fonts.height);
 }
 
 pub fn deinit() void {
     sdl.c.SDL_DestroyTexture(sprites_texture);
+    sdl.c.SDL_DestroyTexture(large_sprites_texture);
     sdl.c.SDL_DestroyTexture(fonts_texture);
 }
 
@@ -94,4 +97,17 @@ pub fn renderSpriteRotated(renderer: *sdl.Renderer, sprite: Rect, location: Coor
 
     const angle = @intToFloat(f64, rotation) * 45.0;
     sdl.assertZero(sdl.SDL_RenderCopyEx(renderer, sprites_texture, &source_sdl, &dest_sdl, angle, null, sdl.c.SDL_FLIP_NONE));
+}
+
+pub fn renderLargeSprite(renderer: *sdl.Renderer, large_sprite: Rect, location: Coord) void {
+    const dest = Rect{
+        .x = location.x,
+        .y = location.y,
+        .width = large_sprite.width,
+        .height = large_sprite.height,
+    };
+
+    const source_sdl = sdl.makeRect(large_sprite);
+    const dest_sdl = sdl.makeRect(dest);
+    sdl.assertZero(sdl.SDL_RenderCopy(renderer, large_sprites_texture, &source_sdl, &dest_sdl));
 }
