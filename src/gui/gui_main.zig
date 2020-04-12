@@ -415,13 +415,19 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 renderActivity(renderer, progress, move_frame_time, camera_offset, frame.self);
 
                 // sidebar
-                const anatomy_diagram = switch (core.game_logic.getAnatomy(frame.self.species)) {
-                    .humanoid => textures.large_sprites.humanoid,
-                    else => {
-                        std.debug.panic("TODO\n", .{});
-                    },
-                };
-                textures.renderLargeSprite(renderer, anatomy_diagram, makeCoord(512, 0));
+                {
+                    const anatomy_diagram = switch (core.game_logic.getAnatomy(frame.self.species)) {
+                        .humanoid => textures.large_sprites.humanoid,
+                        else => {
+                            std.debug.panic("TODO\n", .{});
+                        },
+                    };
+                    textures.renderLargeSprite(renderer, anatomy_diagram, makeCoord(512, 0));
+
+                    if (false) {
+                        textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_leg_wound, makeCoord(512, 0));
+                    }
+                }
 
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;
