@@ -96,8 +96,10 @@ pub const PerceivedThing = struct {
     activity: PerceivedActivity,
 };
 
-pub const StatusConditions = u1;
+pub const StatusConditions = u2;
 pub const StatusCondition_wounded_leg = 0x1;
+/// you can't move.
+pub const StatusCondition_limping = 0x2;
 
 pub const PerceivedActivity = union(enum) {
     none,

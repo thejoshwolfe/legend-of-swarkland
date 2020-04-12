@@ -425,8 +425,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     textures.renderLargeSprite(renderer, anatomy_diagram, makeCoord(512, 0));
 
-                    if (frame.self.status_conditions & core.protocol.StatusCondition_wounded_leg != 0) {
+                    // explicit integer here to provide a compile error when new items get added.
+                    var status_conditions: u2 = frame.self.status_conditions;
+                    if (0 != status_conditions & core.protocol.StatusCondition_wounded_leg) {
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_leg_wound, makeCoord(512, 0));
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_limping) {
+                        textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_limping, makeCoord(512, 0));
                     }
                 }
 
@@ -552,8 +557,12 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     }
 
     // render status effects
+    var status_conditions: u2 = thing.status_conditions;
     if (thing.status_conditions & core.protocol.StatusCondition_wounded_leg != 0) {
         textures.renderSprite(renderer, textures.sprites.wounded, display_position);
+    }
+    if (thing.status_conditions & core.protocol.StatusCondition_limping != 0) {
+        textures.renderSprite(renderer, textures.sprites.limping, display_position);
     }
 
     return display_position;

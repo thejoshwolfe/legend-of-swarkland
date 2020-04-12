@@ -444,7 +444,7 @@ pub const GameEngine = struct {
                             const other_status_conditions = &current_status_conditions.get(other_id).?.value;
                             if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
                                 // first hit is a wound
-                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping;
                             } else {
                                 // second hit. you ded.
                                 _ = try attack_deaths.put(other_id, {});
