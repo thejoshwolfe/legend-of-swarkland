@@ -439,6 +439,7 @@ pub const GameEngine = struct {
         // Attacks
         var attacks = IdMap(Activities.Attack).init(self.allocator);
         var attack_deaths = IdMap(void).init(self.allocator);
+        var attack_woundings = IdMap(void).init(self.allocator);
         for (everybody) |id| {
             var attack_direction: Coord = switch (actions.getValue(id).?) {
                 .attack => |direction| direction,
@@ -454,9 +455,18 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord, i| {
                         if (!coord.equals(damage_position)) continue;
                         // hit something.
-                        if (core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species, i)) {
+                        const other_individual = game_state.individuals.getValue(other_id).?;
+                        if (core.game_logic.isAffectedByAttacks(other_individual.species, i)) {
                             // get wrecked
-                            _ = try attack_deaths.put(other_id, {});
+                            if (other_individual.is_leg_wounded) {
+                                // second hit. you ded.
+                                _ = try attack_deaths.put(other_id, {});
+                            }
+                            // first hit is a wound
+                            if (null != try attack_woundings.put(other_id, {})) {
+                                // two hits in one frame. now you ded.
+                                _ = try attack_deaths.put(other_id, {});
+                            }
                         }
                         break :range_loop;
                     }
@@ -584,6 +594,14 @@ pub const GameEngine = struct {
                         .from = game_state.individuals.getValue(kv.key).?.species,
                         .to = kv.value,
                     },
+                });
+            }
+        }
+        {
+            var iterator = attack_woundings.iterator();
+            while (iterator.next()) |kv| {
+                try state_changes.append(StateDiff{
+                    .wound = kv.key,
                 });
             }
         }
@@ -1052,9 +1070,11 @@ pub const GameEngine = struct {
                 if (delta.magnitudeDiag() <= view_distance) break :blk true;
             } else false;
             if (!within_view) continue;
+            const actual_thing = game_state.individuals.getValue(id).?;
             const thing = PerceivedThing{
-                .species = game_state.individuals.getValue(id).?.species,
+                .species = actual_thing.species,
                 .rel_position = rel_position,
+                .is_leg_wounded = actual_thing.is_leg_wounded,
                 .activity = activity,
             };
             if (id == my_id) {
@@ -1099,6 +1119,7 @@ pub const Individual = struct {
     id: u32,
     species: Species,
     abs_position: ThingPosition,
+    is_leg_wounded: bool = false,
 };
 pub const StateDiff = union(enum) {
     spawn: Individual,
@@ -1121,6 +1142,8 @@ pub const StateDiff = union(enum) {
         from: Species,
         to: Species,
     };
+
+    wound: u32,
 
     /// can only be in the start game events. can never be undone.
     terrain_init: Terrain,
@@ -1190,6 +1213,10 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(polymorph.id).?;
                     individual.species = polymorph.to;
                 },
+                .wound => |id| {
+                    const individual = self.individuals.getValue(id).?;
+                    individual.is_leg_wounded = true;
+                },
                 .terrain_init => |terrain| {
                     self.terrain = terrain;
                 },
@@ -1227,6 +1254,10 @@ pub const GameState = struct {
                 .polymorph => |polymorph| {
                     const individual = self.individuals.getValue(polymorph.id).?;
                     individual.species = polymorph.from;
+                },
+                .wound => |id| {
+                    const individual = self.individuals.getValue(id).?;
+                    individual.is_leg_wounded = false;
                 },
                 .terrain_init => {
                     @panic("can't undo terrain init");

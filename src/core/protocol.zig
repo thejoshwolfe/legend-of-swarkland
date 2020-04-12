@@ -91,6 +91,8 @@ pub const PerceivedThing = struct {
     rel_position: ThingPosition,
     species: Species,
 
+    is_leg_wounded: bool,
+
     activity: PerceivedActivity,
 };
 

@@ -424,7 +424,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     textures.renderLargeSprite(renderer, anatomy_diagram, makeCoord(512, 0));
 
-                    if (false) {
+                    if (frame.self.is_leg_wounded) {
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_leg_wound, makeCoord(512, 0));
                     }
                 }
