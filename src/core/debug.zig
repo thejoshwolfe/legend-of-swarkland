@@ -135,12 +135,12 @@ fn deep_print(prefix: []const u8, something: var) void {
                 .Array => {
                     return recurse(obj[0..], indent);
                 },
-                .Struct => {
+                .Struct => |StructT| {
                     const multiline = @sizeOf(T) >= 12;
                     comptime var field_i = 0;
-                    std.debug.warn("{{", .{});
-                    inline while (field_i < @memberCount(T)) : (field_i += 1) {
-                        if (field_i > 0) {
+                    std.debug.warn(".{{", .{});
+                    inline for (StructT.fields) |field, i| {
+                        if (i > 0) {
                             if (!multiline) {
                                 std.debug.warn(", ", .{});
                             }
@@ -150,12 +150,12 @@ fn deep_print(prefix: []const u8, something: var) void {
                         if (multiline) {
                             std.debug.warn("\n{}  ", .{indentation});
                         }
-                        std.debug.warn(".{} = ", .{@memberName(T, field_i)});
-                        if (std.mem.eql(u8, @memberName(T, field_i), "terrain")) {
+                        std.debug.warn(".{} = ", .{field.name});
+                        if (std.mem.eql(u8, field.name, "terrain")) {
                             // hide terrain, because it's so bulky.
                             std.debug.warn("<...>", .{});
                         } else {
-                            recurse(@field(obj, @memberName(T, field_i)), indent + 1);
+                            recurse(@field(obj, field.name), indent + 1);
                         }
                         if (multiline) std.debug.warn(",", .{});
                     }
@@ -168,12 +168,13 @@ fn deep_print(prefix: []const u8, something: var) void {
                 },
                 .Union => |info| {
                     if (info.tag_type) |_| {
-                        std.debug.warn("{}.{} = ", .{ @typeName(T), @tagName(obj) });
+                        std.debug.warn(".{{ .{} = ", .{@tagName(obj)});
                         inline for (info.fields) |u_field| {
                             if (@enumToInt(obj) == u_field.enum_field.?.value) {
                                 recurse(@field(obj, u_field.name), indent);
                             }
                         }
+                        std.debug.warn(" }}", .{});
                         return;
                     }
                 },

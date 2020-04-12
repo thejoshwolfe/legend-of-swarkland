@@ -1238,6 +1238,7 @@ pub const GameState = struct {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
                 .despawn => |individual| {
+                    core.debug.testing.deepPrint("undespawn: ", individual);
                     try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
                 },
                 .small_move => |id_and_coord| {
