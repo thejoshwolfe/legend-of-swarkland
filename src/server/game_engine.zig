@@ -825,7 +825,7 @@ pub const GameEngine = struct {
         }
 
         // final observations
-        try game_state.applyStateChanges(state_changes.toSliceConst());
+        try game_state.applyStateChanges(state_changes.items);
         current_positions.clear();
         for (everybody) |id| {
             try self.observeFrame(
@@ -845,7 +845,7 @@ pub const GameEngine = struct {
                     // remove empty frames, except the last one
                     var i: usize = 0;
                     frameLoop: while (i + 1 < frame_list.items.len) : (i +%= 1) {
-                        const frame = frame_list.at(i);
+                        const frame = frame_list.items[i];
                         if (frame.self.activity != PerceivedActivity.none) continue :frameLoop;
                         for (frame.others) |other| {
                             if (other.activity != PerceivedActivity.none) continue :frameLoop;
@@ -858,7 +858,7 @@ pub const GameEngine = struct {
                 }
                 break :blk ret;
             },
-            .state_changes = state_changes.toOwnedSlice(),
+            .state_changes = state_changes.items,
         };
     }
 
