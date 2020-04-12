@@ -30,7 +30,7 @@ fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: var) void
     if (show_thread_id) {
         const debug_thread_id = blk: {
             const me = std.Thread.getCurrentId();
-            for (thread_names.toSliceConst()) |it| {
+            for (thread_names.items) |it| {
                 if (it.thread_id == me) break :blk it;
             }
             @panic("thread not named");
@@ -67,7 +67,7 @@ pub fn nameThisThreadWithClientId(name: []const u8, client_id: u32) void {
     var held = mutex.?.acquire();
     defer held.release();
     const thread_id = std.Thread.getCurrentId();
-    for (thread_names.toSliceConst()) |it| {
+    for (thread_names.items) |it| {
         std.debug.assert(it.thread_id != thread_id);
         std.debug.assert(!(std.mem.eql(u8, it.name, name) and it.client_id == client_id));
         continue;
@@ -82,7 +82,7 @@ pub fn unnameThisThread() void {
     var held = mutex.?.acquire();
     defer held.release();
     const me = std.Thread.getCurrentId();
-    for (thread_names.toSliceConst()) |it, i| {
+    for (thread_names.items) |it, i| {
         if (it.thread_id == me) {
             _ = thread_names.swapRemove(i);
             return;
@@ -100,7 +100,7 @@ fn deep_print(prefix: []const u8, something: var) void {
             const T = @TypeOf(obj);
             const indentation = ("  " ** indent)[0..];
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_list.AlignedArrayList(")) {
-                return recurse(obj.toSliceConst(), indent);
+                return recurse(obj.items, indent);
             }
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.hash_map.HashMap(u32,")) {
                 if (obj.count() == 0) {
