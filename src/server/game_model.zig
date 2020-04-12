@@ -8,6 +8,7 @@ const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const ThingPosition = core.protocol.ThingPosition;
 const TerrainSpace = core.protocol.TerrainSpace;
+const StatusConditions = core.protocol.StatusConditions;
 
 /// Shallow copies the argument to a newly allocated pointer.
 fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@TypeOf(obj) {
@@ -35,7 +36,7 @@ pub const Individual = struct {
     id: u32,
     species: Species,
     abs_position: ThingPosition,
-    is_leg_wounded: bool = false,
+    status_conditions: StatusConditions = 0,
 };
 
 pub const StateDiff = union(enum) {
@@ -60,7 +61,11 @@ pub const StateDiff = union(enum) {
         to: Species,
     };
 
-    wound: u32,
+    status_condition_diff: struct {
+        id: u32,
+        from: StatusConditions,
+        to: StatusConditions,
+    },
 
     /// can only be in the start game events. can never be undone.
     terrain_init: Terrain,
@@ -130,9 +135,9 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(polymorph.id).?;
                     individual.species = polymorph.to;
                 },
-                .wound => |id| {
-                    const individual = self.individuals.getValue(id).?;
-                    individual.is_leg_wounded = true;
+                .status_condition_diff => |data| {
+                    const individual = self.individuals.getValue(data.id).?;
+                    individual.status_conditions = data.to;
                 },
                 .terrain_init => |terrain| {
                     self.terrain = terrain;
@@ -172,9 +177,9 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(polymorph.id).?;
                     individual.species = polymorph.from;
                 },
-                .wound => |id| {
-                    const individual = self.individuals.getValue(id).?;
-                    individual.is_leg_wounded = false;
+                .status_condition_diff => |data| {
+                    const individual = self.individuals.getValue(data.id).?;
+                    individual.status_conditions = data.from;
                 },
                 .terrain_init => {
                     @panic("can't undo terrain init");

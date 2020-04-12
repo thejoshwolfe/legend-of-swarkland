@@ -91,10 +91,13 @@ pub const PerceivedThing = struct {
     rel_position: ThingPosition,
     species: Species,
 
-    is_leg_wounded: bool,
+    status_conditions: StatusConditions,
 
     activity: PerceivedActivity,
 };
+
+pub const StatusConditions = u1;
+pub const StatusCondition_wounded_leg = 0x1;
 
 pub const PerceivedActivity = union(enum) {
     none,

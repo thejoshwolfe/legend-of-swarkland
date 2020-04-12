@@ -17,6 +17,7 @@ const ThingPosition = core.protocol.ThingPosition;
 const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
+const StatusConditions = core.protocol.StatusConditions;
 
 const view_distance = core.game_logic.view_distance;
 const isOpenSpace = core.game_logic.isOpenSpace;
@@ -28,7 +29,6 @@ const getInertiaIndex = core.game_logic.getInertiaIndex;
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
 const Individual = game_model.Individual;
-const StatusCondition = game_model.StatusCondition;
 const StateDiff = game_model.StateDiff;
 const IdMap = game_model.IdMap;
 const CoordMap = game_model.CoordMap;
@@ -335,6 +335,11 @@ pub const GameEngine = struct {
             try current_positions.putNoClobber(id, game_state.individuals.getValue(id).?.abs_position);
         }
 
+        var current_status_conditions = IdMap(StatusConditions).init(self.allocator);
+        for (everybody) |id| {
+            try current_status_conditions.putNoClobber(id, game_state.individuals.getValue(id).?.status_conditions);
+        }
+
         var total_deaths = IdMap(void).init(self.allocator);
 
         {
@@ -419,7 +424,6 @@ pub const GameEngine = struct {
         // Attacks
         var attacks = IdMap(Activities.Attack).init(self.allocator);
         var attack_deaths = IdMap(void).init(self.allocator);
-        var attack_woundings = IdMap(void).init(self.allocator);
         for (everybody) |id| {
             var attack_direction: Coord = switch (actions.getValue(id).?) {
                 .attack => |direction| direction,
@@ -435,15 +439,12 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord, i| {
                         if (!coord.equals(damage_position)) continue;
                         // hit something.
-                        const other_individual = game_state.individuals.getValue(other_id).?;
-                        if (core.game_logic.isAffectedByAttacks(other_individual.species, i)) {
+                        if (core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species, i)) {
                             // get wrecked
-                            if (!other_individual.is_leg_wounded) {
+                            const other_status_conditions = &current_status_conditions.get(other_id).?.value;
+                            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
                                 // first hit is a wound
-                                if (null != try attack_woundings.put(other_id, {})) {
-                                    // two hits in one frame. now you ded.
-                                    _ = try attack_deaths.put(other_id, {});
-                                }
+                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
                             } else {
                                 // second hit. you ded.
                                 _ = try attack_deaths.put(other_id, {});
@@ -578,11 +579,16 @@ pub const GameEngine = struct {
                 });
             }
         }
-        {
-            var iterator = attack_woundings.iterator();
-            while (iterator.next()) |kv| {
+        for (everybody_including_dead) |id| {
+            const old = game_state.individuals.getValue(id).?.status_conditions;
+            const new = current_status_conditions.getValue(id).?;
+            if (old != new) {
                 try state_changes.append(StateDiff{
-                    .wound = kv.key,
+                    .status_condition_diff = .{
+                        .id = id,
+                        .from = old,
+                        .to = new,
+                    },
                 });
             }
         }
@@ -1055,7 +1061,7 @@ pub const GameEngine = struct {
             const thing = PerceivedThing{
                 .species = actual_thing.species,
                 .rel_position = rel_position,
-                .is_leg_wounded = actual_thing.is_leg_wounded,
+                .status_conditions = actual_thing.status_conditions,
                 .activity = activity,
             };
             if (id == my_id) {

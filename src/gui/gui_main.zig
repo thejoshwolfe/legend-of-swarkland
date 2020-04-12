@@ -425,7 +425,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     textures.renderLargeSprite(renderer, anatomy_diagram, makeCoord(512, 0));
 
-                    if (frame.self.is_leg_wounded) {
+                    if (frame.self.status_conditions & core.protocol.StatusCondition_wounded_leg != 0) {
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_leg_wound, makeCoord(512, 0));
                     }
                 }
@@ -552,7 +552,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     }
 
     // render status effects
-    if (thing.is_leg_wounded) {
+    if (thing.status_conditions & core.protocol.StatusCondition_wounded_leg != 0) {
         textures.renderSprite(renderer, textures.sprites.wounded, display_position);
     }
 
