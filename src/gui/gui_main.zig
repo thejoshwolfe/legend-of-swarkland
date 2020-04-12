@@ -397,6 +397,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     _ = renderThing(renderer, progress, move_frame_time, camera_offset, other);
                 }
                 const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, frame.self);
+                // render input prompt
                 if (display_any_input_prompt) {
                     switch (state.input_prompt) {
                         .none => {},
@@ -408,7 +409,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         },
                     }
                 }
-                // render effects in front of things
+                // render activity effects
                 for (frame.others) |other| {
                     renderActivity(renderer, progress, move_frame_time, camera_offset, other);
                 }
@@ -531,8 +532,11 @@ fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: Percei
 }
 
 fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
+    // compute position
     const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
     const display_position = rel_display_position.plus(camera_offset);
+
+    // render main sprite
     switch (thing.rel_position) {
         .small => {
             textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
@@ -545,6 +549,11 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             textures.renderSpriteRotated(renderer, speciesToSprite(thing.species), display_position, rotation);
             textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.species), tail_display_position, rotation);
         },
+    }
+
+    // render status effects
+    if (thing.is_leg_wounded) {
+        textures.renderSprite(renderer, textures.sprites.wounded, display_position);
     }
 
     return display_position;
