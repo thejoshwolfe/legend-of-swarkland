@@ -458,13 +458,14 @@ pub const GameEngine = struct {
                         const other_individual = game_state.individuals.getValue(other_id).?;
                         if (core.game_logic.isAffectedByAttacks(other_individual.species, i)) {
                             // get wrecked
-                            if (other_individual.is_leg_wounded) {
+                            if (!other_individual.is_leg_wounded) {
+                                // first hit is a wound
+                                if (null != try attack_woundings.put(other_id, {})) {
+                                    // two hits in one frame. now you ded.
+                                    _ = try attack_deaths.put(other_id, {});
+                                }
+                            } else {
                                 // second hit. you ded.
-                                _ = try attack_deaths.put(other_id, {});
-                            }
-                            // first hit is a wound
-                            if (null != try attack_woundings.put(other_id, {})) {
-                                // two hits in one frame. now you ded.
                                 _ = try attack_deaths.put(other_id, {});
                             }
                         }
@@ -1238,7 +1239,6 @@ pub const GameState = struct {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
                 .despawn => |individual| {
-                    core.debug.testing.deepPrint("undespawn: ", individual);
                     try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
                 },
                 .small_move => |id_and_coord| {
