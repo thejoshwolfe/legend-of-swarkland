@@ -202,7 +202,7 @@ const the_levels = blk: {
             \\        #
             \\        #
             \\  oo    +
-            \\  o_o   #
+            \\   _o   #
             \\        #
             \\        #
             \\        #
@@ -236,7 +236,7 @@ const the_levels = blk: {
             \\            #
             \\            +
             \\            #
-            \\  CCCCCCC   #
+            \\   CCCCC    #
             \\;;;;;;;;;;;;#
             \\#############
         ),
