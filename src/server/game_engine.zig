@@ -325,6 +325,8 @@ pub const GameEngine = struct {
         }
         const everybody_including_dead = try std.mem.dupe(self.allocator, u32, everybody);
 
+        var budges_at_all = IdMap(void).init(self.allocator);
+
         var individual_to_perception = IdMap(*MutablePerceivedHappening).init(self.allocator);
         for (everybody_including_dead) |id| {
             try individual_to_perception.putNoClobber(id, try createInit(self.allocator, MutablePerceivedHappening));
@@ -358,6 +360,7 @@ pub const GameEngine = struct {
                 &individual_to_perception,
                 &current_positions,
                 &intended_moves,
+                &budges_at_all,
                 &total_deaths,
             );
         }
@@ -416,8 +419,21 @@ pub const GameEngine = struct {
                     &individual_to_perception,
                     &current_positions,
                     &intended_moves,
+                    &budges_at_all,
                     &total_deaths,
                 );
+            }
+        }
+
+        // Clear limping status
+        for (everybody) |id| {
+            const status_conditions = &current_status_conditions.get(id).?.value;
+            if (!budges_at_all.contains(id)) {
+                // you held still, so you are free of any limping status.
+                status_conditions.* &= ~core.protocol.StatusCondition_limping;
+            } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg) {
+                // you moved while wounded. now you limp.
+                status_conditions.* |= core.protocol.StatusCondition_limping;
             }
         }
 
@@ -727,6 +743,7 @@ pub const GameEngine = struct {
         individual_to_perception: *IdMap(*MutablePerceivedHappening),
         current_positions: *IdMap(ThingPosition),
         intended_moves: *IdMap(Coord),
+        budges_at_all: *IdMap(void),
         total_deaths: *IdMap(void),
     ) !void {
         var next_positions = IdMap(ThingPosition).init(self.allocator);
@@ -932,6 +949,12 @@ pub const GameEngine = struct {
             );
         }
         try flushDeaths(total_deaths, &trample_deaths, everybody);
+
+        var iterator = intended_moves.iterator();
+        while (iterator.next()) |kv| {
+            const id = kv.key;
+            _ = try budges_at_all.put(id, {});
+        }
     }
 
     const Activities = union(enum) {
