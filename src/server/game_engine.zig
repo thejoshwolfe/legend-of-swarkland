@@ -351,6 +351,10 @@ pub const GameEngine = struct {
                     .move, .fast_move => |move_delta| move_delta,
                     else => continue,
                 };
+                if (0 != current_status_conditions.getValue(id).? & core.protocol.StatusCondition_limping) {
+                    // nope.avi
+                    continue;
+                }
                 try intended_moves.putNoClobber(id, move_delta);
             }
 
@@ -460,7 +464,7 @@ pub const GameEngine = struct {
                             const other_status_conditions = &current_status_conditions.get(other_id).?.value;
                             if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
                                 // first hit is a wound
-                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping;
+                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
                             } else {
                                 // second hit. you ded.
                                 _ = try attack_deaths.put(other_id, {});
