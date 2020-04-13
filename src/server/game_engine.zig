@@ -576,10 +576,13 @@ pub const GameEngine = struct {
             }
         }
 
-        // Clear limping status
+        // Check status conditions
         for (everybody) |id| {
             const status_conditions = &current_status_conditions.get(id).?.value;
-            if (!budges_at_all.contains(id)) {
+            if (game_state.terrainAt(getHeadPosition(current_positions.getValue(id).?)).floor == .marble) {
+                // level transitions remedy all status ailments.
+                status_conditions.* = 0;
+            } else if (!budges_at_all.contains(id)) {
                 // you held still, so you are free of any limping status.
                 status_conditions.* &= ~core.protocol.StatusCondition_limping;
             } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg) {
