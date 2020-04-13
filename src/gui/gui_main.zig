@@ -417,21 +417,35 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // sidebar
                 {
-                    const anatomy_diagram = switch (core.game_logic.getAnatomy(frame.self.species)) {
-                        .humanoid => textures.large_sprites.humanoid,
+                    const AnatomySprites = struct {
+                        diagram: Rect,
+                        leg_wound: Rect,
+                        limping: Rect,
+                    };
+                    const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
+                        .humanoid => AnatomySprites{
+                            .diagram = textures.large_sprites.humanoid,
+                            .leg_wound = textures.large_sprites.humanoid_leg_wound,
+                            .limping = textures.large_sprites.humanoid_limping,
+                        },
+                        .centauroid => AnatomySprites{
+                            .diagram = textures.large_sprites.centauroid,
+                            .leg_wound = textures.large_sprites.centauroid_leg_wound,
+                            .limping = textures.large_sprites.centauroid_limping,
+                        },
                         else => {
                             std.debug.panic("TODO\n", .{});
                         },
                     };
-                    textures.renderLargeSprite(renderer, anatomy_diagram, makeCoord(512, 0));
+                    textures.renderLargeSprite(renderer, anatomy_sprites.diagram, makeCoord(512, 0));
 
                     // explicit integer here to provide a compile error when new items get added.
                     var status_conditions: u2 = frame.self.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_wounded_leg) {
-                        textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_leg_wound, makeCoord(512, 0));
+                        textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound, makeCoord(512, 0));
                     }
                     if (0 != status_conditions & core.protocol.StatusCondition_limping) {
-                        textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_limping, makeCoord(512, 0));
+                        textures.renderLargeSprite(renderer, anatomy_sprites.limping, makeCoord(512, 0));
                     }
                 }
 
