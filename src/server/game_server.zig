@@ -5,8 +5,9 @@ const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const sign = core.geometry.sign;
 const GameEngine = @import("./game_engine.zig").GameEngine;
-const GameState = @import("./game_engine.zig").GameState;
-const IdMap = @import("./game_engine.zig").IdMap;
+const game_model = @import("./game_model.zig");
+const GameState = game_model.GameState;
+const IdMap = game_model.IdMap;
 const SomeQueues = @import("../client/game_engine_client.zig").SomeQueues;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
@@ -20,7 +21,7 @@ const getAllPositions = core.game_logic.getAllPositions;
 const hasFastMove = core.game_logic.hasFastMove;
 const isFastMoveAligned = core.game_logic.isFastMoveAligned;
 
-const StateDiff = @import("./game_engine.zig").StateDiff;
+const StateDiff = game_model.StateDiff;
 const HistoryList = std.TailQueue([]StateDiff);
 const HistoryNode = HistoryList.Node;
 

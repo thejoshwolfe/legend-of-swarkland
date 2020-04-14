@@ -23,11 +23,16 @@ const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 
-const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
+const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 712, .height = 512 });
 
 /// changes when the window resizes
 /// FIXME: should initialize to logical_window_size, but workaround https://github.com/ziglang/zig/issues/2855
-var output_rect = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 512, .height = 512 });
+var output_rect = sdl.makeRect(Rect{
+    .x = logical_window_size.x,
+    .y = logical_window_size.y,
+    .width = logical_window_size.w,
+    .height = logical_window_size.h,
+});
 
 pub fn main() anyerror!void {
     core.debug.init();
@@ -392,6 +397,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     _ = renderThing(renderer, progress, move_frame_time, camera_offset, other);
                 }
                 const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, frame.self);
+                // render input prompt
                 if (display_any_input_prompt) {
                     switch (state.input_prompt) {
                         .none => {},
@@ -403,11 +409,45 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         },
                     }
                 }
-                // render effects in front of things
+                // render activity effects
                 for (frame.others) |other| {
                     renderActivity(renderer, progress, move_frame_time, camera_offset, other);
                 }
                 renderActivity(renderer, progress, move_frame_time, camera_offset, frame.self);
+
+                // sidebar
+                {
+                    const AnatomySprites = struct {
+                        diagram: Rect,
+                        leg_wound: Rect,
+                        limping: Rect,
+                    };
+                    const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
+                        .humanoid => AnatomySprites{
+                            .diagram = textures.large_sprites.humanoid,
+                            .leg_wound = textures.large_sprites.humanoid_leg_wound,
+                            .limping = textures.large_sprites.humanoid_limping,
+                        },
+                        .centauroid => AnatomySprites{
+                            .diagram = textures.large_sprites.centauroid,
+                            .leg_wound = textures.large_sprites.centauroid_leg_wound,
+                            .limping = textures.large_sprites.centauroid_limping,
+                        },
+                        else => {
+                            std.debug.panic("TODO\n", .{});
+                        },
+                    };
+                    textures.renderLargeSprite(renderer, anatomy_sprites.diagram, makeCoord(512, 0));
+
+                    // explicit integer here to provide a compile error when new items get added.
+                    var status_conditions: u2 = frame.self.status_conditions;
+                    if (0 != status_conditions & core.protocol.StatusCondition_wounded_leg) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound, makeCoord(512, 0));
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_limping) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.limping, makeCoord(512, 0));
+                    }
+                }
 
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;
@@ -511,8 +551,11 @@ fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: Percei
 }
 
 fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
+    // compute position
     const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
     const display_position = rel_display_position.plus(camera_offset);
+
+    // render main sprite
     switch (thing.rel_position) {
         .small => {
             textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
@@ -525,6 +568,15 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             textures.renderSpriteRotated(renderer, speciesToSprite(thing.species), display_position, rotation);
             textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.species), tail_display_position, rotation);
         },
+    }
+
+    // render status effects
+    var status_conditions: u2 = thing.status_conditions;
+    if (thing.status_conditions & core.protocol.StatusCondition_wounded_leg != 0) {
+        textures.renderSprite(renderer, textures.sprites.wounded, display_position);
+    }
+    if (thing.status_conditions & core.protocol.StatusCondition_limping != 0) {
+        textures.renderSprite(renderer, textures.sprites.limping, display_position);
     }
 
     return display_position;

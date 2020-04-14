@@ -9,12 +9,21 @@ pub fn build(b: *Builder) void {
     const compile_image_commands = [_]*std.build.RunStep{
         b.addSystemCommand(&[_][]const u8{
             "./tools/compile_spritesheet.py",
-            "assets/img/",
+            "assets/img32/",
             "--glob=*.png",
             "--tile-size=32",
-            "--spritesheet-path=zig-cache/spritesheet_resource",
-            "--defs-path=zig-cache/spritesheet.zig",
-            "--deps=zig-cache/spritesheet_resource.d",
+            "--spritesheet-path=zig-cache/spritesheet32_resource",
+            "--defs-path=zig-cache/spritesheet32.zig",
+            "--deps=zig-cache/spritesheet32_resource.d",
+        }),
+        b.addSystemCommand(&[_][]const u8{
+            "./tools/compile_spritesheet.py",
+            "assets/img200/",
+            "--glob=*.png",
+            "--tile-size=200",
+            "--spritesheet-path=zig-cache/spritesheet200_resource",
+            "--defs-path=zig-cache/spritesheet200.zig",
+            "--deps=zig-cache/spritesheet200_resource.d",
         }),
         b.addSystemCommand(&[_][]const u8{
             "./tools/compile_spritesheet.py",

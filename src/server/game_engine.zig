@@ -1,6 +1,5 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
-const HashMap = std.HashMap;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const isCardinalDirection = core.geometry.isCardinalDirection;
@@ -18,6 +17,7 @@ const ThingPosition = core.protocol.ThingPosition;
 const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
+const StatusConditions = core.protocol.StatusConditions;
 
 const view_distance = core.game_logic.view_distance;
 const isOpenSpace = core.game_logic.isOpenSpace;
@@ -26,40 +26,20 @@ const getAllPositions = core.game_logic.getAllPositions;
 const applyMovementToPosition = core.game_logic.applyMovementToPosition;
 const getInertiaIndex = core.game_logic.getInertiaIndex;
 
-/// an "id" is a strictly server-side concept.
-pub fn IdMap(comptime V: type) type {
-    return HashMap(u32, V, core.geometry.hashU32, std.hash_map.getTrivialEqlFn(u32));
-}
-
-pub fn CoordMap(comptime V: type) type {
-    return HashMap(Coord, V, Coord.hash, Coord.equals);
-}
-
-const Terrain = core.matrix.Matrix(TerrainSpace);
-const oob_terrain = TerrainSpace{
-    .floor = .unknown,
-    .wall = .stone,
-};
-const dirt_floor_terrain = TerrainSpace{
-    .floor = .dirt,
-    .wall = .air,
-};
-const stone_wall_terrain = TerrainSpace{
-    .floor = .unknown,
-    .wall = .stone,
-};
+const game_model = @import("./game_model.zig");
+const GameState = game_model.GameState;
+const Individual = game_model.Individual;
+const StateDiff = game_model.StateDiff;
+const IdMap = game_model.IdMap;
+const CoordMap = game_model.CoordMap;
+const Terrain = game_model.Terrain;
+const oob_terrain = game_model.oob_terrain;
+const allocClone = game_model.allocClone;
 
 /// Allocates and then calls `init(allocator)` on the new object.
 pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
     var x = try allocator.create(T);
     x.* = T.init(allocator);
-    return x;
-}
-
-/// Shallow copies the argument to a newly allocated pointer.
-fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@TypeOf(obj) {
-    var x = try allocator.create(@TypeOf(obj));
-    x.* = obj;
     return x;
 }
 
@@ -222,7 +202,7 @@ const the_levels = blk: {
             \\        #
             \\        #
             \\  oo    +
-            \\  o_o   #
+            \\   _o   #
             \\        #
             \\        #
             \\        #
@@ -256,7 +236,7 @@ const the_levels = blk: {
             \\            #
             \\            +
             \\            #
-            \\  CCCCCCC   #
+            \\   CCCCC    #
             \\;;;;;;;;;;;;#
             \\#############
         ),
@@ -492,6 +472,8 @@ pub const GameEngine = struct {
         }
         const everybody_including_dead = try std.mem.dupe(self.allocator, u32, everybody);
 
+        var budges_at_all = IdMap(void).init(self.allocator);
+
         var individual_to_perception = IdMap(*MutablePerceivedHappening).init(self.allocator);
         for (everybody_including_dead) |id| {
             try individual_to_perception.putNoClobber(id, try createInit(self.allocator, MutablePerceivedHappening));
@@ -500,6 +482,11 @@ pub const GameEngine = struct {
         var current_positions = IdMap(ThingPosition).init(self.allocator);
         for (everybody) |id| {
             try current_positions.putNoClobber(id, game_state.individuals.getValue(id).?.abs_position);
+        }
+
+        var current_status_conditions = IdMap(StatusConditions).init(self.allocator);
+        for (everybody) |id| {
+            try current_status_conditions.putNoClobber(id, game_state.individuals.getValue(id).?.status_conditions);
         }
 
         var total_deaths = IdMap(void).init(self.allocator);
@@ -511,6 +498,10 @@ pub const GameEngine = struct {
                     .move, .fast_move => |move_delta| move_delta,
                     else => continue,
                 };
+                if (0 != current_status_conditions.getValue(id).? & core.protocol.StatusCondition_limping) {
+                    // nope.avi
+                    continue;
+                }
                 try intended_moves.putNoClobber(id, move_delta);
             }
 
@@ -520,6 +511,7 @@ pub const GameEngine = struct {
                 &individual_to_perception,
                 &current_positions,
                 &intended_moves,
+                &budges_at_all,
                 &total_deaths,
             );
         }
@@ -578,8 +570,24 @@ pub const GameEngine = struct {
                     &individual_to_perception,
                     &current_positions,
                     &intended_moves,
+                    &budges_at_all,
                     &total_deaths,
                 );
+            }
+        }
+
+        // Check status conditions
+        for (everybody) |id| {
+            const status_conditions = &current_status_conditions.get(id).?.value;
+            if (game_state.terrainAt(getHeadPosition(current_positions.getValue(id).?)).floor == .marble) {
+                // level transitions remedy all status ailments.
+                status_conditions.* = 0;
+            } else if (!budges_at_all.contains(id)) {
+                // you held still, so you are free of any limping status.
+                status_conditions.* &= ~core.protocol.StatusCondition_limping;
+            } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg) {
+                // you moved while wounded. now you limp.
+                status_conditions.* |= core.protocol.StatusCondition_limping;
             }
         }
 
@@ -603,7 +611,14 @@ pub const GameEngine = struct {
                         // hit something.
                         if (core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species, i)) {
                             // get wrecked
-                            _ = try attack_deaths.put(other_id, {});
+                            const other_status_conditions = &current_status_conditions.get(other_id).?.value;
+                            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
+                                // first hit is a wound
+                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                            } else {
+                                // second hit. you ded.
+                                _ = try attack_deaths.put(other_id, {});
+                            }
                         }
                         break :range_loop;
                     }
@@ -730,6 +745,19 @@ pub const GameEngine = struct {
                         .id = kv.key,
                         .from = game_state.individuals.getValue(kv.key).?.species,
                         .to = kv.value,
+                    },
+                });
+            }
+        }
+        for (everybody_including_dead) |id| {
+            const old = game_state.individuals.getValue(id).?.status_conditions;
+            const new = current_status_conditions.getValue(id).?;
+            if (old != new) {
+                try state_changes.append(StateDiff{
+                    .status_condition_diff = .{
+                        .id = id,
+                        .from = old,
+                        .to = new,
                     },
                 });
             }
@@ -869,6 +897,7 @@ pub const GameEngine = struct {
         individual_to_perception: *IdMap(*MutablePerceivedHappening),
         current_positions: *IdMap(ThingPosition),
         intended_moves: *IdMap(Coord),
+        budges_at_all: *IdMap(void),
         total_deaths: *IdMap(void),
     ) !void {
         var next_positions = IdMap(ThingPosition).init(self.allocator);
@@ -1074,6 +1103,12 @@ pub const GameEngine = struct {
             );
         }
         try flushDeaths(total_deaths, &trample_deaths, everybody);
+
+        var iterator = intended_moves.iterator();
+        while (iterator.next()) |kv| {
+            const id = kv.key;
+            _ = try budges_at_all.put(id, {});
+        }
     }
 
     const Activities = union(enum) {
@@ -1199,9 +1234,11 @@ pub const GameEngine = struct {
                 if (delta.magnitudeDiag() <= view_distance) break :blk true;
             } else false;
             if (!within_view) continue;
+            const actual_thing = game_state.individuals.getValue(id).?;
             const thing = PerceivedThing{
-                .species = game_state.individuals.getValue(id).?.species,
+                .species = actual_thing.species,
                 .rel_position = rel_position,
+                .status_conditions = actual_thing.status_conditions,
                 .activity = activity,
             };
             if (id == my_id) {
@@ -1239,157 +1276,6 @@ pub const GameEngine = struct {
             .terrain = terrain_chunk,
             .you_win = you_win,
         };
-    }
-};
-
-pub const Individual = struct {
-    id: u32,
-    species: Species,
-    abs_position: ThingPosition,
-};
-pub const StateDiff = union(enum) {
-    spawn: Individual,
-    despawn: Individual,
-    small_move: IdAndCoord,
-    pub const IdAndCoord = struct {
-        id: u32,
-        coord: Coord,
-    };
-
-    large_move: IdAndCoords,
-    pub const IdAndCoords = struct {
-        id: u32,
-        coords: [2]Coord,
-    };
-
-    polymorph: Polymorph,
-    pub const Polymorph = struct {
-        id: u32,
-        from: Species,
-        to: Species,
-    };
-
-    /// can only be in the start game events. can never be undone.
-    terrain_init: Terrain,
-
-    terrain_update: TerrainDiff,
-    pub const TerrainDiff = struct {
-        at: Coord,
-        from: TerrainSpace,
-        to: TerrainSpace,
-    };
-
-    transition_to_next_level,
-};
-
-pub const GameState = struct {
-    allocator: *std.mem.Allocator,
-    terrain: Terrain,
-    individuals: IdMap(*Individual),
-    level_number: u16,
-
-    pub fn init(allocator: *std.mem.Allocator) GameState {
-        return GameState{
-            .allocator = allocator,
-            .terrain = Terrain.initEmpty(),
-            .individuals = IdMap(*Individual).init(allocator),
-            .level_number = 0,
-        };
-    }
-
-    pub fn clone(self: GameState) !GameState {
-        return GameState{
-            .allocator = self.allocator,
-            .terrain = self.terrain,
-            .individuals = blk: {
-                var ret = IdMap(*Individual).init(self.allocator);
-                var iterator = self.individuals.iterator();
-                while (iterator.next()) |kv| {
-                    try ret.putNoClobber(kv.key, try allocClone(self.allocator, kv.value.*));
-                }
-                break :blk ret;
-            },
-            .level_number = self.level_number,
-        };
-    }
-
-    fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
-        for (state_changes) |diff| {
-            switch (diff) {
-                .spawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
-                },
-                .despawn => |individual| {
-                    self.individuals.removeAssertDiscard(individual.id);
-                },
-                .small_move => |id_and_coord| {
-                    const individual = self.individuals.getValue(id_and_coord.id).?;
-                    individual.abs_position.small = individual.abs_position.small.plus(id_and_coord.coord);
-                },
-                .large_move => |id_and_coords| {
-                    const individual = self.individuals.getValue(id_and_coords.id).?;
-                    individual.abs_position.large = .{
-                        individual.abs_position.large[0].plus(id_and_coords.coords[0]),
-                        individual.abs_position.large[1].plus(id_and_coords.coords[1]),
-                    };
-                },
-                .polymorph => |polymorph| {
-                    const individual = self.individuals.getValue(polymorph.id).?;
-                    individual.species = polymorph.to;
-                },
-                .terrain_init => |terrain| {
-                    self.terrain = terrain;
-                },
-                .terrain_update => |data| {
-                    self.terrain.atCoord(data.at).?.* = data.to;
-                },
-                .transition_to_next_level => {
-                    self.level_number += 1;
-                },
-            }
-        }
-    }
-    fn undoStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
-        for (state_changes) |_, forwards_i| {
-            // undo backwards
-            const diff = state_changes[state_changes.len - 1 - forwards_i];
-            switch (diff) {
-                .spawn => |individual| {
-                    self.individuals.removeAssertDiscard(individual.id);
-                },
-                .despawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
-                },
-                .small_move => |id_and_coord| {
-                    const individual = self.individuals.getValue(id_and_coord.id).?;
-                    individual.abs_position.small = individual.abs_position.small.minus(id_and_coord.coord);
-                },
-                .large_move => |id_and_coords| {
-                    const individual = self.individuals.getValue(id_and_coords.id).?;
-                    individual.abs_position.large = .{
-                        individual.abs_position.large[0].minus(id_and_coords.coords[0]),
-                        individual.abs_position.large[1].minus(id_and_coords.coords[1]),
-                    };
-                },
-                .polymorph => |polymorph| {
-                    const individual = self.individuals.getValue(polymorph.id).?;
-                    individual.species = polymorph.from;
-                },
-                .terrain_init => {
-                    @panic("can't undo terrain init");
-                },
-                .terrain_update => |data| {
-                    self.terrain.atCoord(data.at).?.* = data.from;
-                },
-                .transition_to_next_level => {
-                    self.level_number -= 1;
-                },
-            }
-        }
-    }
-
-    pub fn terrainAt(self: GameState, coord: Coord) TerrainSpace {
-        return self.terrain.getCoord(coord) orelse oob_terrain;
     }
 };
 

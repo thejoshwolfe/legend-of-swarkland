@@ -82,3 +82,18 @@ pub fn applyMovementToPosition(position: ThingPosition, move_delta: Coord) Thing
         },
     }
 }
+
+pub const Anatomy = enum {
+    humanoid,
+    centauroid,
+    quadruped,
+    kangaroid,
+};
+pub fn getAnatomy(species: Species) Anatomy {
+    switch (species) {
+        .human, .orc => return .humanoid,
+        .centaur => return .centauroid,
+        .turtle, .rhino => return .quadruped,
+        .kangaroo => return .kangaroid,
+    }
+}
