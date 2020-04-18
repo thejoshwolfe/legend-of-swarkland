@@ -10,6 +10,9 @@ const ThingPosition = core.protocol.ThingPosition;
 const TerrainSpace = core.protocol.TerrainSpace;
 const StatusConditions = core.protocol.StatusConditions;
 
+const map_gen = @import("./map_gen.zig");
+const generateLevels = map_gen.generateLevels;
+
 /// Shallow copies the argument to a newly allocated pointer.
 fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@TypeOf(obj) {
     var x = try allocator.create(@TypeOf(obj));
@@ -74,9 +77,6 @@ pub const StateDiff = union(enum) {
         to: StatusConditions,
     },
 
-    /// can only be in the start game events. can never be undone.
-    terrain_init: Terrain,
-
     terrain_update: TerrainDiff,
     pub const TerrainDiff = struct {
         at: Coord,
@@ -91,15 +91,39 @@ pub const GameState = struct {
     allocator: *std.mem.Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
+    the_levels: []const Level,
     level_number: u16,
 
-    pub fn init(allocator: *std.mem.Allocator) GameState {
-        return GameState{
+    pub fn generate(allocator: *std.mem.Allocator) !GameState {
+        var game_state = GameState{
             .allocator = allocator,
-            .terrain = Terrain.initEmpty(),
+            .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
+            .the_levels = generateLevels(),
             .level_number = 0,
         };
+
+        game_state.terrain = try buildTheTerrain(allocator, game_state.the_levels);
+
+        // human is always id 1
+        var non_human_id_cursor: u32 = 2;
+        var found_human = false;
+        for (game_state.the_levels[0].individuals) |template_individual, i| {
+            var id: u32 = undefined;
+            if (template_individual.species == .human) {
+                id = 1;
+                found_human = true;
+            } else {
+                id = non_human_id_cursor;
+                non_human_id_cursor += 1;
+            }
+            const individual = try allocClone(allocator, template_individual);
+            individual.id = id;
+            try game_state.individuals.putNoClobber(id, individual);
+        }
+        std.debug.assert(found_human);
+
+        return game_state;
     }
 
     pub fn clone(self: GameState) !GameState {
@@ -114,6 +138,7 @@ pub const GameState = struct {
                 }
                 break :blk ret;
             },
+            .the_levels = self.the_levels,
             .level_number = self.level_number,
         };
     }
@@ -145,9 +170,6 @@ pub const GameState = struct {
                 .status_condition_diff => |data| {
                     const individual = self.individuals.getValue(data.id).?;
                     individual.status_conditions = data.to;
-                },
-                .terrain_init => |terrain| {
-                    self.terrain = terrain;
                 },
                 .terrain_update => |data| {
                     self.terrain.atCoord(data.at).?.* = data.to;
@@ -188,9 +210,6 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(data.id).?;
                     individual.status_conditions = data.from;
                 },
-                .terrain_init => {
-                    @panic("can't undo terrain init");
-                },
                 .terrain_update => |data| {
                     self.terrain.atCoord(data.at).?.* = data.from;
                 },
@@ -205,3 +224,26 @@ pub const GameState = struct {
         return self.terrain.getCoord(coord) orelse oob_terrain;
     }
 };
+
+fn buildTheTerrain(allocator: *std.mem.Allocator, the_levels: []const Level) !Terrain {
+    var width: u16 = 0;
+    var height: u16 = 1;
+    for (the_levels) |level| {
+        width += level.width;
+        height = std.math.max(height, level.height);
+    }
+
+    const border_wall = TerrainSpace{
+        .floor = .unknown,
+        .wall = .stone,
+    };
+    var terrain = try Terrain.initFill(allocator, width, height, border_wall);
+
+    var level_x: u16 = 0;
+    for (the_levels) |level| {
+        terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
+        level_x += level.width;
+    }
+
+    return terrain;
+}

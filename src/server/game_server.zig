@@ -30,15 +30,11 @@ const allocator = std.heap.c_allocator;
 pub fn server_main(main_player_queues: *SomeQueues) !void {
     var game_engine: GameEngine = undefined;
     game_engine.init(allocator);
-    var game_state = GameState.init(allocator);
+    var game_state = try GameState.generate(allocator);
 
     // create ai clients
     const main_player_id: u32 = 1;
     var you_are_alive = true;
-    {
-        const happenings = try game_engine.getStartGameHappenings();
-        try game_state.applyStateChanges(happenings.state_changes);
-    }
     // Welcome to swarkland!
     try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
 

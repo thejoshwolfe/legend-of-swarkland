@@ -36,37 +36,11 @@ const Terrain = game_model.Terrain;
 const Level = game_model.Level;
 const oob_terrain = game_model.oob_terrain;
 
-const map_gen = @import("./map_gen.zig");
-const generateLevels = map_gen.generateLevels;
-
 /// Allocates and then calls `init(allocator)` on the new object.
 pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
     var x = try allocator.create(T);
     x.* = T.init(allocator);
     return x;
-}
-
-fn buildTheTerrain(allocator: *std.mem.Allocator, the_levels: []const Level) !Terrain {
-    var width: u16 = 0;
-    var height: u16 = 1;
-    for (the_levels) |level| {
-        width += level.width;
-        height = std.math.max(height, level.height);
-    }
-
-    const border_wall = TerrainSpace{
-        .floor = .unknown,
-        .wall = .stone,
-    };
-    var terrain = try Terrain.initFill(allocator, width, height, border_wall);
-
-    var level_x: u16 = 0;
-    for (the_levels) |level| {
-        terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
-        level_x += level.width;
-    }
-
-    return terrain;
 }
 
 fn assignId(individual: Individual, level_x: i32, id: u32) Individual {
@@ -95,12 +69,10 @@ fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
 // TODO: sort all arrays to hide iteration order from the server
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
-    the_levels: []const Level,
 
     pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) void {
         self.* = GameEngine{
             .allocator = allocator,
-            .the_levels = generateLevels(),
         };
     }
 
@@ -114,42 +86,12 @@ pub const GameEngine = struct {
         }
     }
 
-    pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
-        return Happenings{
-            .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
-            .state_changes = blk: {
-                var ret = ArrayList(StateDiff).init(self.allocator);
-                // human is always id 1
-                var non_human_id_cursor: u32 = 2;
-                var found_human = false;
-                const level_x = 0;
-                for (self.the_levels[0].individuals) |individual, i| {
-                    var id: u32 = undefined;
-                    if (individual.species == .human) {
-                        id = 1;
-                        found_human = true;
-                    } else {
-                        id = non_human_id_cursor;
-                        non_human_id_cursor += 1;
-                    }
-                    try ret.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
-                }
-                std.debug.assert(found_human);
-                try ret.append(StateDiff{
-                    .terrain_init = try buildTheTerrain(self.allocator, self.the_levels),
-                });
-                break :blk ret.toOwnedSlice();
-            },
-        };
-    }
-
     pub const Happenings = struct {
         individual_to_perception: IdMap([]PerceivedFrame),
         state_changes: []StateDiff,
     };
 
     /// Computes what would happen to the state of the game.
-    /// The game_state object passed in should be distroyed and forgotten after this function returns.
     /// This is the entry point for all game rules.
     pub fn computeHappenings(self: *const GameEngine, game_state: *GameState, actions: IdMap(Action)) !Happenings {
         // cache the set of keys so iterator is easier.
@@ -466,7 +408,7 @@ pub const GameEngine = struct {
             }
         }
 
-        if (open_the_way and game_state.level_number + 1 < self.the_levels.len) {
+        if (open_the_way and game_state.level_number + 1 < game_state.the_levels.len) {
             // open the way
             var x: u31 = 0;
             find_the_doors: while (x < game_state.terrain.width) : (x += 1) {
@@ -495,7 +437,7 @@ pub const GameEngine = struct {
 
         if (button_getting_pressed) |button_coord| {
             const new_level_number = blk: {
-                if (game_state.level_number + 1 < self.the_levels.len) {
+                if (game_state.level_number + 1 < game_state.the_levels.len) {
                     try state_changes.append(StateDiff.transition_to_next_level);
                     break :blk game_state.level_number + 1;
                 } else {
@@ -534,10 +476,10 @@ pub const GameEngine = struct {
 
             // spawn enemies
             var level_x: u16 = 0;
-            for (self.the_levels[0..new_level_number]) |level| {
+            for (game_state.the_levels[0..new_level_number]) |level| {
                 level_x += level.width;
             }
-            for (self.the_levels[new_level_number].individuals) |individual| {
+            for (game_state.the_levels[new_level_number].individuals) |individual| {
                 const id = findAvailableId(&new_id_cursor, game_state.individuals);
                 try state_changes.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
             }
