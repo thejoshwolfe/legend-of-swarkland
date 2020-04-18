@@ -32,6 +32,13 @@ pub const oob_terrain = TerrainSpace{
     .wall = .stone,
 };
 
+pub const Level = struct {
+    width: u16,
+    height: u16,
+    terrain: Terrain,
+    individuals: []const Individual,
+};
+
 pub const Individual = struct {
     id: u32,
     species: Species,
