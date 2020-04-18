@@ -182,9 +182,9 @@ fn compileLevel(comptime source: []const u8) Level {
     return level;
 }
 
-const the_levels = blk: {
+fn generateLevels() []const Level {
     @setEvalBranchQuota(10000);
-    break :blk [_]Level{
+    return comptime &[_]Level{
         compileLevel(
             \\#########
             \\        #
@@ -357,9 +357,9 @@ const the_levels = blk: {
             \\##############
         ),
     };
-};
+}
 
-fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
+fn buildTheTerrain(allocator: *std.mem.Allocator, the_levels: []const Level) !Terrain {
     var width: u16 = 0;
     var height: u16 = 1;
     for (the_levels) |level| {
@@ -408,9 +408,13 @@ fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
 // TODO: sort all arrays to hide iteration order from the server
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
+    the_levels: []const Level,
 
     pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) void {
-        self.* = GameEngine{ .allocator = allocator };
+        self.* = GameEngine{
+            .allocator = allocator,
+            .the_levels = generateLevels(),
+        };
     }
 
     pub fn validateAction(self: *const GameEngine, action: Action) bool {
@@ -432,7 +436,7 @@ pub const GameEngine = struct {
                 var non_human_id_cursor: u32 = 2;
                 var found_human = false;
                 const level_x = 0;
-                for (the_levels[0].individuals) |individual, i| {
+                for (self.the_levels[0].individuals) |individual, i| {
                     var id: u32 = undefined;
                     if (individual.species == .human) {
                         id = 1;
@@ -445,7 +449,7 @@ pub const GameEngine = struct {
                 }
                 std.debug.assert(found_human);
                 try ret.append(StateDiff{
-                    .terrain_init = try buildTheTerrain(self.allocator),
+                    .terrain_init = try buildTheTerrain(self.allocator, self.the_levels),
                 });
                 break :blk ret.toOwnedSlice();
             },
@@ -775,7 +779,7 @@ pub const GameEngine = struct {
             }
         }
 
-        if (open_the_way and game_state.level_number + 1 < the_levels.len) {
+        if (open_the_way and game_state.level_number + 1 < self.the_levels.len) {
             // open the way
             var x: u31 = 0;
             find_the_doors: while (x < game_state.terrain.width) : (x += 1) {
@@ -804,7 +808,7 @@ pub const GameEngine = struct {
 
         if (button_getting_pressed) |button_coord| {
             const new_level_number = blk: {
-                if (game_state.level_number + 1 < the_levels.len) {
+                if (game_state.level_number + 1 < self.the_levels.len) {
                     try state_changes.append(StateDiff.transition_to_next_level);
                     break :blk game_state.level_number + 1;
                 } else {
@@ -843,10 +847,10 @@ pub const GameEngine = struct {
 
             // spawn enemies
             var level_x: u16 = 0;
-            for (the_levels[0..new_level_number]) |level| {
+            for (self.the_levels[0..new_level_number]) |level| {
                 level_x += level.width;
             }
-            for (the_levels[new_level_number].individuals) |individual| {
+            for (self.the_levels[new_level_number].individuals) |individual| {
                 const id = findAvailableId(&new_id_cursor, game_state.individuals);
                 try state_changes.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
             }
