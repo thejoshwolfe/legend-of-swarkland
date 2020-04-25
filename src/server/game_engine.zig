@@ -361,11 +361,15 @@ pub const GameEngine = struct {
         {
             var iterator = total_deaths.iterator();
             while (iterator.next()) |kv| {
+                const id = kv.key;
                 try state_changes.append(StateDiff{
                     .despawn = blk: {
-                        var individual = game_state.individuals.getValue(kv.key).?.*;
-                        individual.abs_position = current_positions.getValue(individual.id).?;
-                        break :blk individual;
+                        var individual = game_state.individuals.getValue(id).?.*;
+                        individual.abs_position = current_positions.getValue(id).?;
+                        break :blk .{
+                            .id = id,
+                            .individual = individual,
+                        };
                     },
                 });
             }

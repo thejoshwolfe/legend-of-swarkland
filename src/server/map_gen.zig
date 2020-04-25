@@ -18,7 +18,6 @@ const oob_terrain = game_model.oob_terrain;
 
 fn makeIndividual(allocator: *std.mem.Allocator, small_position: Coord, species: Species) !*Individual {
     return (Individual{
-        .id = 0,
         .species = species,
         .abs_position = .{ .small = small_position },
     }).clone(allocator);

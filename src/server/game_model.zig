@@ -28,7 +28,6 @@ pub const oob_terrain = TerrainSpace{
 };
 
 pub const Individual = struct {
-    id: u32,
     species: Species,
     abs_position: ThingPosition,
     status_conditions: StatusConditions = 0,
@@ -41,8 +40,13 @@ pub const Individual = struct {
 };
 
 pub const StateDiff = union(enum) {
-    spawn: Individual,
-    despawn: Individual,
+    spawn: IdAndIndividual,
+    despawn: IdAndIndividual,
+    pub const IdAndIndividual = struct {
+        id: u32,
+        individual: Individual,
+    };
+
     small_move: IdAndCoord,
     pub const IdAndCoord = struct {
         id: u32,
@@ -109,11 +113,11 @@ pub const GameState = struct {
     fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
         for (state_changes) |diff| {
             switch (diff) {
-                .spawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try individual.clone(self.allocator));
+                .spawn => |data| {
+                    try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
-                .despawn => |individual| {
-                    self.individuals.removeAssertDiscard(individual.id);
+                .despawn => |data| {
+                    self.individuals.removeAssertDiscard(data.id);
                 },
                 .small_move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
@@ -145,11 +149,11 @@ pub const GameState = struct {
             // undo backwards
             const diff = state_changes[state_changes.len - 1 - forwards_i];
             switch (diff) {
-                .spawn => |individual| {
-                    self.individuals.removeAssertDiscard(individual.id);
+                .spawn => |data| {
+                    self.individuals.removeAssertDiscard(data.id);
                 },
-                .despawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try individual.clone(self.allocator));
+                .despawn => |data| {
+                    try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
                 .small_move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
