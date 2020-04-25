@@ -33,7 +33,6 @@ const StateDiff = game_model.StateDiff;
 const IdMap = game_model.IdMap;
 const CoordMap = game_model.CoordMap;
 const Terrain = game_model.Terrain;
-const Level = game_model.Level;
 const oob_terrain = game_model.oob_terrain;
 
 /// Allocates and then calls `init(allocator)` on the new object.
@@ -43,21 +42,6 @@ pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
     return x;
 }
 
-fn assignId(individual: Individual, level_x: i32, id: u32) Individual {
-    var ret = individual;
-    switch (ret.abs_position) {
-        .small => |*coord| {
-            coord.x += level_x;
-        },
-        .large => |*coords| {
-            for (coords) |*coord| {
-                coord.x += level_x;
-            }
-        },
-    }
-    ret.id = id;
-    return ret;
-}
 fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
     while (usedIds.contains(cursor.*)) {
         cursor.* += 1;
@@ -66,7 +50,6 @@ fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
     return cursor.*;
 }
 
-// TODO: sort all arrays to hide iteration order from the server
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
 
@@ -316,26 +299,6 @@ pub const GameEngine = struct {
             }
         }
 
-        var open_the_way = false;
-        var button_getting_pressed: ?Coord = null;
-        if (game_state.individuals.count() - total_deaths.count() <= 1) {
-            // Only one person left. You win!
-            if (total_deaths.count() > 0) {
-                // Spawn the stairs onward.
-                open_the_way = true;
-            }
-            // check for someone on the button
-            for (everybody) |id| {
-                const position = current_positions.getValue(id).?;
-                for (getAllPositions(&position)) |coord| {
-                    if (game_state.terrainAt(coord).floor == .hatch) {
-                        button_getting_pressed = coord;
-                        break;
-                    }
-                }
-            }
-        }
-
         var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
 
         // build state changes
@@ -405,83 +368,6 @@ pub const GameEngine = struct {
                         break :blk individual;
                     },
                 });
-            }
-        }
-
-        if (open_the_way and game_state.level_number + 1 < game_state.the_levels.len) {
-            // open the way
-            var x: u31 = 0;
-            find_the_doors: while (x < game_state.terrain.width) : (x += 1) {
-                var y: u31 = 0;
-                while (y < game_state.terrain.height) : (y += 1) {
-                    const terrain_space = game_state.terrain.atUnchecked(x, y);
-                    if (terrain_space.wall == .dirt) {
-                        const coord = makeCoord(x, y);
-                        try state_changes.append(StateDiff{
-                            .terrain_update = StateDiff.TerrainDiff{
-                                .at = coord,
-                                .from = game_state.terrain.getCoord(coord).?,
-                                .to = TerrainSpace{
-                                    .floor = .marble,
-                                    .wall = .air,
-                                },
-                            },
-                        });
-                    } else if (terrain_space.floor == .hatch) {
-                        // only open doors until the next hatch
-                        break :find_the_doors;
-                    }
-                }
-            }
-        }
-
-        if (button_getting_pressed) |button_coord| {
-            const new_level_number = blk: {
-                if (game_state.level_number + 1 < game_state.the_levels.len) {
-                    try state_changes.append(StateDiff.transition_to_next_level);
-                    break :blk game_state.level_number + 1;
-                } else {
-                    break :blk game_state.level_number;
-                }
-            };
-
-            // close any open paths
-            for (game_state.terrain.data) |terrain_space, i| {
-                if (terrain_space.floor == .marble) {
-                    const coord = game_state.terrain.indexToCoord(i);
-                    try state_changes.append(StateDiff{
-                        .terrain_update = StateDiff.TerrainDiff{
-                            .at = coord,
-                            .from = game_state.terrain.getCoord(coord).?,
-                            .to = TerrainSpace{
-                                .floor = .unknown,
-                                .wall = .stone,
-                            },
-                        },
-                    });
-                }
-            }
-
-            // destroy the button
-            try state_changes.append(StateDiff{
-                .terrain_update = StateDiff.TerrainDiff{
-                    .at = button_coord,
-                    .from = game_state.terrain.getCoord(button_coord).?,
-                    .to = TerrainSpace{
-                        .floor = .dirt,
-                        .wall = .air,
-                    },
-                },
-            });
-
-            // spawn enemies
-            var level_x: u16 = 0;
-            for (game_state.the_levels[0..new_level_number]) |level| {
-                level_x += level.width;
-            }
-            for (game_state.the_levels[new_level_number].individuals) |individual| {
-                const id = findAvailableId(&new_id_cursor, game_state.individuals);
-                try state_changes.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
             }
         }
 

@@ -11,14 +11,6 @@ const TerrainSpace = core.protocol.TerrainSpace;
 const StatusConditions = core.protocol.StatusConditions;
 
 const map_gen = @import("./map_gen.zig");
-const generateLevels = map_gen.generateLevels;
-
-/// Shallow copies the argument to a newly allocated pointer.
-fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@TypeOf(obj) {
-    var x = try allocator.create(@TypeOf(obj));
-    x.* = obj;
-    return x;
-}
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
@@ -35,18 +27,17 @@ pub const oob_terrain = TerrainSpace{
     .wall = .stone,
 };
 
-pub const Level = struct {
-    width: u16,
-    height: u16,
-    terrain: Terrain,
-    individuals: []const Individual,
-};
-
 pub const Individual = struct {
     id: u32,
     species: Species,
     abs_position: ThingPosition,
     status_conditions: StatusConditions = 0,
+
+    fn clone(self: Individual, allocator: *std.mem.Allocator) !*Individual {
+        var other = try allocator.create(Individual);
+        other.* = self;
+        return other;
+    }
 };
 
 pub const StateDiff = union(enum) {
@@ -83,46 +74,20 @@ pub const StateDiff = union(enum) {
         from: TerrainSpace,
         to: TerrainSpace,
     };
-
-    transition_to_next_level,
 };
 
 pub const GameState = struct {
     allocator: *std.mem.Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
-    the_levels: []const Level,
-    level_number: u16,
 
     pub fn generate(allocator: *std.mem.Allocator) !GameState {
         var game_state = GameState{
             .allocator = allocator,
             .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
-            .the_levels = generateLevels(),
-            .level_number = 0,
         };
-
-        game_state.terrain = try buildTheTerrain(allocator, game_state.the_levels);
-
-        // human is always id 1
-        var non_human_id_cursor: u32 = 2;
-        var found_human = false;
-        for (game_state.the_levels[0].individuals) |template_individual, i| {
-            var id: u32 = undefined;
-            if (template_individual.species == .human) {
-                id = 1;
-                found_human = true;
-            } else {
-                id = non_human_id_cursor;
-                non_human_id_cursor += 1;
-            }
-            const individual = try allocClone(allocator, template_individual);
-            individual.id = id;
-            try game_state.individuals.putNoClobber(id, individual);
-        }
-        std.debug.assert(found_human);
-
+        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals);
         return game_state;
     }
 
@@ -134,12 +99,10 @@ pub const GameState = struct {
                 var ret = IdMap(*Individual).init(self.allocator);
                 var iterator = self.individuals.iterator();
                 while (iterator.next()) |kv| {
-                    try ret.putNoClobber(kv.key, try allocClone(self.allocator, kv.value.*));
+                    try ret.putNoClobber(kv.key, try kv.value.*.clone(self.allocator));
                 }
                 break :blk ret;
             },
-            .the_levels = self.the_levels,
-            .level_number = self.level_number,
         };
     }
 
@@ -147,7 +110,7 @@ pub const GameState = struct {
         for (state_changes) |diff| {
             switch (diff) {
                 .spawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
+                    try self.individuals.putNoClobber(individual.id, try individual.clone(self.allocator));
                 },
                 .despawn => |individual| {
                     self.individuals.removeAssertDiscard(individual.id);
@@ -174,9 +137,6 @@ pub const GameState = struct {
                 .terrain_update => |data| {
                     self.terrain.atCoord(data.at).?.* = data.to;
                 },
-                .transition_to_next_level => {
-                    self.level_number += 1;
-                },
             }
         }
     }
@@ -189,7 +149,7 @@ pub const GameState = struct {
                     self.individuals.removeAssertDiscard(individual.id);
                 },
                 .despawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
+                    try self.individuals.putNoClobber(individual.id, try individual.clone(self.allocator));
                 },
                 .small_move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
@@ -213,9 +173,6 @@ pub const GameState = struct {
                 .terrain_update => |data| {
                     self.terrain.atCoord(data.at).?.* = data.from;
                 },
-                .transition_to_next_level => {
-                    self.level_number -= 1;
-                },
             }
         }
     }
@@ -224,26 +181,3 @@ pub const GameState = struct {
         return self.terrain.getCoord(coord) orelse oob_terrain;
     }
 };
-
-fn buildTheTerrain(allocator: *std.mem.Allocator, the_levels: []const Level) !Terrain {
-    var width: u16 = 0;
-    var height: u16 = 1;
-    for (the_levels) |level| {
-        width += level.width;
-        height = std.math.max(height, level.height);
-    }
-
-    const border_wall = TerrainSpace{
-        .floor = .unknown,
-        .wall = .stone,
-    };
-    var terrain = try Terrain.initFill(allocator, width, height, border_wall);
-
-    var level_x: u16 = 0;
-    for (the_levels) |level| {
-        terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
-        level_x += level.width;
-    }
-
-    return terrain;
-}
