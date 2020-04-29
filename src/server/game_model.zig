@@ -10,12 +10,7 @@ const ThingPosition = core.protocol.ThingPosition;
 const TerrainSpace = core.protocol.TerrainSpace;
 const StatusConditions = core.protocol.StatusConditions;
 
-/// Shallow copies the argument to a newly allocated pointer.
-fn allocClone(allocator: *std.mem.Allocator, obj: var) !*@TypeOf(obj) {
-    var x = try allocator.create(@TypeOf(obj));
-    x.* = obj;
-    return x;
-}
+const map_gen = @import("./map_gen.zig");
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
@@ -33,15 +28,25 @@ pub const oob_terrain = TerrainSpace{
 };
 
 pub const Individual = struct {
-    id: u32,
     species: Species,
     abs_position: ThingPosition,
     status_conditions: StatusConditions = 0,
+
+    fn clone(self: Individual, allocator: *std.mem.Allocator) !*Individual {
+        var other = try allocator.create(Individual);
+        other.* = self;
+        return other;
+    }
 };
 
 pub const StateDiff = union(enum) {
-    spawn: Individual,
-    despawn: Individual,
+    spawn: IdAndIndividual,
+    despawn: IdAndIndividual,
+    pub const IdAndIndividual = struct {
+        id: u32,
+        individual: Individual,
+    };
+
     small_move: IdAndCoord,
     pub const IdAndCoord = struct {
         id: u32,
@@ -67,32 +72,27 @@ pub const StateDiff = union(enum) {
         to: StatusConditions,
     },
 
-    /// can only be in the start game events. can never be undone.
-    terrain_init: Terrain,
-
     terrain_update: TerrainDiff,
     pub const TerrainDiff = struct {
         at: Coord,
         from: TerrainSpace,
         to: TerrainSpace,
     };
-
-    transition_to_next_level,
 };
 
 pub const GameState = struct {
     allocator: *std.mem.Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
-    level_number: u16,
 
-    pub fn init(allocator: *std.mem.Allocator) GameState {
-        return GameState{
+    pub fn generate(allocator: *std.mem.Allocator) !GameState {
+        var game_state = GameState{
             .allocator = allocator,
-            .terrain = Terrain.initEmpty(),
+            .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
-            .level_number = 0,
         };
+        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals);
+        return game_state;
     }
 
     pub fn clone(self: GameState) !GameState {
@@ -103,22 +103,21 @@ pub const GameState = struct {
                 var ret = IdMap(*Individual).init(self.allocator);
                 var iterator = self.individuals.iterator();
                 while (iterator.next()) |kv| {
-                    try ret.putNoClobber(kv.key, try allocClone(self.allocator, kv.value.*));
+                    try ret.putNoClobber(kv.key, try kv.value.*.clone(self.allocator));
                 }
                 break :blk ret;
             },
-            .level_number = self.level_number,
         };
     }
 
     fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
         for (state_changes) |diff| {
             switch (diff) {
-                .spawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
+                .spawn => |data| {
+                    try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
-                .despawn => |individual| {
-                    self.individuals.removeAssertDiscard(individual.id);
+                .despawn => |data| {
+                    self.individuals.removeAssertDiscard(data.id);
                 },
                 .small_move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
@@ -139,14 +138,8 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(data.id).?;
                     individual.status_conditions = data.to;
                 },
-                .terrain_init => |terrain| {
-                    self.terrain = terrain;
-                },
                 .terrain_update => |data| {
                     self.terrain.atCoord(data.at).?.* = data.to;
-                },
-                .transition_to_next_level => {
-                    self.level_number += 1;
                 },
             }
         }
@@ -156,11 +149,11 @@ pub const GameState = struct {
             // undo backwards
             const diff = state_changes[state_changes.len - 1 - forwards_i];
             switch (diff) {
-                .spawn => |individual| {
-                    self.individuals.removeAssertDiscard(individual.id);
+                .spawn => |data| {
+                    self.individuals.removeAssertDiscard(data.id);
                 },
-                .despawn => |individual| {
-                    try self.individuals.putNoClobber(individual.id, try allocClone(self.allocator, individual));
+                .despawn => |data| {
+                    try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
                 .small_move => |id_and_coord| {
                     const individual = self.individuals.getValue(id_and_coord.id).?;
@@ -181,14 +174,8 @@ pub const GameState = struct {
                     const individual = self.individuals.getValue(data.id).?;
                     individual.status_conditions = data.from;
                 },
-                .terrain_init => {
-                    @panic("can't undo terrain init");
-                },
                 .terrain_update => |data| {
                     self.terrain.atCoord(data.at).?.* = data.from;
-                },
-                .transition_to_next_level => {
-                    self.level_number -= 1;
                 },
             }
         }

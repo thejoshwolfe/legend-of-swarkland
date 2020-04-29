@@ -34,7 +34,6 @@ const IdMap = game_model.IdMap;
 const CoordMap = game_model.CoordMap;
 const Terrain = game_model.Terrain;
 const oob_terrain = game_model.oob_terrain;
-const allocClone = game_model.allocClone;
 
 /// Allocates and then calls `init(allocator)` on the new object.
 pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
@@ -43,360 +42,6 @@ pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
     return x;
 }
 
-fn makeIndividual(small_position: Coord, species: Species) Individual {
-    return .{
-        .id = 0,
-        .species = species,
-        .abs_position = .{ .small = small_position },
-    };
-}
-fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Species) Individual {
-    return .{
-        .id = 0,
-        .species = species,
-        .abs_position = .{ .large = .{ head_position, tail_position } },
-    };
-}
-
-const Level = struct {
-    width: u16,
-    height: u16,
-    terrain: Terrain,
-    individuals: []const Individual,
-};
-fn compileLevel(comptime source: []const u8) Level {
-    // measure dimensions.
-    const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
-    const height = @intCast(u16, @divExact(source.len + 1, width + 1));
-    var terrain_space = [_]TerrainSpace{oob_terrain} ** (width * height);
-    comptime var level = Level{
-        .width = width,
-        .height = height,
-        .terrain = Terrain.initData(width, height, &terrain_space),
-        .individuals = &[_]Individual{},
-    };
-
-    {
-        comptime var cursor: usize = 0;
-        comptime var y: u16 = 0;
-        while (y < height) : (y += 1) {
-            comptime var x: u16 = 0;
-            while (x < width) : (x += 1) {
-                switch (source[cursor]) {
-                    '#' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
-                            .floor = .unknown,
-                            .wall = .stone,
-                        };
-                    },
-                    '+' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
-                            .floor = .unknown,
-                            .wall = .dirt,
-                        };
-                    },
-                    ' ' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
-                            .floor = .dirt,
-                            .wall = .air,
-                        };
-                    },
-                    ';' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
-                            .floor = .lava,
-                            .wall = .air,
-                        };
-                    },
-                    '_' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
-                            .floor = .hatch,
-                            .wall = .air,
-                        };
-                    },
-                    '=' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{
-                            .floor = .dirt,
-                            .wall = .centaur_transformer,
-                        };
-                    },
-                    'o' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .orc)};
-                    },
-                    'C' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .centaur)};
-                    },
-                    'k' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .kangaroo)};
-                    },
-                    't' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .turtle)};
-                    },
-                    'h' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .human)};
-                    },
-                    '<' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
-                            makeCoord(x, y),
-                            makeCoord(x + 1, y),
-                            .rhino,
-                        )};
-                    },
-                    '>' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
-                            makeCoord(x, y),
-                            makeCoord(x - 1, y),
-                            .rhino,
-                        )};
-                    },
-                    '^' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
-                            makeCoord(x, y),
-                            makeCoord(x, y + 1),
-                            .rhino,
-                        )};
-                    },
-                    'v' => {
-                        level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                        level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
-                            makeCoord(x, y),
-                            makeCoord(x, y - 1),
-                            .rhino,
-                        )};
-                    },
-                    else => unreachable,
-                }
-                cursor += 1;
-            }
-            cursor += 1;
-        }
-    }
-
-    return level;
-}
-
-const the_levels = blk: {
-    @setEvalBranchQuota(10000);
-    break :blk [_]Level{
-        compileLevel(
-            \\#########
-            \\        #
-            \\ o      #
-            \\        #
-            \\        +
-            \\        #
-            \\        #
-            \\      h #
-            \\        #
-            \\#########
-        ),
-        compileLevel(
-            \\#########
-            \\        #
-            \\        #
-            \\  oo    +
-            \\   _o   #
-            \\        #
-            \\        #
-            \\        #
-            \\        #
-            \\#########
-        ),
-        compileLevel(
-            \\#######
-            \\;;;;;;#
-            \\     o+
-            \\_    C#
-            \\     o#
-            \\;;;;;;#
-            \\#######
-        ),
-        compileLevel(
-            \\##########
-            \\C        #
-            \\   _     +
-            \\         #
-            \\         #
-            \\         #
-            \\        C#
-            \\##########
-        ),
-        compileLevel(
-            \\#############
-            \\;;;;;;;;;;;;#
-            \\     _      #
-            \\            #
-            \\            #
-            \\            +
-            \\            #
-            \\   CCCCC    #
-            \\;;;;;;;;;;;;#
-            \\#############
-        ),
-        compileLevel(
-            \\#########
-            \\        #
-            \\        #
-            \\        #
-            \\        #
-            \\  _ k   +
-            \\        #
-            \\        #
-            \\        #
-            \\#########
-        ),
-        compileLevel(
-            \\#########
-            \\        #
-            \\        #
-            \\      t #
-            \\   ;;   +
-            \\ t ;; _ #
-            \\   ;;   #
-            \\        #
-            \\        #
-            \\#########
-        ),
-        compileLevel(
-            \\#########
-            \\        #
-            \\        #
-            \\        #
-            \\ _t;;   +
-            \\ t ;; C #
-            \\   ;;   #
-            \\        #
-            \\        #
-            \\#########
-        ),
-        compileLevel(
-            \\#######
-            \\;;;;;;#
-            \\      #
-            \\    < #
-            \\ _    #
-            \\      #
-            \\      #
-            \\      +
-            \\;;;;;;#
-            \\#######
-        ),
-        compileLevel(
-            \\#########
-            \\        #
-            \\  >     #
-            \\        #
-            \\        #
-            \\      C #
-            \\        #
-            \\   _    +
-            \\        #
-            \\#########
-        ),
-        compileLevel(
-            \\#########
-            \\        #
-            \\        #
-            \\   >    #
-            \\        #
-            \\   t    #
-            \\     t  #
-            \\   _t   +
-            \\C       #
-            \\#########
-        ),
-        compileLevel(
-            \\#########
-            \\     ;  #
-            \\     ;  +
-            \\ k   ;  #
-            \\     ;  #
-            \\      C #
-            \\     ;  #
-            \\ _o  ;  #
-            \\ko   ;  #
-            \\     ;  #
-            \\#########
-        ),
-        compileLevel(
-            \\###########
-            \\##        #
-            \\=+ _      #
-            \\##      h #
-            \\##        +
-            \\###########
-        ),
-        compileLevel(
-            \\########
-            \\  CCC  #
-            \\      h+
-            \\C     h#
-            \\C  _   #
-            \\C     h#
-            \\      h#
-            \\  ooo  #
-            \\########
-        ),
-        compileLevel(
-            \\##############
-            \\             #
-            \\ _ _  _  _ _ #
-            \\  _  _ _ _ _ #
-            \\  _   _   __ #
-            \\             #
-            \\ _   _ _ __  #
-            \\ _ _ _ _ _ _ #
-            \\  _ _  _ _ _ #
-            \\##############
-        ),
-    };
-};
-
-fn buildTheTerrain(allocator: *std.mem.Allocator) !Terrain {
-    var width: u16 = 0;
-    var height: u16 = 1;
-    for (the_levels) |level| {
-        width += level.width;
-        height = std.math.max(height, level.height);
-    }
-
-    const border_wall = TerrainSpace{
-        .floor = .unknown,
-        .wall = .stone,
-    };
-    var terrain = try Terrain.initFill(allocator, width, height, border_wall);
-
-    var level_x: u16 = 0;
-    for (the_levels) |level| {
-        terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
-        level_x += level.width;
-    }
-
-    return terrain;
-}
-
-fn assignId(individual: Individual, level_x: i32, id: u32) Individual {
-    var ret = individual;
-    switch (ret.abs_position) {
-        .small => |*coord| {
-            coord.x += level_x;
-        },
-        .large => |*coords| {
-            for (coords) |*coord| {
-                coord.x += level_x;
-            }
-        },
-    }
-    ret.id = id;
-    return ret;
-}
 fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
     while (usedIds.contains(cursor.*)) {
         cursor.* += 1;
@@ -405,12 +50,13 @@ fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
     return cursor.*;
 }
 
-// TODO: sort all arrays to hide iteration order from the server
 pub const GameEngine = struct {
     allocator: *std.mem.Allocator,
 
     pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) void {
-        self.* = GameEngine{ .allocator = allocator };
+        self.* = GameEngine{
+            .allocator = allocator,
+        };
     }
 
     pub fn validateAction(self: *const GameEngine, action: Action) bool {
@@ -423,42 +69,12 @@ pub const GameEngine = struct {
         }
     }
 
-    pub fn getStartGameHappenings(self: *const GameEngine) !Happenings {
-        return Happenings{
-            .individual_to_perception = IdMap([]PerceivedFrame).init(self.allocator),
-            .state_changes = blk: {
-                var ret = ArrayList(StateDiff).init(self.allocator);
-                // human is always id 1
-                var non_human_id_cursor: u32 = 2;
-                var found_human = false;
-                const level_x = 0;
-                for (the_levels[0].individuals) |individual, i| {
-                    var id: u32 = undefined;
-                    if (individual.species == .human) {
-                        id = 1;
-                        found_human = true;
-                    } else {
-                        id = non_human_id_cursor;
-                        non_human_id_cursor += 1;
-                    }
-                    try ret.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
-                }
-                std.debug.assert(found_human);
-                try ret.append(StateDiff{
-                    .terrain_init = try buildTheTerrain(self.allocator),
-                });
-                break :blk ret.toOwnedSlice();
-            },
-        };
-    }
-
     pub const Happenings = struct {
         individual_to_perception: IdMap([]PerceivedFrame),
         state_changes: []StateDiff,
     };
 
     /// Computes what would happen to the state of the game.
-    /// The game_state object passed in should be distroyed and forgotten after this function returns.
     /// This is the entry point for all game rules.
     pub fn computeHappenings(self: *const GameEngine, game_state: *GameState, actions: IdMap(Action)) !Happenings {
         // cache the set of keys so iterator is easier.
@@ -666,7 +282,9 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             const position = current_positions.getValue(id).?;
             for (getAllPositions(&position)) |coord| {
-                if (game_state.terrainAt(coord).wall == .centaur_transformer) {
+                if (game_state.terrainAt(coord).wall == .centaur_transformer and
+                    game_state.individuals.getValue(id).?.species != .centaur)
+                {
                     try polymorphs.putNoClobber(id, .centaur);
                 }
             }
@@ -680,26 +298,6 @@ pub const GameEngine = struct {
                     &current_positions,
                     Activities{ .polymorphs = &polymorphs },
                 );
-            }
-        }
-
-        var open_the_way = false;
-        var button_getting_pressed: ?Coord = null;
-        if (game_state.individuals.count() - total_deaths.count() <= 1) {
-            // Only one person left. You win!
-            if (total_deaths.count() > 0) {
-                // Spawn the stairs onward.
-                open_the_way = true;
-            }
-            // check for someone on the button
-            for (everybody) |id| {
-                const position = current_positions.getValue(id).?;
-                for (getAllPositions(&position)) |coord| {
-                    if (game_state.terrainAt(coord).floor == .hatch) {
-                        button_getting_pressed = coord;
-                        break;
-                    }
-                }
             }
         }
 
@@ -765,90 +363,17 @@ pub const GameEngine = struct {
         {
             var iterator = total_deaths.iterator();
             while (iterator.next()) |kv| {
+                const id = kv.key;
                 try state_changes.append(StateDiff{
                     .despawn = blk: {
-                        var individual = game_state.individuals.getValue(kv.key).?.*;
-                        individual.abs_position = current_positions.getValue(individual.id).?;
-                        break :blk individual;
+                        var individual = game_state.individuals.getValue(id).?.*;
+                        individual.abs_position = current_positions.getValue(id).?;
+                        break :blk .{
+                            .id = id,
+                            .individual = individual,
+                        };
                     },
                 });
-            }
-        }
-
-        if (open_the_way and game_state.level_number + 1 < the_levels.len) {
-            // open the way
-            var x: u31 = 0;
-            find_the_doors: while (x < game_state.terrain.width) : (x += 1) {
-                var y: u31 = 0;
-                while (y < game_state.terrain.height) : (y += 1) {
-                    const terrain_space = game_state.terrain.atUnchecked(x, y);
-                    if (terrain_space.wall == .dirt) {
-                        const coord = makeCoord(x, y);
-                        try state_changes.append(StateDiff{
-                            .terrain_update = StateDiff.TerrainDiff{
-                                .at = coord,
-                                .from = game_state.terrain.getCoord(coord).?,
-                                .to = TerrainSpace{
-                                    .floor = .marble,
-                                    .wall = .air,
-                                },
-                            },
-                        });
-                    } else if (terrain_space.floor == .hatch) {
-                        // only open doors until the next hatch
-                        break :find_the_doors;
-                    }
-                }
-            }
-        }
-
-        if (button_getting_pressed) |button_coord| {
-            const new_level_number = blk: {
-                if (game_state.level_number + 1 < the_levels.len) {
-                    try state_changes.append(StateDiff.transition_to_next_level);
-                    break :blk game_state.level_number + 1;
-                } else {
-                    break :blk game_state.level_number;
-                }
-            };
-
-            // close any open paths
-            for (game_state.terrain.data) |terrain_space, i| {
-                if (terrain_space.floor == .marble) {
-                    const coord = game_state.terrain.indexToCoord(i);
-                    try state_changes.append(StateDiff{
-                        .terrain_update = StateDiff.TerrainDiff{
-                            .at = coord,
-                            .from = game_state.terrain.getCoord(coord).?,
-                            .to = TerrainSpace{
-                                .floor = .unknown,
-                                .wall = .stone,
-                            },
-                        },
-                    });
-                }
-            }
-
-            // destroy the button
-            try state_changes.append(StateDiff{
-                .terrain_update = StateDiff.TerrainDiff{
-                    .at = button_coord,
-                    .from = game_state.terrain.getCoord(button_coord).?,
-                    .to = TerrainSpace{
-                        .floor = .dirt,
-                        .wall = .air,
-                    },
-                },
-            });
-
-            // spawn enemies
-            var level_x: u16 = 0;
-            for (the_levels[0..new_level_number]) |level| {
-                level_x += level.width;
-            }
-            for (the_levels[new_level_number].individuals) |individual| {
-                const id = findAvailableId(&new_id_cursor, game_state.individuals);
-                try state_changes.append(StateDiff{ .spawn = assignId(individual, level_x, id) });
             }
         }
 
@@ -1264,11 +789,7 @@ pub const GameEngine = struct {
             }
         }
 
-        var you_win = blk: for (game_state.terrain.data) |space| {
-            if (space.floor == .hatch) {
-                break :blk false;
-            }
-        } else true;
+        const you_win = game_state.individuals.count() == 1;
 
         return PerceivedFrame{
             .self = yourself.?,
