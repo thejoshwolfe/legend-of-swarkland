@@ -64,14 +64,77 @@ const MapGenerator = struct {
             .wall = .air,
         });
 
-        // You are the human.
-        try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(makeCoord(0, 0), .human));
-
-        const enemy_count = self.random.intRangeAtMost(usize, 10, 20);
-        var i: usize = 0;
-        while (i < enemy_count) : (i += 1) {
-            var location = makeCoord(self.random.intRangeLessThan(i32, 1, width), self.random.intRangeLessThan(i32, 1, height));
-            try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(location, .orc));
+        var free_spaces = try ArrayList(Coord).initCapacity(self.allocator, width * height);
+        var y: i32 = 0;
+        while (y < height) : (y += 1) {
+            var x: i32 = 0;
+            while (x < width) : (x += 1) {
+                free_spaces.append(makeCoord(x, y)) catch unreachable;
+            }
         }
+
+        // You are the human.
+        try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .human));
+
+        // throw enemies around
+        {
+            const count = self.random.intRangeAtMost(usize, 10, 20);
+            var i: usize = 0;
+            while (i < count) : (i += 1) {
+                try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .orc));
+            }
+        }
+
+        // let's throw around some lava.
+        {
+            const count = self.random.intRangeAtMost(usize, 40, 80);
+            var i: usize = 0;
+            while (i < count) : (i += 1) {
+                self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
+                    .floor = .lava,
+                    .wall = .air,
+                };
+            }
+        }
+
+        // maybe a heal spot
+        {
+            const count = self.random.intRangeAtMost(usize, 0, 1);
+            var i: usize = 0;
+            while (i < count) : (i += 1) {
+                self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
+                    .floor = .marble,
+                    .wall = .air,
+                };
+            }
+        }
+
+        // and some walls
+        {
+            const count = self.random.intRangeAtMost(usize, 20, 40);
+            var i: usize = 0;
+            while (i < count) : (i += 1) {
+                self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
+                    .floor = .dirt,
+                    .wall = .dirt,
+                };
+            }
+        }
+
+        // have fun
+        {
+            const count = self.random.intRangeAtMost(usize, 1, 2);
+            var i: usize = 0;
+            while (i < count) : (i += 1) {
+                self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
+                    .floor = .dirt,
+                    .wall = .centaur_transformer,
+                };
+            }
+        }
+    }
+
+    fn popRandom(self: *@This(), array: *ArrayList(Coord)) Coord {
+        return array.swapRemove(self.random.uintLessThan(usize, array.items.len));
     }
 };

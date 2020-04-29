@@ -282,7 +282,9 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             const position = current_positions.getValue(id).?;
             for (getAllPositions(&position)) |coord| {
-                if (game_state.terrainAt(coord).wall == .centaur_transformer) {
+                if (game_state.terrainAt(coord).wall == .centaur_transformer and
+                    game_state.individuals.getValue(id).?.species != .centaur)
+                {
                     try polymorphs.putNoClobber(id, .centaur);
                 }
             }
