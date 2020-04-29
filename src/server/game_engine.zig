@@ -789,11 +789,7 @@ pub const GameEngine = struct {
             }
         }
 
-        var you_win = blk: for (game_state.terrain.data) |space| {
-            if (space.floor == .hatch) {
-                break :blk false;
-            }
-        } else true;
+        const you_win = game_state.individuals.count() == 1;
 
         return PerceivedFrame{
             .self = yourself.?,
