@@ -450,11 +450,20 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 // tutorials
+                var dealloc_buffer: ?[]u8 = null;
                 var maybe_tutorial_text: ?[]const u8 = null;
                 if (frame.self.activity == .death) {
                     maybe_tutorial_text = "you died. use Backspace to undo.";
-                } else if (frame.you_win) {
-                    maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
+                } else if (frame.winning_score) |score| {
+                    if (score == 1) {
+                        maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
+                    } else {
+                        dealloc_buffer = try std.fmt.allocPrint(allocator, "team {} wins with {} points. Ctrl+R to quit.", .{
+                            @tagName(frame.self.species),
+                            score,
+                        });
+                        maybe_tutorial_text = dealloc_buffer.?;
+                    }
                 } else if (state.observed_kangaroo_death and state.kicks_performed < 2) {
                     maybe_tutorial_text = "You learned to kick! Use K+Arrows.";
                 }
@@ -464,6 +473,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     if (animated_y > 10) animated_y = 20 - animated_y;
                     const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
                     const size = textures.renderTextScaled(renderer, tutorial_text, coord, true, 1);
+                }
+                if (dealloc_buffer) |buf| {
+                    allocator.free(buf);
                 }
             },
         }

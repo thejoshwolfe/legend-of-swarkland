@@ -77,7 +77,7 @@ pub const PerceivedFrame = struct {
 
     self: PerceivedThing,
     others: []PerceivedThing,
-    you_win: bool,
+    winning_score: ?i32,
 };
 
 pub const ThingPosition = union(enum) {
