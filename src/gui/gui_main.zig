@@ -453,7 +453,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 var maybe_tutorial_text: ?[]const u8 = null;
                 if (frame.self.activity == .death) {
                     maybe_tutorial_text = "you died. use Backspace to undo.";
-                } else if (frame.you_win) {
+                } else if (frame.winning_score) |score| {
                     maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
                 } else if (state.observed_kangaroo_death and state.kicks_performed < 2) {
                     maybe_tutorial_text = "You learned to kick! Use K+Arrows.";

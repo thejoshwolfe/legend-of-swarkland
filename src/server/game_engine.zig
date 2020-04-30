@@ -696,80 +696,82 @@ pub const GameEngine = struct {
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
 
-        var iterator = game_state.individuals.iterator();
-        while (iterator.next()) |kv| {
-            const id = kv.key;
-            const activity = switch (activities) {
-                .movement => |data| if (data.intended_moves.getValue(id)) |move_delta|
-                    if (data.next_positions.contains(id))
-                        PerceivedActivity{ .movement = move_delta }
+        {
+            var iterator = game_state.individuals.iterator();
+            while (iterator.next()) |kv| {
+                const id = kv.key;
+                const activity = switch (activities) {
+                    .movement => |data| if (data.intended_moves.getValue(id)) |move_delta|
+                        if (data.next_positions.contains(id))
+                            PerceivedActivity{ .movement = move_delta }
+                        else
+                            PerceivedActivity{ .failed_movement = move_delta }
                     else
-                        PerceivedActivity{ .failed_movement = move_delta }
+                        PerceivedActivity{ .none = {} },
+
+                    .attacks => |data| if (data.getValue(id)) |attack|
+                        PerceivedActivity{
+                            .attack = PerceivedActivity.Attack{
+                                .direction = attack.direction,
+                                .distance = attack.distance,
+                            },
+                        }
+                    else
+                        PerceivedActivity{ .none = {} },
+
+                    .kicks => |data| if (data.getValue(id)) |coord|
+                        PerceivedActivity{ .kick = coord }
+                    else
+                        PerceivedActivity{ .none = {} },
+
+                    .polymorphs => |data| if (data.getValue(id)) |species|
+                        PerceivedActivity{ .polymorph = species }
+                    else
+                        PerceivedActivity{ .none = {} },
+
+                    .deaths => |data| if (data.getValue(id)) |_|
+                        PerceivedActivity{ .death = {} }
+                    else
+                        PerceivedActivity{ .none = {} },
+
+                    .static_state => PerceivedActivity{ .none = {} },
+                };
+
+                var abs_position = if (maybe_current_positions) |current_positions|
+                    current_positions.getValue(id).?
                 else
-                    PerceivedActivity{ .none = {} },
-
-                .attacks => |data| if (data.getValue(id)) |attack|
-                    PerceivedActivity{
-                        .attack = PerceivedActivity.Attack{
-                            .direction = attack.direction,
-                            .distance = attack.distance,
-                        },
-                    }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .kicks => |data| if (data.getValue(id)) |coord|
-                    PerceivedActivity{ .kick = coord }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .polymorphs => |data| if (data.getValue(id)) |species|
-                    PerceivedActivity{ .polymorph = species }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .deaths => |data| if (data.getValue(id)) |_|
-                    PerceivedActivity{ .death = {} }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .static_state => PerceivedActivity{ .none = {} },
-            };
-
-            var abs_position = if (maybe_current_positions) |current_positions|
-                current_positions.getValue(id).?
-            else
-                game_state.individuals.getValue(id).?.abs_position;
-            var rel_position: ThingPosition = undefined;
-            switch (abs_position) {
-                .small => |coord| {
-                    rel_position = .{ .small = coord.minus(your_coord) };
-                },
-                .large => |coords| {
-                    rel_position = .{
-                        .large = .{
-                            coords[0].minus(your_coord),
-                            coords[1].minus(your_coord),
-                        },
-                    };
-                },
-            }
-            // if any position is within view, we can see all of it.
-            const within_view = blk: for (getAllPositions(&rel_position)) |delta| {
-                if (delta.magnitudeDiag() <= view_distance) break :blk true;
-            } else false;
-            if (!within_view) continue;
-            const actual_thing = game_state.individuals.getValue(id).?;
-            const thing = PerceivedThing{
-                .species = actual_thing.species,
-                .rel_position = rel_position,
-                .status_conditions = actual_thing.status_conditions,
-                .activity = activity,
-            };
-            if (id == my_id) {
-                yourself = thing;
-            } else {
-                try others.append(thing);
+                    game_state.individuals.getValue(id).?.abs_position;
+                var rel_position: ThingPosition = undefined;
+                switch (abs_position) {
+                    .small => |coord| {
+                        rel_position = .{ .small = coord.minus(your_coord) };
+                    },
+                    .large => |coords| {
+                        rel_position = .{
+                            .large = .{
+                                coords[0].minus(your_coord),
+                                coords[1].minus(your_coord),
+                            },
+                        };
+                    },
+                }
+                // if any position is within view, we can see all of it.
+                const within_view = blk: for (getAllPositions(&rel_position)) |delta| {
+                    if (delta.magnitudeDiag() <= view_distance) break :blk true;
+                } else false;
+                if (!within_view) continue;
+                const actual_thing = game_state.individuals.getValue(id).?;
+                const thing = PerceivedThing{
+                    .species = actual_thing.species,
+                    .rel_position = rel_position,
+                    .status_conditions = actual_thing.status_conditions,
+                    .activity = activity,
+                };
+                if (id == my_id) {
+                    yourself = thing;
+                } else {
+                    try others.append(thing);
+                }
             }
         }
 
@@ -789,13 +791,24 @@ pub const GameEngine = struct {
             }
         }
 
-        const you_win = game_state.individuals.count() == 1;
+        var winning_score: ?i32 = 0;
+        {
+            const my_species = game_state.individuals.getValue(my_id).?.species;
+            var iterator = game_state.individuals.iterator();
+            while (iterator.next()) |kv| {
+                if (my_species != kv.value.species) {
+                    winning_score = null;
+                    break;
+                }
+                winning_score.? += 1;
+            }
+        }
 
         return PerceivedFrame{
             .self = yourself.?,
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
-            .you_win = you_win,
+            .winning_score = winning_score,
         };
     }
 };
