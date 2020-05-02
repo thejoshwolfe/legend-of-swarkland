@@ -2,7 +2,8 @@
 
 ## Status
 
-Simple turn-based action fantasy puzzle game.
+Simple turn-based action fantasy puzzle sandbox.
+See [Version History](#version-history) for latest updates.
 
 ## How do I play it
 
@@ -367,11 +368,29 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Roadmap
 
-### 5.5.0
+### 5.6.0
 
- * ???
+ * items?
 
 ## Version History
+
+### 5.5.0
+
+ * remove puzzle levels, and replace with a large randomly generated room.
+   * algorithm is extremely simple, just randomly scattering stuff everywhere.
+   * sometimes you can't win. 🤷
+ * add wounded status condition.
+   * one hit from an attack causes wounded.
+   * attack damage while wounded causes death.
+   * two hits at once always cause death.
+ * add limping status condition.
+   * moving (or attempting to move, or being kicked) while wounded causes limping.
+   * limping wears off after 1 turn.
+   * limping turns move actions into wait actions, effectively halving your move speed.
+ * add large diagram of your anatomy that shows status conditions.
+ * blue tiles heal status conditions.
+ * only orcs and centaurs (via polymorph) exist; removed all other species for now due to AI problems.
+ * the game gives you a score when you win. my high score is 4.
 
 ### 5.4.0
 
