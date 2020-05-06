@@ -225,11 +225,12 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord, i| {
                         if (!coord.equals(damage_position)) continue;
                         // hit something.
+                        const other = game_state.individuals.getValue(other_id).?;
                         const is_effective = blk: {
                             // innate defense
-                            if (!core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species, i)) break :blk false;
+                            if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
                             // shield blocks arrows
-                            if (range > 1 and game_state.individuals.getValue(other_id).?.has_shield) break :blk false;
+                            if (range > 1 and other.has_shield) break :blk false;
                             break :blk true;
                         };
                         if (is_effective) {
