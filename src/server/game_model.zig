@@ -31,6 +31,7 @@ pub const Individual = struct {
     species: Species,
     abs_position: ThingPosition,
     status_conditions: StatusConditions = 0,
+    has_shield: bool = false,
 
     fn clone(self: Individual, allocator: *std.mem.Allocator) !*Individual {
         var other = try allocator.create(Individual);

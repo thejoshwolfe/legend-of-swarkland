@@ -74,7 +74,11 @@ const MapGenerator = struct {
         }
 
         // You are the human.
-        try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .human));
+        {
+            const you = try self.makeIndividual(self.popRandom(&free_spaces), .human);
+            you.has_shield = true;
+            try self.individuals.putNoClobber(self.nextId(), you);
+        }
 
         // throw enemies around
         {

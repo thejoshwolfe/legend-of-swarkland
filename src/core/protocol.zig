@@ -92,6 +92,7 @@ pub const PerceivedThing = struct {
     species: Species,
 
     status_conditions: StatusConditions,
+    has_shield: bool,
 
     activity: PerceivedActivity,
 };
