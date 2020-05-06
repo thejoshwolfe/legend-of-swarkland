@@ -225,7 +225,15 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord, i| {
                         if (!coord.equals(damage_position)) continue;
                         // hit something.
-                        if (core.game_logic.isAffectedByAttacks(game_state.individuals.getValue(other_id).?.species, i)) {
+                        const other = game_state.individuals.getValue(other_id).?;
+                        const is_effective = blk: {
+                            // innate defense
+                            if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
+                            // shield blocks arrows
+                            if (range > 1 and other.has_shield) break :blk false;
+                            break :blk true;
+                        };
+                        if (is_effective) {
                             // get wrecked
                             const other_status_conditions = &current_status_conditions.get(other_id).?.value;
                             if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
@@ -765,6 +773,7 @@ pub const GameEngine = struct {
                     .species = actual_thing.species,
                     .rel_position = rel_position,
                     .status_conditions = actual_thing.status_conditions,
+                    .has_shield = actual_thing.has_shield,
                     .activity = activity,
                 };
                 if (id == my_id) {

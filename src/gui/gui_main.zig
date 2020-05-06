@@ -437,15 +437,19 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             std.debug.panic("TODO\n", .{});
                         },
                     };
-                    textures.renderLargeSprite(renderer, anatomy_sprites.diagram, makeCoord(512, 0));
+                    const anatomy_coord = makeCoord(512, 0);
+                    textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
+                    if (frame.self.has_shield) {
+                        textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_shieled, anatomy_coord);
+                    }
                     // explicit integer here to provide a compile error when new items get added.
                     var status_conditions: u2 = frame.self.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_wounded_leg) {
-                        textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound, makeCoord(512, 0));
+                        textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound, anatomy_coord);
                     }
                     if (0 != status_conditions & core.protocol.StatusCondition_limping) {
-                        textures.renderLargeSprite(renderer, anatomy_sprites.limping, makeCoord(512, 0));
+                        textures.renderLargeSprite(renderer, anatomy_sprites.limping, anatomy_coord);
                     }
                 }
 
@@ -589,6 +593,9 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     }
     if (thing.status_conditions & core.protocol.StatusCondition_limping != 0) {
         textures.renderSprite(renderer, textures.sprites.limping, display_position);
+    }
+    if (thing.has_shield) {
+        textures.renderSprite(renderer, textures.sprites.equipment, display_position);
     }
 
     return display_position;
