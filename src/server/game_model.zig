@@ -40,6 +40,22 @@ pub const Individual = struct {
     }
 };
 
+pub const Item = struct {
+    position: ItemPosition,
+    // It's always a shield
+
+    fn clone(self: @This(), allocator: *std.mem.Allocator) !*@This() {
+        var other = try allocator.create(@This());
+        other.* = self;
+        return other;
+    }
+};
+
+pub const ItemPosition = union(enum) {
+    held_by_individual: u32,
+    on_the_floor: Coord,
+};
+
 pub const StateDiff = union(enum) {
     spawn: IdAndIndividual,
     despawn: IdAndIndividual,
@@ -85,12 +101,14 @@ pub const GameState = struct {
     allocator: *std.mem.Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
+    items: IdMap(*Item),
 
     pub fn generate(allocator: *std.mem.Allocator) !GameState {
         var game_state = GameState{
             .allocator = allocator,
             .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
+            .items = IdMap(*Item).init(allocator),
         };
         try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals);
         return game_state;
@@ -103,6 +121,14 @@ pub const GameState = struct {
             .individuals = blk: {
                 var ret = IdMap(*Individual).init(self.allocator);
                 var iterator = self.individuals.iterator();
+                while (iterator.next()) |kv| {
+                    try ret.putNoClobber(kv.key, try kv.value.*.clone(self.allocator));
+                }
+                break :blk ret;
+            },
+            .items = blk: {
+                var ret = IdMap(*Item).init(self.allocator);
+                var iterator = self.items.iterator();
                 while (iterator.next()) |kv| {
                     try ret.putNoClobber(kv.key, try kv.value.*.clone(self.allocator));
                 }

@@ -77,6 +77,7 @@ pub const PerceivedFrame = struct {
 
     self: PerceivedThing,
     others: []PerceivedThing,
+    floor_items: []PerceivedItem,
     winning_score: ?i32,
 };
 
@@ -95,6 +96,8 @@ pub const PerceivedThing = struct {
     has_shield: bool,
 
     activity: PerceivedActivity,
+
+    inventory: []PerceivedItem,
 };
 
 pub const StatusConditions = u2;
@@ -118,6 +121,10 @@ pub const PerceivedActivity = union(enum) {
     polymorph: Species,
 
     death,
+};
+
+pub const PerceivedItem = struct {
+    // It's always a shield
 };
 
 /// Despite all the generic elegance of the Channel classes,

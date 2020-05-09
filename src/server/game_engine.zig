@@ -16,6 +16,7 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 const ThingPosition = core.protocol.ThingPosition;
 const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
+const PerceivedItem = core.protocol.PerceivedItem;
 const TerrainSpace = core.protocol.TerrainSpace;
 const StatusConditions = core.protocol.StatusConditions;
 
@@ -775,6 +776,7 @@ pub const GameEngine = struct {
                     .status_conditions = actual_thing.status_conditions,
                     .has_shield = actual_thing.has_shield,
                     .activity = activity,
+                    .inventory = &[_]PerceivedItem{},
                 };
                 if (id == my_id) {
                     yourself = thing;
@@ -818,6 +820,7 @@ pub const GameEngine = struct {
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
             .winning_score = winning_score,
+            .floor_items = &[_]PerceivedItem{},
         };
     }
 };
