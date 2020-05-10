@@ -676,7 +676,7 @@ fn renderFloorItem(renderer: *sdl.Renderer, camera_offset: Coord, floor_item: Pe
     const rel_display_position = floor_item.rel_coord.scaled(32);
     const display_position = rel_display_position.plus(camera_offset);
 
-    textures.renderSprite(renderer, textures.sprites.battleaxe, display_position);
+    textures.renderSprite(renderer, textures.sprites.shield, display_position);
 }
 
 fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {

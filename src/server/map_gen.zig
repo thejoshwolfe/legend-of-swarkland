@@ -145,7 +145,7 @@ const MapGenerator = struct {
 
         // floor items
         {
-            const count = self.random.intRangeAtMost(usize, 50, 50);
+            const count = self.random.intRangeAtMost(usize, 1, 3);
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 const item = Item{
