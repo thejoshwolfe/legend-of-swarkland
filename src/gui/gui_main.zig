@@ -20,6 +20,7 @@ const Event = core.protocol.Event;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
+const PerceivedFloorItem = core.protocol.PerceivedFloorItem;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 
@@ -392,11 +393,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                 }
 
-                // render the things
+                // render floor items
+                for (frame.floor_items) |floor_item| {
+                    renderFloorItem(renderer, camera_offset, floor_item);
+                }
+
+                // render individuals
                 for (frame.others) |other| {
                     _ = renderThing(renderer, progress, move_frame_time, camera_offset, other);
                 }
                 const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, frame.self);
+
                 // render input prompt
                 if (display_any_input_prompt) {
                     switch (state.input_prompt) {
@@ -663,6 +670,13 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
             textures.renderSprite(renderer, textures.sprites.death, display_position);
         },
     }
+}
+
+fn renderFloorItem(renderer: *sdl.Renderer, camera_offset: Coord, floor_item: PerceivedFloorItem) void {
+    const rel_display_position = floor_item.rel_coord.scaled(32);
+    const display_position = rel_display_position.plus(camera_offset);
+
+    textures.renderSprite(renderer, textures.sprites.battleaxe, display_position);
 }
 
 fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {

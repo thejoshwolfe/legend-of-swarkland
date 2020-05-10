@@ -77,7 +77,7 @@ pub const PerceivedFrame = struct {
 
     self: PerceivedThing,
     others: []PerceivedThing,
-    floor_items: []PerceivedItem,
+    floor_items: []PerceivedFloorItem,
     winning_score: ?i32,
 };
 
@@ -96,7 +96,7 @@ pub const PerceivedThing = struct {
 
     activity: PerceivedActivity,
 
-    inventory: []PerceivedItem,
+    inventory: []PerceivedItemData,
 };
 
 pub const StatusConditions = u2;
@@ -122,11 +122,16 @@ pub const PerceivedActivity = union(enum) {
     death,
 };
 
-pub const PerceivedItem = struct {
+pub const PerceivedItemData = struct {
     // It's always a shield
 
     // TODO: https://github.com/ziglang/zig/issues/5306
     _trash: u8 = 0,
+};
+
+pub const PerceivedFloorItem = struct {
+    rel_coord: Coord,
+    data: PerceivedItemData,
 };
 
 /// Despite all the generic elegance of the Channel classes,

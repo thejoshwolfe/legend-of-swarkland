@@ -143,6 +143,18 @@ const MapGenerator = struct {
             }
         }
 
+        // floor items
+        {
+            const count = self.random.intRangeAtMost(usize, 50, 50);
+            var i: usize = 0;
+            while (i < count) : (i += 1) {
+                const item = Item{
+                    .position = .{ .on_the_floor = self.popRandom(&free_spaces) },
+                };
+                try self.items.putNoClobber(self.nextItemId(), try item.clone(self.allocator));
+            }
+        }
+
         // have fun
         {
             const count = self.random.intRangeAtMost(usize, 1, 2);

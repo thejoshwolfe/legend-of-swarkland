@@ -16,7 +16,8 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 const ThingPosition = core.protocol.ThingPosition;
 const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
-const PerceivedItem = core.protocol.PerceivedItem;
+const PerceivedFloorItem = core.protocol.PerceivedFloorItem;
+const PerceivedItemData = core.protocol.PerceivedItemData;
 const TerrainSpace = core.protocol.TerrainSpace;
 const StatusConditions = core.protocol.StatusConditions;
 
@@ -771,14 +772,14 @@ pub const GameEngine = struct {
                 } else false;
                 if (!within_view) continue;
 
-                var inventory = ArrayList(PerceivedItem).init(self.allocator);
+                var inventory = ArrayList(PerceivedItemData).init(self.allocator);
                 {
                     var item_iterator = game_state.items.iterator();
                     while (item_iterator.next()) |item_kv| {
                         switch (item_kv.value.position) {
                             .held_by_individual => |holder_id| {
                                 if (holder_id != id) continue;
-                                try inventory.append(PerceivedItem{
+                                try inventory.append(PerceivedItemData{
                                     // It's always a shield
                                 });
                             },
@@ -800,6 +801,27 @@ pub const GameEngine = struct {
                     yourself = thing;
                 } else {
                     try others.append(thing);
+                }
+            }
+        }
+
+        var floor_items = ArrayList(PerceivedFloorItem).init(self.allocator);
+        {
+            var iterator = game_state.items.iterator();
+            while (iterator.next()) |kv| {
+                switch (kv.value.position) {
+                    .held_by_individual => {},
+                    .on_the_floor => |coord| {
+                        const rel_coord = coord.minus(your_coord);
+                        if (rel_coord.magnitudeDiag() <= view_distance) {
+                            try floor_items.append(PerceivedFloorItem{
+                                .rel_coord = rel_coord,
+                                .data = PerceivedItemData{
+                                    // It's always a shield
+                                },
+                            });
+                        }
+                    },
                 }
             }
         }
@@ -838,7 +860,7 @@ pub const GameEngine = struct {
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
             .winning_score = winning_score,
-            .floor_items = &[_]PerceivedItem{},
+            .floor_items = floor_items.toOwnedSlice(),
         };
     }
 
