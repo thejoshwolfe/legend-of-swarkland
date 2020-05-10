@@ -440,7 +440,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     const anatomy_coord = makeCoord(512, 0);
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
-                    if (frame.self.has_shield) {
+                    if (frame.self.inventory.len > 0) {
+                        // it's always a shield
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_shieled, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
@@ -594,7 +595,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     if (thing.status_conditions & core.protocol.StatusCondition_limping != 0) {
         textures.renderSprite(renderer, textures.sprites.limping, display_position);
     }
-    if (thing.has_shield) {
+    if (thing.inventory.len > 0) {
         textures.renderSprite(renderer, textures.sprites.equipment, display_position);
     }
 

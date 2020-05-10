@@ -30,6 +30,7 @@ const getInertiaIndex = core.game_logic.getInertiaIndex;
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
 const Individual = game_model.Individual;
+const Item = game_model.Item;
 const StateDiff = game_model.StateDiff;
 const IdMap = game_model.IdMap;
 const CoordMap = game_model.CoordMap;
@@ -231,7 +232,7 @@ pub const GameEngine = struct {
                             // innate defense
                             if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
                             // shield blocks arrows
-                            if (range > 1 and other.has_shield) break :blk false;
+                            if (range > 1 and self.hasShield(game_state.items, other_id)) break :blk false;
                             break :blk true;
                         };
                         if (is_effective) {
@@ -769,14 +770,31 @@ pub const GameEngine = struct {
                     if (delta.magnitudeDiag() <= view_distance) break :blk true;
                 } else false;
                 if (!within_view) continue;
+
+                var inventory = ArrayList(PerceivedItem).init(self.allocator);
+                {
+                    var item_iterator = game_state.items.iterator();
+                    while (item_iterator.next()) |item_kv| {
+                        switch (item_kv.value.position) {
+                            .held_by_individual => |holder_id| {
+                                if (holder_id != id) continue;
+                                try inventory.append(PerceivedItem{
+                                    // It's always a shield
+                                });
+                            },
+                            .on_the_floor => {},
+                        }
+                    }
+                }
+
                 const actual_thing = game_state.individuals.getValue(id).?;
+
                 const thing = PerceivedThing{
                     .species = actual_thing.species,
                     .rel_position = rel_position,
                     .status_conditions = actual_thing.status_conditions,
-                    .has_shield = actual_thing.has_shield,
                     .activity = activity,
-                    .inventory = &[_]PerceivedItem{},
+                    .inventory = inventory.toOwnedSlice(),
                 };
                 if (id == my_id) {
                     yourself = thing;
@@ -822,6 +840,22 @@ pub const GameEngine = struct {
             .winning_score = winning_score,
             .floor_items = &[_]PerceivedItem{},
         };
+    }
+
+    fn hasShield(self: @This(), items: IdMap(*Item), individual_id: u32) bool {
+        var iterator = items.iterator();
+        while (iterator.next()) |kv| {
+            switch (kv.value.position) {
+                .held_by_individual => |holder_id| {
+                    if (holder_id == individual_id) {
+                        // all items are shield.
+                        return true;
+                    }
+                },
+                .on_the_floor => {},
+            }
+        }
+        return false;
     }
 };
 

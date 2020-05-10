@@ -9,17 +9,20 @@ const Species = core.protocol.Species;
 
 const game_model = @import("./game_model.zig");
 const Individual = game_model.Individual;
+const Item = game_model.Item;
 const Terrain = game_model.Terrain;
 const IdMap = game_model.IdMap;
 const oob_terrain = game_model.oob_terrain;
 
 /// overwrites terrain. populates individuals.
-pub fn generate(allocator: *std.mem.Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
+pub fn generate(allocator: *std.mem.Allocator, terrain: *Terrain, individuals: *IdMap(*Individual), items: *IdMap(*Item)) !void {
     var generator = MapGenerator{
         .allocator = allocator,
         .terrain = terrain,
         .individuals = individuals,
-        .id_cursor = 1,
+        .items = items,
+        .individual_id_cursor = 1,
+        .item_id_cursor = 1,
         ._r = undefined,
         .random = undefined,
     };
@@ -38,15 +41,23 @@ const MapGenerator = struct {
     allocator: *std.mem.Allocator,
     terrain: *Terrain,
     individuals: *IdMap(*Individual),
-    id_cursor: u32,
+    items: *IdMap(*Item),
+    individual_id_cursor: u32,
+    item_id_cursor: u32,
     _r: std.rand.DefaultPrng,
     random: *std.rand.Random,
 
-    fn nextId(self: *@This()) u32 {
+    fn nextIndividualId(self: *@This()) u32 {
         defer {
-            self.id_cursor += 1;
+            self.individual_id_cursor += 1;
         }
-        return self.id_cursor;
+        return self.individual_id_cursor;
+    }
+    fn nextItemId(self: *@This()) u32 {
+        defer {
+            self.item_id_cursor += 1;
+        }
+        return self.item_id_cursor;
     }
 
     fn makeIndividual(self: *@This(), small_position: Coord, species: Species) !*Individual {
@@ -74,7 +85,7 @@ const MapGenerator = struct {
         }
 
         // You are the human.
-        try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .human));
+        try self.individuals.putNoClobber(self.nextIndividualId(), try self.makeIndividual(self.popRandom(&free_spaces), .human));
 
         // throw enemies around
         {
@@ -82,8 +93,17 @@ const MapGenerator = struct {
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 const fella = try self.makeIndividual(self.popRandom(&free_spaces), .orc);
-                fella.has_shield = self.random.boolean();
-                try self.individuals.putNoClobber(self.nextId(), fella);
+                const individual_id = self.nextIndividualId();
+                try self.individuals.putNoClobber(individual_id, fella);
+
+                const has_shield = self.random.boolean();
+                if (has_shield) {
+                    const item = Item{
+                        .position = .{ .held_by_individual = individual_id },
+                    };
+                    const item_id = self.nextItemId();
+                    try self.items.putNoClobber(item_id, try item.clone(self.allocator));
+                }
             }
         }
 

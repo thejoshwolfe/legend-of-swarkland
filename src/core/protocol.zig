@@ -93,7 +93,6 @@ pub const PerceivedThing = struct {
     species: Species,
 
     status_conditions: StatusConditions,
-    has_shield: bool,
 
     activity: PerceivedActivity,
 
@@ -125,6 +124,9 @@ pub const PerceivedActivity = union(enum) {
 
 pub const PerceivedItem = struct {
     // It's always a shield
+
+    // TODO: https://github.com/ziglang/zig/issues/5306
+    _trash: u8 = 0,
 };
 
 /// Despite all the generic elegance of the Channel classes,

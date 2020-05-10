@@ -31,7 +31,6 @@ pub const Individual = struct {
     species: Species,
     abs_position: ThingPosition,
     status_conditions: StatusConditions = 0,
-    has_shield: bool = false,
 
     fn clone(self: Individual, allocator: *std.mem.Allocator) !*Individual {
         var other = try allocator.create(Individual);
@@ -110,7 +109,7 @@ pub const GameState = struct {
             .individuals = IdMap(*Individual).init(allocator),
             .items = IdMap(*Item).init(allocator),
         };
-        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals);
+        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals, &game_state.items);
         return game_state;
     }
 
