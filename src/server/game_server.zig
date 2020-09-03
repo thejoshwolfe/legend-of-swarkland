@@ -39,7 +39,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
     try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
 
     var response_for_ais = IdMap(Response).init(allocator);
-    var history = HistoryList.init();
+    var history = HistoryList{};
 
     // start main loop
     mainLoop: while (true) {
@@ -51,11 +51,11 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             while (iterator.next()) |kv| {
                 const id = kv.key;
                 if (id == main_player_id) continue;
-                const response = response_for_ais.getValue(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
+                const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
                 try actions.putNoClobber(id, doAi(response));
             }
         }
-        response_for_ais.clear();
+        response_for_ais.clearRetainingCapacity();
 
         // read all the inputs, which will block for the human client.
         var is_rewind = false;

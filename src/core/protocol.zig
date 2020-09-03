@@ -109,15 +109,16 @@ pub const PerceivedActivity = union(enum) {
     failed_movement: Coord,
 
     attack: Attack,
-    pub const Attack = struct {
-        direction: Coord,
-        distance: i32,
-    };
 
     kick: Coord,
     polymorph: Species,
 
     death,
+
+    pub const Attack = struct {
+        direction: Coord,
+        distance: i32,
+    };
 };
 
 /// Despite all the generic elegance of the Channel classes,
@@ -146,14 +147,14 @@ pub const Socket = struct {
         return initOutChannel(self.out_stream);
     }
 
-    pub fn close(self: *Socket, final_message: var) void {
+    pub fn close(self: *Socket, final_message: anytype) void {
         self.out().write(final_message) catch {};
         self.out_stream.file.close();
         // FIXME: revisit closing the in_stream when we have async/await maybe.
     }
 };
 
-pub fn initOutChannel(out_stream: var) OutChannel(@TypeOf(out_stream)) {
+pub fn initOutChannel(out_stream: anytype) OutChannel(@TypeOf(out_stream)) {
     return OutChannel(@TypeOf(out_stream)).init(out_stream);
 }
 pub fn OutChannel(comptime OutStream: type) type {
@@ -165,7 +166,7 @@ pub fn OutChannel(comptime OutStream: type) type {
             return Self{ .stream = stream };
         }
 
-        pub fn write(self: Self, x: var) !void {
+        pub fn write(self: Self, x: anytype) !void {
             const T = @TypeOf(x);
             switch (@typeInfo(T)) {
                 .Int => return self.writeInt(x),
@@ -217,7 +218,7 @@ pub fn OutChannel(comptime OutStream: type) type {
             }
         }
 
-        pub fn writeInt(self: Self, x: var) !void {
+        pub fn writeInt(self: Self, x: anytype) !void {
             const int_info = @typeInfo(@TypeOf(x)).Int;
             const T_aligned = @Type(std.builtin.TypeInfo{
                 .Int = .{
@@ -230,7 +231,7 @@ pub fn OutChannel(comptime OutStream: type) type {
     };
 }
 
-pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: var) InChannel(@TypeOf(in_stream)) {
+pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: anytype) InChannel(@TypeOf(in_stream)) {
     return InChannel(@TypeOf(in_stream)).init(allocator, in_stream);
 }
 pub fn InChannel(comptime InStream: type) type {
@@ -311,7 +312,7 @@ pub fn InChannel(comptime InStream: type) type {
     };
 }
 
-pub fn deepClone(allocator: *std.mem.Allocator, x: var) (error{OutOfMemory})!@TypeOf(x) {
+pub fn deepClone(allocator: *std.mem.Allocator, x: anytype) (error{OutOfMemory})!@TypeOf(x) {
     // TODO: actually do it
     return x;
 }
