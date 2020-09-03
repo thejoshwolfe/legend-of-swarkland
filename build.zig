@@ -37,11 +37,11 @@ pub fn build(b: *Builder) void {
         b.addSystemCommand(&[_][]const u8{
             "python3",
             "-c",
-                \\import subprocess
-                \\tag_str = subprocess.check_output(["git", "describe", "--tags"]).strip()
-                \\with open("zig-cache/version.txt", "wb") as f:
-                \\    f.write(tag_str)
-            }),
+            \\import subprocess
+            \\tag_str = subprocess.check_output(["git", "describe", "--tags"]).strip()
+            \\with open("zig-cache/version.txt", "wb") as f:
+            \\    f.write(tag_str)
+        }),
     };
     for (compile_image_commands) |compile_image_command| {
         compile_image_command.setEnvironmentVariable("PYTHONPATH", "deps/simplepng.py/");

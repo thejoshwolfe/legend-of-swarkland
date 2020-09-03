@@ -101,7 +101,7 @@ pub const SomeQueues = struct {
                 return response;
             }
             // :ResidentSleeper:
-            std.time.sleep(17 * std.time.millisecond);
+            std.time.sleep(17 * std.time.ns_per_ms);
         }
         return null;
     }
@@ -123,7 +123,7 @@ pub const SomeQueues = struct {
                 return response;
             }
             // :ResidentSleeper:
-            std.time.sleep(17 * std.time.millisecond);
+            std.time.sleep(17 * std.time.ns_per_ms);
         }
         return null;
     }
@@ -133,12 +133,12 @@ pub const ServerQueues = SomeQueues(Request, Response);
 
 const Connection = union(enum) {
     child_process: ChildProcessData,
+    thread: ThreadData,
+
     const ChildProcessData = struct {
         child_process: *std.ChildProcess,
         adapter: *QueueToFdAdapter,
     };
-
-    thread: ThreadData,
     const ThreadData = struct {
         core_thread: *std.Thread,
     };

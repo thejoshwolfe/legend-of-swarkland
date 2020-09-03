@@ -86,10 +86,6 @@ pub const Coord = struct {
     pub fn equals(a: Coord, b: Coord) bool {
         return a.x == b.x and a.y == b.y;
     }
-
-    pub fn hash(a: Coord) u32 {
-        return hashU32(hashU32(@bitCast(u32, a.x)) ^ @bitCast(u32, a.y));
-    }
 };
 
 pub fn makeCoord(x: i32, y: i32) Coord {
@@ -104,20 +100,6 @@ pub fn isCardinalDirection(direction: Coord) bool {
 }
 pub fn isScaledCardinalDirection(direction: Coord, scale: i32) bool {
     return direction.isOrthogonalOrZero() and direction.magnitudeSquared() == scale * scale;
-}
-
-// TODO: why is this here
-pub fn hashU32(input: u32) u32 {
-    // https://nullprogram.com/blog/2018/07/31/
-    var x = input;
-    x ^= x >> 17;
-    x *%= 0xed5ad4bb;
-    x ^= x >> 11;
-    x *%= 0xac4c1b51;
-    x ^= x >> 15;
-    x *%= 0x31848bab;
-    x ^= x >> 14;
-    return x;
 }
 
 /// rotation is a number 0 <= r < 8

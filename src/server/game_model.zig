@@ -14,11 +14,11 @@ const map_gen = @import("./map_gen.zig");
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
-    return HashMap(u32, V, core.geometry.hashU32, std.hash_map.getTrivialEqlFn(u32));
+    return std.AutoHashMap(u32, V);
 }
 
 pub fn CoordMap(comptime V: type) type {
-    return HashMap(Coord, V, Coord.hash, Coord.equals);
+    return std.AutoHashMap(Coord, V);
 }
 
 pub const Terrain = core.matrix.Matrix(TerrainSpace);
@@ -33,7 +33,7 @@ pub const Individual = struct {
     status_conditions: StatusConditions = 0,
     has_shield: bool = false,
 
-    fn clone(self: Individual, allocator: *std.mem.Allocator) !*Individual {
+    pub fn clone(self: Individual, allocator: *std.mem.Allocator) !*Individual {
         var other = try allocator.create(Individual);
         other.* = self;
         return other;
@@ -43,29 +43,12 @@ pub const Individual = struct {
 pub const StateDiff = union(enum) {
     spawn: IdAndIndividual,
     despawn: IdAndIndividual,
-    pub const IdAndIndividual = struct {
-        id: u32,
-        individual: Individual,
-    };
 
     small_move: IdAndCoord,
-    pub const IdAndCoord = struct {
-        id: u32,
-        coord: Coord,
-    };
 
     large_move: IdAndCoords,
-    pub const IdAndCoords = struct {
-        id: u32,
-        coords: [2]Coord,
-    };
 
     polymorph: Polymorph,
-    pub const Polymorph = struct {
-        id: u32,
-        from: Species,
-        to: Species,
-    };
 
     status_condition_diff: struct {
         id: u32,
@@ -74,6 +57,24 @@ pub const StateDiff = union(enum) {
     },
 
     terrain_update: TerrainDiff,
+
+    pub const IdAndIndividual = struct {
+        id: u32,
+        individual: Individual,
+    };
+    pub const IdAndCoord = struct {
+        id: u32,
+        coord: Coord,
+    };
+    pub const IdAndCoords = struct {
+        id: u32,
+        coords: [2]Coord,
+    };
+    pub const Polymorph = struct {
+        id: u32,
+        from: Species,
+        to: Species,
+    };
     pub const TerrainDiff = struct {
         at: Coord,
         from: TerrainSpace,
@@ -111,7 +112,7 @@ pub const GameState = struct {
         };
     }
 
-    fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
+    pub fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
         for (state_changes) |diff| {
             switch (diff) {
                 .spawn => |data| {
@@ -121,22 +122,22 @@ pub const GameState = struct {
                     self.individuals.removeAssertDiscard(data.id);
                 },
                 .small_move => |id_and_coord| {
-                    const individual = self.individuals.getValue(id_and_coord.id).?;
+                    const individual = self.individuals.get(id_and_coord.id).?;
                     individual.abs_position.small = individual.abs_position.small.plus(id_and_coord.coord);
                 },
                 .large_move => |id_and_coords| {
-                    const individual = self.individuals.getValue(id_and_coords.id).?;
+                    const individual = self.individuals.get(id_and_coords.id).?;
                     individual.abs_position.large = .{
                         individual.abs_position.large[0].plus(id_and_coords.coords[0]),
                         individual.abs_position.large[1].plus(id_and_coords.coords[1]),
                     };
                 },
                 .polymorph => |polymorph| {
-                    const individual = self.individuals.getValue(polymorph.id).?;
+                    const individual = self.individuals.get(polymorph.id).?;
                     individual.species = polymorph.to;
                 },
                 .status_condition_diff => |data| {
-                    const individual = self.individuals.getValue(data.id).?;
+                    const individual = self.individuals.get(data.id).?;
                     individual.status_conditions = data.to;
                 },
                 .terrain_update => |data| {
@@ -145,7 +146,7 @@ pub const GameState = struct {
             }
         }
     }
-    fn undoStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
+    pub fn undoStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
         for (state_changes) |_, forwards_i| {
             // undo backwards
             const diff = state_changes[state_changes.len - 1 - forwards_i];
@@ -157,22 +158,22 @@ pub const GameState = struct {
                     try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
                 .small_move => |id_and_coord| {
-                    const individual = self.individuals.getValue(id_and_coord.id).?;
+                    const individual = self.individuals.get(id_and_coord.id).?;
                     individual.abs_position.small = individual.abs_position.small.minus(id_and_coord.coord);
                 },
                 .large_move => |id_and_coords| {
-                    const individual = self.individuals.getValue(id_and_coords.id).?;
+                    const individual = self.individuals.get(id_and_coords.id).?;
                     individual.abs_position.large = .{
                         individual.abs_position.large[0].minus(id_and_coords.coords[0]),
                         individual.abs_position.large[1].minus(id_and_coords.coords[1]),
                     };
                 },
                 .polymorph => |polymorph| {
-                    const individual = self.individuals.getValue(polymorph.id).?;
+                    const individual = self.individuals.get(polymorph.id).?;
                     individual.species = polymorph.from;
                 },
                 .status_condition_diff => |data| {
-                    const individual = self.individuals.getValue(data.id).?;
+                    const individual = self.individuals.get(data.id).?;
                     individual.status_conditions = data.from;
                 },
                 .terrain_update => |data| {

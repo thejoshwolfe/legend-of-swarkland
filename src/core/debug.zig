@@ -4,12 +4,12 @@ const Logger = struct {
     is_enabled: bool,
     show_thread_id: bool,
 
-    pub fn print(comptime self: Logger, comptime fmt: []const u8, args: var) void {
+    pub fn print(comptime self: Logger, comptime fmt: []const u8, args: anytype) void {
         if (!self.is_enabled) return;
         warn(self.show_thread_id, fmt, args);
     }
 
-    pub fn deepPrint(comptime self: Logger, prefix: []const u8, something: var) void {
+    pub fn deepPrint(comptime self: Logger, prefix: []const u8, something: anytype) void {
         if (!self.is_enabled) return;
         deep_print(prefix, something);
     }
@@ -20,7 +20,7 @@ pub const testing = Logger{ .is_enabled = true, .show_thread_id = true };
 pub const happening = Logger{ .is_enabled = false, .show_thread_id = true };
 pub const record_macro = Logger{ .is_enabled = false, .show_thread_id = false };
 
-fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: var) void {
+fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: anytype) void {
     // format to a buffer, then write in a single (or as few as possible)
     // posix write calls so that the output from multiple processes
     // doesn't interleave on the same line.
@@ -46,10 +46,8 @@ fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: var) void
     }
 }
 
-var mutex: ?std.Mutex = null;
-pub fn init() void {
-    mutex = std.Mutex.init();
-}
+var mutex = std.Mutex{};
+pub fn init() void {}
 
 const DebugThreadId = struct {
     thread_id: std.Thread.Id,
@@ -64,7 +62,7 @@ pub fn nameThisThread(name: []const u8) void {
     return nameThisThreadWithClientId(name, 0);
 }
 pub fn nameThisThreadWithClientId(name: []const u8, client_id: u32) void {
-    var held = mutex.?.acquire();
+    var held = mutex.acquire();
     defer held.release();
     const thread_id = std.Thread.getCurrentId();
     for (thread_names.items) |it| {
@@ -79,7 +77,7 @@ pub fn nameThisThreadWithClientId(name: []const u8, client_id: u32) void {
     }) catch @panic("too many threads");
 }
 pub fn unnameThisThread() void {
-    var held = mutex.?.acquire();
+    var held = mutex.acquire();
     defer held.release();
     const me = std.Thread.getCurrentId();
     for (thread_names.items) |it, i| {
@@ -93,10 +91,10 @@ pub fn unnameThisThread() void {
 }
 
 /// i kinda wish std.fmt did this.
-fn deep_print(prefix: []const u8, something: var) void {
+fn deep_print(prefix: []const u8, something: anytype) void {
     std.debug.warn("{}", .{prefix});
     struct {
-        pub fn recurse(obj: var, comptime indent: comptime_int) void {
+        pub fn recurse(obj: anytype, comptime indent: comptime_int) void {
             const T = @TypeOf(obj);
             const indentation = ("  " ** indent)[0..];
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_list.AlignedArrayList(")) {
