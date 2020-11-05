@@ -194,10 +194,10 @@ pub fn OutChannel(comptime OutStream: type) type {
                     }
                 },
                 .Union => |info| {
-                    const tag_value = @enumToInt(@as(info.tag_type.?, x));
-                    try self.writeInt(tag_value);
+                    const tag = @as(info.tag_type.?, x);
+                    try self.writeInt(@enumToInt(tag));
                     inline for (info.fields) |u_field| {
-                        if (tag_value == u_field.enum_field.?.value) {
+                        if (tag == @field(T, u_field.name)) {
                             // FIXME: this `if` is because inferred error sets require at least one error.
                             return if (u_field.field_type != void) {
                                 try self.write(@field(x, u_field.name));
@@ -280,11 +280,11 @@ pub fn InChannel(comptime InStream: type) type {
                     }
                 },
                 .Union => |info| {
-                    const tag_value = @enumToInt(try self.read(info.tag_type.?));
+                    const tag = try self.read(info.tag_type.?);
                     inline for (info.fields) |u_field| {
-                        if (tag_value == u_field.enum_field.?.value) {
+                        if (tag == @field(T, u_field.name)) {
                             // FIXME: this `if` is because inferred error sets require at least one error.
-                            return @unionInit(T, u_field.enum_field.?.name, if (u_field.field_type == void) {} else try self.read(u_field.field_type));
+                            return @unionInit(T, u_field.name, if (u_field.field_type == void) {} else try self.read(u_field.field_type));
                         }
                     }
                     unreachable;
