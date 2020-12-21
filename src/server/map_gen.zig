@@ -26,7 +26,7 @@ pub fn generate(allocator: *std.mem.Allocator, terrain: *Terrain, individuals: *
 
     // TODO: accept seed parameter
     var buf: [8]u8 = undefined;
-    try std.crypto.randomBytes(&buf);
+    std.crypto.random.bytes(&buf);
     const seed = std.mem.readIntLittle(u64, &buf);
     generator._r = std.rand.DefaultPrng.init(seed);
     generator.random = &generator._r.random;

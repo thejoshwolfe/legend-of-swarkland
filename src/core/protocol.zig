@@ -222,7 +222,7 @@ pub fn OutChannel(comptime OutStream: type) type {
             const int_info = @typeInfo(@TypeOf(x)).Int;
             const T_aligned = @Type(std.builtin.TypeInfo{
                 .Int = .{
-                    .is_signed = int_info.is_signed,
+                    .signedness = int_info.signedness,
                     .bits = @divTrunc(int_info.bits + 7, 8) * 8,
                 },
             });
@@ -302,7 +302,7 @@ pub fn InChannel(comptime InStream: type) type {
             const int_info = @typeInfo(T).Int;
             const T_aligned = @Type(std.builtin.TypeInfo{
                 .Int = .{
-                    .is_signed = int_info.is_signed,
+                    .signedness = int_info.signedness,
                     .bits = @divTrunc(int_info.bits + 7, 8) * 8,
                 },
             });
