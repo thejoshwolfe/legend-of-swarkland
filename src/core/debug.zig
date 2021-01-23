@@ -46,7 +46,7 @@ fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: anytype) 
     }
 }
 
-var mutex = std.Mutex{};
+var mutex = std.Thread.Mutex{};
 pub fn init() void {}
 
 const DebugThreadId = struct {

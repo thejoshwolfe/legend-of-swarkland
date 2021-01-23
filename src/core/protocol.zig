@@ -124,12 +124,12 @@ pub const PerceivedActivity = union(enum) {
 /// Despite all the generic elegance of the Channel classes,
 /// this is what we use everywhere.
 pub const Socket = struct {
-    in_stream: std.fs.File.InStream,
-    out_stream: std.fs.File.OutStream,
+    in_stream: std.fs.File.Reader,
+    out_stream: std.fs.File.Writer,
 
     pub fn init(
-        in_stream: std.fs.File.InStream,
-        out_stream: std.fs.File.OutStream,
+        in_stream: std.fs.File.Reader,
+        out_stream: std.fs.File.Writer,
     ) Socket {
         return Socket{
             .in_stream = in_stream,
@@ -137,12 +137,12 @@ pub const Socket = struct {
         };
     }
 
-    pub const FileInChannel = InChannel(std.fs.File.InStream);
+    pub const FileInChannel = InChannel(std.fs.File.Reader);
     pub fn in(self: *Socket, allocator: *std.mem.Allocator) FileInChannel {
         return initInChannel(allocator, self.in_stream);
     }
 
-    pub const FileOutChannel = OutChannel(std.fs.File.OutStream);
+    pub const FileOutChannel = OutChannel(std.fs.File.Writer);
     pub fn out(self: *Socket) FileOutChannel {
         return initOutChannel(self.out_stream);
     }
@@ -157,12 +157,12 @@ pub const Socket = struct {
 pub fn initOutChannel(out_stream: anytype) OutChannel(@TypeOf(out_stream)) {
     return OutChannel(@TypeOf(out_stream)).init(out_stream);
 }
-pub fn OutChannel(comptime OutStream: type) type {
+pub fn OutChannel(comptime Writer: type) type {
     return struct {
         const Self = @This();
 
-        stream: OutStream,
-        pub fn init(stream: OutStream) Self {
+        stream: Writer,
+        pub fn init(stream: Writer) Self {
             return Self{ .stream = stream };
         }
 
@@ -234,13 +234,13 @@ pub fn OutChannel(comptime OutStream: type) type {
 pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: anytype) InChannel(@TypeOf(in_stream)) {
     return InChannel(@TypeOf(in_stream)).init(allocator, in_stream);
 }
-pub fn InChannel(comptime InStream: type) type {
+pub fn InChannel(comptime Reader: type) type {
     return struct {
         const Self = @This();
 
         allocator: *std.mem.Allocator,
-        stream: InStream,
-        pub fn init(allocator: *std.mem.Allocator, stream: InStream) Self {
+        stream: Reader,
+        pub fn init(allocator: *std.mem.Allocator, stream: Reader) Self {
             return Self{
                 .allocator = allocator,
                 .stream = stream,

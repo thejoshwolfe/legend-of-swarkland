@@ -16,8 +16,8 @@ const FdToQueueAdapter = struct {
 
     pub fn init(
         self: *FdToQueueAdapter,
-        in_stream: std.fs.File.InStream,
-        out_stream: std.fs.File.OutStream,
+        in_stream: std.fs.File.Reader,
+        out_stream: std.fs.File.Writer,
         queues: *SomeQueues,
     ) !void {
         self.socket = Socket.init(in_stream, out_stream);
@@ -85,8 +85,8 @@ pub fn main() anyerror!void {
 
     var adapter: FdToQueueAdapter = undefined;
     try adapter.init(
-        std.io.getStdIn().inStream(),
-        std.io.getStdOut().outStream(),
+        std.io.getStdIn().reader(),
+        std.io.getStdOut().writer(),
         &queues,
     );
     defer {
