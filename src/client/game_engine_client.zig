@@ -200,7 +200,7 @@ pub const GameEngineClient = struct {
                         defer core.debug.thread_lifecycle.print("shutdown", .{});
 
                         game_server.server_main(context) catch |err| {
-                            std.debug.warn("error: {}", .{@errorName(err)});
+                            std.debug.warn("error: {s}", .{@errorName(err)});
                             if (@errorReturnTrace()) |trace| {
                                 std.debug.dumpStackTrace(trace.*);
                             }
@@ -209,7 +209,7 @@ pub const GameEngineClient = struct {
                     }
                 };
                 break :blk Connection.ThreadData{
-                    .core_thread = try std.Thread.spawn(&self.queues, LambdaPlease.f),
+                    .core_thread = try std.Thread.spawn(LambdaPlease.f, &self.queues),
                 };
             },
         };

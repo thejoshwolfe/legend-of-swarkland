@@ -251,7 +251,7 @@ pub fn InChannel(comptime Reader: type) type {
             switch (@typeInfo(T)) {
                 .Int => return self.readInt(T),
                 .Bool => return 0 != try self.readInt(u1),
-                .Enum => return @intToEnum(T, try self.readInt(@TagType(T))),
+                .Enum => return @intToEnum(T, try self.readInt(std.meta.Tag(T))),
                 .Struct => |info| {
                     var x: T = undefined;
                     inline for (info.fields) |field| {
