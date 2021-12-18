@@ -37,7 +37,7 @@ pub const InputEngine = struct {
         }
     }
 
-    fn handleKeydown(self: InputEngine, modifiers: Modifiers, scancode: c_int) ?Button {
+    fn handleKeydown(_: InputEngine, modifiers: Modifiers, scancode: c_int) ?Button {
         switch (scancode) {
             sdl.c.SDL_SCANCODE_LEFT => return if (modifiers == 0) Button.left else null,
             sdl.c.SDL_SCANCODE_RIGHT => return if (modifiers == 0) Button.right else null,
@@ -60,7 +60,7 @@ pub const InputEngine = struct {
     const alt = 3;
     const meta = 4;
 
-    fn getModifiers(self: InputEngine) Modifiers {
+    fn getModifiers(_: InputEngine) Modifiers {
         const sdl_modifiers = @enumToInt(sdl.c.SDL_GetModState());
         var result: Modifiers = 0;
         if (sdl_modifiers & (sdl.c.KMOD_LSHIFT | sdl.c.KMOD_RSHIFT) != 0) result |= shift;

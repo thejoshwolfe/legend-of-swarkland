@@ -59,7 +59,7 @@ pub const GameEngine = struct {
         };
     }
 
-    pub fn validateAction(self: *const GameEngine, action: Action) bool {
+    pub fn validateAction(_: *const GameEngine, action: Action) bool {
         switch (action) {
             .wait => return true,
             .move => |move_delta| return isCardinalDirection(move_delta),
@@ -146,7 +146,7 @@ pub const GameEngine = struct {
                 const kick_position = attacker_coord.plus(kick_direction);
                 for (everybody) |other_id| {
                     const position = current_positions.get(other_id).?;
-                    for (getAllPositions(&position)) |coord, i| {
+                    for (getAllPositions(&position)) |coord| {
                         if (!coord.equals(kick_position)) continue;
                         // gotchya
                         if (getInertiaIndex(game_state.individuals.get(other_id).?.species) > 0) {
@@ -308,8 +308,6 @@ pub const GameEngine = struct {
                 );
             }
         }
-
-        var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
 
         // build state changes
         var state_changes = ArrayList(StateDiff).init(self.allocator);

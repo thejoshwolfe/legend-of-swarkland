@@ -42,7 +42,7 @@ const FdToQueueAdapter = struct {
                 core.debug.thread_lifecycle.print("clean shutdown", .{});
                 break;
             };
-            self.socket.out().write(msg) catch |err| {
+            self.socket.out().write(msg) catch {
                 @panic("TODO: proper error handling");
             };
         }
@@ -65,7 +65,7 @@ const FdToQueueAdapter = struct {
                     else => @panic("TODO: proper error handling"),
                 }
             };
-            self.queues.enqueueRequest(msg) catch |err| {
+            self.queues.enqueueRequest(msg) catch {
                 @panic("TODO: proper error handling");
             };
         }

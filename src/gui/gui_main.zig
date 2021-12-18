@@ -475,7 +475,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
                     if (animated_y > 10) animated_y = 20 - animated_y;
                     const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
-                    const size = textures.renderTextScaled(renderer, tutorial_text, coord, true, 1);
+                    _ = textures.renderTextScaled(renderer, tutorial_text, coord, true, 1);
                 }
                 if (dealloc_buffer) |buf| {
                     allocator.free(buf);
@@ -586,7 +586,6 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     }
 
     // render status effects
-    var status_conditions: u2 = thing.status_conditions;
     if (thing.status_conditions & core.protocol.StatusCondition_wounded_leg != 0) {
         textures.renderSprite(renderer, textures.sprites.wounded, display_position);
     }

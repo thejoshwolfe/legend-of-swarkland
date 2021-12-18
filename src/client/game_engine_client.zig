@@ -45,7 +45,7 @@ const QueueToFdAdapter = struct {
                 core.debug.thread_lifecycle.print("clean shutdown", .{});
                 break;
             };
-            self.socket.out().write(request) catch |err| {
+            self.socket.out().write(request) catch {
                 @panic("TODO: proper error handling");
             };
         }
@@ -67,7 +67,7 @@ const QueueToFdAdapter = struct {
                     else => @panic("TODO: proper error handling"),
                 }
             };
-            self.queues.enqueueResponse(response) catch |err| {
+            self.queues.enqueueResponse(response) catch {
                 @panic("TODO: proper error handling");
             };
         }
@@ -733,7 +733,6 @@ test "basic interaction" {
     try client.rewind();
     {
         const response = client.queues.waitAndTakeResponse().?;
-        const new_position = response.load_state.self.rel_position;
 
         std.testing.expect(response.load_state.self.rel_position.equals(makeCoord(0, 0)));
     }

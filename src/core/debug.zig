@@ -135,7 +135,6 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                 },
                 .Struct => |StructT| {
                     const multiline = @sizeOf(T) >= 12;
-                    comptime var field_i = 0;
                     std.debug.warn(".{{", .{});
                     inline for (StructT.fields) |field, i| {
                         if (i > 0) {
@@ -176,7 +175,7 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                         return;
                     }
                 },
-                .Enum => |info| {
+                .Enum => {
                     return std.debug.warn(".{}", .{@tagName(obj)});
                 },
                 .Void => {
