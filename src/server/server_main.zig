@@ -10,8 +10,8 @@ const allocator = std.heap.c_allocator;
 
 const FdToQueueAdapter = struct {
     socket: Socket,
-    send_thread: *std.Thread,
-    recv_thread: *std.Thread,
+    send_thread: std.Thread,
+    recv_thread: std.Thread,
     queues: *SomeQueues,
 
     pub fn init(
@@ -22,13 +22,13 @@ const FdToQueueAdapter = struct {
     ) !void {
         self.socket = Socket.init(in_stream, out_stream);
         self.queues = queues;
-        self.send_thread = try std.Thread.spawn(self, sendMain);
-        self.recv_thread = try std.Thread.spawn(self, recvMain);
+        self.send_thread = try std.Thread.spawn(.{}, sendMain, .{self});
+        self.recv_thread = try std.Thread.spawn(.{}, recvMain, .{self});
     }
 
     pub fn wait(self: *FdToQueueAdapter) void {
-        self.send_thread.wait();
-        self.recv_thread.wait();
+        self.send_thread.join();
+        self.recv_thread.join();
     }
 
     fn sendMain(self: *FdToQueueAdapter) void {
@@ -42,7 +42,7 @@ const FdToQueueAdapter = struct {
                 core.debug.thread_lifecycle.print("clean shutdown", .{});
                 break;
             };
-            self.socket.out().write(msg) catch |err| {
+            self.socket.out().write(msg) catch {
                 @panic("TODO: proper error handling");
             };
         }
@@ -65,7 +65,7 @@ const FdToQueueAdapter = struct {
                     else => @panic("TODO: proper error handling"),
                 }
             };
-            self.queues.enqueueRequest(msg) catch |err| {
+            self.queues.enqueueRequest(msg) catch {
                 @panic("TODO: proper error handling");
             };
         }

@@ -1,5 +1,4 @@
 const std = @import("std");
-const builtin = @import("builtin");
 const Builder = std.build.Builder;
 
 pub fn build(b: *Builder) void {
@@ -70,7 +69,7 @@ pub fn build(b: *Builder) void {
 
 fn make_binary_variant(
     b: *Builder,
-    build_mode: builtin.Mode,
+    build_mode: std.builtin.Mode,
     target: std.build.Target,
     name: []const u8,
     headless: bool,

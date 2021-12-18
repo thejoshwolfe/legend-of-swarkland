@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 const HashMap = std.HashMap;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
@@ -14,11 +15,11 @@ const map_gen = @import("./map_gen.zig");
 
 /// an "id" is a strictly server-side concept.
 pub fn IdMap(comptime V: type) type {
-    return std.AutoHashMap(u32, V);
+    return std.AutoArrayHashMap(u32, V);
 }
 
 pub fn CoordMap(comptime V: type) type {
-    return std.AutoHashMap(Coord, V);
+    return std.AutoArrayHashMap(Coord, V);
 }
 
 pub const Terrain = core.matrix.Matrix(TerrainSpace);
@@ -105,7 +106,7 @@ pub const GameState = struct {
                 var ret = IdMap(*Individual).init(self.allocator);
                 var iterator = self.individuals.iterator();
                 while (iterator.next()) |kv| {
-                    try ret.putNoClobber(kv.key, try kv.value.*.clone(self.allocator));
+                    try ret.putNoClobber(kv.key_ptr.*, try kv.value_ptr.*.clone(self.allocator));
                 }
                 break :blk ret;
             },
@@ -119,7 +120,7 @@ pub const GameState = struct {
                     try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
                 .despawn => |data| {
-                    self.individuals.removeAssertDiscard(data.id);
+                    assert(self.individuals.swapRemove(data.id));
                 },
                 .small_move => |id_and_coord| {
                     const individual = self.individuals.get(id_and_coord.id).?;
@@ -152,7 +153,7 @@ pub const GameState = struct {
             const diff = state_changes[state_changes.len - 1 - forwards_i];
             switch (diff) {
                 .spawn => |data| {
-                    self.individuals.removeAssertDiscard(data.id);
+                    assert(self.individuals.swapRemove(data.id));
                 },
                 .despawn => |data| {
                     try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));

@@ -31,13 +31,13 @@ pub const InputEngine = struct {
             },
             sdl.c.SDL_KEYDOWN => {
                 if (event.key.repeat != 0) return null;
-                return self.handleKeydown(self.getModifiers(), @enumToInt(event.key.keysym.scancode));
+                return self.handleKeydown(self.getModifiers(), event.key.keysym.scancode);
             },
             else => unreachable,
         }
     }
 
-    fn handleKeydown(self: InputEngine, modifiers: Modifiers, scancode: c_int) ?Button {
+    fn handleKeydown(_: InputEngine, modifiers: Modifiers, scancode: c_uint) ?Button {
         switch (scancode) {
             sdl.c.SDL_SCANCODE_LEFT => return if (modifiers == 0) Button.left else null,
             sdl.c.SDL_SCANCODE_RIGHT => return if (modifiers == 0) Button.right else null,
@@ -60,8 +60,8 @@ pub const InputEngine = struct {
     const alt = 3;
     const meta = 4;
 
-    fn getModifiers(self: InputEngine) Modifiers {
-        const sdl_modifiers = @enumToInt(sdl.c.SDL_GetModState());
+    fn getModifiers(_: InputEngine) Modifiers {
+        const sdl_modifiers = sdl.c.SDL_GetModState();
         var result: Modifiers = 0;
         if (sdl_modifiers & (sdl.c.KMOD_LSHIFT | sdl.c.KMOD_RSHIFT) != 0) result |= shift;
         if (sdl_modifiers & (sdl.c.KMOD_LCTRL | sdl.c.KMOD_RCTRL) != 0) result |= ctrl;

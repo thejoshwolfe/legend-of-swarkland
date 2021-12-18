@@ -206,7 +206,7 @@ pub fn OutChannel(comptime Writer: type) type {
                     }
                     unreachable;
                 },
-                .Optional => |info| {
+                .Optional => {
                     if (x) |child| {
                         try self.write(true);
                         try self.write(child);
@@ -251,7 +251,7 @@ pub fn InChannel(comptime Reader: type) type {
             switch (@typeInfo(T)) {
                 .Int => return self.readInt(T),
                 .Bool => return 0 != try self.readInt(u1),
-                .Enum => return @intToEnum(T, try self.readInt(@TagType(T))),
+                .Enum => return @intToEnum(T, try self.readInt(std.meta.Tag(T))),
                 .Struct => |info| {
                     var x: T = undefined;
                     inline for (info.fields) |field| {
@@ -314,6 +314,7 @@ pub fn InChannel(comptime Reader: type) type {
 
 pub fn deepClone(allocator: *std.mem.Allocator, x: anytype) (error{OutOfMemory})!@TypeOf(x) {
     // TODO: actually do it
+    _ = allocator;
     return x;
 }
 

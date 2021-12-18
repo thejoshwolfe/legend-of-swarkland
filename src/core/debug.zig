@@ -62,8 +62,8 @@ pub fn nameThisThread(name: []const u8) void {
     return nameThisThreadWithClientId(name, 0);
 }
 pub fn nameThisThreadWithClientId(name: []const u8, client_id: u32) void {
-    var held = mutex.acquire();
-    defer held.release();
+    mutex.lock();
+    defer mutex.unlock();
     const thread_id = std.Thread.getCurrentId();
     for (thread_names.items) |it| {
         std.debug.assert(it.thread_id != thread_id);
@@ -77,8 +77,8 @@ pub fn nameThisThreadWithClientId(name: []const u8, client_id: u32) void {
     }) catch @panic("too many threads");
 }
 pub fn unnameThisThread() void {
-    var held = mutex.acquire();
-    defer held.release();
+    mutex.lock();
+    defer mutex.unlock();
     const me = std.Thread.getCurrentId();
     for (thread_names.items) |it, i| {
         if (it.thread_id == me) {
@@ -135,7 +135,6 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                 },
                 .Struct => |StructT| {
                     const multiline = @sizeOf(T) >= 12;
-                    comptime var field_i = 0;
                     std.debug.warn(".{{", .{});
                     inline for (StructT.fields) |field, i| {
                         if (i > 0) {
@@ -176,7 +175,7 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                         return;
                     }
                 },
-                .Enum => |info| {
+                .Enum => {
                     return std.debug.warn(".{}", .{@tagName(obj)});
                 },
                 .Void => {

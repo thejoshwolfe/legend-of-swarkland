@@ -13,8 +13,8 @@ const allocator = std.heap.c_allocator;
 
 const QueueToFdAdapter = struct {
     socket: Socket,
-    send_thread: *std.Thread,
-    recv_thread: *std.Thread,
+    send_thread: std.Thread,
+    recv_thread: std.Thread,
     queues: *SomeQueues,
 
     pub fn init(
@@ -25,13 +25,13 @@ const QueueToFdAdapter = struct {
     ) !void {
         self.socket = Socket.init(in_stream, out_stream);
         self.queues = queues;
-        self.send_thread = try std.Thread.spawn(self, sendMain);
-        self.recv_thread = try std.Thread.spawn(self, recvMain);
+        self.send_thread = try std.Thread.spawn(.{}, sendMain, .{self});
+        self.recv_thread = try std.Thread.spawn(.{}, recvMain, .{self});
     }
 
     pub fn wait(self: *QueueToFdAdapter) void {
-        self.send_thread.wait();
-        self.recv_thread.wait();
+        self.send_thread.join();
+        self.recv_thread.join();
     }
 
     fn sendMain(self: *QueueToFdAdapter) void {
@@ -45,7 +45,7 @@ const QueueToFdAdapter = struct {
                 core.debug.thread_lifecycle.print("clean shutdown", .{});
                 break;
             };
-            self.socket.out().write(request) catch |err| {
+            self.socket.out().write(request) catch {
                 @panic("TODO: proper error handling");
             };
         }
@@ -67,7 +67,7 @@ const QueueToFdAdapter = struct {
                     else => @panic("TODO: proper error handling"),
                 }
             };
-            self.queues.enqueueResponse(response) catch |err| {
+            self.queues.enqueueResponse(response) catch {
                 @panic("TODO: proper error handling");
             };
         }
@@ -75,20 +75,20 @@ const QueueToFdAdapter = struct {
 };
 
 pub const SomeQueues = struct {
-    requests_alive: std.atomic.Int(u8),
+    requests_alive: std.atomic.Atomic(bool),
     requests: std.atomic.Queue(Request),
-    responses_alive: std.atomic.Int(u8),
+    responses_alive: std.atomic.Atomic(bool),
     responses: std.atomic.Queue(Response),
 
     pub fn init(self: *SomeQueues) void {
-        self.requests_alive = std.atomic.Int(u8).init(1);
+        self.requests_alive = std.atomic.Atomic(bool).init(true);
         self.requests = std.atomic.Queue(Request).init();
-        self.responses_alive = std.atomic.Int(u8).init(1);
+        self.responses_alive = std.atomic.Atomic(bool).init(true);
         self.responses = std.atomic.Queue(Response).init();
     }
 
     pub fn closeRequests(self: *SomeQueues) void {
-        self.requests_alive.set(0);
+        self.requests_alive.store(false, .Monotonic);
     }
     pub fn enqueueRequest(self: *SomeQueues, request: Request) !void {
         try queuePut(Request, &self.requests, request);
@@ -96,7 +96,7 @@ pub const SomeQueues = struct {
 
     /// null means requests have been closed
     pub fn waitAndTakeRequest(self: *SomeQueues) ?Request {
-        while (self.requests_alive.get() != 0) {
+        while (self.requests_alive.load(.Monotonic)) {
             if (queueGet(Request, &self.requests)) |response| {
                 return response;
             }
@@ -107,7 +107,7 @@ pub const SomeQueues = struct {
     }
 
     pub fn closeResponses(self: *SomeQueues) void {
-        self.responses_alive.set(0);
+        self.responses_alive.store(false, .Monotonic);
     }
     pub fn enqueueResponse(self: *SomeQueues, response: Response) !void {
         try queuePut(Response, &self.responses, response);
@@ -118,7 +118,7 @@ pub const SomeQueues = struct {
 
     /// null means responses have been closed
     pub fn waitAndTakeResponse(self: *SomeQueues) ?Response {
-        while (self.responses_alive.get() != 0) {
+        while (self.responses_alive.load(.Monotonic)) {
             if (self.takeResponse()) |response| {
                 return response;
             }
@@ -140,7 +140,7 @@ const Connection = union(enum) {
         adapter: *QueueToFdAdapter,
     };
     const ThreadData = struct {
-        core_thread: *std.Thread,
+        core_thread: std.Thread,
     };
 };
 
@@ -200,7 +200,7 @@ pub const GameEngineClient = struct {
                         defer core.debug.thread_lifecycle.print("shutdown", .{});
 
                         game_server.server_main(context) catch |err| {
-                            std.debug.warn("error: {}", .{@errorName(err)});
+                            std.debug.warn("error: {s}", .{@errorName(err)});
                             if (@errorReturnTrace()) |trace| {
                                 std.debug.dumpStackTrace(trace.*);
                             }
@@ -209,7 +209,7 @@ pub const GameEngineClient = struct {
                     }
                 };
                 break :blk Connection.ThreadData{
-                    .core_thread = try std.Thread.spawn(&self.queues, LambdaPlease.f),
+                    .core_thread = try std.Thread.spawn(.{}, LambdaPlease.f, .{&self.queues}),
                 };
             },
         };
@@ -231,7 +231,7 @@ pub const GameEngineClient = struct {
                 _ = data.child_process.wait() catch undefined;
             },
             .thread => |*data| {
-                data.core_thread.wait();
+                data.core_thread.join();
             },
         }
         core.debug.thread_lifecycle.print("all threads done", .{});
@@ -733,7 +733,6 @@ test "basic interaction" {
     try client.rewind();
     {
         const response = client.queues.waitAndTakeResponse().?;
-        const new_position = response.load_state.self.rel_position;
 
         std.testing.expect(response.load_state.self.rel_position.equals(makeCoord(0, 0)));
     }
