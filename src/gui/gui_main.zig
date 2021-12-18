@@ -41,11 +41,11 @@ pub fn main() anyerror!void {
     defer core.debug.thread_lifecycle.print("shutdown", .{});
 
     // SDL handling SIGINT blocks propagation to child threads.
-    if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, "1", sdl.c.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.c.SDL_bool.SDL_FALSE)) {
+    if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, "1", sdl.c.SDL_HINT_OVERRIDE) != sdl.c.SDL_FALSE)) {
         std.debug.panic("failed to disable sdl signal handlers\n", .{});
     }
     if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
-        std.debug.panic("SDL_Init failed: {c}\n", .{sdl.c.SDL_GetError()});
+        std.debug.panic("SDL_Init failed: {s}\n", .{sdl.c.SDL_GetError()});
     }
     defer sdl.c.SDL_Quit();
 
@@ -57,12 +57,12 @@ pub fn main() anyerror!void {
         logical_window_size.h,
         sdl.c.SDL_WINDOW_RESIZABLE,
     ) orelse {
-        std.debug.panic("SDL_CreateWindow failed: {c}\n", .{sdl.c.SDL_GetError()});
+        std.debug.panic("SDL_CreateWindow failed: {s}\n", .{sdl.c.SDL_GetError()});
     };
     defer sdl.c.SDL_DestroyWindow(screen);
 
     const renderer: *sdl.Renderer = sdl.c.SDL_CreateRenderer(screen, -1, 0) orelse {
-        std.debug.panic("SDL_CreateRenderer failed: {c}\n", .{sdl.c.SDL_GetError()});
+        std.debug.panic("SDL_CreateRenderer failed: {s}\n", .{sdl.c.SDL_GetError()});
     };
     defer sdl.c.SDL_DestroyRenderer(renderer);
 
@@ -81,7 +81,7 @@ pub fn main() anyerror!void {
         logical_window_size.w,
         logical_window_size.h,
     ) orelse {
-        std.debug.panic("SDL_CreateTexture failed: {c}\n", .{sdl.c.SDL_GetError()});
+        std.debug.panic("SDL_CreateTexture failed: {s}\n", .{sdl.c.SDL_GetError()});
     };
     defer sdl.c.SDL_DestroyTexture(screen_buffer);
 
@@ -461,7 +461,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     if (score == 1) {
                         maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
                     } else {
-                        dealloc_buffer = try std.fmt.allocPrint(allocator, "team {} wins with {} points. Ctrl+R to quit.", .{
+                        dealloc_buffer = try std.fmt.allocPrint(allocator, "team {s} wins with {} points. Ctrl+R to quit.", .{
                             @tagName(frame.self.species),
                             score,
                         });

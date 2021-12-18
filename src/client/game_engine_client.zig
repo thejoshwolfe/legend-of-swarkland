@@ -13,8 +13,8 @@ const allocator = std.heap.c_allocator;
 
 const QueueToFdAdapter = struct {
     socket: Socket,
-    send_thread: *std.Thread,
-    recv_thread: *std.Thread,
+    send_thread: std.Thread,
+    recv_thread: std.Thread,
     queues: *SomeQueues,
 
     pub fn init(
@@ -25,13 +25,13 @@ const QueueToFdAdapter = struct {
     ) !void {
         self.socket = Socket.init(in_stream, out_stream);
         self.queues = queues;
-        self.send_thread = try std.Thread.spawn(self, sendMain);
-        self.recv_thread = try std.Thread.spawn(self, recvMain);
+        self.send_thread = try std.Thread.spawn(.{}, sendMain, .{self});
+        self.recv_thread = try std.Thread.spawn(.{}, recvMain, .{self});
     }
 
     pub fn wait(self: *QueueToFdAdapter) void {
-        self.send_thread.wait();
-        self.recv_thread.wait();
+        self.send_thread.join();
+        self.recv_thread.join();
     }
 
     fn sendMain(self: *QueueToFdAdapter) void {
@@ -140,7 +140,7 @@ const Connection = union(enum) {
         adapter: *QueueToFdAdapter,
     };
     const ThreadData = struct {
-        core_thread: *std.Thread,
+        core_thread: std.Thread,
     };
 };
 
@@ -200,7 +200,7 @@ pub const GameEngineClient = struct {
                         defer core.debug.thread_lifecycle.print("shutdown", .{});
 
                         game_server.server_main(context) catch |err| {
-                            std.debug.warn("error: {}", .{@errorName(err)});
+                            std.debug.warn("error: {s}", .{@errorName(err)});
                             if (@errorReturnTrace()) |trace| {
                                 std.debug.dumpStackTrace(trace.*);
                             }
@@ -209,7 +209,7 @@ pub const GameEngineClient = struct {
                     }
                 };
                 break :blk Connection.ThreadData{
-                    .core_thread = try std.Thread.spawn(&self.queues, LambdaPlease.f),
+                    .core_thread = try std.Thread.spawn(.{}, LambdaPlease.f, .{&self.queues}),
                 };
             },
         };
@@ -231,7 +231,7 @@ pub const GameEngineClient = struct {
                 _ = data.child_process.wait() catch undefined;
             },
             .thread => |*data| {
-                data.core_thread.wait();
+                data.core_thread.join();
             },
         }
         core.debug.thread_lifecycle.print("all threads done", .{});
