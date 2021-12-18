@@ -27,8 +27,8 @@ const FdToQueueAdapter = struct {
     }
 
     pub fn wait(self: *FdToQueueAdapter) void {
-        self.send_thread.wait();
-        self.recv_thread.wait();
+        self.send_thread.join();
+        self.recv_thread.join();
     }
 
     fn sendMain(self: *FdToQueueAdapter) void {

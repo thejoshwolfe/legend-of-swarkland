@@ -75,20 +75,20 @@ const QueueToFdAdapter = struct {
 };
 
 pub const SomeQueues = struct {
-    requests_alive: std.atomic.Atomic(u8),
+    requests_alive: std.atomic.Atomic(bool),
     requests: std.atomic.Queue(Request),
-    responses_alive: std.atomic.Atomic(u8),
+    responses_alive: std.atomic.Atomic(bool),
     responses: std.atomic.Queue(Response),
 
     pub fn init(self: *SomeQueues) void {
-        self.requests_alive = std.atomic.Atomic(u8).init(1);
+        self.requests_alive = std.atomic.Atomic(bool).init(true);
         self.requests = std.atomic.Queue(Request).init();
-        self.responses_alive = std.atomic.Atomic(u8).init(1);
+        self.responses_alive = std.atomic.Atomic(bool).init(true);
         self.responses = std.atomic.Queue(Response).init();
     }
 
     pub fn closeRequests(self: *SomeQueues) void {
-        self.requests_alive.set(0);
+        self.requests_alive.store(false, .Monotonic);
     }
     pub fn enqueueRequest(self: *SomeQueues, request: Request) !void {
         try queuePut(Request, &self.requests, request);
@@ -96,7 +96,7 @@ pub const SomeQueues = struct {
 
     /// null means requests have been closed
     pub fn waitAndTakeRequest(self: *SomeQueues) ?Request {
-        while (self.requests_alive.get() != 0) {
+        while (self.requests_alive.load(.Monotonic)) {
             if (queueGet(Request, &self.requests)) |response| {
                 return response;
             }
@@ -107,7 +107,7 @@ pub const SomeQueues = struct {
     }
 
     pub fn closeResponses(self: *SomeQueues) void {
-        self.responses_alive.set(0);
+        self.responses_alive.store(false, .Monotonic);
     }
     pub fn enqueueResponse(self: *SomeQueues, response: Response) !void {
         try queuePut(Response, &self.responses, response);
@@ -118,7 +118,7 @@ pub const SomeQueues = struct {
 
     /// null means responses have been closed
     pub fn waitAndTakeResponse(self: *SomeQueues) ?Response {
-        while (self.responses_alive.get() != 0) {
+        while (self.responses_alive.load(.Monotonic)) {
             if (self.takeResponse()) |response| {
                 return response;
             }
