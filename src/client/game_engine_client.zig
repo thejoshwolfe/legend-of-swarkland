@@ -75,15 +75,15 @@ const QueueToFdAdapter = struct {
 };
 
 pub const SomeQueues = struct {
-    requests_alive: std.atomic.Int(u8),
+    requests_alive: std.atomic.Atomic(u8),
     requests: std.atomic.Queue(Request),
-    responses_alive: std.atomic.Int(u8),
+    responses_alive: std.atomic.Atomic(u8),
     responses: std.atomic.Queue(Response),
 
     pub fn init(self: *SomeQueues) void {
-        self.requests_alive = std.atomic.Int(u8).init(1);
+        self.requests_alive = std.atomic.Atomic(u8).init(1);
         self.requests = std.atomic.Queue(Request).init();
-        self.responses_alive = std.atomic.Int(u8).init(1);
+        self.responses_alive = std.atomic.Atomic(u8).init(1);
         self.responses = std.atomic.Queue(Response).init();
     }
 

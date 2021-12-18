@@ -29,7 +29,7 @@ pub fn generate(allocator: *std.mem.Allocator, terrain: *Terrain, individuals: *
     std.crypto.random.bytes(&buf);
     const seed = std.mem.readIntLittle(u64, &buf);
     generator._r = std.rand.DefaultPrng.init(seed);
-    generator.random = &generator._r.random;
+    generator.random = &generator._r.random();
 
     return generator.generate();
 }

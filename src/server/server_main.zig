@@ -10,8 +10,8 @@ const allocator = std.heap.c_allocator;
 
 const FdToQueueAdapter = struct {
     socket: Socket,
-    send_thread: *std.Thread,
-    recv_thread: *std.Thread,
+    send_thread: std.Thread,
+    recv_thread: std.Thread,
     queues: *SomeQueues,
 
     pub fn init(
@@ -22,8 +22,8 @@ const FdToQueueAdapter = struct {
     ) !void {
         self.socket = Socket.init(in_stream, out_stream);
         self.queues = queues;
-        self.send_thread = try std.Thread.spawn(self, sendMain);
-        self.recv_thread = try std.Thread.spawn(self, recvMain);
+        self.send_thread = try std.Thread.spawn(.{}, sendMain, .{self});
+        self.recv_thread = try std.Thread.spawn(.{}, recvMain, .{self});
     }
 
     pub fn wait(self: *FdToQueueAdapter) void {

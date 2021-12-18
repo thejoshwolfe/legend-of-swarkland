@@ -46,14 +46,10 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         var actions = IdMap(Action).init(allocator);
 
         // do ai
-        {
-            var iterator = game_state.individuals.iterator();
-            while (iterator.next()) |kv| {
-                const id = kv.key;
-                if (id == main_player_id) continue;
-                const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
-                try actions.putNoClobber(id, doAi(response));
-            }
+        for (game_state.individuals.keys()) |id| {
+            if (id == main_player_id) continue;
+            const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
+            try actions.putNoClobber(id, doAi(response));
         }
         response_for_ais.clearRetainingCapacity();
 
@@ -127,10 +123,10 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
 
             var iterator = happenings.individual_to_perception.iterator();
             while (iterator.next()) |kv| {
-                const id = kv.key;
+                const id = kv.key_ptr.*;
                 const response = Response{
                     .stuff_happens = PerceivedHappening{
-                        .frames = kv.value,
+                        .frames = kv.value_ptr.*,
                     },
                 };
                 if (id == main_player_id) {
