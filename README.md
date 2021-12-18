@@ -11,12 +11,13 @@ A Windows build can be downloaded from here: https://wolfesoftware.com/legend-of
 
 Here's how to build from source on Linux:
 
-1. Get a very recent build of [zig](https://ziglang.org/).
-   I'm developing off of zig's master branch, so check my commit log for "updated to zig xxxxxx" commits to know which version to use.
-2. `sudo apt-get install libsdl2-dev`
-3. `git submodule update --init`
+1. Get Zig version 0.9.x from [ziglang.org](https://ziglang.org/).
+2. Get other dependencies:
+    * NixOS: `nix-shell --pure -p python3 -p git -p clang -p SDL2`
+    * Ubuntu: `sudo apt-get install python3 git clang libsdl2-dev`
+3. Finish downloading the code: `git submodule update --init`
 4. `zig build`
-5. `./zig-cache/bin/legend-of-swarkland`
+5. `./zig-out/bin/legend-of-swarkland`
 
 ## Design goals
 
