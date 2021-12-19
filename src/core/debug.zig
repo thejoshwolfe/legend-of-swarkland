@@ -93,26 +93,26 @@ pub fn unnameThisThread() void {
 
 /// i kinda wish std.fmt did this.
 fn deep_print(prefix: []const u8, something: anytype) void {
-    std.debug.warn("{}", .{prefix});
+    std.debug.warn("{s}", .{prefix});
     struct {
         pub fn recurse(obj: anytype, comptime indent: comptime_int) void {
             const T = @TypeOf(obj);
-            const indentation = ("  " ** indent)[0..];
+            const indentation = comptime ("  " ** indent);
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_list.AlignedArrayList(")) {
                 return recurse(obj.items, indent);
             }
-            if (comptime std.mem.startsWith(u8, @typeName(T), "std.hash_map.HashMap(u32,")) {
+            if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_hash_map.ArrayHashMap(u32,")) {
                 if (obj.count() == 0) {
                     return std.debug.warn("{{}}", .{});
                 }
                 std.debug.warn("{{", .{});
                 var iterator = obj.iterator();
                 while (iterator.next()) |kv| {
-                    std.debug.warn("\n{}  {}: ", .{ indentation, kv.key });
-                    recurse(kv.value, indent + 1);
+                    std.debug.warn("\n{s}  {}: ", .{ indentation, kv.key_ptr.* });
+                    recurse(kv.value_ptr.*, indent + 1);
                     std.debug.warn(",", .{});
                 }
-                return std.debug.warn("\n{}}}", .{indentation});
+                return std.debug.warn("\n{s}}}", .{indentation});
             }
             switch (@typeInfo(T)) {
                 .Pointer => |ptr_info| switch (ptr_info.size) {
@@ -123,13 +123,15 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                         }
                         std.debug.warn("[\n", .{});
                         for (obj) |x| {
-                            std.debug.warn("{}  ", .{indentation});
+                            std.debug.warn("{s}  ", .{indentation});
                             recurse(x, indent + 1);
                             std.debug.warn(",\n", .{});
                         }
-                        return std.debug.warn("{}]", .{indentation});
+                        return std.debug.warn("{s}]", .{indentation});
                     },
-                    else => {},
+                    else => {
+                        @compileError("shouldn't get here: " ++ @typeName(T));
+                    },
                 },
                 .Array => {
                     return recurse(obj[0..], indent);
@@ -146,10 +148,10 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                             std.debug.warn(" ", .{});
                         }
                         if (multiline) {
-                            std.debug.warn("\n{}  ", .{indentation});
+                            std.debug.warn("\n{s}  ", .{indentation});
                         }
-                        std.debug.warn(".{} = ", .{field.name});
-                        if (std.mem.eql(u8, field.name, "terrain")) {
+                        std.debug.warn(".{s} = ", .{field.name});
+                        if (comptime std.mem.eql(u8, field.name, "terrain")) {
                             // hide terrain, because it's so bulky.
                             std.debug.warn("<...>", .{});
                         } else {
@@ -158,17 +160,17 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                         if (multiline) std.debug.warn(",", .{});
                     }
                     if (multiline) {
-                        std.debug.warn("\n{}}}", .{indentation});
+                        std.debug.warn("\n{s}}}", .{indentation});
                     } else {
                         std.debug.warn(" }}", .{});
                     }
                     return;
                 },
                 .Union => |info| {
-                    if (info.tag_type) |_| {
-                        std.debug.warn(".{{ .{} = ", .{@tagName(obj)});
+                    if (info.tag_type) |tag_type| {
+                        std.debug.warn(".{{ .{s} = ", .{@tagName(obj)});
                         inline for (info.fields) |u_field| {
-                            if (@enumToInt(obj) == u_field.enum_field.?.value) {
+                            if (obj == @field(tag_type, u_field.name)) {
                                 recurse(@field(obj, u_field.name), indent);
                             }
                         }
@@ -177,7 +179,7 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                     }
                 },
                 .Enum => {
-                    return std.debug.warn(".{}", .{@tagName(obj)});
+                    return std.debug.warn(".{s}", .{@tagName(obj)});
                 },
                 .Void => {
                     return std.debug.warn("{{}}", .{});
