@@ -35,12 +35,12 @@ fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: anytype) 
             }
             @panic("thread not named");
         };
-        const prefix: []const u8 = std.fmt.bufPrint(buffer1[0..], "{}({})", .{ debug_thread_id.name, debug_thread_id.client_id }) catch @panic("make the buffer bigger");
+        const prefix: []const u8 = std.fmt.bufPrint(buffer1[0..], "{s}({})", .{ debug_thread_id.name, debug_thread_id.client_id }) catch @panic("make the buffer bigger");
         const msg: []const u8 = std.fmt.bufPrint(buffer2[0..], fmt, args) catch @panic("make the buffer bigger");
-        const line: []const u8 = std.fmt.bufPrint(buffer[0..], "{}: {}\n", .{ prefix, msg }) catch @panic("make the buffer bigger");
-        std.debug.warn("{}", .{line});
+        const line: []const u8 = std.fmt.bufPrint(buffer[0..], "{s}: {s}\n", .{ prefix, msg }) catch @panic("make the buffer bigger");
+        std.debug.warn("{s}", .{line});
     } else {
-        std.debug.warn("{}", .{std.fmt.bufPrint(buffer[0..], fmt ++ "\n", args) catch {
+        std.debug.warn("{s}", .{std.fmt.bufPrint(buffer[0..], fmt ++ "\n", args) catch {
             @panic("make the buffer bigger");
         }});
     }

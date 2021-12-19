@@ -37,6 +37,9 @@ pub fn Matrix(comptime T: type) type {
                 .data = data,
             };
         }
+        pub fn deinit(self: Self, allocator: *std.mem.Allocator) void {
+            allocator.free(self.data);
+        }
 
         pub fn clone(self: Self, allocator: *std.mem.Allocator) !Self {
             var other = try Self.init(allocator, self.width, self.height);
@@ -105,22 +108,24 @@ pub fn Matrix(comptime T: type) type {
 }
 
 test "Matrix" {
-    var m = try Matrix(u8).initFill(std.debug.global_allocator, 3, 2, 0);
-    std.testing.expect(m.at(-1, 0) == null);
-    std.testing.expect(m.get(0, -1) == null);
-    std.testing.expect(m.get(3, 0) == null);
-    std.testing.expect(m.at(0, 2) == null);
+    var m = try Matrix(u8).initFill(std.testing.allocator, 3, 2, 0);
+    defer m.deinit(std.testing.allocator);
+    try std.testing.expect(m.at(-1, 0) == null);
+    try std.testing.expect(m.get(0, -1) == null);
+    try std.testing.expect(m.get(3, 0) == null);
+    try std.testing.expect(m.at(0, 2) == null);
 
-    std.testing.expect(m.at(0, 0).?.* == 0);
-    std.testing.expect(m.at(2, 1).?.* == 0);
-    std.testing.expect(m.get(1, 1).? == 0);
+    try std.testing.expect(m.at(0, 0).?.* == 0);
+    try std.testing.expect(m.at(2, 1).?.* == 0);
+    try std.testing.expect(m.get(1, 1).? == 0);
     m.atUnchecked(1, 1).* = 3;
-    std.testing.expect(m.at(1, 1).?.* == 3);
+    try std.testing.expect(m.at(1, 1).?.* == 3);
 
-    var other = try m.clone(std.debug.global_allocator);
-    std.testing.expect(other.at(0, 0).?.* == 0);
-    std.testing.expect(other.get(1, 1).? == 3);
+    var other = try m.clone(std.testing.allocator);
+    defer other.deinit(std.testing.allocator);
+    try std.testing.expect(other.at(0, 0).?.* == 0);
+    try std.testing.expect(other.get(1, 1).? == 3);
     m.atUnchecked(1, 1).* = 4;
-    std.testing.expect(m.get(1, 1).? == 4);
-    std.testing.expect(other.get(1, 1).? == 3);
+    try std.testing.expect(m.get(1, 1).? == 4);
+    try std.testing.expect(other.get(1, 1).? == 3);
 }

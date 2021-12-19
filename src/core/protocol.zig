@@ -185,9 +185,19 @@ pub fn OutChannel(comptime Writer: type) type {
                 .Pointer => |info| {
                     switch (info.size) {
                         .Slice => {
+                            // []T
                             try self.writeInt(x.len);
                             for (x) |x_i| {
                                 try self.write(x_i);
+                            }
+                        },
+                        .One => {
+                            if (info.is_const and @typeInfo(info.child) == .Array) {
+                                // *const [N]T
+                                try self.writeInt(x.len);
+                                for (x) |x_i| {
+                                    try self.write(x_i);
+                                }
                             }
                         },
                         else => @compileError("not supported: " ++ @typeName(T)),
@@ -320,117 +330,121 @@ pub fn deepClone(allocator: *std.mem.Allocator, x: anytype) (error{OutOfMemory})
 
 test "channel int" {
     var buffer = [_]u8{0} ** 256;
-    var _out_stream = std.io.SliceOutStream.init(buffer[0..]);
-    var _in_stream = std.io.SliceInStream.init(buffer[0..]);
-    var out_channel = initOutChannel(&_out_stream.stream);
-    var in_channel = initInChannel(std.debug.global_allocator, &_in_stream.stream);
+    var _out_stream = std.io.fixedBufferStream(&buffer);
+    var _in_stream = std.io.fixedBufferStream(&buffer);
+    var out_channel = initOutChannel(&_out_stream.writer());
+    var in_channel = initInChannel(std.testing.allocator, &_in_stream.reader());
 
     _out_stream.reset();
     _in_stream.pos = 0;
-    try out_channel.writeInt(u0(0)); // zero size
-    try out_channel.writeInt(u3(2));
-    try out_channel.writeInt(i3(-2));
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{ 2, 0xfe }));
-    std.testing.expect(0 == try in_channel.read(u0));
-    std.testing.expect(2 == try in_channel.read(u3));
-    std.testing.expect(-2 == try in_channel.read(i3));
+    try out_channel.writeInt(@as(u0, 0)); // zero size
+    try out_channel.writeInt(@as(u3, 2));
+    try out_channel.writeInt(@as(i3, -2));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{ 2, 0xfe }));
+    try std.testing.expect(0 == try in_channel.read(u0));
+    try std.testing.expect(2 == try in_channel.read(u3));
+    try std.testing.expect(-2 == try in_channel.read(i3));
 
     _out_stream.reset();
     _in_stream.pos = 0;
-    try out_channel.writeInt(u64(3));
-    try out_channel.writeInt(i64(4));
-    try out_channel.writeInt(i64(-5));
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+    try out_channel.writeInt(@as(u64, 3));
+    try out_channel.writeInt(@as(i64, 4));
+    try out_channel.writeInt(@as(i64, -5));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{
         3,    0,    0,    0,    0,    0,    0,    0,
         4,    0,    0,    0,    0,    0,    0,    0,
         0xfb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     }));
-    std.testing.expect(3 == try in_channel.read(u64));
-    std.testing.expect(4 == try in_channel.read(i64));
-    std.testing.expect(-5 == try in_channel.read(i64));
+    try std.testing.expect(3 == try in_channel.read(u64));
+    try std.testing.expect(4 == try in_channel.read(i64));
+    try std.testing.expect(-5 == try in_channel.read(i64));
 
     _out_stream.reset();
     _in_stream.pos = 0;
-    try out_channel.writeInt(u64(0xffffffffffffffff));
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+    try out_channel.writeInt(@as(u64, 0xffffffffffffffff));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     }));
-    std.testing.expect(0xffffffffffffffff == try in_channel.read(u64));
+    try std.testing.expect(0xffffffffffffffff == try in_channel.read(u64));
 
     _out_stream.reset();
     _in_stream.pos = 0;
-    try out_channel.writeInt(i64(-0x8000000000000000));
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+    try out_channel.writeInt(@as(i64, -0x8000000000000000));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{
         0, 0, 0, 0, 0, 0, 0, 0x80,
     }));
-    std.testing.expect(-0x8000000000000000 == try in_channel.read(i64));
+    try std.testing.expect(-0x8000000000000000 == try in_channel.read(i64));
 }
 
 test "channel" {
     var buffer = [_]u8{0} ** 256;
-    var _out_stream = std.io.SliceOutStream.init(buffer[0..]);
-    var _in_stream = std.io.SliceInStream.init(buffer[0..]);
-    var out_channel = initOutChannel(&_out_stream.stream);
-    var in_channel = initInChannel(std.debug.global_allocator, &_in_stream.stream);
+    var _out_stream = std.io.fixedBufferStream(&buffer);
+    var _in_stream = std.io.fixedBufferStream(&buffer);
+    var out_channel = initOutChannel(&_out_stream.writer());
+    var in_channel = initInChannel(std.testing.allocator, &_in_stream.reader());
 
     // enum
     _out_stream.reset();
     _in_stream.pos = 0;
     try out_channel.write(Wall.stone);
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{@enumToInt(Wall.stone)}));
-    std.testing.expect(Wall.stone == try in_channel.read(Wall));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{@enumToInt(Wall.stone)}));
+    try std.testing.expect(Wall.stone == try in_channel.read(Wall));
 
     // bool
     _out_stream.reset();
     _in_stream.pos = 0;
     try out_channel.write(false);
     try out_channel.write(true);
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{ 0, 1 }));
-    std.testing.expect(false == try in_channel.read(bool));
-    std.testing.expect(true == try in_channel.read(bool));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{ 0, 1 }));
+    try std.testing.expect(false == try in_channel.read(bool));
+    try std.testing.expect(true == try in_channel.read(bool));
 
     // struct
     _out_stream.reset();
     _in_stream.pos = 0;
     try out_channel.write(Coord{ .x = 1, .y = 2 });
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{
         1, 0, 0, 0,
         2, 0, 0, 0,
     }));
-    std.testing.expect((Coord{ .x = 1, .y = 2 }).equals(try in_channel.read(Coord)));
+    try std.testing.expect((Coord{ .x = 1, .y = 2 }).equals(try in_channel.read(Coord)));
 
     // fixed-size array
     _out_stream.reset();
     _in_stream.pos = 0;
     try out_channel.write([_]u8{ 1, 2, 3 });
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{ 1, 2, 3 }));
-    std.testing.expect(std.mem.eql(u8, [_]u8{ 1, 2, 3 }, try in_channel.read([3]u8)));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{ 1, 2, 3 }));
+    try std.testing.expect(std.mem.eql(u8, &[_]u8{ 1, 2, 3 }, &(try in_channel.read([3]u8))));
 
     // slice
     _out_stream.reset();
     _in_stream.pos = 0;
     try out_channel.write(([_]u8{ 1, 2, 3 })[0..]);
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{
         3, 0, 0, 0, 0, 0, 0, 0,
-    } ++ [_]u8{ 1, 2, 3 }));
-    std.testing.expect(std.mem.eql(u8, [_]u8{ 1, 2, 3 }, try in_channel.read([]u8)));
+    } ++ &[_]u8{ 1, 2, 3 }));
+    {
+        const slice = try in_channel.read([]u8);
+        defer std.testing.allocator.free(slice);
+        try std.testing.expect(std.mem.eql(u8, &[_]u8{ 1, 2, 3 }, slice));
+    }
 
     // union(enum)
     _out_stream.reset();
     _in_stream.pos = 0;
     try out_channel.write(Action{ .move = Coord{ .x = 3, .y = -4 } });
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{@enumToInt(Action.move)} ++ [_]u8{
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{@enumToInt(Action.move)} ++ &[_]u8{
         3,    0,    0,    0,
         0xfc, 0xff, 0xff, 0xff,
     }));
-    std.testing.expect((Coord{ .x = 3, .y = -4 }).equals((try in_channel.read(Action)).move));
+    try std.testing.expect((Coord{ .x = 3, .y = -4 }).equals((try in_channel.read(Action)).move));
 
     // nullable
     _out_stream.reset();
     _in_stream.pos = 0;
-    try out_channel.write((?u8)(null));
-    try out_channel.write((?u8)(5));
-    std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), [_]u8{ 0, 1, 5 }));
-    std.testing.expect(null == try in_channel.read(?u8));
-    std.testing.expect(5 == (try in_channel.read(?u8)).?);
+    try out_channel.write(@as(?u8, null));
+    try out_channel.write(@as(?u8, 5));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{ 0, 1, 5 }));
+    try std.testing.expect(null == try in_channel.read(?u8));
+    try std.testing.expect(5 == (try in_channel.read(?u8)).?);
 }

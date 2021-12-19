@@ -17,6 +17,7 @@ Here's how to build from source on Linux:
     * Ubuntu: `sudo apt-get install python3 git clang libsdl2-dev`
 3. Finish downloading the code: `git submodule update --init`
 4. `zig build`
+    * Bonus points: `zig test -lc src/index.zig`
 5. `./zig-out/bin/legend-of-swarkland`
 
 ## Design goals
