@@ -1,5 +1,6 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
+const ArrayListUnmanaged = std.ArrayListUnmanaged;
 const sdl = @import("./sdl.zig");
 const textures = @import("./textures.zig");
 const gui = @import("./gui.zig");
@@ -139,9 +140,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     switch (response) {
                         .stuff_happens => |happening| {
                             // Show animations for what's going on.
-                            state.animations = try loadAnimations(happening.frames, now);
+                            try loadAnimations(&state.animations, happening.frames, now, &state.total_journey_offset);
                             state.client_state = happening.frames[happening.frames.len - 1];
-                            state.total_journey_offset = state.total_journey_offset.plus(state.animations.?.frame_index_to_aesthetic_offset[happening.frames.len - 1]);
                             for (happening.frames) |frame| {
                                 for (frame.others) |other| {
                                     if (other.activity == .death and other.species == .kangaroo) {
@@ -183,7 +183,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 sdl.c.SDL_KEYDOWN, sdl.c.SDL_KEYUP => {
                     if (input_engine.handleEvent(event)) |button| {
                         if (inputs_considered_harmful) {
-                            // when we first get focus, SDL gives a friendly digest of all the buttons that already held down.
+                            // when we first get focus, SDL gives a friendly digest of all the buttons that are already held down.
                             // these are not inputs for us.
                             continue;
                         }
@@ -203,6 +203,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 }
                             },
                             GameState.running => |*state| {
+                                var ignored = false;
                                 switch (button) {
                                     .left => {
                                         switch (state.input_prompt) {
@@ -283,7 +284,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .beat_level => {
                                         try state.client.beatLevelMacro();
                                     },
-                                    else => {},
+                                    else => {
+                                        ignored = true;
+                                    },
+                                }
+                                if (!ignored) {
+                                    // speed up animations
+                                    if (state.animations) |*animations| animations.speedUp(now);
                                 }
                             },
                         }
@@ -332,23 +339,20 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             GameState.running => |*state| blk: {
                 if (state.client_state == null) break :blk;
 
-                const move_frame_time = 300;
-
                 // at one point in what frame should we render?
                 var frame = state.client_state.?;
                 var progress: i32 = 0;
+                var move_frame_time: i32 = 1;
                 var display_any_input_prompt = true;
                 var animated_aesthetic_offset = makeCoord(0, 0);
                 if (state.animations) |animations| {
-                    const animation_time = @bitCast(u32, now -% animations.start_time);
-                    const movement_phase = @divFloor(animation_time, move_frame_time);
-
-                    if (movement_phase < animations.frames.len) {
+                    if (animations.frameAtTime(now)) |data| {
                         // animating
-                        frame = animations.frames[movement_phase];
-                        progress = @intCast(i32, animation_time - movement_phase * move_frame_time);
+                        frame = animations.frames.items[data.frame_index];
+                        progress = data.progress;
+                        move_frame_time = animations.time_per_frame;
                         display_any_input_prompt = false;
-                        animated_aesthetic_offset = animations.frame_index_to_aesthetic_offset[movement_phase].minus(animations.frame_index_to_aesthetic_offset[animations.frame_index_to_aesthetic_offset.len - 1]);
+                        animated_aesthetic_offset = animations.frame_index_to_aesthetic_offset.items[data.frame_index].minus(animations.frame_index_to_aesthetic_offset.items[animations.frame_index_to_aesthetic_offset.items.len - 1]);
                     } else {
                         // stale
                         state.animations = null;
@@ -702,19 +706,53 @@ fn speciesToTailSprite(species: Species) Rect {
     };
 }
 
+const slow_animation_speed = 300;
+const fast_animation_speed = 100;
+
 const Animations = struct {
     start_time: i32,
-    frames: []PerceivedFrame,
-    frame_index_to_aesthetic_offset: []Coord,
-};
-const AttackAnimation = struct {};
-const DeathAnimation = struct {};
+    time_per_frame: i32,
+    frames: ArrayListUnmanaged(PerceivedFrame),
+    frame_index_to_aesthetic_offset: ArrayListUnmanaged(Coord),
 
-fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
-    var frame_index_to_aesthetic_offset = try allocator.alloc(Coord, frames.len);
-    var current_offset = makeCoord(0, 0);
-    for (frames) |frame, i| {
-        frame_index_to_aesthetic_offset[i] = current_offset;
+    const SomeData = struct { frame_index: usize, progress: i32 };
+    pub fn frameAtTime(self: @This(), now: i32) ?SomeData {
+        const animation_time = @bitCast(u32, now -% self.start_time);
+        const index = @divFloor(animation_time, @intCast(u32, self.time_per_frame));
+        if (index >= self.frames.items.len) {
+            return null;
+        }
+        const progress = @intCast(i32, animation_time - index * @intCast(u32, self.time_per_frame));
+        return SomeData{
+            .frame_index = index,
+            .progress = progress,
+        };
+    }
+
+    pub fn speedUp(self: *@This(), now: i32) void {
+        const data = self.frameAtTime(now) orelse return;
+        self.time_per_frame = fast_animation_speed;
+        self.start_time = now - (data.progress + self.time_per_frame * @intCast(i32, data.frame_index));
+    }
+};
+
+fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, total_journey_offset: *Coord) !void {
+    var starting_offset = makeCoord(0, 0);
+    if (animations.* == null or animations.*.?.frameAtTime(now) == null) {
+        animations.* = Animations{
+            .start_time = now,
+            .time_per_frame = slow_animation_speed,
+            .frames = .{},
+            .frame_index_to_aesthetic_offset = .{},
+        };
+    } else {
+        starting_offset = animations.*.?.frame_index_to_aesthetic_offset.items[animations.*.?.frame_index_to_aesthetic_offset.items.len - 1];
+    }
+    try animations.*.?.frames.appendSlice(allocator, try core.protocol.deepClone(allocator, frames));
+    try animations.*.?.frame_index_to_aesthetic_offset.ensureUnusedCapacity(allocator, frames.len);
+    var current_offset = starting_offset;
+    for (frames) |frame| {
+        animations.*.?.frame_index_to_aesthetic_offset.appendAssumeCapacity(current_offset);
         switch (frame.self.activity) {
             .movement => |move_delta| {
                 current_offset = current_offset.plus(move_delta);
@@ -723,9 +761,5 @@ fn loadAnimations(frames: []PerceivedFrame, now: i32) !Animations {
         }
     }
 
-    return Animations{
-        .start_time = now,
-        .frames = try core.protocol.deepClone(allocator, frames),
-        .frame_index_to_aesthetic_offset = frame_index_to_aesthetic_offset,
-    };
+    total_journey_offset.* = total_journey_offset.plus(current_offset.minus(starting_offset));
 }
