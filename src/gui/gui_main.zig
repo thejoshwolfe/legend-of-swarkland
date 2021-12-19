@@ -719,7 +719,8 @@ const Animations = struct {
     pub fn frameAtTime(self: @This(), now: i32) ?SomeData {
         const animation_time = @bitCast(u32, now -% self.start_time);
         const index = @divFloor(animation_time, @intCast(u32, self.time_per_frame));
-        if (index >= self.frames.items.len) {
+        // The last frame is always everyone standing still.
+        if (index >= self.frames.items.len - 1) {
             return null;
         }
         const progress = @intCast(i32, animation_time - index * @intCast(u32, self.time_per_frame));
@@ -731,8 +732,12 @@ const Animations = struct {
 
     pub fn speedUp(self: *@This(), now: i32) void {
         const data = self.frameAtTime(now) orelse return;
+        const old_time_per_frame = self.time_per_frame;
         self.time_per_frame = fast_animation_speed;
-        self.start_time = now - (data.progress + self.time_per_frame * @intCast(i32, data.frame_index));
+        self.start_time = now - ( //
+            self.time_per_frame * @intCast(i32, data.frame_index) + //
+            @divFloor(data.progress * self.time_per_frame, old_time_per_frame) //
+        );
     }
 };
 
