@@ -708,9 +708,11 @@ fn speciesToTailSprite(species: Species) Rect {
 
 const slow_animation_speed = 300;
 const fast_animation_speed = 100;
+const hyper_animation_speed = 20;
 
 const Animations = struct {
     start_time: i32,
+    turns: u32 = 0,
     time_per_frame: i32,
     frames: ArrayListUnmanaged(PerceivedFrame),
     frame_index_to_aesthetic_offset: ArrayListUnmanaged(Coord),
@@ -733,7 +735,12 @@ const Animations = struct {
     pub fn speedUp(self: *@This(), now: i32) void {
         const data = self.frameAtTime(now) orelse return;
         const old_time_per_frame = self.time_per_frame;
-        self.time_per_frame = fast_animation_speed;
+        if (self.turns >= 2) {
+            // We're falling behind. Activate emergency NOS.
+            self.time_per_frame = hyper_animation_speed;
+        } else {
+            self.time_per_frame = fast_animation_speed;
+        }
         self.start_time = now - ( //
             self.time_per_frame * @intCast(i32, data.frame_index) + //
             @divFloor(data.progress * self.time_per_frame, old_time_per_frame) //
@@ -753,6 +760,7 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, 
     } else {
         starting_offset = animations.*.?.frame_index_to_aesthetic_offset.items[animations.*.?.frame_index_to_aesthetic_offset.items.len - 1];
     }
+    animations.*.?.turns += 1;
     try animations.*.?.frames.appendSlice(allocator, try core.protocol.deepClone(allocator, frames));
     try animations.*.?.frame_index_to_aesthetic_offset.ensureUnusedCapacity(allocator, frames.len);
     var current_offset = starting_offset;
