@@ -4,12 +4,12 @@ const Logger = struct {
     is_enabled: bool,
     show_thread_id: bool,
 
-    pub fn print(comptime self: Logger, comptime fmt: []const u8, args: anytype) void {
+    pub fn print(self: Logger, comptime fmt: []const u8, args: anytype) void {
         if (!self.is_enabled) return;
         warn(self.show_thread_id, fmt, args);
     }
 
-    pub fn deepPrint(comptime self: Logger, prefix: []const u8, something: anytype) void {
+    pub fn deepPrint(self: Logger, prefix: []const u8, something: anytype) void {
         if (!self.is_enabled) return;
         deep_print(prefix, something);
     }
@@ -21,7 +21,7 @@ pub const happening = Logger{ .is_enabled = false, .show_thread_id = true };
 pub const record_macro = Logger{ .is_enabled = false, .show_thread_id = false };
 pub const render = Logger{ .is_enabled = true, .show_thread_id = false };
 
-fn warn(comptime show_thread_id: bool, comptime fmt: []const u8, args: anytype) void {
+fn warn(show_thread_id: bool, comptime fmt: []const u8, args: anytype) void {
     // format to a buffer, then write in a single (or as few as possible)
     // posix write calls so that the output from multiple processes
     // doesn't interleave on the same line.
