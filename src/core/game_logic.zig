@@ -1,31 +1,53 @@
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
+const isCardinalDirection = core.geometry.isCardinalDirection;
+const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
 const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
 const Wall = core.protocol.Wall;
+const Action = core.protocol.Action;
 
 const assert = @import("std").debug.assert;
 
-pub const view_distance = 8;
+pub fn getViewDistance(species: Species) i32 {
+    return switch (species) {
+        .blob => 1,
+        else => 8,
+    };
+}
 
 pub fn getAttackRange(species: Species) i32 {
     switch (species) {
         .centaur => return 16,
-        .rhino => return 0,
+        .rhino, .blob => return 0,
         else => return 1,
     }
 }
 
-pub fn hasFastMove(species: Species) bool {
+pub fn canCharge(species: Species) bool {
     return switch (species) {
         .rhino => true,
         else => false,
     };
 }
 
+pub fn canMoveNormally(species: Species) bool {
+    return switch (species) {
+        .blob => false,
+        else => true,
+    };
+}
+
+pub fn canGrowAndShrink(species: Species) bool {
+    return switch (species) {
+        .blob => true,
+        else => false,
+    };
+}
+
 pub fn getInertiaIndex(species: Species) u1 {
     switch (species) {
-        .rhino => return 1,
+        .rhino, .blob => return 1,
         else => return 0,
     }
 }
@@ -88,6 +110,7 @@ pub const Anatomy = enum {
     centauroid,
     quadruped,
     kangaroid,
+    bloboid,
 };
 pub fn getAnatomy(species: Species) Anatomy {
     switch (species) {
@@ -95,5 +118,43 @@ pub fn getAnatomy(species: Species) Anatomy {
         .centaur => return .centauroid,
         .turtle, .rhino => return .quadruped,
         .kangaroo => return .kangaroid,
+        .blob => return .bloboid,
+    }
+}
+
+pub fn validateAction(species: Species, position: ThingPosition, action: Action) !void {
+    switch (action) {
+        .wait => {},
+        .move => |move_delta| {
+            if (!isCardinalDirection(move_delta)) return error.BadDelta;
+            if (!canMoveNormally(species)) return error.SpeciesIncapable;
+        },
+        .fast_move => |move_delta| {
+            if (!isScaledCardinalDirection(move_delta, 2)) return error.BadDelta;
+            if (!canCharge(species)) return error.SpeciesIncapable;
+            if (!isFastMoveAligned(position, move_delta)) return error.BadAlignment;
+        },
+        .grow => |move_delta| {
+            if (!isCardinalDirection(move_delta)) return error.BadDelta;
+            if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
+            if (position != .small) return error.TooBig;
+        },
+        .shrink => |move_delta| {
+            if (!isCardinalDirection(move_delta)) return error.BadDelta;
+            if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
+            if (position != .large) return error.TooSmall;
+            const position_delta = position.large[0].minus(position.large[1]);
+            if (!isCardinalDirection(position_delta)) return error.BadPosition;
+            if (!( //
+                (position_delta.x == 0) == (move_delta.x == 0) and //
+                (position_delta.y == 0) == (move_delta.y == 0) //
+            )) return error.BadAlignment; // you have to shrink along your body axis.
+        },
+        .attack => |direction| {
+            if (!isCardinalDirection(direction)) return error.BadDelta;
+        },
+        .kick => |direction| {
+            if (!isCardinalDirection(direction)) return error.BadDelta;
+        },
     }
 }

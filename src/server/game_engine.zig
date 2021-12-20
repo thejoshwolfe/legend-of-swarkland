@@ -20,7 +20,7 @@ const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
 const StatusConditions = core.protocol.StatusConditions;
 
-const view_distance = core.game_logic.view_distance;
+const getViewDistance = core.game_logic.getViewDistance;
 const isOpenSpace = core.game_logic.isOpenSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
@@ -60,16 +60,6 @@ pub const GameEngine = struct {
         };
     }
 
-    pub fn validateAction(_: *const GameEngine, action: Action) bool {
-        switch (action) {
-            .wait => return true,
-            .move => |move_delta| return isCardinalDirection(move_delta),
-            .fast_move => |move_delta| return isScaledCardinalDirection(move_delta, 2),
-            .attack => |direction| return isCardinalDirection(direction),
-            .kick => |direction| return isCardinalDirection(direction),
-        }
-    }
-
     pub const Happenings = struct {
         individual_to_perception: IdMap([]PerceivedFrame),
         state_changes: []StateDiff,
@@ -104,6 +94,30 @@ pub const GameEngine = struct {
 
         var total_deaths = IdMap(void).init(self.allocator);
 
+        // Shrinking
+        {
+            var shrinks = IdMap(Coord).init(self.allocator);
+            for (everybody) |id| {
+                const move_delta: Coord = switch (actions.get(id).?) {
+                    .shrink => |move_delta| move_delta,
+                    else => continue,
+                };
+                try shrinks.putNoClobber(id, move_delta);
+            }
+            for (everybody) |id| {
+                try self.observeFrame(
+                    game_state,
+                    id,
+                    individual_to_perception.get(id).?,
+                    &current_positions,
+                    Activities{
+                        .shrinks = &shrinks,
+                    },
+                );
+            }
+        }
+
+        // Moving normally
         {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
@@ -127,6 +141,46 @@ pub const GameEngine = struct {
                 &budges_at_all,
                 &total_deaths,
             );
+        }
+
+        // Growing
+        {
+            var intended_moves = IdMap(Coord).init(self.allocator);
+            var next_positions = IdMap(ThingPosition).init(self.allocator);
+            for (everybody) |id| {
+                const move_delta: Coord = switch (actions.get(id).?) {
+                    .grow => |move_delta| move_delta,
+                    else => continue,
+                };
+                try intended_moves.putNoClobber(id, move_delta);
+                const old_coord = current_positions.get(id).?.small;
+                const new_head_coord = old_coord.plus(move_delta);
+                if (!isOpenSpace(game_state.terrainAt(new_head_coord).wall)) {
+                    // that's a wall
+                    continue;
+                }
+                try next_positions.putNoClobber(id, ThingPosition{ .large = .{ new_head_coord, old_coord } });
+            }
+
+            for (everybody) |id| {
+                try self.observeFrame(
+                    game_state,
+                    id,
+                    individual_to_perception.get(id).?,
+                    &current_positions,
+                    Activities{
+                        .growths = .{
+                            .intended_moves = &intended_moves,
+                            .next_positions = &next_positions,
+                        },
+                    },
+                );
+            }
+
+            for (everybody) |id| {
+                const next_position = next_positions.get(id) orelse continue;
+                current_positions.getEntry(id).?.value_ptr.* = next_position;
+            }
         }
 
         // Kicks
@@ -311,29 +365,61 @@ pub const GameEngine = struct {
             switch (game_state.individuals.get(id).?.abs_position) {
                 .small => |coord| {
                     const from = coord;
-                    const to = current_positions.get(id).?.small;
-                    if (to.equals(from)) continue;
-                    const delta = to.minus(from);
-                    try state_changes.append(StateDiff{
-                        .small_move = .{
-                            .id = id,
-                            .coord = delta,
+                    switch (current_positions.get(id).?) {
+                        .small => |to| {
+                            if (to.equals(from)) continue;
+                            const delta = to.minus(from);
+                            try state_changes.append(StateDiff{
+                                .small_move = .{
+                                    .id = id,
+                                    .coord = delta,
+                                },
+                            });
                         },
-                    });
+                        .large => |to| {
+                            const delta = to[0].minus(from);
+                            try state_changes.append(StateDiff{
+                                .growth = .{
+                                    .id = id,
+                                    .coord = delta,
+                                },
+                            });
+                        },
+                    }
                 },
                 .large => |coords| {
                     const from = coords;
-                    const to = current_positions.get(id).?.large;
-                    if (to[0].equals(from[0]) and to[1].equals(from[1])) continue;
-                    try state_changes.append(StateDiff{
-                        .large_move = .{
-                            .id = id,
-                            .coords = .{
-                                to[0].minus(from[0]),
-                                to[1].minus(from[1]),
-                            },
+                    switch (current_positions.get(id).?) {
+                        .large => |to| {
+                            if (to[0].equals(from[0]) and to[1].equals(from[1])) continue;
+                            try state_changes.append(StateDiff{
+                                .large_move = .{
+                                    .id = id,
+                                    .coords = .{
+                                        to[0].minus(from[0]),
+                                        to[1].minus(from[1]),
+                                    },
+                                },
+                            });
                         },
-                    });
+                        .small => |to| {
+                            if (to.equals(from[0])) {
+                                try state_changes.append(StateDiff{
+                                    .shrink_forward = .{
+                                        .id = id,
+                                        .coord = to.minus(from[1]),
+                                    },
+                                });
+                            } else {
+                                try state_changes.append(StateDiff{
+                                    .shrink_backward = .{
+                                        .id = id,
+                                        .coord = to.minus(from[0]),
+                                    },
+                                });
+                            }
+                        },
+                    }
                 },
             }
         }
@@ -631,10 +717,10 @@ pub const GameEngine = struct {
     const Activities = union(enum) {
         static_state,
         movement: Movement,
-
-        attacks: *const IdMap(Attack),
-
+        growths: Movement,
+        shrinks: *const IdMap(Coord),
         kicks: *const IdMap(Coord),
+        attacks: *const IdMap(Attack),
         polymorphs: *const IdMap(Species),
 
         deaths: *const IdMap(void),
@@ -682,12 +768,14 @@ pub const GameEngine = struct {
         maybe_current_positions: ?*const IdMap(ThingPosition),
         activities: Activities,
     ) !PerceivedFrame {
+        const actual_me = game_state.individuals.get(my_id).?;
         const your_coord = getHeadPosition(if (maybe_current_positions) |current_positions|
             current_positions.get(my_id).?
         else
-            game_state.individuals.get(my_id).?.abs_position);
+            actual_me.abs_position);
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
+        const view_distance = getViewDistance(actual_me.species);
 
         for (game_state.individuals.keys()) |id| {
             const activity = switch (activities) {
@@ -696,6 +784,19 @@ pub const GameEngine = struct {
                         PerceivedActivity{ .movement = move_delta }
                     else
                         PerceivedActivity{ .failed_movement = move_delta }
+                else
+                    PerceivedActivity{ .none = {} },
+
+                .shrinks => |data| if (data.get(id)) |delta|
+                    PerceivedActivity{ .shrink = delta }
+                else
+                    PerceivedActivity{ .none = {} },
+
+                .growths => |data| if (data.intended_moves.get(id)) |move_delta|
+                    if (data.next_positions.contains(id))
+                        PerceivedActivity{ .growth = move_delta }
+                    else
+                        PerceivedActivity{ .failed_growth = move_delta }
                 else
                     PerceivedActivity{ .none = {} },
 
@@ -765,7 +866,7 @@ pub const GameEngine = struct {
             }
         }
 
-        const view_size = view_distance * 2 + 1;
+        const view_size = @intCast(u16, view_distance * 2 + 1);
         var terrain_chunk = core.protocol.TerrainChunk{
             .rel_position = makeCoord(-view_distance, -view_distance),
             .matrix = try Terrain.initFill(self.allocator, view_size, view_size, oob_terrain),

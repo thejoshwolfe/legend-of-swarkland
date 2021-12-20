@@ -281,9 +281,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.client.stopEngine();
                                         game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
                                     },
-                                    .beat_level => {
-                                        try state.client.beatLevelMacro();
-                                    },
                                     else => {
                                         ignored = true;
                                     },
@@ -611,6 +608,9 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .none => {},
         .movement => {},
         .failed_movement => {},
+        .growth => {},
+        .failed_growth => {},
+        .shrink => {},
 
         .attack => |data| {
             const max_range = core.game_logic.getAttackRange(thing.species);
@@ -696,6 +696,7 @@ fn speciesToSprite(species: Species) Rect {
         .turtle => textures.sprites.turtle,
         .rhino => textures.sprites.rhino[0],
         .kangaroo => textures.sprites.kangaroo,
+        .blob => textures.sprites.pink_blob,
     };
 }
 

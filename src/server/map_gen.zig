@@ -54,6 +54,12 @@ const MapGenerator = struct {
             .abs_position = .{ .small = small_position },
         }).clone(self.allocator);
     }
+    fn makeWideBoi(self: *@This(), position0: Coord, position1: Coord, species: Species) !*Individual {
+        return (Individual{
+            .species = species,
+            .abs_position = .{ .large = .{ position0, position1 } },
+        }).clone(self.allocator);
+    }
 
     fn generate(self: *@This()) !void {
         const width = 5;
@@ -71,17 +77,19 @@ const MapGenerator = struct {
                 free_spaces.append(makeCoord(x, y)) catch unreachable;
             }
         }
-
         // You are the human.
         try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .human));
+
+        // We need to test these physics
+        try self.individuals.putNoClobber(self.nextId(), try self.makeWideBoi(free_spaces.pop(), free_spaces.pop(), .rhino));
 
         // throw enemies around
         {
             const count = 1;
             var i: usize = 0;
             while (i < count) : (i += 1) {
-                const fella = try self.makeIndividual(self.popRandom(&free_spaces), .orc);
-                fella.has_shield = self.random.boolean();
+                const fella = try self.makeIndividual(self.popRandom(&free_spaces), .blob);
+                fella.has_shield = self.random.boolean() and false; // TODO
                 try self.individuals.putNoClobber(self.nextId(), fella);
             }
         }
@@ -124,7 +132,7 @@ const MapGenerator = struct {
 
         // have fun
         {
-            const count = 1;
+            const count = 0;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{

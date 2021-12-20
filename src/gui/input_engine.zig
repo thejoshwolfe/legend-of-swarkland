@@ -16,7 +16,6 @@ pub const Button = enum {
     enter,
     escape,
     restart,
-    beat_level,
 };
 
 pub const InputEngine = struct {
@@ -49,7 +48,6 @@ pub const InputEngine = struct {
             sdl.c.SDL_SCANCODE_BACKSPACE => return if (modifiers == 0) Button.backspace else null,
             sdl.c.SDL_SCANCODE_RETURN => return if (modifiers == 0) Button.enter else null,
             sdl.c.SDL_SCANCODE_ESCAPE => return if (modifiers == 0) Button.escape else null,
-            sdl.c.SDL_SCANCODE_RIGHTBRACKET => return if (modifiers == shift) Button.beat_level else null,
             else => return null,
         }
     }

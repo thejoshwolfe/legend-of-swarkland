@@ -27,6 +27,7 @@ pub const Species = enum {
     turtle,
     rhino,
     kangaroo,
+    blob,
 };
 
 pub const TerrainChunk = struct {
@@ -47,6 +48,8 @@ pub const Action = union(enum) {
     wait,
     move: Coord,
     fast_move: Coord,
+    grow: Coord,
+    shrink: Coord,
     attack: Coord,
     kick: Coord,
 };
@@ -107,6 +110,9 @@ pub const PerceivedActivity = union(enum) {
 
     movement: Coord,
     failed_movement: Coord,
+    growth: Coord,
+    failed_growth: Coord,
+    shrink: Coord,
 
     attack: Attack,
 
