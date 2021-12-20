@@ -357,7 +357,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 const center_screen = makeCoord(7, 7).scaled(32).plus(makeCoord(32 / 2, 32 / 2));
-                const camera_offset = center_screen.minus(getRelDisplayPosition(progress, move_frame_time, frame.self));
+                const self_display_rect = getRelDisplayRect(progress, move_frame_time, frame.self);
+                const camera_offset = center_screen.minus(self_display_rect.position().plus(self_display_rect.size().scaledDivTrunc(2)));
 
                 // render terrain
                 {
@@ -517,67 +518,129 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     }
 }
 
-fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: PerceivedThing) Coord {
+fn positionedRect32(position: Coord) Rect {
+    return core.geometry.makeRect(position, makeCoord(32, 32));
+}
+
+fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedThing) Rect {
     const rel_position = getHeadPosition(thing.rel_position);
     switch (thing.activity) {
         .movement => |move_delta| {
             if (progress < @divFloor(progress_denominator, 2)) {
                 // in the first half, speed up toward the halfway point.
-                return core.geometry.bezier3(
+                return positionedRect32(core.geometry.bezier3(
                     rel_position.scaled(32),
                     rel_position.scaled(32),
                     rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
                     progress,
                     @divFloor(progress_denominator, 2),
-                );
+                ));
             } else {
                 // in the second half, slow down from the halfway point.
-                return core.geometry.bezier3(
+                return positionedRect32(core.geometry.bezier3(
                     rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
                     rel_position.scaled(32).plus(move_delta.scaled(32)),
                     rel_position.scaled(32).plus(move_delta.scaled(32)),
                     progress - @divFloor(progress_denominator, 2),
                     @divFloor(progress_denominator, 2),
-                );
+                ));
             }
         },
         .failed_movement => |move_delta| {
             if (progress < @divFloor(progress_denominator, 2)) {
                 // in the first half, speed up toward the halfway point of the would-be movement.
-                return core.geometry.bezier3(
+                return positionedRect32(core.geometry.bezier3(
                     rel_position.scaled(32),
                     rel_position.scaled(32),
                     rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
                     progress,
                     @divFloor(progress_denominator, 2),
-                );
+                ));
             } else {
                 // in the second half, abruptly reverse course and do the opposite of the above.
-                return core.geometry.bezier3(
+                return positionedRect32(core.geometry.bezier3(
                     rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
                     rel_position.scaled(32),
                     rel_position.scaled(32),
                     progress - @divFloor(progress_denominator, 2),
                     @divFloor(progress_denominator, 2),
-                );
+                ));
             }
         },
-        else => return rel_position.scaled(32),
+        .growth => |delta| {
+            const start_position = thing.rel_position.small;
+            const end_position = makeCoord(
+                if (delta.x < 0) start_position.x - 1 else start_position.x,
+                if (delta.y < 0) start_position.y - 1 else start_position.y,
+            );
+            const start_size = makeCoord(1, 1);
+            const end_size = makeCoord(
+                if (delta.x == 0) 1 else 2,
+                if (delta.y == 0) 1 else 2,
+            );
+
+            if (progress < @divFloor(progress_denominator, 2)) {
+                // in the first half, speed up toward the halfway point.
+                const scaled_position = core.geometry.bezier3(
+                    start_position.scaled(32),
+                    start_position.scaled(32),
+                    start_position.scaled(32).plus(end_position.minus(start_position).scaled(32 / 2)),
+                    progress,
+                    @divFloor(progress_denominator, 2),
+                );
+                const scaled_size = core.geometry.bezier3(
+                    start_size.scaled(32),
+                    start_size.scaled(32),
+                    start_size.scaled(32).plus(end_size.minus(start_size).scaled(32 / 2)),
+                    progress,
+                    @divFloor(progress_denominator, 2),
+                );
+                return core.geometry.makeRect(scaled_position, scaled_size);
+            } else {
+                // in the second half, slow down from the halfway point.
+                const scaled_position = core.geometry.bezier3(
+                    start_position.scaled(32).plus(end_position.minus(start_position).scaled(32 / 2)),
+                    end_position.scaled(32),
+                    end_position.scaled(32),
+                    progress - @divFloor(progress_denominator, 2),
+                    @divFloor(progress_denominator, 2),
+                );
+                const scaled_size = core.geometry.bezier3(
+                    start_size.scaled(32).plus(end_size.minus(start_size).scaled(32 / 2)),
+                    end_size.scaled(32),
+                    end_size.scaled(32),
+                    progress - @divFloor(progress_denominator, 2),
+                    @divFloor(progress_denominator, 2),
+                );
+                return core.geometry.makeRect(scaled_position, scaled_size);
+            }
+        },
+        else => {
+            if (thing.species == .blob and thing.rel_position == .large) {
+                const position_delta = thing.rel_position.large[0].minus(thing.rel_position.large[1]);
+                return core.geometry.makeRect(
+                    core.geometry.min(thing.rel_position.large[0], thing.rel_position.large[1]).scaled(32),
+                    position_delta.abs().plus(makeCoord(1, 1)).scaled(32),
+                );
+            }
+            return positionedRect32(rel_position.scaled(32));
+        },
     }
 }
 
 fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
     // compute position
-    const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
-    const display_position = rel_display_position.plus(camera_offset);
+    const rel_display_rect = getRelDisplayRect(progress, progress_denominator, thing);
+    const display_rect = rel_display_rect.translated(camera_offset);
+    const display_position = rel_display_rect.position().plus(camera_offset);
 
     // render main sprite
-    switch (thing.rel_position) {
-        .small => {
-            textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
+    switch (thing.species) {
+        else => {
+            textures.renderSpriteScaled(renderer, speciesToSprite(thing.species), display_rect);
         },
-        .large => |coords| {
-            const oriented_delta = coords[1].minus(coords[0]);
+        .rhino => {
+            const oriented_delta = thing.rel_position.large[1].minus(thing.rel_position.large[0]);
             const tail_display_position = display_position.plus(oriented_delta.scaled(32));
             const rhino_sprite_normalizing_rotation = 0;
             const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
@@ -601,7 +664,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
 }
 
 fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) void {
-    const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
+    const rel_display_position = getRelDisplayRect(progress, progress_denominator, thing).position();
     const display_position = rel_display_position.plus(camera_offset);
 
     switch (thing.activity) {
@@ -703,7 +766,6 @@ fn speciesToSprite(species: Species) Rect {
 fn speciesToTailSprite(species: Species) Rect {
     return switch (species) {
         .rhino => textures.sprites.rhino[1],
-        .blob => textures.sprites.pink_blob,
         else => unreachable,
     };
 }

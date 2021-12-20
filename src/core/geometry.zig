@@ -1,10 +1,3 @@
-pub const Rect = struct {
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
-};
-
 pub const Coord = struct {
     x: i32,
     y: i32,
@@ -150,4 +143,38 @@ pub fn bezier2(
     max_s: i32,
 ) Coord {
     return x0.scaled(max_s - s).plus(x1.scaled(s)).scaledDivTrunc(max_s);
+}
+
+pub fn min(a: Coord, b: Coord) Coord {
+    return makeCoord(
+        if (a.x < b.x) a.x else b.x,
+        if (a.y < b.y) a.y else b.y,
+    );
+}
+
+pub const Rect = struct {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+
+    pub fn position(self: @This()) Coord {
+        return makeCoord(self.x, self.y);
+    }
+    pub fn size(self: @This()) Coord {
+        return makeCoord(self.width, self.height);
+    }
+
+    pub fn translated(self: @This(), offset: Coord) Rect {
+        return makeRect(self.position().plus(offset), self.size());
+    }
+};
+
+pub fn makeRect(position: Coord, size: Coord) Rect {
+    return Rect{
+        .x = position.x,
+        .y = position.y,
+        .width = size.x,
+        .height = size.y,
+    };
 }

@@ -79,7 +79,9 @@ pub fn renderSprite(renderer: *sdl.Renderer, sprite: Rect, location: Coord) void
         .width = sprite.width,
         .height = sprite.height,
     };
-
+    renderSpriteScaled(renderer, sprite, dest);
+}
+pub fn renderSpriteScaled(renderer: *sdl.Renderer, sprite: Rect, dest: Rect) void {
     const source_sdl = sdl.makeRect(sprite);
     const dest_sdl = sdl.makeRect(dest);
     sdl.assertZero(sdl.SDL_RenderCopy(renderer, sprites_texture, &source_sdl, &dest_sdl));
