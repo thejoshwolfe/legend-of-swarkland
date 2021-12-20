@@ -80,9 +80,6 @@ const MapGenerator = struct {
         // You are the human.
         try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .human));
 
-        // We need to test these physics
-        try self.individuals.putNoClobber(self.nextId(), try self.makeWideBoi(free_spaces.pop(), free_spaces.pop(), .rhino));
-
         // throw enemies around
         {
             const count = 1;

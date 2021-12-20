@@ -45,6 +45,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             const action = doAi(response);
             const individual = game_state.individuals.get(id).?;
             validateAction(individual.species, individual.abs_position, action) catch |err| @panic(@errorName(err));
+            debugPrintAction(id, action);
             try actions.putNoClobber(id, action);
         }
         response_for_ais.clearRetainingCapacity();
@@ -155,4 +156,16 @@ fn doAi(response: Response) Action {
         else => @panic("unexpected response type in AI"),
     };
     return ai.getNaiveAiDecision(last_frame);
+}
+
+pub fn debugPrintAction(prefix_number: u32, action: Action) void {
+    switch (action) {
+        .wait => core.debug.actions.print("{}: Action{{ .wait = {{}} }},", .{prefix_number}),
+        .move => |move_delta| core.debug.actions.print("{}: Action{{ .move = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
+        .fast_move => |move_delta| core.debug.actions.print("{}: Action{{ .fast_move = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
+        .grow => |move_delta| core.debug.actions.print("{}: Action{{ .grow = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
+        .shrink => |move_delta| core.debug.actions.print("{}: Action{{ .shrink = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
+        .attack => |direction| core.debug.actions.print("{}: Action{{ .attack = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
+        .kick => |direction| core.debug.actions.print("{}: Action{{ .kick = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
+    }
 }

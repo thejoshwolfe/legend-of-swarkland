@@ -198,14 +198,14 @@ pub const GameState = struct {
                     const individual = self.individuals.get(id_and_coord.id).?;
                     const new_position = ThingPosition{ .large = .{
                         individual.abs_position.small,
-                        individual.abs_position.small.plus(id_and_coord.coord),
+                        individual.abs_position.small.minus(id_and_coord.coord),
                     } };
                     individual.abs_position = new_position;
                 },
                 .shrink_backward => |id_and_coord| {
                     const individual = self.individuals.get(id_and_coord.id).?;
                     const new_position = ThingPosition{ .large = .{
-                        individual.abs_position.small.plus(id_and_coord.coord),
+                        individual.abs_position.small.minus(id_and_coord.coord),
                         individual.abs_position.small,
                     } };
                     individual.abs_position = new_position;

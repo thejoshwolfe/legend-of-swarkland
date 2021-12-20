@@ -97,11 +97,19 @@ pub const GameEngine = struct {
         // Shrinking
         {
             var shrinks = IdMap(Coord).init(self.allocator);
+            var next_positions = IdMap(ThingPosition).init(self.allocator);
             for (everybody) |id| {
                 const move_delta: Coord = switch (actions.get(id).?) {
                     .shrink => |move_delta| move_delta,
                     else => continue,
                 };
+                const old_position = current_positions.get(id).?.large;
+                const position_delta = old_position[0].minus(old_position[0]);
+                if (position_delta.equals(move_delta)) {
+                    try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[1] });
+                } else {
+                    try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[0] });
+                }
                 try shrinks.putNoClobber(id, move_delta);
             }
             for (everybody) |id| {
@@ -114,6 +122,10 @@ pub const GameEngine = struct {
                         .shrinks = &shrinks,
                     },
                 );
+            }
+            for (everybody) |id| {
+                const next_position = next_positions.get(id) orelse continue;
+                current_positions.getEntry(id).?.value_ptr.* = next_position;
             }
         }
 

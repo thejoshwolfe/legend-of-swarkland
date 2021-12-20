@@ -1,6 +1,7 @@
 const std = @import("std");
 const core = @import("../index.zig");
 const game_server = @import("../server/game_server.zig");
+const debugPrintAction = game_server.debugPrintAction;
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Socket = core.protocol.Socket;
@@ -237,20 +238,11 @@ pub const GameEngineClient = struct {
 
     pub fn act(self: *GameEngineClient, action: Action) !void {
         try self.queues.enqueueRequest(Request{ .act = action });
-
-        switch (action) {
-            .wait => core.debug.record_macro.print("Request{{ .act = Action{{ .wait = {{}} }} }},", .{}),
-            .move => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .move = makeCoord({}, {}) }} }},", .{ move_delta.x, move_delta.y }),
-            .fast_move => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .fast_move = makeCoord({}, {}) }} }},", .{ move_delta.x, move_delta.y }),
-            .grow => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .grow = makeCoord({}, {}) }} }},", .{ move_delta.x, move_delta.y }),
-            .shrink => |move_delta| core.debug.record_macro.print("Request{{ .act = Action{{ .shrink = makeCoord({}, {}) }} }},", .{ move_delta.x, move_delta.y }),
-            .attack => |direction| core.debug.record_macro.print("Request{{ .act = Action{{ .attack = makeCoord({}, {}) }} }},", .{ direction.x, direction.y }),
-            .kick => |direction| core.debug.record_macro.print("Request{{ .act = Action{{ .kick = makeCoord({}, {}) }} }},", .{ direction.x, direction.y }),
-        }
+        debugPrintAction(0, action);
     }
     pub fn rewind(self: *GameEngineClient) !void {
         try self.queues.enqueueRequest(Request{ .rewind = {} });
-        core.debug.record_macro.print("Request{{ .rewind = {{}} }},", .{});
+        core.debug.actions.print("[rewind]", .{});
     }
 
     pub fn move(self: *GameEngineClient, direction: Coord) !void {

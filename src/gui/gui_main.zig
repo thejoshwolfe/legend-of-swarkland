@@ -703,6 +703,7 @@ fn speciesToSprite(species: Species) Rect {
 fn speciesToTailSprite(species: Species) Rect {
     return switch (species) {
         .rhino => textures.sprites.rhino[1],
+        .blob => textures.sprites.pink_blob,
         else => unreachable,
     };
 }
