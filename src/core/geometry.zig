@@ -118,12 +118,6 @@ pub fn sign(x: i32) i32 {
     return -1;
 }
 
-/// returns iff a and b are either pointing in the same direction, or exactly opposite.
-/// assumes a and b are orthogonal vectors (at least one component is 0).
-pub fn areOrthoVectorsColinear(a: Coord, b: Coord) bool {
-    return a.x * b.x != 0 or a.y * b.y != 0;
-}
-
 /// Quadratic version of bezier2.
 pub fn bezier3(
     x0: Coord,

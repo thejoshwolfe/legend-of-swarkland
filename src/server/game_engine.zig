@@ -96,21 +96,16 @@ pub const GameEngine = struct {
 
         // Shrinking
         {
-            var shrinks = IdMap(Coord).init(self.allocator);
+            var shrinks = IdMap(u1).init(self.allocator);
             var next_positions = IdMap(ThingPosition).init(self.allocator);
             for (everybody) |id| {
-                const move_delta: Coord = switch (actions.get(id).?) {
-                    .shrink => |move_delta| move_delta,
+                const index: u1 = switch (actions.get(id).?) {
+                    .shrink => |index| index,
                     else => continue,
                 };
                 const old_position = current_positions.get(id).?.large;
-                const position_delta = old_position[0].minus(old_position[1]);
-                if (position_delta.equals(move_delta)) {
-                    try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[0] });
-                } else {
-                    try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[1] });
-                }
-                try shrinks.putNoClobber(id, move_delta);
+                try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[index] });
+                try shrinks.putNoClobber(id, index);
             }
             for (everybody) |id| {
                 try self.observeFrame(
@@ -730,7 +725,7 @@ pub const GameEngine = struct {
         static_state,
         movement: Movement,
         growths: Movement,
-        shrinks: *const IdMap(Coord),
+        shrinks: *const IdMap(u1),
         kicks: *const IdMap(Coord),
         attacks: *const IdMap(Attack),
         polymorphs: *const IdMap(Species),
@@ -799,8 +794,8 @@ pub const GameEngine = struct {
                 else
                     PerceivedActivity{ .none = {} },
 
-                .shrinks => |data| if (data.get(id)) |delta|
-                    PerceivedActivity{ .shrink = delta }
+                .shrinks => |data| if (data.get(id)) |index|
+                    PerceivedActivity{ .shrink = index }
                 else
                     PerceivedActivity{ .none = {} },
 

@@ -139,16 +139,9 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
             if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
             if (position != .small) return error.TooBig;
         },
-        .shrink => |move_delta| {
-            if (!isCardinalDirection(move_delta)) return error.BadDelta;
+        .shrink => {
             if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
             if (position != .large) return error.TooSmall;
-            const position_delta = position.large[0].minus(position.large[1]);
-            if (!isCardinalDirection(position_delta)) return error.BadPosition;
-            if (!( //
-                (position_delta.x == 0) == (move_delta.x == 0) and //
-                (position_delta.y == 0) == (move_delta.y == 0) //
-            )) return error.BadAlignment; // you have to shrink along your body axis.
         },
         .attack => |direction| {
             if (!isCardinalDirection(direction)) return error.BadDelta;

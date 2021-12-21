@@ -177,10 +177,16 @@ fn movelikeAction(species: Species, position: ThingPosition, delta: Coord) Actio
                 const position_delta = positions[0].minus(positions[1]);
                 if ((delta.x == 0) == (position_delta.x == 0)) {
                     // alignment is good
-                    return Action{ .shrink = delta };
+                    if (delta.equals(position_delta)) {
+                        // foward
+                        return Action{ .shrink = 0 };
+                    } else {
+                        // backward
+                        return Action{ .shrink = 1 };
+                    }
                 } else {
                     // It's not clear which direction to shrink in this case.
-                    return Action{ .shrink = position_delta };
+                    return Action{ .shrink = 0 };
                 }
             },
         }

@@ -502,8 +502,12 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
             .large => |large_position| {
                 // which direction should we shrink?
                 const position_delta = large_position[0].minus(large_position[1]);
-                if (core.geometry.areOrthoVectorsColinear(position_delta, delta)) {
-                    return state.client.act(Action{ .shrink = delta });
+                if (position_delta.equals(delta)) {
+                    // foward
+                    return state.client.act(Action{ .shrink = 0 });
+                } else if (position_delta.equals(delta.scaled(-1))) {
+                    // backward
+                    return state.client.act(Action{ .shrink = 1 });
                 } else {
                     // You cannot shrink sideways.
                     return;
@@ -591,11 +595,11 @@ fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedT
                 ),
             );
         },
-        .shrink => |move_delta| {
+        .shrink => |index| {
             const large_position = thing.rel_position.large;
             const position_delta = large_position[0].minus(large_position[1]);
             const start_position = core.geometry.min(large_position[0], large_position[1]);
-            const end_position = if (position_delta.equals(move_delta)) large_position[0] else large_position[1];
+            const end_position = large_position[index];
             const start_size = position_delta.abs().plus(makeCoord(1, 1));
             const end_size = makeCoord(1, 1);
             return core.geometry.makeRect(
@@ -832,8 +836,12 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, 
             .movement, .growth => |move_delta| {
                 current_offset = current_offset.plus(move_delta);
             },
-            .shrink => |delta| {
-                // TODO: move shrinking payload to be u1
+            .shrink => |index| {
+                if (index != 0) {
+                    const position_delta = frame.self.rel_position.large[0].minus(frame.self.rel_position.large[1]);
+                    // back up
+                    current_offset = current_offset.minus(position_delta);
+                }
             },
             else => {},
         }

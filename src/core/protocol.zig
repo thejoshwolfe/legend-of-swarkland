@@ -49,7 +49,7 @@ pub const Action = union(enum) {
     move: Coord,
     fast_move: Coord,
     grow: Coord,
-    shrink: Coord,
+    shrink: u1,
     attack: Coord,
     kick: Coord,
 };
@@ -112,7 +112,7 @@ pub const PerceivedActivity = union(enum) {
     failed_movement: Coord,
     growth: Coord,
     failed_growth: Coord,
-    shrink: Coord,
+    shrink: u1,
 
     attack: Attack,
 
