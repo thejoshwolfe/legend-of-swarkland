@@ -526,46 +526,20 @@ fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedT
     const rel_position = getHeadPosition(thing.rel_position);
     switch (thing.activity) {
         .movement => |move_delta| {
-            if (progress < @divFloor(progress_denominator, 2)) {
-                // in the first half, speed up toward the halfway point.
-                return positionedRect32(core.geometry.bezier3(
-                    rel_position.scaled(32),
-                    rel_position.scaled(32),
-                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
-                    progress,
-                    @divFloor(progress_denominator, 2),
-                ));
-            } else {
-                // in the second half, slow down from the halfway point.
-                return positionedRect32(core.geometry.bezier3(
-                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
-                    rel_position.scaled(32).plus(move_delta.scaled(32)),
-                    rel_position.scaled(32).plus(move_delta.scaled(32)),
-                    progress - @divFloor(progress_denominator, 2),
-                    @divFloor(progress_denominator, 2),
-                ));
-            }
+            return positionedRect32(core.geometry.bezierMove(
+                rel_position.scaled(32),
+                rel_position.scaled(32).plus(move_delta.scaled(32)),
+                progress,
+                progress_denominator,
+            ));
         },
         .failed_movement => |move_delta| {
-            if (progress < @divFloor(progress_denominator, 2)) {
-                // in the first half, speed up toward the halfway point of the would-be movement.
-                return positionedRect32(core.geometry.bezier3(
-                    rel_position.scaled(32),
-                    rel_position.scaled(32),
-                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
-                    progress,
-                    @divFloor(progress_denominator, 2),
-                ));
-            } else {
-                // in the second half, abruptly reverse course and do the opposite of the above.
-                return positionedRect32(core.geometry.bezier3(
-                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
-                    rel_position.scaled(32),
-                    rel_position.scaled(32),
-                    progress - @divFloor(progress_denominator, 2),
-                    @divFloor(progress_denominator, 2),
-                ));
-            }
+            return positionedRect32(core.geometry.bezierBounce(
+                rel_position.scaled(32),
+                rel_position.scaled(32).plus(move_delta.scaled(32)),
+                progress,
+                progress_denominator,
+            ));
         },
         .growth => |delta| {
             const start_position = thing.rel_position.small;
@@ -578,42 +552,68 @@ fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedT
                 if (delta.x == 0) 1 else 2,
                 if (delta.y == 0) 1 else 2,
             );
-
-            if (progress < @divFloor(progress_denominator, 2)) {
-                // in the first half, speed up toward the halfway point.
-                const scaled_position = core.geometry.bezier3(
+            return core.geometry.makeRect(
+                core.geometry.bezierMove(
                     start_position.scaled(32),
+                    end_position.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+                core.geometry.bezierMove(
+                    start_size.scaled(32),
+                    end_size.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+            );
+        },
+        .failed_growth => |delta| {
+            const start_position = thing.rel_position.small;
+            const end_position = makeCoord(
+                if (delta.x < 0) start_position.x - 1 else start_position.x,
+                if (delta.y < 0) start_position.y - 1 else start_position.y,
+            );
+            const start_size = makeCoord(1, 1);
+            const end_size = makeCoord(
+                if (delta.x == 0) 1 else 2,
+                if (delta.y == 0) 1 else 2,
+            );
+            return core.geometry.makeRect(
+                core.geometry.bezierBounce(
                     start_position.scaled(32),
-                    start_position.scaled(32).plus(end_position.minus(start_position).scaled(32 / 2)),
-                    progress,
-                    @divFloor(progress_denominator, 2),
-                );
-                const scaled_size = core.geometry.bezier3(
-                    start_size.scaled(32),
-                    start_size.scaled(32),
-                    start_size.scaled(32).plus(end_size.minus(start_size).scaled(32 / 2)),
-                    progress,
-                    @divFloor(progress_denominator, 2),
-                );
-                return core.geometry.makeRect(scaled_position, scaled_size);
-            } else {
-                // in the second half, slow down from the halfway point.
-                const scaled_position = core.geometry.bezier3(
-                    start_position.scaled(32).plus(end_position.minus(start_position).scaled(32 / 2)),
                     end_position.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+                core.geometry.bezierBounce(
+                    start_size.scaled(32),
+                    end_size.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+            );
+        },
+        .shrink => |move_delta| {
+            const large_position = thing.rel_position.large;
+            const position_delta = large_position[0].minus(large_position[1]);
+            const start_position = core.geometry.min(large_position[0], large_position[1]);
+            const end_position = if (position_delta.equals(move_delta)) large_position[0] else large_position[1];
+            const start_size = position_delta.abs().plus(makeCoord(1, 1));
+            const end_size = makeCoord(1, 1);
+            return core.geometry.makeRect(
+                core.geometry.bezierMove(
+                    start_position.scaled(32),
                     end_position.scaled(32),
-                    progress - @divFloor(progress_denominator, 2),
-                    @divFloor(progress_denominator, 2),
-                );
-                const scaled_size = core.geometry.bezier3(
-                    start_size.scaled(32).plus(end_size.minus(start_size).scaled(32 / 2)),
+                    progress,
+                    progress_denominator,
+                ),
+                core.geometry.bezierMove(
+                    start_size.scaled(32),
                     end_size.scaled(32),
-                    end_size.scaled(32),
-                    progress - @divFloor(progress_denominator, 2),
-                    @divFloor(progress_denominator, 2),
-                );
-                return core.geometry.makeRect(scaled_position, scaled_size);
-            }
+                    progress,
+                    progress_denominator,
+                ),
+            );
         },
         else => {
             if (thing.species == .blob and thing.rel_position == .large) {

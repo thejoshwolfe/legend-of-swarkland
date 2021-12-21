@@ -145,6 +145,33 @@ pub fn bezier2(
     return x0.scaled(max_s - s).plus(x1.scaled(s)).scaledDivTrunc(max_s);
 }
 
+/// Ramps up speed in the first half of the animation, then slows down to the end.
+pub fn bezierMove(x0: Coord, x1: Coord, s: i32, max_s: i32) Coord {
+    const x_mid = x0.plus(x1.minus(x0).scaledDivTrunc(2));
+    const s_mid = @divFloor(max_s, 2);
+    if (s < s_mid) {
+        // in the first half, speed up toward the halfway point.
+        return bezier3(x0, x0, x_mid, s, s_mid);
+    } else {
+        // in the second half, slow down from the halfway point.
+        return bezier3(x_mid, x1, x1, s - s_mid, s_mid);
+    }
+}
+
+/// Ramps up speed in the first half, but then bounces backwards to x0.
+/// x1 is the would-be destination if the movement didn't bounce.
+pub fn bezierBounce(x0: Coord, x1: Coord, s: i32, max_s: i32) Coord {
+    const x_mid = x0.plus(x1.minus(x0).scaledDivTrunc(2));
+    const s_mid = @divFloor(max_s, 2);
+    if (s < s_mid) {
+        // in the first half, speed up toward the halfway point of the would-be movement.
+        return bezier3(x0, x0, x_mid, s, s_mid);
+    } else {
+        // in the second half, abruptly reverse course and do the opposite of the above.
+        return bezier3(x_mid, x0, x0, s - s_mid, s_mid);
+    }
+}
+
 pub fn min(a: Coord, b: Coord) Coord {
     return makeCoord(
         if (a.x < b.x) a.x else b.x,

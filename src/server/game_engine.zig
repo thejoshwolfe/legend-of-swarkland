@@ -104,11 +104,11 @@ pub const GameEngine = struct {
                     else => continue,
                 };
                 const old_position = current_positions.get(id).?.large;
-                const position_delta = old_position[0].minus(old_position[0]);
+                const position_delta = old_position[0].minus(old_position[1]);
                 if (position_delta.equals(move_delta)) {
-                    try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[1] });
-                } else {
                     try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[0] });
+                } else {
+                    try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[1] });
                 }
                 try shrinks.putNoClobber(id, move_delta);
             }
