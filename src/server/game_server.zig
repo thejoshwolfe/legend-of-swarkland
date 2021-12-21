@@ -86,6 +86,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         if (is_rewind) {
 
             // Time goes backward.
+            const old_abs_pos = core.game_logic.getHeadPosition(game_state.individuals.get(main_player_id).?.abs_position);
             const state_changes = rewind(&history).?;
             try game_state.undoStateChanges(state_changes);
             for (state_changes) |_, i| {
@@ -99,7 +100,11 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                     else => {},
                 }
             }
-            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
+            const new_abs_pos = core.game_logic.getHeadPosition(game_state.individuals.get(main_player_id).?.abs_position);
+
+            var load_state = try game_engine.getStaticPerception(game_state, main_player_id);
+            load_state.movement = new_abs_pos.minus(old_abs_pos);
+            try main_player_queues.enqueueResponse(Response{ .load_state = load_state });
         } else {
 
             // Time goes forward.

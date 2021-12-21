@@ -963,7 +963,7 @@ pub const GameEngine = struct {
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
             .winning_score = winning_score,
-            .movement = your_new_head_coord.minus(your_coord),
+            .movement = your_new_head_coord.minus(your_coord), // sometimes the game server overrides this.
         };
     }
 };

@@ -158,6 +158,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .load_state => |frame| {
                             state.animations = null;
                             state.client_state = frame;
+                            state.total_journey_offset = state.total_journey_offset.plus(frame.movement);
                         },
                         .reject_request => {
                             // oh sorry.
