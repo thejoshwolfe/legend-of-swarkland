@@ -353,9 +353,9 @@ pub const GameEngine = struct {
             const position = current_positions.get(id).?;
             for (getAllPositions(&position)) |coord| {
                 if (game_state.terrainAt(coord).wall == .centaur_transformer and
-                    game_state.individuals.get(id).?.species != .centaur)
+                    game_state.individuals.get(id).?.species != .blob)
                 {
-                    try polymorphs.putNoClobber(id, .centaur);
+                    try polymorphs.putNoClobber(id, .blob);
                 }
             }
         }

@@ -17,6 +17,7 @@ const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
+const Action = core.protocol.Action;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
@@ -92,36 +93,37 @@ pub fn main() anyerror!void {
     try doMainLoop(renderer, screen_buffer);
 }
 
+const InputPrompt = enum {
+    none, // TODO: https://github.com/ziglang/zig/issues/1332 and use null instead of this.
+    attack,
+    kick,
+};
+const GameState = union(enum) {
+    main_menu: gui.LinearMenuState,
+
+    running: RunningState,
+};
+const RunningState = struct {
+    client: GameEngineClient,
+    client_state: ?PerceivedFrame = null,
+    input_prompt: InputPrompt = .none,
+    animations: ?Animations = null,
+
+    /// only tracked to display aesthetics consistently through movement.
+    total_journey_offset: Coord = Coord{ .x = 0, .y = 0 },
+
+    // tutorial state should *not* reset through undo.
+
+    /// 0, 1, infinity
+    kicks_performed: u2 = 0,
+    observed_kangaroo_death: bool = false,
+};
+
 fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     const aesthetic_seed = 0xbee894fc;
     var input_engine = InputEngine.init();
     var inputs_considered_harmful = true;
 
-    const InputPrompt = enum {
-        none, // TODO: https://github.com/ziglang/zig/issues/1332 and use null instead of this.
-        attack,
-        kick,
-    };
-    const GameState = union(enum) {
-        main_menu: gui.LinearMenuState,
-
-        running: Running,
-        const Running = struct {
-            client: GameEngineClient,
-            client_state: ?PerceivedFrame = null,
-            input_prompt: InputPrompt = .none,
-            animations: ?Animations = null,
-
-            /// only tracked to display aesthetics consistently through movement.
-            total_journey_offset: Coord = Coord{ .x = 0, .y = 0 },
-
-            // tutorial state should *not* reset through undo.
-
-            /// 0, 1, infinity
-            kicks_performed: u2 = 0,
-            observed_kangaroo_death: bool = false,
-        };
-    };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
     defer switch (game_state) {
         GameState.running => |*state| state.client.stopEngine(),
@@ -190,13 +192,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         switch (game_state) {
                             GameState.main_menu => |*main_menu_state| {
                                 switch (button) {
-                                    Button.up => {
+                                    .up => {
                                         main_menu_state.moveUp();
                                     },
-                                    Button.down => {
+                                    .down => {
                                         main_menu_state.moveDown();
                                     },
-                                    Button.enter => {
+                                    .enter => {
                                         main_menu_state.enter();
                                     },
                                     else => {},
@@ -205,62 +207,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             GameState.running => |*state| {
                                 var ignored = false;
                                 switch (button) {
-                                    .left => {
-                                        switch (state.input_prompt) {
-                                            .none => {
-                                                try state.client.move(makeCoord(-1, 0));
-                                            },
-                                            .attack => {
-                                                try state.client.attack(makeCoord(-1, 0));
-                                            },
-                                            .kick => {
-                                                try state.client.kick(makeCoord(-1, 0));
-                                            },
-                                        }
-                                        state.input_prompt = .none;
-                                    },
-                                    .right => {
-                                        switch (state.input_prompt) {
-                                            .none => {
-                                                try state.client.move(makeCoord(1, 0));
-                                            },
-                                            .attack => {
-                                                try state.client.attack(makeCoord(1, 0));
-                                            },
-                                            .kick => {
-                                                try state.client.kick(makeCoord(1, 0));
-                                            },
-                                        }
-                                        state.input_prompt = .none;
-                                    },
-                                    .up => {
-                                        switch (state.input_prompt) {
-                                            .none => {
-                                                try state.client.move(makeCoord(0, -1));
-                                            },
-                                            .attack => {
-                                                try state.client.attack(makeCoord(0, -1));
-                                            },
-                                            .kick => {
-                                                try state.client.kick(makeCoord(0, -1));
-                                            },
-                                        }
-                                        state.input_prompt = .none;
-                                    },
-                                    .down => {
-                                        switch (state.input_prompt) {
-                                            .none => {
-                                                try state.client.move(makeCoord(0, 1));
-                                            },
-                                            .attack => {
-                                                try state.client.attack(makeCoord(0, 1));
-                                            },
-                                            .kick => {
-                                                try state.client.kick(makeCoord(0, 1));
-                                            },
-                                        }
-                                        state.input_prompt = .none;
-                                    },
+                                    .left => try doDirectionInput(state, makeCoord(-1, 0)),
+                                    .right => try doDirectionInput(state, makeCoord(1, 0)),
+                                    .up => try doDirectionInput(state, makeCoord(0, -1)),
+                                    .down => try doDirectionInput(state, makeCoord(0, 1)),
+
                                     .start_attack => {
                                         state.input_prompt = .attack;
                                     },
@@ -314,7 +265,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.seekRelative(70, 30);
                 if (menu_renderer.button(" ")) {
                     game_state = GameState{
-                        .running = GameState.Running{
+                        .running = .{
                             .client = undefined,
                         },
                     };
@@ -420,8 +371,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 {
                     const AnatomySprites = struct {
                         diagram: Rect,
-                        leg_wound: Rect,
-                        limping: Rect,
+                        leg_wound: ?Rect = null,
+                        limping: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
                         .humanoid => AnatomySprites{
@@ -433,6 +384,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .diagram = textures.large_sprites.centauroid,
                             .leg_wound = textures.large_sprites.centauroid_leg_wound,
                             .limping = textures.large_sprites.centauroid_limping,
+                        },
+                        .bloboid => AnatomySprites{
+                            .diagram = switch (frame.self.rel_position) {
+                                .small => textures.large_sprites.bloboid_small,
+                                .large => textures.large_sprites.bloboid_small_wide,
+                            },
                         },
                         else => {
                             std.debug.panic("TODO\n", .{});
@@ -447,10 +404,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     // explicit integer here to provide a compile error when new items get added.
                     var status_conditions: u2 = frame.self.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_wounded_leg) {
-                        textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound, anatomy_coord);
+                        textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound.?, anatomy_coord);
                     }
                     if (0 != status_conditions & core.protocol.StatusCondition_limping) {
-                        textures.renderLargeSprite(renderer, anatomy_sprites.limping, anatomy_coord);
+                        textures.renderLargeSprite(renderer, anatomy_sprites.limping.?, anatomy_coord);
                     }
                 }
 
@@ -515,6 +472,47 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         const delay_millis = 17 - (sdl.c.SDL_GetTicks() % 17);
         sdl.c.SDL_Delay(delay_millis);
         inputs_considered_harmful = false;
+    }
+}
+
+fn doDirectionInput(state: *RunningState, delta: Coord) !void {
+    switch (state.input_prompt) {
+        .none => {},
+        .attack => {
+            try state.client.attack(delta);
+            state.input_prompt = .none;
+            return;
+        },
+        .kick => {
+            try state.client.kick(delta);
+            state.input_prompt = .none;
+            return;
+        },
+    }
+
+    // The default input behavior is a move-like action.
+    const myself = state.client_state.?.self;
+    if (core.game_logic.canMoveNormally(myself.species)) {
+        return state.client.move(delta);
+    } else if (core.game_logic.canGrowAndShrink(myself.species)) {
+        switch (myself.rel_position) {
+            .small => {
+                return state.client.act(Action{ .grow = delta });
+            },
+            .large => |large_position| {
+                // which direction should we shrink?
+                const position_delta = large_position[0].minus(large_position[1]);
+                if (core.geometry.areOrthoVectorsColinear(position_delta, delta)) {
+                    return state.client.act(Action{ .shrink = delta });
+                } else {
+                    // You cannot shrink sideways.
+                    return;
+                }
+            },
+        }
+    } else {
+        // You're not a moving one.
+        return;
     }
 }
 
@@ -831,8 +829,11 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, 
     for (frames) |frame| {
         animations.*.?.frame_index_to_aesthetic_offset.appendAssumeCapacity(current_offset);
         switch (frame.self.activity) {
-            .movement => |move_delta| {
+            .movement, .growth => |move_delta| {
                 current_offset = current_offset.plus(move_delta);
+            },
+            .shrink => |delta| {
+                // TODO: move shrinking payload to be u1
             },
             else => {},
         }

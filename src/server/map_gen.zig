@@ -82,7 +82,7 @@ const MapGenerator = struct {
 
         // throw enemies around
         {
-            const count = 1;
+            const count = 0;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 const fella = try self.makeIndividual(self.popRandom(&free_spaces), .blob);
@@ -129,7 +129,7 @@ const MapGenerator = struct {
 
         // have fun
         {
-            const count = 0;
+            const count = 1;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{

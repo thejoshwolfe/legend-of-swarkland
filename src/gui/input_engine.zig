@@ -38,16 +38,16 @@ pub const InputEngine = struct {
 
     fn handleKeydown(_: InputEngine, modifiers: Modifiers, scancode: c_uint) ?Button {
         switch (scancode) {
-            sdl.c.SDL_SCANCODE_LEFT => return if (modifiers == 0) Button.left else null,
-            sdl.c.SDL_SCANCODE_RIGHT => return if (modifiers == 0) Button.right else null,
-            sdl.c.SDL_SCANCODE_UP => return if (modifiers == 0) Button.up else null,
-            sdl.c.SDL_SCANCODE_DOWN => return if (modifiers == 0) Button.down else null,
-            sdl.c.SDL_SCANCODE_F => return if (modifiers == 0) Button.start_attack else null,
-            sdl.c.SDL_SCANCODE_K => return if (modifiers == 0) Button.start_kick else null,
-            sdl.c.SDL_SCANCODE_R => return if (modifiers == ctrl) Button.restart else null,
-            sdl.c.SDL_SCANCODE_BACKSPACE => return if (modifiers == 0) Button.backspace else null,
-            sdl.c.SDL_SCANCODE_RETURN => return if (modifiers == 0) Button.enter else null,
-            sdl.c.SDL_SCANCODE_ESCAPE => return if (modifiers == 0) Button.escape else null,
+            sdl.c.SDL_SCANCODE_LEFT => return if (modifiers == 0) .left else null,
+            sdl.c.SDL_SCANCODE_RIGHT => return if (modifiers == 0) .right else null,
+            sdl.c.SDL_SCANCODE_UP => return if (modifiers == 0) .up else null,
+            sdl.c.SDL_SCANCODE_DOWN => return if (modifiers == 0) .down else null,
+            sdl.c.SDL_SCANCODE_F => return if (modifiers == 0) .start_attack else null,
+            sdl.c.SDL_SCANCODE_K => return if (modifiers == 0) .start_kick else null,
+            sdl.c.SDL_SCANCODE_R => return if (modifiers == ctrl) .restart else null,
+            sdl.c.SDL_SCANCODE_BACKSPACE => return if (modifiers == 0) .backspace else null,
+            sdl.c.SDL_SCANCODE_RETURN => return if (modifiers == 0) .enter else null,
+            sdl.c.SDL_SCANCODE_ESCAPE => return if (modifiers == 0) .escape else null,
             else => return null,
         }
     }
