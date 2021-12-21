@@ -776,10 +776,11 @@ pub const GameEngine = struct {
         activities: Activities,
     ) !PerceivedFrame {
         const actual_me = game_state.individuals.get(my_id).?;
-        const your_coord = getHeadPosition(if (maybe_current_positions) |current_positions|
+        const your_abs_position = if (maybe_current_positions) |current_positions|
             current_positions.get(my_id).?
         else
-            actual_me.abs_position);
+            actual_me.abs_position;
+        const your_coord = getHeadPosition(your_abs_position);
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
         const view_distance = getViewDistance(actual_me.species);
@@ -854,9 +855,29 @@ pub const GameEngine = struct {
                 },
             }
             // if any position is within view, we can see all of it.
-            const within_view = blk: for (getAllPositions(&rel_position)) |delta| {
-                if (delta.magnitudeDiag() <= view_distance) break :blk true;
-            } else false;
+            var within_view = false;
+            for (getAllPositions(&rel_position)) |delta| {
+                if (delta.magnitudeDiag() <= view_distance) {
+                    within_view = true;
+                    break;
+                }
+            } else if (actual_me.species == .blob) {
+                // Blobs can also see with their butts.
+                switch (if (maybe_current_positions) |current_positions|
+                    current_positions.get(my_id).?
+                else
+                    game_state.individuals.get(my_id).?.abs_position) {
+                    .large => |data| {
+                        for (getAllPositions(&abs_position)) |other_abs_coord| {
+                            if (other_abs_coord.minus(data[1]).magnitudeDiag() <= view_distance) {
+                                within_view = true;
+                                break;
+                            }
+                        }
+                    },
+                    else => {},
+                }
+            }
             if (!within_view) continue;
             const actual_thing = game_state.individuals.get(id).?;
             const thing = PerceivedThing{
@@ -873,16 +894,38 @@ pub const GameEngine = struct {
             }
         }
 
-        const view_size = @intCast(u16, view_distance * 2 + 1);
+        var view_position = makeCoord(-view_distance, -view_distance);
+        const view_side_length = view_distance * 2 + 1;
+        var view_size = makeCoord(view_side_length, view_side_length);
+        if (actual_me.species == .blob) {
+            switch (actual_me.abs_position) {
+                .large => |data| {
+                    // Blobs can also see with their butts.
+                    if (data[1].x < data[0].x) {
+                        core.debug.testing.print("facing right", .{});
+                        view_position.x -= 1;
+                        view_size.x += 1;
+                    } else if (data[1].x > data[0].x) {
+                        view_size.x += 1;
+                    } else if (data[1].y < data[0].y) {
+                        view_position.y -= 1;
+                        view_size.y += 1;
+                    } else if (data[1].y > data[0].y) {
+                        view_size.y += 1;
+                    } else unreachable;
+                },
+                else => {},
+            }
+        }
         var terrain_chunk = core.protocol.TerrainChunk{
-            .rel_position = makeCoord(-view_distance, -view_distance),
-            .matrix = try Terrain.initFill(self.allocator, view_size, view_size, oob_terrain),
+            .rel_position = view_position,
+            .matrix = try Terrain.initFill(self.allocator, @intCast(u16, view_size.x), @intCast(u16, view_size.y), oob_terrain),
         };
-        const view_origin = your_coord.minus(makeCoord(view_distance, view_distance));
+        const view_origin = your_coord.plus(view_position);
         var cursor = Coord{ .x = undefined, .y = 0 };
-        while (cursor.y < view_size) : (cursor.y += 1) {
+        while (cursor.y < view_size.y) : (cursor.y += 1) {
             cursor.x = 0;
-            while (cursor.x < view_size) : (cursor.x += 1) {
+            while (cursor.x < view_size.x) : (cursor.x += 1) {
                 if (game_state.terrain.getCoord(cursor.plus(view_origin))) |cell| {
                     terrain_chunk.matrix.atCoord(cursor).?.* = cell;
                 }
@@ -899,11 +942,28 @@ pub const GameEngine = struct {
             winning_score.? += 1;
         }
 
+        var your_new_head_coord = your_coord;
+        switch (yourself.?.activity) {
+            .movement, .growth => |move_delta| {
+                // move your body, or grow your head into another square.
+                your_new_head_coord = your_new_head_coord.plus(move_delta);
+            },
+            .shrink => |index| {
+                if (index != 0) {
+                    // move your head back into your butt.
+                    const position_delta = your_abs_position.large[0].minus(your_abs_position.large[1]);
+                    your_new_head_coord = your_new_head_coord.minus(position_delta);
+                }
+            },
+            else => {},
+        }
+
         return PerceivedFrame{
             .self = yourself.?,
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
             .winning_score = winning_score,
+            .movement = your_new_head_coord.minus(your_coord),
         };
     }
 };

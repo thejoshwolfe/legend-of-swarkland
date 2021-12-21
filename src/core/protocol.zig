@@ -81,6 +81,7 @@ pub const PerceivedFrame = struct {
     self: PerceivedThing,
     others: []PerceivedThing,
     winning_score: ?i32,
+    movement: Coord,
 };
 
 pub const ThingPosition = union(enum) {

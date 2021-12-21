@@ -321,7 +321,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         while (cursor.x <= @as(i32, terrain.width)) : (cursor.x += 1) {
                             if (terrain.getCoord(cursor)) |cell| {
                                 const display_position = cursor.scaled(32).plus(terrain_offset);
-                                const aesthetic_coord = cursor.plus(state.total_journey_offset).plus(animated_aesthetic_offset);
+                                const aesthetic_coord = cursor.plus(frame.terrain.rel_position).plus(state.total_journey_offset).plus(animated_aesthetic_offset);
                                 const floor_texture = switch (cell.floor) {
                                     Floor.unknown => textures.sprites.unknown_floor,
                                     Floor.dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, aesthetic_coord),
@@ -832,19 +832,7 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, 
     var current_offset = starting_offset;
     for (frames) |frame| {
         animations.*.?.frame_index_to_aesthetic_offset.appendAssumeCapacity(current_offset);
-        switch (frame.self.activity) {
-            .movement, .growth => |move_delta| {
-                current_offset = current_offset.plus(move_delta);
-            },
-            .shrink => |index| {
-                if (index != 0) {
-                    const position_delta = frame.self.rel_position.large[0].minus(frame.self.rel_position.large[1]);
-                    // back up
-                    current_offset = current_offset.minus(position_delta);
-                }
-            },
-            else => {},
-        }
+        current_offset = current_offset.plus(frame.movement);
     }
 
     total_journey_offset.* = total_journey_offset.plus(current_offset.minus(starting_offset));
