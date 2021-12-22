@@ -300,28 +300,35 @@ pub const GameEngine = struct {
                     }
                 }
             }
-            for (victim_to_has_multiple_attackers.keys()) |victim_id| {
-                // All victims are grappled at least.
-                const other_status_conditions = current_status_conditions.getEntry(victim_id).?.value_ptr;
-                other_status_conditions.* |= core.protocol.StatusCondition_grappled;
-            }
 
             var digestion_deaths = IdMap(void).init(self.allocator);
-            var it = victim_to_unique_attacker.iterator();
-            while (it.next()) |entry| {
-                const victim_id = entry.key_ptr.*;
-                const attacker_id = entry.value_ptr.*;
-                if (current_positions.get(attacker_id).? != .small) continue;
-                // When bunched up, I can digest you.
-                const other_status_conditions = current_status_conditions.getEntry(victim_id).?.value_ptr;
-                if (0 == other_status_conditions.* & core.protocol.StatusCondition_being_digested) {
-                    // Start getting digested.
-                    other_status_conditions.* |= core.protocol.StatusCondition_being_digested;
+            for (everybody) |victim_id| {
+                const victim_status_conditions = current_status_conditions.getEntry(victim_id).?.value_ptr;
+                if (!victim_to_has_multiple_attackers.contains(victim_id)) {
+                    // Not grappled.
+                    victim_status_conditions.* &= ~core.protocol.StatusCondition_grappled;
+                    if (0 != victim_status_conditions.* & core.protocol.StatusCondition_being_digested) {
+                        // you've escaped digestion. the status effect turns into a leg wound i guess.
+                        victim_status_conditions.* &= ~core.protocol.StatusCondition_being_digested;
+                        victim_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                    }
                 } else {
-                    // Complete the digestion
-                    try digestion_deaths.put(victim_id, {});
+                    // All victims are grappled at least.
+                    victim_status_conditions.* |= core.protocol.StatusCondition_grappled;
+                    if (victim_to_unique_attacker.get(victim_id)) |attacker_id| {
+                        if (current_positions.get(attacker_id).? != .small) continue;
+                        // When bunched up, I can digest you.
+                        if (0 == victim_status_conditions.* & core.protocol.StatusCondition_being_digested) {
+                            // Start getting digested.
+                            victim_status_conditions.* |= core.protocol.StatusCondition_being_digested;
+                        } else {
+                            // Complete the digestion
+                            try digestion_deaths.put(victim_id, {});
+                        }
+                    }
                 }
             }
+
             for (everybody) |id| {
                 if (digestion_deaths.count() != 0) {
                     try self.observeFrame(
