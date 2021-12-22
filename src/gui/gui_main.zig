@@ -379,6 +379,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         leg_wound: ?Rect = null,
                         grappled: ?Rect = null,
                         limping: ?Rect = null,
+                        grappling_back: ?Rect = null,
+                        digesting: ?Rect = null,
+                        grappling_front: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
                         .humanoid => AnatomySprites{
@@ -398,6 +401,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 .small => textures.large_sprites.bloboid_small,
                                 .large => textures.large_sprites.bloboid_small_wide,
                             },
+                            .grappling_back = textures.large_sprites.bloboid_grappling_back,
+                            .digesting = textures.large_sprites.bloboid_digesting,
+                            .grappling_front = textures.large_sprites.bloboid_grappling_front,
                         },
                         .kangaroid, .quadruped => @panic("TODO"),
                     };
@@ -408,7 +414,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_shieled, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
-                    var status_conditions: u4 = frame.self.status_conditions;
+                    var status_conditions: u6 = frame.self.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_being_digested) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.being_digested.?, anatomy_coord);
                     }
@@ -420,6 +426,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                     if (0 != status_conditions & core.protocol.StatusCondition_limping) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.limping.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_grappling) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.grappling_back.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_digesting) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.digesting.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_grappling) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.grappling_front.?, anatomy_coord);
                     }
                 }
 

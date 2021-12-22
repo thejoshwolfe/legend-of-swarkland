@@ -266,6 +266,7 @@ pub const GameEngine = struct {
 
         // Grapple and digestion
         {
+            var grappler_to_victim_count = IdMap(u2).init(self.allocator);
             var victim_to_has_multiple_attackers = IdMap(bool).init(self.allocator);
             var victim_to_unique_attacker = IdMap(u32).init(self.allocator);
             for (everybody) |id| {
@@ -288,44 +289,68 @@ pub const GameEngine = struct {
                     }
 
                     // I have you now.
-                    const gop = try victim_to_has_multiple_attackers.getOrPut(other_id);
+                    {
+                        const gop = try victim_to_has_multiple_attackers.getOrPut(other_id);
+                        if (gop.found_existing) {
+                            // multiple attackers.
+                            assert(victim_to_unique_attacker.swapRemove(other_id));
+                            gop.value_ptr.* = true;
+                        } else {
+                            // we're the first attacker.
+                            try victim_to_unique_attacker.putNoClobber(other_id, id);
+                            gop.value_ptr.* = false;
+                        }
+                    }
+                    const gop = try grappler_to_victim_count.getOrPut(id);
                     if (gop.found_existing) {
-                        // multiple attackers.
-                        assert(victim_to_unique_attacker.swapRemove(other_id));
-                        gop.value_ptr.* = true;
+                        gop.value_ptr.* += 1;
                     } else {
-                        // we're the first attacker.
-                        try victim_to_unique_attacker.putNoClobber(other_id, id);
-                        gop.value_ptr.* = false;
+                        gop.value_ptr.* = 1;
                     }
                 }
             }
 
             var digestion_deaths = IdMap(void).init(self.allocator);
-            for (everybody) |victim_id| {
-                const victim_status_conditions = current_status_conditions.getEntry(victim_id).?.value_ptr;
-                if (!victim_to_has_multiple_attackers.contains(victim_id)) {
+            var digesters = IdMap(void).init(self.allocator);
+            for (everybody) |id| {
+                const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
+                if (!victim_to_has_multiple_attackers.contains(id)) {
                     // Not grappled.
-                    victim_status_conditions.* &= ~core.protocol.StatusCondition_grappled;
-                    if (0 != victim_status_conditions.* & core.protocol.StatusCondition_being_digested) {
+                    status_conditions.* &= ~core.protocol.StatusCondition_grappled;
+                    if (0 != status_conditions.* & core.protocol.StatusCondition_being_digested) {
                         // you've escaped digestion. the status effect turns into a leg wound i guess.
-                        victim_status_conditions.* &= ~core.protocol.StatusCondition_being_digested;
-                        victim_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                        status_conditions.* &= ~core.protocol.StatusCondition_being_digested;
+                        status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
                     }
                 } else {
                     // All victims are grappled at least.
-                    victim_status_conditions.* |= core.protocol.StatusCondition_grappled;
-                    if (victim_to_unique_attacker.get(victim_id)) |attacker_id| {
+                    status_conditions.* |= core.protocol.StatusCondition_grappled;
+                    if (victim_to_unique_attacker.get(id)) |attacker_id| {
                         if (current_positions.get(attacker_id).? != .small) continue;
                         // When bunched up, I can digest you.
-                        if (0 == victim_status_conditions.* & core.protocol.StatusCondition_being_digested) {
+                        if (0 == status_conditions.* & core.protocol.StatusCondition_being_digested) {
                             // Start getting digested.
-                            victim_status_conditions.* |= core.protocol.StatusCondition_being_digested;
+                            status_conditions.* |= core.protocol.StatusCondition_being_digested;
+                            _ = try digesters.put(attacker_id, {});
                         } else {
                             // Complete the digestion
-                            try digestion_deaths.put(victim_id, {});
+                            try digestion_deaths.put(id, {});
+                            grappler_to_victim_count.getEntry(attacker_id).?.value_ptr.* -= 1;
                         }
                     }
+                }
+            }
+            for (everybody) |id| {
+                const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
+                if ((grappler_to_victim_count.get(id) orelse 0) > 0) {
+                    status_conditions.* |= core.protocol.StatusCondition_grappling;
+                } else {
+                    status_conditions.* &= ~core.protocol.StatusCondition_grappling;
+                }
+                if (digesters.contains(id)) {
+                    status_conditions.* |= core.protocol.StatusCondition_digesting;
+                } else {
+                    status_conditions.* &= ~core.protocol.StatusCondition_digesting;
                 }
             }
 
