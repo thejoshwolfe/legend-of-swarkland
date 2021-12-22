@@ -47,7 +47,15 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     }
 
     const delta = target_position.?;
-    std.debug.assert(!(delta.x == 0 and delta.y == 0));
+    if (delta.x == 0 and delta.y == 0) {
+        // Overlapping the target.
+        if (canGrowAndShrink(last_frame.self.species) and last_frame.self.rel_position == .large) {
+            // if the relative position is {0,0}, that means they're in my head.
+            return Action{ .shrink = 0 };
+        }
+        // Don't know how to handle this.
+        return .wait;
+    }
     const range = core.game_logic.getAttackRange(last_frame.self.species);
 
     if (delta.x * delta.y == 0) {

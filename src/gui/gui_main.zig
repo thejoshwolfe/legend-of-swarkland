@@ -226,6 +226,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                             try state.client.rewind();
                                         }
                                     },
+                                    .spacebar => {
+                                        try state.client.act(.wait);
+                                    },
                                     .escape => {
                                         state.input_prompt = .none;
                                     },
@@ -372,13 +375,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 {
                     const AnatomySprites = struct {
                         diagram: Rect,
+                        being_digested: ?Rect = null,
                         leg_wound: ?Rect = null,
+                        grappled: ?Rect = null,
                         limping: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
                         .humanoid => AnatomySprites{
                             .diagram = textures.large_sprites.humanoid,
+                            .being_digested = textures.large_sprites.humanoid_being_digested,
                             .leg_wound = textures.large_sprites.humanoid_leg_wound,
+                            .grappled = textures.large_sprites.humanoid_grappled,
                             .limping = textures.large_sprites.humanoid_limping,
                         },
                         .centauroid => AnatomySprites{
@@ -392,9 +399,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 .large => textures.large_sprites.bloboid_small_wide,
                             },
                         },
-                        else => {
-                            std.debug.panic("TODO\n", .{});
-                        },
+                        .kangaroid, .quadruped => @panic("TODO"),
                     };
                     const anatomy_coord = makeCoord(512, 0);
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
@@ -403,9 +408,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_shieled, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
-                    var status_conditions: u2 = frame.self.status_conditions;
+                    var status_conditions: u4 = frame.self.status_conditions;
+                    if (0 != status_conditions & core.protocol.StatusCondition_being_digested) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.being_digested.?, anatomy_coord);
+                    }
                     if (0 != status_conditions & core.protocol.StatusCondition_wounded_leg) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_grappled) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.grappled.?, anatomy_coord);
                     }
                     if (0 != status_conditions & core.protocol.StatusCondition_limping) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.limping.?, anatomy_coord);
@@ -653,10 +664,10 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     }
 
     // render status effects
-    if (thing.status_conditions & core.protocol.StatusCondition_wounded_leg != 0) {
+    if (thing.status_conditions & (core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_being_digested) != 0) {
         textures.renderSprite(renderer, textures.sprites.wounded, display_position);
     }
-    if (thing.status_conditions & core.protocol.StatusCondition_limping != 0) {
+    if (thing.status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled) != 0) {
         textures.renderSprite(renderer, textures.sprites.limping, display_position);
     }
     if (thing.has_shield) {

@@ -60,7 +60,7 @@ pub fn isFastMoveAligned(position: ThingPosition, move_delta: Coord) bool {
 
 pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
     return switch (species) {
-        .turtle => false,
+        .turtle, .blob => false,
         // only rhino's tail is affected, not head.
         .rhino => position_index == 1,
         else => true,

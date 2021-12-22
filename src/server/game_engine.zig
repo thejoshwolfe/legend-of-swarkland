@@ -132,7 +132,7 @@ pub const GameEngine = struct {
                     .move, .fast_move => |move_delta| move_delta,
                     else => continue,
                 };
-                if (0 != current_status_conditions.get(id).? & core.protocol.StatusCondition_limping) {
+                if (0 != current_status_conditions.get(id).? & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) {
                     // nope.avi
                     continue;
                 }
@@ -249,12 +249,12 @@ pub const GameEngine = struct {
             }
         }
 
-        // Check status conditions
+        // Wounds and limping
         for (everybody) |id| {
             const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
             if (game_state.terrainAt(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
-                // level transitions remedy all status ailments.
-                status_conditions.* = 0;
+                // this tile heals wounds for some reason.
+                status_conditions.* &= ~(core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping);
             } else if (!budges_at_all.contains(id)) {
                 // you held still, so you are free of any limping status.
                 status_conditions.* &= ~core.protocol.StatusCondition_limping;
@@ -262,6 +262,78 @@ pub const GameEngine = struct {
                 // you moved while wounded. now you limp.
                 status_conditions.* |= core.protocol.StatusCondition_limping;
             }
+        }
+
+        // Grapple and digestion
+        {
+            var victim_to_has_multiple_attackers = IdMap(bool).init(self.allocator);
+            var victim_to_unique_attacker = IdMap(u32).init(self.allocator);
+            for (everybody) |id| {
+                const blob_individual = game_state.individuals.get(id).?;
+                if (blob_individual.species != .blob) continue;
+                const position = current_positions.get(id).?;
+                for (everybody) |other_id| {
+                    var position_index: usize = find_collision: for (getAllPositions(&position)) |coord| {
+                        const other_position = current_positions.get(other_id).?;
+                        for (getAllPositions(&other_position)) |other_coord, i| {
+                            if (other_coord.equals(coord)) break :find_collision i;
+                        }
+                    } else continue;
+
+                    // there's some overlap. But is the other target even affected?
+                    const other_individual = game_state.individuals.get(other_id).?;
+                    if (!core.game_logic.isAffectedByAttacks(other_individual.species, position_index)) {
+                        // Too strong for the blob's attacks.
+                        continue;
+                    }
+
+                    // I have you now.
+                    const gop = try victim_to_has_multiple_attackers.getOrPut(other_id);
+                    if (gop.found_existing) {
+                        // multiple attackers.
+                        assert(victim_to_unique_attacker.swapRemove(other_id));
+                        gop.value_ptr.* = true;
+                    } else {
+                        // we're the first attacker.
+                        try victim_to_unique_attacker.putNoClobber(other_id, id);
+                        gop.value_ptr.* = false;
+                    }
+                }
+            }
+            for (victim_to_has_multiple_attackers.keys()) |victim_id| {
+                // All victims are grappled at least.
+                const other_status_conditions = current_status_conditions.getEntry(victim_id).?.value_ptr;
+                other_status_conditions.* |= core.protocol.StatusCondition_grappled;
+            }
+
+            var digestion_deaths = IdMap(void).init(self.allocator);
+            var it = victim_to_unique_attacker.iterator();
+            while (it.next()) |entry| {
+                const victim_id = entry.key_ptr.*;
+                const attacker_id = entry.value_ptr.*;
+                if (current_positions.get(attacker_id).? != .small) continue;
+                // When bunched up, I can digest you.
+                const other_status_conditions = current_status_conditions.getEntry(victim_id).?.value_ptr;
+                if (0 == other_status_conditions.* & core.protocol.StatusCondition_being_digested) {
+                    // Start getting digested.
+                    other_status_conditions.* |= core.protocol.StatusCondition_being_digested;
+                } else {
+                    // Complete the digestion
+                    try digestion_deaths.put(victim_id, {});
+                }
+            }
+            for (everybody) |id| {
+                if (digestion_deaths.count() != 0) {
+                    try self.observeFrame(
+                        game_state,
+                        id,
+                        individual_to_perception.get(id).?,
+                        &current_positions,
+                        Activities{ .deaths = &digestion_deaths },
+                    );
+                }
+            }
+            try flushDeaths(&total_deaths, &digestion_deaths, &everybody);
         }
 
         // Attacks
@@ -902,7 +974,6 @@ pub const GameEngine = struct {
                 .large => |data| {
                     // Blobs can also see with their butts.
                     if (data[1].x < data[0].x) {
-                        core.debug.testing.print("facing right", .{});
                         view_position.x -= 1;
                         view_size.x += 1;
                     } else if (data[1].x > data[0].x) {
