@@ -62,8 +62,8 @@ const MapGenerator = struct {
     }
 
     fn generate(self: *@This()) !void {
-        const width = 5;
-        const height = 5;
+        const width = 10;
+        const height = 10;
         self.terrain.* = try Terrain.initFill(self.allocator, width, height, .{
             .floor = .dirt,
             .wall = .air,
@@ -90,6 +90,7 @@ const MapGenerator = struct {
                 try self.individuals.putNoClobber(self.nextId(), fella);
             }
             try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), Species{ .blob = .small_blob }));
+            try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .turtle));
         }
 
         // let's throw around some lava.

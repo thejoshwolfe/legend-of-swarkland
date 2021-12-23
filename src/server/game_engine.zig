@@ -276,21 +276,17 @@ pub const GameEngine = struct {
                 if (blob_individual.species != .blob) continue;
                 const position = current_positions.get(id).?;
                 for (everybody) |other_id| {
-                    var position_index: usize = find_collision: for (getAllPositions(&position)) |coord| {
+                    if (other_id == id or game_state.individuals.get(other_id).?.species == .blob) continue;
+                    find_collision: for (getAllPositions(&position)) |coord| {
                         const other_position = current_positions.get(other_id).?;
-                        for (getAllPositions(&other_position)) |other_coord, i| {
-                            if (other_coord.equals(coord)) break :find_collision i;
+                        for (getAllPositions(&other_position)) |other_coord| {
+                            if (other_coord.equals(coord)) break :find_collision;
                         }
-                    } else continue;
-
-                    // there's some overlap. But is the other target even affected?
-                    const other_individual = game_state.individuals.get(other_id).?;
-                    if (!core.game_logic.isAffectedByAttacks(other_individual.species, position_index)) {
-                        // Too strong for the blob's attacks.
+                    } else {
                         continue;
                     }
 
-                    // I have you now.
+                    // any overlap means you get grappled.
                     {
                         const gop = try victim_to_has_multiple_attackers.getOrPut(other_id);
                         if (gop.found_existing) {
@@ -328,6 +324,12 @@ pub const GameEngine = struct {
                     // All victims are grappled at least.
                     status_conditions.* |= core.protocol.StatusCondition_grappled;
                     if (victim_to_unique_attacker.get(id)) |attacker_id| {
+                        // Is the victim vulnerable to digestion attacks?
+                        if (!core.game_logic.isAffectedByAttacks(game_state.individuals.get(id).?.species, 0)) {
+                            // Too strong for the blob's attacks.
+                            continue;
+                        }
+
                         // Need a sufficient density of blob on this space to do a digestion.
                         const blob_subpecies = game_state.individuals.get(attacker_id).?.species.blob;
                         const can_digest = switch (blob_subpecies) {
@@ -466,6 +468,7 @@ pub const GameEngine = struct {
                     game_state.individuals.get(id).?.species != .blob)
                 {
                     try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                    current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping);
                 }
             }
         }
