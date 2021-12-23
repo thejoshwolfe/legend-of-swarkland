@@ -82,7 +82,7 @@ const MapGenerator = struct {
 
         // throw enemies around
         {
-            const count = 1;
+            const count = 2;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 const fella = try self.makeIndividual(self.popRandom(&free_spaces), .kangaroo);

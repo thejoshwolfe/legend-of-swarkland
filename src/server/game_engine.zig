@@ -328,8 +328,13 @@ pub const GameEngine = struct {
                     // All victims are grappled at least.
                     status_conditions.* |= core.protocol.StatusCondition_grappled;
                     if (victim_to_unique_attacker.get(id)) |attacker_id| {
-                        if (current_positions.get(attacker_id).? != .small) continue;
-                        // When bunched up, I can digest you.
+                        // Need a sufficient density of blob on this space to do a digestion.
+                        const blob_subpecies = game_state.individuals.get(attacker_id).?.species.blob;
+                        const can_digest = switch (blob_subpecies) {
+                            .large_blob => true,
+                            .small_blob => current_positions.get(attacker_id).? == .small,
+                        };
+                        if (!can_digest) continue;
                         if (0 == status_conditions.* & core.protocol.StatusCondition_being_digested) {
                             // Start getting digested.
                             status_conditions.* |= core.protocol.StatusCondition_being_digested;
@@ -338,7 +343,11 @@ pub const GameEngine = struct {
                             // Complete the digestion
                             try digestion_deaths.put(id, {});
                             grappler_to_victim_count.getEntry(attacker_id).?.value_ptr.* -= 1;
-                            try polymorphs.putNoClobber(attacker_id, Species{ .blob = .large_blob });
+
+                            if (blob_subpecies == .small_blob) {
+                                // Grow up to be large.
+                                try polymorphs.putNoClobber(attacker_id, Species{ .blob = .large_blob });
+                            }
                         }
                     }
                 }
