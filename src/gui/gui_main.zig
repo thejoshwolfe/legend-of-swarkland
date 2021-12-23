@@ -397,9 +397,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .limping = textures.large_sprites.centauroid_limping,
                         },
                         .bloboid => AnatomySprites{
-                            .diagram = switch (frame.self.rel_position) {
-                                .small => textures.large_sprites.bloboid_small,
-                                .large => textures.large_sprites.bloboid_small_wide,
+                            .diagram = switch (frame.self.species.blob) {
+                                .small_blob => switch (frame.self.rel_position) {
+                                    .small => textures.large_sprites.bloboid_small,
+                                    .large => textures.large_sprites.bloboid_small_wide,
+                                },
+                                .large_blob => switch (frame.self.rel_position) {
+                                    .small => textures.large_sprites.bloboid_large,
+                                    .large => textures.large_sprites.bloboid_large_wide,
+                                },
                             },
                             .grappling_back = textures.large_sprites.bloboid_grappling_back,
                             .digesting = textures.large_sprites.bloboid_digesting,
@@ -788,7 +794,10 @@ fn speciesToSprite(species: Species) Rect {
         .turtle => textures.sprites.turtle,
         .rhino => textures.sprites.rhino[0],
         .kangaroo => textures.sprites.kangaroo,
-        .blob => textures.sprites.pink_blob,
+        .blob => |subspecies| switch (subspecies) {
+            .small_blob => textures.sprites.pink_blob,
+            .large_blob => textures.sprites.blob_large,
+        },
     };
 }
 

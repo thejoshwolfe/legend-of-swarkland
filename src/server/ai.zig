@@ -154,7 +154,7 @@ fn hesitatesOneSpaceAway(species: Species) bool {
     }
 }
 
-fn getTargetHostilityPriority(me: Species, you: Species) ?i32 {
+fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: Species) ?i32 {
     // this is straight up racism.
     if (me == you) return null;
 

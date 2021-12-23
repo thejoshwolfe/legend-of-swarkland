@@ -94,6 +94,8 @@ pub const GameEngine = struct {
 
         var total_deaths = IdMap(void).init(self.allocator);
 
+        var polymorphs = IdMap(Species).init(self.allocator);
+
         // Shrinking
         {
             var shrinks = IdMap(u1).init(self.allocator);
@@ -336,6 +338,7 @@ pub const GameEngine = struct {
                             // Complete the digestion
                             try digestion_deaths.put(id, {});
                             grappler_to_victim_count.getEntry(attacker_id).?.value_ptr.* -= 1;
+                            try polymorphs.putNoClobber(attacker_id, Species{ .blob = .large_blob });
                         }
                     }
                 }
@@ -447,14 +450,13 @@ pub const GameEngine = struct {
         try flushDeaths(&total_deaths, &attack_deaths, &everybody);
 
         // Traps
-        var polymorphs = IdMap(Species).init(self.allocator);
         for (everybody) |id| {
             const position = current_positions.get(id).?;
             for (getAllPositions(&position)) |coord| {
                 if (game_state.terrainAt(coord).wall == .centaur_transformer and
                     game_state.individuals.get(id).?.species != .blob)
                 {
-                    try polymorphs.putNoClobber(id, .blob);
+                    try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
                 }
             }
         }
@@ -1036,7 +1038,7 @@ pub const GameEngine = struct {
         }
 
         var winning_score: ?i32 = 0;
-        const my_species = game_state.individuals.get(my_id).?.species;
+        const my_species = @as(std.meta.Tag(Species), game_state.individuals.get(my_id).?.species);
         for (game_state.individuals.values()) |individual| {
             if (my_species != individual.species) {
                 winning_score = null;

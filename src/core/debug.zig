@@ -11,7 +11,7 @@ const Logger = struct {
 
     pub fn deepPrint(self: Logger, prefix: []const u8, something: anytype) void {
         if (!self.is_enabled) return;
-        deep_print(prefix, something);
+        deepPrintImpl(prefix, something);
     }
 };
 
@@ -92,7 +92,7 @@ pub fn unnameThisThread() void {
 }
 
 /// i kinda wish std.fmt did this.
-fn deep_print(prefix: []const u8, something: anytype) void {
+fn deepPrintImpl(prefix: []const u8, something: anytype) void {
     std.debug.warn("{s}", .{prefix});
     struct {
         pub fn recurse(obj: anytype, comptime indent: comptime_int) void {
@@ -170,8 +170,13 @@ fn deep_print(prefix: []const u8, something: anytype) void {
                     if (info.tag_type) |tag_type| {
                         std.debug.warn(".{{ .{s} = ", .{@tagName(obj)});
                         inline for (info.fields) |u_field| {
-                            if (obj == @field(tag_type, u_field.name)) {
-                                recurse(@field(obj, u_field.name), indent);
+                            if (@as(tag_type, obj) == @field(tag_type, u_field.name)) {
+                                if (comptime (T == @import("../index.zig").protocol.ThingPosition and std.mem.eql(u8, u_field.name, "large"))) {
+                                    // XXX: seems to be a miscompilation with this.
+                                    std.debug.warn("(sorry, compiler machine broke.)", .{});
+                                } else {
+                                    recurse(@field(obj, u_field.name), indent);
+                                }
                             }
                         }
                         std.debug.warn(" }}", .{});

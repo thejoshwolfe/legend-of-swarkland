@@ -20,14 +20,17 @@ pub const Wall = enum {
     centaur_transformer,
 };
 
-pub const Species = enum {
+pub const Species = union(enum) {
     human,
     orc,
     centaur,
     turtle,
     rhino,
     kangaroo,
-    blob,
+    blob: enum {
+        small_blob,
+        large_blob,
+    },
 };
 
 pub const TerrainChunk = struct {
