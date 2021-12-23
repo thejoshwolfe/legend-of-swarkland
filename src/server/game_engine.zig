@@ -1040,9 +1040,15 @@ pub const GameEngine = struct {
         while (cursor.y < view_size.y) : (cursor.y += 1) {
             cursor.x = 0;
             while (cursor.x < view_size.x) : (cursor.x += 1) {
-                if (game_state.terrain.getCoord(cursor.plus(view_origin))) |cell| {
-                    terrain_chunk.matrix.atCoord(cursor).?.* = cell;
+                var seen_cell: TerrainSpace = if (game_state.terrain.getCoord(cursor.plus(view_origin))) |cell| cell else oob_terrain;
+                if (actual_me.species == .blob) {
+                    // blobs are blind.
+                    seen_cell = if (isOpenSpace(seen_cell.wall))
+                        TerrainSpace{ .floor = .unknown_floor, .wall = .air }
+                    else
+                        TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
                 }
+                terrain_chunk.matrix.atCoord(cursor).?.* = seen_cell;
             }
         }
 

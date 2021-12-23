@@ -10,6 +10,7 @@ pub const Floor = enum {
     lava,
     hatch,
     stairs_down,
+    unknown_floor,
 };
 
 pub const Wall = enum {
@@ -18,6 +19,7 @@ pub const Wall = enum {
     dirt,
     stone,
     centaur_transformer,
+    unknown_wall,
 };
 
 pub const Species = union(enum) {

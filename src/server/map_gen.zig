@@ -82,13 +82,14 @@ const MapGenerator = struct {
 
         // throw enemies around
         {
-            const count = 2;
+            const count = 1;
             var i: usize = 0;
             while (i < count) : (i += 1) {
-                const fella = try self.makeIndividual(self.popRandom(&free_spaces), .kangaroo);
+                const fella = try self.makeIndividual(self.popRandom(&free_spaces), .orc);
                 fella.has_shield = self.random.boolean() and false; // TODO
                 try self.individuals.putNoClobber(self.nextId(), fella);
             }
+            try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), Species{ .blob = .small_blob }));
         }
 
         // let's throw around some lava.
