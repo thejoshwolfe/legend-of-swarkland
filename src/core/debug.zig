@@ -39,9 +39,9 @@ fn warn(show_thread_id: bool, comptime fmt: []const u8, args: anytype) void {
         const prefix: []const u8 = std.fmt.bufPrint(buffer1[0..], "{s}({})", .{ debug_thread_id.name, debug_thread_id.client_id }) catch @panic("make the buffer bigger");
         const msg: []const u8 = std.fmt.bufPrint(buffer2[0..], fmt, args) catch @panic("make the buffer bigger");
         const line: []const u8 = std.fmt.bufPrint(buffer[0..], "{s}: {s}\n", .{ prefix, msg }) catch @panic("make the buffer bigger");
-        std.debug.warn("{s}", .{line});
+        std.debug.print("{s}", .{line});
     } else {
-        std.debug.warn("{s}", .{std.fmt.bufPrint(buffer[0..], fmt ++ "\n", args) catch {
+        std.debug.print("{s}", .{std.fmt.bufPrint(buffer[0..], fmt ++ "\n", args) catch {
             @panic("make the buffer bigger");
         }});
     }
@@ -57,7 +57,7 @@ const DebugThreadId = struct {
 };
 var _thread_names_buffer = [_]u8{0} ** 0x1000;
 var _thread_names_allocator = std.heap.FixedBufferAllocator.init(_thread_names_buffer[0..]);
-var thread_names = std.ArrayList(DebugThreadId).init(&_thread_names_allocator.allocator);
+var thread_names = std.ArrayList(DebugThreadId).init(_thread_names_allocator.allocator());
 
 pub fn nameThisThread(name: []const u8) void {
     return nameThisThreadWithClientId(name, 0);
@@ -93,7 +93,7 @@ pub fn unnameThisThread() void {
 
 /// i kinda wish std.fmt did this.
 fn deepPrintImpl(prefix: []const u8, something: anytype) void {
-    std.debug.warn("{s}", .{prefix});
+    std.debug.print("{s}", .{prefix});
     struct {
         pub fn recurse(obj: anytype, comptime indent: comptime_int) void {
             const T = @TypeOf(obj);
@@ -103,31 +103,31 @@ fn deepPrintImpl(prefix: []const u8, something: anytype) void {
             }
             if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_hash_map.ArrayHashMap(u32,")) {
                 if (obj.count() == 0) {
-                    return std.debug.warn("{{}}", .{});
+                    return std.debug.print("{{}}", .{});
                 }
-                std.debug.warn("{{", .{});
+                std.debug.print("{{", .{});
                 var iterator = obj.iterator();
                 while (iterator.next()) |kv| {
-                    std.debug.warn("\n{s}  {}: ", .{ indentation, kv.key_ptr.* });
+                    std.debug.print("\n{s}  {}: ", .{ indentation, kv.key_ptr.* });
                     recurse(kv.value_ptr.*, indent + 1);
-                    std.debug.warn(",", .{});
+                    std.debug.print(",", .{});
                 }
-                return std.debug.warn("\n{s}}}", .{indentation});
+                return std.debug.print("\n{s}}}", .{indentation});
             }
             switch (@typeInfo(T)) {
                 .Pointer => |ptr_info| switch (ptr_info.size) {
                     .One => return recurse(obj.*, indent),
                     .Slice => {
                         if (obj.len == 0) {
-                            return std.debug.warn("[]", .{});
+                            return std.debug.print("[]", .{});
                         }
-                        std.debug.warn("[\n", .{});
+                        std.debug.print("[\n", .{});
                         for (obj) |x| {
-                            std.debug.warn("{s}  ", .{indentation});
+                            std.debug.print("{s}  ", .{indentation});
                             recurse(x, indent + 1);
-                            std.debug.warn(",\n", .{});
+                            std.debug.print(",\n", .{});
                         }
-                        return std.debug.warn("{s}]", .{indentation});
+                        return std.debug.print("{s}]", .{indentation});
                     },
                     else => {
                         @compileError("shouldn't get here: " ++ @typeName(T));
@@ -138,61 +138,61 @@ fn deepPrintImpl(prefix: []const u8, something: anytype) void {
                 },
                 .Struct => |StructT| {
                     const multiline = @sizeOf(T) >= 12;
-                    std.debug.warn(".{{", .{});
+                    std.debug.print(".{{", .{});
                     inline for (StructT.fields) |field, i| {
                         if (i > 0) {
                             if (!multiline) {
-                                std.debug.warn(", ", .{});
+                                std.debug.print(", ", .{});
                             }
                         } else if (!multiline) {
-                            std.debug.warn(" ", .{});
+                            std.debug.print(" ", .{});
                         }
                         if (multiline) {
-                            std.debug.warn("\n{s}  ", .{indentation});
+                            std.debug.print("\n{s}  ", .{indentation});
                         }
-                        std.debug.warn(".{s} = ", .{field.name});
+                        std.debug.print(".{s} = ", .{field.name});
                         if (comptime std.mem.eql(u8, field.name, "terrain")) {
                             // hide terrain, because it's so bulky.
-                            std.debug.warn("<...>", .{});
+                            std.debug.print("<...>", .{});
                         } else {
                             recurse(@field(obj, field.name), indent + 1);
                         }
-                        if (multiline) std.debug.warn(",", .{});
+                        if (multiline) std.debug.print(",", .{});
                     }
                     if (multiline) {
-                        std.debug.warn("\n{s}}}", .{indentation});
+                        std.debug.print("\n{s}}}", .{indentation});
                     } else {
-                        std.debug.warn(" }}", .{});
+                        std.debug.print(" }}", .{});
                     }
                     return;
                 },
                 .Union => |info| {
                     if (info.tag_type) |tag_type| {
-                        std.debug.warn(".{{ .{s} = ", .{@tagName(obj)});
+                        std.debug.print(".{{ .{s} = ", .{@tagName(obj)});
                         inline for (info.fields) |u_field| {
                             if (@as(tag_type, obj) == @field(tag_type, u_field.name)) {
                                 if (comptime (T == @import("../index.zig").protocol.ThingPosition and std.mem.eql(u8, u_field.name, "large"))) {
                                     // XXX: seems to be a miscompilation with this.
-                                    std.debug.warn("(sorry, compiler machine broke.)", .{});
+                                    std.debug.print("(sorry, compiler machine broke.)", .{});
                                 } else {
                                     recurse(@field(obj, u_field.name), indent);
                                 }
                             }
                         }
-                        std.debug.warn(" }}", .{});
+                        std.debug.print(" }}", .{});
                         return;
                     }
                 },
                 .Enum => {
-                    return std.debug.warn(".{s}", .{@tagName(obj)});
+                    return std.debug.print(".{s}", .{@tagName(obj)});
                 },
                 .Void => {
-                    return std.debug.warn("{{}}", .{});
+                    return std.debug.print("{{}}", .{});
                 },
                 else => {},
             }
-            return std.debug.warn("{}", .{obj});
+            return std.debug.print("{}", .{obj});
         }
     }.recurse(something, 0);
-    std.debug.warn("\n", .{});
+    std.debug.print("\n", .{});
 }

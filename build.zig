@@ -70,7 +70,7 @@ pub fn build(b: *Builder) void {
 fn make_binary_variant(
     b: *Builder,
     build_mode: std.builtin.Mode,
-    target: std.build.Target,
+    target: std.zig.CrossTarget,
     name: []const u8,
     headless: bool,
 ) *std.build.Step {

@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 
@@ -17,14 +18,14 @@ pub fn Matrix(comptime T: type) type {
                 .data = &[_]T{},
             };
         }
-        fn init(allocator: *std.mem.Allocator, width: u16, height: u16) !Self {
+        fn init(allocator: Allocator, width: u16, height: u16) !Self {
             return Self{
                 .width = width,
                 .height = height,
                 .data = try allocator.alloc(T, width * height),
             };
         }
-        pub fn initFill(allocator: *std.mem.Allocator, width: u16, height: u16, fill_value: T) !Self {
+        pub fn initFill(allocator: Allocator, width: u16, height: u16, fill_value: T) !Self {
             var self = try Self.init(allocator, width, height);
             self.fill(fill_value);
             return self;
@@ -37,11 +38,11 @@ pub fn Matrix(comptime T: type) type {
                 .data = data,
             };
         }
-        pub fn deinit(self: Self, allocator: *std.mem.Allocator) void {
+        pub fn deinit(self: Self, allocator: Allocator) void {
             allocator.free(self.data);
         }
 
-        pub fn clone(self: Self, allocator: *std.mem.Allocator) !Self {
+        pub fn clone(self: Self, allocator: Allocator) !Self {
             var other = try Self.init(allocator, self.width, self.height);
             std.mem.copy(T, other.data, self.data);
             return other;

@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
 const core = @import("../index.zig");
@@ -14,7 +15,7 @@ const IdMap = game_model.IdMap;
 const oob_terrain = game_model.oob_terrain;
 
 /// overwrites terrain. populates individuals.
-pub fn generate(allocator: *std.mem.Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
+pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
     var generator = MapGenerator{
         .allocator = allocator,
         .terrain = terrain,
@@ -34,7 +35,7 @@ pub fn generate(allocator: *std.mem.Allocator, terrain: *Terrain, individuals: *
 }
 
 const MapGenerator = struct {
-    allocator: *std.mem.Allocator,
+    allocator: Allocator,
     terrain: *Terrain,
     individuals: *IdMap(*Individual),
     id_cursor: u32,

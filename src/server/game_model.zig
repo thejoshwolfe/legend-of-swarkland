@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const HashMap = std.HashMap;
 const core = @import("../index.zig");
@@ -34,7 +35,7 @@ pub const Individual = struct {
     status_conditions: StatusConditions = 0,
     has_shield: bool = false,
 
-    pub fn clone(self: Individual, allocator: *std.mem.Allocator) !*Individual {
+    pub fn clone(self: Individual, allocator: Allocator) !*Individual {
         var other = try allocator.create(Individual);
         other.* = self;
         return other;
@@ -86,11 +87,11 @@ pub const StateDiff = union(enum) {
 };
 
 pub const GameState = struct {
-    allocator: *std.mem.Allocator,
+    allocator: Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
 
-    pub fn generate(allocator: *std.mem.Allocator) !GameState {
+    pub fn generate(allocator: Allocator) !GameState {
         var game_state = GameState{
             .allocator = allocator,
             .terrain = undefined,

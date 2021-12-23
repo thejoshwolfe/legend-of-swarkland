@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
 const core = @import("../index.zig");
@@ -37,7 +38,7 @@ const Terrain = game_model.Terrain;
 const oob_terrain = game_model.oob_terrain;
 
 /// Allocates and then calls `init(allocator)` on the new object.
-pub fn createInit(allocator: *std.mem.Allocator, comptime T: type) !*T {
+pub fn createInit(allocator: Allocator, comptime T: type) !*T {
     var x = try allocator.create(T);
     x.* = T.init(allocator);
     return x;
@@ -52,9 +53,9 @@ fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
 }
 
 pub const GameEngine = struct {
-    allocator: *std.mem.Allocator,
+    allocator: Allocator,
 
-    pub fn init(self: *GameEngine, allocator: *std.mem.Allocator) void {
+    pub fn init(self: *GameEngine, allocator: Allocator) void {
         self.* = GameEngine{
             .allocator = allocator,
         };
@@ -73,7 +74,7 @@ pub const GameEngine = struct {
         for (everybody) |*x, i| {
             x.* = game_state.individuals.keys()[i];
         }
-        const everybody_including_dead = try std.mem.dupe(self.allocator, u32, everybody);
+        const everybody_including_dead = try self.allocator.dupe(u32, everybody);
 
         var budges_at_all = IdMap(void).init(self.allocator);
 
@@ -1093,7 +1094,7 @@ pub const GameEngine = struct {
 
 const MutablePerceivedHappening = struct {
     frames: ArrayList(PerceivedFrame),
-    pub fn init(allocator: *std.mem.Allocator) MutablePerceivedHappening {
+    pub fn init(allocator: Allocator) MutablePerceivedHappening {
         return MutablePerceivedHappening{
             .frames = ArrayList(PerceivedFrame).init(allocator),
         };

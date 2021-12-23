@@ -12,6 +12,7 @@ A Windows build can be downloaded from here: https://wolfesoftware.com/legend-of
 Here's how to build from source on Linux:
 
 1. Get Zig version 0.9.x from [ziglang.org](https://ziglang.org/).
+    * Example: https://ziglang.org/download/0.9.0/zig-linux-x86_64-0.9.0.tar.xz
 2. Get other dependencies:
     * NixOS: `nix-shell --pure -p python3 -p git -p clang -p SDL2`
     * Ubuntu: `sudo apt-get install python3 git clang libsdl2-dev`

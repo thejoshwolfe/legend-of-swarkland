@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const Matrix = core.matrix.Matrix;
@@ -153,7 +154,7 @@ pub const Socket = struct {
     }
 
     pub const FileInChannel = InChannel(std.fs.File.Reader);
-    pub fn in(self: *Socket, allocator: *std.mem.Allocator) FileInChannel {
+    pub fn in(self: *Socket, allocator: Allocator) FileInChannel {
         return initInChannel(allocator, self.in_stream);
     }
 
@@ -256,16 +257,16 @@ pub fn OutChannel(comptime Writer: type) type {
     };
 }
 
-pub fn initInChannel(allocator: *std.mem.Allocator, in_stream: anytype) InChannel(@TypeOf(in_stream)) {
+pub fn initInChannel(allocator: Allocator, in_stream: anytype) InChannel(@TypeOf(in_stream)) {
     return InChannel(@TypeOf(in_stream)).init(allocator, in_stream);
 }
 pub fn InChannel(comptime Reader: type) type {
     return struct {
         const Self = @This();
 
-        allocator: *std.mem.Allocator,
+        allocator: Allocator,
         stream: Reader,
-        pub fn init(allocator: *std.mem.Allocator, stream: Reader) Self {
+        pub fn init(allocator: Allocator, stream: Reader) Self {
             return Self{
                 .allocator = allocator,
                 .stream = stream,
@@ -337,7 +338,7 @@ pub fn InChannel(comptime Reader: type) type {
     };
 }
 
-pub fn deepClone(allocator: *std.mem.Allocator, x: anytype) (error{OutOfMemory})!@TypeOf(x) {
+pub fn deepClone(allocator: Allocator, x: anytype) (error{OutOfMemory})!@TypeOf(x) {
     // TODO: actually do it
     _ = allocator;
     return x;
