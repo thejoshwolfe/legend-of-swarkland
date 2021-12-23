@@ -10,6 +10,7 @@ pub const Floor = enum {
     lava,
     hatch,
     stairs_down,
+    unknown_floor,
 };
 
 pub const Wall = enum {
@@ -18,15 +19,20 @@ pub const Wall = enum {
     dirt,
     stone,
     centaur_transformer,
+    unknown_wall,
 };
 
-pub const Species = enum {
+pub const Species = union(enum) {
     human,
     orc,
     centaur,
     turtle,
     rhino,
     kangaroo,
+    blob: enum {
+        small_blob,
+        large_blob,
+    },
 };
 
 pub const TerrainChunk = struct {
@@ -47,6 +53,8 @@ pub const Action = union(enum) {
     wait,
     move: Coord,
     fast_move: Coord,
+    grow: Coord,
+    shrink: u1,
     attack: Coord,
     kick: Coord,
 };
@@ -78,6 +86,7 @@ pub const PerceivedFrame = struct {
     self: PerceivedThing,
     others: []PerceivedThing,
     winning_score: ?i32,
+    movement: Coord,
 };
 
 pub const ThingPosition = union(enum) {
@@ -97,16 +106,22 @@ pub const PerceivedThing = struct {
     activity: PerceivedActivity,
 };
 
-pub const StatusConditions = u2;
+pub const StatusConditions = u6;
 pub const StatusCondition_wounded_leg: StatusConditions = 0x1;
-/// you can't move.
 pub const StatusCondition_limping: StatusConditions = 0x2;
+pub const StatusCondition_grappling: StatusConditions = 0x4;
+pub const StatusCondition_grappled: StatusConditions = 0x8;
+pub const StatusCondition_digesting: StatusConditions = 0x10;
+pub const StatusCondition_being_digested: StatusConditions = 0x20;
 
 pub const PerceivedActivity = union(enum) {
     none,
 
     movement: Coord,
     failed_movement: Coord,
+    growth: Coord,
+    failed_growth: Coord,
+    shrink: u1,
 
     attack: Attack,
 

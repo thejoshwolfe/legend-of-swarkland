@@ -20,7 +20,7 @@ const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
 const StatusConditions = core.protocol.StatusConditions;
 
-const view_distance = core.game_logic.view_distance;
+const getViewDistance = core.game_logic.getViewDistance;
 const isOpenSpace = core.game_logic.isOpenSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
@@ -60,16 +60,6 @@ pub const GameEngine = struct {
         };
     }
 
-    pub fn validateAction(_: *const GameEngine, action: Action) bool {
-        switch (action) {
-            .wait => return true,
-            .move => |move_delta| return isCardinalDirection(move_delta),
-            .fast_move => |move_delta| return isScaledCardinalDirection(move_delta, 2),
-            .attack => |direction| return isCardinalDirection(direction),
-            .kick => |direction| return isCardinalDirection(direction),
-        }
-    }
-
     pub const Happenings = struct {
         individual_to_perception: IdMap([]PerceivedFrame),
         state_changes: []StateDiff,
@@ -104,6 +94,39 @@ pub const GameEngine = struct {
 
         var total_deaths = IdMap(void).init(self.allocator);
 
+        var polymorphs = IdMap(Species).init(self.allocator);
+
+        // Shrinking
+        {
+            var shrinks = IdMap(u1).init(self.allocator);
+            var next_positions = IdMap(ThingPosition).init(self.allocator);
+            for (everybody) |id| {
+                const index: u1 = switch (actions.get(id).?) {
+                    .shrink => |index| index,
+                    else => continue,
+                };
+                const old_position = current_positions.get(id).?.large;
+                try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[index] });
+                try shrinks.putNoClobber(id, index);
+            }
+            for (everybody) |id| {
+                try self.observeFrame(
+                    game_state,
+                    id,
+                    individual_to_perception.get(id).?,
+                    &current_positions,
+                    Activities{
+                        .shrinks = &shrinks,
+                    },
+                );
+            }
+            for (everybody) |id| {
+                const next_position = next_positions.get(id) orelse continue;
+                current_positions.getEntry(id).?.value_ptr.* = next_position;
+            }
+        }
+
+        // Moving normally
         {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
@@ -111,7 +134,7 @@ pub const GameEngine = struct {
                     .move, .fast_move => |move_delta| move_delta,
                     else => continue,
                 };
-                if (0 != current_status_conditions.get(id).? & core.protocol.StatusCondition_limping) {
+                if (0 != current_status_conditions.get(id).? & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) {
                     // nope.avi
                     continue;
                 }
@@ -127,6 +150,46 @@ pub const GameEngine = struct {
                 &budges_at_all,
                 &total_deaths,
             );
+        }
+
+        // Growing
+        {
+            var intended_moves = IdMap(Coord).init(self.allocator);
+            var next_positions = IdMap(ThingPosition).init(self.allocator);
+            for (everybody) |id| {
+                const move_delta: Coord = switch (actions.get(id).?) {
+                    .grow => |move_delta| move_delta,
+                    else => continue,
+                };
+                try intended_moves.putNoClobber(id, move_delta);
+                const old_coord = current_positions.get(id).?.small;
+                const new_head_coord = old_coord.plus(move_delta);
+                if (!isOpenSpace(game_state.terrainAt(new_head_coord).wall)) {
+                    // that's a wall
+                    continue;
+                }
+                try next_positions.putNoClobber(id, ThingPosition{ .large = .{ new_head_coord, old_coord } });
+            }
+
+            for (everybody) |id| {
+                try self.observeFrame(
+                    game_state,
+                    id,
+                    individual_to_perception.get(id).?,
+                    &current_positions,
+                    Activities{
+                        .growths = .{
+                            .intended_moves = &intended_moves,
+                            .next_positions = &next_positions,
+                        },
+                    },
+                );
+            }
+
+            for (everybody) |id| {
+                const next_position = next_positions.get(id) orelse continue;
+                current_positions.getEntry(id).?.value_ptr.* = next_position;
+            }
         }
 
         // Kicks
@@ -188,12 +251,12 @@ pub const GameEngine = struct {
             }
         }
 
-        // Check status conditions
+        // Wounds and limping
         for (everybody) |id| {
             const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
             if (game_state.terrainAt(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
-                // level transitions remedy all status ailments.
-                status_conditions.* = 0;
+                // this tile heals wounds for some reason.
+                status_conditions.* &= ~(core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping);
             } else if (!budges_at_all.contains(id)) {
                 // you held still, so you are free of any limping status.
                 status_conditions.* &= ~core.protocol.StatusCondition_limping;
@@ -201,6 +264,122 @@ pub const GameEngine = struct {
                 // you moved while wounded. now you limp.
                 status_conditions.* |= core.protocol.StatusCondition_limping;
             }
+        }
+
+        // Grapple and digestion
+        {
+            var grappler_to_victim_count = IdMap(u2).init(self.allocator);
+            var victim_to_has_multiple_attackers = IdMap(bool).init(self.allocator);
+            var victim_to_unique_attacker = IdMap(u32).init(self.allocator);
+            for (everybody) |id| {
+                const blob_individual = game_state.individuals.get(id).?;
+                if (blob_individual.species != .blob) continue;
+                const position = current_positions.get(id).?;
+                for (everybody) |other_id| {
+                    if (other_id == id or game_state.individuals.get(other_id).?.species == .blob) continue;
+                    find_collision: for (getAllPositions(&position)) |coord| {
+                        const other_position = current_positions.get(other_id).?;
+                        for (getAllPositions(&other_position)) |other_coord| {
+                            if (other_coord.equals(coord)) break :find_collision;
+                        }
+                    } else {
+                        continue;
+                    }
+
+                    // any overlap means you get grappled.
+                    {
+                        const gop = try victim_to_has_multiple_attackers.getOrPut(other_id);
+                        if (gop.found_existing) {
+                            // multiple attackers.
+                            assert(victim_to_unique_attacker.swapRemove(other_id));
+                            gop.value_ptr.* = true;
+                        } else {
+                            // we're the first attacker.
+                            try victim_to_unique_attacker.putNoClobber(other_id, id);
+                            gop.value_ptr.* = false;
+                        }
+                    }
+                    const gop = try grappler_to_victim_count.getOrPut(id);
+                    if (gop.found_existing) {
+                        gop.value_ptr.* += 1;
+                    } else {
+                        gop.value_ptr.* = 1;
+                    }
+                }
+            }
+
+            var digestion_deaths = IdMap(void).init(self.allocator);
+            var digesters = IdMap(void).init(self.allocator);
+            for (everybody) |id| {
+                const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
+                if (!victim_to_has_multiple_attackers.contains(id)) {
+                    // Not grappled.
+                    status_conditions.* &= ~core.protocol.StatusCondition_grappled;
+                    if (0 != status_conditions.* & core.protocol.StatusCondition_being_digested) {
+                        // you've escaped digestion. the status effect turns into a leg wound i guess.
+                        status_conditions.* &= ~core.protocol.StatusCondition_being_digested;
+                        status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                    }
+                } else {
+                    // All victims are grappled at least.
+                    status_conditions.* |= core.protocol.StatusCondition_grappled;
+                    if (victim_to_unique_attacker.get(id)) |attacker_id| {
+                        // Is the victim vulnerable to digestion attacks?
+                        if (!core.game_logic.isAffectedByAttacks(game_state.individuals.get(id).?.species, 0)) {
+                            // Too strong for the blob's attacks.
+                            continue;
+                        }
+
+                        // Need a sufficient density of blob on this space to do a digestion.
+                        const blob_subpecies = game_state.individuals.get(attacker_id).?.species.blob;
+                        const can_digest = switch (blob_subpecies) {
+                            .large_blob => true,
+                            .small_blob => current_positions.get(attacker_id).? == .small,
+                        };
+                        if (!can_digest) continue;
+                        if (0 == status_conditions.* & core.protocol.StatusCondition_being_digested) {
+                            // Start getting digested.
+                            status_conditions.* |= core.protocol.StatusCondition_being_digested;
+                            _ = try digesters.put(attacker_id, {});
+                        } else {
+                            // Complete the digestion
+                            try digestion_deaths.put(id, {});
+                            grappler_to_victim_count.getEntry(attacker_id).?.value_ptr.* -= 1;
+
+                            if (blob_subpecies == .small_blob) {
+                                // Grow up to be large.
+                                try polymorphs.putNoClobber(attacker_id, Species{ .blob = .large_blob });
+                            }
+                        }
+                    }
+                }
+            }
+            for (everybody) |id| {
+                const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
+                if ((grappler_to_victim_count.get(id) orelse 0) > 0) {
+                    status_conditions.* |= core.protocol.StatusCondition_grappling;
+                } else {
+                    status_conditions.* &= ~core.protocol.StatusCondition_grappling;
+                }
+                if (digesters.contains(id)) {
+                    status_conditions.* |= core.protocol.StatusCondition_digesting;
+                } else {
+                    status_conditions.* &= ~core.protocol.StatusCondition_digesting;
+                }
+            }
+
+            for (everybody) |id| {
+                if (digestion_deaths.count() != 0) {
+                    try self.observeFrame(
+                        game_state,
+                        id,
+                        individual_to_perception.get(id).?,
+                        &current_positions,
+                        Activities{ .deaths = &digestion_deaths },
+                    );
+                }
+            }
+            try flushDeaths(&total_deaths, &digestion_deaths, &everybody);
         }
 
         // Attacks
@@ -282,14 +461,14 @@ pub const GameEngine = struct {
         try flushDeaths(&total_deaths, &attack_deaths, &everybody);
 
         // Traps
-        var polymorphs = IdMap(Species).init(self.allocator);
         for (everybody) |id| {
             const position = current_positions.get(id).?;
             for (getAllPositions(&position)) |coord| {
                 if (game_state.terrainAt(coord).wall == .centaur_transformer and
-                    game_state.individuals.get(id).?.species != .centaur)
+                    game_state.individuals.get(id).?.species != .blob)
                 {
-                    try polymorphs.putNoClobber(id, .centaur);
+                    try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                    current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping);
                 }
             }
         }
@@ -311,29 +490,61 @@ pub const GameEngine = struct {
             switch (game_state.individuals.get(id).?.abs_position) {
                 .small => |coord| {
                     const from = coord;
-                    const to = current_positions.get(id).?.small;
-                    if (to.equals(from)) continue;
-                    const delta = to.minus(from);
-                    try state_changes.append(StateDiff{
-                        .small_move = .{
-                            .id = id,
-                            .coord = delta,
+                    switch (current_positions.get(id).?) {
+                        .small => |to| {
+                            if (to.equals(from)) continue;
+                            const delta = to.minus(from);
+                            try state_changes.append(StateDiff{
+                                .small_move = .{
+                                    .id = id,
+                                    .coord = delta,
+                                },
+                            });
                         },
-                    });
+                        .large => |to| {
+                            const delta = to[0].minus(from);
+                            try state_changes.append(StateDiff{
+                                .growth = .{
+                                    .id = id,
+                                    .coord = delta,
+                                },
+                            });
+                        },
+                    }
                 },
                 .large => |coords| {
                     const from = coords;
-                    const to = current_positions.get(id).?.large;
-                    if (to[0].equals(from[0]) and to[1].equals(from[1])) continue;
-                    try state_changes.append(StateDiff{
-                        .large_move = .{
-                            .id = id,
-                            .coords = .{
-                                to[0].minus(from[0]),
-                                to[1].minus(from[1]),
-                            },
+                    switch (current_positions.get(id).?) {
+                        .large => |to| {
+                            if (to[0].equals(from[0]) and to[1].equals(from[1])) continue;
+                            try state_changes.append(StateDiff{
+                                .large_move = .{
+                                    .id = id,
+                                    .coords = .{
+                                        to[0].minus(from[0]),
+                                        to[1].minus(from[1]),
+                                    },
+                                },
+                            });
                         },
-                    });
+                        .small => |to| {
+                            if (to.equals(from[0])) {
+                                try state_changes.append(StateDiff{
+                                    .shrink_forward = .{
+                                        .id = id,
+                                        .coord = to.minus(from[1]),
+                                    },
+                                });
+                            } else {
+                                try state_changes.append(StateDiff{
+                                    .shrink_backward = .{
+                                        .id = id,
+                                        .coord = to.minus(from[0]),
+                                    },
+                                });
+                            }
+                        },
+                    }
                 },
             }
         }
@@ -631,10 +842,10 @@ pub const GameEngine = struct {
     const Activities = union(enum) {
         static_state,
         movement: Movement,
-
-        attacks: *const IdMap(Attack),
-
+        growths: Movement,
+        shrinks: *const IdMap(u1),
         kicks: *const IdMap(Coord),
+        attacks: *const IdMap(Attack),
         polymorphs: *const IdMap(Species),
 
         deaths: *const IdMap(void),
@@ -682,12 +893,15 @@ pub const GameEngine = struct {
         maybe_current_positions: ?*const IdMap(ThingPosition),
         activities: Activities,
     ) !PerceivedFrame {
-        const your_coord = getHeadPosition(if (maybe_current_positions) |current_positions|
+        const actual_me = game_state.individuals.get(my_id).?;
+        const your_abs_position = if (maybe_current_positions) |current_positions|
             current_positions.get(my_id).?
         else
-            game_state.individuals.get(my_id).?.abs_position);
+            actual_me.abs_position;
+        const your_coord = getHeadPosition(your_abs_position);
         var yourself: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
+        const view_distance = getViewDistance(actual_me.species);
 
         for (game_state.individuals.keys()) |id| {
             const activity = switch (activities) {
@@ -696,6 +910,19 @@ pub const GameEngine = struct {
                         PerceivedActivity{ .movement = move_delta }
                     else
                         PerceivedActivity{ .failed_movement = move_delta }
+                else
+                    PerceivedActivity{ .none = {} },
+
+                .shrinks => |data| if (data.get(id)) |index|
+                    PerceivedActivity{ .shrink = index }
+                else
+                    PerceivedActivity{ .none = {} },
+
+                .growths => |data| if (data.intended_moves.get(id)) |move_delta|
+                    if (data.next_positions.contains(id))
+                        PerceivedActivity{ .growth = move_delta }
+                    else
+                        PerceivedActivity{ .failed_growth = move_delta }
                 else
                     PerceivedActivity{ .none = {} },
 
@@ -746,9 +973,29 @@ pub const GameEngine = struct {
                 },
             }
             // if any position is within view, we can see all of it.
-            const within_view = blk: for (getAllPositions(&rel_position)) |delta| {
-                if (delta.magnitudeDiag() <= view_distance) break :blk true;
-            } else false;
+            var within_view = false;
+            for (getAllPositions(&rel_position)) |delta| {
+                if (delta.magnitudeDiag() <= view_distance) {
+                    within_view = true;
+                    break;
+                }
+            } else if (actual_me.species == .blob) {
+                // Blobs can also see with their butts.
+                switch (if (maybe_current_positions) |current_positions|
+                    current_positions.get(my_id).?
+                else
+                    game_state.individuals.get(my_id).?.abs_position) {
+                    .large => |data| {
+                        for (getAllPositions(&abs_position)) |other_abs_coord| {
+                            if (other_abs_coord.minus(data[1]).magnitudeDiag() <= view_distance) {
+                                within_view = true;
+                                break;
+                            }
+                        }
+                    },
+                    else => {},
+                }
+            }
             if (!within_view) continue;
             const actual_thing = game_state.individuals.get(id).?;
             const thing = PerceivedThing{
@@ -765,24 +1012,51 @@ pub const GameEngine = struct {
             }
         }
 
-        const view_size = view_distance * 2 + 1;
+        var view_position = makeCoord(-view_distance, -view_distance);
+        const view_side_length = view_distance * 2 + 1;
+        var view_size = makeCoord(view_side_length, view_side_length);
+        if (actual_me.species == .blob) {
+            switch (actual_me.abs_position) {
+                .large => |data| {
+                    // Blobs can also see with their butts.
+                    if (data[1].x < data[0].x) {
+                        view_position.x -= 1;
+                        view_size.x += 1;
+                    } else if (data[1].x > data[0].x) {
+                        view_size.x += 1;
+                    } else if (data[1].y < data[0].y) {
+                        view_position.y -= 1;
+                        view_size.y += 1;
+                    } else if (data[1].y > data[0].y) {
+                        view_size.y += 1;
+                    } else unreachable;
+                },
+                else => {},
+            }
+        }
         var terrain_chunk = core.protocol.TerrainChunk{
-            .rel_position = makeCoord(-view_distance, -view_distance),
-            .matrix = try Terrain.initFill(self.allocator, view_size, view_size, oob_terrain),
+            .rel_position = view_position,
+            .matrix = try Terrain.initFill(self.allocator, @intCast(u16, view_size.x), @intCast(u16, view_size.y), oob_terrain),
         };
-        const view_origin = your_coord.minus(makeCoord(view_distance, view_distance));
+        const view_origin = your_coord.plus(view_position);
         var cursor = Coord{ .x = undefined, .y = 0 };
-        while (cursor.y < view_size) : (cursor.y += 1) {
+        while (cursor.y < view_size.y) : (cursor.y += 1) {
             cursor.x = 0;
-            while (cursor.x < view_size) : (cursor.x += 1) {
-                if (game_state.terrain.getCoord(cursor.plus(view_origin))) |cell| {
-                    terrain_chunk.matrix.atCoord(cursor).?.* = cell;
+            while (cursor.x < view_size.x) : (cursor.x += 1) {
+                var seen_cell: TerrainSpace = if (game_state.terrain.getCoord(cursor.plus(view_origin))) |cell| cell else oob_terrain;
+                if (actual_me.species == .blob) {
+                    // blobs are blind.
+                    seen_cell = if (isOpenSpace(seen_cell.wall))
+                        TerrainSpace{ .floor = .unknown_floor, .wall = .air }
+                    else
+                        TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
                 }
+                terrain_chunk.matrix.atCoord(cursor).?.* = seen_cell;
             }
         }
 
         var winning_score: ?i32 = 0;
-        const my_species = game_state.individuals.get(my_id).?.species;
+        const my_species = @as(std.meta.Tag(Species), game_state.individuals.get(my_id).?.species);
         for (game_state.individuals.values()) |individual| {
             if (my_species != individual.species) {
                 winning_score = null;
@@ -791,11 +1065,28 @@ pub const GameEngine = struct {
             winning_score.? += 1;
         }
 
+        var your_new_head_coord = your_coord;
+        switch (yourself.?.activity) {
+            .movement, .growth => |move_delta| {
+                // move your body, or grow your head into another square.
+                your_new_head_coord = your_new_head_coord.plus(move_delta);
+            },
+            .shrink => |index| {
+                if (index != 0) {
+                    // move your head back into your butt.
+                    const position_delta = your_abs_position.large[0].minus(your_abs_position.large[1]);
+                    your_new_head_coord = your_new_head_coord.minus(position_delta);
+                }
+            },
+            else => {},
+        }
+
         return PerceivedFrame{
             .self = yourself.?,
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
             .winning_score = winning_score,
+            .movement = your_new_head_coord.minus(your_coord), // sometimes the game server overrides this.
         };
     }
 };

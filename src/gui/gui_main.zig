@@ -17,6 +17,7 @@ const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
+const Action = core.protocol.Action;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
@@ -92,36 +93,37 @@ pub fn main() anyerror!void {
     try doMainLoop(renderer, screen_buffer);
 }
 
+const InputPrompt = enum {
+    none, // TODO: https://github.com/ziglang/zig/issues/1332 and use null instead of this.
+    attack,
+    kick,
+};
+const GameState = union(enum) {
+    main_menu: gui.LinearMenuState,
+
+    running: RunningState,
+};
+const RunningState = struct {
+    client: GameEngineClient,
+    client_state: ?PerceivedFrame = null,
+    input_prompt: InputPrompt = .none,
+    animations: ?Animations = null,
+
+    /// only tracked to display aesthetics consistently through movement.
+    total_journey_offset: Coord = Coord{ .x = 0, .y = 0 },
+
+    // tutorial state should *not* reset through undo.
+
+    /// 0, 1, infinity
+    kicks_performed: u2 = 0,
+    observed_kangaroo_death: bool = false,
+};
+
 fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     const aesthetic_seed = 0xbee894fc;
     var input_engine = InputEngine.init();
     var inputs_considered_harmful = true;
 
-    const InputPrompt = enum {
-        none, // TODO: https://github.com/ziglang/zig/issues/1332 and use null instead of this.
-        attack,
-        kick,
-    };
-    const GameState = union(enum) {
-        main_menu: gui.LinearMenuState,
-
-        running: Running,
-        const Running = struct {
-            client: GameEngineClient,
-            client_state: ?PerceivedFrame = null,
-            input_prompt: InputPrompt = .none,
-            animations: ?Animations = null,
-
-            /// only tracked to display aesthetics consistently through movement.
-            total_journey_offset: Coord = Coord{ .x = 0, .y = 0 },
-
-            // tutorial state should *not* reset through undo.
-
-            /// 0, 1, infinity
-            kicks_performed: u2 = 0,
-            observed_kangaroo_death: bool = false,
-        };
-    };
     var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
     defer switch (game_state) {
         GameState.running => |*state| state.client.stopEngine(),
@@ -156,6 +158,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .load_state => |frame| {
                             state.animations = null;
                             state.client_state = frame;
+                            state.total_journey_offset = state.total_journey_offset.plus(frame.movement);
                         },
                         .reject_request => {
                             // oh sorry.
@@ -190,13 +193,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         switch (game_state) {
                             GameState.main_menu => |*main_menu_state| {
                                 switch (button) {
-                                    Button.up => {
+                                    .up => {
                                         main_menu_state.moveUp();
                                     },
-                                    Button.down => {
+                                    .down => {
                                         main_menu_state.moveDown();
                                     },
-                                    Button.enter => {
+                                    .enter => {
                                         main_menu_state.enter();
                                     },
                                     else => {},
@@ -205,62 +208,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             GameState.running => |*state| {
                                 var ignored = false;
                                 switch (button) {
-                                    .left => {
-                                        switch (state.input_prompt) {
-                                            .none => {
-                                                try state.client.move(makeCoord(-1, 0));
-                                            },
-                                            .attack => {
-                                                try state.client.attack(makeCoord(-1, 0));
-                                            },
-                                            .kick => {
-                                                try state.client.kick(makeCoord(-1, 0));
-                                            },
-                                        }
-                                        state.input_prompt = .none;
-                                    },
-                                    .right => {
-                                        switch (state.input_prompt) {
-                                            .none => {
-                                                try state.client.move(makeCoord(1, 0));
-                                            },
-                                            .attack => {
-                                                try state.client.attack(makeCoord(1, 0));
-                                            },
-                                            .kick => {
-                                                try state.client.kick(makeCoord(1, 0));
-                                            },
-                                        }
-                                        state.input_prompt = .none;
-                                    },
-                                    .up => {
-                                        switch (state.input_prompt) {
-                                            .none => {
-                                                try state.client.move(makeCoord(0, -1));
-                                            },
-                                            .attack => {
-                                                try state.client.attack(makeCoord(0, -1));
-                                            },
-                                            .kick => {
-                                                try state.client.kick(makeCoord(0, -1));
-                                            },
-                                        }
-                                        state.input_prompt = .none;
-                                    },
-                                    .down => {
-                                        switch (state.input_prompt) {
-                                            .none => {
-                                                try state.client.move(makeCoord(0, 1));
-                                            },
-                                            .attack => {
-                                                try state.client.attack(makeCoord(0, 1));
-                                            },
-                                            .kick => {
-                                                try state.client.kick(makeCoord(0, 1));
-                                            },
-                                        }
-                                        state.input_prompt = .none;
-                                    },
+                                    .left => try doDirectionInput(state, makeCoord(-1, 0)),
+                                    .right => try doDirectionInput(state, makeCoord(1, 0)),
+                                    .up => try doDirectionInput(state, makeCoord(0, -1)),
+                                    .down => try doDirectionInput(state, makeCoord(0, 1)),
+
                                     .start_attack => {
                                         state.input_prompt = .attack;
                                     },
@@ -274,15 +226,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                             try state.client.rewind();
                                         }
                                     },
+                                    .spacebar => {
+                                        try state.client.act(.wait);
+                                    },
                                     .escape => {
                                         state.input_prompt = .none;
                                     },
                                     .restart => {
                                         state.client.stopEngine();
                                         game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
-                                    },
-                                    .beat_level => {
-                                        try state.client.beatLevelMacro();
                                     },
                                     else => {
                                         ignored = true;
@@ -317,7 +269,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.seekRelative(70, 30);
                 if (menu_renderer.button(" ")) {
                     game_state = GameState{
-                        .running = GameState.Running{
+                        .running = .{
                             .client = undefined,
                         },
                     };
@@ -360,7 +312,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 const center_screen = makeCoord(7, 7).scaled(32).plus(makeCoord(32 / 2, 32 / 2));
-                const camera_offset = center_screen.minus(getRelDisplayPosition(progress, move_frame_time, frame.self));
+                const self_display_rect = getRelDisplayRect(progress, move_frame_time, frame.self);
+                const camera_offset = center_screen.minus(self_display_rect.position().plus(self_display_rect.size().scaledDivTrunc(2)));
 
                 // render terrain
                 {
@@ -372,22 +325,24 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         while (cursor.x <= @as(i32, terrain.width)) : (cursor.x += 1) {
                             if (terrain.getCoord(cursor)) |cell| {
                                 const display_position = cursor.scaled(32).plus(terrain_offset);
-                                const aesthetic_coord = cursor.plus(state.total_journey_offset).plus(animated_aesthetic_offset);
+                                const aesthetic_coord = cursor.plus(frame.terrain.rel_position).plus(state.total_journey_offset).plus(animated_aesthetic_offset);
                                 const floor_texture = switch (cell.floor) {
-                                    Floor.unknown => textures.sprites.unknown_floor,
-                                    Floor.dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, aesthetic_coord),
-                                    Floor.marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, aesthetic_coord),
-                                    Floor.lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, aesthetic_coord),
-                                    Floor.hatch => textures.sprites.hatch,
-                                    Floor.stairs_down => textures.sprites.stairs_down,
+                                    .unknown => textures.sprites.unknown_floor,
+                                    .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, aesthetic_coord),
+                                    .marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, aesthetic_coord),
+                                    .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, aesthetic_coord),
+                                    .hatch => textures.sprites.hatch,
+                                    .stairs_down => textures.sprites.stairs_down,
+                                    .unknown_floor => textures.sprites.unknown_floor,
                                 };
                                 textures.renderSprite(renderer, floor_texture, display_position);
                                 const wall_texture = switch (cell.wall) {
-                                    Wall.unknown => textures.sprites.unknown_wall,
-                                    Wall.air => continue,
-                                    Wall.dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
-                                    Wall.stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
-                                    Wall.centaur_transformer => textures.sprites.polymorph_trap,
+                                    .unknown => textures.sprites.unknown_wall,
+                                    .air => continue,
+                                    .dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
+                                    .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
+                                    .centaur_transformer => textures.sprites.polymorph_trap,
+                                    .unknown_wall => textures.sprites.unknown_wall,
                                 };
                                 textures.renderSprite(renderer, wall_texture, display_position);
                             }
@@ -422,13 +377,20 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 {
                     const AnatomySprites = struct {
                         diagram: Rect,
-                        leg_wound: Rect,
-                        limping: Rect,
+                        being_digested: ?Rect = null,
+                        leg_wound: ?Rect = null,
+                        grappled: ?Rect = null,
+                        limping: ?Rect = null,
+                        grappling_back: ?Rect = null,
+                        digesting: ?Rect = null,
+                        grappling_front: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
                         .humanoid => AnatomySprites{
                             .diagram = textures.large_sprites.humanoid,
+                            .being_digested = textures.large_sprites.humanoid_being_digested,
                             .leg_wound = textures.large_sprites.humanoid_leg_wound,
+                            .grappled = textures.large_sprites.humanoid_grappled,
                             .limping = textures.large_sprites.humanoid_limping,
                         },
                         .centauroid => AnatomySprites{
@@ -436,9 +398,22 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .leg_wound = textures.large_sprites.centauroid_leg_wound,
                             .limping = textures.large_sprites.centauroid_limping,
                         },
-                        else => {
-                            std.debug.panic("TODO\n", .{});
+                        .bloboid => AnatomySprites{
+                            .diagram = switch (frame.self.species.blob) {
+                                .small_blob => switch (frame.self.rel_position) {
+                                    .small => textures.large_sprites.bloboid_small,
+                                    .large => textures.large_sprites.bloboid_small_wide,
+                                },
+                                .large_blob => switch (frame.self.rel_position) {
+                                    .small => textures.large_sprites.bloboid_large,
+                                    .large => textures.large_sprites.bloboid_large_wide,
+                                },
+                            },
+                            .grappling_back = textures.large_sprites.bloboid_grappling_back,
+                            .digesting = textures.large_sprites.bloboid_digesting,
+                            .grappling_front = textures.large_sprites.bloboid_grappling_front,
                         },
+                        .kangaroid, .quadruped => @panic("TODO"),
                     };
                     const anatomy_coord = makeCoord(512, 0);
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
@@ -447,12 +422,27 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_shieled, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
-                    var status_conditions: u2 = frame.self.status_conditions;
+                    var status_conditions: u6 = frame.self.status_conditions;
+                    if (0 != status_conditions & core.protocol.StatusCondition_being_digested) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.being_digested.?, anatomy_coord);
+                    }
                     if (0 != status_conditions & core.protocol.StatusCondition_wounded_leg) {
-                        textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound, anatomy_coord);
+                        textures.renderLargeSprite(renderer, anatomy_sprites.leg_wound.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_grappled) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.grappled.?, anatomy_coord);
                     }
                     if (0 != status_conditions & core.protocol.StatusCondition_limping) {
-                        textures.renderLargeSprite(renderer, anatomy_sprites.limping, anatomy_coord);
+                        textures.renderLargeSprite(renderer, anatomy_sprites.limping.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_grappling) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.grappling_back.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_digesting) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.digesting.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_grappling) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.grappling_front.?, anatomy_coord);
                     }
                 }
 
@@ -520,67 +510,174 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     }
 }
 
-fn getRelDisplayPosition(progress: i32, progress_denominator: i32, thing: PerceivedThing) Coord {
+fn doDirectionInput(state: *RunningState, delta: Coord) !void {
+    switch (state.input_prompt) {
+        .none => {},
+        .attack => {
+            try state.client.attack(delta);
+            state.input_prompt = .none;
+            return;
+        },
+        .kick => {
+            try state.client.kick(delta);
+            state.input_prompt = .none;
+            return;
+        },
+    }
+
+    // The default input behavior is a move-like action.
+    const myself = state.client_state.?.self;
+    if (core.game_logic.canMoveNormally(myself.species)) {
+        return state.client.move(delta);
+    } else if (core.game_logic.canGrowAndShrink(myself.species)) {
+        switch (myself.rel_position) {
+            .small => {
+                return state.client.act(Action{ .grow = delta });
+            },
+            .large => |large_position| {
+                // which direction should we shrink?
+                const position_delta = large_position[0].minus(large_position[1]);
+                if (position_delta.equals(delta)) {
+                    // foward
+                    return state.client.act(Action{ .shrink = 0 });
+                } else if (position_delta.equals(delta.scaled(-1))) {
+                    // backward
+                    return state.client.act(Action{ .shrink = 1 });
+                } else {
+                    // You cannot shrink sideways.
+                    return;
+                }
+            },
+        }
+    } else {
+        // You're not a moving one.
+        return;
+    }
+}
+
+fn positionedRect32(position: Coord) Rect {
+    return core.geometry.makeRect(position, makeCoord(32, 32));
+}
+
+fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedThing) Rect {
     const rel_position = getHeadPosition(thing.rel_position);
     switch (thing.activity) {
         .movement => |move_delta| {
-            if (progress < @divFloor(progress_denominator, 2)) {
-                // in the first half, speed up toward the halfway point.
-                return core.geometry.bezier3(
-                    rel_position.scaled(32),
-                    rel_position.scaled(32),
-                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
-                    progress,
-                    @divFloor(progress_denominator, 2),
-                );
-            } else {
-                // in the second half, slow down from the halfway point.
-                return core.geometry.bezier3(
-                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
-                    rel_position.scaled(32).plus(move_delta.scaled(32)),
-                    rel_position.scaled(32).plus(move_delta.scaled(32)),
-                    progress - @divFloor(progress_denominator, 2),
-                    @divFloor(progress_denominator, 2),
-                );
-            }
+            return positionedRect32(core.geometry.bezierMove(
+                rel_position.scaled(32),
+                rel_position.scaled(32).plus(move_delta.scaled(32)),
+                progress,
+                progress_denominator,
+            ));
         },
         .failed_movement => |move_delta| {
-            if (progress < @divFloor(progress_denominator, 2)) {
-                // in the first half, speed up toward the halfway point of the would-be movement.
-                return core.geometry.bezier3(
-                    rel_position.scaled(32),
-                    rel_position.scaled(32),
-                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
+            return positionedRect32(core.geometry.bezierBounce(
+                rel_position.scaled(32),
+                rel_position.scaled(32).plus(move_delta.scaled(32)),
+                progress,
+                progress_denominator,
+            ));
+        },
+        .growth => |delta| {
+            const start_position = thing.rel_position.small;
+            const end_position = makeCoord(
+                if (delta.x < 0) start_position.x - 1 else start_position.x,
+                if (delta.y < 0) start_position.y - 1 else start_position.y,
+            );
+            const start_size = makeCoord(1, 1);
+            const end_size = makeCoord(
+                if (delta.x == 0) 1 else 2,
+                if (delta.y == 0) 1 else 2,
+            );
+            return core.geometry.makeRect(
+                core.geometry.bezierMove(
+                    start_position.scaled(32),
+                    end_position.scaled(32),
                     progress,
-                    @divFloor(progress_denominator, 2),
-                );
-            } else {
-                // in the second half, abruptly reverse course and do the opposite of the above.
-                return core.geometry.bezier3(
-                    rel_position.scaled(32).plus(move_delta.scaled(32 / 2)),
-                    rel_position.scaled(32),
-                    rel_position.scaled(32),
-                    progress - @divFloor(progress_denominator, 2),
-                    @divFloor(progress_denominator, 2),
+                    progress_denominator,
+                ),
+                core.geometry.bezierMove(
+                    start_size.scaled(32),
+                    end_size.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+            );
+        },
+        .failed_growth => |delta| {
+            const start_position = thing.rel_position.small;
+            const end_position = makeCoord(
+                if (delta.x < 0) start_position.x - 1 else start_position.x,
+                if (delta.y < 0) start_position.y - 1 else start_position.y,
+            );
+            const start_size = makeCoord(1, 1);
+            const end_size = makeCoord(
+                if (delta.x == 0) 1 else 2,
+                if (delta.y == 0) 1 else 2,
+            );
+            return core.geometry.makeRect(
+                core.geometry.bezierBounce(
+                    start_position.scaled(32),
+                    end_position.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+                core.geometry.bezierBounce(
+                    start_size.scaled(32),
+                    end_size.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+            );
+        },
+        .shrink => |index| {
+            const large_position = thing.rel_position.large;
+            const position_delta = large_position[0].minus(large_position[1]);
+            const start_position = core.geometry.min(large_position[0], large_position[1]);
+            const end_position = large_position[index];
+            const start_size = position_delta.abs().plus(makeCoord(1, 1));
+            const end_size = makeCoord(1, 1);
+            return core.geometry.makeRect(
+                core.geometry.bezierMove(
+                    start_position.scaled(32),
+                    end_position.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+                core.geometry.bezierMove(
+                    start_size.scaled(32),
+                    end_size.scaled(32),
+                    progress,
+                    progress_denominator,
+                ),
+            );
+        },
+        else => {
+            if (thing.species == .blob and thing.rel_position == .large) {
+                const position_delta = thing.rel_position.large[0].minus(thing.rel_position.large[1]);
+                return core.geometry.makeRect(
+                    core.geometry.min(thing.rel_position.large[0], thing.rel_position.large[1]).scaled(32),
+                    position_delta.abs().plus(makeCoord(1, 1)).scaled(32),
                 );
             }
+            return positionedRect32(rel_position.scaled(32));
         },
-        else => return rel_position.scaled(32),
     }
 }
 
 fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
     // compute position
-    const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
-    const display_position = rel_display_position.plus(camera_offset);
+    const rel_display_rect = getRelDisplayRect(progress, progress_denominator, thing);
+    const display_rect = rel_display_rect.translated(camera_offset);
+    const display_position = rel_display_rect.position().plus(camera_offset);
 
     // render main sprite
-    switch (thing.rel_position) {
-        .small => {
-            textures.renderSprite(renderer, speciesToSprite(thing.species), display_position);
+    switch (thing.species) {
+        else => {
+            textures.renderSpriteScaled(renderer, speciesToSprite(thing.species), display_rect);
         },
-        .large => |coords| {
-            const oriented_delta = coords[1].minus(coords[0]);
+        .rhino => {
+            const oriented_delta = thing.rel_position.large[1].minus(thing.rel_position.large[0]);
             const tail_display_position = display_position.plus(oriented_delta.scaled(32));
             const rhino_sprite_normalizing_rotation = 0;
             const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
@@ -590,10 +687,10 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     }
 
     // render status effects
-    if (thing.status_conditions & core.protocol.StatusCondition_wounded_leg != 0) {
+    if (thing.status_conditions & (core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_being_digested) != 0) {
         textures.renderSprite(renderer, textures.sprites.wounded, display_position);
     }
-    if (thing.status_conditions & core.protocol.StatusCondition_limping != 0) {
+    if (thing.status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled) != 0) {
         textures.renderSprite(renderer, textures.sprites.limping, display_position);
     }
     if (thing.has_shield) {
@@ -604,13 +701,16 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
 }
 
 fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) void {
-    const rel_display_position = getRelDisplayPosition(progress, progress_denominator, thing);
+    const rel_display_position = getRelDisplayRect(progress, progress_denominator, thing).position();
     const display_position = rel_display_position.plus(camera_offset);
 
     switch (thing.activity) {
         .none => {},
         .movement => {},
         .failed_movement => {},
+        .growth => {},
+        .failed_growth => {},
+        .shrink => {},
 
         .attack => |data| {
             const max_range = core.game_logic.getAttackRange(thing.species);
@@ -696,6 +796,10 @@ fn speciesToSprite(species: Species) Rect {
         .turtle => textures.sprites.turtle,
         .rhino => textures.sprites.rhino[0],
         .kangaroo => textures.sprites.kangaroo,
+        .blob => |subspecies| switch (subspecies) {
+            .small_blob => textures.sprites.pink_blob,
+            .large_blob => textures.sprites.blob_large,
+        },
     };
 }
 
@@ -766,12 +870,7 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, 
     var current_offset = starting_offset;
     for (frames) |frame| {
         animations.*.?.frame_index_to_aesthetic_offset.appendAssumeCapacity(current_offset);
-        switch (frame.self.activity) {
-            .movement => |move_delta| {
-                current_offset = current_offset.plus(move_delta);
-            },
-            else => {},
-        }
+        current_offset = current_offset.plus(frame.movement);
     }
 
     total_journey_offset.* = total_journey_offset.plus(current_offset.minus(starting_offset));

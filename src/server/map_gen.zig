@@ -24,7 +24,6 @@ pub fn generate(allocator: *std.mem.Allocator, terrain: *Terrain, individuals: *
         .random = undefined,
     };
 
-    // TODO: accept seed parameter
     var buf: [8]u8 = undefined;
     std.crypto.random.bytes(&buf);
     const seed = std.mem.readIntLittle(u64, &buf);
@@ -55,10 +54,16 @@ const MapGenerator = struct {
             .abs_position = .{ .small = small_position },
         }).clone(self.allocator);
     }
+    fn makeWideBoi(self: *@This(), position0: Coord, position1: Coord, species: Species) !*Individual {
+        return (Individual{
+            .species = species,
+            .abs_position = .{ .large = .{ position0, position1 } },
+        }).clone(self.allocator);
+    }
 
     fn generate(self: *@This()) !void {
-        const width = 30;
-        const height = 30;
+        const width = 10;
+        const height = 10;
         self.terrain.* = try Terrain.initFill(self.allocator, width, height, .{
             .floor = .dirt,
             .wall = .air,
@@ -72,24 +77,25 @@ const MapGenerator = struct {
                 free_spaces.append(makeCoord(x, y)) catch unreachable;
             }
         }
-
         // You are the human.
         try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .human));
 
         // throw enemies around
         {
-            const count = self.random.intRangeAtMost(usize, 10, 20);
+            const count = 1;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 const fella = try self.makeIndividual(self.popRandom(&free_spaces), .orc);
-                fella.has_shield = self.random.boolean();
+                fella.has_shield = self.random.boolean() and false; // TODO
                 try self.individuals.putNoClobber(self.nextId(), fella);
             }
+            try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), Species{ .blob = .small_blob }));
+            try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .turtle));
         }
 
         // let's throw around some lava.
         {
-            const count = self.random.intRangeAtMost(usize, 40, 80);
+            const count = 1;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
@@ -101,7 +107,7 @@ const MapGenerator = struct {
 
         // maybe a heal spot
         {
-            const count = self.random.intRangeAtMost(usize, 0, 1);
+            const count = 1;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
@@ -113,7 +119,7 @@ const MapGenerator = struct {
 
         // and some walls
         {
-            const count = self.random.intRangeAtMost(usize, 20, 40);
+            const count = 1;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
@@ -125,7 +131,7 @@ const MapGenerator = struct {
 
         // have fun
         {
-            const count = self.random.intRangeAtMost(usize, 1, 2);
+            const count = 1;
             var i: usize = 0;
             while (i < count) : (i += 1) {
                 self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{

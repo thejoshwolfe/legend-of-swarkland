@@ -1,9 +1,7 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
-// TODO: change to "core" when we dependencies untangled
 const core = @import("../index.zig");
-const Coord = core.geometry.Coord;
-const sign = core.geometry.sign;
+const ai = @import("./ai.zig");
 const GameEngine = @import("./game_engine.zig").GameEngine;
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -12,14 +10,10 @@ const SomeQueues = @import("../client/game_engine_client.zig").SomeQueues;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
 const Action = core.protocol.Action;
-const Event = core.protocol.Event;
-const Species = core.protocol.Species;
+const ThingPosition = core.protocol.ThingPosition;
 const PerceivedHappening = core.protocol.PerceivedHappening;
-const PerceivedFrame = core.protocol.PerceivedFrame;
-const getHeadPosition = core.game_logic.getHeadPosition;
-const getAllPositions = core.game_logic.getAllPositions;
-const hasFastMove = core.game_logic.hasFastMove;
-const isFastMoveAligned = core.game_logic.isFastMoveAligned;
+
+const validateAction = core.game_logic.validateAction;
 
 const StateDiff = game_model.StateDiff;
 const HistoryList = std.TailQueue([]StateDiff);
@@ -41,6 +35,8 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
     var response_for_ais = IdMap(Response).init(allocator);
     var history = HistoryList{};
 
+    var death_position: ?ThingPosition = null;
+
     // start main loop
     mainLoop: while (true) {
         var actions = IdMap(Action).init(allocator);
@@ -49,7 +45,11 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         for (game_state.individuals.keys()) |id| {
             if (id == main_player_id) continue;
             const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
-            try actions.putNoClobber(id, doAi(response));
+            const action = doAi(response);
+            const individual = game_state.individuals.get(id).?;
+            validateAction(individual.species, individual.abs_position, action) catch |err| @panic(@errorName(err));
+            debugPrintAction(id, action);
+            try actions.putNoClobber(id, action);
         }
         response_for_ais.clearRetainingCapacity();
 
@@ -68,7 +68,8 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                             try main_player_queues.enqueueResponse(Response.reject_request);
                             continue :retryRead;
                         }
-                        std.debug.assert(game_engine.validateAction(action));
+                        const individual = game_state.individuals.get(main_player_id).?;
+                        validateAction(individual.species, individual.abs_position, action) catch |err| @panic(@errorName(err));
                         try actions.putNoClobber(main_player_id, action);
                     },
                     .rewind => {
@@ -88,6 +89,10 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         if (is_rewind) {
 
             // Time goes backward.
+            const old_abs_pos = core.game_logic.getHeadPosition(if (game_state.individuals.get(main_player_id)) |living_main_player_individual|
+                living_main_player_individual.abs_position
+            else
+                death_position.?);
             const state_changes = rewind(&history).?;
             try game_state.undoStateChanges(state_changes);
             for (state_changes) |_, i| {
@@ -96,12 +101,17 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                     .despawn => |individual| {
                         if (individual.id == main_player_id) {
                             you_are_alive = true;
+                            death_position = null;
                         }
                     },
                     else => {},
                 }
             }
-            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
+            const new_abs_pos = core.game_logic.getHeadPosition(game_state.individuals.get(main_player_id).?.abs_position);
+
+            var load_state = try game_engine.getStaticPerception(game_state, main_player_id);
+            load_state.movement = new_abs_pos.minus(old_abs_pos);
+            try main_player_queues.enqueueResponse(Response{ .load_state = load_state });
         } else {
 
             // Time goes forward.
@@ -110,11 +120,13 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             core.debug.happening.deepPrint("happenings: ", happenings);
             try pushHistoryRecord(&history, happenings.state_changes);
             try game_state.applyStateChanges(happenings.state_changes);
+            death_position = null;
             for (happenings.state_changes) |diff| {
                 switch (diff) {
-                    .despawn => |individual| {
-                        if (individual.id == main_player_id) {
+                    .despawn => |id_and_individual| {
+                        if (id_and_individual.id == main_player_id) {
                             you_are_alive = false;
+                            death_position = id_and_individual.individual.abs_position;
                         }
                     },
                     else => {},
@@ -157,144 +169,17 @@ fn doAi(response: Response) Action {
         .stuff_happens => |perceived_happening| perceived_happening.frames[perceived_happening.frames.len - 1],
         else => @panic("unexpected response type in AI"),
     };
-    return getNaiveAiDecision(last_frame);
+    return ai.getNaiveAiDecision(last_frame);
 }
 
-fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
-    var target_position: ?Coord = null;
-    var target_priority: i32 = -0x80000000;
-    for (last_frame.others) |other| {
-        const other_priority = getTargetHostilityPriority(last_frame.self.species, other.species) orelse continue;
-        if (target_priority > other_priority) continue;
-        if (other_priority > target_priority) {
-            target_position = null;
-            target_priority = other_priority;
-        }
-        const other_coord = getHeadPosition(other.rel_position);
-        if (target_position) |previous_coord| {
-            // target whichever is closest. (positions are relative to me.)
-            if (other_coord.magnitudeOrtho() < previous_coord.magnitudeOrtho()) {
-                target_position = other_coord;
-            }
-        } else {
-            target_position = other_coord;
-        }
-    }
-    if (target_position == null) {
-        // nothing to do.
-        return .wait;
-    }
-
-    const delta = target_position.?;
-    std.debug.assert(!(delta.x == 0 and delta.y == 0));
-    const range = core.game_logic.getAttackRange(last_frame.self.species);
-
-    if (delta.x * delta.y == 0) {
-        // straight shot
-        const delta_unit = delta.signumed();
-        if (hesitatesOneSpaceAway(last_frame.self.species) and delta.magnitudeOrtho() == 2) {
-            // preemptive attack
-            return Action{ .kick = delta_unit };
-        }
-
-        if (hasFastMove(last_frame.self.species) and isFastMoveAligned(last_frame.self.rel_position, delta_unit.scaled(2))) {
-            // charge!
-            return Action{ .fast_move = delta_unit.scaled(2) };
-        } else if (delta.x * delta.x + delta.y * delta.y <= range * range) {
-            if (hesitatesOneSpaceAway(last_frame.self.species)) {
-                // just kick
-                return Action{ .kick = delta_unit };
-            }
-            // within attack range
-            return Action{ .attack = delta_unit };
-        } else {
-            // We want to get closer.
-            if (last_frame.terrain.matrix.getCoord(delta_unit.minus(last_frame.terrain.rel_position))) |cell| {
-                if (cell.floor == .lava) {
-                    // I'm scared of lava
-                    return .wait;
-                }
-            }
-            // Move straight twoard the target, even if someone else is in the way
-            return Action{ .move = delta_unit };
-        }
-    }
-    // We have a diagonal space to traverse.
-    // We need to choose between the long leg of the rectangle and the short leg.
-    const options = [_]Coord{
-        Coord{ .x = sign(delta.x), .y = 0 },
-        Coord{ .x = 0, .y = sign(delta.y) },
-    };
-    const long_index: usize = blk: {
-        if (delta.x * delta.x > delta.y * delta.y) {
-            // x is longer
-            break :blk 0;
-        } else if (delta.x * delta.x < delta.y * delta.y) {
-            // y is longer
-            break :blk 1;
-        } else {
-            // exactly diagonal. let's say that clockwise is longer.
-            break :blk @boolToInt(delta.x != delta.y);
-        }
-    };
-    // Archers want to line up for a shot; melee wants to avoid lining up for a shot.
-    var option_index = if (range == 1) long_index else 1 - long_index;
-    // If something's in the way, then prefer the other way.
-    // If something's in the way in both directions, then go with our initial preference.
-    {
-        var flip_flop_counter: usize = 0;
-        flip_flop_loop: while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
-            const move_into_position = options[option_index];
-            if (last_frame.terrain.matrix.getCoord(move_into_position.minus(last_frame.terrain.rel_position))) |cell| {
-                if (cell.floor == .lava or !core.game_logic.isOpenSpace(cell.wall)) {
-                    // Can't go that way.
-                    option_index = 1 - option_index;
-                    continue :flip_flop_loop;
-                }
-            }
-            for (last_frame.others) |perceived_other| {
-                for (getAllPositions(&perceived_other.rel_position)) |rel_position| {
-                    if (rel_position.equals(move_into_position)) {
-                        // somebody's there already.
-                        option_index = 1 - option_index;
-                        continue :flip_flop_loop;
-                    }
-                }
-            }
-        }
-    }
-
-    if (hesitatesOneSpaceAway(last_frame.self.species) and delta.magnitudeOrtho() == 2) {
-        // preemptive attack
-        return Action{ .kick = options[option_index] };
-    } else {
-        return Action{ .move = options[option_index] };
-    }
-}
-
-fn hesitatesOneSpaceAway(species: Species) bool {
-    switch (species) {
-        .kangaroo => return true,
-        else => return false,
-    }
-}
-
-fn getTargetHostilityPriority(me: Species, you: Species) ?i32 {
-    // this is straight up racism.
-    if (me == you) return null;
-
-    if (me == .human) {
-        // humans, being the enlightened race, want to murder everything else equally.
-        return 9;
-    }
-    switch (you) {
-        // humans are just the worst.
-        .human => return 9,
-        // orcs are like humans.
-        .orc => return 6,
-        // half human.
-        .centaur => return 5,
-        // whatever.
-        else => return 1,
+pub fn debugPrintAction(prefix_number: u32, action: Action) void {
+    switch (action) {
+        .wait => core.debug.actions.print("{}: Action{{ .wait = {{}} }},", .{prefix_number}),
+        .move => |move_delta| core.debug.actions.print("{}: Action{{ .move = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
+        .fast_move => |move_delta| core.debug.actions.print("{}: Action{{ .fast_move = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
+        .grow => |move_delta| core.debug.actions.print("{}: Action{{ .grow = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
+        .shrink => |index| core.debug.actions.print("{}: Action{{ .shrink = {} }},", .{ prefix_number, index }),
+        .attack => |direction| core.debug.actions.print("{}: Action{{ .attack = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
+        .kick => |direction| core.debug.actions.print("{}: Action{{ .kick = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
     }
 }
