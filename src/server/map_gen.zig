@@ -63,8 +63,8 @@ const MapGenerator = struct {
     }
 
     fn generate(self: *@This()) !void {
-        const width = 10;
-        const height = 10;
+        const width = 5;
+        const height = 5;
         self.terrain.* = try Terrain.initFill(self.allocator, width, height, .{
             .floor = .dirt,
             .wall = .air,

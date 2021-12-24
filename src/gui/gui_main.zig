@@ -296,7 +296,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 var progress: i32 = 0;
                 var move_frame_time: i32 = 1;
                 var display_any_input_prompt = true;
-                var animated_aesthetic_offset = makeCoord(0, 0);
+                var animated_aesthetic_offset = state.total_journey_offset;
                 if (state.animations) |animations| {
                     if (animations.frameAtTime(now)) |data| {
                         // animating
@@ -304,7 +304,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         progress = data.progress;
                         move_frame_time = animations.time_per_frame;
                         display_any_input_prompt = false;
-                        animated_aesthetic_offset = animations.frame_index_to_aesthetic_offset.items[data.frame_index].minus(animations.frame_index_to_aesthetic_offset.items[animations.frame_index_to_aesthetic_offset.items.len - 1]);
+                        // The total journey is after all the animations,
+                        // so subtract yet-to-be-rendered movements from our journey during animatino.
+                        for (animations.frames.items[data.frame_index..]) |future_frame| {
+                            animated_aesthetic_offset = animated_aesthetic_offset.minus(future_frame.movement);
+                        }
                     } else {
                         // stale
                         state.animations = null;
@@ -325,7 +329,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         while (cursor.x <= @as(i32, terrain.width)) : (cursor.x += 1) {
                             if (terrain.getCoord(cursor)) |cell| {
                                 const display_position = cursor.scaled(32).plus(terrain_offset);
-                                const aesthetic_coord = cursor.plus(frame.terrain.rel_position).plus(state.total_journey_offset).plus(animated_aesthetic_offset);
+                                const aesthetic_coord = cursor.plus(frame.terrain.rel_position).plus(animated_aesthetic_offset);
                                 const floor_texture = switch (cell.floor) {
                                     .unknown => textures.sprites.unknown_floor,
                                     .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, aesthetic_coord),
@@ -829,7 +833,6 @@ const Animations = struct {
     turns: u32 = 0,
     time_per_frame: i32,
     frames: ArrayListUnmanaged(PerceivedFrame),
-    frame_index_to_aesthetic_offset: ArrayListUnmanaged(Coord),
 
     const SomeData = struct { frame_index: usize, progress: i32 };
     pub fn frameAtTime(self: @This(), now: i32) ?SomeData {
@@ -863,25 +866,116 @@ const Animations = struct {
 };
 
 fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, total_journey_offset: *Coord) !void {
-    var starting_offset = makeCoord(0, 0);
     if (animations.* == null or animations.*.?.frameAtTime(now) == null) {
         animations.* = Animations{
             .start_time = now,
             .time_per_frame = slow_animation_speed,
             .frames = .{},
-            .frame_index_to_aesthetic_offset = .{},
         };
-    } else {
-        starting_offset = animations.*.?.frame_index_to_aesthetic_offset.items[animations.*.?.frame_index_to_aesthetic_offset.items.len - 1];
     }
     animations.*.?.turns += 1;
-    try animations.*.?.frames.appendSlice(allocator, try core.protocol.deepClone(allocator, frames));
-    try animations.*.?.frame_index_to_aesthetic_offset.ensureUnusedCapacity(allocator, frames.len);
-    var current_offset = starting_offset;
-    for (frames) |frame| {
-        animations.*.?.frame_index_to_aesthetic_offset.appendAssumeCapacity(current_offset);
-        current_offset = current_offset.plus(frame.movement);
+
+    var have_previous_frame = false;
+    for (frames) |frame, i| {
+        // Total movement is not affected by compression.
+        total_journey_offset.* = total_journey_offset.*.plus(frame.movement);
+
+        if (have_previous_frame and i < frames.len - 1) {
+            // try compressing the new frame into the previous one.
+            if (try tryCompressingFrames(lastPtr(animations.*.?.frames.items), frame)) {
+                continue;
+            }
+        } else {
+            have_previous_frame = true;
+        }
+        try animations.*.?.frames.append(allocator, frame);
+    }
+}
+
+fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame) !bool {
+    core.debug.animation_compression.print("trying to compress frames...", .{});
+
+    if (base_frame.others.len != patch_frame.others.len) {
+        core.debug.animation_compression.print("NOPE: A change to the number of people we can is too complex to compress.", .{});
+        return false;
     }
 
-    total_journey_offset.* = total_journey_offset.plus(current_offset.minus(starting_offset));
+    // The order of frame.others is not meaningful, so we need to derrive continuity ourselves,
+    // which is intentionally not possible sometimes.
+    const others_mapping = try allocator.alloc(usize, base_frame.others.len);
+    for (base_frame.others) |base_other, i| {
+        const new_position = core.game_logic.applyMovementFromActivity(base_other.activity, base_other.rel_position, base_frame.movement.scaled(-1));
+
+        var mapped_index: ?usize = null;
+        for (patch_frame.others) |patch_other, j| {
+            // Are these the same person?
+            const could_be = blk: {
+                if (base_other.species != @as(std.meta.Tag(Species), patch_other.species)) break :blk false;
+                if (!core.game_logic.positionEquals(
+                    new_position,
+                    patch_other.rel_position,
+                )) break :blk false;
+                break :blk true;
+            };
+            if (could_be) {
+                if (mapped_index != null) {
+                    core.debug.animation_compression.deepPrint("NOPE: individual has too many matches in the next frame: ", base_other);
+                    return false;
+                }
+                // our best guess so far.
+                mapped_index = j;
+            }
+        }
+
+        if (mapped_index) |j| {
+            others_mapping[i] = j;
+        } else {
+            core.debug.animation_compression.deepPrint("NOPE: individual has no matches in the next frame: ", base_other);
+            core.debug.animation_compression.deepPrint("  expected position: ", new_position);
+            for (patch_frame.others) |patch_other| {
+                core.debug.animation_compression.deepPrint("  saw position: ", patch_other.rel_position);
+            }
+            return false;
+        }
+    }
+    core.debug.animation_compression.print("...all ({}) individuals tracked...", .{base_frame.others.len});
+
+    // If someone does two different things in subsequent frames, then we can't compress those.
+    if (base_frame.self.activity != .none and patch_frame.self.activity != .none) {
+        core.debug.animation_compression.print("NOPE: self doing two different things.", .{});
+        return false;
+    }
+    for (base_frame.others) |base_other, i| {
+        const patch_other = patch_frame.others[others_mapping[i]];
+        if (base_other.activity != .none and patch_other.activity != .none) {
+            core.debug.animation_compression.print("NOPE: someone({}, {}) doing two different things.", .{ i, others_mapping[i] });
+            return false;
+        }
+    }
+
+    compressPerceivedThings(&base_frame.self, patch_frame.self, base_frame.movement);
+    core.debug.animation_compression.print("...compressing...", .{});
+    for (base_frame.others) |*base_other, i| {
+        const patch_other = patch_frame.others[others_mapping[i]];
+        compressPerceivedThings(base_other, patch_other, base_frame.movement);
+    }
+    base_frame.movement = base_frame.movement.plus(patch_frame.movement);
+    base_frame.winning_score = patch_frame.winning_score;
+    // uhhh. how do we compress this?
+    _ = patch_frame.terrain;
+
+    return true;
+}
+
+fn compressPerceivedThings(base_thing: *PerceivedThing, patch_thing: PerceivedThing, through_movement: Coord) void {
+    if (patch_thing.activity == .none) {
+        // That was easy.
+        return;
+    }
+    base_thing.* = patch_thing;
+    base_thing.rel_position = core.game_logic.offsetPosition(base_thing.rel_position, through_movement);
+}
+
+fn lastPtr(arr: anytype) @TypeOf(&arr[arr.len - 1]) {
+    return &arr[arr.len - 1];
 }

@@ -1,7 +1,9 @@
+const std = @import("std");
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
+const PerceivedActivity = core.protocol.PerceivedActivity;
 const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
 const Wall = core.protocol.Wall;
@@ -150,4 +152,34 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
             if (!isCardinalDirection(direction)) return error.BadDelta;
         },
     }
+}
+
+pub fn applyMovementFromActivity(activity: PerceivedActivity, from_position: ThingPosition, additional_delta: Coord) ThingPosition {
+    return switch (activity) {
+        .movement => |delta| applyMovementToPosition(from_position, delta.plus(additional_delta)),
+        .growth => |delta| ThingPosition{ .large = .{
+            from_position.small.plus(additional_delta).plus(delta),
+            from_position.small.plus(additional_delta),
+        } },
+        .shrink => |index| ThingPosition{ .small = from_position.large[index].plus(additional_delta) },
+        else => offsetPosition(from_position, additional_delta),
+    };
+}
+
+pub fn positionEquals(a: ThingPosition, b: ThingPosition) bool {
+    if (@as(std.meta.Tag(ThingPosition), a) != b) return false;
+    return switch (a) {
+        .small => |coord| coord.equals(b.small),
+        .large => |coords| coords[0].equals(b.large[0]) and coords[1].equals(b.large[1]),
+    };
+}
+
+pub fn offsetPosition(position: ThingPosition, delta: Coord) ThingPosition {
+    return switch (position) {
+        .small => |coord| ThingPosition{ .small = coord.plus(delta) },
+        .large => |coords| ThingPosition{ .large = .{
+            coords[0].plus(delta),
+            coords[1].plus(delta),
+        } },
+    };
 }

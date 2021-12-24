@@ -338,12 +338,6 @@ pub fn InChannel(comptime Reader: type) type {
     };
 }
 
-pub fn deepClone(allocator: Allocator, x: anytype) (error{OutOfMemory})!@TypeOf(x) {
-    // TODO: actually do it
-    _ = allocator;
-    return x;
-}
-
 test "channel int" {
     var buffer = [_]u8{0} ** 256;
     var _out_stream = std.io.fixedBufferStream(&buffer);
