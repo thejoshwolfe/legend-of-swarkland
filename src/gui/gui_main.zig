@@ -719,7 +719,12 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                 textures.renderSpriteRotated(
                     renderer,
                     textures.sprites.dagger,
-                    display_position.plus(data.direction.scaled(32 * 3 / 4)),
+                    core.geometry.bezierBounce(
+                        display_position.plus(data.direction.scaled(32 * 2 / 4)),
+                        display_position.plus(data.direction.scaled(32 * 4 / 4)),
+                        progress,
+                        progress_denominator,
+                    ),
                     directionToRotation(data.direction) +% dagger_sprite_normalizing_rotation,
                 );
             } else {
@@ -749,7 +754,12 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
             textures.renderSpriteRotated(
                 renderer,
                 textures.sprites.kick,
-                display_position.plus(coord.scaled(32 * 1 / 2)),
+                core.geometry.bezierBounce(
+                    display_position.plus(coord.scaled(32 * 2 / 4)),
+                    display_position.plus(coord.scaled(32 * 4 / 4)),
+                    progress,
+                    progress_denominator,
+                ),
                 directionToRotation(coord) +% kick_sprite_normalizing_rotation,
             );
         },
