@@ -7,6 +7,7 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 
 const Species = core.protocol.Species;
+const TerrainSpace = core.protocol.TerrainSpace;
 
 const game_model = @import("./game_model.zig");
 const Individual = game_model.Individual;
@@ -16,134 +17,365 @@ const oob_terrain = game_model.oob_terrain;
 
 /// overwrites terrain. populates individuals.
 pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
-    var generator = MapGenerator{
-        .allocator = allocator,
-        .terrain = terrain,
-        .individuals = individuals,
-        .id_cursor = 1,
-        ._r = undefined,
-        .random = undefined,
-    };
+    terrain.* = try buildTheTerrain(allocator);
 
-    var buf: [8]u8 = undefined;
-    std.crypto.random.bytes(&buf);
-    const seed = std.mem.readIntLittle(u64, &buf);
-    generator._r = std.rand.DefaultPrng.init(seed);
-    generator.random = &generator._r.random();
+    // start level 0
 
-    return generator.generate();
+    // human is always id 1
+    var non_human_id_cursor: u32 = 2;
+    var found_human = false;
+    const level_x = 0;
+    for (the_levels[0].individuals) |_individual| {
+        const individual = try allocator.create(Individual);
+        individual.* = Individual{
+            .species = _individual.species,
+            .abs_position = core.game_logic.offsetPosition(_individual.abs_position, makeCoord(level_x, 0)),
+        };
+
+        var id: u32 = undefined;
+        if (individual.species == .human) {
+            id = 1;
+            found_human = true;
+        } else {
+            id = non_human_id_cursor;
+            non_human_id_cursor += 1;
+        }
+        try individuals.putNoClobber(id, individual);
+    }
+    std.debug.assert(found_human);
 }
 
-const MapGenerator = struct {
-    allocator: Allocator,
-    terrain: *Terrain,
-    individuals: *IdMap(*Individual),
-    id_cursor: u32,
-    _r: std.rand.DefaultPrng,
-    random: *std.rand.Random,
-
-    fn nextId(self: *@This()) u32 {
-        defer {
-            self.id_cursor += 1;
-        }
-        return self.id_cursor;
-    }
-
-    fn makeIndividual(self: *@This(), small_position: Coord, species: Species) !*Individual {
-        return (Individual{
-            .species = species,
-            .abs_position = .{ .small = small_position },
-        }).clone(self.allocator);
-    }
-    fn makeWideBoi(self: *@This(), position0: Coord, position1: Coord, species: Species) !*Individual {
-        return (Individual{
-            .species = species,
-            .abs_position = .{ .large = .{ position0, position1 } },
-        }).clone(self.allocator);
-    }
-
-    fn generate(self: *@This()) !void {
-        const width = 5;
-        const height = 5;
-        self.terrain.* = try Terrain.initFill(self.allocator, width, height, .{
-            .floor = .dirt,
-            .wall = .air,
-        });
-
-        var free_spaces = try ArrayList(Coord).initCapacity(self.allocator, width * height);
-        var y: i32 = 0;
-        while (y < height) : (y += 1) {
-            var x: i32 = 0;
-            while (x < width) : (x += 1) {
-                free_spaces.append(makeCoord(x, y)) catch unreachable;
-            }
-        }
-        // You are the human.
-        try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .human));
-
-        // throw enemies around
-        {
-            const count = 1;
-            var i: usize = 0;
-            while (i < count) : (i += 1) {
-                const fella = try self.makeIndividual(self.popRandom(&free_spaces), .orc);
-                fella.has_shield = self.random.boolean() and false; // TODO
-                try self.individuals.putNoClobber(self.nextId(), fella);
-            }
-            try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), Species{ .blob = .small_blob }));
-            try self.individuals.putNoClobber(self.nextId(), try self.makeIndividual(self.popRandom(&free_spaces), .turtle));
-        }
-
-        // let's throw around some lava.
-        {
-            const count = 1;
-            var i: usize = 0;
-            while (i < count) : (i += 1) {
-                self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
-                    .floor = .lava,
-                    .wall = .air,
-                };
-            }
-        }
-
-        // maybe a heal spot
-        {
-            const count = 1;
-            var i: usize = 0;
-            while (i < count) : (i += 1) {
-                self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
-                    .floor = .marble,
-                    .wall = .air,
-                };
-            }
-        }
-
-        // and some walls
-        {
-            const count = 1;
-            var i: usize = 0;
-            while (i < count) : (i += 1) {
-                self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
-                    .floor = .dirt,
-                    .wall = .dirt,
-                };
-            }
-        }
-
-        // have fun
-        {
-            const count = 1;
-            var i: usize = 0;
-            while (i < count) : (i += 1) {
-                self.terrain.atCoord(self.popRandom(&free_spaces)).?.* = .{
-                    .floor = .dirt,
-                    .wall = .centaur_transformer,
-                };
-            }
-        }
-    }
-
-    fn popRandom(self: *@This(), array: *ArrayList(Coord)) Coord {
-        return array.swapRemove(self.random.uintLessThan(usize, array.items.len));
-    }
+const the_levels = blk: {
+    @setEvalBranchQuota(10000);
+    break :blk [_]Level{
+        compileLevel(
+            \\#########
+            \\        #
+            \\ o      #
+            \\        #
+            \\        +
+            \\        #
+            \\        #
+            \\      h #
+            \\        #
+            \\#########
+        ),
+        compileLevel(
+            \\#########
+            \\        #
+            \\        #
+            \\  oo    +
+            \\   _o   #
+            \\        #
+            \\        #
+            \\        #
+            \\        #
+            \\#########
+        ),
+        compileLevel(
+            \\#######
+            \\;;;;;;#
+            \\     o+
+            \\_    C#
+            \\     o#
+            \\;;;;;;#
+            \\#######
+        ),
+        compileLevel(
+            \\##########
+            \\C        #
+            \\   _     +
+            \\         #
+            \\         #
+            \\         #
+            \\        C#
+            \\##########
+        ),
+        compileLevel(
+            \\#############
+            \\;;;;;;;;;;;;#
+            \\     _      #
+            \\            #
+            \\            #
+            \\            +
+            \\            #
+            \\   CCCCC    #
+            \\;;;;;;;;;;;;#
+            \\#############
+        ),
+        compileLevel(
+            \\#########
+            \\        #
+            \\        #
+            \\        #
+            \\        #
+            \\  _ k   +
+            \\        #
+            \\        #
+            \\        #
+            \\#########
+        ),
+        compileLevel(
+            \\#########
+            \\        #
+            \\        #
+            \\      t #
+            \\   ;;   +
+            \\ t ;; _ #
+            \\   ;;   #
+            \\        #
+            \\        #
+            \\#########
+        ),
+        compileLevel(
+            \\#########
+            \\        #
+            \\        #
+            \\        #
+            \\ _t;;   +
+            \\ t ;; C #
+            \\   ;;   #
+            \\        #
+            \\        #
+            \\#########
+        ),
+        compileLevel(
+            \\#######
+            \\;;;;;;#
+            \\      #
+            \\    < #
+            \\ _    #
+            \\      #
+            \\      #
+            \\      +
+            \\;;;;;;#
+            \\#######
+        ),
+        compileLevel(
+            \\#########
+            \\        #
+            \\  >     #
+            \\        #
+            \\        #
+            \\      C #
+            \\        #
+            \\   _    +
+            \\        #
+            \\#########
+        ),
+        compileLevel(
+            \\#########
+            \\        #
+            \\        #
+            \\   >    #
+            \\        #
+            \\   t    #
+            \\     t  #
+            \\   _t   +
+            \\C       #
+            \\#########
+        ),
+        compileLevel(
+            \\#########
+            \\     ;  #
+            \\     ;  +
+            \\ k   ;  #
+            \\     ;  #
+            \\      C #
+            \\     ;  #
+            \\ _o  ;  #
+            \\ko   ;  #
+            \\     ;  #
+            \\#########
+        ),
+        compileLevel(
+            \\###########
+            \\##        #
+            \\=+ _      #
+            \\##      h #
+            \\##        +
+            \\###########
+        ),
+        compileLevel(
+            \\########
+            \\  CCC  #
+            \\      h+
+            \\C     h#
+            \\C  _   #
+            \\C     h#
+            \\      h#
+            \\  ooo  #
+            \\########
+        ),
+        compileLevel(
+            \\##############
+            \\             #
+            \\ _ _  _  _ _ #
+            \\  _  _ _ _ _ #
+            \\  _   _   __ #
+            \\             #
+            \\ _   _ _ __  #
+            \\ _ _ _ _ _ _ #
+            \\  _ _  _ _ _ #
+            \\##############
+        ),
+    };
 };
+
+fn makeIndividual(small_position: Coord, species: Species) Individual {
+    return .{
+        .species = species,
+        .abs_position = .{ .small = small_position },
+    };
+}
+fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Species) Individual {
+    return .{
+        .species = species,
+        .abs_position = .{ .large = .{ head_position, tail_position } },
+    };
+}
+
+const Level = struct {
+    width: u16,
+    height: u16,
+    terrain: Terrain,
+    individuals: []const Individual,
+};
+fn compileLevel(comptime source: []const u8) Level {
+    // measure dimensions.
+    const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
+    const height = @intCast(u16, @divExact(source.len + 1, width + 1));
+    var terrain_space = [_]TerrainSpace{oob_terrain} ** (width * height);
+    comptime var level = Level{
+        .width = width,
+        .height = height,
+        .terrain = Terrain.initData(width, height, &terrain_space),
+        .individuals = &[_]Individual{},
+    };
+
+    comptime var cursor: usize = 0;
+    comptime var y: u16 = 0;
+    while (y < height) : (y += 1) {
+        comptime var x: u16 = 0;
+        while (x < width) : (x += 1) {
+            switch (source[cursor]) {
+                '#' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                        .floor = .unknown,
+                        .wall = .stone,
+                    };
+                },
+                '+' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                        .floor = .unknown,
+                        .wall = .dirt,
+                    };
+                },
+                ' ' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .air,
+                    };
+                },
+                ';' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                        .floor = .lava,
+                        .wall = .air,
+                    };
+                },
+                '_' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                        .floor = .hatch,
+                        .wall = .air,
+                    };
+                },
+                '=' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .centaur_transformer,
+                    };
+                },
+                'o' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .orc)};
+                },
+                'C' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .centaur)};
+                },
+                'k' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .kangaroo)};
+                },
+                't' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .turtle)};
+                },
+                'h' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .human)};
+                },
+                '<' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
+                        makeCoord(x, y),
+                        makeCoord(x + 1, y),
+                        .rhino,
+                    )};
+                },
+                '>' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
+                        makeCoord(x, y),
+                        makeCoord(x - 1, y),
+                        .rhino,
+                    )};
+                },
+                '^' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
+                        makeCoord(x, y),
+                        makeCoord(x, y + 1),
+                        .rhino,
+                    )};
+                },
+                'v' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
+                        makeCoord(x, y),
+                        makeCoord(x, y - 1),
+                        .rhino,
+                    )};
+                },
+                else => unreachable,
+            }
+            cursor += 1;
+        }
+        cursor += 1;
+    }
+
+    return level;
+}
+
+fn buildTheTerrain(allocator: Allocator) !Terrain {
+    var width: u16 = 0;
+    var height: u16 = 1;
+    for (the_levels) |level| {
+        width += level.width;
+        height = std.math.max(height, level.height);
+    }
+
+    const border_wall = TerrainSpace{
+        .floor = .unknown,
+        .wall = .stone,
+    };
+    var terrain = try Terrain.initFill(allocator, width, height, border_wall);
+
+    var level_x: u16 = 0;
+    for (the_levels) |level| {
+        terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
+        level_x += level.width;
+    }
+
+    return terrain;
+}
