@@ -62,6 +62,8 @@ pub const StateDiff = union(enum) {
 
     terrain_update: TerrainDiff,
 
+    transition_to_next_level,
+
     pub const IdAndIndividual = struct {
         id: u32,
         individual: Individual,
@@ -90,12 +92,14 @@ pub const GameState = struct {
     allocator: Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
+    level_number: usize,
 
     pub fn generate(allocator: Allocator) !GameState {
         var game_state = GameState{
             .allocator = allocator,
             .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
+            .level_number = 0,
         };
         try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals);
         return game_state;
@@ -104,7 +108,7 @@ pub const GameState = struct {
     pub fn clone(self: GameState) !GameState {
         return GameState{
             .allocator = self.allocator,
-            .terrain = self.terrain,
+            .terrain = try self.terrain.clone(self.allocator),
             .individuals = blk: {
                 var ret = IdMap(*Individual).init(self.allocator);
                 var iterator = self.individuals.iterator();
@@ -113,6 +117,7 @@ pub const GameState = struct {
                 }
                 break :blk ret;
             },
+            .level_number = self.level_number,
         };
     }
 
@@ -164,6 +169,9 @@ pub const GameState = struct {
                 },
                 .terrain_update => |data| {
                     self.terrain.atCoord(data.at).?.* = data.to;
+                },
+                .transition_to_next_level => {
+                    self.level_number += 1;
                 },
             }
         }
@@ -221,6 +229,9 @@ pub const GameState = struct {
                 },
                 .terrain_update => |data| {
                     self.terrain.atCoord(data.at).?.* = data.from;
+                },
+                .transition_to_next_level => {
+                    self.level_number -= 1;
                 },
             }
         }
