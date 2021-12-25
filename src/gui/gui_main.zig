@@ -1,16 +1,19 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
 const ArrayListUnmanaged = std.ArrayListUnmanaged;
-const sdl = @import("./sdl.zig");
-const textures = @import("./textures.zig");
-const gui = @import("./gui.zig");
+
+const sdl = @import("sdl.zig");
+const textures = @import("textures.zig");
+const gui = @import("gui.zig");
+const InputEngine = @import("input_engine.zig").InputEngine;
+const Button = @import("input_engine.zig").Button;
+const SaveFile = @import("SaveFile.zig");
+
 const core = @import("core");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const directionToRotation = core.geometry.directionToRotation;
-const InputEngine = @import("./input_engine.zig").InputEngine;
-const Button = @import("./input_engine.zig").Button;
 const GameEngineClient = core.game_engine_client.GameEngineClient;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
@@ -134,6 +137,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         else => {},
     };
 
+    var save_file = SaveFile.load();
+
     main_loop: while (true) {
         // TODO: use better source of time (that doesn't crash after running for a month)
         const now = @intCast(i32, sdl.c.SDL_GetTicks());
@@ -151,6 +156,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             // Show animations for what's going on.
                             try loadAnimations(&state.animations, happening.frames, now, &state.total_journey_offset);
                             state.client_state = happening.frames[happening.frames.len - 1];
+
+                            // Update tutorial data.
                             for (happening.frames) |frame| {
                                 for (frame.others) |other| {
                                     if (other.activity == .death and other.species == .kangaroo) {
@@ -160,6 +167,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 if (frame.self.activity == .kick) {
                                     if (state.kicks_performed < 2) state.kicks_performed += 1;
                                 }
+                            }
+
+                            // Save progress
+                            const new_completed_levels = state.client_state.?.completed_levels;
+                            if (new_completed_levels > save_file.completed_levels) {
+                                save_file.completed_levels = new_completed_levels;
+                                save_file.save();
                             }
                         },
                         .load_state => |frame| {
@@ -303,7 +317,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
         switch (game_state) {
             .main_menu => |*menu_state| {
-                var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.human);
+                var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.dagger);
 
                 menu_renderer.seek(10, 10);
                 menu_renderer.scale(2);
@@ -334,10 +348,24 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.dagger);
                 menu_renderer.seek(32, 32);
 
-                for (the_levels) |level, i| {
-                    if (menu_renderer.button(level.name)) {
-                        try startGame(&game_state, i);
-                        continue :main_loop;
+                for (the_levels[0 .. the_levels.len - 1]) |level, i| {
+                    if (i < save_file.completed_levels) {
+                        // Past levels
+                        if (menu_renderer.button(level.name)) {
+                            try startGame(&game_state, i);
+                            continue :main_loop;
+                        }
+                    } else if (i == save_file.completed_levels) {
+                        // Current level
+                        menu_renderer.bold(true);
+                        if (menu_renderer.button("??? (New)")) {
+                            try startGame(&game_state, i);
+                            continue :main_loop;
+                        }
+                        menu_renderer.bold(false);
+                    } else {
+                        // Future level
+                        menu_renderer.text("---");
                     }
                 }
             },
@@ -359,7 +387,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         move_frame_time = animations.time_per_frame;
                         display_any_input_prompt = false;
                         // The total journey is after all the animations,
-                        // so subtract yet-to-be-rendered movements from our journey during animatino.
+                        // so subtract yet-to-be-rendered movements from our journey during animation.
                         for (animations.frames.items[data.frame_index..]) |future_frame| {
                             animated_aesthetic_offset = animated_aesthetic_offset.minus(future_frame.movement);
                         }
@@ -514,20 +542,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 // tutorials
-                var dealloc_buffer: ?[]u8 = null;
                 var maybe_tutorial_text: ?[]const u8 = null;
                 if (frame.self.activity == .death) {
                     maybe_tutorial_text = "you died. use Backspace to undo.";
-                } else if (frame.winning_score) |score| {
-                    if (score == 1) {
-                        maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
-                    } else {
-                        dealloc_buffer = try std.fmt.allocPrint(allocator, "team {s} wins with {} points. Ctrl+R to quit.", .{
-                            @tagName(frame.self.species),
-                            score,
-                        });
-                        maybe_tutorial_text = dealloc_buffer.?;
-                    }
+                } else if (frame.completed_levels == the_levels.len - 1) {
+                    maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
                 } else if (state.observed_kangaroo_death and state.kicks_performed < 2) {
                     maybe_tutorial_text = "You learned to kick! Use K+Arrows.";
                 }
@@ -537,9 +556,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     if (animated_y > 10) animated_y = 20 - animated_y;
                     const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
                     _ = textures.renderTextScaled(renderer, tutorial_text, coord, true, 1);
-                }
-                if (dealloc_buffer) |buf| {
-                    allocator.free(buf);
                 }
             },
         }
@@ -1036,7 +1052,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
         compressPerceivedThings(base_other, patch_other, base_frame.movement);
     }
     base_frame.movement = base_frame.movement.plus(patch_frame.movement);
-    base_frame.winning_score = patch_frame.winning_score;
+    base_frame.completed_levels = patch_frame.completed_levels;
     // uhhh. how do we compress this?
     _ = patch_frame.terrain;
 
