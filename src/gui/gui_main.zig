@@ -238,6 +238,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .beat_level => {
                                         try state.client.beatLevelMacro();
                                     },
+                                    .unbeat_level => {
+                                        try state.client.unbeatLevelMacro();
+                                    },
                                     else => {},
                                 }
                             },

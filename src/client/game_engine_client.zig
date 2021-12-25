@@ -265,7 +265,17 @@ pub const GameEngineClient = struct {
         for (actions) |action| {
             try self.queues.enqueueRequest(Request{ .act = action });
         }
-        self.beat_level_macro_index += 1;
+        if (actions.len > 0) {
+            self.beat_level_macro_index += 1;
+        }
+    }
+    pub fn unbeatLevelMacro(self: *GameEngineClient) !void {
+        if (self.beat_level_macro_index <= 0) return;
+        const actions = cheatcodes.beatLevelActions(self.beat_level_macro_index - 1);
+        for (actions) |_| {
+            try self.queues.enqueueRequest(.rewind);
+        }
+        self.beat_level_macro_index -= 1;
     }
 };
 
