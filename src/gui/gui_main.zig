@@ -384,7 +384,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         // animating
                         frame = animations.frames.items[data.frame_index];
                         progress = data.progress;
-                        move_frame_time = animations.time_per_frame;
+                        move_frame_time = data.time_per_frame;
                         display_any_input_prompt = false;
                         // The total journey is after all the animations,
                         // so subtract yet-to-be-rendered movements from our journey during animation.
@@ -923,33 +923,50 @@ const hyper_animation_speed = 10;
 const Animations = struct {
     start_time: i32,
     turns: u32 = 0,
+    last_turn_first_frame: usize = 0,
     time_per_frame: i32,
     frames: ArrayListUnmanaged(PerceivedFrame),
 
-    const SomeData = struct { frame_index: usize, progress: i32 };
+    const SomeData = struct { frame_index: usize, progress: i32, time_per_frame: i32 };
     pub fn frameAtTime(self: @This(), now: i32) ?SomeData {
         const animation_time = @bitCast(u32, now -% self.start_time);
         const index = @divFloor(animation_time, @intCast(u32, self.time_per_frame));
-        // The last frame is always everyone standing still.
-        if (index >= self.frames.items.len - 1) {
+        if (index >= self.last_turn_first_frame) {
+            // Always show the last turn of animations slowly.
+            const time_since_turn = animation_time - @intCast(u32, self.time_per_frame) * @intCast(u32, self.last_turn_first_frame);
+            const adjusted_index = self.last_turn_first_frame + @divFloor(time_since_turn, slow_animation_speed);
+            if (adjusted_index >= self.frames.items.len - 1) {
+                // The last frame is always everyone standing still.
+                return null;
+            }
+            const progress = @intCast(i32, time_since_turn - (adjusted_index - self.last_turn_first_frame) * slow_animation_speed);
+            return SomeData{
+                .frame_index = adjusted_index,
+                .progress = progress,
+                .time_per_frame = slow_animation_speed,
+            };
+        } else if (index >= self.frames.items.len - 1) {
+            // The last frame is always everyone standing still.
             return null;
+        } else {
+            const progress = @intCast(i32, animation_time - index * @intCast(u32, self.time_per_frame));
+            return SomeData{
+                .frame_index = index,
+                .progress = progress,
+                .time_per_frame = self.time_per_frame,
+            };
         }
-        const progress = @intCast(i32, animation_time - index * @intCast(u32, self.time_per_frame));
-        return SomeData{
-            .frame_index = index,
-            .progress = progress,
-        };
     }
 
     pub fn speedUp(self: *@This(), now: i32) void {
         const data = self.frameAtTime(now) orelse return;
         const old_time_per_frame = self.time_per_frame;
-        if (self.turns >= 2) {
+        if (self.turns >= 4) {
             // We're falling behind. Activate emergency NOS.
             self.time_per_frame = hyper_animation_speed;
-        } else {
+        } else if (self.turns >= 2) {
             self.time_per_frame = fast_animation_speed;
-        }
+        } else return;
         self.start_time = now - ( //
             self.time_per_frame * @intCast(i32, data.frame_index) + //
             @divFloor(data.progress * self.time_per_frame, old_time_per_frame) //
@@ -965,11 +982,12 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, 
             .frames = .{},
         };
     }
+    animations.*.?.last_turn_first_frame = animations.*.?.frames.items.len -| 1;
     animations.*.?.turns += 1;
     if (animations.*.?.turns > 1) {
         animations.*.?.speedUp(now);
     }
-    var have_previous_frame = false;
+    var have_previous_frame = animations.*.?.frames.items.len > 0;
     for (frames) |frame, i| {
         // Total movement is not affected by compression.
         total_journey_offset.* = total_journey_offset.*.plus(frame.movement);
