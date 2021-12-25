@@ -92,7 +92,7 @@ pub const GameState = struct {
     allocator: Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
-    level_number: usize,
+    level_number: u32,
 
     pub fn generate(allocator: Allocator) !GameState {
         var game_state = GameState{

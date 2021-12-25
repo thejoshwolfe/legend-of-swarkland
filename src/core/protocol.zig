@@ -89,7 +89,7 @@ pub const PerceivedFrame = struct {
 
     self: PerceivedThing,
     others: []PerceivedThing,
-    winning_score: ?i32,
+    completed_levels: u32,
     movement: Coord,
 };
 

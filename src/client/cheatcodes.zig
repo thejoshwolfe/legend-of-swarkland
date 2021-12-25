@@ -121,7 +121,7 @@ pub const beat_level_actions = [_][]const Action{
         Action{ .move = makeCoord(1, 0) },
     },
 
-    // Single kagaroo
+    // Kagaroo
     &[_]Action{
         Action{ .move = makeCoord(0, -1) },
         Action{ .move = makeCoord(1, 0) },
@@ -202,7 +202,7 @@ pub const beat_level_actions = [_][]const Action{
         Action{ .move = makeCoord(1, 0) },
     },
 
-    // Charging enemy and lava
+    // Rhino and lava
     &[_]Action{
         Action{ .wait = {} },
         Action{ .wait = {} },
@@ -224,7 +224,7 @@ pub const beat_level_actions = [_][]const Action{
         Action{ .move = makeCoord(1, 0) },
     },
 
-    // Charging enemy and an archer
+    // Rhino and archer
     &[_]Action{
         Action{ .move = makeCoord(1, 0) },
         Action{ .move = makeCoord(0, -1) },
@@ -252,7 +252,7 @@ pub const beat_level_actions = [_][]const Action{
         Action{ .move = makeCoord(1, 0) },
     },
 
-    // Invicible enmies and a charging enemy
+    // Invicible enmies and a rhino
     &[_]Action{
         Action{ .kick = makeCoord(1, 0) },
         Action{ .move = makeCoord(0, 1) },
@@ -283,7 +283,7 @@ pub const beat_level_actions = [_][]const Action{
         Action{ .move = makeCoord(1, 0) },
     },
 
-    // Archer guarding chokepoint
+    // Archer guarding a chokepoint
     &[_]Action{
         Action{ .move = makeCoord(-1, 0) },
         Action{ .move = makeCoord(0, -1) },
@@ -322,7 +322,7 @@ pub const beat_level_actions = [_][]const Action{
         Action{ .move = makeCoord(1, 0) },
     },
 
-    // Some blob
+    // Some blobs
     &[_]Action{
         Action{ .move = makeCoord(1, 0) },
         Action{ .move = makeCoord(1, 0) },
@@ -449,7 +449,7 @@ pub const beat_level_actions = [_][]const Action{
         Action{ .move = makeCoord(1, 0) },
     },
 
-    // Kangaroos can't kick
+    // Kangaroos can't attack
     &[_]Action{
         Action{ .move = makeCoord(0, 1) },
         Action{ .move = makeCoord(0, 1) },

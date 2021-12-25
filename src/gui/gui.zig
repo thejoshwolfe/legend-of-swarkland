@@ -7,24 +7,22 @@ const makeCoord = geometry.makeCoord;
 const textures = @import("./textures.zig");
 
 pub const LinearMenuState = struct {
-    cursor_position: usize,
-    entry_count: usize,
-    enter_pressed: bool,
-    pub fn init() LinearMenuState {
-        return LinearMenuState{
-            .cursor_position = 0,
-            .entry_count = 0,
-            .enter_pressed = false,
-        };
+    cursor_position: usize = 0,
+    entry_count: usize = 0,
+    enter_pressed: bool = false,
+
+    pub fn moveUp(self: *LinearMenuState, how_many: usize) void {
+        if (self.cursor_position < how_many) {
+            self.cursor_position = 0;
+        } else {
+            self.cursor_position -= how_many;
+        }
     }
-    pub fn moveUp(self: *LinearMenuState) void {
-        if (self.cursor_position == 0) return;
-        self.cursor_position -= 1;
-    }
-    pub fn moveDown(self: *LinearMenuState) void {
-        self.cursor_position += 1;
-        if (self.cursor_position >= self.entry_count) {
-            self.cursor_position = if (self.entry_count == 0) 0 else self.entry_count - 1;
+    pub fn moveDown(self: *LinearMenuState, how_many: usize) void {
+        if (self.cursor_position + how_many >= self.entry_count) {
+            self.cursor_position = self.entry_count -| 1;
+        } else {
+            self.cursor_position += how_many;
         }
     }
     pub fn ensureButtonCount(self: *LinearMenuState, button_count: usize) void {
@@ -57,7 +55,7 @@ pub const Gui = struct {
             ._cursor_icon = cursor_icon,
             ._button_count = 0,
             ._cursor = geometry.makeCoord(0, 0),
-            ._scale = 0,
+            ._scale = 1,
             ._bold = false,
             ._marginBottom = 0,
         };

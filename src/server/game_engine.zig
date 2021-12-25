@@ -1187,20 +1187,6 @@ pub const GameEngine = struct {
             }
         }
 
-        var winning_score: ?i32 = 0;
-        const my_species = @as(std.meta.Tag(Species), game_state.individuals.get(my_id).?.species);
-        for (game_state.individuals.values()) |individual| {
-            if (my_species != individual.species) {
-                winning_score = null;
-                break;
-            }
-            winning_score.? += 1;
-        }
-        if (game_state.level_number < the_levels.len - 1) {
-            // jk, the game's not done yet.
-            winning_score = null;
-        }
-
         var your_new_head_coord = your_coord;
         switch (yourself.?.activity) {
             .movement, .growth => |move_delta| {
@@ -1221,7 +1207,7 @@ pub const GameEngine = struct {
             .self = yourself.?,
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
-            .winning_score = winning_score,
+            .completed_levels = game_state.level_number,
             .movement = your_new_head_coord.minus(your_coord), // sometimes the game server overrides this.
         };
     }
