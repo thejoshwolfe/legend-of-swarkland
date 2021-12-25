@@ -26,11 +26,8 @@ pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*In
     var found_human = false;
     const level_x = 0;
     for (the_levels[0].individuals) |_individual| {
-        const individual = try allocator.create(Individual);
-        individual.* = Individual{
-            .species = _individual.species,
-            .abs_position = core.game_logic.offsetPosition(_individual.abs_position, makeCoord(level_x, 0)),
-        };
+        const individual = try _individual.clone(allocator);
+        individual.abs_position = core.game_logic.offsetPosition(individual.abs_position, makeCoord(level_x, 0));
 
         var id: u32 = undefined;
         if (individual.species == .human) {
@@ -45,7 +42,7 @@ pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*In
     std.debug.assert(found_human);
 }
 
-const the_levels = blk: {
+pub const the_levels = blk: {
     @setEvalBranchQuota(10000);
     break :blk [_]Level{
         compileLevel(

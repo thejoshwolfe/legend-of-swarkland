@@ -37,6 +37,8 @@ const CoordMap = game_model.CoordMap;
 const Terrain = game_model.Terrain;
 const oob_terrain = game_model.oob_terrain;
 
+const the_levels = @import("map_gen.zig").the_levels;
+
 /// Allocates and then calls `init(allocator)` on the new object.
 pub fn createInit(allocator: Allocator, comptime T: type) !*T {
     var x = try allocator.create(T);
@@ -466,10 +468,10 @@ pub const GameEngine = struct {
             const position = current_positions.get(id).?;
             for (getAllPositions(&position)) |coord| {
                 if (game_state.terrainAt(coord).wall == .centaur_transformer and
-                    game_state.individuals.get(id).?.species != .blob)
+                    game_state.individuals.get(id).?.species != .centaur)
                 {
-                    try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
-                    current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping);
+                    try polymorphs.putNoClobber(id, .centaur);
+                    current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_grappling | core.protocol.StatusCondition_digesting);
                 }
             }
         }
@@ -485,7 +487,7 @@ pub const GameEngine = struct {
             }
         }
 
-        // build state changes
+        // measure state diffs so far.
         var state_changes = ArrayList(StateDiff).init(self.allocator);
         for (everybody_including_dead) |id| {
             switch (game_state.individuals.get(id).?.abs_position) {
@@ -585,6 +587,111 @@ pub const GameEngine = struct {
                     };
                 },
             });
+        }
+
+        // Check for completing and starting the next level.
+        // We push these changes directly into the state diff after all the above is resolved,
+        // because these changes don't affect any of the above logic.
+        var open_the_way = false;
+        var button_getting_pressed: ?Coord = null;
+        if (game_state.individuals.count() - total_deaths.count() == 1) {
+            // Only one person left.
+            if (total_deaths.count() > 0) {
+                // Freshly completed level.
+                open_the_way = true;
+            }
+            // check for someone on the button
+            for (everybody) |id| {
+                const position = current_positions.get(id).?;
+                for (getAllPositions(&position)) |coord| {
+                    if (game_state.terrainAt(coord).floor == .hatch) {
+                        button_getting_pressed = coord;
+                        break;
+                    }
+                }
+            }
+        }
+        if (open_the_way and game_state.level_number + 1 < the_levels.len) {
+            // open the way
+            var x: u31 = 0;
+            find_the_doors: while (x < game_state.terrain.width) : (x += 1) {
+                var y: u31 = 0;
+                while (y < game_state.terrain.height) : (y += 1) {
+                    const terrain_space = game_state.terrain.atUnchecked(x, y);
+                    if (terrain_space.wall == .dirt) {
+                        const coord = makeCoord(x, y);
+                        try state_changes.append(StateDiff{
+                            .terrain_update = StateDiff.TerrainDiff{
+                                .at = coord,
+                                .from = game_state.terrain.getCoord(coord).?,
+                                .to = TerrainSpace{
+                                    .floor = .marble,
+                                    .wall = .air,
+                                },
+                            },
+                        });
+                    } else if (terrain_space.floor == .hatch) {
+                        // only open doors until the next hatch
+                        break :find_the_doors;
+                    }
+                }
+            }
+        }
+
+        if (button_getting_pressed) |button_coord| {
+            const new_level_number = blk: {
+                if (game_state.level_number + 1 < the_levels.len) {
+                    try state_changes.append(StateDiff.transition_to_next_level);
+                    break :blk game_state.level_number + 1;
+                } else {
+                    break :blk game_state.level_number;
+                }
+            };
+
+            // close any open paths
+            for (game_state.terrain.data) |terrain_space, i| {
+                if (terrain_space.floor == .marble) {
+                    const coord = game_state.terrain.indexToCoord(i);
+                    try state_changes.append(StateDiff{
+                        .terrain_update = StateDiff.TerrainDiff{
+                            .at = coord,
+                            .from = game_state.terrain.getCoord(coord).?,
+                            .to = TerrainSpace{
+                                .floor = .unknown,
+                                .wall = .stone,
+                            },
+                        },
+                    });
+                }
+            }
+
+            // destroy the button
+            try state_changes.append(StateDiff{
+                .terrain_update = StateDiff.TerrainDiff{
+                    .at = button_coord,
+                    .from = game_state.terrain.getCoord(button_coord).?,
+                    .to = TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .air,
+                    },
+                },
+            });
+
+            // spawn enemies
+            var level_x: u16 = 0;
+            for (the_levels[0..new_level_number]) |level| {
+                level_x += level.width;
+            }
+            var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
+            for (the_levels[new_level_number].individuals) |_individual| {
+                var individual = _individual;
+                individual.abs_position = applyMovementToPosition(individual.abs_position, makeCoord(level_x, 0));
+                const id = findAvailableId(&new_id_cursor, game_state.individuals);
+                try state_changes.append(StateDiff{ .spawn = .{
+                    .id = id,
+                    .individual = individual,
+                } });
+            }
         }
 
         // final observations
@@ -1064,6 +1171,10 @@ pub const GameEngine = struct {
                 break;
             }
             winning_score.? += 1;
+        }
+        if (game_state.level_number < the_levels.len - 1) {
+            // jk, the game's not done yet.
+            winning_score = null;
         }
 
         var your_new_head_coord = your_coord;
