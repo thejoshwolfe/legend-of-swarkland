@@ -45,6 +45,7 @@ pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*In
 pub const the_levels = blk: {
     @setEvalBranchQuota(10000);
     break :blk [_]Level{
+        // Single enemy
         compileLevel(
             \\#########
             \\        #
@@ -57,6 +58,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
+        // Multiple enemies
         compileLevel(
             \\#########
             \\        #
@@ -69,6 +71,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
+        // Archer in narrow hallway
         compileLevel(
             \\#######
             \\;;;;;;#
@@ -78,6 +81,7 @@ pub const the_levels = blk: {
             \\;;;;;;#
             \\#######
         ),
+        // Flanked by archers
         compileLevel(
             \\##########
             \\C        #
@@ -88,6 +92,7 @@ pub const the_levels = blk: {
             \\        C#
             \\##########
         ),
+        // Wall of archers
         compileLevel(
             \\#############
             \\;;;;;;;;;;;;#
@@ -100,6 +105,7 @@ pub const the_levels = blk: {
             \\;;;;;;;;;;;;#
             \\#############
         ),
+        // Single kagaroo
         compileLevel(
             \\#########
             \\        #
@@ -112,6 +118,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
+        // Invincible enemies
         compileLevel(
             \\#########
             \\        #
@@ -124,6 +131,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
+        // Invincible enemies and an archer
         compileLevel(
             \\#########
             \\        #
@@ -136,6 +144,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
+        // Charging enemy and lava
         compileLevel(
             \\#######
             \\;;;;;;#
@@ -148,6 +157,7 @@ pub const the_levels = blk: {
             \\;;;;;;#
             \\#######
         ),
+        // Charging enemy and an archer
         compileLevel(
             \\#########
             \\        #
@@ -160,6 +170,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
+        // Invicible enmies and a charging enemy
         compileLevel(
             \\#########
             \\        #
@@ -172,6 +183,7 @@ pub const the_levels = blk: {
             \\C       #
             \\#########
         ),
+        // Archer guarding chokepoint
         compileLevel(
             \\#########
             \\     ;  #
@@ -185,6 +197,7 @@ pub const the_levels = blk: {
             \\     ;  #
             \\#########
         ),
+        // You're the archer now!
         compileLevel(
             \\###########
             \\##        #
@@ -193,6 +206,7 @@ pub const the_levels = blk: {
             \\##        +
             \\###########
         ),
+        // Whose side are you on?
         compileLevel(
             \\########
             \\  CCC  #
@@ -204,6 +218,7 @@ pub const the_levels = blk: {
             \\  ooo  #
             \\########
         ),
+        // -_-
         compileLevel(
             \\##############
             \\             #
