@@ -260,6 +260,18 @@ pub const the_levels = blk: {
             \\########
         ),
 
+        // Blobs can't see
+        compileLevel(.{ .polymorph_target = .blob },
+            \\##########
+            \\   +o   ;#
+            \\_;=+o #  +
+            \\;; +; + ;#
+            \\   +o +  #
+            \\ +;+  +; #
+            \\     ++o #
+            \\##########
+        ),
+
         // -_-
         compileLevel(.{},
             \\##############

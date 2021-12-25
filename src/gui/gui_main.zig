@@ -239,10 +239,16 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
                                     },
                                     .beat_level => {
-                                        try state.client.beatLevelMacro();
+                                        try state.client.beatLevelMacro(1);
+                                    },
+                                    .beat_level_5 => {
+                                        try state.client.beatLevelMacro(5);
                                     },
                                     .unbeat_level => {
-                                        try state.client.unbeatLevelMacro();
+                                        try state.client.unbeatLevelMacro(1);
+                                    },
+                                    .unbeat_level_5 => {
+                                        try state.client.unbeatLevelMacro(5);
                                     },
                                     else => {},
                                 }

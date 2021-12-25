@@ -260,21 +260,27 @@ pub const GameEngineClient = struct {
         return self.act(Action{ .kick = direction });
     }
 
-    pub fn beatLevelMacro(self: *GameEngineClient) !void {
-        if (self.beat_level_macro_index >= cheatcodes.beat_level_actions.len) return;
-        const actions = cheatcodes.beat_level_actions[self.beat_level_macro_index];
-        for (actions) |action| {
-            try self.queues.enqueueRequest(Request{ .act = action });
+    pub fn beatLevelMacro(self: *GameEngineClient, how_many: usize) !void {
+        var i: usize = 0;
+        while (i < how_many) : (i += 1) {
+            if (self.beat_level_macro_index >= cheatcodes.beat_level_actions.len) return;
+            const actions = cheatcodes.beat_level_actions[self.beat_level_macro_index];
+            for (actions) |action| {
+                try self.queues.enqueueRequest(Request{ .act = action });
+            }
+            self.beat_level_macro_index += 1;
         }
-        self.beat_level_macro_index += 1;
     }
-    pub fn unbeatLevelMacro(self: *GameEngineClient) !void {
-        if (self.beat_level_macro_index <= 0) return;
-        const actions = cheatcodes.beat_level_actions[self.beat_level_macro_index - 1];
-        for (actions) |_| {
-            try self.queues.enqueueRequest(.rewind);
+    pub fn unbeatLevelMacro(self: *GameEngineClient, how_many: usize) !void {
+        var i: usize = 0;
+        while (i < how_many) : (i += 1) {
+            if (self.beat_level_macro_index <= 0) return;
+            const actions = cheatcodes.beat_level_actions[self.beat_level_macro_index - 1];
+            for (actions) |_| {
+                try self.queues.enqueueRequest(.rewind);
+            }
+            self.beat_level_macro_index -= 1;
         }
-        self.beat_level_macro_index -= 1;
     }
 };
 
