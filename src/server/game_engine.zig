@@ -26,6 +26,7 @@ const isOpenSpace = core.game_logic.isOpenSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
 const applyMovementToPosition = core.game_logic.applyMovementToPosition;
+const offsetPosition = core.game_logic.offsetPosition;
 const getInertiaIndex = core.game_logic.getInertiaIndex;
 
 const game_model = @import("./game_model.zig");
@@ -685,7 +686,7 @@ pub const GameEngine = struct {
             var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
             for (the_levels[new_level_number].individuals) |_individual| {
                 var individual = _individual;
-                individual.abs_position = applyMovementToPosition(individual.abs_position, makeCoord(level_x, 0));
+                individual.abs_position = offsetPosition(individual.abs_position, makeCoord(level_x, 0));
                 const id = findAvailableId(&new_id_cursor, game_state.individuals);
                 try state_changes.append(StateDiff{ .spawn = .{
                     .id = id,

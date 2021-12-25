@@ -18,8 +18,8 @@ const Logger = struct {
 pub const thread_lifecycle = Logger{ .is_enabled = false, .show_thread_id = true };
 pub const testing = Logger{ .is_enabled = true, .show_thread_id = true };
 pub const happening = Logger{ .is_enabled = false, .show_thread_id = true };
-pub const actions = Logger{ .is_enabled = true, .show_thread_id = false };
-pub const render = Logger{ .is_enabled = true, .show_thread_id = false };
+pub const actions = Logger{ .is_enabled = false, .show_thread_id = false };
+pub const render = Logger{ .is_enabled = false, .show_thread_id = false };
 pub const animation_compression = Logger{ .is_enabled = false, .show_thread_id = false };
 
 fn warn(show_thread_id: bool, comptime fmt: []const u8, args: anytype) void {
