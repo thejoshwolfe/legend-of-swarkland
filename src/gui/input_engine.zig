@@ -21,6 +21,10 @@ pub const Button = enum {
     beat_level_5,
     unbeat_level,
     unbeat_level_5,
+    page_up,
+    page_down,
+    home,
+    end,
 };
 
 pub const InputEngine = struct {
@@ -45,8 +49,18 @@ pub const InputEngine = struct {
         switch (scancode) {
             sdl.c.SDL_SCANCODE_LEFT => return if (modifiers == 0) .left else null,
             sdl.c.SDL_SCANCODE_RIGHT => return if (modifiers == 0) .right else null,
-            sdl.c.SDL_SCANCODE_UP => return if (modifiers == 0) .up else null,
-            sdl.c.SDL_SCANCODE_DOWN => return if (modifiers == 0) .down else null,
+            sdl.c.SDL_SCANCODE_UP => if (modifiers == 0)
+                return .up
+            else if (modifiers == ctrl)
+                return .page_up
+            else
+                return null,
+            sdl.c.SDL_SCANCODE_DOWN => if (modifiers == 0)
+                return .down
+            else if (modifiers == ctrl)
+                return .page_down
+            else
+                return null,
             sdl.c.SDL_SCANCODE_F => return if (modifiers == 0) .start_attack else null,
             sdl.c.SDL_SCANCODE_K => return if (modifiers == 0) .start_kick else null,
             sdl.c.SDL_SCANCODE_R => return if (modifiers == ctrl) .restart else null,
@@ -66,6 +80,10 @@ pub const InputEngine = struct {
                 return .beat_level_5
             else
                 return null,
+            sdl.c.SDL_SCANCODE_PAGEUP => return if (modifiers == 0) .page_up else null,
+            sdl.c.SDL_SCANCODE_PAGEDOWN => return if (modifiers == 0) .page_down else null,
+            sdl.c.SDL_SCANCODE_HOME => return if (modifiers == 0) .home else null,
+            sdl.c.SDL_SCANCODE_END => return if (modifiers == 0) .end else null,
             else => return null,
         }
     }

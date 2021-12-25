@@ -45,8 +45,7 @@ pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*In
 pub const the_levels = blk: {
     @setEvalBranchQuota(10000);
     break :blk [_]Level{
-        // Single enemy
-        compileLevel(.{},
+        compileLevel("Single enemy", .{},
             \\#########
             \\        #
             \\ o      #
@@ -58,8 +57,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        // Multiple enemies
-        compileLevel(.{},
+        compileLevel("Multiple enemies", .{},
             \\#########
             \\        #
             \\        #
@@ -71,8 +69,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        // Archer in narrow hallway
-        compileLevel(.{},
+        compileLevel("Archer in narrow hallway", .{},
             \\#######
             \\;;;;;;#
             \\     o+
@@ -81,8 +78,7 @@ pub const the_levels = blk: {
             \\;;;;;;#
             \\#######
         ),
-        // Flanked by archers
-        compileLevel(.{},
+        compileLevel("Flanked by archers", .{},
             \\##########
             \\C        #
             \\   _     +
@@ -92,8 +88,7 @@ pub const the_levels = blk: {
             \\        C#
             \\##########
         ),
-        // Wall of archers
-        compileLevel(.{},
+        compileLevel("Wall of archers", .{},
             \\#############
             \\;;;;;;;;;;;;#
             \\     _      #
@@ -105,8 +100,8 @@ pub const the_levels = blk: {
             \\;;;;;;;;;;;;#
             \\#############
         ),
-        // Single kagaroo
-        compileLevel(.{},
+
+        compileLevel("Kangaroo", .{},
             \\#########
             \\        #
             \\        #
@@ -118,8 +113,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        // Invincible enemies
-        compileLevel(.{},
+        compileLevel("Invincible enemies", .{},
             \\#########
             \\        #
             \\        #
@@ -131,8 +125,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        // Invincible enemies and an archer
-        compileLevel(.{},
+        compileLevel("Invincible enemies and an archer", .{},
             \\#########
             \\        #
             \\        #
@@ -144,8 +137,8 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        // Charging enemy and lava
-        compileLevel(.{},
+
+        compileLevel("Rhino", .{},
             \\#######
             \\;;;;;;#
             \\      #
@@ -157,8 +150,7 @@ pub const the_levels = blk: {
             \\;;;;;;#
             \\#######
         ),
-        // Charging enemy and an archer
-        compileLevel(.{},
+        compileLevel("Rhino and archer", .{},
             \\#########
             \\        #
             \\  >     #
@@ -170,8 +162,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        // Invicible enmies and a charging enemy
-        compileLevel(.{},
+        compileLevel("Invicible enmies and a rhino", .{},
             \\#########
             \\        #
             \\        #
@@ -183,8 +174,7 @@ pub const the_levels = blk: {
             \\C       #
             \\#########
         ),
-        // Archer guarding chokepoint
-        compileLevel(.{},
+        compileLevel("Archer guarding a chokepoint", .{},
             \\#########
             \\     ;  #
             \\     ;  +
@@ -198,16 +188,14 @@ pub const the_levels = blk: {
             \\#########
         ),
 
-        // Some blobs
-        compileLevel(.{},
+        compileLevel("Some blobs", .{},
             \\######
             \\  ;  #
             \\_  b +
             \\  ; b#
             \\######
         ),
-        // Blob and other enemies
-        compileLevel(.{},
+        compileLevel("Blob and other enemies", .{},
             \\#######
             \\  + o;#
             \\_ + o +
@@ -216,8 +204,7 @@ pub const the_levels = blk: {
             \\      #
             \\#######
         ),
-        // Blob and incinvible enemies
-        compileLevel(.{},
+        compileLevel("Blob and incinvible enemies", .{},
             \\#######
             \\  + t;#
             \\_ + t +
@@ -227,8 +214,7 @@ pub const the_levels = blk: {
             \\#######
         ),
 
-        // You're the archer now!
-        compileLevel(.{ .polymorph_target = .centaur },
+        compileLevel("You're the archer now!", .{ .polymorph_target = .centaur },
             \\###########
             \\##        #
             \\=+ _      #
@@ -236,8 +222,7 @@ pub const the_levels = blk: {
             \\##        +
             \\###########
         ),
-        // Whose side are you on?
-        compileLevel(.{},
+        compileLevel("Whose side are you on?", .{},
             \\########
             \\  CCC  #
             \\      h+
@@ -249,8 +234,7 @@ pub const the_levels = blk: {
             \\########
         ),
 
-        // Kangaroos can't attack
-        compileLevel(.{ .polymorph_target = .kangaroo },
+        compileLevel("Kangaroos can't attack", .{ .polymorph_target = .kangaroo },
             \\########
             \\##  oo #
             \\=+ _ o +
@@ -260,20 +244,18 @@ pub const the_levels = blk: {
             \\########
         ),
 
-        // Blobs can't see
-        compileLevel(.{ .polymorph_target = .blob },
+        compileLevel("Blobs can't see", .{ .polymorph_target = .blob },
             \\##########
             \\   +o   ;#
             \\_;=+o #  +
             \\;; +; + ;#
             \\   +o +  #
             \\ +;+  +; #
-            \\     ++o #
+            \\     +#o #
             \\##########
         ),
 
-        // -_-
-        compileLevel(.{},
+        compileLevel("-_-", .{},
             \\##############
             \\             #
             \\ _ _  _  _ _ #
@@ -310,8 +292,9 @@ const Level = struct {
     height: u16,
     terrain: Terrain,
     individuals: []const Individual,
+    name: []const u8,
 };
-fn compileLevel(comptime options: Options, comptime source: []const u8) Level {
+fn compileLevel(name: []const u8, comptime options: Options, comptime source: []const u8) Level {
     // measure dimensions.
     const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
     const height = @intCast(u16, @divExact(source.len + 1, width + 1));
@@ -321,6 +304,7 @@ fn compileLevel(comptime options: Options, comptime source: []const u8) Level {
         .height = height,
         .terrain = Terrain.initData(width, height, &terrain_space),
         .individuals = &[_]Individual{},
+        .name = name,
     };
 
     comptime var cursor: usize = 0;

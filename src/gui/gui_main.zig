@@ -25,6 +25,8 @@ const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const canAttack = core.game_logic.canAttack;
 
+const the_levels = @import("../server/map_gen.zig").the_levels;
+
 const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 712, .height = 512 });
 
 /// changes when the window resizes
@@ -101,6 +103,7 @@ const InputPrompt = enum {
 };
 const GameState = union(enum) {
     main_menu: gui.LinearMenuState,
+    level_select: gui.LinearMenuState,
 
     running: RunningState,
 };
@@ -125,20 +128,23 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     var input_engine = InputEngine.init();
     var inputs_considered_harmful = true;
 
-    var game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
+    var game_state = GameState{ .main_menu = .{} };
     defer switch (game_state) {
-        GameState.running => |*state| state.client.stopEngine(),
+        .running => |*state| state.client.stopEngine(),
         else => {},
     };
 
-    while (true) {
+    main_loop: while (true) {
         // TODO: use better source of time (that doesn't crash after running for a month)
         const now = @intCast(i32, sdl.c.SDL_GetTicks());
         switch (game_state) {
-            GameState.main_menu => |*main_menu_state| {
-                main_menu_state.beginFrame();
+            .main_menu => |*menu_state| {
+                menu_state.beginFrame();
             },
-            GameState.running => |*state| {
+            .level_select => |*menu_state| {
+                menu_state.beginFrame();
+            },
+            .running => |*state| {
                 while (state.client.queues.takeResponse()) |response| {
                     switch (response) {
                         .stuff_happens => |happening| {
@@ -192,21 +198,51 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             continue;
                         }
                         switch (game_state) {
-                            GameState.main_menu => |*main_menu_state| {
+                            .main_menu => |*menu_state| {
                                 switch (button) {
                                     .up => {
-                                        main_menu_state.moveUp();
+                                        menu_state.moveUp(1);
                                     },
                                     .down => {
-                                        main_menu_state.moveDown();
+                                        menu_state.moveDown(1);
                                     },
                                     .enter => {
-                                        main_menu_state.enter();
+                                        menu_state.enter();
                                     },
                                     else => {},
                                 }
                             },
-                            GameState.running => |*state| {
+                            .level_select => |*menu_state| {
+                                switch (button) {
+                                    .up => {
+                                        menu_state.moveUp(1);
+                                    },
+                                    .down => {
+                                        menu_state.moveDown(1);
+                                    },
+                                    .page_up => {
+                                        menu_state.moveUp(5);
+                                    },
+                                    .page_down => {
+                                        menu_state.moveDown(5);
+                                    },
+                                    .home => {
+                                        menu_state.cursor_position = 0;
+                                    },
+                                    .end => {
+                                        menu_state.cursor_position = menu_state.entry_count -| 1;
+                                    },
+                                    .enter => {
+                                        menu_state.enter();
+                                    },
+                                    .escape => {
+                                        game_state = GameState{ .main_menu = .{} };
+                                        continue :main_loop;
+                                    },
+                                    else => {},
+                                }
+                            },
+                            .running => |*state| {
                                 switch (button) {
                                     .left => try doDirectionInput(state, makeCoord(-1, 0)),
                                     .right => try doDirectionInput(state, makeCoord(1, 0)),
@@ -237,7 +273,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
                                     .restart => {
                                         state.client.stopEngine();
-                                        game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
+                                        game_state = GameState{ .main_menu = .{} };
+                                        continue :main_loop;
                                     },
                                     .beat_level => {
                                         try state.client.beatLevelMacro(1);
@@ -265,8 +302,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         sdl.assertZero(sdl.c.SDL_RenderClear(renderer));
 
         switch (game_state) {
-            GameState.main_menu => |*main_menu_state| {
-                var menu_renderer = gui.Gui.init(renderer, main_menu_state, textures.sprites.human);
+            .main_menu => |*menu_state| {
+                var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.human);
 
                 menu_renderer.seek(10, 10);
                 menu_renderer.scale(2);
@@ -276,28 +313,36 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.scale(1);
                 menu_renderer.bold(false);
                 menu_renderer.seekRelative(70, 30);
-                if (menu_renderer.button(" ")) {
-                    game_state = GameState{
-                        .running = .{
-                            .client = undefined,
-                        },
-                    };
-                    try game_state.running.client.startAsThread();
+                if (menu_renderer.button("New Game")) {
+                    try startGame(&game_state, 0);
+                    continue :main_loop;
+                }
+                if (menu_renderer.button("Level Select")) {
+                    game_state = GameState{ .level_select = .{} };
+                    continue :main_loop;
                 }
 
                 menu_renderer.seekRelative(-70, 50);
-                menu_renderer.text("Controls:");
-                menu_renderer.text(" Arrow keys: Move");
-                menu_renderer.text(" F: Start attack");
-                menu_renderer.text("   Arrow keys: Attack in direction");
-                menu_renderer.text(" Backspace: Undo");
-                menu_renderer.text(" Ctrl+R: Quit to this menu");
-                menu_renderer.text(" Enter: Start Game");
+                menu_renderer.text("Menu Controls:");
+                menu_renderer.text(" Arrow keys + Enter");
                 menu_renderer.text(" ");
                 menu_renderer.text(" ");
                 menu_renderer.text("version: " ++ textures.version_string);
             },
-            GameState.running => |*state| blk: {
+
+            .level_select => |*menu_state| {
+                var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.dagger);
+                menu_renderer.seek(32, 32);
+
+                for (the_levels) |level, i| {
+                    if (menu_renderer.button(level.name)) {
+                        try startGame(&game_state, i);
+                        continue :main_loop;
+                    }
+                }
+            },
+
+            .running => |*state| blk: {
                 if (state.client_state == null) break :blk;
 
                 // at one point in what frame should we render?
@@ -530,6 +575,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         sdl.c.SDL_Delay(delay_millis);
         inputs_considered_harmful = false;
     }
+}
+
+fn startGame(game_state: *GameState, levels_to_skip: usize) !void {
+    game_state.* = GameState{
+        .running = .{
+            .client = undefined,
+        },
+    };
+    try game_state.running.client.startAsThread();
+
+    try game_state.running.client.beatLevelMacro(levels_to_skip);
 }
 
 fn doDirectionInput(state: *RunningState, delta: Coord) !void {
