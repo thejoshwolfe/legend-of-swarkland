@@ -543,7 +543,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;
-                if (frame.self.activity == .death) {
+                if (state.animations != null and state.animations.?.turns > 10) {
+                    maybe_tutorial_text = "use Escape to skip animations.";
+                } else if (frame.self.activity == .death) {
                     maybe_tutorial_text = "you died. use Backspace to undo.";
                 } else if (frame.completed_levels == the_levels.len - 1) {
                     maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
