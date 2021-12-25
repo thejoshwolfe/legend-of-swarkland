@@ -10,6 +10,8 @@ const Action = core.protocol.Action;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 
+const cheatcodes = @import("cheatcodes.zig");
+
 const allocator = std.heap.c_allocator;
 
 const QueueToFdAdapter = struct {
@@ -152,8 +154,11 @@ pub const GameEngineClient = struct {
     // initialized in init()
     queues: SomeQueues,
 
+    beat_level_macro_index: usize,
+
     fn init(self: *GameEngineClient) void {
         self.queues.init();
+        self.beat_level_macro_index = 0;
     }
 
     pub fn startAsChildProcess(self: *GameEngineClient) !void {
@@ -253,6 +258,14 @@ pub const GameEngineClient = struct {
     }
     pub fn kick(self: *GameEngineClient, direction: Coord) !void {
         return self.act(Action{ .kick = direction });
+    }
+
+    pub fn beatLevelMacro(self: *GameEngineClient) !void {
+        const actions = cheatcodes.beatLevelActions(self.beat_level_macro_index);
+        for (actions) |action| {
+            try self.queues.enqueueRequest(Request{ .act = action });
+        }
+        self.beat_level_macro_index += 1;
     }
 };
 

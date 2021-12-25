@@ -236,6 +236,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.client.stopEngine();
                                         game_state = GameState{ .main_menu = gui.LinearMenuState.init() };
                                     },
+                                    .beat_level => {
+                                        try state.client.beatLevelMacro();
+                                    },
                                     else => {
                                         ignored = true;
                                     },
