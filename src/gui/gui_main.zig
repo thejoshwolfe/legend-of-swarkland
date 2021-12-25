@@ -233,6 +233,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
                                     .escape => {
                                         state.input_prompt = .none;
+                                        state.animations = null;
                                     },
                                     .restart => {
                                         state.client.stopEngine();
