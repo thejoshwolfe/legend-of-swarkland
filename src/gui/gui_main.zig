@@ -206,7 +206,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 }
                             },
                             GameState.running => |*state| {
-                                var ignored = false;
                                 switch (button) {
                                     .left => try doDirectionInput(state, makeCoord(-1, 0)),
                                     .right => try doDirectionInput(state, makeCoord(1, 0)),
@@ -239,13 +238,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .beat_level => {
                                         try state.client.beatLevelMacro();
                                     },
-                                    else => {
-                                        ignored = true;
-                                    },
-                                }
-                                if (!ignored) {
-                                    // speed up animations
-                                    if (state.animations) |*animations| animations.speedUp(now);
+                                    else => {},
                                 }
                             },
                         }
@@ -829,7 +822,7 @@ fn speciesToTailSprite(species: Species) Rect {
 
 const slow_animation_speed = 300;
 const fast_animation_speed = 100;
-const hyper_animation_speed = 20;
+const hyper_animation_speed = 10;
 
 const Animations = struct {
     start_time: i32,
@@ -877,7 +870,9 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, 
         };
     }
     animations.*.?.turns += 1;
-
+    if (animations.*.?.turns > 1) {
+        animations.*.?.speedUp(now);
+    }
     var have_previous_frame = false;
     for (frames) |frame, i| {
         // Total movement is not affected by compression.
