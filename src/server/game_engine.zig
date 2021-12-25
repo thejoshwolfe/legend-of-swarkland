@@ -468,11 +468,27 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             const position = current_positions.get(id).?;
             for (getAllPositions(&position)) |coord| {
-                if (game_state.terrainAt(coord).wall == .centaur_transformer and
-                    game_state.individuals.get(id).?.species != .centaur)
-                {
-                    try polymorphs.putNoClobber(id, .centaur);
-                    current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_grappling | core.protocol.StatusCondition_digesting);
+                switch (game_state.terrainAt(coord).wall) {
+                    .polymorph_trap_centaur => {
+                        if (game_state.individuals.get(id).?.species != .centaur) {
+                            try polymorphs.putNoClobber(id, .centaur);
+                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_grappling | core.protocol.StatusCondition_digesting);
+                        }
+                    },
+                    .polymorph_trap_kangaroo => {
+                        if (game_state.individuals.get(id).?.species != .kangaroo) {
+                            try polymorphs.putNoClobber(id, .kangaroo);
+                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_grappling | core.protocol.StatusCondition_digesting);
+                        }
+                    },
+                    .polymorph_trap_blob => {
+                        if (game_state.individuals.get(id).?.species != .blob) {
+                            try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                            const remove_effects = core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_being_digested | core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping;
+                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~remove_effects;
+                        }
+                    },
+                    else => {},
                 }
             }
         }
@@ -1159,6 +1175,13 @@ pub const GameEngine = struct {
                         TerrainSpace{ .floor = .unknown_floor, .wall = .air }
                     else
                         TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
+                }
+                switch (seen_cell.wall) {
+                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob => {
+                        // Don't spoil it.
+                        seen_cell.wall = .unknown_polymorph_trap;
+                    },
+                    else => {},
                 }
                 terrain_chunk.matrix.atCoord(cursor).?.* = seen_cell;
             }

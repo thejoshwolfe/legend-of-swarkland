@@ -46,7 +46,7 @@ pub const the_levels = blk: {
     @setEvalBranchQuota(10000);
     break :blk [_]Level{
         // Single enemy
-        compileLevel(
+        compileLevel(.{},
             \\#########
             \\        #
             \\ o      #
@@ -59,7 +59,7 @@ pub const the_levels = blk: {
             \\#########
         ),
         // Multiple enemies
-        compileLevel(
+        compileLevel(.{},
             \\#########
             \\        #
             \\        #
@@ -72,7 +72,7 @@ pub const the_levels = blk: {
             \\#########
         ),
         // Archer in narrow hallway
-        compileLevel(
+        compileLevel(.{},
             \\#######
             \\;;;;;;#
             \\     o+
@@ -82,7 +82,7 @@ pub const the_levels = blk: {
             \\#######
         ),
         // Flanked by archers
-        compileLevel(
+        compileLevel(.{},
             \\##########
             \\C        #
             \\   _     +
@@ -93,7 +93,7 @@ pub const the_levels = blk: {
             \\##########
         ),
         // Wall of archers
-        compileLevel(
+        compileLevel(.{},
             \\#############
             \\;;;;;;;;;;;;#
             \\     _      #
@@ -106,7 +106,7 @@ pub const the_levels = blk: {
             \\#############
         ),
         // Single kagaroo
-        compileLevel(
+        compileLevel(.{},
             \\#########
             \\        #
             \\        #
@@ -119,7 +119,7 @@ pub const the_levels = blk: {
             \\#########
         ),
         // Invincible enemies
-        compileLevel(
+        compileLevel(.{},
             \\#########
             \\        #
             \\        #
@@ -132,7 +132,7 @@ pub const the_levels = blk: {
             \\#########
         ),
         // Invincible enemies and an archer
-        compileLevel(
+        compileLevel(.{},
             \\#########
             \\        #
             \\        #
@@ -145,7 +145,7 @@ pub const the_levels = blk: {
             \\#########
         ),
         // Charging enemy and lava
-        compileLevel(
+        compileLevel(.{},
             \\#######
             \\;;;;;;#
             \\      #
@@ -158,7 +158,7 @@ pub const the_levels = blk: {
             \\#######
         ),
         // Charging enemy and an archer
-        compileLevel(
+        compileLevel(.{},
             \\#########
             \\        #
             \\  >     #
@@ -171,7 +171,7 @@ pub const the_levels = blk: {
             \\#########
         ),
         // Invicible enmies and a charging enemy
-        compileLevel(
+        compileLevel(.{},
             \\#########
             \\        #
             \\        #
@@ -184,7 +184,7 @@ pub const the_levels = blk: {
             \\#########
         ),
         // Archer guarding chokepoint
-        compileLevel(
+        compileLevel(.{},
             \\#########
             \\     ;  #
             \\     ;  +
@@ -199,7 +199,7 @@ pub const the_levels = blk: {
         ),
 
         // Some blobs
-        compileLevel(
+        compileLevel(.{},
             \\######
             \\  ;  #
             \\_  b +
@@ -207,7 +207,7 @@ pub const the_levels = blk: {
             \\######
         ),
         // Blob and other enemies
-        compileLevel(
+        compileLevel(.{},
             \\#######
             \\  + o;#
             \\_ + o +
@@ -217,7 +217,7 @@ pub const the_levels = blk: {
             \\#######
         ),
         // Blob and incinvible enemies
-        compileLevel(
+        compileLevel(.{},
             \\#######
             \\  + t;#
             \\_ + t +
@@ -228,7 +228,7 @@ pub const the_levels = blk: {
         ),
 
         // You're the archer now!
-        compileLevel(
+        compileLevel(.{ .polymorph_target = .centaur },
             \\###########
             \\##        #
             \\=+ _      #
@@ -237,7 +237,7 @@ pub const the_levels = blk: {
             \\###########
         ),
         // Whose side are you on?
-        compileLevel(
+        compileLevel(.{},
             \\########
             \\  CCC  #
             \\      h+
@@ -249,8 +249,19 @@ pub const the_levels = blk: {
             \\########
         ),
 
+        // Kangaroos can't attack
+        compileLevel(.{ .polymorph_target = .kangaroo },
+            \\########
+            \\##  oo #
+            \\=+ _ o +
+            \\##     #
+            \\##     #
+            \\##;;;;;#
+            \\########
+        ),
+
         // -_-
-        compileLevel(
+        compileLevel(.{},
             \\##############
             \\             #
             \\ _ _  _  _ _ #
@@ -278,13 +289,17 @@ fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Spec
     };
 }
 
+const Options = struct {
+    polymorph_target: ?std.meta.Tag(Species) = null,
+};
+
 const Level = struct {
     width: u16,
     height: u16,
     terrain: Terrain,
     individuals: []const Individual,
 };
-fn compileLevel(comptime source: []const u8) Level {
+fn compileLevel(comptime options: Options, comptime source: []const u8) Level {
     // measure dimensions.
     const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
     const height = @intCast(u16, @divExact(source.len + 1, width + 1));
@@ -335,7 +350,12 @@ fn compileLevel(comptime source: []const u8) Level {
                 '=' => {
                     level.terrain.atUnchecked(x, y).* = TerrainSpace{
                         .floor = .dirt,
-                        .wall = .centaur_transformer,
+                        .wall = switch (options.polymorph_target.?) {
+                            .centaur => .polymorph_trap_centaur,
+                            .kangaroo => .polymorph_trap_kangaroo,
+                            .blob => .polymorph_trap_blob,
+                            else => unreachable,
+                        },
                     };
                 },
                 'o' => {

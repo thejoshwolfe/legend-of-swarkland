@@ -19,7 +19,10 @@ pub const Wall = enum {
     air,
     dirt,
     stone,
-    centaur_transformer,
+    polymorph_trap_centaur,
+    polymorph_trap_kangaroo,
+    polymorph_trap_blob,
+    unknown_polymorph_trap,
     unknown_wall,
 };
 

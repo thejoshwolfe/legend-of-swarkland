@@ -10,6 +10,7 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 const ThingPosition = core.protocol.ThingPosition;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
+const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canMoveNormally = core.game_logic.canMoveNormally;
 const canGrowAndShrink = core.game_logic.canGrowAndShrink;
@@ -56,7 +57,10 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         // Don't know how to handle this.
         return .wait;
     }
-    const range = core.game_logic.getAttackRange(last_frame.self.species);
+    const range = if (hesitatesOneSpaceAway(last_frame.self.species))
+        1
+    else
+        core.game_logic.getAttackRange(last_frame.self.species);
 
     if (delta.x * delta.y == 0) {
         // straight shot
@@ -74,8 +78,9 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             if (hesitatesOneSpaceAway(last_frame.self.species)) {
                 // get away from me!
                 return Action{ .kick = delta_unit };
-            }
-            return Action{ .attack = delta_unit };
+            } else if (canAttack(last_frame.self.species)) {
+                return Action{ .attack = delta_unit };
+            } else unreachable;
         } else {
             // We want to get closer.
             if (last_frame.terrain.matrix.getCoord(delta_unit.minus(last_frame.terrain.rel_position))) |cell| {

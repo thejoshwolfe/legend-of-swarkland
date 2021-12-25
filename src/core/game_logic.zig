@@ -18,10 +18,14 @@ pub fn getViewDistance(species: Species) i32 {
     };
 }
 
+pub fn canAttack(species: Species) bool {
+    return getAttackRange(species) > 0;
+}
+
 pub fn getAttackRange(species: Species) i32 {
     switch (species) {
         .centaur => return 16,
-        .rhino, .blob => return 0,
+        .rhino, .blob, .kangaroo => return 0,
         else => return 1,
     }
 }
@@ -71,7 +75,8 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
 
 pub fn isOpenSpace(wall: Wall) bool {
     switch (wall) {
-        .air, .centaur_transformer => return true,
+        .air => return true,
+        .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob, .unknown_polymorph_trap => return true,
         else => return false,
     }
 }
@@ -146,6 +151,7 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
             if (position != .large) return error.TooSmall;
         },
         .attack => |direction| {
+            if (!canAttack(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
         },
         .kick => |direction| {

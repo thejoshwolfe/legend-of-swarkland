@@ -23,6 +23,7 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
+const canAttack = core.game_logic.canAttack;
 
 const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 712, .height = 512 });
 
@@ -213,7 +214,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .down => try doDirectionInput(state, makeCoord(0, 1)),
 
                                     .start_attack => {
-                                        state.input_prompt = .attack;
+                                        if (canAttack(state.client_state.?.self.species)) {
+                                            state.input_prompt = .attack;
+                                        }
                                     },
                                     .start_kick => {
                                         state.input_prompt = .kick;
@@ -344,7 +347,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .air => continue,
                                     .dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
                                     .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
-                                    .centaur_transformer => textures.sprites.polymorph_trap,
+                                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
                                     .unknown_wall => textures.sprites.unknown_wall,
                                 };
                                 textures.renderSprite(renderer, wall_texture, display_position);
@@ -398,7 +401,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         },
                         .centauroid => AnatomySprites{
                             .diagram = textures.large_sprites.centauroid,
+                            .being_digested = textures.large_sprites.centauroid_being_digested,
                             .leg_wound = textures.large_sprites.centauroid_leg_wound,
+                            .grappled = textures.large_sprites.centauroid_grappled,
                             .limping = textures.large_sprites.centauroid_limping,
                         },
                         .bloboid => AnatomySprites{
@@ -416,7 +421,14 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .digesting = textures.large_sprites.bloboid_digesting,
                             .grappling_front = textures.large_sprites.bloboid_grappling_front,
                         },
-                        .kangaroid, .quadruped => @panic("TODO"),
+                        .kangaroid => AnatomySprites{
+                            .diagram = textures.large_sprites.kangaroid,
+                            .being_digested = textures.large_sprites.kangaroid_being_digested,
+                            .leg_wound = textures.large_sprites.kangaroid_leg_wound,
+                            .grappled = textures.large_sprites.kangaroid_grappled,
+                            .limping = textures.large_sprites.kangaroid_limping,
+                        },
+                        .quadruped => @panic("TODO"),
                     };
                     const anatomy_coord = makeCoord(512, 0);
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
