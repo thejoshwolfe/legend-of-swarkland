@@ -197,6 +197,36 @@ pub const the_levels = blk: {
             \\     ;  #
             \\#########
         ),
+
+        // Some blobs
+        compileLevel(
+            \\######
+            \\  ;  #
+            \\_  b +
+            \\  ; b#
+            \\######
+        ),
+        // Blob and other enemies
+        compileLevel(
+            \\#######
+            \\  + o;#
+            \\_ + o +
+            \\  +   #
+            \\  +b  #
+            \\      #
+            \\#######
+        ),
+        // Blob and incinvible enemies
+        compileLevel(
+            \\#######
+            \\  + t;#
+            \\_ + t +
+            \\  +   #
+            \\  +b  #
+            \\      #
+            \\#######
+        ),
+
         // You're the archer now!
         compileLevel(
             \\###########
@@ -218,6 +248,7 @@ pub const the_levels = blk: {
             \\  ooo  #
             \\########
         ),
+
         // -_-
         compileLevel(
             \\##############
@@ -310,6 +341,10 @@ fn compileLevel(comptime source: []const u8) Level {
                 'o' => {
                     level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .orc)};
+                },
+                'b' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), Species{ .blob = .small_blob })};
                 },
                 'C' => {
                     level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
