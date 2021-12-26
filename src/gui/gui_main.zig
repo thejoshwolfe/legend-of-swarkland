@@ -125,6 +125,7 @@ const RunningState = struct {
     /// 0, 1, infinity
     kicks_performed: u2 = 0,
     observed_kangaroo_death: bool = false,
+    charge_performed: bool = false,
 };
 
 fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
@@ -166,7 +167,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     }
                                 }
                                 if (frame.self.activity == .kick) {
-                                    if (state.kicks_performed < 2) state.kicks_performed += 1;
+                                    state.kicks_performed +|= 1;
+                                }
+                                if (frame.self.activity == .movement and core.geometry.isScaledCardinalDirection(frame.self.activity.movement, 2)) {
+                                    state.charge_performed = true;
                                 }
                             }
 
@@ -567,6 +571,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
                 } else if (state.observed_kangaroo_death and state.kicks_performed < 2) {
                     maybe_tutorial_text = "You learned to kick! Use K+Arrows.";
+                } else if (frame.self.species == .rhino and !state.charge_performed) {
+                    maybe_tutorial_text = "Press C to charge.";
                 }
                 if (maybe_tutorial_text) |tutorial_text| {
                     // gentle up/down bob
