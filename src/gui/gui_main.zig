@@ -428,6 +428,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
                                     .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
                                     .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
+                                    .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => textures.sprites.polymorph_trap_wide[0],
+                                    .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => textures.sprites.polymorph_trap_wide[1],
                                     .unknown_wall => textures.sprites.unknown_wall,
                                 };
                                 textures.renderSprite(renderer, wall_texture, display_position);
@@ -508,7 +510,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .grappled = textures.large_sprites.kangaroid_grappled,
                             .limping = textures.large_sprites.kangaroid_limping,
                         },
-                        .quadruped => @panic("TODO"),
+                        .quadruped => AnatomySprites{
+                            .diagram = textures.large_sprites.quadruped,
+                            .being_digested = textures.large_sprites.quadruped_being_digested,
+                            .leg_wound = textures.large_sprites.quadruped_leg_wound,
+                            .grappled = textures.large_sprites.quadruped_grappled,
+                            .limping = textures.large_sprites.quadruped_limping,
+                        },
                     };
                     const anatomy_coord = makeCoord(512, 0);
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);

@@ -74,11 +74,15 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
 }
 
 pub fn isOpenSpace(wall: Wall) bool {
-    switch (wall) {
-        .air => return true,
-        .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob, .unknown_polymorph_trap => return true,
-        else => return false,
-    }
+    return switch (wall) {
+        .air => true,
+        .dirt, .stone => false,
+        .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob, .unknown_polymorph_trap => true,
+        .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => true,
+        .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => true,
+        .unknown => true,
+        .unknown_wall => false,
+    };
 }
 
 pub fn getHeadPosition(thing_position: ThingPosition) Coord {

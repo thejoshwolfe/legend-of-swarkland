@@ -466,30 +466,72 @@ pub const GameEngine = struct {
 
         // Traps
         for (everybody) |id| {
+            const blob_only_statuses = core.protocol.StatusCondition_grappling | //
+                core.protocol.StatusCondition_digesting;
+            const blob_immune_statuses = core.protocol.StatusCondition_grappled | //
+                core.protocol.StatusCondition_being_digested | //
+                core.protocol.StatusCondition_wounded_leg | //
+                core.protocol.StatusCondition_limping;
+
             const position = current_positions.get(id).?;
-            for (getAllPositions(&position)) |coord| {
-                switch (game_state.terrainAt(coord).wall) {
-                    .polymorph_trap_centaur => {
-                        if (game_state.individuals.get(id).?.species != .centaur) {
-                            try polymorphs.putNoClobber(id, .centaur);
-                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_grappling | core.protocol.StatusCondition_digesting);
+            switch (position) {
+                .small => |coord| {
+                    switch (game_state.terrainAt(coord).wall) {
+                        .polymorph_trap_centaur => {
+                            if (game_state.individuals.get(id).?.species != .centaur) {
+                                try polymorphs.putNoClobber(id, .centaur);
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                            }
+                        },
+                        .polymorph_trap_kangaroo => {
+                            if (game_state.individuals.get(id).?.species != .kangaroo) {
+                                try polymorphs.putNoClobber(id, .kangaroo);
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                            }
+                        },
+                        .polymorph_trap_blob => {
+                            if (game_state.individuals.get(id).?.species != .blob) {
+                                try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
+                            }
+                        },
+                        else => {},
+                    }
+                },
+                .large => |coords| {
+                    if (coords[0].y == coords[1].y) {
+                        // west-east aligned
+                        var ordered_coords: [2]Coord = undefined;
+                        if (coords[0].x < coords[1].x) {
+                            ordered_coords[0] = coords[0];
+                            ordered_coords[1] = coords[1];
+                        } else {
+                            ordered_coords[0] = coords[1];
+                            ordered_coords[1] = coords[0];
                         }
-                    },
-                    .polymorph_trap_kangaroo => {
-                        if (game_state.individuals.get(id).?.species != .kangaroo) {
-                            try polymorphs.putNoClobber(id, .kangaroo);
-                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_grappling | core.protocol.StatusCondition_digesting);
+                        const ordered_walls = [_]Wall{
+                            game_state.terrainAt(ordered_coords[0]).wall,
+                            game_state.terrainAt(ordered_coords[1]).wall,
+                        };
+
+                        if (ordered_walls[0] == .polymorph_trap_rhino_west and //
+                            ordered_walls[1] == .polymorph_trap_rhino_east and //
+                            game_state.individuals.get(id).?.species != .rhino)
+                        {
+                            try polymorphs.putNoClobber(id, .rhino);
+                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
                         }
-                    },
-                    .polymorph_trap_blob => {
-                        if (game_state.individuals.get(id).?.species != .blob) {
+                        if (ordered_walls[0] == .polymorph_trap_blob_west and //
+                            ordered_walls[1] == .polymorph_trap_blob_east and //
+                            game_state.individuals.get(id).?.species != .blob)
+                        {
                             try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
-                            const remove_effects = core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_being_digested | core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping;
-                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~remove_effects;
+                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
                         }
-                    },
-                    else => {},
-                }
+                    } else {
+                        // No north-south aligned traps exist.
+                    }
+                },
             }
         }
         if (polymorphs.count() != 0) {
@@ -1176,10 +1218,16 @@ pub const GameEngine = struct {
                     else
                         TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
                 }
+                // Don't spoil trap behavior.
                 switch (seen_cell.wall) {
                     .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob => {
-                        // Don't spoil it.
                         seen_cell.wall = .unknown_polymorph_trap;
+                    },
+                    .polymorph_trap_rhino_west, .polymorph_trap_blob_west => {
+                        seen_cell.wall = .unknown_polymorph_trap_west;
+                    },
+                    .polymorph_trap_rhino_east, .polymorph_trap_blob_east => {
+                        seen_cell.wall = .unknown_polymorph_trap_east;
                     },
                     else => {},
                 }

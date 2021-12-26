@@ -5,9 +5,11 @@ const ArrayList = std.ArrayList;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
+const Cardinal = core.geometry.Cardinal;
 
 const Species = core.protocol.Species;
 const TerrainSpace = core.protocol.TerrainSpace;
+const Wall = core.protocol.Wall;
 
 const game_model = @import("./game_model.zig");
 const Individual = game_model.Individual;
@@ -138,11 +140,11 @@ pub const the_levels = blk: {
             \\#########
         ),
 
-        compileLevel("Rhino", .{},
+        compileLevel("Rhino", .{ .facing_directions = &[_]u2{Cardinal.left} },
             \\#######
             \\;;;;;;#
             \\      #
-            \\    < #
+            \\    r #
             \\ _    #
             \\      #
             \\      #
@@ -150,10 +152,10 @@ pub const the_levels = blk: {
             \\;;;;;;#
             \\#######
         ),
-        compileLevel("Rhino and archer", .{},
+        compileLevel("Rhino and archer", .{ .facing_directions = &[_]u2{Cardinal.right} },
             \\#########
             \\        #
-            \\  >     #
+            \\  r     #
             \\        #
             \\        #
             \\      C #
@@ -162,11 +164,11 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        compileLevel("Invicible enmies and a rhino", .{},
+        compileLevel("Invicible enmies and a rhino", .{ .facing_directions = &[_]u2{Cardinal.right} },
             \\#########
             \\        #
             \\        #
-            \\   >    #
+            \\   r    #
             \\        #
             \\   t    #
             \\     t  #
@@ -255,6 +257,21 @@ pub const the_levels = blk: {
             \\##########
         ),
 
+        compileLevel("Learn to charge", .{ .traps = &[_]Wall{
+            .polymorph_trap_rhino_west,
+            .polymorph_trap_rhino_east,
+        } },
+            \\##########
+            \\###   ;C #
+            \\^^+   ;; #
+            \\#_ooo ;  #
+            \\#+o      +
+            \\t+    ;  #
+            \\ +    ;; #
+            \\      ;C #
+            \\##########
+        ),
+
         compileLevel("-_-", .{},
             \\##############
             \\             #
@@ -284,7 +301,12 @@ fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Spec
 }
 
 const Options = struct {
+    /// Deprecated: use .traps and switch to '^'.
     polymorph_target: ?std.meta.Tag(Species) = null,
+    /// Each '^'.
+    traps: []const Wall = &[_]Wall{},
+    /// Cardinal directions for 'r' individuals.
+    facing_directions: []const u2 = &[_]u2{},
 };
 
 const Level = struct {
@@ -306,6 +328,9 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
         .individuals = &[_]Individual{},
         .name = name,
     };
+
+    comptime var traps_index: usize = 0;
+    comptime var facing_directions_index: usize = 0;
 
     comptime var cursor: usize = 0;
     comptime var y: u16 = 0;
@@ -354,6 +379,13 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
                         },
                     };
                 },
+                '^' => {
+                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                        .floor = .dirt,
+                        .wall = options.traps[traps_index],
+                    };
+                    traps_index += 1;
+                },
                 'o' => {
                     level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .orc)};
@@ -378,37 +410,14 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
                     level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .human)};
                 },
-                '<' => {
+                'r' => {
                     level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
                         makeCoord(x, y),
-                        makeCoord(x + 1, y),
+                        makeCoord(x, y).minus(core.geometry.cardinalIndexToDirection(options.facing_directions[facing_directions_index])),
                         .rhino,
                     )};
-                },
-                '>' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                    level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
-                        makeCoord(x, y),
-                        makeCoord(x - 1, y),
-                        .rhino,
-                    )};
-                },
-                '^' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                    level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
-                        makeCoord(x, y),
-                        makeCoord(x, y + 1),
-                        .rhino,
-                    )};
-                },
-                'v' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
-                    level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
-                        makeCoord(x, y),
-                        makeCoord(x, y - 1),
-                        .rhino,
-                    )};
+                    facing_directions_index += 1;
                 },
                 else => unreachable,
             }
@@ -416,6 +425,9 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
         }
         cursor += 1;
     }
+
+    std.debug.assert(traps_index == options.traps.len);
+    std.debug.assert(facing_directions_index == options.facing_directions.len);
 
     return level;
 }

@@ -531,6 +531,6 @@ pub const beat_level_actions = [_][]const Action{
         Action{ .grow = makeCoord(1, 0) },
         Action{ .shrink = 0 },
         Action{ .grow = makeCoord(1, 0) },
-        Action{ .shrink = 0 },
+        Action{ .move = makeCoord(0, 1) },
     },
 };
