@@ -51,9 +51,10 @@ pub fn canGrowAndShrink(species: Species) bool {
     };
 }
 
-pub fn getInertiaIndex(species: Species) u1 {
+pub fn getInertiaIndex(species: Species) ?u1 {
     switch (species) {
-        .rhino, .blob => return 1,
+        .rhino => return 1,
+        .blob => return null,
         else => return 0,
     }
 }

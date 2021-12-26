@@ -213,9 +213,13 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord| {
                         if (!coord.equals(kick_position)) continue;
                         // gotchya
-                        if (getInertiaIndex(game_state.individuals.get(other_id).?.species) > 0) {
-                            // Your kick is not stronk enough.
-                            continue;
+                        if (getInertiaIndex(game_state.individuals.get(other_id).?.species)) |inertia_index| {
+                            if (inertia_index > 0) {
+                                // Your kick is not stronk enough.
+                                continue;
+                            }
+                        } else {
+                            // No inertia. Can't be kicked.
                         }
                         if (try intended_moves.fetchPut(other_id, kick_direction)) |_| {
                             // kicked multiple times at once!
@@ -845,7 +849,10 @@ pub const GameEngine = struct {
             // Collect collision information.
             var coord_to_collision = CoordMap(Collision).init(self.allocator);
             for (everybody.*) |id| {
-                const inertia_index = getInertiaIndex(game_state.individuals.get(id).?.species);
+                const inertia_index = getInertiaIndex(game_state.individuals.get(id).?.species) orelse {
+                    // Species with no inertia don't participate in collisions at all.
+                    continue;
+                };
                 const old_position = current_positions.get(id).?;
                 const new_position = next_positions.get(id) orelse old_position;
                 for (getAllPositions(&new_position)) |new_coord, i| {
@@ -929,31 +936,35 @@ pub const GameEngine = struct {
             //         V
             //   🐕 <- 🐕
             // This conga line would be unsuccessful because the head of the line isn't successfully moving.
-            for (everybody.*) |head_id| {
+            for (everybody.*) |id| {
                 // anyone who fails to move could be the head of a sad conga line.
-                if (next_positions.contains(head_id)) continue;
-                if (trample_deaths.contains(head_id)) {
-                    // You're dead to me.
-                    continue;
-                }
-                var id = head_id;
+                if (next_positions.contains(id)) continue;
+                // You are not moving (successfully).
+                var head_id = id;
                 conga_loop: while (true) {
-                    const position = current_positions.get(id).?;
+                    const position = current_positions.get(head_id).?;
+                    const head_inertia_index = getInertiaIndex(game_state.individuals.get(head_id).?.species) orelse {
+                        // Don't let me stop the party.
+                        break :conga_loop;
+                    };
                     for (getAllPositions(&position)) |coord| {
                         const follower_id = (coord_to_collision.fetchSwapRemove(coord) orelse continue).value.winner_id orelse continue;
-                        if (follower_id == id) continue; // your tail is always allowed to follow your head.
+                        if (follower_id == head_id) continue; // your tail is always allowed to follow your head.
+                        const follower_inertia_index = getInertiaIndex(game_state.individuals.get(follower_id).?.species) orelse {
+                            // Don't let me stop the party.
+                            break :conga_loop;
+                        };
                         // conga line is botched.
-                        if (getInertiaIndex(game_state.individuals.get(follower_id).?.species) >
-                            getInertiaIndex(game_state.individuals.get(head_id).?.species))
-                        {
+                        if (follower_inertia_index > head_inertia_index) {
                             // Outta my way!
-                            try trample_deaths.putNoClobber(head_id, {});
+                            _ = try trample_deaths.put(head_id, {});
                             // Party don't stop for this pushover's failure! Viva la conga!
                             break :conga_loop;
                         }
+                        core.debug.testing.print("conga failed", .{});
                         _ = next_positions.swapRemove(follower_id);
                         // and now you get to pass on the bad news.
-                        id = follower_id;
+                        head_id = follower_id;
                         continue :conga_loop;
                     }
                     // no one wants to move into this space.
