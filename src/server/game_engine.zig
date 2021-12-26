@@ -961,7 +961,6 @@ pub const GameEngine = struct {
                             // Party don't stop for this pushover's failure! Viva la conga!
                             break :conga_loop;
                         }
-                        core.debug.testing.print("conga failed", .{});
                         _ = next_positions.swapRemove(follower_id);
                         // and now you get to pass on the bad news.
                         head_id = follower_id;

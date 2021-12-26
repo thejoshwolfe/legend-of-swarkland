@@ -27,6 +27,7 @@ const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const canAttack = core.game_logic.canAttack;
+const canCharge = core.game_logic.canCharge;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
 
@@ -270,6 +271,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
                                     .start_kick => {
                                         state.input_prompt = .kick;
+                                    },
+                                    .charge => {
+                                        if (canCharge(state.client_state.?.self.species)) {
+                                            const position_coords = state.client_state.?.self.rel_position.large;
+                                            const delta = position_coords[0].minus(position_coords[1]);
+                                            try state.client.act(Action{ .fast_move = delta.scaled(2) });
+                                        }
                                     },
                                     .backspace => {
                                         if (state.input_prompt != .none) {
