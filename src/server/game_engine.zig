@@ -865,49 +865,44 @@ pub const GameEngine = struct {
 
             // Determine who wins each collision
             for (coord_to_collision.values()) |*collision| {
+                // higher inertia trumps (and tramples) any lower inertia. (trumples?)
                 var is_trample = false;
-                // higher inertia trumps any lower inertia
                 for ([_]u1{ 1, 0 }) |inertia_index| {
-                    if (is_trample) {
-                        // You can't win. You can only get trampled.
-                        for ([_]?u32{
-                            collision.inertia_index_to_stationary_id[inertia_index],
-                            collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][0],
-                            collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][1],
-                            collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][2],
-                            collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][3],
-                            collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][0],
-                            collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][1],
-                            collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][2],
-                            collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][3],
-                        }) |maybe_id| {
-                            if (maybe_id) |trampled_id| {
-                                try trample_deaths.putNoClobber(trampled_id, {});
-                            }
-                        }
+                    var inertia_winner: ?u32 = null;
+                    var incoming_vector_set: u9 = 0;
+                    if (collision.inertia_index_to_stationary_id[inertia_index] != null) incoming_vector_set |= 1 << 0;
+                    for (collision.inertia_index_to_cardinal_index_to_enterer[inertia_index]) |maybe_id, i| {
+                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
+                    }
+                    for (collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index]) |maybe_id, i| {
+                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
+                    }
+                    if (incoming_vector_set & 1 != 0) {
+                        // Stationary entities always win.
+                        inertia_winner = collision.inertia_index_to_stationary_id[inertia_index];
+                        // Standing still doesn't trample.
+                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
+                        // fast bois beat slow bois.
+                        inertia_winner = collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][index].?;
+                        if (inertia_index > 0) is_trample = true;
+                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
+                        // a slow boi wins.
+                        inertia_winner = collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][index].?;
+                        if (inertia_index > 0) is_trample = true;
                     } else {
-                        var incoming_vector_set: u9 = 0;
-                        if (collision.inertia_index_to_stationary_id[inertia_index] != null) incoming_vector_set |= 1 << 0;
-                        for (collision.inertia_index_to_cardinal_index_to_enterer[inertia_index]) |maybe_id, i| {
-                            if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
-                        }
-                        for (collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index]) |maybe_id, i| {
-                            if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
-                        }
-                        if (incoming_vector_set & 1 != 0) {
-                            // Stationary entities always win.
-                            collision.winner_id = collision.inertia_index_to_stationary_id[inertia_index];
-                            // Standing still doesn't trample.
-                        } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
-                            // fast bois beat slow bois.
-                            collision.winner_id = collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][index].?;
-                            is_trample = inertia_index > 0;
-                        } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
-                            // a slow boi wins.
-                            collision.winner_id = collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][index].?;
-                            is_trample = inertia_index > 0;
+                        // nobody wins. winner stays null.
+                    }
+
+                    if (inertia_winner) |winner_id| {
+                        if (collision.winner_id) |_| {
+                            // Someone has already won at a higher inertia index.
+                            if (is_trample) {
+                                // You get the second-place prize, which is ...
+                                try trample_deaths.putNoClobber(winner_id, {});
+                            }
                         } else {
-                            // nobody wins. winner stays null.
+                            // The space is yours.
+                            collision.winner_id = winner_id;
                         }
                     }
                 }
@@ -920,8 +915,7 @@ pub const GameEngine = struct {
                 const next_position = next_positions.get(id) orelse continue;
                 for (getAllPositions(&next_position)) |coord| {
                     var collision = coord_to_collision.get(coord).?;
-                    // TODO: https://github.com/ziglang/zig/issues/1332 if (collision.winner_id != id)
-                    if (!(collision.winner_id != null and collision.winner_id.? == id)) {
+                    if (collision.winner_id != id) {
                         // i lose.
                         assert(next_positions.swapRemove(id));
                         continue :id_loop;

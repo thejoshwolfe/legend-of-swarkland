@@ -170,10 +170,6 @@ fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: Spec
     switch (you) {
         // humans are just the worst.
         .human => return 9,
-        // orcs are like humans.
-        .orc => return 6,
-        // half human.
-        .centaur => return 5,
         // whatever.
         else => return 1,
     }
