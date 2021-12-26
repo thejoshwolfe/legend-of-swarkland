@@ -272,6 +272,35 @@ pub const the_levels = blk: {
             \\##########
         ),
 
+        compileLevel("Look how you've grown", .{ .traps = &[_]Wall{
+            .polymorph_trap_turtle,
+            .polymorph_trap_centaur,
+            .polymorph_trap_blob_west,
+            .polymorph_trap_blob_east,
+        } },
+            \\#########
+            \\        #
+            \\ #    o^+
+            \\_#^o  ;;#
+            \\ #    ; #
+            \\##    ; #
+            \\^^    ;C#
+            \\#########
+        ),
+
+        compileLevel("Not for your", .{ .traps = &[_]Wall{
+            .polymorph_trap_rhino_west,
+            .polymorph_trap_rhino_east,
+        } },
+            \\######
+            \\b ^^ #
+            \\_    +
+            \\     #
+            \\     #
+            \\;;;;;#
+            \\######
+        ),
+
         compileLevel("-_-", .{},
             \\##############
             \\             #

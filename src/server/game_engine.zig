@@ -493,6 +493,12 @@ pub const GameEngine = struct {
                                 current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
                             }
                         },
+                        .polymorph_trap_turtle => {
+                            if (game_state.individuals.get(id).?.species != .turtle) {
+                                try polymorphs.putNoClobber(id, .turtle);
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                            }
+                        },
                         .polymorph_trap_blob => {
                             if (game_state.individuals.get(id).?.species != .blob) {
                                 try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
@@ -1224,7 +1230,7 @@ pub const GameEngine = struct {
                 }
                 // Don't spoil trap behavior.
                 switch (seen_cell.wall) {
-                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob => {
+                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob => {
                         seen_cell.wall = .unknown_polymorph_trap;
                     },
                     .polymorph_trap_rhino_west, .polymorph_trap_blob_west => {

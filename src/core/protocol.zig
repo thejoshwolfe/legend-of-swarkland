@@ -21,6 +21,7 @@ pub const Wall = enum {
     stone,
     polymorph_trap_centaur,
     polymorph_trap_kangaroo,
+    polymorph_trap_turtle,
     polymorph_trap_blob,
     unknown_polymorph_trap,
     polymorph_trap_rhino_west,
