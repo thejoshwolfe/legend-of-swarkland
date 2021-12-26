@@ -102,6 +102,13 @@ pub fn directionToRotation(direction: Coord) u3 {
     return @as(u3, directionToCardinalIndex(direction)) * 2;
 }
 
+pub const Cardinal = struct {
+    pub const right = 0;
+    pub const down = 1;
+    pub const left = 2;
+    pub const up = 3;
+};
+
 /// index in .{right, down, left, up}.
 /// assert(isCardinalDirection(direction)).
 pub fn directionToCardinalIndex(direction: Coord) u2 {
@@ -110,6 +117,14 @@ pub fn directionToCardinalIndex(direction: Coord) u2 {
     if (direction.x == -1 and direction.y == 0) return 2;
     if (direction.x == 0 and direction.y == -1) return 3;
     unreachable;
+}
+pub fn cardinalIndexToDirection(cardinal_index: u2) Coord {
+    return switch (cardinal_index) {
+        Cardinal.right => makeCoord(1, 0),
+        Cardinal.down => makeCoord(0, 1),
+        Cardinal.left => makeCoord(-1, 0),
+        Cardinal.up => makeCoord(0, -1),
+    };
 }
 
 pub fn sign(x: i32) i32 {

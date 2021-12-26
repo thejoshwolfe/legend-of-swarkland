@@ -32,14 +32,15 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             target_position = null;
             target_priority = other_priority;
         }
-        const other_coord = getHeadPosition(other.rel_position);
-        if (target_position) |previous_coord| {
-            // target whichever is closest. (positions are relative to me.)
-            if (other_coord.magnitudeOrtho() < previous_coord.magnitudeOrtho()) {
+        for (getAllPositions(&other.rel_position)) |other_coord| {
+            if (target_position) |previous_coord| {
+                // target whichever is closest. (positions are relative to me.)
+                if (other_coord.magnitudeOrtho() < previous_coord.magnitudeOrtho()) {
+                    target_position = other_coord;
+                }
+            } else {
                 target_position = other_coord;
             }
-        } else {
-            target_position = other_coord;
         }
     }
     if (target_position == null) {
@@ -170,10 +171,6 @@ fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: Spec
     switch (you) {
         // humans are just the worst.
         .human => return 9,
-        // orcs are like humans.
-        .orc => return 6,
-        // half human.
-        .centaur => return 5,
         // whatever.
         else => return 1,
     }

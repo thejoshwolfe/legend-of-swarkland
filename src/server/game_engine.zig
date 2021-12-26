@@ -213,9 +213,13 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord| {
                         if (!coord.equals(kick_position)) continue;
                         // gotchya
-                        if (getInertiaIndex(game_state.individuals.get(other_id).?.species) > 0) {
-                            // Your kick is not stronk enough.
-                            continue;
+                        if (getInertiaIndex(game_state.individuals.get(other_id).?.species)) |inertia_index| {
+                            if (inertia_index > 0) {
+                                // Your kick is not stronk enough.
+                                continue;
+                            }
+                        } else {
+                            // No inertia. Can't be kicked.
                         }
                         if (try intended_moves.fetchPut(other_id, kick_direction)) |_| {
                             // kicked multiple times at once!
@@ -466,30 +470,78 @@ pub const GameEngine = struct {
 
         // Traps
         for (everybody) |id| {
+            const blob_only_statuses = core.protocol.StatusCondition_grappling | //
+                core.protocol.StatusCondition_digesting;
+            const blob_immune_statuses = core.protocol.StatusCondition_grappled | //
+                core.protocol.StatusCondition_being_digested | //
+                core.protocol.StatusCondition_wounded_leg | //
+                core.protocol.StatusCondition_limping;
+
             const position = current_positions.get(id).?;
-            for (getAllPositions(&position)) |coord| {
-                switch (game_state.terrainAt(coord).wall) {
-                    .polymorph_trap_centaur => {
-                        if (game_state.individuals.get(id).?.species != .centaur) {
-                            try polymorphs.putNoClobber(id, .centaur);
-                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_grappling | core.protocol.StatusCondition_digesting);
+            switch (position) {
+                .small => |coord| {
+                    switch (game_state.terrainAt(coord).wall) {
+                        .polymorph_trap_centaur => {
+                            if (game_state.individuals.get(id).?.species != .centaur) {
+                                try polymorphs.putNoClobber(id, .centaur);
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                            }
+                        },
+                        .polymorph_trap_kangaroo => {
+                            if (game_state.individuals.get(id).?.species != .kangaroo) {
+                                try polymorphs.putNoClobber(id, .kangaroo);
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                            }
+                        },
+                        .polymorph_trap_turtle => {
+                            if (game_state.individuals.get(id).?.species != .turtle) {
+                                try polymorphs.putNoClobber(id, .turtle);
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                            }
+                        },
+                        .polymorph_trap_blob => {
+                            if (game_state.individuals.get(id).?.species != .blob) {
+                                try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
+                            }
+                        },
+                        else => {},
+                    }
+                },
+                .large => |coords| {
+                    if (coords[0].y == coords[1].y) {
+                        // west-east aligned
+                        var ordered_coords: [2]Coord = undefined;
+                        if (coords[0].x < coords[1].x) {
+                            ordered_coords[0] = coords[0];
+                            ordered_coords[1] = coords[1];
+                        } else {
+                            ordered_coords[0] = coords[1];
+                            ordered_coords[1] = coords[0];
                         }
-                    },
-                    .polymorph_trap_kangaroo => {
-                        if (game_state.individuals.get(id).?.species != .kangaroo) {
-                            try polymorphs.putNoClobber(id, .kangaroo);
-                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~(core.protocol.StatusCondition_grappling | core.protocol.StatusCondition_digesting);
+                        const ordered_walls = [_]Wall{
+                            game_state.terrainAt(ordered_coords[0]).wall,
+                            game_state.terrainAt(ordered_coords[1]).wall,
+                        };
+
+                        if (ordered_walls[0] == .polymorph_trap_rhino_west and //
+                            ordered_walls[1] == .polymorph_trap_rhino_east and //
+                            game_state.individuals.get(id).?.species != .rhino)
+                        {
+                            try polymorphs.putNoClobber(id, .rhino);
+                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
                         }
-                    },
-                    .polymorph_trap_blob => {
-                        if (game_state.individuals.get(id).?.species != .blob) {
+                        if (ordered_walls[0] == .polymorph_trap_blob_west and //
+                            ordered_walls[1] == .polymorph_trap_blob_east and //
+                            game_state.individuals.get(id).?.species != .blob)
+                        {
                             try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
-                            const remove_effects = core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_being_digested | core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping;
-                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~remove_effects;
+                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
                         }
-                    },
-                    else => {},
-                }
+                    } else {
+                        // No north-south aligned traps exist.
+                    }
+                },
             }
         }
         if (polymorphs.count() != 0) {
@@ -803,7 +855,10 @@ pub const GameEngine = struct {
             // Collect collision information.
             var coord_to_collision = CoordMap(Collision).init(self.allocator);
             for (everybody.*) |id| {
-                const inertia_index = getInertiaIndex(game_state.individuals.get(id).?.species);
+                const inertia_index = getInertiaIndex(game_state.individuals.get(id).?.species) orelse {
+                    // Species with no inertia don't participate in collisions at all.
+                    continue;
+                };
                 const old_position = current_positions.get(id).?;
                 const new_position = next_positions.get(id) orelse old_position;
                 for (getAllPositions(&new_position)) |new_coord, i| {
@@ -823,49 +878,44 @@ pub const GameEngine = struct {
 
             // Determine who wins each collision
             for (coord_to_collision.values()) |*collision| {
+                // higher inertia trumps (and tramples) any lower inertia. (trumples?)
                 var is_trample = false;
-                // higher inertia trumps any lower inertia
                 for ([_]u1{ 1, 0 }) |inertia_index| {
-                    if (is_trample) {
-                        // You can't win. You can only get trampled.
-                        for ([_]?u32{
-                            collision.inertia_index_to_stationary_id[inertia_index],
-                            collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][0],
-                            collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][1],
-                            collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][2],
-                            collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][3],
-                            collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][0],
-                            collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][1],
-                            collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][2],
-                            collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][3],
-                        }) |maybe_id| {
-                            if (maybe_id) |trampled_id| {
-                                try trample_deaths.putNoClobber(trampled_id, {});
-                            }
-                        }
+                    var inertia_winner: ?u32 = null;
+                    var incoming_vector_set: u9 = 0;
+                    if (collision.inertia_index_to_stationary_id[inertia_index] != null) incoming_vector_set |= 1 << 0;
+                    for (collision.inertia_index_to_cardinal_index_to_enterer[inertia_index]) |maybe_id, i| {
+                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
+                    }
+                    for (collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index]) |maybe_id, i| {
+                        if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
+                    }
+                    if (incoming_vector_set & 1 != 0) {
+                        // Stationary entities always win.
+                        inertia_winner = collision.inertia_index_to_stationary_id[inertia_index];
+                        // Standing still doesn't trample.
+                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
+                        // fast bois beat slow bois.
+                        inertia_winner = collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][index].?;
+                        if (inertia_index > 0) is_trample = true;
+                    } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
+                        // a slow boi wins.
+                        inertia_winner = collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][index].?;
+                        if (inertia_index > 0) is_trample = true;
                     } else {
-                        var incoming_vector_set: u9 = 0;
-                        if (collision.inertia_index_to_stationary_id[inertia_index] != null) incoming_vector_set |= 1 << 0;
-                        for (collision.inertia_index_to_cardinal_index_to_enterer[inertia_index]) |maybe_id, i| {
-                            if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
-                        }
-                        for (collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index]) |maybe_id, i| {
-                            if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
-                        }
-                        if (incoming_vector_set & 1 != 0) {
-                            // Stationary entities always win.
-                            collision.winner_id = collision.inertia_index_to_stationary_id[inertia_index];
-                            // Standing still doesn't trample.
-                        } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
-                            // fast bois beat slow bois.
-                            collision.winner_id = collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][index].?;
-                            is_trample = inertia_index > 0;
-                        } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
-                            // a slow boi wins.
-                            collision.winner_id = collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][index].?;
-                            is_trample = inertia_index > 0;
+                        // nobody wins. winner stays null.
+                    }
+
+                    if (inertia_winner) |winner_id| {
+                        if (collision.winner_id) |_| {
+                            // Someone has already won at a higher inertia index.
+                            if (is_trample) {
+                                // You get the second-place prize, which is ...
+                                try trample_deaths.putNoClobber(winner_id, {});
+                            }
                         } else {
-                            // nobody wins. winner stays null.
+                            // The space is yours.
+                            collision.winner_id = winner_id;
                         }
                     }
                 }
@@ -878,8 +928,7 @@ pub const GameEngine = struct {
                 const next_position = next_positions.get(id) orelse continue;
                 for (getAllPositions(&next_position)) |coord| {
                     var collision = coord_to_collision.get(coord).?;
-                    // TODO: https://github.com/ziglang/zig/issues/1332 if (collision.winner_id != id)
-                    if (!(collision.winner_id != null and collision.winner_id.? == id)) {
+                    if (collision.winner_id != id) {
                         // i lose.
                         assert(next_positions.swapRemove(id));
                         continue :id_loop;
@@ -893,31 +942,34 @@ pub const GameEngine = struct {
             //         V
             //   🐕 <- 🐕
             // This conga line would be unsuccessful because the head of the line isn't successfully moving.
-            for (everybody.*) |head_id| {
+            for (everybody.*) |id| {
                 // anyone who fails to move could be the head of a sad conga line.
-                if (next_positions.contains(head_id)) continue;
-                if (trample_deaths.contains(head_id)) {
-                    // You're dead to me.
-                    continue;
-                }
-                var id = head_id;
+                if (next_positions.contains(id)) continue;
+                // You are not moving (successfully).
+                var head_id = id;
                 conga_loop: while (true) {
-                    const position = current_positions.get(id).?;
+                    const position = current_positions.get(head_id).?;
+                    const head_inertia_index = getInertiaIndex(game_state.individuals.get(head_id).?.species) orelse {
+                        // Don't let me stop the party.
+                        break :conga_loop;
+                    };
                     for (getAllPositions(&position)) |coord| {
                         const follower_id = (coord_to_collision.fetchSwapRemove(coord) orelse continue).value.winner_id orelse continue;
-                        if (follower_id == id) continue; // your tail is always allowed to follow your head.
+                        if (follower_id == head_id) continue; // your tail is always allowed to follow your head.
+                        const follower_inertia_index = getInertiaIndex(game_state.individuals.get(follower_id).?.species) orelse {
+                            // Don't let me stop the party.
+                            break :conga_loop;
+                        };
                         // conga line is botched.
-                        if (getInertiaIndex(game_state.individuals.get(follower_id).?.species) >
-                            getInertiaIndex(game_state.individuals.get(head_id).?.species))
-                        {
+                        if (follower_inertia_index > head_inertia_index) {
                             // Outta my way!
-                            try trample_deaths.putNoClobber(head_id, {});
+                            _ = try trample_deaths.put(head_id, {});
                             // Party don't stop for this pushover's failure! Viva la conga!
                             break :conga_loop;
                         }
                         _ = next_positions.swapRemove(follower_id);
                         // and now you get to pass on the bad news.
-                        id = follower_id;
+                        head_id = follower_id;
                         continue :conga_loop;
                     }
                     // no one wants to move into this space.
@@ -1176,10 +1228,16 @@ pub const GameEngine = struct {
                     else
                         TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
                 }
+                // Don't spoil trap behavior.
                 switch (seen_cell.wall) {
-                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob => {
-                        // Don't spoil it.
+                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob => {
                         seen_cell.wall = .unknown_polymorph_trap;
+                    },
+                    .polymorph_trap_rhino_west, .polymorph_trap_blob_west => {
+                        seen_cell.wall = .unknown_polymorph_trap_west;
+                    },
+                    .polymorph_trap_rhino_east, .polymorph_trap_blob_east => {
+                        seen_cell.wall = .unknown_polymorph_trap_east;
                     },
                     else => {},
                 }

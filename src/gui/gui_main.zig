@@ -27,6 +27,7 @@ const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const canAttack = core.game_logic.canAttack;
+const canCharge = core.game_logic.canCharge;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
 
@@ -124,6 +125,7 @@ const RunningState = struct {
     /// 0, 1, infinity
     kicks_performed: u2 = 0,
     observed_kangaroo_death: bool = false,
+    charge_performed: bool = false,
 };
 
 fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
@@ -165,7 +167,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     }
                                 }
                                 if (frame.self.activity == .kick) {
-                                    if (state.kicks_performed < 2) state.kicks_performed += 1;
+                                    state.kicks_performed +|= 1;
+                                }
+                                if (frame.self.activity == .movement and core.geometry.isScaledCardinalDirection(frame.self.activity.movement, 2)) {
+                                    state.charge_performed = true;
                                 }
                             }
 
@@ -270,6 +275,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
                                     .start_kick => {
                                         state.input_prompt = .kick;
+                                    },
+                                    .charge => {
+                                        if (canCharge(state.client_state.?.self.species)) {
+                                            const position_coords = state.client_state.?.self.rel_position.large;
+                                            const delta = position_coords[0].minus(position_coords[1]);
+                                            try state.client.act(Action{ .fast_move = delta.scaled(2) });
+                                        }
                                     },
                                     .backspace => {
                                         if (state.input_prompt != .none) {
@@ -427,7 +439,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .air => continue,
                                     .dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
                                     .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
-                                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_blob, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
+                                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
+                                    .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => textures.sprites.polymorph_trap_wide[0],
+                                    .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => textures.sprites.polymorph_trap_wide[1],
                                     .unknown_wall => textures.sprites.unknown_wall,
                                 };
                                 textures.renderSprite(renderer, wall_texture, display_position);
@@ -508,7 +522,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .grappled = textures.large_sprites.kangaroid_grappled,
                             .limping = textures.large_sprites.kangaroid_limping,
                         },
-                        .quadruped => @panic("TODO"),
+                        .quadruped => AnatomySprites{
+                            .diagram = textures.large_sprites.quadruped,
+                            .being_digested = textures.large_sprites.quadruped_being_digested,
+                            .leg_wound = textures.large_sprites.quadruped_leg_wound,
+                            .grappled = textures.large_sprites.quadruped_grappled,
+                            .limping = textures.large_sprites.quadruped_limping,
+                        },
                     };
                     const anatomy_coord = makeCoord(512, 0);
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
@@ -551,6 +571,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
                 } else if (state.observed_kangaroo_death and state.kicks_performed < 2) {
                     maybe_tutorial_text = "You learned to kick! Use K+Arrows.";
+                } else if (frame.self.species == .rhino and !state.charge_performed) {
+                    maybe_tutorial_text = "Press C to charge.";
                 }
                 if (maybe_tutorial_text) |tutorial_text| {
                     // gentle up/down bob
