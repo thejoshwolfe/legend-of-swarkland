@@ -798,7 +798,12 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             textures.renderSpriteScaled(renderer, speciesToSprite(thing.species), display_rect);
         },
         .rhino => {
-            const oriented_delta = thing.rel_position.large[1].minus(thing.rel_position.large[0]);
+            const oriented_delta = if (progress < @divTrunc(progress_denominator, 2))
+                thing.rel_position.large[1].minus(thing.rel_position.large[0])
+            else blk: {
+                const future_position = core.game_logic.applyMovementFromActivity(thing.activity, thing.rel_position, makeCoord(0, 0));
+                break :blk future_position.large[1].minus(future_position.large[0]);
+            };
             const tail_display_position = display_position.plus(oriented_delta.scaled(32));
             const rhino_sprite_normalizing_rotation = 0;
             const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
