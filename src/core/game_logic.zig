@@ -51,6 +51,17 @@ pub fn canGrowAndShrink(species: Species) bool {
     };
 }
 
+pub fn canKick(species: Species) bool {
+    return switch (species) {
+        .human, .orc => true,
+        .centaur => true,
+        .turtle => false,
+        .rhino => true,
+        .kangaroo => true,
+        .blob => false,
+    };
+}
+
 pub fn getInertiaIndex(species: Species) ?u1 {
     switch (species) {
         .rhino => return 1,
@@ -160,6 +171,7 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
             if (!isCardinalDirection(direction)) return error.BadDelta;
         },
         .kick => |direction| {
+            if (!canKick(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
         },
     }

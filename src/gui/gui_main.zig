@@ -28,6 +28,7 @@ const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
+const canKick = core.game_logic.canKick;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
 
@@ -274,7 +275,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         }
                                     },
                                     .start_kick => {
-                                        state.input_prompt = .kick;
+                                        if (canKick(state.client_state.?.self.species)) {
+                                            state.input_prompt = .kick;
+                                        }
                                     },
                                     .charge => {
                                         if (canCharge(state.client_state.?.self.species)) {
