@@ -127,6 +127,8 @@ const RunningState = struct {
     kicks_performed: u2 = 0,
     observed_kangaroo_death: bool = false,
     charge_performed: bool = false,
+
+    starting_level: usize = 0,
 };
 
 fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
@@ -153,11 +155,16 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_state.beginFrame();
             },
             .running => |*state| {
-                while (state.client.queues.takeResponse()) |response| {
+                while (state.client.takeResponse()) |response| {
                     switch (response) {
                         .stuff_happens => |happening| {
-                            // Show animations for what's going on.
-                            try loadAnimations(&state.animations, happening.frames, now, &state.total_journey_offset);
+                            if (happening.frames[0].completed_levels >= state.starting_level) {
+                                // Show animations for what's going on.
+                                try loadAnimations(&state.animations, happening.frames, now, &state.total_journey_offset);
+                            } else {
+                                // Don't show the skip-to-level animations
+                                state.animations = null;
+                            }
                             state.client_state = happening.frames[happening.frames.len - 1];
 
                             // Update tutorial data.
@@ -301,6 +308,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.animations = null;
                                     },
                                     .restart => {
+                                        try state.client.restartLevel();
+                                        state.input_prompt = .none;
+                                    },
+                                    .quit => {
                                         state.client.stopEngine();
                                         game_state = GameState{ .main_menu = .{} };
                                         continue :main_loop;
@@ -624,11 +635,13 @@ fn startGame(game_state: *GameState, levels_to_skip: usize) !void {
     game_state.* = GameState{
         .running = .{
             .client = undefined,
+            .starting_level = levels_to_skip,
         },
     };
     try game_state.running.client.startAsThread();
 
     try game_state.running.client.beatLevelMacro(levels_to_skip);
+    game_state.running.client.stopUndoPastLevel(levels_to_skip);
 }
 
 fn doDirectionInput(state: *RunningState, delta: Coord) !void {

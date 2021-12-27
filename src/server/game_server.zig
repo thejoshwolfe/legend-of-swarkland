@@ -57,15 +57,16 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         var is_rewind = false;
         {
             retryRead: while (true) {
-                switch (main_player_queues.waitAndTakeRequest() orelse {
+                const request = main_player_queues.waitAndTakeRequest() orelse {
                     core.debug.thread_lifecycle.print("clean shutdown. close", .{});
                     main_player_queues.closeResponses();
                     break :mainLoop;
-                }) {
+                };
+                switch (request) {
                     .act => |action| {
                         if (!you_are_alive) {
                             // no. you're are dead.
-                            try main_player_queues.enqueueResponse(Response.reject_request);
+                            try main_player_queues.enqueueResponse(Response{ .reject_request = request });
                             continue :retryRead;
                         }
                         const individual = game_state.individuals.get(main_player_id).?;
@@ -75,7 +76,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                     .rewind => {
                         if (history.len == 0) {
                             // What do you want me to do, send you back to the main menu?
-                            try main_player_queues.enqueueResponse(Response.reject_request);
+                            try main_player_queues.enqueueResponse(Response{ .reject_request = request });
                             continue :retryRead;
                         }
                         // delay actually rewinding so that we receive all requests.

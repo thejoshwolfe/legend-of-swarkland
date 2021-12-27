@@ -78,7 +78,7 @@ pub const Response = union(enum) {
     stuff_happens: PerceivedHappening,
 
     /// ur doin it rong, and nothing happened. try again.
-    reject_request,
+    reject_request: Request,
 };
 
 /// what you see each turn
