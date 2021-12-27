@@ -505,6 +505,12 @@ pub const GameEngine = struct {
                                 current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
                             }
                         },
+                        .polymorph_trap_human => {
+                            if (game_state.individuals.get(id).?.species != .human) {
+                                try polymorphs.putNoClobber(id, .human);
+                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                            }
+                        },
                         else => {},
                     }
                 },

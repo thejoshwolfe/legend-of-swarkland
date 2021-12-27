@@ -288,7 +288,7 @@ pub const the_levels = blk: {
             \\#########
         ),
 
-        compileLevel("Not for your", .{ .traps = &[_]Wall{
+        compileLevel("Not for you", .{ .traps = &[_]Wall{
             .polymorph_trap_rhino_west,
             .polymorph_trap_rhino_east,
         } },
@@ -299,6 +299,31 @@ pub const the_levels = blk: {
             \\     #
             \\;;;;;#
             \\######
+        ),
+
+        compileLevel("Turtles can't kick", .{ .traps = &[_]Wall{
+            .polymorph_trap_blob_west,
+            .polymorph_trap_blob_east,
+            .polymorph_trap_blob_west,
+            .polymorph_trap_blob_east,
+            .polymorph_trap_rhino_west,
+            .polymorph_trap_rhino_east,
+            .polymorph_trap_blob_west,
+            .polymorph_trap_blob_east,
+            .polymorph_trap_human,
+            .polymorph_trap_turtle,
+            .polymorph_trap_turtle,
+            .polymorph_trap_blob,
+        } },
+            \\###########
+            \\ ^^ ^^^^###
+            \\_+++++++^^#
+            \\        #^+
+            \\ ^      ###
+            \\  +   + ###
+            \\^ +ttt+ ###
+            \\^ +;;;+ ###
+            \\###########
         ),
 
         compileLevel("-_-", .{},

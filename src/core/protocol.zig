@@ -23,6 +23,7 @@ pub const Wall = enum {
     polymorph_trap_kangaroo,
     polymorph_trap_turtle,
     polymorph_trap_blob,
+    polymorph_trap_human,
     unknown_polymorph_trap,
     polymorph_trap_rhino_west,
     polymorph_trap_rhino_east,
