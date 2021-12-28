@@ -7,6 +7,7 @@ const game_model = @import("./game_model.zig");
 const Action = core.protocol.Action;
 const Species = core.protocol.Species;
 const PerceivedFrame = core.protocol.PerceivedFrame;
+const PerceivedThing = core.protocol.PerceivedThing;
 const ThingPosition = core.protocol.ThingPosition;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
@@ -24,27 +25,34 @@ const allocator = std.heap.c_allocator;
 
 pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     var target_position: ?Coord = null;
+    var target_distance: ?i32 = null;
     var target_priority: i32 = -0x80000000;
     for (last_frame.others) |other| {
         const other_priority = getTargetHostilityPriority(last_frame.self.species, other.species) orelse continue;
         if (target_priority > other_priority) continue;
         if (other_priority > target_priority) {
             target_position = null;
+            target_distance = null;
             target_priority = other_priority;
         }
         for (getAllPositions(&other.rel_position)) |other_coord| {
-            if (target_position) |previous_coord| {
-                // target whichever is closest. (positions are relative to me.)
-                if (other_coord.magnitudeOrtho() < previous_coord.magnitudeOrtho()) {
+            const distance = distanceTo(other_coord, last_frame.self);
+            if (target_distance) |previous_distance| {
+                // target whichever is closest.
+                if (distance < previous_distance) {
                     target_position = other_coord;
+                    target_distance = distance;
                 }
             } else {
+                // First thing I see is the target so far.
                 target_position = other_coord;
+                target_distance = distance;
             }
         }
     }
     if (target_position == null) {
         // nothing to do.
+        core.debug.ai.print("waiting: no targets", .{});
         return .wait;
     }
 
@@ -56,6 +64,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             return Action{ .shrink = 0 };
         }
         // Don't know how to handle this.
+        core.debug.ai.print("waiting: overlapping target, but i'm not a blob.", .{});
         return .wait;
     }
     const range = if (hesitatesOneSpaceAway(last_frame.self.species))
@@ -87,11 +96,19 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             if (last_frame.terrain.matrix.getCoord(delta_unit.minus(last_frame.terrain.rel_position))) |cell| {
                 if (cell.floor == .lava) {
                     // I'm scared of lava
+                    core.debug.ai.print("waiting: lava in my way", .{});
                     return .wait;
                 }
             }
             // Move straight twoard the target, even if someone else is in the way
             return movelikeAction(last_frame.self.species, last_frame.self.rel_position, delta_unit);
+        }
+    } else if (last_frame.self.species == .blob and last_frame.self.rel_position == .large) {
+        // Is this a straight shot from my butt?
+        const butt_delta = target_position.?.minus(last_frame.self.rel_position.large[1]);
+        if (butt_delta.x * butt_delta.y == 0) {
+            // shrink back to approach.
+            return Action{ .shrink = 1 };
         }
     }
     // We have a diagonal space to traverse.
@@ -146,6 +163,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         if (last_frame.terrain.matrix.getCoord(options[option_index].minus(last_frame.terrain.rel_position))) |cell| {
             if (cell.floor == .lava) {
                 // On second thought, let's not try this.
+                core.debug.ai.print("waiting: lava in my way (diagonal)", .{});
                 return .wait;
             }
         }
@@ -203,5 +221,17 @@ fn movelikeAction(species: Species, position: ThingPosition, delta: Coord) Actio
     } else {
         // Can't move T_T
         return .wait;
+    }
+}
+
+fn distanceTo(rel_coord: Coord, me: PerceivedThing) i32 {
+    if (me.species == .blob and me.rel_position == .large) {
+        // measure distance from whichever of my coords is closer.
+        const distance0 = rel_coord.magnitudeOrtho(); // head position is always 0,0
+        const distance1 = rel_coord.minus(me.rel_position.large[1]).magnitudeOrtho();
+        return if (distance1 < distance0) distance1 else distance0;
+    } else {
+        // simple
+        return rel_coord.magnitudeOrtho();
     }
 }
