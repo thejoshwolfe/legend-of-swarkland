@@ -216,10 +216,12 @@ pub const the_levels = blk: {
             \\#######
         ),
 
-        compileLevel("You're the archer now!", .{ .polymorph_target = .centaur },
+        compileLevel("You're the archer now!", .{ .traps = &[_]Wall{
+            .polymorph_trap_centaur,
+        } },
             \\###########
             \\##        #
-            \\=+ _      #
+            \\^+ _      #
             \\##      h #
             \\##        +
             \\###########
@@ -236,20 +238,24 @@ pub const the_levels = blk: {
             \\########
         ),
 
-        compileLevel("Kangaroos can't attack", .{ .polymorph_target = .kangaroo },
+        compileLevel("Kangaroos can't attack", .{ .traps = &[_]Wall{
+            .polymorph_trap_kangaroo,
+        } },
             \\########
             \\##  oo #
-            \\=+ _ o +
+            \\^+ _ o +
             \\##     #
             \\##     #
             \\##;;;;;#
             \\########
         ),
 
-        compileLevel("Blobs can't see", .{ .polymorph_target = .blob },
+        compileLevel("Blobs can't see", .{ .traps = &[_]Wall{
+            .polymorph_trap_blob,
+        } },
             \\##########
             \\   +o   ;#
-            \\_;=+o #  +
+            \\_;^+o #  +
             \\;; +; + ;#
             \\   +o +  #
             \\ +;+  +; #
@@ -355,8 +361,6 @@ fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Spec
 }
 
 const Options = struct {
-    /// Deprecated: use .traps and switch to '^'.
-    polymorph_target: ?std.meta.Tag(Species) = null,
     /// Each '^'.
     traps: []const Wall = &[_]Wall{},
     /// Cardinal directions for 'r' individuals.
@@ -420,17 +424,6 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
                     level.terrain.atUnchecked(x, y).* = TerrainSpace{
                         .floor = .hatch,
                         .wall = .air,
-                    };
-                },
-                '=' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
-                        .floor = .dirt,
-                        .wall = switch (options.polymorph_target.?) {
-                            .centaur => .polymorph_trap_centaur,
-                            .kangaroo => .polymorph_trap_kangaroo,
-                            .blob => .polymorph_trap_blob,
-                            else => unreachable,
-                        },
                     };
                 },
                 '^' => {
