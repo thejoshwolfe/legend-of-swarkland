@@ -474,47 +474,26 @@ pub const GameEngine = struct {
         try flushDeaths(&total_deaths, &attack_deaths, &everybody);
 
         // Traps
+        var intended_polymorphs = IdMap(Species).init(self.allocator);
         for (everybody) |id| {
-            const blob_only_statuses = core.protocol.StatusCondition_grappling | //
-                core.protocol.StatusCondition_digesting;
-            const blob_immune_statuses = core.protocol.StatusCondition_grappled | //
-                core.protocol.StatusCondition_being_digested | //
-                core.protocol.StatusCondition_wounded_leg | //
-                core.protocol.StatusCondition_limping;
-
             const position = current_positions.get(id).?;
             switch (position) {
                 .small => |coord| {
                     switch (game_state.terrainAt(coord).wall) {
                         .polymorph_trap_centaur => {
-                            if (game_state.individuals.get(id).?.species != .centaur) {
-                                try polymorphs.putNoClobber(id, .centaur);
-                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
-                            }
+                            try intended_polymorphs.putNoClobber(id, .centaur);
                         },
                         .polymorph_trap_kangaroo => {
-                            if (game_state.individuals.get(id).?.species != .kangaroo) {
-                                try polymorphs.putNoClobber(id, .kangaroo);
-                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
-                            }
+                            try intended_polymorphs.putNoClobber(id, .kangaroo);
                         },
                         .polymorph_trap_turtle => {
-                            if (game_state.individuals.get(id).?.species != .turtle) {
-                                try polymorphs.putNoClobber(id, .turtle);
-                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
-                            }
+                            try intended_polymorphs.putNoClobber(id, .turtle);
                         },
                         .polymorph_trap_blob => {
-                            if (game_state.individuals.get(id).?.species != .blob) {
-                                try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
-                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
-                            }
+                            try intended_polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
                         },
                         .polymorph_trap_human => {
-                            if (game_state.individuals.get(id).?.species != .human) {
-                                try polymorphs.putNoClobber(id, .human);
-                                current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
-                            }
+                            try intended_polymorphs.putNoClobber(id, .human);
                         },
                         else => {},
                     }
@@ -536,23 +515,80 @@ pub const GameEngine = struct {
                         };
 
                         if (ordered_walls[0] == .polymorph_trap_rhino_west and //
-                            ordered_walls[1] == .polymorph_trap_rhino_east and //
-                            game_state.individuals.get(id).?.species != .rhino)
+                            ordered_walls[1] == .polymorph_trap_rhino_east)
                         {
-                            try polymorphs.putNoClobber(id, .rhino);
-                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                            try intended_polymorphs.putNoClobber(id, .rhino);
                         }
                         if (ordered_walls[0] == .polymorph_trap_blob_west and //
-                            ordered_walls[1] == .polymorph_trap_blob_east and //
-                            game_state.individuals.get(id).?.species != .blob)
+                            ordered_walls[1] == .polymorph_trap_blob_east)
                         {
-                            try polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
-                            current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
+                            try intended_polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
                         }
                     } else {
                         // No north-south aligned traps exist.
                     }
                 },
+            }
+        }
+        if (intended_polymorphs.count() > 0) {
+            var non_blob_individuals_to_be_present = CoordMap(u2).init(self.allocator);
+
+            for (everybody) |id| {
+                const from_species = game_state.individuals.get(id).?.species;
+                const position = current_positions.get(id).?;
+                if (from_species != .blob) {
+                    for (getAllPositions(&position)) |coord| {
+                        const gop = try non_blob_individuals_to_be_present.getOrPut(coord);
+                        if (gop.found_existing) {
+                            gop.value_ptr.* +|= 1;
+                        } else {
+                            gop.value_ptr.* = 1;
+                        }
+                    }
+                }
+                const dest_species = intended_polymorphs.get(id) orelse continue;
+                if (from_species == .blob and dest_species != .blob) {
+                    for (getAllPositions(&position)) |coord| {
+                        const gop = try non_blob_individuals_to_be_present.getOrPut(coord);
+                        if (gop.found_existing) {
+                            gop.value_ptr.* +|= 1;
+                        } else {
+                            gop.value_ptr.* = 1;
+                        }
+                    }
+                }
+            }
+            for (everybody) |id| {
+                const dest_species = intended_polymorphs.get(id) orelse continue;
+                const from_species = game_state.individuals.get(id).?.species;
+                if (from_species == @as(std.meta.Tag(Species), dest_species)) {
+                    core.debug.engine.print("polymorph fails: already that species.", .{});
+                    continue;
+                }
+                const position = current_positions.get(id).?;
+                for (getAllPositions(&position)) |coord| {
+                    if (non_blob_individuals_to_be_present.get(coord).? > 1) {
+                        core.debug.engine.print("polymorph fails: too croweded.", .{});
+                        break;
+                    }
+                } else {
+                    // The polymoph succeeds.
+                    if (try polymorphs.fetchPut(id, dest_species)) |_| {
+                        // This can happen if a digestion got interrupted by a polymorph trap.
+                        // Discard the digestion transform.
+                    }
+                    const blob_only_statuses = core.protocol.StatusCondition_grappling | //
+                        core.protocol.StatusCondition_digesting;
+                    const blob_immune_statuses = core.protocol.StatusCondition_grappled | //
+                        core.protocol.StatusCondition_being_digested | //
+                        core.protocol.StatusCondition_wounded_leg | //
+                        core.protocol.StatusCondition_limping;
+                    if (dest_species == .blob) {
+                        current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
+                    } else {
+                        current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_only_statuses;
+                    }
+                }
             }
         }
         if (polymorphs.count() != 0) {
