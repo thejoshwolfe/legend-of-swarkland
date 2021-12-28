@@ -115,7 +115,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        compileLevel("Invincible enemies", .{},
+        compileLevel("Turtles", .{},
             \\#########
             \\        #
             \\        #
@@ -127,7 +127,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        compileLevel("Invincible enemies and an archer", .{},
+        compileLevel("Turtles and an archer", .{},
             \\#########
             \\        #
             \\        #
@@ -164,7 +164,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        compileLevel("Invicible enmies and a rhino", .{ .facing_directions = &[_]u2{Cardinal.right} },
+        compileLevel("turtles and a rhino", .{ .facing_directions = &[_]u2{Cardinal.right} },
             \\#########
             \\        #
             \\        #
@@ -197,7 +197,7 @@ pub const the_levels = blk: {
             \\  ; b#
             \\######
         ),
-        compileLevel("Blob and other enemies", .{},
+        compileLevel("Blob and orcs", .{},
             \\#######
             \\  + o;#
             \\_ + o +
@@ -206,7 +206,7 @@ pub const the_levels = blk: {
             \\      #
             \\#######
         ),
-        compileLevel("Blob and incinvible enemies", .{},
+        compileLevel("Blob and turtles", .{},
             \\#######
             \\  + t;#
             \\_ + t +
@@ -294,19 +294,6 @@ pub const the_levels = blk: {
             \\#########
         ),
 
-        compileLevel("Not for you", .{ .traps = &[_]Wall{
-            .polymorph_trap_rhino_west,
-            .polymorph_trap_rhino_east,
-        } },
-            \\######
-            \\b ^^ #
-            \\_    +
-            \\     #
-            \\     #
-            \\;;;;;#
-            \\######
-        ),
-
         compileLevel("Turtles can't kick", .{ .traps = &[_]Wall{
             .polymorph_trap_blob_west,
             .polymorph_trap_blob_east,
@@ -330,6 +317,20 @@ pub const the_levels = blk: {
             \\^ +ttt+ ###
             \\^ +;;;+ ###
             \\###########
+        ),
+
+        compileLevel("Don't kick the blob", .{ .traps = &[_]Wall{
+            .polymorph_trap_rhino_west,
+            .polymorph_trap_rhino_east,
+        } },
+            \\#######
+            \\^^    #
+            \\      +
+            \\  _k  #
+            \\  b   #
+            \\      #
+            \\      #
+            \\#######
         ),
 
         compileLevel("-_-", .{},
