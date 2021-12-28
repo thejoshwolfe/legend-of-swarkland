@@ -66,16 +66,22 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                     .act => |action| {
                         if (!you_are_alive) {
                             // no. you're are dead.
+                            core.debug.warning.print("Main player attempted action while dead!", .{});
                             try main_player_queues.enqueueResponse(Response{ .reject_request = request });
                             continue :retryRead;
                         }
                         const individual = game_state.individuals.get(main_player_id).?;
-                        validateAction(individual.species, individual.abs_position, action) catch |err| @panic(@errorName(err));
+                        validateAction(individual.species, individual.abs_position, action) catch |err| {
+                            core.debug.warning.print("Main player attempted invalid action: {s}", .{@errorName(err)});
+                            try main_player_queues.enqueueResponse(Response{ .reject_request = request });
+                            continue :retryRead;
+                        };
                         try actions.putNoClobber(main_player_id, action);
                     },
                     .rewind => {
                         if (history.len == 0) {
                             // What do you want me to do, send you back to the main menu?
+                            core.debug.warning.print("Main player attempted to undo the beginning of the game!", .{});
                             try main_player_queues.enqueueResponse(Response{ .reject_request = request });
                             continue :retryRead;
                         }
