@@ -122,11 +122,15 @@ const RunningState = struct {
     total_journey_offset: Coord = Coord{ .x = 0, .y = 0 },
 
     // tutorial state should *not* reset through undo.
-
-    /// 0, 1, infinity
+    // these values cap out at small values, because we only use them for showing/hiding tutorials.
     kicks_performed: u2 = 0,
     observed_kangaroo_death: bool = false,
     charge_performed: bool = false,
+    moves_performed: u2 = 0,
+    attacks_performed: u2 = 0,
+    performed_wait: bool = false,
+    consecutive_undos: u3 = 0,
+    performed_restart: bool = false,
 
     starting_level: usize = 0,
 };
@@ -168,17 +172,28 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             state.client_state = happening.frames[happening.frames.len - 1];
 
                             // Update tutorial data.
+                            state.consecutive_undos = 0;
                             for (happening.frames) |frame| {
                                 for (frame.others) |other| {
                                     if (other.activity == .death and other.species == .kangaroo) {
                                         state.observed_kangaroo_death = true;
                                     }
                                 }
-                                if (frame.self.activity == .kick) {
-                                    state.kicks_performed +|= 1;
-                                }
-                                if (frame.self.activity == .movement and core.geometry.isScaledCardinalDirection(frame.self.activity.movement, 2)) {
-                                    state.charge_performed = true;
+                                switch (frame.self.activity) {
+                                    .kick => {
+                                        state.kicks_performed +|= 1;
+                                    },
+                                    .movement => |delta| {
+                                        if (core.geometry.isScaledCardinalDirection(delta, 2)) {
+                                            state.charge_performed = true;
+                                        } else {
+                                            state.moves_performed +|= 1;
+                                        }
+                                    },
+                                    .attack => {
+                                        state.attacks_performed +|= 1;
+                                    },
+                                    else => {},
                                 }
                             }
 
@@ -298,10 +313,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                             state.input_prompt = .none;
                                         } else {
                                             try state.client.rewind();
+                                            state.consecutive_undos +|= 1;
                                         }
                                     },
                                     .spacebar => {
                                         try state.client.act(.wait);
+                                        state.performed_wait = true;
                                     },
                                     .escape => {
                                         state.input_prompt = .none;
@@ -310,6 +327,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .restart => {
                                         try state.client.restartLevel();
                                         state.input_prompt = .none;
+                                        state.performed_restart = true;
                                     },
                                     .quit => {
                                         state.client.stopEngine();
@@ -578,15 +596,23 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;
                 if (state.animations != null and state.animations.?.turns > 10) {
-                    maybe_tutorial_text = "use Escape to skip animations.";
+                    maybe_tutorial_text = "Use Escape to skip animations.";
                 } else if (frame.self.activity == .death) {
-                    maybe_tutorial_text = "you died. use Backspace to undo.";
+                    maybe_tutorial_text = "You died. Use Backspace to undo.";
+                } else if (state.consecutive_undos >= 6 and !state.performed_restart) {
+                    maybe_tutorial_text = "Press R to restart the current level.";
                 } else if (frame.completed_levels == the_levels.len - 1) {
-                    maybe_tutorial_text = "you are win. use Ctrl+R to quit.";
-                } else if (state.observed_kangaroo_death and state.kicks_performed < 2) {
-                    maybe_tutorial_text = "You learned to kick! Use K+Arrows.";
+                    maybe_tutorial_text = "You're are win. Use Ctrl+R to quit.";
+                } else if (state.observed_kangaroo_death and state.kicks_performed < 2 and canKick(frame.self.species)) {
+                    maybe_tutorial_text = "You learned to kick! Use K then a direction.";
                 } else if (frame.self.species == .rhino and !state.charge_performed) {
                     maybe_tutorial_text = "Press C to charge.";
+                } else if (state.moves_performed < 2) {
+                    maybe_tutorial_text = "Use Arrow Keys to move.";
+                } else if (state.attacks_performed < 2) {
+                    maybe_tutorial_text = "Press F then a direction to attack.";
+                } else if (!state.performed_wait and frame.self.status_conditions & core.protocol.StatusCondition_digesting != 0) {
+                    maybe_tutorial_text = "Use Spacebar to wait.";
                 }
                 if (maybe_tutorial_text) |tutorial_text| {
                     // gentle up/down bob
