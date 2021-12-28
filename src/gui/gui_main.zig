@@ -248,6 +248,18 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .down => {
                                         menu_state.moveDown(1);
                                     },
+                                    .page_up => {
+                                        menu_state.moveUp(5);
+                                    },
+                                    .page_down => {
+                                        menu_state.moveDown(5);
+                                    },
+                                    .home => {
+                                        menu_state.cursor_position = 0;
+                                    },
+                                    .end => {
+                                        menu_state.cursor_position = menu_state.entry_count -| 1;
+                                    },
                                     .enter => {
                                         menu_state.enter();
                                     },
@@ -384,6 +396,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text("Menu Controls:");
                 menu_renderer.text(" Arrow keys + Enter");
                 menu_renderer.text(" ");
+                menu_renderer.text("Display Size: 712x512");
+                menu_renderer.text(" (Just resize the window)");
+                menu_renderer.text(" ");
                 menu_renderer.text(" ");
                 menu_renderer.text("version: " ++ textures.version_string);
             },
@@ -412,6 +427,14 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         menu_renderer.text("---");
                     }
                 }
+
+                menu_renderer.seek(448, 32);
+                menu_renderer.text("Menu Controls:");
+                menu_renderer.text(" Arrow keys");
+                menu_renderer.text(" Ctrl+Arrows");
+                menu_renderer.text(" PageUp/PageDown");
+                menu_renderer.text(" Home/End");
+                menu_renderer.text(" Enter/Escape");
             },
 
             .running => |*state| blk: {
