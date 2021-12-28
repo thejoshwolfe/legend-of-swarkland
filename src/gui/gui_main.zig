@@ -141,6 +141,23 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     var inputs_considered_harmful = true;
 
     var save_file = SaveFile.load();
+    var save_file_text_lines = ArrayList([]const u8).init(allocator);
+    {
+        const save_file_abs_path = try std.fs.path.join(allocator, &[_][]const u8{
+            try std.fs.cwd().realpathAlloc(allocator, "."),
+            SaveFile.filename,
+        });
+        const text_wrap_width = @divTrunc(logical_window_size.w - 64, 12);
+        var path_remaining = save_file_abs_path;
+        while (path_remaining.len > 0) {
+            if (path_remaining.len <= text_wrap_width) {
+                try save_file_text_lines.append(try std.mem.concat(allocator, u8, &[_][]const u8{ " ", path_remaining }));
+                break;
+            }
+            try save_file_text_lines.append(try std.mem.concat(allocator, u8, &[_][]const u8{ " ", path_remaining[0..text_wrap_width] }));
+            path_remaining = path_remaining[text_wrap_width..];
+        }
+    }
 
     var game_state = mainMenuState(&save_file);
     defer switch (game_state) {
@@ -405,6 +422,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" ");
                 menu_renderer.text("Display Size: 712x512");
                 menu_renderer.text(" (Just resize the window)");
+                menu_renderer.text(" ");
+                menu_renderer.text("Save file path:");
+                for (save_file_text_lines.items) |line| {
+                    menu_renderer.text(line);
+                }
                 menu_renderer.text(" ");
                 menu_renderer.text(" ");
                 menu_renderer.text("version: " ++ textures.version_string);
