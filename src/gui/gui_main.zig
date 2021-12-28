@@ -140,13 +140,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     var input_engine = InputEngine.init();
     var inputs_considered_harmful = true;
 
-    var game_state = GameState{ .main_menu = .{} };
+    var save_file = SaveFile.load();
+
+    var game_state = mainMenuState(&save_file);
     defer switch (game_state) {
         .running => |*state| state.client.stopEngine(),
         else => {},
     };
-
-    var save_file = SaveFile.load();
 
     main_loop: while (true) {
         // TODO: use better source of time (that doesn't crash after running for a month)
@@ -290,7 +290,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         menu_state.enter();
                                     },
                                     .escape => {
-                                        game_state = GameState{ .main_menu = .{} };
+                                        game_state = mainMenuState(&save_file);
                                         continue :main_loop;
                                     },
                                     else => {},
@@ -343,7 +343,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
                                     .quit => {
                                         state.client.stopEngine();
-                                        game_state = GameState{ .main_menu = .{} };
+                                        game_state = mainMenuState(&save_file);
                                         continue :main_loop;
                                     },
                                     .beat_level => {
@@ -388,7 +388,14 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     continue :main_loop;
                 }
                 if (menu_renderer.button("Level Select")) {
-                    game_state = GameState{ .level_select = .{} };
+                    const button_count = if (save_file.completed_levels == the_levels.len - 1)
+                        save_file.completed_levels
+                    else
+                        save_file.completed_levels + 1;
+                    game_state = GameState{ .level_select = .{
+                        .entry_count = button_count,
+                        .cursor_position = button_count - 1,
+                    } };
                     continue :main_loop;
                 }
 
@@ -406,6 +413,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             .level_select => |*menu_state| {
                 var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.dagger);
                 menu_renderer.seek(32, 32);
+                menu_renderer.marginBottom(3);
 
                 for (the_levels[0 .. the_levels.len - 1]) |level, i| {
                     if (i < save_file.completed_levels) {
@@ -678,6 +686,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         sdl.c.SDL_Delay(delay_millis);
         inputs_considered_harmful = false;
     }
+}
+
+fn mainMenuState(save_file: *SaveFile) GameState {
+    return GameState{ .main_menu = .{
+        .entry_count = 2,
+        .cursor_position = if (save_file.completed_levels == 0) 0 else 1,
+    } };
 }
 
 fn startGame(game_state: *GameState, levels_to_skip: usize) !void {
