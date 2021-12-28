@@ -219,7 +219,12 @@ pub const GameEngine = struct {
                                 continue;
                             }
                         } else {
-                            // No inertia. Can't be kicked.
+                            // No inertia. Instead you get sucked in!
+                            if (try intended_moves.fetchPut(id, kick_direction)) |_| {
+                                // kicked multiple times at once!
+                                _ = try kicked_too_much.put(id, {});
+                            }
+                            continue;
                         }
                         if (try intended_moves.fetchPut(other_id, kick_direction)) |_| {
                             // kicked multiple times at once!
