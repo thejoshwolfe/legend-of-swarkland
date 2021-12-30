@@ -1118,12 +1118,13 @@ pub const GameEngine = struct {
         activities: Activities,
     ) !PerceivedFrame {
         const actual_me = game_state.individuals.get(my_id).?;
-        const your_abs_position = if (maybe_current_positions) |current_positions|
+        const my_abs_position = if (maybe_current_positions) |current_positions|
             current_positions.get(my_id).?
         else
             actual_me.abs_position;
-        const your_coord = getHeadPosition(your_abs_position);
-        var yourself: ?PerceivedThing = null;
+        const my_head_coord = getHeadPosition(my_abs_position);
+
+        var perceived_self: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
         const view_distance = getViewDistance(actual_me.species);
 
@@ -1185,13 +1186,13 @@ pub const GameEngine = struct {
             var rel_position: ThingPosition = undefined;
             switch (abs_position) {
                 .small => |coord| {
-                    rel_position = .{ .small = coord.minus(your_coord) };
+                    rel_position = .{ .small = coord.minus(my_head_coord) };
                 },
                 .large => |coords| {
                     rel_position = .{
                         .large = .{
-                            coords[0].minus(your_coord),
-                            coords[1].minus(your_coord),
+                            coords[0].minus(my_head_coord),
+                            coords[1].minus(my_head_coord),
                         },
                     };
                 },
@@ -1230,7 +1231,7 @@ pub const GameEngine = struct {
                 .activity = activity,
             };
             if (id == my_id) {
-                yourself = thing;
+                perceived_self = thing;
             } else {
                 try others.append(thing);
             }
@@ -1262,7 +1263,7 @@ pub const GameEngine = struct {
             .rel_position = view_position,
             .matrix = try Terrain.initFill(self.allocator, @intCast(u16, view_size.x), @intCast(u16, view_size.y), oob_terrain),
         };
-        const view_origin = your_coord.plus(view_position);
+        const view_origin = my_head_coord.plus(view_position);
         var cursor = Coord{ .x = undefined, .y = 0 };
         while (cursor.y < view_size.y) : (cursor.y += 1) {
             cursor.x = 0;
@@ -1271,7 +1272,7 @@ pub const GameEngine = struct {
                 var seen_cell: TerrainSpace = if (game_state.terrain.getCoord(cursor_abs_coord)) |cell| cell else oob_terrain;
                 if (actual_me.species == .blob) {
                     // blobs are blind.
-                    if (seen_cell.floor == .lava and cursor_abs_coord.equals(your_coord)) {
+                    if (seen_cell.floor == .lava and cursor_abs_coord.equals(my_head_coord)) {
                         // Blobs can see lava if they're right on top of it. Also RIP.
                     } else {
                         seen_cell = if (isOpenSpace(seen_cell.wall))
@@ -1297,28 +1298,24 @@ pub const GameEngine = struct {
             }
         }
 
-        var your_new_head_coord = your_coord;
-        switch (yourself.?.activity) {
+        var my_new_head_coord = my_head_coord;
+        switch (perceived_self.?.activity) {
             .movement, .growth => |move_delta| {
                 // move your body, or grow your head into another square.
-                your_new_head_coord = your_new_head_coord.plus(move_delta);
+                my_new_head_coord = my_new_head_coord.plus(move_delta);
             },
             .shrink => |index| {
-                if (index != 0) {
-                    // move your head back into your butt.
-                    const position_delta = your_abs_position.large[0].minus(your_abs_position.large[1]);
-                    your_new_head_coord = your_new_head_coord.minus(position_delta);
-                }
+                my_new_head_coord = my_abs_position.large[index];
             },
             else => {},
         }
 
         return PerceivedFrame{
-            .self = yourself.?,
+            .self = perceived_self.?,
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
             .completed_levels = game_state.level_number,
-            .movement = your_new_head_coord.minus(your_coord), // sometimes the game server overrides this.
+            .movement = my_new_head_coord.minus(my_head_coord), // sometimes the game server overrides this.
         };
     }
 };

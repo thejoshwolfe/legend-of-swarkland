@@ -371,7 +371,7 @@ const Options = struct {
 const Level = struct {
     width: u16,
     height: u16,
-    terrain: Terrain,
+    terrain: []const TerrainSpace,
     individuals: []const Individual,
     name: []const u8,
 };
@@ -379,11 +379,11 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
     // measure dimensions.
     const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
     const height = @intCast(u16, @divExact(source.len + 1, width + 1));
-    var terrain_space = [_]TerrainSpace{oob_terrain} ** (width * height);
+    var terrain = [_]TerrainSpace{oob_terrain} ** (width * height);
     comptime var level = Level{
         .width = width,
         .height = height,
-        .terrain = Terrain.initData(width, height, &terrain_space),
+        .terrain = &terrain,
         .individuals = &[_]Individual{},
         .name = name,
     };
@@ -396,70 +396,71 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
     while (y < height) : (y += 1) {
         comptime var x: u16 = 0;
         while (x < width) : (x += 1) {
+            const index = y * width + x;
             switch (source[cursor]) {
                 '#' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                    terrain[index] = TerrainSpace{
                         .floor = .unknown,
                         .wall = .stone,
                     };
                 },
                 '+' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                    terrain[index] = TerrainSpace{
                         .floor = .unknown,
                         .wall = .dirt,
                     };
                 },
                 ' ' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                    terrain[index] = TerrainSpace{
                         .floor = .dirt,
                         .wall = .air,
                     };
                 },
                 ';' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                    terrain[index] = TerrainSpace{
                         .floor = .lava,
                         .wall = .air,
                     };
                 },
                 '_' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                    terrain[index] = TerrainSpace{
                         .floor = .hatch,
                         .wall = .air,
                     };
                 },
                 '^' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{
+                    terrain[index] = TerrainSpace{
                         .floor = .dirt,
                         .wall = options.traps[traps_index],
                     };
                     traps_index += 1;
                 },
                 'o' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .orc)};
                 },
                 'b' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), Species{ .blob = .small_blob })};
                 },
                 'C' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .centaur)};
                 },
                 'k' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .kangaroo)};
                 },
                 't' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .turtle)};
                 },
                 'h' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .human)};
                 },
                 'r' => {
-                    level.terrain.atUnchecked(x, y).* = TerrainSpace{ .floor = .dirt, .wall = .air };
+                    terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
                         makeCoord(x, y),
                         makeCoord(x, y).minus(core.geometry.cardinalIndexToDirection(options.facing_directions[facing_directions_index])),
@@ -496,7 +497,7 @@ fn buildTheTerrain(allocator: Allocator) !Terrain {
 
     var level_x: u16 = 0;
     for (the_levels) |level| {
-        terrain.copy(level.terrain, level_x, 0, 0, 0, level.terrain.width, level.terrain.height);
+        terrain.copy(level.terrain, level.width, level.height, level_x, 0, 0, 0, level.width, level.height);
         level_x += level.width;
     }
 
