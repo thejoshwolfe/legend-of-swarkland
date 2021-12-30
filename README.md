@@ -219,12 +219,12 @@ The only reason why the monsters want to attack you instead of each other,
 is that the AIs are programmed to attack humans and not any other species.
 Note that the AIs are *not* part of the game engine, but instead are managed by the facilitator.
 
-One consequence of this fair design that already exists in version 5.0.0 is that
-the game will only unlock the stairs to the next level when all individuals but one have been killed,
-but that last standing individual doesn't have to be you.
-If you get yourself killed while the last living enemy is already standing on the stairs,
-the game will advance that enemy to the next level.
-As what I would call an emergent easter egg, you can even manage to see the "you win" screen with a lone enemy standing triumphant
+One consequence of this fair design that already existed in version 5.0.0 is that
+the game would only unlock the stairs to the next level when all individuals but one had been killed,
+but that last standing individual didn't have to be you.
+If you got yourself killed while the last living enemy was already standing on the stairs,
+the game would advance that enemy to the next level.
+In the final level, you could even manage to see the "you win" screen with a lone enemy standing triumphant
 over your (not shown) dead corpse.
 
 Legend of Swarkland's rigorous dedication to fairness will have several consequences on the game design.
@@ -371,11 +371,35 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Roadmap
 
-### 5.6.0
+### 5.7.0
 
- * items?
+ * line of sight
+ * items
+ * randomly generated dungeon
 
 ## Version History
+
+### 5.6.0
+
+ * bring back the puzzle levels. delete the randomly generated room.
+   * the old puzzles are back, but now with the new wounded+limping mechanics.
+   * add several new puzzles with the new mechanics introduced in this version.
+ * save file that remembers which puzzle level you're on. main menu prompts to to resume from the last unlocked puzzle.
+ * press `r` to restart the current puzzle.
+ * new enemy: blob
+   * blobs move by stretching and contracting like inch worms.
+   * blob is nearly invincible: immune to attack damage, trample damage, and kicking.
+   * blobs can occupy the same space as other individuals.
+   * blobs grapple individuals that overlap with it, and can digest and kill individuals.
+   * digesting an individual turns a blob into a large blob, which can digest even while stretched out.
+   * blobs have limited vision.
+   * kicking a blob sucks you into it.
+ * new trap: wide polymorph trap
+   * polymorph traps only affect individuals that are the right size.
+ * restricted which species can kick.
+ * animations are less jerky.
+   * multiple animation frames will be rendered at the same time as long as an individual isn't doing two different things in the two frames.
+   * if you input actions too fast, the lagging animations will be sped up rather than skipped.
 
 ### 5.5.0
 
