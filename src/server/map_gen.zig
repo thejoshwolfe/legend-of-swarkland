@@ -489,15 +489,11 @@ fn buildTheTerrain(allocator: Allocator) !Terrain {
         height = std.math.max(height, level.height);
     }
 
-    const border_wall = TerrainSpace{
-        .floor = .unknown,
-        .wall = .stone,
-    };
-    var terrain = try Terrain.initFill(allocator, width, height, border_wall);
+    var terrain = Terrain.init(allocator);
 
     var level_x: u16 = 0;
     for (the_levels) |level| {
-        terrain.copy(level.terrain, level.width, level.height, level_x, 0, 0, 0, level.width, level.height);
+        try terrain.copyFromSlice(level.terrain, level.width, level.height, level_x, 0, 0, 0, level.width, level.height);
         level_x += level.width;
     }
 

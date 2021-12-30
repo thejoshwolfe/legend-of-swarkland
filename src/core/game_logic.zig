@@ -8,6 +8,8 @@ const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
 const Wall = core.protocol.Wall;
 const Action = core.protocol.Action;
+const TerrainSpace = core.protocol.TerrainSpace;
+const TerrainChunk = core.protocol.TerrainChunk;
 
 const assert = @import("std").debug.assert;
 
@@ -205,4 +207,17 @@ pub fn offsetPosition(position: ThingPosition, delta: Coord) ThingPosition {
             coords[1].plus(delta),
         } },
     };
+}
+
+pub fn terrainAt(terrain: TerrainChunk, coord: Coord) ?TerrainSpace {
+    const inner_coord = coord.minus(terrain.rel_position);
+    return terrainAtInner(terrain, inner_coord);
+}
+pub fn terrainAtInner(terrain: TerrainChunk, inner_coord: Coord) ?TerrainSpace {
+    if (!(0 <= inner_coord.x and inner_coord.x < terrain.width and //
+        0 <= inner_coord.y and inner_coord.y < terrain.height))
+    {
+        return null;
+    }
+    return terrain.matrix[@intCast(usize, inner_coord.y * terrain.width + inner_coord.x)];
 }

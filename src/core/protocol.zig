@@ -2,7 +2,6 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
-const Matrix = core.matrix.Matrix;
 
 pub const Floor = enum {
     unknown,
@@ -49,7 +48,9 @@ pub const Species = union(enum) {
 
 pub const TerrainChunk = struct {
     rel_position: Coord,
-    matrix: Matrix(TerrainSpace),
+    width: u16,
+    height: u16,
+    matrix: []TerrainSpace,
 };
 pub const TerrainSpace = struct {
     floor: Floor,

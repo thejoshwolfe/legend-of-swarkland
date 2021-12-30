@@ -29,6 +29,7 @@ const getHeadPosition = core.game_logic.getHeadPosition;
 const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
+const terrainAtInner = core.game_logic.terrainAtInner;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
 
@@ -501,12 +502,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 // render terrain
                 {
                     const terrain_offset = frame.terrain.rel_position.scaled(32).plus(camera_offset);
-                    const terrain = frame.terrain.matrix;
+                    const terrain = frame.terrain;
                     var cursor = makeCoord(undefined, 0);
                     while (cursor.y <= @as(i32, terrain.height)) : (cursor.y += 1) {
                         cursor.x = 0;
                         while (cursor.x <= @as(i32, terrain.width)) : (cursor.x += 1) {
-                            if (terrain.getCoord(cursor)) |cell| {
+                            if (terrainAtInner(terrain, cursor)) |cell| {
                                 const display_position = cursor.scaled(32).plus(terrain_offset);
                                 const aesthetic_coord = cursor.plus(frame.terrain.rel_position).plus(animated_aesthetic_offset);
                                 const floor_texture = switch (cell.floor) {

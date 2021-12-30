@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
+const Rect = core.geometry.Rect;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
 const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
@@ -727,57 +728,64 @@ pub const GameEngine = struct {
                 }
             }
         }
-        if (open_the_way and game_state.level_number + 1 < the_levels.len) {
-            // open the way
-            var x: u31 = 0;
-            find_the_doors: while (x < game_state.terrain.width) : (x += 1) {
-                var y: u31 = 0;
-                while (y < game_state.terrain.height) : (y += 1) {
-                    const terrain_space = game_state.terrain.atUnchecked(x, y);
-                    if (terrain_space.wall == .dirt) {
-                        const coord = makeCoord(x, y);
-                        try state_changes.append(StateDiff{
-                            .terrain_update = StateDiff.TerrainDiff{
-                                .at = coord,
-                                .from = game_state.terrain.getCoord(coord).?,
-                                .to = TerrainSpace{
-                                    .floor = .marble,
-                                    .wall = .air,
+        if (open_the_way) {
+            if (getLevelTransitionBoundingBox(game_state.level_number)) |level_transition_bounding_box| {
+                // open the way
+                var x: i32 = level_transition_bounding_box.x;
+                find_the_doors: while (x < level_transition_bounding_box.x + level_transition_bounding_box.width) : (x += 1) {
+                    var y: i32 = level_transition_bounding_box.y;
+                    while (y < level_transition_bounding_box.y + level_transition_bounding_box.height) : (y += 1) {
+                        const terrain_space = game_state.terrain.get(x, y);
+                        if (terrain_space.wall == .dirt) {
+                            try state_changes.append(StateDiff{
+                                .terrain_update = StateDiff.TerrainDiff{
+                                    .at = makeCoord(x, y),
+                                    .from = terrain_space,
+                                    .to = TerrainSpace{
+                                        .floor = .marble,
+                                        .wall = .air,
+                                    },
                                 },
-                            },
-                        });
-                    } else if (terrain_space.floor == .hatch) {
-                        // only open doors until the next hatch
-                        break :find_the_doors;
+                            });
+                        } else if (terrain_space.floor == .hatch) {
+                            // only open doors until the next hatch
+                            break :find_the_doors;
+                        }
                     }
                 }
             }
         }
 
-        if (button_getting_pressed) |button_coord| {
+        if (button_getting_pressed) |button_coord| button_blk: {
             const new_level_number = blk: {
                 if (game_state.level_number + 1 < the_levels.len) {
                     try state_changes.append(StateDiff.transition_to_next_level);
                     break :blk game_state.level_number + 1;
                 } else {
-                    break :blk game_state.level_number;
+                    // Can't advance.
+                    break :button_blk;
                 }
             };
-
             // close any open paths
-            for (game_state.terrain.data) |terrain_space, i| {
-                if (terrain_space.floor == .marble) {
-                    const coord = game_state.terrain.indexToCoord(i);
-                    try state_changes.append(StateDiff{
-                        .terrain_update = StateDiff.TerrainDiff{
-                            .at = coord,
-                            .from = game_state.terrain.getCoord(coord).?,
-                            .to = TerrainSpace{
-                                .floor = .unknown,
-                                .wall = .stone,
-                            },
-                        },
-                    });
+            if (getLevelTransitionBoundingBox(game_state.level_number)) |level_transition_bounding_box| {
+                var x: i32 = level_transition_bounding_box.x;
+                while (x < level_transition_bounding_box.x + level_transition_bounding_box.width) : (x += 1) {
+                    var y: i32 = level_transition_bounding_box.y;
+                    while (y < level_transition_bounding_box.y + level_transition_bounding_box.height) : (y += 1) {
+                        const terrain_space = game_state.terrain.get(x, y);
+                        if (terrain_space.floor == .marble) {
+                            try state_changes.append(StateDiff{
+                                .terrain_update = StateDiff.TerrainDiff{
+                                    .at = makeCoord(x, y),
+                                    .from = terrain_space,
+                                    .to = TerrainSpace{
+                                        .floor = .unknown,
+                                        .wall = .stone,
+                                    },
+                                },
+                            });
+                        }
+                    }
                 }
             }
 
@@ -785,7 +793,7 @@ pub const GameEngine = struct {
             try state_changes.append(StateDiff{
                 .terrain_update = StateDiff.TerrainDiff{
                     .at = button_coord,
-                    .from = game_state.terrain.getCoord(button_coord).?,
+                    .from = game_state.terrain.getCoord(button_coord),
                     .to = TerrainSpace{
                         .floor = .dirt,
                         .wall = .air,
@@ -1261,7 +1269,9 @@ pub const GameEngine = struct {
         }
         var terrain_chunk = core.protocol.TerrainChunk{
             .rel_position = view_position,
-            .matrix = try Terrain.initFill(self.allocator, @intCast(u16, view_size.x), @intCast(u16, view_size.y), oob_terrain),
+            .width = @intCast(u16, view_size.x),
+            .height = @intCast(u16, view_size.y),
+            .matrix = try self.allocator.alloc(TerrainSpace, @intCast(usize, view_size.x * view_size.y)),
         };
         const view_origin = my_head_coord.plus(view_position);
         var cursor = Coord{ .x = undefined, .y = 0 };
@@ -1269,7 +1279,7 @@ pub const GameEngine = struct {
             cursor.x = 0;
             while (cursor.x < view_size.x) : (cursor.x += 1) {
                 const cursor_abs_coord = cursor.plus(view_origin);
-                var seen_cell: TerrainSpace = if (game_state.terrain.getCoord(cursor_abs_coord)) |cell| cell else oob_terrain;
+                var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor_abs_coord);
                 if (actual_me.species == .blob) {
                     // blobs are blind.
                     if (seen_cell.floor == .lava and cursor_abs_coord.equals(my_head_coord)) {
@@ -1294,7 +1304,7 @@ pub const GameEngine = struct {
                     },
                     else => {},
                 }
-                terrain_chunk.matrix.atCoord(cursor).?.* = seen_cell;
+                terrain_chunk.matrix[@intCast(usize, cursor.y * terrain_chunk.width + cursor.x)] = seen_cell;
             }
         }
 
@@ -1373,4 +1383,27 @@ fn cardinalIndexBitSetToCollisionWinnerIndex(cardinal_index_bit_set: u4) ?u2 {
         // 4-way collision
         0b1111 => return null,
     }
+}
+
+fn getLevelTransitionBoundingBox(current_level_number: usize) ?Rect {
+    if (current_level_number + 1 >= the_levels.len) return null;
+
+    var x: u16 = 0;
+    for (the_levels[0..current_level_number]) |level| {
+        x += level.width;
+    }
+    const width = //
+        the_levels[current_level_number].width + //
+        the_levels[current_level_number + 1].width;
+    const height = std.math.max(
+        the_levels[current_level_number].width,
+        the_levels[current_level_number + 1].width,
+    );
+
+    return Rect{
+        .x = x,
+        .y = 0,
+        .width = width,
+        .height = height,
+    };
 }

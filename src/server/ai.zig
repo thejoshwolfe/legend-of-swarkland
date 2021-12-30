@@ -16,6 +16,7 @@ const canCharge = core.game_logic.canCharge;
 const canMoveNormally = core.game_logic.canMoveNormally;
 const canGrowAndShrink = core.game_logic.canGrowAndShrink;
 const isFastMoveAligned = core.game_logic.isFastMoveAligned;
+const terrainAt = core.game_logic.terrainAt;
 
 const StateDiff = game_model.StateDiff;
 const HistoryList = std.TailQueue([]StateDiff);
@@ -93,7 +94,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             } else unreachable;
         } else {
             // We want to get closer.
-            if (last_frame.terrain.matrix.getCoord(delta_unit.minus(last_frame.terrain.rel_position))) |cell| {
+            if (terrainAt(last_frame.terrain, delta_unit)) |cell| {
                 if (cell.floor == .lava) {
                     // I'm scared of lava
                     core.debug.ai.print("waiting: lava in my way", .{});
@@ -137,7 +138,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         var flip_flop_counter: usize = 0;
         flip_flop_loop: while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
             const move_into_position = options[option_index];
-            if (last_frame.terrain.matrix.getCoord(move_into_position.minus(last_frame.terrain.rel_position))) |cell| {
+            if (terrainAt(last_frame.terrain, move_into_position)) |cell| {
                 if (cell.floor == .lava or !core.game_logic.isOpenSpace(cell.wall)) {
                     // Can't go that way.
                     option_index = 1 - option_index;
@@ -160,7 +161,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         // preemptive attack
         return Action{ .kick = options[option_index] };
     } else {
-        if (last_frame.terrain.matrix.getCoord(options[option_index].minus(last_frame.terrain.rel_position))) |cell| {
+        if (terrainAt(last_frame.terrain, options[option_index])) |cell| {
             if (cell.floor == .lava) {
                 // On second thought, let's not try this.
                 core.debug.ai.print("waiting: lava in my way (diagonal)", .{});
