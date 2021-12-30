@@ -1267,13 +1267,18 @@ pub const GameEngine = struct {
         while (cursor.y < view_size.y) : (cursor.y += 1) {
             cursor.x = 0;
             while (cursor.x < view_size.x) : (cursor.x += 1) {
-                var seen_cell: TerrainSpace = if (game_state.terrain.getCoord(cursor.plus(view_origin))) |cell| cell else oob_terrain;
+                const cursor_abs_coord = cursor.plus(view_origin);
+                var seen_cell: TerrainSpace = if (game_state.terrain.getCoord(cursor_abs_coord)) |cell| cell else oob_terrain;
                 if (actual_me.species == .blob) {
                     // blobs are blind.
-                    seen_cell = if (isOpenSpace(seen_cell.wall))
-                        TerrainSpace{ .floor = .unknown_floor, .wall = .air }
-                    else
-                        TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
+                    if (seen_cell.floor == .lava and cursor_abs_coord.equals(your_coord)) {
+                        // Blobs can see lava if they're right on top of it. Also RIP.
+                    } else {
+                        seen_cell = if (isOpenSpace(seen_cell.wall))
+                            TerrainSpace{ .floor = .unknown_floor, .wall = .air }
+                        else
+                            TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
+                    }
                 }
                 // Don't spoil trap behavior.
                 switch (seen_cell.wall) {
