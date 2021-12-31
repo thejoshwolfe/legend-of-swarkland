@@ -5,6 +5,7 @@ const ArrayList = std.ArrayList;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const Rect = core.geometry.Rect;
+const sign = core.geometry.sign;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
 const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
@@ -1168,11 +1169,7 @@ pub const GameEngine = struct {
         {
             var it = view_bounding_box.rowMajorIterator();
             while (it.next()) |cursor| {
-                const delta = cursor.minus(my_head_coord);
-                // TODO: this is the wrong algorithm.
-                const is_in_view = delta.x == 0 or delta.y == 0 or delta.x == delta.y or delta.x == -delta.y;
-                if (!is_in_view) continue;
-
+                if (!isClearLineOfSight(game_state.terrain, my_head_coord, cursor)) continue;
                 try in_view_matrix.putCoord(cursor, true);
 
                 var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor);
@@ -1400,4 +1397,38 @@ fn getLevelTransitionBoundingBox(current_level_number: usize) ?Rect {
         .width = width,
         .height = height,
     };
+}
+
+fn isClearLineOfSight(terrain: Terrain, a: Coord, b: Coord) bool {
+    return isClearLineOfSightOneSided(terrain, a, b) or isClearLineOfSightOneSided(terrain, b, a);
+}
+
+fn isClearLineOfSightOneSided(terrain: Terrain, a: Coord, b: Coord) bool {
+    const delta = b.minus(a);
+    const should_print = false;
+    if (should_print) core.debug.testing.print("los: {},{} => {},{}", .{ a.x, a.y, b.x, b.y });
+    const abs_delta = delta.abs();
+
+    if (abs_delta.x > abs_delta.y) {
+        // Iterate along the x axis.
+        const step_x = sign(delta.x);
+        var cursor_x = a.x + step_x;
+        while (cursor_x != b.x) : (cursor_x += step_x) {
+            const y = @divTrunc((cursor_x - a.x) * delta.y, delta.x) + a.y;
+            const is_open = isOpenSpace(terrain.get(cursor_x, y).wall);
+            if (should_print) core.debug.testing.print("x,y: {},{}: {}", .{ cursor_x, y, is_open });
+            if (!is_open) return false;
+        }
+    } else {
+        // Iterate along the y axis.
+        const step_y = sign(delta.y);
+        var cursor_y = a.y + step_y;
+        while (cursor_y != b.y) : (cursor_y += step_y) {
+            const x = @divTrunc((cursor_y - a.y) * delta.x, delta.y) + a.x;
+            const is_open = isOpenSpace(terrain.get(x, cursor_y).wall);
+            if (should_print) core.debug.testing.print("x,y: {},{}: {}", .{ x, cursor_y, is_open });
+            if (!is_open) return false;
+        }
+    }
+    return true;
 }
