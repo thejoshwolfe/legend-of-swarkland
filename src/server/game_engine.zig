@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
+const Rect = core.geometry.Rect;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
 const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
@@ -19,8 +20,10 @@ const ThingPosition = core.protocol.ThingPosition;
 const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
+const TerrainChunk = core.protocol.TerrainChunk;
 const StatusConditions = core.protocol.StatusConditions;
 
+const unseen_terrain = core.game_logic.unseen_terrain;
 const getViewDistance = core.game_logic.getViewDistance;
 const isOpenSpace = core.game_logic.isOpenSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
@@ -727,57 +730,64 @@ pub const GameEngine = struct {
                 }
             }
         }
-        if (open_the_way and game_state.level_number + 1 < the_levels.len) {
-            // open the way
-            var x: u31 = 0;
-            find_the_doors: while (x < game_state.terrain.width) : (x += 1) {
-                var y: u31 = 0;
-                while (y < game_state.terrain.height) : (y += 1) {
-                    const terrain_space = game_state.terrain.atUnchecked(x, y);
-                    if (terrain_space.wall == .dirt) {
-                        const coord = makeCoord(x, y);
-                        try state_changes.append(StateDiff{
-                            .terrain_update = StateDiff.TerrainDiff{
-                                .at = coord,
-                                .from = game_state.terrain.getCoord(coord).?,
-                                .to = TerrainSpace{
-                                    .floor = .marble,
-                                    .wall = .air,
+        if (open_the_way) {
+            if (getLevelTransitionBoundingBox(game_state.level_number)) |level_transition_bounding_box| {
+                // open the way
+                var x: i32 = level_transition_bounding_box.x;
+                find_the_doors: while (x < level_transition_bounding_box.x + level_transition_bounding_box.width) : (x += 1) {
+                    var y: i32 = level_transition_bounding_box.y;
+                    while (y < level_transition_bounding_box.y + level_transition_bounding_box.height) : (y += 1) {
+                        const terrain_space = game_state.terrain.get(x, y);
+                        if (terrain_space.wall == .dirt) {
+                            try state_changes.append(StateDiff{
+                                .terrain_update = StateDiff.TerrainDiff{
+                                    .at = makeCoord(x, y),
+                                    .from = terrain_space,
+                                    .to = TerrainSpace{
+                                        .floor = .marble,
+                                        .wall = .air,
+                                    },
                                 },
-                            },
-                        });
-                    } else if (terrain_space.floor == .hatch) {
-                        // only open doors until the next hatch
-                        break :find_the_doors;
+                            });
+                        } else if (terrain_space.floor == .hatch) {
+                            // only open doors until the next hatch
+                            break :find_the_doors;
+                        }
                     }
                 }
             }
         }
 
-        if (button_getting_pressed) |button_coord| {
+        if (button_getting_pressed) |button_coord| button_blk: {
             const new_level_number = blk: {
                 if (game_state.level_number + 1 < the_levels.len) {
                     try state_changes.append(StateDiff.transition_to_next_level);
                     break :blk game_state.level_number + 1;
                 } else {
-                    break :blk game_state.level_number;
+                    // Can't advance.
+                    break :button_blk;
                 }
             };
-
             // close any open paths
-            for (game_state.terrain.data) |terrain_space, i| {
-                if (terrain_space.floor == .marble) {
-                    const coord = game_state.terrain.indexToCoord(i);
-                    try state_changes.append(StateDiff{
-                        .terrain_update = StateDiff.TerrainDiff{
-                            .at = coord,
-                            .from = game_state.terrain.getCoord(coord).?,
-                            .to = TerrainSpace{
-                                .floor = .unknown,
-                                .wall = .stone,
-                            },
-                        },
-                    });
+            if (getLevelTransitionBoundingBox(game_state.level_number)) |level_transition_bounding_box| {
+                var x: i32 = level_transition_bounding_box.x;
+                while (x < level_transition_bounding_box.x + level_transition_bounding_box.width) : (x += 1) {
+                    var y: i32 = level_transition_bounding_box.y;
+                    while (y < level_transition_bounding_box.y + level_transition_bounding_box.height) : (y += 1) {
+                        const terrain_space = game_state.terrain.get(x, y);
+                        if (terrain_space.floor == .marble) {
+                            try state_changes.append(StateDiff{
+                                .terrain_update = StateDiff.TerrainDiff{
+                                    .at = makeCoord(x, y),
+                                    .from = terrain_space,
+                                    .to = TerrainSpace{
+                                        .floor = .unknown,
+                                        .wall = .stone,
+                                    },
+                                },
+                            });
+                        }
+                    }
                 }
             }
 
@@ -785,7 +795,7 @@ pub const GameEngine = struct {
             try state_changes.append(StateDiff{
                 .terrain_update = StateDiff.TerrainDiff{
                     .at = button_coord,
-                    .from = game_state.terrain.getCoord(button_coord).?,
+                    .from = game_state.terrain.getCoord(button_coord),
                     .to = TerrainSpace{
                         .floor = .dirt,
                         .wall = .air,
@@ -1118,12 +1128,14 @@ pub const GameEngine = struct {
         activities: Activities,
     ) !PerceivedFrame {
         const actual_me = game_state.individuals.get(my_id).?;
-        const your_abs_position = if (maybe_current_positions) |current_positions|
+        const perceived_origin = actual_me.perceived_origin;
+        const my_abs_position = if (maybe_current_positions) |current_positions|
             current_positions.get(my_id).?
         else
             actual_me.abs_position;
-        const your_coord = getHeadPosition(your_abs_position);
-        var yourself: ?PerceivedThing = null;
+        const my_head_coord = getHeadPosition(my_abs_position);
+
+        var perceived_self: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
         const view_distance = getViewDistance(actual_me.species);
 
@@ -1178,28 +1190,14 @@ pub const GameEngine = struct {
                 .static_state => PerceivedActivity{ .none = {} },
             };
 
-            var abs_position = if (maybe_current_positions) |current_positions|
+            const abs_position = if (maybe_current_positions) |current_positions|
                 current_positions.get(id).?
             else
                 game_state.individuals.get(id).?.abs_position;
-            var rel_position: ThingPosition = undefined;
-            switch (abs_position) {
-                .small => |coord| {
-                    rel_position = .{ .small = coord.minus(your_coord) };
-                },
-                .large => |coords| {
-                    rel_position = .{
-                        .large = .{
-                            coords[0].minus(your_coord),
-                            coords[1].minus(your_coord),
-                        },
-                    };
-                },
-            }
             // if any position is within view, we can see all of it.
             var within_view = false;
-            for (getAllPositions(&rel_position)) |delta| {
-                if (delta.magnitudeDiag() <= view_distance) {
+            for (getAllPositions(&abs_position)) |coord| {
+                if (coord.minus(my_head_coord).magnitudeDiag() <= view_distance) {
                     within_view = true;
                     break;
                 }
@@ -1222,56 +1220,58 @@ pub const GameEngine = struct {
             }
             if (!within_view) continue;
             const actual_thing = game_state.individuals.get(id).?;
+            const rel_position = offsetPosition(abs_position, perceived_origin.scaled(-1));
             const thing = PerceivedThing{
                 .species = actual_thing.species,
-                .rel_position = rel_position,
+                .position = rel_position,
                 .status_conditions = actual_thing.status_conditions,
                 .has_shield = actual_thing.has_shield,
                 .activity = activity,
             };
             if (id == my_id) {
-                yourself = thing;
+                perceived_self = thing;
             } else {
                 try others.append(thing);
             }
         }
 
-        var view_position = makeCoord(-view_distance, -view_distance);
-        const view_side_length = view_distance * 2 + 1;
-        var view_size = makeCoord(view_side_length, view_side_length);
+        var seen_terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, unseen_terrain).init(self.allocator);
+
+        var view_bounding_box = Rect{
+            .x = my_head_coord.x - view_distance,
+            .y = my_head_coord.y - view_distance,
+            .width = view_distance * 2 + 1,
+            .height = view_distance * 2 + 1,
+        };
         if (actual_me.species == .blob) {
             switch (actual_me.abs_position) {
                 .large => |data| {
                     // Blobs can also see with their butts.
+                    // Grow the bounding box by 1 in the tail direction.
                     if (data[1].x < data[0].x) {
-                        view_position.x -= 1;
-                        view_size.x += 1;
+                        view_bounding_box.x -= 1;
+                        view_bounding_box.width += 1;
                     } else if (data[1].x > data[0].x) {
-                        view_size.x += 1;
+                        view_bounding_box.width += 1;
                     } else if (data[1].y < data[0].y) {
-                        view_position.y -= 1;
-                        view_size.y += 1;
+                        view_bounding_box.y -= 1;
+                        view_bounding_box.height += 1;
                     } else if (data[1].y > data[0].y) {
-                        view_size.y += 1;
+                        view_bounding_box.height += 1;
                     } else unreachable;
                 },
                 else => {},
             }
         }
-        var terrain_chunk = core.protocol.TerrainChunk{
-            .rel_position = view_position,
-            .matrix = try Terrain.initFill(self.allocator, @intCast(u16, view_size.x), @intCast(u16, view_size.y), oob_terrain),
-        };
-        const view_origin = your_coord.plus(view_position);
-        var cursor = Coord{ .x = undefined, .y = 0 };
-        while (cursor.y < view_size.y) : (cursor.y += 1) {
-            cursor.x = 0;
-            while (cursor.x < view_size.x) : (cursor.x += 1) {
-                const cursor_abs_coord = cursor.plus(view_origin);
-                var seen_cell: TerrainSpace = if (game_state.terrain.getCoord(cursor_abs_coord)) |cell| cell else oob_terrain;
+
+        var cursor = view_bounding_box.position();
+        while (cursor.y < view_bounding_box.bottom()) : (cursor.y += 1) {
+            cursor.x = view_bounding_box.x;
+            while (cursor.x < view_bounding_box.right()) : (cursor.x += 1) {
+                var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor);
                 if (actual_me.species == .blob) {
                     // blobs are blind.
-                    if (seen_cell.floor == .lava and cursor_abs_coord.equals(your_coord)) {
+                    if (seen_cell.floor == .lava and cursor.equals(my_head_coord)) {
                         // Blobs can see lava if they're right on top of it. Also RIP.
                     } else {
                         seen_cell = if (isOpenSpace(seen_cell.wall))
@@ -1293,33 +1293,42 @@ pub const GameEngine = struct {
                     },
                     else => {},
                 }
-                terrain_chunk.matrix.atCoord(cursor).?.* = seen_cell;
+                try seen_terrain.putCoord(cursor, seen_cell);
             }
         }
 
-        var your_new_head_coord = your_coord;
-        switch (yourself.?.activity) {
-            .movement, .growth => |move_delta| {
-                // move your body, or grow your head into another square.
-                your_new_head_coord = your_new_head_coord.plus(move_delta);
-            },
-            .shrink => |index| {
-                if (index != 0) {
-                    // move your head back into your butt.
-                    const position_delta = your_abs_position.large[0].minus(your_abs_position.large[1]);
-                    your_new_head_coord = your_new_head_coord.minus(position_delta);
-                }
-            },
-            else => {},
-        }
+        var terrain_chunk = try self.exportTerrain(seen_terrain);
+        terrain_chunk.position = terrain_chunk.position.minus(perceived_origin);
 
         return PerceivedFrame{
-            .self = yourself.?,
+            .self = perceived_self.?,
             .others = others.toOwnedSlice(),
             .terrain = terrain_chunk,
             .completed_levels = game_state.level_number,
-            .movement = your_new_head_coord.minus(your_coord), // sometimes the game server overrides this.
         };
+    }
+
+    fn exportTerrain(self: @This(), terrain: anytype) !TerrainChunk {
+        const width = @intCast(u16, terrain.metrics.max_x - terrain.metrics.min_x + 1);
+        const height = @intCast(u16, terrain.metrics.max_y - terrain.metrics.min_y + 1);
+        var terrain_chunk = core.protocol.TerrainChunk{
+            .position = makeCoord(terrain.metrics.min_x, terrain.metrics.min_y),
+            .width = width,
+            .height = height,
+            .matrix = try self.allocator.alloc(TerrainSpace, width * height),
+        };
+
+        var y = terrain.metrics.min_y;
+        while (y <= terrain.metrics.max_y) : (y += 1) {
+            const inner_y = @intCast(u16, y - terrain.metrics.min_y);
+            var x = terrain.metrics.min_x;
+            while (x <= terrain.metrics.max_x) : (x += 1) {
+                const inner_x = @intCast(u16, x - terrain.metrics.min_x);
+                terrain_chunk.matrix[inner_y * width + inner_x] = terrain.get(x, y);
+            }
+        }
+
+        return terrain_chunk;
     }
 };
 
@@ -1376,4 +1385,27 @@ fn cardinalIndexBitSetToCollisionWinnerIndex(cardinal_index_bit_set: u4) ?u2 {
         // 4-way collision
         0b1111 => return null,
     }
+}
+
+fn getLevelTransitionBoundingBox(current_level_number: usize) ?Rect {
+    if (current_level_number + 1 >= the_levels.len) return null;
+
+    var x: u16 = 0;
+    for (the_levels[0..current_level_number]) |level| {
+        x += level.width;
+    }
+    const width = //
+        the_levels[current_level_number].width + //
+        the_levels[current_level_number + 1].width;
+    const height = std.math.max(
+        the_levels[current_level_number].width,
+        the_levels[current_level_number + 1].width,
+    );
+
+    return Rect{
+        .x = x,
+        .y = 0,
+        .width = width,
+        .height = height,
+    };
 }

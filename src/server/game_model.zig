@@ -23,15 +23,16 @@ pub fn CoordMap(comptime V: type) type {
     return std.AutoArrayHashMap(Coord, V);
 }
 
-pub const Terrain = core.matrix.Matrix(TerrainSpace);
 pub const oob_terrain = TerrainSpace{
     .floor = .unknown,
     .wall = .stone,
 };
+pub const Terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, oob_terrain);
 
 pub const Individual = struct {
     species: Species,
     abs_position: ThingPosition,
+    perceived_origin: Coord,
     status_conditions: StatusConditions = 0,
     has_shield: bool = false,
 
@@ -168,7 +169,7 @@ pub const GameState = struct {
                     individual.status_conditions = data.to;
                 },
                 .terrain_update => |data| {
-                    self.terrain.atCoord(data.at).?.* = data.to;
+                    try self.terrain.putCoord(data.at, data.to);
                 },
                 .transition_to_next_level => {
                     self.level_number += 1;
@@ -228,7 +229,7 @@ pub const GameState = struct {
                     individual.status_conditions = data.from;
                 },
                 .terrain_update => |data| {
-                    self.terrain.atCoord(data.at).?.* = data.from;
+                    try self.terrain.putCoord(data.at, data.from);
                 },
                 .transition_to_next_level => {
                     self.level_number -= 1;
@@ -237,7 +238,8 @@ pub const GameState = struct {
         }
     }
 
+    /// @depracated . just call the thing.
     pub fn terrainAt(self: GameState, coord: Coord) TerrainSpace {
-        return self.terrain.getCoord(coord) orelse oob_terrain;
+        return self.terrain.getCoord(coord);
     }
 };

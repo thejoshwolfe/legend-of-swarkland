@@ -2,7 +2,6 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
-const Matrix = core.matrix.Matrix;
 
 pub const Floor = enum {
     unknown,
@@ -48,8 +47,10 @@ pub const Species = union(enum) {
 };
 
 pub const TerrainChunk = struct {
-    rel_position: Coord,
-    matrix: Matrix(TerrainSpace),
+    position: Coord,
+    width: u16,
+    height: u16,
+    matrix: []TerrainSpace,
 };
 pub const TerrainSpace = struct {
     floor: Floor,
@@ -98,7 +99,6 @@ pub const PerceivedFrame = struct {
     self: PerceivedThing,
     others: []PerceivedThing,
     completed_levels: u32,
-    movement: Coord,
 };
 
 pub const ThingPosition = union(enum) {
@@ -109,7 +109,7 @@ pub const ThingPosition = union(enum) {
 };
 
 pub const PerceivedThing = struct {
-    rel_position: ThingPosition,
+    position: ThingPosition,
     species: Species,
 
     status_conditions: StatusConditions,

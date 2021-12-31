@@ -71,8 +71,7 @@ pub const Coord = struct {
         return a.x * a.y == 0;
     }
 
-    /// Euclidean distance squared.
-    pub fn magnitudeSquared(a: Coord) i32 {
+    pub fn euclideanDistanceSquared(a: Coord) i32 {
         return a.x * a.x + a.y * a.y;
     }
 
@@ -92,7 +91,7 @@ pub fn isCardinalDirection(direction: Coord) bool {
     return isScaledCardinalDirection(direction, 1);
 }
 pub fn isScaledCardinalDirection(direction: Coord, scale: i32) bool {
-    return direction.isOrthogonalOrZero() and direction.magnitudeSquared() == scale * scale;
+    return direction.isOrthogonalOrZero() and direction.euclideanDistanceSquared() == scale * scale;
 }
 
 /// rotation is a number 0 <= r < 8
@@ -205,6 +204,12 @@ pub const Rect = struct {
     }
     pub fn size(self: @This()) Coord {
         return makeCoord(self.width, self.height);
+    }
+    pub fn right(self: @This()) i32 {
+        return self.x + self.width;
+    }
+    pub fn bottom(self: @This()) i32 {
+        return self.y + self.height;
     }
 
     pub fn translated(self: @This(), offset: Coord) Rect {
