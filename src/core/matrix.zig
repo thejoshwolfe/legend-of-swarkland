@@ -6,10 +6,18 @@ const Coord = core.geometry.Coord;
 pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
     return struct {
         chunks: std.AutoArrayHashMap(Coord, *[chunk_side_length * chunk_side_length]T),
+        metrics: Metrics = .{},
 
         const chunk_shift = 4;
         const chunk_side_length = 1 << chunk_shift;
         const chunk_mask = (1 << chunk_shift) - 1;
+
+        const Metrics = struct {
+            min_x: i32 = 0,
+            min_y: i32 = 0,
+            max_x: i32 = 0,
+            max_y: i32 = 0,
+        };
 
         pub fn init(allocator: Allocator) @This() {
             return .{
@@ -56,6 +64,19 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
             return self.put(coord.x, coord.y, v);
         }
         pub fn put(self: *@This(), x: i32, y: i32, v: T) !void {
+            if (self.chunks.count() == 0) {
+                // first put
+                self.metrics.min_x = x;
+                self.metrics.min_y = y;
+                self.metrics.max_x = x;
+                self.metrics.max_y = y;
+            } else {
+                if (x < self.metrics.min_x) self.metrics.min_x = x;
+                if (y < self.metrics.min_y) self.metrics.min_y = y;
+                if (x > self.metrics.max_x) self.metrics.max_x = x;
+                if (y > self.metrics.max_y) self.metrics.max_y = y;
+            }
+
             const chunk_coord = Coord{
                 .x = x >> chunk_shift,
                 .y = y >> chunk_shift,

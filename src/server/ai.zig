@@ -36,7 +36,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             target_distance = null;
             target_priority = other_priority;
         }
-        for (getAllPositions(&other.rel_position)) |other_coord| {
+        for (getAllPositions(&other.position)) |other_coord| {
             const distance = distanceTo(other_coord, last_frame.self);
             if (target_distance) |previous_distance| {
                 // target whichever is closest.
@@ -57,17 +57,29 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         return .wait;
     }
 
-    const delta = target_position.?;
-    if (delta.x == 0 and delta.y == 0) {
+    if (target_distance.? == 0) {
         // Overlapping the target.
-        if (canGrowAndShrink(last_frame.self.species) and last_frame.self.rel_position == .large) {
-            // if the relative position is {0,0}, that means they're in my head.
-            return Action{ .shrink = 0 };
+        if (canGrowAndShrink(last_frame.self.species)) {
+            switch (last_frame.self.position) {
+                .large => |data| {
+                    if (target_position.?.equals(data[0])) {
+                        return Action{ .shrink = 0 };
+                    } else if (target_position.?.equals(data[1])) {
+                        return Action{ .shrink = 1 };
+                    } else unreachable;
+                },
+                .small => {
+                    // eat
+                    return .wait;
+                },
+            }
         }
         // Don't know how to handle this.
         core.debug.ai.print("waiting: overlapping target, but i'm not a blob.", .{});
         return .wait;
     }
+    const my_head_position = getHeadPosition(last_frame.self.position);
+    const delta = target_position.?.minus(my_head_position);
     const range = if (hesitatesOneSpaceAway(last_frame.self.species))
         1
     else
@@ -81,10 +93,10 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             return Action{ .kick = delta_unit };
         }
 
-        if (canCharge(last_frame.self.species) and isFastMoveAligned(last_frame.self.rel_position, delta_unit.scaled(2))) {
+        if (canCharge(last_frame.self.species) and isFastMoveAligned(last_frame.self.position, delta_unit.scaled(2))) {
             // charge!
             return Action{ .fast_move = delta_unit.scaled(2) };
-        } else if (delta.x * delta.x + delta.y * delta.y <= range * range) {
+        } else if (delta.euclideanDistanceSquared() <= range * range) {
             // within attack range
             if (hesitatesOneSpaceAway(last_frame.self.species)) {
                 // get away from me!
@@ -94,7 +106,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             } else unreachable;
         } else {
             // We want to get closer.
-            if (terrainAt(last_frame.terrain, delta_unit)) |cell| {
+            if (terrainAt(last_frame.terrain, my_head_position.plus(delta_unit))) |cell| {
                 if (cell.floor == .lava) {
                     // I'm scared of lava
                     core.debug.ai.print("waiting: lava in my way", .{});
@@ -102,11 +114,11 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 }
             }
             // Move straight twoard the target, even if someone else is in the way
-            return movelikeAction(last_frame.self.species, last_frame.self.rel_position, delta_unit);
+            return movelikeAction(last_frame.self.species, last_frame.self.position, delta_unit);
         }
-    } else if (last_frame.self.species == .blob and last_frame.self.rel_position == .large) {
+    } else if (last_frame.self.species == .blob and last_frame.self.position == .large) {
         // Is this a straight shot from my butt?
-        const butt_delta = target_position.?.minus(last_frame.self.rel_position.large[1]);
+        const butt_delta = target_position.?.minus(last_frame.self.position.large[1]);
         if (butt_delta.x * butt_delta.y == 0) {
             // shrink back to approach.
             return Action{ .shrink = 1 };
@@ -137,7 +149,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     {
         var flip_flop_counter: usize = 0;
         flip_flop_loop: while (flip_flop_counter < 2) : (flip_flop_counter += 1) {
-            const move_into_position = options[option_index];
+            const move_into_position = my_head_position.plus(options[option_index]);
             if (terrainAt(last_frame.terrain, move_into_position)) |cell| {
                 if (cell.floor == .lava or !core.game_logic.isOpenSpace(cell.wall)) {
                     // Can't go that way.
@@ -146,8 +158,8 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 }
             }
             for (last_frame.others) |perceived_other| {
-                for (getAllPositions(&perceived_other.rel_position)) |rel_position| {
-                    if (rel_position.equals(move_into_position)) {
+                for (getAllPositions(&perceived_other.position)) |position| {
+                    if (position.equals(move_into_position)) {
                         // somebody's there already.
                         option_index = 1 - option_index;
                         continue :flip_flop_loop;
@@ -161,14 +173,14 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         // preemptive attack
         return Action{ .kick = options[option_index] };
     } else {
-        if (terrainAt(last_frame.terrain, options[option_index])) |cell| {
+        if (terrainAt(last_frame.terrain, my_head_position.plus(options[option_index]))) |cell| {
             if (cell.floor == .lava) {
                 // On second thought, let's not try this.
                 core.debug.ai.print("waiting: lava in my way (diagonal)", .{});
                 return .wait;
             }
         }
-        return movelikeAction(last_frame.self.species, last_frame.self.rel_position, options[option_index]);
+        return movelikeAction(last_frame.self.species, last_frame.self.position, options[option_index]);
     }
 }
 
@@ -225,14 +237,14 @@ fn movelikeAction(species: Species, position: ThingPosition, delta: Coord) Actio
     }
 }
 
-fn distanceTo(rel_coord: Coord, me: PerceivedThing) i32 {
-    if (me.species == .blob and me.rel_position == .large) {
+fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
+    if (me.species == .blob and me.position == .large) {
         // measure distance from whichever of my coords is closer.
-        const distance0 = rel_coord.magnitudeOrtho(); // head position is always 0,0
-        const distance1 = rel_coord.minus(me.rel_position.large[1]).magnitudeOrtho();
-        return if (distance1 < distance0) distance1 else distance0;
+        const distance0 = coord.minus(me.position.large[0]).magnitudeOrtho();
+        const distance1 = coord.minus(me.position.large[1]).magnitudeOrtho();
+        return std.math.min(distance0, distance1);
     } else {
-        // simple
-        return rel_coord.magnitudeOrtho();
+        // See with my head.
+        return coord.minus(getHeadPosition(me.position)).magnitudeOrtho();
     }
 }

@@ -47,7 +47,7 @@ pub const Species = union(enum) {
 };
 
 pub const TerrainChunk = struct {
-    rel_position: Coord,
+    position: Coord,
     width: u16,
     height: u16,
     matrix: []TerrainSpace,
@@ -99,7 +99,6 @@ pub const PerceivedFrame = struct {
     self: PerceivedThing,
     others: []PerceivedThing,
     completed_levels: u32,
-    movement: Coord,
 };
 
 pub const ThingPosition = union(enum) {
@@ -110,7 +109,7 @@ pub const ThingPosition = union(enum) {
 };
 
 pub const PerceivedThing = struct {
-    rel_position: ThingPosition,
+    position: ThingPosition,
     species: Species,
 
     status_conditions: StatusConditions,

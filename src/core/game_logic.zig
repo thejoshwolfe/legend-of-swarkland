@@ -13,6 +13,11 @@ const TerrainChunk = core.protocol.TerrainChunk;
 
 const assert = @import("std").debug.assert;
 
+pub const unseen_terrain = TerrainSpace{
+    .floor = .unknown_floor,
+    .wall = .unknown_wall,
+};
+
 pub fn getViewDistance(species: Species) i32 {
     return switch (species) {
         .blob => 1,
@@ -179,15 +184,15 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
     }
 }
 
-pub fn applyMovementFromActivity(activity: PerceivedActivity, from_position: ThingPosition, additional_delta: Coord) ThingPosition {
+pub fn applyMovementFromActivity(activity: PerceivedActivity, from_position: ThingPosition) ThingPosition {
     return switch (activity) {
-        .movement => |delta| applyMovementToPosition(from_position, delta.plus(additional_delta)),
+        .movement => |delta| applyMovementToPosition(from_position, delta),
         .growth => |delta| ThingPosition{ .large = .{
-            from_position.small.plus(additional_delta).plus(delta),
-            from_position.small.plus(additional_delta),
+            from_position.small.plus(delta),
+            from_position.small,
         } },
-        .shrink => |index| ThingPosition{ .small = from_position.large[index].plus(additional_delta) },
-        else => offsetPosition(from_position, additional_delta),
+        .shrink => |index| ThingPosition{ .small = from_position.large[index] },
+        else => from_position,
     };
 }
 
@@ -210,7 +215,7 @@ pub fn offsetPosition(position: ThingPosition, delta: Coord) ThingPosition {
 }
 
 pub fn terrainAt(terrain: TerrainChunk, coord: Coord) ?TerrainSpace {
-    const inner_coord = coord.minus(terrain.rel_position);
+    const inner_coord = coord.minus(terrain.position);
     return terrainAtInner(terrain, inner_coord);
 }
 pub fn terrainAtInner(terrain: TerrainChunk, inner_coord: Coord) ?TerrainSpace {

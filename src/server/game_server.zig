@@ -10,7 +10,6 @@ const SomeQueues = @import("../client/game_engine_client.zig").SomeQueues;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
 const Action = core.protocol.Action;
-const ThingPosition = core.protocol.ThingPosition;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 
 const validateAction = core.game_logic.validateAction;
@@ -34,8 +33,6 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
 
     var response_for_ais = IdMap(Response).init(allocator);
     var history = HistoryList{};
-
-    var death_position: ?ThingPosition = null;
 
     // start main loop
     mainLoop: while (true) {
@@ -96,10 +93,6 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         if (is_rewind) {
 
             // Time goes backward.
-            const old_abs_pos = core.game_logic.getHeadPosition(if (game_state.individuals.get(main_player_id)) |living_main_player_individual|
-                living_main_player_individual.abs_position
-            else
-                death_position.?);
             const state_changes = rewind(&history).?;
             try game_state.undoStateChanges(state_changes);
             for (state_changes) |_, i| {
@@ -108,17 +101,12 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                     .despawn => |individual| {
                         if (individual.id == main_player_id) {
                             you_are_alive = true;
-                            death_position = null;
                         }
                     },
                     else => {},
                 }
             }
-            const new_abs_pos = core.game_logic.getHeadPosition(game_state.individuals.get(main_player_id).?.abs_position);
-
-            var load_state = try game_engine.getStaticPerception(game_state, main_player_id);
-            load_state.movement = new_abs_pos.minus(old_abs_pos);
-            try main_player_queues.enqueueResponse(Response{ .load_state = load_state });
+            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
         } else {
 
             // Time goes forward.
@@ -127,13 +115,11 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             core.debug.happening.deepPrint("happenings: ", happenings);
             try pushHistoryRecord(&history, happenings.state_changes);
             try game_state.applyStateChanges(happenings.state_changes);
-            death_position = null;
             for (happenings.state_changes) |diff| {
                 switch (diff) {
                     .despawn => |id_and_individual| {
                         if (id_and_individual.id == main_player_id) {
                             you_are_alive = false;
-                            death_position = id_and_individual.individual.abs_position;
                         }
                     },
                     else => {},

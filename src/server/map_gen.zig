@@ -352,12 +352,14 @@ fn makeIndividual(small_position: Coord, species: Species) Individual {
     return .{
         .species = species,
         .abs_position = .{ .small = small_position },
+        .perceived_origin = small_position,
     };
 }
 fn makeLargeIndividual(head_position: Coord, tail_position: Coord, species: Species) Individual {
     return .{
         .species = species,
         .abs_position = .{ .large = .{ head_position, tail_position } },
+        .perceived_origin = head_position,
     };
 }
 

@@ -119,9 +119,6 @@ const RunningState = struct {
     input_prompt: InputPrompt = .none,
     animations: ?Animations = null,
 
-    /// only tracked to display aesthetics consistently through movement.
-    total_journey_offset: Coord = Coord{ .x = 0, .y = 0 },
-
     // tutorial state should *not* reset through undo.
     // these values cap out at small values, because we only use them for showing/hiding tutorials.
     kicks_performed: u2 = 0,
@@ -182,7 +179,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .stuff_happens => |happening| {
                             if (happening.frames[0].completed_levels >= state.starting_level) {
                                 // Show animations for what's going on.
-                                try loadAnimations(&state.animations, happening.frames, now, &state.total_journey_offset);
+                                try loadAnimations(&state.animations, happening.frames, now);
                             } else {
                                 // Don't show the skip-to-level animations
                                 state.animations = null;
@@ -225,7 +222,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .load_state => |frame| {
                             state.animations = null;
                             state.client_state = frame;
-                            state.total_journey_offset = state.total_journey_offset.plus(frame.movement);
                         },
                         .reject_request => {
                             // oh sorry.
@@ -333,7 +329,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
                                     .charge => {
                                         if (canCharge(state.client_state.?.self.species)) {
-                                            const position_coords = state.client_state.?.self.rel_position.large;
+                                            const position_coords = state.client_state.?.self.position.large;
                                             const delta = position_coords[0].minus(position_coords[1]);
                                             try state.client.act(Action{ .fast_move = delta.scaled(2) });
                                         }
@@ -476,7 +472,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 var progress: i32 = 0;
                 var move_frame_time: i32 = 1;
                 var display_any_input_prompt = true;
-                var animated_aesthetic_offset = state.total_journey_offset;
                 if (state.animations) |animations| {
                     if (animations.frameAtTime(now)) |data| {
                         // animating
@@ -484,53 +479,62 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         progress = data.progress;
                         move_frame_time = data.time_per_frame;
                         display_any_input_prompt = false;
-                        // The total journey is after all the animations,
-                        // so subtract yet-to-be-rendered movements from our journey during animation.
-                        for (animations.frames.items[data.frame_index..]) |future_frame| {
-                            animated_aesthetic_offset = animated_aesthetic_offset.minus(future_frame.movement);
-                        }
                     } else {
                         // stale
                         state.animations = null;
                     }
                 }
 
-                const center_screen = makeCoord(7, 7).scaled(32).plus(makeCoord(32 / 2, 32 / 2));
-                const self_display_rect = getRelDisplayRect(progress, move_frame_time, frame.self);
-                const camera_offset = center_screen.minus(self_display_rect.position().plus(self_display_rect.size().scaledDivTrunc(2)));
+                // top left corner of the screen in world coordinates * 32
+                const screen_display_position = b: {
+                    const self_display_rect = getDisplayRect(progress, move_frame_time, frame.self);
+                    const self_display_center = self_display_rect.position().plus(self_display_rect.size().scaledDivTrunc(2));
+                    const screen_half_size = makeCoord(15, 15).scaled(32 / 2);
+                    break :b self_display_center.minus(screen_half_size);
+                };
 
                 // render terrain
                 {
-                    const terrain_offset = frame.terrain.rel_position.scaled(32).plus(camera_offset);
                     const terrain = frame.terrain;
-                    var cursor = makeCoord(undefined, 0);
-                    while (cursor.y <= @as(i32, terrain.height)) : (cursor.y += 1) {
-                        cursor.x = 0;
-                        while (cursor.x <= @as(i32, terrain.width)) : (cursor.x += 1) {
-                            if (terrainAtInner(terrain, cursor)) |cell| {
-                                const display_position = cursor.scaled(32).plus(terrain_offset);
-                                const aesthetic_coord = cursor.plus(frame.terrain.rel_position).plus(animated_aesthetic_offset);
+                    const terrain_bounding_box = Rect{
+                        .x = terrain.position.x,
+                        .y = terrain.position.y,
+                        .width = terrain.width,
+                        .height = terrain.height,
+                    };
+                    var cursor = terrain_bounding_box.position();
+                    while (cursor.y < terrain_bounding_box.bottom()) : (cursor.y += 1) {
+                        const inner_y = @intCast(u16, cursor.y - terrain.position.y);
+                        cursor.x = terrain_bounding_box.x;
+                        while (cursor.x < terrain_bounding_box.right()) : (cursor.x += 1) {
+                            const inner_x = @intCast(u16, cursor.x - terrain.position.x);
+                            const cell = terrain.matrix[inner_y * terrain.width + inner_x];
+                            const render_position = cursor.scaled(32).minus(screen_display_position);
+
+                            render_floor: {
                                 const floor_texture = switch (cell.floor) {
-                                    .unknown => textures.sprites.unknown_floor,
-                                    .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, aesthetic_coord),
-                                    .marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, aesthetic_coord),
-                                    .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, aesthetic_coord),
+                                    .unknown => break :render_floor,
+                                    .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
+                                    .marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, cursor),
+                                    .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
                                     .hatch => textures.sprites.hatch,
                                     .stairs_down => textures.sprites.stairs_down,
                                     .unknown_floor => textures.sprites.unknown_floor,
                                 };
-                                textures.renderSprite(renderer, floor_texture, display_position);
+                                textures.renderSprite(renderer, floor_texture, render_position);
+                            }
+                            render_wall: {
                                 const wall_texture = switch (cell.wall) {
-                                    .unknown => textures.sprites.unknown_wall,
-                                    .air => continue,
-                                    .dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, aesthetic_coord),
-                                    .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, aesthetic_coord),
+                                    .unknown => break :render_wall,
+                                    .air => break :render_wall,
+                                    .dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, cursor),
+                                    .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, cursor),
                                     .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
                                     .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => textures.sprites.polymorph_trap_wide[0],
                                     .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => textures.sprites.polymorph_trap_wide[1],
                                     .unknown_wall => textures.sprites.unknown_wall,
                                 };
-                                textures.renderSprite(renderer, wall_texture, display_position);
+                                textures.renderSprite(renderer, wall_texture, render_position);
                             }
                         }
                     }
@@ -538,26 +542,26 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // render the things
                 for (frame.others) |other| {
-                    _ = renderThing(renderer, progress, move_frame_time, camera_offset, other);
+                    _ = renderThing(renderer, progress, move_frame_time, screen_display_position, other);
                 }
-                const display_position = renderThing(renderer, progress, move_frame_time, camera_offset, frame.self);
+                const render_position = renderThing(renderer, progress, move_frame_time, screen_display_position, frame.self);
                 // render input prompt
                 if (display_any_input_prompt) {
                     switch (state.input_prompt) {
                         .none => {},
                         .attack => {
-                            textures.renderSprite(renderer, textures.sprites.dagger, display_position);
+                            textures.renderSprite(renderer, textures.sprites.dagger, render_position);
                         },
                         .kick => {
-                            textures.renderSprite(renderer, textures.sprites.kick, display_position);
+                            textures.renderSprite(renderer, textures.sprites.kick, render_position);
                         },
                     }
                 }
                 // render activity effects
                 for (frame.others) |other| {
-                    renderActivity(renderer, progress, move_frame_time, camera_offset, other);
+                    renderActivity(renderer, progress, move_frame_time, screen_display_position, other);
                 }
-                renderActivity(renderer, progress, move_frame_time, camera_offset, frame.self);
+                renderActivity(renderer, progress, move_frame_time, screen_display_position, frame.self);
 
                 // sidebar
                 {
@@ -588,11 +592,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         },
                         .bloboid => AnatomySprites{
                             .diagram = switch (frame.self.species.blob) {
-                                .small_blob => switch (frame.self.rel_position) {
+                                .small_blob => switch (frame.self.position) {
                                     .small => textures.large_sprites.bloboid_small,
                                     .large => textures.large_sprites.bloboid_small_wide,
                                 },
-                                .large_blob => switch (frame.self.rel_position) {
+                                .large_blob => switch (frame.self.position) {
                                     .small => textures.large_sprites.bloboid_large,
                                     .large => textures.large_sprites.bloboid_large_wide,
                                 },
@@ -751,7 +755,7 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     if (core.game_logic.canMoveNormally(myself.species)) {
         return state.client.move(delta);
     } else if (core.game_logic.canGrowAndShrink(myself.species)) {
-        switch (myself.rel_position) {
+        switch (myself.position) {
             .small => {
                 return state.client.act(Action{ .grow = delta });
             },
@@ -780,27 +784,27 @@ fn positionedRect32(position: Coord) Rect {
     return core.geometry.makeRect(position, makeCoord(32, 32));
 }
 
-fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedThing) Rect {
-    const rel_position = getHeadPosition(thing.rel_position);
+fn getDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedThing) Rect {
+    const head_coord = getHeadPosition(thing.position);
     switch (thing.activity) {
         .movement => |move_delta| {
             return positionedRect32(core.geometry.bezierMove(
-                rel_position.scaled(32),
-                rel_position.scaled(32).plus(move_delta.scaled(32)),
+                head_coord.scaled(32),
+                head_coord.scaled(32).plus(move_delta.scaled(32)),
                 progress,
                 progress_denominator,
             ));
         },
         .failed_movement => |move_delta| {
             return positionedRect32(core.geometry.bezierBounce(
-                rel_position.scaled(32),
-                rel_position.scaled(32).plus(move_delta.scaled(32)),
+                head_coord.scaled(32),
+                head_coord.scaled(32).plus(move_delta.scaled(32)),
                 progress,
                 progress_denominator,
             ));
         },
         .growth => |delta| {
-            const start_position = thing.rel_position.small;
+            const start_position = thing.position.small;
             const end_position = makeCoord(
                 if (delta.x < 0) start_position.x - 1 else start_position.x,
                 if (delta.y < 0) start_position.y - 1 else start_position.y,
@@ -826,7 +830,7 @@ fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedT
             );
         },
         .failed_growth => |delta| {
-            const start_position = thing.rel_position.small;
+            const start_position = thing.position.small;
             const end_position = makeCoord(
                 if (delta.x < 0) start_position.x - 1 else start_position.x,
                 if (delta.y < 0) start_position.y - 1 else start_position.y,
@@ -852,7 +856,7 @@ fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedT
             );
         },
         .shrink => |index| {
-            const large_position = thing.rel_position.large;
+            const large_position = thing.position.large;
             const position_delta = large_position[0].minus(large_position[1]);
             const start_position = core.geometry.min(large_position[0], large_position[1]);
             const end_position = large_position[index];
@@ -874,61 +878,61 @@ fn getRelDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedT
             );
         },
         else => {
-            if (thing.species == .blob and thing.rel_position == .large) {
-                const position_delta = thing.rel_position.large[0].minus(thing.rel_position.large[1]);
+            if (thing.species == .blob and thing.position == .large) {
+                const position_delta = thing.position.large[0].minus(thing.position.large[1]);
                 return core.geometry.makeRect(
-                    core.geometry.min(thing.rel_position.large[0], thing.rel_position.large[1]).scaled(32),
+                    core.geometry.min(thing.position.large[0], thing.position.large[1]).scaled(32),
                     position_delta.abs().plus(makeCoord(1, 1)).scaled(32),
                 );
             }
-            return positionedRect32(rel_position.scaled(32));
+            return positionedRect32(head_coord.scaled(32));
         },
     }
 }
 
-fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) Coord {
+fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, screen_display_position: Coord, thing: PerceivedThing) Coord {
     // compute position
-    const rel_display_rect = getRelDisplayRect(progress, progress_denominator, thing);
-    const display_rect = rel_display_rect.translated(camera_offset);
-    const display_position = rel_display_rect.position().plus(camera_offset);
+    const display_rect = getDisplayRect(progress, progress_denominator, thing);
+    const render_rect = display_rect.translated(screen_display_position.scaled(-1));
+    const render_position = display_rect.position().minus(screen_display_position);
 
     // render main sprite
     switch (thing.species) {
         else => {
-            textures.renderSpriteScaled(renderer, speciesToSprite(thing.species), display_rect);
+            textures.renderSpriteScaled(renderer, speciesToSprite(thing.species), render_rect);
         },
         .rhino => {
             const oriented_delta = if (progress < @divTrunc(progress_denominator, 2))
-                thing.rel_position.large[1].minus(thing.rel_position.large[0])
+                thing.position.large[1].minus(thing.position.large[0])
             else blk: {
-                const future_position = core.game_logic.applyMovementFromActivity(thing.activity, thing.rel_position, makeCoord(0, 0));
+                const future_position = core.game_logic.applyMovementFromActivity(thing.activity, thing.position);
                 break :blk future_position.large[1].minus(future_position.large[0]);
             };
-            const tail_display_position = display_position.plus(oriented_delta.scaled(32));
+            const tail_render_position = render_position.plus(oriented_delta.scaled(32));
             const rhino_sprite_normalizing_rotation = 0;
             const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
-            textures.renderSpriteRotated(renderer, speciesToSprite(thing.species), display_position, rotation);
-            textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.species), tail_display_position, rotation);
+            textures.renderSpriteRotated(renderer, speciesToSprite(thing.species), render_position, rotation);
+            textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.species), tail_render_position, rotation);
         },
     }
 
     // render status effects
     if (thing.status_conditions & (core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_being_digested) != 0) {
-        textures.renderSprite(renderer, textures.sprites.wounded, display_position);
+        textures.renderSprite(renderer, textures.sprites.wounded, render_position);
     }
     if (thing.status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled) != 0) {
-        textures.renderSprite(renderer, textures.sprites.limping, display_position);
+        textures.renderSprite(renderer, textures.sprites.limping, render_position);
     }
     if (thing.has_shield) {
-        textures.renderSprite(renderer, textures.sprites.equipment, display_position);
+        textures.renderSprite(renderer, textures.sprites.equipment, render_position);
     }
 
-    return display_position;
+    return render_position;
 }
 
-fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, camera_offset: Coord, thing: PerceivedThing) void {
-    const rel_display_position = getRelDisplayRect(progress, progress_denominator, thing).position();
-    const display_position = rel_display_position.plus(camera_offset);
+fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, screen_display_position: Coord, thing: PerceivedThing) void {
+    const display_position = getDisplayRect(progress, progress_denominator, thing).position();
+    const render_position = display_position.minus(screen_display_position);
 
     switch (thing.activity) {
         .none => {},
@@ -946,8 +950,8 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                     renderer,
                     textures.sprites.dagger,
                     core.geometry.bezierBounce(
-                        display_position.plus(data.direction.scaled(32 * 2 / 4)),
-                        display_position.plus(data.direction.scaled(32 * 4 / 4)),
+                        render_position.plus(data.direction.scaled(32 * 2 / 4)),
+                        render_position.plus(data.direction.scaled(32 * 4 / 4)),
                         progress,
                         progress_denominator,
                     ),
@@ -965,8 +969,8 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                     renderer,
                     textures.sprites.arrow,
                     core.geometry.bezier2(
-                        display_position,
-                        display_position.plus(data.direction.scaled(32 * max_range)),
+                        render_position,
+                        render_position.plus(data.direction.scaled(32 * max_range)),
                         clamped_progress,
                         progress_denominator * max_range,
                     ),
@@ -981,8 +985,8 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                 renderer,
                 textures.sprites.kick,
                 core.geometry.bezierBounce(
-                    display_position.plus(coord.scaled(32 * 2 / 4)),
-                    display_position.plus(coord.scaled(32 * 4 / 4)),
+                    render_position.plus(coord.scaled(32 * 2 / 4)),
+                    render_position.plus(coord.scaled(32 * 4 / 4)),
                     progress,
                     progress_denominator,
                 ),
@@ -993,11 +997,11 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .polymorph => {
             const sprites = textures.sprites.polymorph_effect[4..];
             const sprite_index = @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator);
-            textures.renderSprite(renderer, sprites[@intCast(usize, sprite_index)], display_position);
+            textures.renderSprite(renderer, sprites[@intCast(usize, sprite_index)], render_position);
         },
 
         .death => {
-            textures.renderSprite(renderer, textures.sprites.death, display_position);
+            textures.renderSprite(renderer, textures.sprites.death, render_position);
         },
     }
 }
@@ -1104,7 +1108,7 @@ const Animations = struct {
     }
 };
 
-fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, total_journey_offset: *Coord) !void {
+fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32) !void {
     if (animations.* == null or animations.*.?.frameAtTime(now) == null) {
         animations.* = Animations{
             .start_time = now,
@@ -1119,9 +1123,6 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32, 
     }
     var have_previous_frame = animations.*.?.frames.items.len > 0;
     for (frames) |frame, i| {
-        // Total movement is not affected by compression.
-        total_journey_offset.* = total_journey_offset.*.plus(frame.movement);
-
         if (have_previous_frame and i < frames.len - 1) {
             // try compressing the new frame into the previous one.
             if (try tryCompressingFrames(lastPtr(animations.*.?.frames.items), frame)) {
@@ -1146,7 +1147,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
     // which is intentionally not possible sometimes.
     const others_mapping = try allocator.alloc(usize, base_frame.others.len);
     for (base_frame.others) |base_other, i| {
-        const new_position = core.game_logic.applyMovementFromActivity(base_other.activity, base_other.rel_position, base_frame.movement.scaled(-1));
+        const new_position = core.game_logic.applyMovementFromActivity(base_other.activity, base_other.position);
 
         var mapped_index: ?usize = null;
         for (patch_frame.others) |patch_other, j| {
@@ -1155,7 +1156,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
                 if (base_other.species != @as(std.meta.Tag(Species), patch_other.species)) break :blk false;
                 if (!core.game_logic.positionEquals(
                     new_position,
-                    patch_other.rel_position,
+                    patch_other.position,
                 )) break :blk false;
                 break :blk true;
             };
@@ -1175,7 +1176,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
             core.debug.animation_compression.deepPrint("NOPE: individual has no matches in the next frame: ", base_other);
             core.debug.animation_compression.deepPrint("  expected position: ", new_position);
             for (patch_frame.others) |patch_other| {
-                core.debug.animation_compression.deepPrint("  saw position: ", patch_other.rel_position);
+                core.debug.animation_compression.deepPrint("  saw position: ", patch_other.position);
             }
             return false;
         }
@@ -1195,13 +1196,12 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
         }
     }
 
-    compressPerceivedThings(&base_frame.self, patch_frame.self, base_frame.movement);
+    compressPerceivedThings(&base_frame.self, patch_frame.self);
     core.debug.animation_compression.print("...compressing...", .{});
     for (base_frame.others) |*base_other, i| {
         const patch_other = patch_frame.others[others_mapping[i]];
-        compressPerceivedThings(base_other, patch_other, base_frame.movement);
+        compressPerceivedThings(base_other, patch_other);
     }
-    base_frame.movement = base_frame.movement.plus(patch_frame.movement);
     base_frame.completed_levels = patch_frame.completed_levels;
     // uhhh. how do we compress this?
     _ = patch_frame.terrain;
@@ -1209,13 +1209,12 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
     return true;
 }
 
-fn compressPerceivedThings(base_thing: *PerceivedThing, patch_thing: PerceivedThing, through_movement: Coord) void {
+fn compressPerceivedThings(base_thing: *PerceivedThing, patch_thing: PerceivedThing) void {
     if (patch_thing.activity == .none) {
         // That was easy.
         return;
     }
     base_thing.* = patch_thing;
-    base_thing.rel_position = core.game_logic.offsetPosition(base_thing.rel_position, through_movement);
 }
 
 fn lastPtr(arr: anytype) @TypeOf(&arr[arr.len - 1]) {

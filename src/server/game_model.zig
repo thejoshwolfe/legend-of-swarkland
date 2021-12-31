@@ -32,6 +32,7 @@ pub const Terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, oob_terrain);
 pub const Individual = struct {
     species: Species,
     abs_position: ThingPosition,
+    perceived_origin: Coord,
     status_conditions: StatusConditions = 0,
     has_shield: bool = false,
 
