@@ -5,6 +5,7 @@ const ArrayList = std.ArrayList;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const Rect = core.geometry.Rect;
+const sign = core.geometry.sign;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
 const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
@@ -1128,16 +1129,81 @@ pub const GameEngine = struct {
         activities: Activities,
     ) !PerceivedFrame {
         const actual_me = game_state.individuals.get(my_id).?;
-        const perceived_origin = actual_me.perceived_origin;
         const my_abs_position = if (maybe_current_positions) |current_positions|
             current_positions.get(my_id).?
         else
             actual_me.abs_position;
         const my_head_coord = getHeadPosition(my_abs_position);
 
+        const view_distance = getViewDistance(actual_me.species);
+        var view_bounding_box = Rect{
+            .x = my_head_coord.x - view_distance,
+            .y = my_head_coord.y - view_distance,
+            .width = view_distance * 2 + 1,
+            .height = view_distance * 2 + 1,
+        };
+        if (actual_me.species == .blob) {
+            switch (actual_me.abs_position) {
+                .large => |data| {
+                    // Blobs can also see with their butts.
+                    // Grow the bounding box by 1 in the tail direction.
+                    if (data[1].x < data[0].x) {
+                        view_bounding_box.x -= 1;
+                        view_bounding_box.width += 1;
+                    } else if (data[1].x > data[0].x) {
+                        view_bounding_box.width += 1;
+                    } else if (data[1].y < data[0].y) {
+                        view_bounding_box.y -= 1;
+                        view_bounding_box.height += 1;
+                    } else if (data[1].y > data[0].y) {
+                        view_bounding_box.height += 1;
+                    } else unreachable;
+                },
+                else => {},
+            }
+        }
+
+        var seen_terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, unseen_terrain).init(self.allocator);
+        var in_view_matrix = core.matrix.SparseChunkedMatrix(bool, false).init(self.allocator);
+
+        {
+            var it = view_bounding_box.rowMajorIterator();
+            while (it.next()) |cursor| {
+                if (!isClearLineOfSight(game_state.terrain, my_head_coord, cursor)) continue;
+                try in_view_matrix.putCoord(cursor, true);
+
+                var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor);
+                if (actual_me.species == .blob) {
+                    // blobs are blind.
+                    if (seen_cell.floor == .lava and cursor.equals(my_head_coord)) {
+                        // Blobs can see lava if they're right on top of it. Also RIP.
+                    } else {
+                        seen_cell = if (isOpenSpace(seen_cell.wall))
+                            TerrainSpace{ .floor = .unknown_floor, .wall = .air }
+                        else
+                            TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
+                    }
+                }
+                // Don't spoil trap behavior.
+                switch (seen_cell.wall) {
+                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob => {
+                        seen_cell.wall = .unknown_polymorph_trap;
+                    },
+                    .polymorph_trap_rhino_west, .polymorph_trap_blob_west => {
+                        seen_cell.wall = .unknown_polymorph_trap_west;
+                    },
+                    .polymorph_trap_rhino_east, .polymorph_trap_blob_east => {
+                        seen_cell.wall = .unknown_polymorph_trap_east;
+                    },
+                    else => {},
+                }
+                try seen_terrain.putCoord(cursor, seen_cell);
+            }
+        }
+
+        const perceived_origin = actual_me.perceived_origin;
         var perceived_self: ?PerceivedThing = null;
         var others = ArrayList(PerceivedThing).init(self.allocator);
-        const view_distance = getViewDistance(actual_me.species);
 
         for (game_state.individuals.keys()) |id| {
             const activity = switch (activities) {
@@ -1197,28 +1263,13 @@ pub const GameEngine = struct {
             // if any position is within view, we can see all of it.
             var within_view = false;
             for (getAllPositions(&abs_position)) |coord| {
-                if (coord.minus(my_head_coord).magnitudeDiag() <= view_distance) {
+                if (in_view_matrix.getCoord(coord)) {
                     within_view = true;
                     break;
                 }
-            } else if (actual_me.species == .blob) {
-                // Blobs can also see with their butts.
-                switch (if (maybe_current_positions) |current_positions|
-                    current_positions.get(my_id).?
-                else
-                    game_state.individuals.get(my_id).?.abs_position) {
-                    .large => |data| {
-                        for (getAllPositions(&abs_position)) |other_abs_coord| {
-                            if (other_abs_coord.minus(data[1]).magnitudeDiag() <= view_distance) {
-                                within_view = true;
-                                break;
-                            }
-                        }
-                    },
-                    else => {},
-                }
             }
             if (!within_view) continue;
+
             const actual_thing = game_state.individuals.get(id).?;
             const rel_position = offsetPosition(abs_position, perceived_origin.scaled(-1));
             const thing = PerceivedThing{
@@ -1232,68 +1283,6 @@ pub const GameEngine = struct {
                 perceived_self = thing;
             } else {
                 try others.append(thing);
-            }
-        }
-
-        var seen_terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, unseen_terrain).init(self.allocator);
-
-        var view_bounding_box = Rect{
-            .x = my_head_coord.x - view_distance,
-            .y = my_head_coord.y - view_distance,
-            .width = view_distance * 2 + 1,
-            .height = view_distance * 2 + 1,
-        };
-        if (actual_me.species == .blob) {
-            switch (actual_me.abs_position) {
-                .large => |data| {
-                    // Blobs can also see with their butts.
-                    // Grow the bounding box by 1 in the tail direction.
-                    if (data[1].x < data[0].x) {
-                        view_bounding_box.x -= 1;
-                        view_bounding_box.width += 1;
-                    } else if (data[1].x > data[0].x) {
-                        view_bounding_box.width += 1;
-                    } else if (data[1].y < data[0].y) {
-                        view_bounding_box.y -= 1;
-                        view_bounding_box.height += 1;
-                    } else if (data[1].y > data[0].y) {
-                        view_bounding_box.height += 1;
-                    } else unreachable;
-                },
-                else => {},
-            }
-        }
-
-        var cursor = view_bounding_box.position();
-        while (cursor.y < view_bounding_box.bottom()) : (cursor.y += 1) {
-            cursor.x = view_bounding_box.x;
-            while (cursor.x < view_bounding_box.right()) : (cursor.x += 1) {
-                var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor);
-                if (actual_me.species == .blob) {
-                    // blobs are blind.
-                    if (seen_cell.floor == .lava and cursor.equals(my_head_coord)) {
-                        // Blobs can see lava if they're right on top of it. Also RIP.
-                    } else {
-                        seen_cell = if (isOpenSpace(seen_cell.wall))
-                            TerrainSpace{ .floor = .unknown_floor, .wall = .air }
-                        else
-                            TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
-                    }
-                }
-                // Don't spoil trap behavior.
-                switch (seen_cell.wall) {
-                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob => {
-                        seen_cell.wall = .unknown_polymorph_trap;
-                    },
-                    .polymorph_trap_rhino_west, .polymorph_trap_blob_west => {
-                        seen_cell.wall = .unknown_polymorph_trap_west;
-                    },
-                    .polymorph_trap_rhino_east, .polymorph_trap_blob_east => {
-                        seen_cell.wall = .unknown_polymorph_trap_east;
-                    },
-                    else => {},
-                }
-                try seen_terrain.putCoord(cursor, seen_cell);
             }
         }
 
@@ -1408,4 +1397,38 @@ fn getLevelTransitionBoundingBox(current_level_number: usize) ?Rect {
         .width = width,
         .height = height,
     };
+}
+
+fn isClearLineOfSight(terrain: Terrain, a: Coord, b: Coord) bool {
+    return isClearLineOfSightOneSided(terrain, a, b) or isClearLineOfSightOneSided(terrain, b, a);
+}
+
+fn isClearLineOfSightOneSided(terrain: Terrain, a: Coord, b: Coord) bool {
+    const delta = b.minus(a);
+    const should_print = false;
+    if (should_print) core.debug.testing.print("los: {},{} => {},{}", .{ a.x, a.y, b.x, b.y });
+    const abs_delta = delta.abs();
+
+    if (abs_delta.x > abs_delta.y) {
+        // Iterate along the x axis.
+        const step_x = sign(delta.x);
+        var cursor_x = a.x + step_x;
+        while (cursor_x != b.x) : (cursor_x += step_x) {
+            const y = @divTrunc((cursor_x - a.x) * delta.y, delta.x) + a.y;
+            const is_open = isOpenSpace(terrain.get(cursor_x, y).wall);
+            if (should_print) core.debug.testing.print("x,y: {},{}: {}", .{ cursor_x, y, is_open });
+            if (!is_open) return false;
+        }
+    } else {
+        // Iterate along the y axis.
+        const step_y = sign(delta.y);
+        var cursor_y = a.y + step_y;
+        while (cursor_y != b.y) : (cursor_y += step_y) {
+            const x = @divTrunc((cursor_y - a.y) * delta.x, delta.y) + a.x;
+            const is_open = isOpenSpace(terrain.get(x, cursor_y).wall);
+            if (should_print) core.debug.testing.print("x,y: {},{}: {}", .{ x, cursor_y, is_open });
+            if (!is_open) return false;
+        }
+    }
+    return true;
 }
