@@ -379,6 +379,10 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
 ## Version History
 
+### 5.6.1
+
+ * work around a bug where you get stuck in a wall if you ever move left.
+
 ### 5.6.0
 
  * bring back the puzzle levels. delete the randomly generated room.
