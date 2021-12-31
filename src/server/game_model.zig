@@ -130,7 +130,7 @@ pub const GameState = struct {
                 .despawn => |data| {
                     assert(self.individuals.swapRemove(data.id));
                 },
-                .small_move => |id_and_coord| {
+                .small_move => |*id_and_coord| {
                     const individual = self.individuals.get(id_and_coord.id).?;
                     individual.abs_position.small = individual.abs_position.small.plus(id_and_coord.coord);
                 },
