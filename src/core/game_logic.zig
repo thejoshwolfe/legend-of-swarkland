@@ -14,8 +14,8 @@ const TerrainChunk = core.protocol.TerrainChunk;
 const assert = @import("std").debug.assert;
 
 pub const unseen_terrain = TerrainSpace{
-    .floor = .unknown_floor,
-    .wall = .unknown_wall,
+    .floor = .unknown,
+    .wall = .unknown,
 };
 
 pub fn getViewDistance(species: Species) i32 {

@@ -215,6 +215,32 @@ pub const Rect = struct {
     pub fn translated(self: @This(), offset: Coord) Rect {
         return makeRect(self.position().plus(offset), self.size());
     }
+
+    pub fn rowMajorIterator(self: @This()) RowMajorIterator {
+        return RowMajorIterator{
+            .r = &self,
+            .x = self.x,
+            .y = self.y,
+        };
+    }
+};
+const RowMajorIterator = struct {
+    r: *const Rect,
+    x: i32,
+    y: i32,
+
+    pub fn next(self: *@This()) ?Coord {
+        if (self.y >= self.r.bottom()) return null;
+        if (self.x >= self.r.right()) {
+            self.y += 1;
+            if (self.y >= self.r.bottom()) return null;
+            self.x = self.r.x;
+            defer self.x += 1;
+            return makeCoord(self.x, self.y);
+        }
+        defer self.x += 1;
+        return makeCoord(self.x, self.y);
+    }
 };
 
 pub fn makeRect(position: Coord, size: Coord) Rect {
