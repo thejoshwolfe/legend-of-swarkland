@@ -5,6 +5,7 @@ const HashMap = std.HashMap;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 
+const NewGameSettings = core.protocol.NewGameSettings;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
@@ -95,14 +96,14 @@ pub const GameState = struct {
     individuals: IdMap(*Individual),
     level_number: u32,
 
-    pub fn generate(allocator: Allocator) !GameState {
+    pub fn generate(allocator: Allocator, new_game_settings: NewGameSettings) !GameState {
         var game_state = GameState{
             .allocator = allocator,
             .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
             .level_number = 0,
         };
-        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals);
+        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals, new_game_settings);
         return game_state;
     }
 

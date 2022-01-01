@@ -6,6 +6,7 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Socket = core.protocol.Socket;
 const Request = core.protocol.Request;
+const NewGameSettings = core.protocol.NewGameSettings;
 const Action = core.protocol.Action;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
@@ -252,6 +253,10 @@ pub const GameEngineClient = struct {
         core.debug.thread_lifecycle.print("all threads done", .{});
     }
 
+    pub fn startGame(self: *GameEngineClient, new_game_settings: NewGameSettings) !void {
+        try self.enqueueRequest(Request{ .start_game = new_game_settings });
+    }
+
     pub fn act(self: *GameEngineClient, action: Action) !void {
         try self.enqueueRequest(Request{ .act = action });
         debugPrintAction(0, action);
@@ -377,6 +382,7 @@ pub const GameEngineClient = struct {
             .rewind => {
                 self.pending_backward_actions += 1;
             },
+            .start_game => {},
         }
         try self.queues.enqueueRequest(request);
     }
@@ -403,6 +409,7 @@ pub const GameEngineClient = struct {
                     .rewind => {
                         self.pending_backward_actions -= 1;
                     },
+                    .start_game => {},
                 }
             },
         }

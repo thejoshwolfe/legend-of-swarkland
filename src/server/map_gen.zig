@@ -7,6 +7,7 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Cardinal = core.geometry.Cardinal;
 
+const NewGameSettings = core.protocol.NewGameSettings;
 const Species = core.protocol.Species;
 const TerrainSpace = core.protocol.TerrainSpace;
 const Wall = core.protocol.Wall;
@@ -18,7 +19,35 @@ const IdMap = game_model.IdMap;
 const oob_terrain = game_model.oob_terrain;
 
 /// overwrites terrain. populates individuals.
-pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
+pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual), new_game_settings: NewGameSettings) !void {
+    switch (new_game_settings) {
+        .regular => return generateRegular(allocator, terrain, individuals),
+        .puzzle_levels => return generatePuzzleLevels(allocator, terrain, individuals),
+    }
+}
+
+pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
+    terrain.* = Terrain.init(allocator);
+
+    var y: i32 = -10;
+    while (y < 10) : (y += 1) {
+        var x: i32 = -10;
+        while (x < 10) : (x += 1) {
+            const cell = if (x == 9 or y == 9 or x == -10 or y == -10) TerrainSpace{
+                .floor = .dirt,
+                .wall = .dirt,
+            } else TerrainSpace{
+                .floor = .dirt,
+                .wall = .air,
+            };
+            try terrain.put(x, y, cell);
+        }
+    }
+
+    try individuals.putNoClobber(1, try makeIndividual(makeCoord(0, 0), .human).clone(allocator));
+}
+
+pub fn generatePuzzleLevels(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
     terrain.* = try buildTheTerrain(allocator);
 
     // start level 0
