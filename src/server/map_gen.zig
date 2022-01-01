@@ -28,18 +28,29 @@ pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*In
 
 pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
     terrain.* = Terrain.init(allocator);
+    var r = std.rand.DefaultPrng.init(std.crypto.random.int(u64));
+    var random = r.random();
 
     var y: i32 = -10;
     while (y < 10) : (y += 1) {
         var x: i32 = -10;
         while (x < 10) : (x += 1) {
-            const cell = if (x == 9 or y == 9 or x == -10 or y == -10) TerrainSpace{
+            const wall = TerrainSpace{
                 .floor = .dirt,
                 .wall = .dirt,
-            } else TerrainSpace{
+            };
+            const floor = TerrainSpace{
                 .floor = .dirt,
                 .wall = .air,
             };
+            const cell = if (x == 9 or y == 9 or x == -10 or y == -10)
+                wall
+            else if (x == 0 and y == 0)
+                floor
+            else if (random.uintLessThan(u8, 8) < 3)
+                wall
+            else
+                floor;
             try terrain.put(x, y, cell);
         }
     }
