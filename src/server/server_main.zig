@@ -80,9 +80,7 @@ pub fn main() anyerror!void {
     core.debug.thread_lifecycle.print("init", .{});
     defer core.debug.thread_lifecycle.print("shutdown", .{});
 
-    var queues: SomeQueues = undefined;
-    queues.init(allocator);
-
+    var queues = SomeQueues.init(allocator);
     var adapter: FdToQueueAdapter = undefined;
     try adapter.init(
         std.io.getStdIn().reader(),

@@ -362,12 +362,14 @@ pub const SomeQueues = struct {
     responses_alive: std.atomic.Atomic(bool),
     responses: std.atomic.Queue(Response),
 
-    pub fn init(self: *SomeQueues, allocator: Allocator) void {
-        self.allocator = allocator;
-        self.requests_alive = std.atomic.Atomic(bool).init(true);
-        self.requests = std.atomic.Queue(Request).init();
-        self.responses_alive = std.atomic.Atomic(bool).init(true);
-        self.responses = std.atomic.Queue(Response).init();
+    pub fn init(allocator: Allocator) @This() {
+        return .{
+            .allocator = allocator,
+            .requests_alive = std.atomic.Atomic(bool).init(true),
+            .requests = std.atomic.Queue(Request).init(),
+            .responses_alive = std.atomic.Atomic(bool).init(true),
+            .responses = std.atomic.Queue(Response).init(),
+        };
     }
 
     pub fn closeRequests(self: *SomeQueues) void {

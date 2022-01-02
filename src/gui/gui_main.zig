@@ -14,7 +14,8 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const directionToRotation = core.geometry.directionToRotation;
-const GameEngineClient = core.game_engine_client.GameEngineClient;
+const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
+const FancyClient = @import("../client/FancyClient.zig");
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
@@ -115,7 +116,7 @@ const GameState = union(enum) {
     running: RunningState,
 };
 const RunningState = struct {
-    client: GameEngineClient,
+    client: FancyClient,
     client_state: ?PerceivedFrame = null,
     input_prompt: InputPrompt = .none,
     animations: ?Animations = null,
@@ -163,7 +164,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
     var game_state = mainMenuState(&save_file);
     defer switch (game_state) {
-        .running => |*state| state.client.stopEngine(),
+        .running => |*state| state.client.client.stopEngine(),
         else => {},
     };
 
@@ -360,7 +361,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.performed_restart = true;
                                     },
                                     .quit => {
-                                        state.client.stopEngine();
+                                        state.client.client.stopEngine();
                                         game_state = mainMenuState(&save_file);
                                         continue :main_loop;
                                     },
@@ -730,11 +731,11 @@ fn mainMenuState(save_file: *SaveFile) GameState {
 fn startPuzzleGame(game_state: *GameState, levels_to_skip: usize) !void {
     game_state.* = GameState{
         .running = .{
-            .client = undefined,
+            .client = try FancyClient.init(GameEngineClient.init()),
             .new_game_settings = .{ .puzzle_level = levels_to_skip },
         },
     };
-    try game_state.running.client.startAsThread();
+    try game_state.running.client.client.startAsThread();
     try game_state.running.client.startGame(.puzzle_levels);
     try game_state.running.client.beatLevelMacro(levels_to_skip);
     game_state.running.client.stopUndoPastLevel(levels_to_skip);
@@ -743,11 +744,11 @@ fn startPuzzleGame(game_state: *GameState, levels_to_skip: usize) !void {
 fn startGame(game_state: *GameState) !void {
     game_state.* = GameState{
         .running = .{
-            .client = undefined,
+            .client = try FancyClient.init(GameEngineClient.init()),
             .new_game_settings = .regular,
         },
     };
-    try game_state.running.client.startAsThread();
+    try game_state.running.client.client.startAsThread();
     try game_state.running.client.startGame(.regular);
 }
 
