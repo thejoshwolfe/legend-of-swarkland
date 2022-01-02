@@ -18,6 +18,7 @@ const GameEngineClient = core.game_engine_client.GameEngineClient;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
+const NewGameSettings = core.protocol.NewGameSettings;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const Action = core.protocol.Action;
@@ -130,7 +131,10 @@ const RunningState = struct {
     consecutive_undos: u3 = 0,
     performed_restart: bool = false,
 
-    starting_level: usize = 0,
+    new_game_settings: union(enum) {
+        regular,
+        puzzle_level: usize,
+    },
 };
 
 fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
@@ -177,12 +181,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 while (state.client.takeResponse()) |response| {
                     switch (response) {
                         .stuff_happens => |happening| {
-                            if (happening.frames[0].completed_levels >= state.starting_level) {
-                                // Show animations for what's going on.
-                                try loadAnimations(&state.animations, happening.frames, now);
-                            } else {
+                            if (state.new_game_settings == .puzzle_level and happening.frames[0].completed_levels < state.new_game_settings.puzzle_level) {
                                 // Don't show the skip-to-level animations
                                 state.animations = null;
+                            } else {
+                                // Show animations for what's going on.
+                                try loadAnimations(&state.animations, happening.frames, now);
                             }
                             state.client_state = happening.frames[happening.frames.len - 1];
 
@@ -398,10 +402,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.bold(false);
                 menu_renderer.seekRelative(70, 30);
                 if (menu_renderer.button("New Game")) {
-                    try startGame(&game_state, 0);
+                    try startGame(&game_state);
                     continue :main_loop;
                 }
-                if (menu_renderer.button("Level Select")) {
+                if (menu_renderer.button("Puzzle Levels")) {
                     const button_count = if (save_file.completed_levels == the_levels.len - 1)
                         save_file.completed_levels
                     else
@@ -438,14 +442,14 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     if (i < save_file.completed_levels) {
                         // Past levels
                         if (menu_renderer.button(level.name)) {
-                            try startGame(&game_state, i);
+                            try startPuzzleGame(&game_state, i);
                             continue :main_loop;
                         }
                     } else if (i == save_file.completed_levels) {
                         // Current level
                         menu_renderer.bold(true);
                         if (menu_renderer.button("??? (New)")) {
-                            try startGame(&game_state, i);
+                            try startPuzzleGame(&game_state, i);
                             continue :main_loop;
                         }
                         menu_renderer.bold(false);
@@ -716,23 +720,35 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 }
 
 fn mainMenuState(save_file: *SaveFile) GameState {
+    _ = save_file;
     return GameState{ .main_menu = .{
         .entry_count = 2,
-        .cursor_position = if (save_file.completed_levels == 0) 0 else 1,
+        .cursor_position = 0,
     } };
 }
 
-fn startGame(game_state: *GameState, levels_to_skip: usize) !void {
+fn startPuzzleGame(game_state: *GameState, levels_to_skip: usize) !void {
     game_state.* = GameState{
         .running = .{
             .client = undefined,
-            .starting_level = levels_to_skip,
+            .new_game_settings = .{ .puzzle_level = levels_to_skip },
         },
     };
     try game_state.running.client.startAsThread();
-
+    try game_state.running.client.startGame(.puzzle_levels);
     try game_state.running.client.beatLevelMacro(levels_to_skip);
     game_state.running.client.stopUndoPastLevel(levels_to_skip);
+}
+
+fn startGame(game_state: *GameState) !void {
+    game_state.* = GameState{
+        .running = .{
+            .client = undefined,
+            .new_game_settings = .regular,
+        },
+    };
+    try game_state.running.client.startAsThread();
+    try game_state.running.client.startGame(.regular);
 }
 
 fn doDirectionInput(state: *RunningState, delta: Coord) !void {

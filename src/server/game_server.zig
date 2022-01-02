@@ -8,6 +8,7 @@ const GameState = game_model.GameState;
 const IdMap = game_model.IdMap;
 const SomeQueues = @import("../client/game_engine_client.zig").SomeQueues;
 const Request = core.protocol.Request;
+const NewGameSettings = core.protocol.NewGameSettings;
 const Response = core.protocol.Response;
 const Action = core.protocol.Action;
 const PerceivedHappening = core.protocol.PerceivedHappening;
@@ -21,9 +22,25 @@ const HistoryNode = HistoryList.Node;
 const allocator = std.heap.c_allocator;
 
 pub fn server_main(main_player_queues: *SomeQueues) !void {
+    var new_game_settings: NewGameSettings = readSettings: while (true) {
+        if (main_player_queues.waitAndTakeRequest()) |request| {
+            switch (request) {
+                .start_game => |settings| {
+                    var other_settings: NewGameSettings = settings;
+                    break :readSettings other_settings;
+                },
+                else => {},
+            }
+        }
+        core.debug.warning.print("Main player didn't start the game!", .{});
+        core.debug.thread_lifecycle.print("clean shutdown. close", .{});
+        main_player_queues.closeResponses();
+        return;
+    } else unreachable;
+
     var game_engine: GameEngine = undefined;
     game_engine.init(allocator);
-    var game_state = try GameState.generate(allocator);
+    var game_state = try GameState.generate(allocator, new_game_settings);
 
     // create ai clients
     const main_player_id: u32 = 1;
@@ -84,6 +101,11 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                         }
                         // delay actually rewinding so that we receive all requests.
                         is_rewind = true;
+                    },
+                    .start_game => {
+                        core.debug.warning.print("Main player attempted to start an already started game?", .{});
+                        try main_player_queues.enqueueResponse(Response{ .reject_request = request });
+                        continue :retryRead;
                     },
                 }
                 break;

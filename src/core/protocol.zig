@@ -60,6 +60,12 @@ pub const TerrainSpace = struct {
 pub const Request = union(enum) {
     act: Action,
     rewind,
+    start_game: NewGameSettings,
+};
+
+pub const NewGameSettings = enum {
+    regular,
+    puzzle_levels,
 };
 
 pub const Action = union(enum) {
