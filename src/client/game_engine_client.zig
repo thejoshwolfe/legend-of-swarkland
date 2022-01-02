@@ -24,8 +24,8 @@ const QueueToFdAdapter = struct {
 
     pub fn init(
         self: *QueueToFdAdapter,
-        in_stream: std.fs.File.InStream,
-        out_stream: std.fs.File.OutStream,
+        in_stream: std.fs.File.Reader,
+        out_stream: std.fs.File.Writer,
         queues: *SomeQueues,
     ) !void {
         self.socket = Socket.init(in_stream, out_stream);
@@ -133,8 +133,6 @@ pub const SomeQueues = struct {
         return null;
     }
 };
-pub const ClientQueues = SomeQueues(Response, Request);
-pub const ServerQueues = SomeQueues(Request, Response);
 
 const Connection = union(enum) {
     child_process: ChildProcessData,
@@ -173,26 +171,33 @@ pub const GameEngineClient = struct {
         self.pending_backward_actions = 1;
     }
 
-    pub fn startAsChildProcess(self: *GameEngineClient) !void {
+    pub const StartAsChildProcessOptions = struct {
+        exe_path: []const u8 = "",
+    };
+    pub fn startAsChildProcess(self: *GameEngineClient, options: StartAsChildProcessOptions) !void {
         try self.init();
 
-        const dir = try std.fs.selfExeDirPathAlloc(allocator);
-        defer allocator.free(dir);
-        var path = try std.fs.path.join(allocator, [_][]const u8{ dir, "legend-of-swarkland_headless" });
-        defer allocator.free(path);
+        var path = options.exe_path;
+        if (path.len == 0) {
+            const dir = try std.fs.selfExeDirPathAlloc(allocator);
+            defer allocator.free(dir);
+            path = try std.fs.path.join(allocator, &[_][]const u8{ dir, "legend-of-swarkland_headless" });
+        }
+        defer if (options.exe_path.len == 0) allocator.free(path);
 
         self.connection = Connection{
             .child_process = blk: {
                 const args = [_][]const u8{path};
-                var child_process = try std.ChildProcess.init(args, allocator);
+                core.debug.thread_lifecycle.print("starting child process: {s}", .{path});
+                var child_process = try std.ChildProcess.init(&args, allocator);
                 child_process.stdout_behavior = std.ChildProcess.StdIo.Pipe;
                 child_process.stdin_behavior = std.ChildProcess.StdIo.Pipe;
-                try child_process.*.spawn();
+                try child_process.spawn();
 
                 const adapter = try allocator.create(QueueToFdAdapter);
                 try adapter.init(
-                    child_process.*.stdout.?.inStream(),
-                    child_process.*.stdin.?.outStream(),
+                    child_process.stdout.?.reader(),
+                    child_process.stdin.?.writer(),
                     &self.queues,
                 );
 
@@ -442,6 +447,7 @@ test "basic interaction" {
     var client = &_client;
     try client.startAsThread();
     defer client.stopEngine();
+    try client.startGame(.puzzle_levels);
 
     const startup_response = client.queues.waitAndTakeResponse().?;
     try std.testing.expect(startup_response.load_state.self.position.small.equals(makeCoord(0, 0)));
@@ -464,6 +470,26 @@ test "basic interaction" {
         try std.testing.expect(response.load_state.self.position.small.equals(makeCoord(0, 0)));
     }
     core.debug.testing.print("rewind looks good", .{});
+}
+
+test "server child process" {
+    // init
+    core.debug.init();
+    core.debug.nameThisThread("test main");
+    defer core.debug.unnameThisThread();
+    core.debug.testing.print("start test", .{});
+    defer core.debug.testing.print("exit test", .{});
+    var _client: GameEngineClient = undefined;
+    var client = &_client;
+    try client.startAsChildProcess(.{
+        .exe_path = "zig-out/bin/legend-of-swarkland_headless",
+    });
+    defer client.stopEngine();
+    try client.startGame(.puzzle_levels);
+
+    const startup_response = client.queues.waitAndTakeResponse().?;
+    try std.testing.expect(startup_response.load_state.self.position.small.equals(makeCoord(0, 0)));
+    core.debug.testing.print("startup done", .{});
 }
 
 fn lastPtr(arr: anytype) @TypeOf(&arr[arr.len - 1]) {
