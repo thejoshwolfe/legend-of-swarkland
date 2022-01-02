@@ -1,10 +1,13 @@
 const std = @import("std");
+const Random = std.rand.Random;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
+const Rect = core.geometry.Rect;
+const makeRect = core.geometry.makeRect;
 const Cardinal = core.geometry.Cardinal;
 
 const NewGameSettings = core.protocol.NewGameSettings;
@@ -28,34 +31,106 @@ pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*In
 
 pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
     terrain.* = Terrain.init(allocator);
-    var r = std.rand.DefaultPrng.init(std.crypto.random.int(u64));
-    var random = r.random();
+    var _r = std.rand.DefaultPrng.init(std.crypto.random.int(u64));
+    var r = _r.random();
 
-    var y: i32 = -10;
-    while (y < 10) : (y += 1) {
-        var x: i32 = -10;
-        while (x < 10) : (x += 1) {
-            const wall = TerrainSpace{
-                .floor = .dirt,
-                .wall = .dirt,
-            };
-            const floor = TerrainSpace{
-                .floor = .dirt,
-                .wall = .air,
-            };
-            const cell = if (x == 9 or y == 9 or x == -10 or y == -10)
-                wall
-            else if (x == 0 and y == 0)
-                floor
-            else if (random.uintLessThan(u8, 8) < 3)
-                wall
-            else
-                floor;
-            try terrain.put(x, y, cell);
+    var possible_spawn_locations = ArrayList(Coord).init(allocator);
+    var rooms = ArrayList(Rect).init(allocator);
+
+    var rooms_remaining = r.intRangeAtMost(u32, 2, 3);
+    while (rooms_remaining > 0) : (rooms_remaining -= 1) {
+        const size = makeCoord(
+            r.intRangeAtMost(i32, 5, 9),
+            r.intRangeAtMost(i32, 5, 9),
+        );
+        const position = makeCoord(
+            r.intRangeAtMost(i32, terrain.metrics.min_x - 10 - size.x, terrain.metrics.max_x + 10),
+            r.intRangeAtMost(i32, terrain.metrics.min_y - 10 - size.y, terrain.metrics.max_y + 10),
+        );
+        const room_rect = makeRect(position, size);
+        try rooms.append(room_rect);
+
+        var y = position.y;
+        while (y <= room_rect.bottom()) : (y += 1) {
+            var x = position.x;
+            while (x <= room_rect.right()) : (x += 1) {
+                // TODO: use getOrPut() here
+                if (terrain.get(x, y).wall == .air) {
+                    // already open
+                    continue;
+                }
+                if (x == position.x or y == position.y or x == room_rect.right() or y == room_rect.bottom()) {
+                    try terrain.put(x, y, TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .dirt,
+                    });
+                } else {
+                    try terrain.put(x, y, TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .air,
+                    });
+                    try possible_spawn_locations.append(makeCoord(x, y));
+                }
+            }
         }
     }
 
-    try individuals.putNoClobber(1, try makeIndividual(makeCoord(0, 0), .human).clone(allocator));
+    // join rooms
+    while (rooms.items.len > 1) {
+        const room_a = rooms.swapRemove(r.uintLessThan(usize, rooms.items.len));
+        const room_b = choice(r, rooms.items);
+
+        var cursor = makeCoord(
+            r.intRangeAtMost(i32, room_a.x + 1, room_a.right() - 1),
+            r.intRangeAtMost(i32, room_a.y + 1, room_a.bottom() - 1),
+        );
+        var dest = makeCoord(
+            r.intRangeAtMost(i32, room_b.x + 1, room_b.right() - 1),
+            r.intRangeAtMost(i32, room_b.y + 1, room_b.bottom() - 1),
+        );
+        var unit_diagonal = dest.minus(cursor).signumed();
+        while (!cursor.equals(dest)) : ({
+            // derpizontal, and then derpicle
+            if (cursor.x != dest.x) {
+                cursor.x += unit_diagonal.x;
+            } else {
+                cursor.y += unit_diagonal.y;
+            }
+        }) {
+            // TODO: use getOrPutCoord() here
+            if (terrain.getCoord(cursor).wall == .air) {
+                // already open
+                continue;
+            }
+            try terrain.putCoord(cursor, TerrainSpace{
+                .floor = .dirt,
+                .wall = .air,
+            });
+
+            // Surround with dirt walls
+            for ([_]Coord{
+                cursor.plus(makeCoord(-1, -1)),
+                cursor.plus(makeCoord(0, -1)),
+                cursor.plus(makeCoord(1, -1)),
+                cursor.plus(makeCoord(-1, 0)),
+                cursor.plus(makeCoord(1, 0)),
+                cursor.plus(makeCoord(-1, 1)),
+                cursor.plus(makeCoord(0, 1)),
+                cursor.plus(makeCoord(1, 1)),
+            }) |wall_cursor| {
+                // TODO: use getOrPutCoord() here
+                if (terrain.getCoord(wall_cursor).wall == .air) {
+                    continue;
+                }
+                try terrain.putCoord(wall_cursor, TerrainSpace{
+                    .floor = .dirt,
+                    .wall = .dirt,
+                });
+            }
+        }
+    }
+
+    try individuals.putNoClobber(1, try makeIndividual(choice(r, possible_spawn_locations.items), .human).clone(allocator));
 }
 
 pub fn generatePuzzleLevels(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
@@ -540,4 +615,8 @@ fn buildTheTerrain(allocator: Allocator) !Terrain {
     }
 
     return terrain;
+}
+
+fn choice(r: Random, arr: anytype) @TypeOf(arr[0]) {
+    return arr[r.uintLessThan(usize, arr.len)];
 }
