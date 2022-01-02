@@ -34,18 +34,17 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     var _r = std.rand.DefaultPrng.init(std.crypto.random.int(u64));
     var r = _r.random();
 
-    var possible_spawn_locations = ArrayList(Coord).init(allocator);
     var rooms = ArrayList(Rect).init(allocator);
 
-    var rooms_remaining = r.intRangeAtMost(u32, 2, 3);
+    var rooms_remaining = r.intRangeAtMost(u32, 5, 9);
     while (rooms_remaining > 0) : (rooms_remaining -= 1) {
         const size = makeCoord(
             r.intRangeAtMost(i32, 5, 9),
             r.intRangeAtMost(i32, 5, 9),
         );
         const position = makeCoord(
-            r.intRangeAtMost(i32, terrain.metrics.min_x - 10 - size.x, terrain.metrics.max_x + 10),
-            r.intRangeAtMost(i32, terrain.metrics.min_y - 10 - size.y, terrain.metrics.max_y + 10),
+            r.intRangeAtMost(i32, terrain.metrics.min_x - 5 - size.x, terrain.metrics.max_x + 5),
+            r.intRangeAtMost(i32, terrain.metrics.min_y - 5 - size.y, terrain.metrics.max_y + 5),
         );
         const room_rect = makeRect(position, size);
         try rooms.append(room_rect);
@@ -69,16 +68,47 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                         .floor = .dirt,
                         .wall = .air,
                     });
-                    try possible_spawn_locations.append(makeCoord(x, y));
                 }
             }
         }
     }
 
+    // fill rooms with individuals
+    var next_id: u32 = 2;
+    var rooms_for_spawn = try clone(allocator, rooms);
+    var possible_spawn_locations = ArrayList(Coord).init(allocator);
+    while (rooms_for_spawn.items.len > 1) {
+        const room = popRandom(r, &rooms_for_spawn);
+        possible_spawn_locations.shrinkRetainingCapacity(0);
+        var it = (Rect{
+            .x = room.x + 1,
+            .y = room.y + 1,
+            .width = room.width - 2,
+            .height = room.height - 2,
+        }).rowMajorIterator();
+        while (it.next()) |coord| {
+            try possible_spawn_locations.append(coord);
+        }
+
+        // orc orc orc orc
+        var individuals_remaining = r.intRangeAtMost(usize, 2, 6);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations);
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
+            next_id += 1;
+        }
+    }
+
+    try individuals.putNoClobber(1, try makeIndividual(makeCoord(
+        r.intRangeLessThan(i32, rooms_for_spawn.items[0].x + 1, rooms_for_spawn.items[0].right() - 1),
+        r.intRangeLessThan(i32, rooms_for_spawn.items[0].y + 1, rooms_for_spawn.items[0].bottom() - 1),
+    ), .human).clone(allocator));
+
     // join rooms
-    while (rooms.items.len > 1) {
-        const room_a = rooms.swapRemove(r.uintLessThan(usize, rooms.items.len));
-        const room_b = choice(r, rooms.items);
+    var rooms_to_join = try clone(allocator, rooms);
+    while (rooms_to_join.items.len > 1) {
+        const room_a = popRandom(r, &rooms_to_join);
+        const room_b = choice(r, rooms_to_join.items);
 
         var cursor = makeCoord(
             r.intRangeAtMost(i32, room_a.x + 1, room_a.right() - 1),
@@ -129,8 +159,6 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             }
         }
     }
-
-    try individuals.putNoClobber(1, try makeIndividual(choice(r, possible_spawn_locations.items), .human).clone(allocator));
 }
 
 pub fn generatePuzzleLevels(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
@@ -619,4 +647,14 @@ fn buildTheTerrain(allocator: Allocator) !Terrain {
 
 fn choice(r: Random, arr: anytype) @TypeOf(arr[0]) {
     return arr[r.uintLessThan(usize, arr.len)];
+}
+
+fn clone(allocator: Allocator, array_list: anytype) !@TypeOf(array_list) {
+    var result = try @TypeOf(array_list).initCapacity(allocator, array_list.items.len);
+    result.appendSliceAssumeCapacity(array_list.items);
+    return result;
+}
+
+fn popRandom(r: Random, array_list: anytype) @TypeOf(array_list.*.items[0]) {
+    return array_list.swapRemove(r.uintLessThan(usize, array_list.items.len));
 }
