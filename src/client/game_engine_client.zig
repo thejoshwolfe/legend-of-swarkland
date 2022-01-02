@@ -5,6 +5,7 @@ const debugPrintAction = game_server.debugPrintAction;
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Socket = core.protocol.Socket;
+const SomeQueues = core.protocol.SomeQueues;
 const Request = core.protocol.Request;
 const NewGameSettings = core.protocol.NewGameSettings;
 const Action = core.protocol.Action;
@@ -79,61 +80,6 @@ const QueueToFdAdapter = struct {
     }
 };
 
-pub const SomeQueues = struct {
-    requests_alive: std.atomic.Atomic(bool),
-    requests: std.atomic.Queue(Request),
-    responses_alive: std.atomic.Atomic(bool),
-    responses: std.atomic.Queue(Response),
-
-    pub fn init(self: *SomeQueues) void {
-        self.requests_alive = std.atomic.Atomic(bool).init(true);
-        self.requests = std.atomic.Queue(Request).init();
-        self.responses_alive = std.atomic.Atomic(bool).init(true);
-        self.responses = std.atomic.Queue(Response).init();
-    }
-
-    pub fn closeRequests(self: *SomeQueues) void {
-        self.requests_alive.store(false, .Monotonic);
-    }
-    pub fn enqueueRequest(self: *SomeQueues, request: Request) !void {
-        try queuePut(Request, &self.requests, request);
-    }
-
-    /// null means requests have been closed
-    pub fn waitAndTakeRequest(self: *SomeQueues) ?Request {
-        while (self.requests_alive.load(.Monotonic)) {
-            if (queueGet(Request, &self.requests)) |response| {
-                return response;
-            }
-            // :ResidentSleeper:
-            std.time.sleep(17 * std.time.ns_per_ms);
-        }
-        return null;
-    }
-
-    pub fn closeResponses(self: *SomeQueues) void {
-        self.responses_alive.store(false, .Monotonic);
-    }
-    pub fn enqueueResponse(self: *SomeQueues, response: Response) !void {
-        try queuePut(Response, &self.responses, response);
-    }
-    pub fn takeResponse(self: *SomeQueues) ?Response {
-        return queueGet(Response, &self.responses);
-    }
-
-    /// null means responses have been closed
-    pub fn waitAndTakeResponse(self: *SomeQueues) ?Response {
-        while (self.responses_alive.load(.Monotonic)) {
-            if (self.takeResponse()) |response| {
-                return response;
-            }
-            // :ResidentSleeper:
-            std.time.sleep(17 * std.time.ns_per_ms);
-        }
-        return null;
-    }
-};
-
 const Connection = union(enum) {
     child_process: ChildProcessData,
     thread: ThreadData,
@@ -160,7 +106,7 @@ pub const GameEngineClient = struct {
     pending_backward_actions: usize,
 
     fn init(self: *GameEngineClient) !void {
-        self.queues.init();
+        self.queues.init(allocator);
         self.starting_level = 0;
         self.current_level = 0;
         self.moves_per_level = try allocator.alloc(usize, the_levels.len);
@@ -421,20 +367,6 @@ pub const GameEngineClient = struct {
         return response;
     }
 };
-
-fn queuePut(comptime T: type, queue: *std.atomic.Queue(T), x: T) !void {
-    const Node = std.atomic.Queue(T).Node;
-    const node: *Node = try allocator.create(Node);
-    node.data = x;
-    queue.put(node);
-}
-fn queueGet(comptime T: type, queue: *std.atomic.Queue(T)) ?T {
-    const Node = std.atomic.Queue(T).Node;
-    const node: *Node = queue.get() orelse return null;
-    defer allocator.destroy(node);
-    const hack = node.data; // TODO: https://github.com/ziglang/zig/issues/961
-    return hack;
-}
 
 test "basic interaction" {
     // init
