@@ -1,5 +1,9 @@
 client: GameEngineClient,
 
+// client-side memory
+remembered_terrain: PerceivedTerrain,
+terrain_is_currently_in_view: core.matrix.SparseChunkedMatrix(bool, false),
+
 // puzzle level control stuff
 current_level: usize = 0,
 starting_level: usize = 0,
@@ -16,6 +20,12 @@ const Request = core.protocol.Request;
 const NewGameSettings = core.protocol.NewGameSettings;
 const Action = core.protocol.Action;
 const Response = core.protocol.Response;
+const unseen_terrain = core.game_logic.unseen_terrain;
+const PerceivedTerrain = core.game_logic.PerceivedTerrain;
+const PerceivedFrame = core.protocol.PerceivedFrame;
+const TerrainSpace = core.protocol.TerrainSpace;
+const Wall = core.protocol.Wall;
+const Floor = core.protocol.Floor;
 const cheatcodes = @import("cheatcodes.zig");
 const GameEngineClient = @import("game_engine_client.zig").GameEngineClient;
 
@@ -29,6 +39,8 @@ pub fn init(client: GameEngineClient) !@This() {
 
     return @This(){
         .client = client,
+        .remembered_terrain = PerceivedTerrain.init(allocator),
+        .terrain_is_currently_in_view = core.matrix.SparseChunkedMatrix(bool, false).init(allocator),
         .moves_per_level = moves_per_level,
     };
 }
@@ -168,20 +180,22 @@ fn enqueueRequest(self: *@This(), request: Request) !void {
     }
     try self.client.queues.enqueueRequest(request);
 }
-pub fn takeResponse(self: *@This()) ?Response {
+pub fn takeResponse(self: *@This()) !?Response {
     const response = self.client.queues.takeResponse() orelse return null;
     // Monitor the responses to count moves per level.
     switch (response) {
         .stuff_happens => |happening| {
             self.pending_forward_actions -= 1;
             self.moves_per_level[happening.frames[0].completed_levels] += 1;
-            self.current_level = lastPtr(happening.frames).completed_levels;
+            self.current_level = last(happening.frames).completed_levels;
+            try self.updateRememberedTerrain(last(happening.frames));
         },
         .load_state => |frame| {
             // This can also happen for the initial game load.
             self.pending_backward_actions -= 1;
             self.moves_per_level[frame.completed_levels] -= 1;
             self.current_level = frame.completed_levels;
+            try self.updateRememberedTerrain(frame);
         },
         .reject_request => |request| {
             switch (request) {
@@ -198,10 +212,56 @@ pub fn takeResponse(self: *@This()) ?Response {
     return response;
 }
 
-fn lastPtr(arr: anytype) @TypeOf(&arr[arr.len - 1]) {
-    return &arr[arr.len - 1];
+fn updateRememberedTerrain(self: *@This(), frame: PerceivedFrame) !void {
+    self.terrain_is_currently_in_view.clear();
+    var y = frame.terrain.position.y;
+    while (y < frame.terrain.position.y + frame.terrain.height) : (y += 1) {
+        var x = frame.terrain.position.x;
+        const inner_y = @intCast(u16, y - frame.terrain.position.y);
+        while (x < frame.terrain.position.x + frame.terrain.width) : (x += 1) {
+            const inner_x = @intCast(u16, x - frame.terrain.position.x);
+            const cell = frame.terrain.matrix[inner_y * frame.terrain.width + inner_x];
+            if (terrainSpaceEquals(cell, unseen_terrain)) continue;
+            const cell_ptr = try self.remembered_terrain.getOrPut(x, y);
+            var in_view = false;
+            if (isFloorMoreKnown(cell_ptr.floor, cell.floor)) {
+                cell_ptr.floor = cell.floor;
+                in_view = true;
+            }
+            if (isWallMoreKnown(cell_ptr.wall, cell.wall)) {
+                cell_ptr.wall = cell.wall;
+                in_view = true;
+            }
+            if (in_view) {
+                try self.terrain_is_currently_in_view.put(x, y, true);
+            }
+        }
+    }
+}
+
+fn last(arr: anytype) @TypeOf(arr[arr.len - 1]) {
+    return arr[arr.len - 1];
 }
 
 fn times(n: usize) []const void {
     return @as([(1 << (@sizeOf(usize) * 8) - 1)]void, undefined)[0..n];
+}
+
+fn terrainSpaceEquals(a: TerrainSpace, b: TerrainSpace) bool {
+    return a.floor == b.floor and a.wall == b.wall;
+}
+
+fn isFloorMoreKnown(base: Floor, new: Floor) bool {
+    return switch (new) {
+        .unknown => false,
+        .unknown_floor => base == .unknown,
+        else => true,
+    };
+}
+fn isWallMoreKnown(base: Wall, new: Wall) bool {
+    return switch (new) {
+        .unknown => false,
+        .unknown_wall => base == .unknown,
+        else => true,
+    };
 }

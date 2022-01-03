@@ -19,6 +19,7 @@ const FancyClient = @import("../client/FancyClient.zig");
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
+const TerrainSpace = core.protocol.TerrainSpace;
 const NewGameSettings = core.protocol.NewGameSettings;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
@@ -179,7 +180,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_state.beginFrame();
             },
             .running => |*state| {
-                while (state.client.takeResponse()) |response| {
+                while (try state.client.takeResponse()) |response| {
                     switch (response) {
                         .stuff_happens => |happening| {
                             if (state.new_game_settings == .puzzle_level and happening.frames[0].completed_levels < state.new_game_settings.puzzle_level) {
@@ -500,20 +501,18 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // render terrain
                 {
-                    const terrain = frame.terrain;
-                    const terrain_bounding_box = Rect{
-                        .x = terrain.position.x,
-                        .y = terrain.position.y,
-                        .width = terrain.width,
-                        .height = terrain.height,
+                    const my_head_coord = getHeadPosition(frame.self.position);
+                    const render_bounding_box = Rect{
+                        .x = my_head_coord.x - 8,
+                        .y = my_head_coord.y - 8,
+                        .width = 18,
+                        .height = 18,
                     };
-                    var cursor = terrain_bounding_box.position();
-                    while (cursor.y < terrain_bounding_box.bottom()) : (cursor.y += 1) {
-                        const inner_y = @intCast(u16, cursor.y - terrain.position.y);
-                        cursor.x = terrain_bounding_box.x;
-                        while (cursor.x < terrain_bounding_box.right()) : (cursor.x += 1) {
-                            const inner_x = @intCast(u16, cursor.x - terrain.position.x);
-                            const cell = terrain.matrix[inner_y * terrain.width + inner_x];
+                    var cursor = render_bounding_box.position();
+                    while (cursor.y < render_bounding_box.bottom()) : (cursor.y += 1) {
+                        cursor.x = render_bounding_box.x;
+                        while (cursor.x < render_bounding_box.right()) : (cursor.x += 1) {
+                            const cell = state.client.remembered_terrain.getCoord(cursor);
                             const render_position = cursor.scaled(32).minus(screen_display_position);
 
                             render_floor: {
@@ -540,6 +539,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .unknown_wall => textures.sprites.unknown_wall,
                                 };
                                 textures.renderSprite(renderer, wall_texture, render_position);
+                            }
+
+                            if (!state.client.terrain_is_currently_in_view.getCoord(cursor)) {
+                                // Gray out the space
+                                textures.renderSprite(renderer, textures.sprites.black_alpha_square, render_position);
                             }
                         }
                     }
@@ -570,6 +574,18 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // sidebar
                 {
+                    const anatomy_coord = makeCoord(512, 0);
+                    {
+                        const sidebard_render_rect = sdl.makeRect(Rect{
+                            .x = anatomy_coord.x,
+                            .y = anatomy_coord.y,
+                            .width = 200,
+                            .height = 512,
+                        });
+                        sdl.assertZero(sdl.c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
+                        sdl.assertZero(sdl.c.SDL_RenderFillRect(renderer, &sidebard_render_rect));
+                    }
+
                     const AnatomySprites = struct {
                         diagram: Rect,
                         being_digested: ?Rect = null,
@@ -625,7 +641,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .limping = textures.large_sprites.quadruped_limping,
                         },
                     };
-                    const anatomy_coord = makeCoord(512, 0);
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
                     if (frame.self.has_shield) {
