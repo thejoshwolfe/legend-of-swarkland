@@ -323,6 +323,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .up => try doDirectionInput(state, makeCoord(0, -1)),
                                     .down => try doDirectionInput(state, makeCoord(0, 1)),
 
+                                    .shift_left => try doAutoDirectionInput(state, makeCoord(-1, 0)),
+                                    .shift_right => try doAutoDirectionInput(state, makeCoord(1, 0)),
+                                    .shift_up => try doAutoDirectionInput(state, makeCoord(0, -1)),
+                                    .shift_down => try doAutoDirectionInput(state, makeCoord(0, 1)),
+
                                     .start_attack => {
                                         if (canAttack(state.client_state.?.self.species)) {
                                             state.input_prompt = .attack;
@@ -355,6 +360,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .escape => {
                                         state.input_prompt = .none;
                                         state.animations = null;
+                                        state.client.cancelAutoAction();
                                     },
                                     .restart => {
                                         try state.client.restartLevel();
@@ -809,6 +815,15 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     } else {
         // You're not a moving one.
         return;
+    }
+}
+
+fn doAutoDirectionInput(state: *RunningState, delta: Coord) !void {
+    state.input_prompt = .none;
+
+    const myself = state.client_state.?.self;
+    if (core.game_logic.canMoveNormally(myself.species)) {
+        return state.client.autoMove(delta);
     }
 }
 

@@ -10,6 +10,11 @@ pub const Button = enum {
     down,
     left,
     right,
+    shift_up,
+    shift_down,
+    shift_left,
+    shift_right,
+
     start_attack,
     start_kick,
     charge,
@@ -49,16 +54,30 @@ pub const InputEngine = struct {
 
     fn handleKeydown(_: InputEngine, modifiers: Modifiers, scancode: c_uint) ?Button {
         switch (scancode) {
-            sdl.c.SDL_SCANCODE_LEFT => return if (modifiers == 0) .left else null,
-            sdl.c.SDL_SCANCODE_RIGHT => return if (modifiers == 0) .right else null,
+            sdl.c.SDL_SCANCODE_LEFT => if (modifiers == 0)
+                return .left
+            else if (modifiers == shift)
+                return .shift_left
+            else
+                return null,
+            sdl.c.SDL_SCANCODE_RIGHT => if (modifiers == 0)
+                return .right
+            else if (modifiers == shift)
+                return .shift_right
+            else
+                return null,
             sdl.c.SDL_SCANCODE_UP => if (modifiers == 0)
                 return .up
+            else if (modifiers == shift)
+                return .shift_up
             else if (modifiers == ctrl)
                 return .page_up
             else
                 return null,
             sdl.c.SDL_SCANCODE_DOWN => if (modifiers == 0)
                 return .down
+            else if (modifiers == shift)
+                return .shift_down
             else if (modifiers == ctrl)
                 return .page_down
             else

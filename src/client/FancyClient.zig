@@ -4,6 +4,9 @@ client: GameEngineClient,
 remembered_terrain: PerceivedTerrain,
 terrain_is_currently_in_view: core.matrix.SparseChunkedMatrix(bool, false),
 
+// convenience things
+auto_move: ?Coord = null,
+
 // puzzle level control stuff
 current_level: usize = 0,
 starting_level: usize = 0,
@@ -21,6 +24,7 @@ const NewGameSettings = core.protocol.NewGameSettings;
 const Action = core.protocol.Action;
 const Response = core.protocol.Response;
 const unseen_terrain = core.game_logic.unseen_terrain;
+const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedTerrain = core.game_logic.PerceivedTerrain;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const TerrainSpace = core.protocol.TerrainSpace;
@@ -74,6 +78,35 @@ pub fn attack(self: *@This(), direction: Coord) !void {
 }
 pub fn kick(self: *@This(), direction: Coord) !void {
     return self.act(Action{ .kick = direction });
+}
+
+pub fn autoMove(self: *@This(), direction: Coord) !void {
+    self.auto_move = direction;
+    try self.move(direction);
+}
+pub fn cancelAutoAction(self: *@This()) void {
+    self.auto_move = null;
+}
+fn maybeContinueAutoAction(self: *@This(), happening: PerceivedHappening) !void {
+    const direction = self.auto_move orelse return;
+
+    if (happening.frames.len == 1) {
+        core.debug.auto_action.print("nothing happened. last move was rejected or player hit undo or something.", .{});
+        return self.cancelAutoAction();
+    }
+    for (happening.frames) |frame| {
+        if (frame.others.len > 0) {
+            core.debug.auto_action.print("i see someone. stopping.", .{});
+            return self.cancelAutoAction();
+        }
+    }
+    if (core.game_logic.positionEquals(happening.frames[0].self.position, last(happening.frames).self.position)) {
+        core.debug.auto_action.print("movement didn't get us anywhere. stopping.", .{});
+        return self.cancelAutoAction();
+    }
+
+    core.debug.auto_action.print("continuing auto move: {},{}", .{ direction.x, direction.y });
+    try self.move(direction);
 }
 
 pub fn beatLevelMacro(self: *@This(), how_many: usize) !void {
@@ -189,6 +222,7 @@ pub fn takeResponse(self: *@This()) !?Response {
             self.moves_per_level[happening.frames[0].completed_levels] += 1;
             self.current_level = last(happening.frames).completed_levels;
             try self.updateRememberedTerrain(last(happening.frames));
+            try self.maybeContinueAutoAction(happening);
         },
         .load_state => |frame| {
             // This can also happen for the initial game load.
