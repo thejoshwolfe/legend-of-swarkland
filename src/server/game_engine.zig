@@ -24,7 +24,7 @@ const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
 const StatusConditions = core.protocol.StatusConditions;
 
-const unseen_terrain = core.game_logic.unseen_terrain;
+const PerceivedTerrain = core.game_logic.PerceivedTerrain;
 const getViewDistance = core.game_logic.getViewDistance;
 const isOpenSpace = core.game_logic.isOpenSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
@@ -1163,7 +1163,7 @@ pub const GameEngine = struct {
             }
         }
 
-        var seen_terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, unseen_terrain).init(self.allocator);
+        var seen_terrain = PerceivedTerrain.init(self.allocator);
         var in_view_matrix = core.matrix.SparseChunkedMatrix(bool, false).init(self.allocator);
 
         {

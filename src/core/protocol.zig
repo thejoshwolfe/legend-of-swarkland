@@ -355,6 +355,79 @@ pub fn InChannel(comptime Reader: type) type {
     };
 }
 
+pub const SomeQueues = struct {
+    allocator: Allocator,
+    requests_alive: std.atomic.Atomic(bool),
+    requests: std.atomic.Queue(Request),
+    responses_alive: std.atomic.Atomic(bool),
+    responses: std.atomic.Queue(Response),
+
+    pub fn init(allocator: Allocator) @This() {
+        return .{
+            .allocator = allocator,
+            .requests_alive = std.atomic.Atomic(bool).init(true),
+            .requests = std.atomic.Queue(Request).init(),
+            .responses_alive = std.atomic.Atomic(bool).init(true),
+            .responses = std.atomic.Queue(Response).init(),
+        };
+    }
+
+    pub fn closeRequests(self: *SomeQueues) void {
+        self.requests_alive.store(false, .Monotonic);
+    }
+    pub fn enqueueRequest(self: *SomeQueues, request: Request) !void {
+        try self.queuePut(Request, &self.requests, request);
+    }
+
+    /// null means requests have been closed
+    pub fn waitAndTakeRequest(self: *SomeQueues) ?Request {
+        while (self.requests_alive.load(.Monotonic)) {
+            if (self.queueGet(Request, &self.requests)) |response| {
+                return response;
+            }
+            // :ResidentSleeper:
+            std.time.sleep(17 * std.time.ns_per_ms);
+        }
+        return null;
+    }
+
+    pub fn closeResponses(self: *SomeQueues) void {
+        self.responses_alive.store(false, .Monotonic);
+    }
+    pub fn enqueueResponse(self: *SomeQueues, response: Response) !void {
+        try self.queuePut(Response, &self.responses, response);
+    }
+    pub fn takeResponse(self: *SomeQueues) ?Response {
+        return self.queueGet(Response, &self.responses);
+    }
+
+    /// null means responses have been closed
+    pub fn waitAndTakeResponse(self: *SomeQueues) ?Response {
+        while (self.responses_alive.load(.Monotonic)) {
+            if (self.takeResponse()) |response| {
+                return response;
+            }
+            // :ResidentSleeper:
+            std.time.sleep(17 * std.time.ns_per_ms);
+        }
+        return null;
+    }
+
+    fn queuePut(self: *SomeQueues, comptime T: type, queue: *std.atomic.Queue(T), x: T) !void {
+        const Node = std.atomic.Queue(T).Node;
+        const node: *Node = try self.allocator.create(Node);
+        node.data = x;
+        queue.put(node);
+    }
+    fn queueGet(self: *SomeQueues, comptime T: type, queue: *std.atomic.Queue(T)) ?T {
+        const Node = std.atomic.Queue(T).Node;
+        const node: *Node = queue.get() orelse return null;
+        defer self.allocator.destroy(node);
+        const hack = node.data; // TODO: https://github.com/ziglang/zig/issues/961
+        return hack;
+    }
+};
+
 test "channel int" {
     var buffer = [_]u8{0} ** 256;
     var _out_stream = std.io.fixedBufferStream(&buffer);

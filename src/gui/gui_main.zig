@@ -14,10 +14,12 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const directionToRotation = core.geometry.directionToRotation;
-const GameEngineClient = core.game_engine_client.GameEngineClient;
+const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
+const FancyClient = @import("../client/FancyClient.zig");
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
+const TerrainSpace = core.protocol.TerrainSpace;
 const NewGameSettings = core.protocol.NewGameSettings;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
@@ -115,7 +117,7 @@ const GameState = union(enum) {
     running: RunningState,
 };
 const RunningState = struct {
-    client: GameEngineClient,
+    client: FancyClient,
     client_state: ?PerceivedFrame = null,
     input_prompt: InputPrompt = .none,
     animations: ?Animations = null,
@@ -163,7 +165,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
     var game_state = mainMenuState(&save_file);
     defer switch (game_state) {
-        .running => |*state| state.client.stopEngine(),
+        .running => |*state| state.client.client.stopEngine(),
         else => {},
     };
 
@@ -178,7 +180,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_state.beginFrame();
             },
             .running => |*state| {
-                while (state.client.takeResponse()) |response| {
+                while (try state.client.takeResponse()) |response| {
                     switch (response) {
                         .stuff_happens => |happening| {
                             if (state.new_game_settings == .puzzle_level and happening.frames[0].completed_levels < state.new_game_settings.puzzle_level) {
@@ -321,6 +323,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .up => try doDirectionInput(state, makeCoord(0, -1)),
                                     .down => try doDirectionInput(state, makeCoord(0, 1)),
 
+                                    .shift_left => try doAutoDirectionInput(state, makeCoord(-1, 0)),
+                                    .shift_right => try doAutoDirectionInput(state, makeCoord(1, 0)),
+                                    .shift_up => try doAutoDirectionInput(state, makeCoord(0, -1)),
+                                    .shift_down => try doAutoDirectionInput(state, makeCoord(0, 1)),
+
                                     .start_attack => {
                                         if (canAttack(state.client_state.?.self.species)) {
                                             state.input_prompt = .attack;
@@ -353,6 +360,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .escape => {
                                         state.input_prompt = .none;
                                         state.animations = null;
+                                        state.client.cancelAutoAction();
                                     },
                                     .restart => {
                                         try state.client.restartLevel();
@@ -360,7 +368,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.performed_restart = true;
                                     },
                                     .quit => {
-                                        state.client.stopEngine();
+                                        state.client.client.stopEngine();
                                         game_state = mainMenuState(&save_file);
                                         continue :main_loop;
                                     },
@@ -499,20 +507,18 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // render terrain
                 {
-                    const terrain = frame.terrain;
-                    const terrain_bounding_box = Rect{
-                        .x = terrain.position.x,
-                        .y = terrain.position.y,
-                        .width = terrain.width,
-                        .height = terrain.height,
+                    const my_head_coord = getHeadPosition(frame.self.position);
+                    const render_bounding_box = Rect{
+                        .x = my_head_coord.x - 8,
+                        .y = my_head_coord.y - 8,
+                        .width = 18,
+                        .height = 18,
                     };
-                    var cursor = terrain_bounding_box.position();
-                    while (cursor.y < terrain_bounding_box.bottom()) : (cursor.y += 1) {
-                        const inner_y = @intCast(u16, cursor.y - terrain.position.y);
-                        cursor.x = terrain_bounding_box.x;
-                        while (cursor.x < terrain_bounding_box.right()) : (cursor.x += 1) {
-                            const inner_x = @intCast(u16, cursor.x - terrain.position.x);
-                            const cell = terrain.matrix[inner_y * terrain.width + inner_x];
+                    var cursor = render_bounding_box.position();
+                    while (cursor.y < render_bounding_box.bottom()) : (cursor.y += 1) {
+                        cursor.x = render_bounding_box.x;
+                        while (cursor.x < render_bounding_box.right()) : (cursor.x += 1) {
+                            const cell = state.client.remembered_terrain.getCoord(cursor);
                             const render_position = cursor.scaled(32).minus(screen_display_position);
 
                             render_floor: {
@@ -539,6 +545,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .unknown_wall => textures.sprites.unknown_wall,
                                 };
                                 textures.renderSprite(renderer, wall_texture, render_position);
+                            }
+
+                            if (!state.client.terrain_is_currently_in_view.getCoord(cursor)) {
+                                // Gray out the space
+                                textures.renderSprite(renderer, textures.sprites.black_alpha_square, render_position);
                             }
                         }
                     }
@@ -569,6 +580,18 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // sidebar
                 {
+                    const anatomy_coord = makeCoord(512, 0);
+                    {
+                        const sidebard_render_rect = sdl.makeRect(Rect{
+                            .x = anatomy_coord.x,
+                            .y = anatomy_coord.y,
+                            .width = 200,
+                            .height = 512,
+                        });
+                        sdl.assertZero(sdl.c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
+                        sdl.assertZero(sdl.c.SDL_RenderFillRect(renderer, &sidebard_render_rect));
+                    }
+
                     const AnatomySprites = struct {
                         diagram: Rect,
                         being_digested: ?Rect = null,
@@ -624,7 +647,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .limping = textures.large_sprites.quadruped_limping,
                         },
                     };
-                    const anatomy_coord = makeCoord(512, 0);
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
                     if (frame.self.has_shield) {
@@ -730,11 +752,11 @@ fn mainMenuState(save_file: *SaveFile) GameState {
 fn startPuzzleGame(game_state: *GameState, levels_to_skip: usize) !void {
     game_state.* = GameState{
         .running = .{
-            .client = undefined,
+            .client = try FancyClient.init(GameEngineClient.init()),
             .new_game_settings = .{ .puzzle_level = levels_to_skip },
         },
     };
-    try game_state.running.client.startAsThread();
+    try game_state.running.client.client.startAsThread();
     try game_state.running.client.startGame(.puzzle_levels);
     try game_state.running.client.beatLevelMacro(levels_to_skip);
     game_state.running.client.stopUndoPastLevel(levels_to_skip);
@@ -743,11 +765,11 @@ fn startPuzzleGame(game_state: *GameState, levels_to_skip: usize) !void {
 fn startGame(game_state: *GameState) !void {
     game_state.* = GameState{
         .running = .{
-            .client = undefined,
+            .client = try FancyClient.init(GameEngineClient.init()),
             .new_game_settings = .regular,
         },
     };
-    try game_state.running.client.startAsThread();
+    try game_state.running.client.client.startAsThread();
     try game_state.running.client.startGame(.regular);
 }
 
@@ -793,6 +815,15 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     } else {
         // You're not a moving one.
         return;
+    }
+}
+
+fn doAutoDirectionInput(state: *RunningState, delta: Coord) !void {
+    state.input_prompt = .none;
+
+    const myself = state.client_state.?.self;
+    if (core.game_logic.canMoveNormally(myself.species)) {
+        return state.client.autoMove(delta);
     }
 }
 

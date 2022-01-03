@@ -25,11 +25,15 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
             };
         }
         pub fn deinit(self: *@This()) void {
+            self.clear();
+            self.chunks.deinit();
+        }
+        pub fn clear(self: *@This()) void {
             var it = self.chunks.iterator();
             while (it.next()) |entry| {
                 self.chunks.allocator.free(entry.value_ptr.*);
             }
-            self.chunks.deinit();
+            self.chunks.clearRetainingCapacity();
         }
 
         pub fn clone(self: @This(), allocator: Allocator) !@This() {
@@ -64,6 +68,14 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
             return self.put(coord.x, coord.y, v);
         }
         pub fn put(self: *@This(), x: i32, y: i32, v: T) !void {
+            const value_ptr = try self.getOrPut(x, y);
+            value_ptr.* = v;
+        }
+
+        pub fn getOrPutCoord(self: *@This(), coord: Coord) !*T {
+            return self.getOrPut(coord.x, coord.y);
+        }
+        pub fn getOrPut(self: *@This(), x: i32, y: i32) !*T {
             if (self.chunks.count() == 0) {
                 // first put
                 self.metrics.min_x = x;
@@ -90,7 +102,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
                 std.mem.set(T, gop.value_ptr.*, default_value);
             }
 
-            gop.value_ptr.*[inner_index] = v;
+            return &gop.value_ptr.*[inner_index];
         }
 
         pub fn getCoord(self: @This(), coord: Coord) T {

@@ -1,7 +1,7 @@
 const std = @import("std");
 const core = @import("core");
-const game_server = @import("../server/game_server.zig");
-const SomeQueues = @import("../client/game_engine_client.zig").SomeQueues;
+const game_server = @import("game_server.zig");
+const SomeQueues = core.protocol.SomeQueues;
 const Socket = core.protocol.Socket;
 const Request = core.protocol.Request;
 const Response = core.protocol.Response;
@@ -80,9 +80,7 @@ pub fn main() anyerror!void {
     core.debug.thread_lifecycle.print("init", .{});
     defer core.debug.thread_lifecycle.print("shutdown", .{});
 
-    var queues: SomeQueues = undefined;
-    queues.init();
-
+    var queues = SomeQueues.init(allocator);
     var adapter: FdToQueueAdapter = undefined;
     try adapter.init(
         std.io.getStdIn().reader(),
