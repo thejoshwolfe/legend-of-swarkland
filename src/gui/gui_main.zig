@@ -1087,6 +1087,9 @@ fn speciesToSprite(species: Species) Rect {
             .small_blob => textures.sprites.pink_blob,
             .large_blob => textures.sprites.blob_large,
         },
+        .wolf => textures.sprites.dog,
+        .rat => textures.sprites.rat,
+        .wood_golem => textures.sprites.wood_golem,
     };
 }
 

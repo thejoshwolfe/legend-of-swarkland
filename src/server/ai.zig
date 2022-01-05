@@ -191,20 +191,46 @@ fn hesitatesOneSpaceAway(species: Species) bool {
     }
 }
 
-fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: Species) ?i32 {
-    // this is straight up racism.
-    if (me == you) return null;
+const Faction = enum {
+    humans,
+    orcs,
+    centaurs,
+    none,
+};
 
-    if (me == .human) {
-        // humans, being the enlightened race, want to murder everything else equally.
+fn getFaction(species: std.meta.Tag(core.protocol.Species)) Faction {
+    return switch (species) {
+        .human => .humans,
+        .centaur => .centaurs,
+        .turtle => .centaurs,
+        .rhino => .centaurs,
+        .kangaroo => .centaurs,
+        .wood_golem => .centaurs,
+        .orc => .orcs,
+        .wolf => .orcs,
+        .rat => .orcs,
+        .blob => .none,
+    };
+}
+
+fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: std.meta.Tag(core.protocol.Species)) ?i32 {
+    const my_team = getFaction(me);
+    const your_team = getFaction(you);
+    if (my_team == your_team) return null;
+    if (your_team == .humans) {
+        // humans represent all that is evil and corrupt about the world.
+        // most species are content to live in relative harmony with nature,
+        // but humans can't resit uprooting trees, polluting the atmosphere,
+        // and paving the rain forests with tar and concrete.
+        // sure orcs are traditionally evil, and necro magicians may be literally evil,
+        // but it's those humans and their ingenuity that are really to blame for all the problems in life.
+        // just look at these pictures of sad animals amidst a bunch of trash.
+        // doesn't that tug at your heartstrings? isn't that evidence enough for you?
+        // humans are the them that you must hate. get em!
         return 9;
     }
-    switch (you) {
-        // humans are just the worst.
-        .human => return 9,
-        // whatever.
-        else => return 1,
-    }
+    // whatever.
+    return 1;
 }
 
 fn movelikeAction(species: Species, position: ThingPosition, delta: Coord) Action {

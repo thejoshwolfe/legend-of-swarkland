@@ -68,6 +68,9 @@ pub fn canKick(species: Species) bool {
         .rhino => true,
         .kangaroo => true,
         .blob => false,
+        .wolf => false,
+        .rat => false,
+        .wood_golem => true,
     };
 }
 
@@ -151,6 +154,9 @@ pub fn getAnatomy(species: Species) Anatomy {
         .turtle, .rhino => return .quadruped,
         .kangaroo => return .kangaroid,
         .blob => return .bloboid,
+        .wolf => return .quadruped,
+        .rat => return .quadruped,
+        .wood_golem => return .humanoid,
     }
 }
 

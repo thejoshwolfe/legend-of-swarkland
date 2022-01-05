@@ -44,6 +44,9 @@ pub const Species = union(enum) {
         small_blob,
         large_blob,
     },
+    wolf,
+    rat,
+    wood_golem,
 };
 
 pub const TerrainChunk = struct {

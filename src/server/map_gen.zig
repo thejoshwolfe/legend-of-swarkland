@@ -78,7 +78,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     var rooms_for_spawn = try clone(allocator, rooms);
     var possible_spawn_locations = ArrayList(Coord).init(allocator);
     while (rooms_for_spawn.items.len > 1) {
-        const room = popRandom(r, &rooms_for_spawn);
+        const room = popRandom(r, &rooms_for_spawn).?;
         possible_spawn_locations.shrinkRetainingCapacity(0);
         var it = (Rect{
             .x = room.x + 1,
@@ -90,11 +90,23 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             try possible_spawn_locations.append(coord);
         }
 
-        // orc orc orc orc
-        var individuals_remaining = r.intRangeAtMost(usize, 2, 6);
+        // this is orc country
+        var individuals_remaining = r.intRangeAtMost(usize, 1, 3);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-            const coord = popRandom(r, &possible_spawn_locations);
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
             try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 0, 1);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .wolf).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 0, 3);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
             next_id += 1;
         }
     }
@@ -107,7 +119,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     // join rooms
     var rooms_to_join = try clone(allocator, rooms);
     while (rooms_to_join.items.len > 1) {
-        const room_a = popRandom(r, &rooms_to_join);
+        const room_a = popRandom(r, &rooms_to_join).?;
         const room_b = choice(r, rooms_to_join.items);
 
         var cursor = makeCoord(
@@ -655,6 +667,7 @@ fn clone(allocator: Allocator, array_list: anytype) !@TypeOf(array_list) {
     return result;
 }
 
-fn popRandom(r: Random, array_list: anytype) @TypeOf(array_list.*.items[0]) {
+fn popRandom(r: Random, array_list: anytype) ?@TypeOf(array_list.*.items[0]) {
+    if (array_list.items.len == 0) return null;
     return array_list.swapRemove(r.uintLessThan(usize, array_list.items.len));
 }
