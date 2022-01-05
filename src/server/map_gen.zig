@@ -174,6 +174,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     }
 
     // forest
+    var forest_rect: Rect = undefined;
     {
         // path to forest
         var cursor = makeCoord(
@@ -217,7 +218,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         }
 
         // we've arrived at the forest
-        const forest_rect = Rect{
+        forest_rect = Rect{
             .x = cursor.x - 1,
             .y = cursor.y - r.intRangeAtMost(i32, 20, 30),
             .width = r.intRangeAtMost(i32, 40, 60),
@@ -244,6 +245,33 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                         .wall = .air,
                     };
                 }
+            }
+        }
+    }
+    // fill the forest with foliage.
+    {
+        var it = (Rect{
+            .x = forest_rect.x + 2,
+            .y = forest_rect.y + 1,
+            .width = forest_rect.width - 3,
+            .height = forest_rect.height - 2,
+        }).rowMajorIterator();
+        while (it.next()) |coord| {
+            const cell_ptr = try terrain.getOrPutCoord(coord);
+            if (cell_ptr.wall != .air) continue;
+            switch (r.int(u4)) {
+                0...10 => continue,
+                11...13 => {
+                    const next_cell_ptr = (try terrain.getOrPut(coord.x + 1, coord.y + 0));
+                    if (next_cell_ptr.wall != .air) continue;
+                    cell_ptr.wall = .tree_northwest;
+                    next_cell_ptr.wall = .tree_northeast;
+                    (try terrain.getOrPut(coord.x + 0, coord.y + 1)).wall = .tree_southwest;
+                    (try terrain.getOrPut(coord.x + 1, coord.y + 1)).wall = .tree_southeast;
+                },
+                14...15 => {
+                    cell_ptr.wall = .bush;
+                },
             }
         }
     }
