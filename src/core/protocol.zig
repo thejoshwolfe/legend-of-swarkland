@@ -6,6 +6,7 @@ const Coord = core.geometry.Coord;
 pub const Floor = enum {
     unknown,
     dirt,
+    grass,
     marble,
     lava,
     hatch,

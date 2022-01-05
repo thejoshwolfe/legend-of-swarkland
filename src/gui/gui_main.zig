@@ -525,6 +525,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 const floor_texture = switch (cell.floor) {
                                     .unknown => break :render_floor,
                                     .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
+                                    .grass => selectAesthetic(textures.sprites.grass[0..], aesthetic_seed, cursor),
                                     .marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, cursor),
                                     .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
                                     .hatch => textures.sprites.hatch,

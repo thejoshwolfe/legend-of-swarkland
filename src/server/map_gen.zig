@@ -53,21 +53,21 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         while (y <= room_rect.bottom()) : (y += 1) {
             var x = position.x;
             while (x <= room_rect.right()) : (x += 1) {
-                // TODO: use getOrPut() here
-                if (terrain.get(x, y).wall == .air) {
+                const cell_ptr = try terrain.getOrPut(x, y);
+                if (cell_ptr.wall == .air) {
                     // already open
                     continue;
                 }
                 if (x == position.x or y == position.y or x == room_rect.right() or y == room_rect.bottom()) {
-                    try terrain.put(x, y, TerrainSpace{
+                    cell_ptr.* = TerrainSpace{
                         .floor = .dirt,
                         .wall = .dirt,
-                    });
+                    };
                 } else {
-                    try terrain.put(x, y, TerrainSpace{
+                    cell_ptr.* = TerrainSpace{
                         .floor = .dirt,
                         .wall = .air,
-                    });
+                    };
                 }
             }
         }
@@ -139,15 +139,60 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                 cursor.y += unit_diagonal.y;
             }
         }) {
-            // TODO: use getOrPutCoord() here
-            if (terrain.getCoord(cursor).wall == .air) {
-                // already open
-                continue;
+            {
+                const cell_ptr = try terrain.getOrPutCoord(cursor);
+                if (cell_ptr.wall == .air) {
+                    // already open
+                    continue;
+                }
+                cell_ptr.* = TerrainSpace{
+                    .floor = .dirt,
+                    .wall = .air,
+                };
             }
-            try terrain.putCoord(cursor, TerrainSpace{
-                .floor = .dirt,
-                .wall = .air,
-            });
+            // Surround with dirt walls
+            for ([_]Coord{
+                cursor.plus(makeCoord(-1, -1)),
+                cursor.plus(makeCoord(0, -1)),
+                cursor.plus(makeCoord(1, -1)),
+                cursor.plus(makeCoord(-1, 0)),
+                cursor.plus(makeCoord(1, 0)),
+                cursor.plus(makeCoord(-1, 1)),
+                cursor.plus(makeCoord(0, 1)),
+                cursor.plus(makeCoord(1, 1)),
+            }) |wall_cursor| {
+                const cell_ptr = try terrain.getOrPutCoord(wall_cursor);
+                if (cell_ptr.wall == .air) {
+                    continue;
+                }
+                cell_ptr.* = TerrainSpace{
+                    .floor = .dirt,
+                    .wall = .dirt,
+                };
+            }
+        }
+    }
+
+    // forest
+    {
+        // path to forest
+        var cursor = makeCoord(
+            r.intRangeAtMost(i32, rooms_to_join.items[0].x + 1, rooms_to_join.items[0].right() - 1),
+            r.intRangeAtMost(i32, rooms_to_join.items[0].y + 1, rooms_to_join.items[0].bottom() - 1),
+        );
+        const forest_start_x = terrain.metrics.max_x + 3;
+        while (cursor.x < forest_start_x) : (cursor.x += 1) {
+            {
+                const cell_ptr = try terrain.getOrPutCoord(cursor);
+                if (cell_ptr.wall == .air) {
+                    // already open
+                    continue;
+                }
+                cell_ptr.* = TerrainSpace{
+                    .floor = .dirt,
+                    .wall = .air,
+                };
+            }
 
             // Surround with dirt walls
             for ([_]Coord{
@@ -160,14 +205,45 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                 cursor.plus(makeCoord(0, 1)),
                 cursor.plus(makeCoord(1, 1)),
             }) |wall_cursor| {
-                // TODO: use getOrPutCoord() here
-                if (terrain.getCoord(wall_cursor).wall == .air) {
+                const cell_ptr = try terrain.getOrPutCoord(wall_cursor);
+                if (cell_ptr.wall == .air) {
                     continue;
                 }
-                try terrain.putCoord(wall_cursor, TerrainSpace{
+                cell_ptr.* = TerrainSpace{
                     .floor = .dirt,
                     .wall = .dirt,
-                });
+                };
+            }
+        }
+
+        // we've arrived at the forest
+        const forest_rect = Rect{
+            .x = cursor.x - 1,
+            .y = cursor.y - r.intRangeAtMost(i32, 20, 30),
+            .width = r.intRangeAtMost(i32, 40, 60),
+            .height = r.intRangeAtMost(i32, 40, 60),
+        };
+        // dig out the forest
+        var y = forest_rect.y;
+        while (y <= forest_rect.bottom()) : (y += 1) {
+            var x = forest_rect.x;
+            while (x <= forest_rect.right()) : (x += 1) {
+                const cell_ptr = try terrain.getOrPut(x, y);
+                if (cell_ptr.wall == .air) {
+                    // the one space of path that enters the forest
+                    continue;
+                }
+                if (x == forest_rect.x or y == forest_rect.y or x == forest_rect.right() or y == forest_rect.bottom()) {
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .dirt,
+                    };
+                } else {
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .grass,
+                        .wall = .air,
+                    };
+                }
             }
         }
     }
