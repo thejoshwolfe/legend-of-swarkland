@@ -27,6 +27,7 @@ const StatusConditions = core.protocol.StatusConditions;
 const PerceivedTerrain = core.game_logic.PerceivedTerrain;
 const getViewDistance = core.game_logic.getViewDistance;
 const isOpenSpace = core.game_logic.isOpenSpace;
+const isTransparentSpace = core.game_logic.isTransparentSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
 const applyMovementToPosition = core.game_logic.applyMovementToPosition;
@@ -1415,7 +1416,7 @@ fn isClearLineOfSightOneSided(terrain: Terrain, a: Coord, b: Coord) bool {
         var cursor_x = a.x + step_x;
         while (cursor_x != b.x) : (cursor_x += step_x) {
             const y = @divTrunc((cursor_x - a.x) * delta.y, delta.x) + a.y;
-            const is_open = isOpenSpace(terrain.get(cursor_x, y).wall);
+            const is_open = isTransparentSpace(terrain.get(cursor_x, y).wall);
             if (should_print) core.debug.testing.print("x,y: {},{}: {}", .{ cursor_x, y, is_open });
             if (!is_open) return false;
         }
@@ -1425,7 +1426,7 @@ fn isClearLineOfSightOneSided(terrain: Terrain, a: Coord, b: Coord) bool {
         var cursor_y = a.y + step_y;
         while (cursor_y != b.y) : (cursor_y += step_y) {
             const x = @divTrunc((cursor_y - a.y) * delta.x, delta.y) + a.x;
-            const is_open = isOpenSpace(terrain.get(x, cursor_y).wall);
+            const is_open = isTransparentSpace(terrain.get(x, cursor_y).wall);
             if (should_print) core.debug.testing.print("x,y: {},{}: {}", .{ x, cursor_y, is_open });
             if (!is_open) return false;
         }

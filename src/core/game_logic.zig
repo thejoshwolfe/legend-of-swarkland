@@ -111,6 +111,13 @@ pub fn isOpenSpace(wall: Wall) bool {
     };
 }
 
+pub fn isTransparentSpace(wall: Wall) bool {
+    return switch (wall) {
+        .tree_northwest, .tree_northeast, .tree_southwest, .tree_southeast => true,
+        else => return isOpenSpace(wall),
+    };
+}
+
 pub fn getHeadPosition(thing_position: ThingPosition) Coord {
     return switch (thing_position) {
         .small => |coord| coord,
