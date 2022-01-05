@@ -6,9 +6,13 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# Public Domain
+# Public Domain and Creative Commons
 
-Game art assests are in public domain.
+Art assests are in the Public Domain or licensed under Creative Commons.
 
 * https://opengameart.org/content/dungeon-crawl-32x32-tiles
+* https://opengameart.org/content/dungeon-crawl-32x32-tiles-supplemental
 * https://opengameart.org/content/16x12-terminal-bitmap-font
+* https://opengameart.org/content/rhino
+* https://opengameart.org/content/tree-variations-from-jetrels-wood-tileset
+    * Thanks to Jetrel, Zabin, Bertram, and Daniel Cook.
