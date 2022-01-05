@@ -250,6 +250,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     }
     // fill the forest with foliage.
     {
+        possible_spawn_locations.clearRetainingCapacity();
         var it = (Rect{
             .x = forest_rect.x + 2,
             .y = forest_rect.y + 1,
@@ -260,19 +261,42 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             const cell_ptr = try terrain.getOrPutCoord(coord);
             if (cell_ptr.wall != .air) continue;
             switch (r.int(u4)) {
-                0...10 => continue,
+                0...10 => {},
                 11...13 => {
                     const next_cell_ptr = (try terrain.getOrPut(coord.x + 1, coord.y + 0));
-                    if (next_cell_ptr.wall != .air) continue;
-                    cell_ptr.wall = .tree_northwest;
-                    next_cell_ptr.wall = .tree_northeast;
-                    (try terrain.getOrPut(coord.x + 0, coord.y + 1)).wall = .tree_southwest;
-                    (try terrain.getOrPut(coord.x + 1, coord.y + 1)).wall = .tree_southeast;
+                    if (next_cell_ptr.wall == .air) {
+                        cell_ptr.wall = .tree_northwest;
+                        next_cell_ptr.wall = .tree_northeast;
+                        (try terrain.getOrPut(coord.x + 0, coord.y + 1)).wall = .tree_southwest;
+                        (try terrain.getOrPut(coord.x + 1, coord.y + 1)).wall = .tree_southeast;
+                    }
                 },
                 14...15 => {
                     cell_ptr.wall = .bush;
                 },
             }
+            if (cell_ptr.wall == .air) {
+                try possible_spawn_locations.append(coord);
+            }
+        }
+        // spawn some woodland creatures.
+        var individuals_remaining = r.intRangeAtMost(usize, 4, 10);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 1, 3);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .wood_golem).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 1, 3);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .kangaroo).clone(allocator));
+            next_id += 1;
         }
     }
 }
