@@ -52,8 +52,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         }
     }
     if (target_position == null) {
-        // nothing to do.
-        core.debug.ai.print("waiting: no targets", .{});
+        // no targets.
         return .wait;
     }
 

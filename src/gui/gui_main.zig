@@ -29,6 +29,7 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
+const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
@@ -562,8 +563,26 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 // render the things
-                for (frame.others) |other| {
-                    _ = renderThing(renderer, progress, move_frame_time, screen_display_position, other);
+                {
+                    var layers = [4]ArrayList(PerceivedThing){
+                        ArrayList(PerceivedThing).init(allocator),
+                        ArrayList(PerceivedThing).init(allocator),
+                        ArrayList(PerceivedThing).init(allocator),
+                        ArrayList(PerceivedThing).init(allocator),
+                    };
+                    defer {
+                        for (layers) |layer| {
+                            layer.deinit();
+                        }
+                    }
+                    for (frame.others) |other| {
+                        try layers[getPhysicsLayer(other.species)].append(other);
+                    }
+                    for (layers) |layer| {
+                        for (layer.items) |other| {
+                            _ = renderThing(renderer, progress, move_frame_time, screen_display_position, other);
+                        }
+                    }
                 }
                 const render_position = renderThing(renderer, progress, move_frame_time, screen_display_position, frame.self);
                 // render input prompt

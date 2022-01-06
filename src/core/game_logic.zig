@@ -74,11 +74,12 @@ pub fn canKick(species: Species) bool {
     };
 }
 
-pub fn getInertiaIndex(species: Species) ?u1 {
+pub fn getPhysicsLayer(species: Species) u2 {
     switch (species) {
-        .rhino => return 1,
-        .blob => return null,
-        else => return 0,
+        .blob => return 0,
+        .rat => return 1,
+        .rhino => return 3,
+        else => return 2,
     }
 }
 

@@ -103,7 +103,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             try individuals.putNoClobber(next_id, try makeIndividual(coord, .wolf).clone(allocator));
             next_id += 1;
         }
-        individuals_remaining = r.intRangeAtMost(usize, 0, 3);
+        individuals_remaining = r.intRangeAtMost(usize, 3, 7) * r.int(u1);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
             try individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
