@@ -563,25 +563,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 // render the things
-                {
-                    var layers = [4]ArrayList(PerceivedThing){
-                        ArrayList(PerceivedThing).init(allocator),
-                        ArrayList(PerceivedThing).init(allocator),
-                        ArrayList(PerceivedThing).init(allocator),
-                        ArrayList(PerceivedThing).init(allocator),
-                    };
-                    defer {
-                        for (layers) |layer| {
-                            layer.deinit();
-                        }
-                    }
+                for ([4]u2{ 0, 1, 2, 3 }) |physics_layer| {
                     for (frame.others) |other| {
-                        try layers[getPhysicsLayer(other.species)].append(other);
-                    }
-                    for (layers) |layer| {
-                        for (layer.items) |other| {
-                            _ = renderThing(renderer, progress, move_frame_time, screen_display_position, other);
-                        }
+                        if (getPhysicsLayer(other.species) != physics_layer) continue;
+                        _ = renderThing(renderer, progress, move_frame_time, screen_display_position, other);
                     }
                 }
                 const render_position = renderThing(renderer, progress, move_frame_time, screen_display_position, frame.self);
