@@ -85,6 +85,7 @@ pub const Action = union(enum) {
     shrink: u1,
     attack: Coord,
     kick: Coord,
+    nibble,
 };
 
 pub const Response = union(enum) {
@@ -151,6 +152,7 @@ pub const PerceivedActivity = union(enum) {
     shrink: u1,
 
     attack: Attack,
+    nibble,
 
     kick: Coord,
     polymorph: Species,

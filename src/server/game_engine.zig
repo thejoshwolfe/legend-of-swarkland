@@ -404,49 +404,78 @@ pub const GameEngine = struct {
 
         // Attacks
         var attacks = IdMap(Activities.Attack).init(self.allocator);
+        var nibbles = IdMap(void).init(self.allocator);
         var attack_deaths = IdMap(void).init(self.allocator);
         for (everybody) |id| {
-            var attack_direction: Coord = switch (actions.get(id).?) {
-                .attack => |direction| direction,
-                else => continue,
-            };
-            var attacker_coord = getHeadPosition(current_positions.get(id).?);
-            var attack_distance: i32 = 1;
-            const range = core.game_logic.getAttackRange(game_state.individuals.get(id).?.species);
-            range_loop: while (attack_distance <= range) : (attack_distance += 1) {
-                var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
-                for (everybody) |other_id| {
-                    const position = current_positions.get(other_id).?;
-                    for (getAllPositions(&position)) |coord, i| {
-                        if (!coord.equals(damage_position)) continue;
-                        // hit something.
-                        const other = game_state.individuals.get(other_id).?;
-                        const is_effective = blk: {
-                            // innate defense
-                            if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
-                            // shield blocks arrows
-                            if (range > 1 and other.has_shield) break :blk false;
-                            break :blk true;
-                        };
-                        if (is_effective) {
-                            // get wrecked
-                            const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
-                            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
-                                // first hit is a wound
-                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
-                            } else {
-                                // second hit. you ded.
-                                _ = try attack_deaths.put(other_id, {});
+            switch (actions.get(id).?) {
+                .attack => |attack_direction| {
+                    var attacker_coord = getHeadPosition(current_positions.get(id).?);
+                    var attack_distance: i32 = 1;
+                    const range = core.game_logic.getAttackRange(game_state.individuals.get(id).?.species);
+                    while (attack_distance <= range) : (attack_distance += 1) {
+                        var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
+                        var stop_the_attack = false;
+                        for (everybody) |other_id| {
+                            const position = current_positions.get(other_id).?;
+                            for (getAllPositions(&position)) |coord, i| {
+                                if (!coord.equals(damage_position)) continue;
+                                // hit something.
+                                const other = game_state.individuals.get(other_id).?;
+                                const is_effective = blk: {
+                                    // innate defense
+                                    if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
+                                    // shield blocks arrows
+                                    if (range > 1 and other.has_shield) break :blk false;
+                                    break :blk true;
+                                };
+                                if (is_effective) {
+                                    // get wrecked
+                                    const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
+                                    if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
+                                        // first hit is a wound
+                                        other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                    } else {
+                                        // second hit. you ded.
+                                        _ = try attack_deaths.put(other_id, {});
+                                    }
+                                }
+                                stop_the_attack = true;
                             }
                         }
-                        break :range_loop;
+                        if (stop_the_attack) break;
                     }
-                }
+                    try attacks.putNoClobber(id, Activities.Attack{
+                        .direction = attack_direction,
+                        .distance = attack_distance,
+                    });
+                },
+                .nibble => {
+                    const attacker_coord = getHeadPosition(current_positions.get(id).?);
+                    const damage_position = attacker_coord;
+                    for (everybody) |other_id| {
+                        if (other_id == id) continue;
+                        const position = current_positions.get(other_id).?;
+                        for (getAllPositions(&position)) |coord, i| {
+                            if (!coord.equals(damage_position)) continue;
+                            // hit something.
+                            const other = game_state.individuals.get(other_id).?;
+                            const is_effective = blk: {
+                                // innate defense
+                                if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
+                                break :blk true;
+                            };
+                            if (is_effective) {
+                                // get wrecked
+                                const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
+                                // nibbling only does wounds.
+                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                            }
+                        }
+                    }
+                    try nibbles.putNoClobber(id, {});
+                },
+                else => continue,
             }
-            try attacks.putNoClobber(id, Activities.Attack{
-                .direction = attack_direction,
-                .distance = attack_distance,
-            });
         }
         // Lava
         for (everybody) |id| {
@@ -459,13 +488,16 @@ pub const GameEngine = struct {
         }
         // Perception of Attacks and Death
         for (everybody) |id| {
-            if (attacks.count() != 0) {
+            if (attacks.count() + nibbles.count() != 0) {
                 try self.observeFrame(
                     game_state,
                     id,
                     individual_to_perception.get(id).?,
                     &current_positions,
-                    Activities{ .attacks = &attacks },
+                    Activities{ .attacks = .{
+                        .attacks = &attacks,
+                        .nibbles = &nibbles,
+                    } },
                 );
             }
             if (attack_deaths.count() != 0) {
@@ -1064,7 +1096,7 @@ pub const GameEngine = struct {
         growths: Movement,
         shrinks: *const IdMap(u1),
         kicks: *const IdMap(Coord),
-        attacks: *const IdMap(Attack),
+        attacks: AttackishActivities,
         polymorphs: *const IdMap(Species),
 
         deaths: *const IdMap(void),
@@ -1072,6 +1104,10 @@ pub const GameEngine = struct {
         const Movement = struct {
             intended_moves: *const IdMap(Coord),
             next_positions: *const IdMap(ThingPosition),
+        };
+        const AttackishActivities = struct {
+            attacks: *const IdMap(Attack),
+            nibbles: *const IdMap(void),
         };
         const Attack = struct {
             direction: Coord,
@@ -1212,13 +1248,15 @@ pub const GameEngine = struct {
                 else
                     PerceivedActivity{ .none = {} },
 
-                .attacks => |data| if (data.get(id)) |attack|
+                .attacks => |data| if (data.attacks.get(id)) |attack|
                     PerceivedActivity{
                         .attack = PerceivedActivity.Attack{
                             .direction = attack.direction,
                             .distance = attack.distance,
                         },
                     }
+                else if (data.nibbles.contains(id))
+                    PerceivedActivity{ .nibble = {} }
                 else
                     PerceivedActivity{ .none = {} },
 

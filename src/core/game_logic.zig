@@ -34,7 +34,7 @@ pub fn canAttack(species: Species) bool {
 pub fn getAttackRange(species: Species) i32 {
     switch (species) {
         .centaur => return 16,
-        .rhino, .blob, .kangaroo => return 0,
+        .rhino, .blob, .kangaroo, .rat => return 0,
         else => return 1,
     }
 }
@@ -42,6 +42,13 @@ pub fn getAttackRange(species: Species) i32 {
 pub fn canCharge(species: Species) bool {
     return switch (species) {
         .rhino => true,
+        else => false,
+    };
+}
+
+pub fn canNibble(species: Species) bool {
+    return switch (species) {
+        .rat => true,
         else => false,
     };
 }
@@ -198,6 +205,9 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
         .kick => |direction| {
             if (!canKick(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
+        },
+        .nibble => {
+            if (!canNibble(species)) return error.SpeciesIncapable;
         },
     }
 }

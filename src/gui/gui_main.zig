@@ -1057,6 +1057,10 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
             textures.renderSprite(renderer, sprites[@intCast(usize, sprite_index)], render_position);
         },
 
+        .nibble => {
+            textures.renderSprite(renderer, textures.sprites.equipment, render_position);
+        },
+
         .death => {
             textures.renderSprite(renderer, textures.sprites.death, render_position);
         },

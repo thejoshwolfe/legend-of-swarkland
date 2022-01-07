@@ -12,6 +12,7 @@ const ThingPosition = core.protocol.ThingPosition;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
 const canAttack = core.game_logic.canAttack;
+const canNibble = core.game_logic.canNibble;
 const canCharge = core.game_logic.canCharge;
 const canMoveNormally = core.game_logic.canMoveNormally;
 const canGrowAndShrink = core.game_logic.canGrowAndShrink;
@@ -58,7 +59,10 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (target_distance.? == 0) {
         // Overlapping the target.
-        if (canGrowAndShrink(last_frame.self.species)) {
+        if (canNibble(last_frame.self.species)) {
+            // om nom nom
+            return .nibble;
+        } else if (canGrowAndShrink(last_frame.self.species)) {
             switch (last_frame.self.position) {
                 .large => |data| {
                     if (target_position.?.equals(data[0])) {
