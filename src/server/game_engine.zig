@@ -416,6 +416,11 @@ pub const GameEngine = struct {
                         var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
                         var stop_the_attack = false;
                         for (everybody) |other_id| {
+                            switch (getPhysicsLayer(game_state.individuals.get(other_id).?.species)) {
+                                // too short to be attacked.
+                                0, 1 => continue,
+                                2, 3 => {},
+                            }
                             const position = current_positions.get(other_id).?;
                             for (getAllPositions(&position)) |coord, i| {
                                 if (!coord.equals(damage_position)) continue;
