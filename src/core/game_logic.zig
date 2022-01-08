@@ -67,6 +67,13 @@ pub fn canGrowAndShrink(species: Species) bool {
     };
 }
 
+pub fn isSlow(species: Species) bool {
+    return switch (species) {
+        .wood_golem => true,
+        else => false,
+    };
+}
+
 pub fn canKick(species: Species) bool {
     return switch (species) {
         .human, .orc => true,

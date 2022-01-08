@@ -33,6 +33,7 @@ const getAllPositions = core.game_logic.getAllPositions;
 const applyMovementToPosition = core.game_logic.applyMovementToPosition;
 const offsetPosition = core.game_logic.offsetPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
+const isSlow = core.game_logic.isSlow;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -280,8 +281,10 @@ pub const GameEngine = struct {
             } else if (!budges_at_all.contains(id)) {
                 // you held still, so you are free of any limping status.
                 status_conditions.* &= ~core.protocol.StatusCondition_limping;
-            } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg) {
-                // you moved while wounded. now you limp.
+            } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg or //
+                isSlow(game_state.individuals.get(id).?.species))
+            {
+                // now you limp.
                 status_conditions.* |= core.protocol.StatusCondition_limping;
             }
         }
