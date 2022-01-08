@@ -405,9 +405,11 @@ pub const GameEngine = struct {
         // Attacks
         var attacks = IdMap(Activities.Attack).init(self.allocator);
         var nibbles = IdMap(void).init(self.allocator);
+        var stomps = IdMap(void).init(self.allocator);
         var attack_deaths = IdMap(void).init(self.allocator);
         for (everybody) |id| {
-            switch (actions.get(id).?) {
+            const action = actions.get(id).?;
+            switch (action) {
                 .attack => |attack_direction| {
                     var attacker_coord = getHeadPosition(current_positions.get(id).?);
                     var attack_distance: i32 = 1;
@@ -454,16 +456,21 @@ pub const GameEngine = struct {
                         .distance = attack_distance,
                     });
                 },
-                .nibble => {
+                .nibble, .stomp => {
+                    const is_stomp = action == .stomp;
                     const attacker_coord = getHeadPosition(current_positions.get(id).?);
                     const damage_position = attacker_coord;
                     for (everybody) |other_id| {
-                        if (other_id == id) continue;
+                        if (other_id == id) continue; // Don't hit yourself.
+                        const other = game_state.individuals.get(other_id).?;
+                        if (is_stomp and getPhysicsLayer(other.species) != 1) {
+                            // stomping only works on scurriers.
+                            continue;
+                        }
                         const position = current_positions.get(other_id).?;
                         for (getAllPositions(&position)) |coord, i| {
                             if (!coord.equals(damage_position)) continue;
                             // hit something.
-                            const other = game_state.individuals.get(other_id).?;
                             const is_effective = blk: {
                                 // innate defense
                                 if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
@@ -471,13 +478,22 @@ pub const GameEngine = struct {
                             };
                             if (is_effective) {
                                 // get wrecked
-                                const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
-                                // nibbling only does wounds.
-                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                if (is_stomp) {
+                                    // stomping is instant deth.
+                                    _ = try attack_deaths.put(other_id, {});
+                                } else {
+                                    // nibbling only does wounds.
+                                    const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
+                                    other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                }
                             }
                         }
                     }
-                    try nibbles.putNoClobber(id, {});
+                    if (is_stomp) {
+                        try stomps.putNoClobber(id, {});
+                    } else {
+                        try nibbles.putNoClobber(id, {});
+                    }
                 },
                 else => continue,
             }
@@ -493,7 +509,7 @@ pub const GameEngine = struct {
         }
         // Perception of Attacks and Death
         for (everybody) |id| {
-            if (attacks.count() + nibbles.count() != 0) {
+            if (attacks.count() + nibbles.count() + stomps.count() != 0) {
                 try self.observeFrame(
                     game_state,
                     id,
@@ -502,6 +518,7 @@ pub const GameEngine = struct {
                     Activities{ .attacks = .{
                         .attacks = &attacks,
                         .nibbles = &nibbles,
+                        .stomps = &stomps,
                     } },
                 );
             }
@@ -1113,6 +1130,7 @@ pub const GameEngine = struct {
         const AttackishActivities = struct {
             attacks: *const IdMap(Attack),
             nibbles: *const IdMap(void),
+            stomps: *const IdMap(void),
         };
         const Attack = struct {
             direction: Coord,
@@ -1262,6 +1280,8 @@ pub const GameEngine = struct {
                     }
                 else if (data.nibbles.contains(id))
                     PerceivedActivity{ .nibble = {} }
+                else if (data.stomps.contains(id))
+                    PerceivedActivity{ .stomp = {} }
                 else
                     PerceivedActivity{ .none = {} },
 

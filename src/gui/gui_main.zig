@@ -329,6 +329,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .shift_up => try doAutoDirectionInput(state, makeCoord(0, -1)),
                                     .shift_down => try doAutoDirectionInput(state, makeCoord(0, 1)),
 
+                                    .greaterthan => {
+                                        if (state.input_prompt == .kick) {
+                                            try state.client.act(.stomp);
+                                        }
+                                        state.input_prompt = .none;
+                                    },
+
                                     .start_attack => {
                                         if (canAttack(state.client_state.?.self.species)) {
                                             state.input_prompt = .attack;
@@ -1059,6 +1066,18 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
 
         .nibble => {
             textures.renderSprite(renderer, textures.sprites.equipment, render_position);
+        },
+        .stomp => {
+            textures.renderSprite(
+                renderer,
+                textures.sprites.kick,
+                core.geometry.bezierBounce(
+                    render_position.plus(makeCoord(0, 4)),
+                    render_position.plus(makeCoord(0, 20)),
+                    progress,
+                    progress_denominator,
+                ),
+            );
         },
 
         .death => {

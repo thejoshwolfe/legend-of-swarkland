@@ -209,6 +209,9 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
         .nibble => {
             if (!canNibble(species)) return error.SpeciesIncapable;
         },
+        .stomp => {
+            if (!canKick(species)) return error.SpeciesIncapable;
+        },
     }
 }
 

@@ -196,6 +196,7 @@ pub fn debugPrintAction(prefix_number: u32, action: Action) void {
         .shrink => |index| core.debug.actions.print("{}: Action{{ .shrink = {} }},", .{ prefix_number, index }),
         .attack => |direction| core.debug.actions.print("{}: Action{{ .attack = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
         .nibble => core.debug.actions.print("{}: Action{{ .nibble = {{}} }},", .{prefix_number}),
+        .stomp => core.debug.actions.print("{}: Action{{ .stomp = {{}} }},", .{prefix_number}),
         .kick => |direction| core.debug.actions.print("{}: Action{{ .kick = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
     }
 }

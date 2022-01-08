@@ -14,6 +14,7 @@ pub const Button = enum {
     shift_down,
     shift_left,
     shift_right,
+    greaterthan,
 
     start_attack,
     start_kick,
@@ -89,6 +90,12 @@ pub const InputEngine = struct {
                 return .restart
             else if (modifiers == ctrl)
                 return .quit
+            else
+                return null,
+            sdl.c.SDL_SCANCODE_PERIOD => if (modifiers == 0)
+                return null // .
+            else if (modifiers == shift)
+                return .greaterthan // >
             else
                 return null,
             sdl.c.SDL_SCANCODE_SPACE => return if (modifiers == 0) .spacebar else null,
