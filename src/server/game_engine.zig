@@ -141,7 +141,7 @@ pub const GameEngine = struct {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
                 const move_delta: Coord = switch (actions.get(id).?) {
-                    .move, .fast_move => |move_delta| move_delta,
+                    .move, .fast_move, .lunge => |move_delta| move_delta,
                     else => continue,
                 };
                 if (0 != current_status_conditions.get(id).? & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) {
@@ -413,7 +413,7 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             const action = actions.get(id).?;
             switch (action) {
-                .attack => |attack_direction| {
+                .attack, .lunge => |attack_direction| {
                     var attacker_coord = getHeadPosition(current_positions.get(id).?);
                     var attack_distance: i32 = 1;
                     const range = core.game_logic.getAttackRange(game_state.individuals.get(id).?.species);

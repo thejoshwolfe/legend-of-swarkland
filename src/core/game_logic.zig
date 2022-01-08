@@ -46,6 +46,13 @@ pub fn canCharge(species: Species) bool {
     };
 }
 
+pub fn canLunge(species: Species) bool {
+    return switch (species) {
+        .wolf => true,
+        else => false,
+    };
+}
+
 pub fn canNibble(species: Species) bool {
     return switch (species) {
         .rat => true,
@@ -218,6 +225,10 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
         },
         .stomp => {
             if (!canKick(species)) return error.SpeciesIncapable;
+        },
+        .lunge => |direction| {
+            if (!canLunge(species)) return error.SpeciesIncapable;
+            if (!isCardinalDirection(direction)) return error.BadDelta;
         },
     }
 }

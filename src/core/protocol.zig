@@ -87,6 +87,7 @@ pub const Action = union(enum) {
     kick: Coord,
     nibble,
     stomp,
+    lunge: Coord,
 };
 
 pub const Response = union(enum) {

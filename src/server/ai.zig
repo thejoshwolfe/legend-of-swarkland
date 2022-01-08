@@ -14,6 +14,7 @@ const getAllPositions = core.game_logic.getAllPositions;
 const canAttack = core.game_logic.canAttack;
 const canNibble = core.game_logic.canNibble;
 const canCharge = core.game_logic.canCharge;
+const canLunge = core.game_logic.canLunge;
 const canMoveNormally = core.game_logic.canMoveNormally;
 const canGrowAndShrink = core.game_logic.canGrowAndShrink;
 const isFastMoveAligned = core.game_logic.isFastMoveAligned;
@@ -99,6 +100,9 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         if (canCharge(last_frame.self.species) and isFastMoveAligned(last_frame.self.position, delta_unit.scaled(2))) {
             // charge!
             return Action{ .fast_move = delta_unit.scaled(2) };
+        } else if (canLunge(last_frame.self.species) and delta.magnitudeOrtho() == 2) {
+            // one lunge away
+            return Action{ .lunge = delta_unit };
         } else if (delta.euclideanDistanceSquared() <= range * range) {
             // within attack range
             if (hesitatesOneSpaceAway(last_frame.self.species)) {
