@@ -29,6 +29,7 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
+const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
@@ -328,6 +329,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .shift_up => try doAutoDirectionInput(state, makeCoord(0, -1)),
                                     .shift_down => try doAutoDirectionInput(state, makeCoord(0, 1)),
 
+                                    .greaterthan => {
+                                        if (state.input_prompt == .kick) {
+                                            try state.client.act(.stomp);
+                                        }
+                                        state.input_prompt = .none;
+                                    },
+
                                     .start_attack => {
                                         if (canAttack(state.client_state.?.self.species)) {
                                             state.input_prompt = .attack;
@@ -343,6 +351,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                             const position_coords = state.client_state.?.self.position.large;
                                             const delta = position_coords[0].minus(position_coords[1]);
                                             try state.client.act(Action{ .fast_move = delta.scaled(2) });
+                                        }
+                                    },
+                                    .stomp => {
+                                        if (canKick(state.client_state.?.self.species)) {
+                                            try state.client.act(.stomp);
+                                            state.input_prompt = .none;
                                         }
                                     },
                                     .backspace => {
@@ -525,6 +539,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 const floor_texture = switch (cell.floor) {
                                     .unknown => break :render_floor,
                                     .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
+                                    .grass => selectAesthetic(textures.sprites.grass[0..], aesthetic_seed, cursor),
                                     .marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, cursor),
                                     .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
                                     .hatch => textures.sprites.hatch,
@@ -538,6 +553,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .unknown => break :render_wall,
                                     .air => break :render_wall,
                                     .dirt => selectAesthetic(textures.sprites.brown_brick[0..], aesthetic_seed, cursor),
+                                    .tree_northwest => textures.sprites.tree[0],
+                                    .tree_northeast => textures.sprites.tree[1],
+                                    .tree_southwest => textures.sprites.tree[2],
+                                    .tree_southeast => textures.sprites.tree[3],
+                                    .bush => selectAesthetic(textures.sprites.bush[0..], aesthetic_seed, cursor),
                                     .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, cursor),
                                     .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
                                     .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => textures.sprites.polymorph_trap_wide[0],
@@ -556,8 +576,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 }
 
                 // render the things
-                for (frame.others) |other| {
-                    _ = renderThing(renderer, progress, move_frame_time, screen_display_position, other);
+                for ([4]u2{ 0, 1, 2, 3 }) |physics_layer| {
+                    for (frame.others) |other| {
+                        if (getPhysicsLayer(other.species) != physics_layer) continue;
+                        _ = renderThing(renderer, progress, move_frame_time, screen_display_position, other);
+                    }
                 }
                 const render_position = renderThing(renderer, progress, move_frame_time, screen_display_position, frame.self);
                 // render input prompt
@@ -1042,14 +1065,59 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         },
 
         .polymorph => {
-            const sprites = textures.sprites.polymorph_effect[4..];
-            const sprite_index = @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator);
-            textures.renderSprite(renderer, sprites[@intCast(usize, sprite_index)], render_position);
+            textures.renderSprite(
+                renderer,
+                selectAnimatedFrame(
+                    textures.sprites.polymorph_effect[4..],
+                    progress,
+                    progress_denominator,
+                ),
+                render_position,
+            );
+        },
+
+        .nibble => {
+            textures.renderSprite(
+                renderer,
+                selectAnimatedFrameBoomerang(
+                    textures.sprites.nibble_effect[0..],
+                    progress,
+                    @divTrunc(progress_denominator, 4),
+                ),
+                render_position,
+            );
+        },
+        .stomp => {
+            textures.renderSprite(
+                renderer,
+                textures.sprites.kick,
+                core.geometry.bezierBounce(
+                    render_position.plus(makeCoord(0, 4)),
+                    render_position.plus(makeCoord(0, 20)),
+                    progress,
+                    progress_denominator,
+                ),
+            );
         },
 
         .death => {
             textures.renderSprite(renderer, textures.sprites.death, render_position);
         },
+    }
+}
+
+fn selectAnimatedFrame(sprites: []const Rect, progress: i32, progress_denominator: i32) Rect {
+    const sprite_index = @intCast(usize, @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator));
+    return sprites[sprite_index];
+}
+fn selectAnimatedFrameBoomerang(sprites: []const Rect, progress: i32, progress_denominator: i32) Rect {
+    const sprite_index = @intCast(usize, @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator)) % (sprites.len * 2);
+    if (sprite_index >= sprites.len) {
+        // backwards
+        return sprites[sprites.len * 2 - 1 - sprite_index];
+    } else {
+        // forwards
+        return sprites[sprite_index];
     }
 }
 
@@ -1087,6 +1155,9 @@ fn speciesToSprite(species: Species) Rect {
             .small_blob => textures.sprites.pink_blob,
             .large_blob => textures.sprites.blob_large,
         },
+        .wolf => textures.sprites.dog,
+        .rat => textures.sprites.rat,
+        .wood_golem => textures.sprites.wood_golem,
     };
 }
 

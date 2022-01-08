@@ -53,21 +53,21 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         while (y <= room_rect.bottom()) : (y += 1) {
             var x = position.x;
             while (x <= room_rect.right()) : (x += 1) {
-                // TODO: use getOrPut() here
-                if (terrain.get(x, y).wall == .air) {
+                const cell_ptr = try terrain.getOrPut(x, y);
+                if (cell_ptr.wall == .air) {
                     // already open
                     continue;
                 }
                 if (x == position.x or y == position.y or x == room_rect.right() or y == room_rect.bottom()) {
-                    try terrain.put(x, y, TerrainSpace{
+                    cell_ptr.* = TerrainSpace{
                         .floor = .dirt,
                         .wall = .dirt,
-                    });
+                    };
                 } else {
-                    try terrain.put(x, y, TerrainSpace{
+                    cell_ptr.* = TerrainSpace{
                         .floor = .dirt,
                         .wall = .air,
-                    });
+                    };
                 }
             }
         }
@@ -78,7 +78,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     var rooms_for_spawn = try clone(allocator, rooms);
     var possible_spawn_locations = ArrayList(Coord).init(allocator);
     while (rooms_for_spawn.items.len > 1) {
-        const room = popRandom(r, &rooms_for_spawn);
+        const room = popRandom(r, &rooms_for_spawn).?;
         possible_spawn_locations.shrinkRetainingCapacity(0);
         var it = (Rect{
             .x = room.x + 1,
@@ -90,11 +90,23 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             try possible_spawn_locations.append(coord);
         }
 
-        // orc orc orc orc
-        var individuals_remaining = r.intRangeAtMost(usize, 2, 6);
+        // this is orc country
+        var individuals_remaining = r.intRangeAtMost(usize, 1, 3);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-            const coord = popRandom(r, &possible_spawn_locations);
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
             try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 0, 1);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .wolf).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 3, 7) * r.int(u1);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
             next_id += 1;
         }
     }
@@ -107,7 +119,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     // join rooms
     var rooms_to_join = try clone(allocator, rooms);
     while (rooms_to_join.items.len > 1) {
-        const room_a = popRandom(r, &rooms_to_join);
+        const room_a = popRandom(r, &rooms_to_join).?;
         const room_b = choice(r, rooms_to_join.items);
 
         var cursor = makeCoord(
@@ -127,15 +139,61 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                 cursor.y += unit_diagonal.y;
             }
         }) {
-            // TODO: use getOrPutCoord() here
-            if (terrain.getCoord(cursor).wall == .air) {
-                // already open
-                continue;
+            {
+                const cell_ptr = try terrain.getOrPutCoord(cursor);
+                if (cell_ptr.wall == .air) {
+                    // already open
+                    continue;
+                }
+                cell_ptr.* = TerrainSpace{
+                    .floor = .dirt,
+                    .wall = .air,
+                };
             }
-            try terrain.putCoord(cursor, TerrainSpace{
-                .floor = .dirt,
-                .wall = .air,
-            });
+            // Surround with dirt walls
+            for ([_]Coord{
+                cursor.plus(makeCoord(-1, -1)),
+                cursor.plus(makeCoord(0, -1)),
+                cursor.plus(makeCoord(1, -1)),
+                cursor.plus(makeCoord(-1, 0)),
+                cursor.plus(makeCoord(1, 0)),
+                cursor.plus(makeCoord(-1, 1)),
+                cursor.plus(makeCoord(0, 1)),
+                cursor.plus(makeCoord(1, 1)),
+            }) |wall_cursor| {
+                const cell_ptr = try terrain.getOrPutCoord(wall_cursor);
+                if (cell_ptr.wall == .air) {
+                    continue;
+                }
+                cell_ptr.* = TerrainSpace{
+                    .floor = .dirt,
+                    .wall = .dirt,
+                };
+            }
+        }
+    }
+
+    // forest
+    var forest_rect: Rect = undefined;
+    {
+        // path to forest
+        var cursor = makeCoord(
+            r.intRangeAtMost(i32, rooms_to_join.items[0].x + 1, rooms_to_join.items[0].right() - 1),
+            r.intRangeAtMost(i32, rooms_to_join.items[0].y + 1, rooms_to_join.items[0].bottom() - 1),
+        );
+        const forest_start_x = terrain.metrics.max_x + 3;
+        while (cursor.x < forest_start_x) : (cursor.x += 1) {
+            {
+                const cell_ptr = try terrain.getOrPutCoord(cursor);
+                if (cell_ptr.wall == .air) {
+                    // already open
+                    continue;
+                }
+                cell_ptr.* = TerrainSpace{
+                    .floor = .dirt,
+                    .wall = .air,
+                };
+            }
 
             // Surround with dirt walls
             for ([_]Coord{
@@ -148,15 +206,97 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                 cursor.plus(makeCoord(0, 1)),
                 cursor.plus(makeCoord(1, 1)),
             }) |wall_cursor| {
-                // TODO: use getOrPutCoord() here
-                if (terrain.getCoord(wall_cursor).wall == .air) {
+                const cell_ptr = try terrain.getOrPutCoord(wall_cursor);
+                if (cell_ptr.wall == .air) {
                     continue;
                 }
-                try terrain.putCoord(wall_cursor, TerrainSpace{
+                cell_ptr.* = TerrainSpace{
                     .floor = .dirt,
                     .wall = .dirt,
-                });
+                };
             }
+        }
+
+        // we've arrived at the forest
+        forest_rect = Rect{
+            .x = cursor.x - 1,
+            .y = cursor.y - r.intRangeAtMost(i32, 20, 30),
+            .width = r.intRangeAtMost(i32, 40, 60),
+            .height = r.intRangeAtMost(i32, 40, 60),
+        };
+        // dig out the forest
+        var y = forest_rect.y;
+        while (y <= forest_rect.bottom()) : (y += 1) {
+            var x = forest_rect.x;
+            while (x <= forest_rect.right()) : (x += 1) {
+                const cell_ptr = try terrain.getOrPut(x, y);
+                if (cell_ptr.wall == .air) {
+                    // the one space of path that enters the forest
+                    continue;
+                }
+                if (x == forest_rect.x or y == forest_rect.y or x == forest_rect.right() or y == forest_rect.bottom()) {
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .dirt,
+                    };
+                } else {
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .grass,
+                        .wall = .air,
+                    };
+                }
+            }
+        }
+    }
+    // fill the forest with foliage.
+    {
+        possible_spawn_locations.clearRetainingCapacity();
+        var it = (Rect{
+            .x = forest_rect.x + 2,
+            .y = forest_rect.y + 1,
+            .width = forest_rect.width - 3,
+            .height = forest_rect.height - 2,
+        }).rowMajorIterator();
+        while (it.next()) |coord| {
+            const cell_ptr = try terrain.getOrPutCoord(coord);
+            if (cell_ptr.wall != .air) continue;
+            switch (r.int(u4)) {
+                0...10 => {},
+                11...13 => {
+                    const next_cell_ptr = (try terrain.getOrPut(coord.x + 1, coord.y + 0));
+                    if (next_cell_ptr.wall == .air) {
+                        cell_ptr.wall = .tree_northwest;
+                        next_cell_ptr.wall = .tree_northeast;
+                        (try terrain.getOrPut(coord.x + 0, coord.y + 1)).wall = .tree_southwest;
+                        (try terrain.getOrPut(coord.x + 1, coord.y + 1)).wall = .tree_southeast;
+                    }
+                },
+                14...15 => {
+                    cell_ptr.wall = .bush;
+                },
+            }
+            if (cell_ptr.wall == .air) {
+                try possible_spawn_locations.append(coord);
+            }
+        }
+        // spawn some woodland creatures.
+        var individuals_remaining = r.intRangeAtMost(usize, 4, 10);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 1, 3);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .wood_golem).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 1, 3);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .kangaroo).clone(allocator));
+            next_id += 1;
         }
     }
 }
@@ -655,6 +795,7 @@ fn clone(allocator: Allocator, array_list: anytype) !@TypeOf(array_list) {
     return result;
 }
 
-fn popRandom(r: Random, array_list: anytype) @TypeOf(array_list.*.items[0]) {
+fn popRandom(r: Random, array_list: anytype) ?@TypeOf(array_list.*.items[0]) {
+    if (array_list.items.len == 0) return null;
     return array_list.swapRemove(r.uintLessThan(usize, array_list.items.len));
 }

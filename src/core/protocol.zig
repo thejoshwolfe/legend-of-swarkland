@@ -6,6 +6,7 @@ const Coord = core.geometry.Coord;
 pub const Floor = enum {
     unknown,
     dirt,
+    grass,
     marble,
     lava,
     hatch,
@@ -18,6 +19,11 @@ pub const Wall = enum {
     air,
     dirt,
     stone,
+    tree_northwest,
+    tree_northeast,
+    tree_southwest,
+    tree_southeast,
+    bush,
     polymorph_trap_centaur,
     polymorph_trap_kangaroo,
     polymorph_trap_turtle,
@@ -44,6 +50,9 @@ pub const Species = union(enum) {
         small_blob,
         large_blob,
     },
+    wolf,
+    rat,
+    wood_golem,
 };
 
 pub const TerrainChunk = struct {
@@ -76,6 +85,9 @@ pub const Action = union(enum) {
     shrink: u1,
     attack: Coord,
     kick: Coord,
+    nibble,
+    stomp,
+    lunge: Coord,
 };
 
 pub const Response = union(enum) {
@@ -142,6 +154,8 @@ pub const PerceivedActivity = union(enum) {
     shrink: u1,
 
     attack: Attack,
+    nibble,
+    stomp,
 
     kick: Coord,
     polymorph: Species,

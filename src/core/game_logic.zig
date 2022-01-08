@@ -34,7 +34,7 @@ pub fn canAttack(species: Species) bool {
 pub fn getAttackRange(species: Species) i32 {
     switch (species) {
         .centaur => return 16,
-        .rhino, .blob, .kangaroo => return 0,
+        .rhino, .blob, .kangaroo, .rat => return 0,
         else => return 1,
     }
 }
@@ -42,6 +42,20 @@ pub fn getAttackRange(species: Species) i32 {
 pub fn canCharge(species: Species) bool {
     return switch (species) {
         .rhino => true,
+        else => false,
+    };
+}
+
+pub fn canLunge(species: Species) bool {
+    return switch (species) {
+        .wolf => true,
+        else => false,
+    };
+}
+
+pub fn canNibble(species: Species) bool {
+    return switch (species) {
+        .rat => true,
         else => false,
     };
 }
@@ -60,6 +74,13 @@ pub fn canGrowAndShrink(species: Species) bool {
     };
 }
 
+pub fn isSlow(species: Species) bool {
+    return switch (species) {
+        .wood_golem => true,
+        else => false,
+    };
+}
+
 pub fn canKick(species: Species) bool {
     return switch (species) {
         .human, .orc => true,
@@ -68,14 +89,18 @@ pub fn canKick(species: Species) bool {
         .rhino => true,
         .kangaroo => true,
         .blob => false,
+        .wolf => false,
+        .rat => false,
+        .wood_golem => true,
     };
 }
 
-pub fn getInertiaIndex(species: Species) ?u1 {
+pub fn getPhysicsLayer(species: Species) u2 {
     switch (species) {
-        .rhino => return 1,
-        .blob => return null,
-        else => return 0,
+        .blob => return 0,
+        .rat => return 1,
+        .rhino => return 3,
+        else => return 2,
     }
 }
 
@@ -87,7 +112,7 @@ pub fn isFastMoveAligned(position: ThingPosition, move_delta: Coord) bool {
 
 pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
     return switch (species) {
-        .turtle, .blob => false,
+        .turtle, .blob, .wood_golem => false,
         // only rhino's tail is affected, not head.
         .rhino => position_index == 1,
         else => true,
@@ -98,11 +123,20 @@ pub fn isOpenSpace(wall: Wall) bool {
     return switch (wall) {
         .air => true,
         .dirt, .stone => false,
+        .tree_northwest, .tree_northeast, .tree_southwest, .tree_southeast => false,
+        .bush => true,
         .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => true,
         .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => true,
         .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => true,
         .unknown => true,
         .unknown_wall => false,
+    };
+}
+
+pub fn isTransparentSpace(wall: Wall) bool {
+    return switch (wall) {
+        .tree_northwest, .tree_northeast, .tree_southwest, .tree_southeast => true,
+        else => return isOpenSpace(wall),
     };
 }
 
@@ -151,6 +185,9 @@ pub fn getAnatomy(species: Species) Anatomy {
         .turtle, .rhino => return .quadruped,
         .kangaroo => return .kangaroid,
         .blob => return .bloboid,
+        .wolf => return .quadruped,
+        .rat => return .quadruped,
+        .wood_golem => return .humanoid,
     }
 }
 
@@ -181,6 +218,16 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
         },
         .kick => |direction| {
             if (!canKick(species)) return error.SpeciesIncapable;
+            if (!isCardinalDirection(direction)) return error.BadDelta;
+        },
+        .nibble => {
+            if (!canNibble(species)) return error.SpeciesIncapable;
+        },
+        .stomp => {
+            if (!canKick(species)) return error.SpeciesIncapable;
+        },
+        .lunge => |direction| {
+            if (!canLunge(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
         },
     }

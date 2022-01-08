@@ -27,11 +27,13 @@ const StatusConditions = core.protocol.StatusConditions;
 const PerceivedTerrain = core.game_logic.PerceivedTerrain;
 const getViewDistance = core.game_logic.getViewDistance;
 const isOpenSpace = core.game_logic.isOpenSpace;
+const isTransparentSpace = core.game_logic.isTransparentSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
 const applyMovementToPosition = core.game_logic.applyMovementToPosition;
 const offsetPosition = core.game_logic.offsetPosition;
-const getInertiaIndex = core.game_logic.getInertiaIndex;
+const getPhysicsLayer = core.game_logic.getPhysicsLayer;
+const isSlow = core.game_logic.isSlow;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -139,7 +141,7 @@ pub const GameEngine = struct {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
                 const move_delta: Coord = switch (actions.get(id).?) {
-                    .move, .fast_move => |move_delta| move_delta,
+                    .move, .fast_move, .lunge => |move_delta| move_delta,
                     else => continue,
                 };
                 if (0 != current_status_conditions.get(id).? & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) {
@@ -217,18 +219,20 @@ pub const GameEngine = struct {
                     for (getAllPositions(&position)) |coord| {
                         if (!coord.equals(kick_position)) continue;
                         // gotchya
-                        if (getInertiaIndex(game_state.individuals.get(other_id).?.species)) |inertia_index| {
-                            if (inertia_index > 0) {
+                        switch (getPhysicsLayer(game_state.individuals.get(other_id).?.species)) {
+                            3 => {
                                 // Your kick is not stronk enough.
                                 continue;
-                            }
-                        } else {
-                            // No inertia. Instead you get sucked in!
-                            if (try intended_moves.fetchPut(id, kick_direction)) |_| {
-                                // kicked multiple times at once!
-                                _ = try kicked_too_much.put(id, {});
-                            }
-                            continue;
+                            },
+                            0 => {
+                                // Instead you get sucked in!
+                                if (try intended_moves.fetchPut(id, kick_direction)) |_| {
+                                    // kicked multiple times at once!
+                                    _ = try kicked_too_much.put(id, {});
+                                }
+                                continue;
+                            },
+                            else => {},
                         }
                         if (try intended_moves.fetchPut(other_id, kick_direction)) |_| {
                             // kicked multiple times at once!
@@ -277,8 +281,10 @@ pub const GameEngine = struct {
             } else if (!budges_at_all.contains(id)) {
                 // you held still, so you are free of any limping status.
                 status_conditions.* &= ~core.protocol.StatusCondition_limping;
-            } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg) {
-                // you moved while wounded. now you limp.
+            } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg or //
+                isSlow(game_state.individuals.get(id).?.species))
+            {
+                // now you limp.
                 status_conditions.* |= core.protocol.StatusCondition_limping;
             }
         }
@@ -401,49 +407,99 @@ pub const GameEngine = struct {
 
         // Attacks
         var attacks = IdMap(Activities.Attack).init(self.allocator);
+        var nibbles = IdMap(void).init(self.allocator);
+        var stomps = IdMap(void).init(self.allocator);
         var attack_deaths = IdMap(void).init(self.allocator);
         for (everybody) |id| {
-            var attack_direction: Coord = switch (actions.get(id).?) {
-                .attack => |direction| direction,
-                else => continue,
-            };
-            var attacker_coord = getHeadPosition(current_positions.get(id).?);
-            var attack_distance: i32 = 1;
-            const range = core.game_logic.getAttackRange(game_state.individuals.get(id).?.species);
-            range_loop: while (attack_distance <= range) : (attack_distance += 1) {
-                var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
-                for (everybody) |other_id| {
-                    const position = current_positions.get(other_id).?;
-                    for (getAllPositions(&position)) |coord, i| {
-                        if (!coord.equals(damage_position)) continue;
-                        // hit something.
-                        const other = game_state.individuals.get(other_id).?;
-                        const is_effective = blk: {
-                            // innate defense
-                            if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
-                            // shield blocks arrows
-                            if (range > 1 and other.has_shield) break :blk false;
-                            break :blk true;
-                        };
-                        if (is_effective) {
-                            // get wrecked
-                            const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
-                            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
-                                // first hit is a wound
-                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
-                            } else {
-                                // second hit. you ded.
-                                _ = try attack_deaths.put(other_id, {});
+            const action = actions.get(id).?;
+            switch (action) {
+                .attack, .lunge => |attack_direction| {
+                    var attacker_coord = getHeadPosition(current_positions.get(id).?);
+                    var attack_distance: i32 = 1;
+                    const range = core.game_logic.getAttackRange(game_state.individuals.get(id).?.species);
+                    while (attack_distance <= range) : (attack_distance += 1) {
+                        var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
+                        var stop_the_attack = false;
+                        for (everybody) |other_id| {
+                            switch (getPhysicsLayer(game_state.individuals.get(other_id).?.species)) {
+                                // too short to be attacked.
+                                0, 1 => continue,
+                                2, 3 => {},
+                            }
+                            const position = current_positions.get(other_id).?;
+                            for (getAllPositions(&position)) |coord, i| {
+                                if (!coord.equals(damage_position)) continue;
+                                // hit something.
+                                const other = game_state.individuals.get(other_id).?;
+                                const is_effective = blk: {
+                                    // innate defense
+                                    if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
+                                    // shield blocks arrows
+                                    if (range > 1 and other.has_shield) break :blk false;
+                                    break :blk true;
+                                };
+                                if (is_effective) {
+                                    // get wrecked
+                                    const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
+                                    if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
+                                        // first hit is a wound
+                                        other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                    } else {
+                                        // second hit. you ded.
+                                        _ = try attack_deaths.put(other_id, {});
+                                    }
+                                }
+                                stop_the_attack = true;
                             }
                         }
-                        break :range_loop;
+                        if (stop_the_attack) break;
                     }
-                }
+                    try attacks.putNoClobber(id, Activities.Attack{
+                        .direction = attack_direction,
+                        .distance = attack_distance,
+                    });
+                },
+                .nibble, .stomp => {
+                    const is_stomp = action == .stomp;
+                    const attacker_coord = getHeadPosition(current_positions.get(id).?);
+                    const damage_position = attacker_coord;
+                    for (everybody) |other_id| {
+                        if (other_id == id) continue; // Don't hit yourself.
+                        const other = game_state.individuals.get(other_id).?;
+                        if (is_stomp and getPhysicsLayer(other.species) != 1) {
+                            // stomping only works on scurriers.
+                            continue;
+                        }
+                        const position = current_positions.get(other_id).?;
+                        for (getAllPositions(&position)) |coord, i| {
+                            if (!coord.equals(damage_position)) continue;
+                            // hit something.
+                            const is_effective = blk: {
+                                // innate defense
+                                if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
+                                break :blk true;
+                            };
+                            if (is_effective) {
+                                // get wrecked
+                                if (is_stomp) {
+                                    // stomping is instant deth.
+                                    _ = try attack_deaths.put(other_id, {});
+                                } else {
+                                    // nibbling only does wounds.
+                                    const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
+                                    other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                }
+                            }
+                        }
+                    }
+                    if (is_stomp) {
+                        try stomps.putNoClobber(id, {});
+                    } else {
+                        try nibbles.putNoClobber(id, {});
+                    }
+                },
+                else => continue,
             }
-            try attacks.putNoClobber(id, Activities.Attack{
-                .direction = attack_direction,
-                .distance = attack_distance,
-            });
         }
         // Lava
         for (everybody) |id| {
@@ -456,13 +512,17 @@ pub const GameEngine = struct {
         }
         // Perception of Attacks and Death
         for (everybody) |id| {
-            if (attacks.count() != 0) {
+            if (attacks.count() + nibbles.count() + stomps.count() != 0) {
                 try self.observeFrame(
                     game_state,
                     id,
                     individual_to_perception.get(id).?,
                     &current_positions,
-                    Activities{ .attacks = &attacks },
+                    Activities{ .attacks = .{
+                        .attacks = &attacks,
+                        .nibbles = &nibbles,
+                        .stomps = &stomps,
+                    } },
                 );
             }
             if (attack_deaths.count() != 0) {
@@ -904,88 +964,76 @@ pub const GameEngine = struct {
         {
             const Collision = struct {
                 /// this has at most one entry
-                inertia_index_to_stationary_id: [2]?u32 = [_]?u32{null} ** 2,
-                inertia_index_to_cardinal_index_to_enterer: [2][4]?u32 = [_][4]?u32{[_]?u32{null} ** 4} ** 2,
-                inertia_index_to_cardinal_index_to_fast_enterer: [2][4]?u32 = [_][4]?u32{[_]?u32{null} ** 4} ** 2,
+                stationary_id: ?u32 = null,
+                cardinal_index_to_enterer: [4]?u32 = [_]?u32{null} ** 4,
+                cardinal_index_to_fast_enterer: [4]?u32 = [_]?u32{null} ** 4,
                 winner_id: ?u32 = null,
             };
 
             // Collect collision information.
-            var coord_to_collision = CoordMap(Collision).init(self.allocator);
+            var coord_to_collision = [4]CoordMap(Collision){
+                undefined, // no physics in layer 0.
+                CoordMap(Collision).init(self.allocator),
+                CoordMap(Collision).init(self.allocator),
+                CoordMap(Collision).init(self.allocator),
+            };
             for (everybody.*) |id| {
-                const inertia_index = getInertiaIndex(game_state.individuals.get(id).?.species) orelse {
-                    // Species with no inertia don't participate in collisions at all.
+                const physics_layer = getPhysicsLayer(game_state.individuals.get(id).?.species);
+                if (physics_layer == 0) {
+                    // no collisions at all.
                     continue;
-                };
+                }
                 const old_position = current_positions.get(id).?;
                 const new_position = next_positions.get(id) orelse old_position;
                 for (getAllPositions(&new_position)) |new_coord, i| {
                     const old_coord = getAllPositions(&old_position)[i];
                     const delta = new_coord.minus(old_coord);
-                    var collision = coord_to_collision.get(new_coord) orelse Collision{};
+                    const gop = try coord_to_collision[physics_layer].getOrPut(new_coord);
+                    if (!gop.found_existing) {
+                        gop.value_ptr.* = Collision{};
+                    }
+                    var collision = gop.value_ptr;
                     if (delta.equals(zero_vector)) {
-                        collision.inertia_index_to_stationary_id[inertia_index] = id;
+                        collision.stationary_id = id;
                     } else if (isCardinalDirection(delta)) {
-                        collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][directionToCardinalIndex(delta)] = id;
+                        collision.cardinal_index_to_enterer[directionToCardinalIndex(delta)] = id;
                     } else if (isScaledCardinalDirection(delta, 2)) {
-                        collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][directionToCardinalIndex(delta.scaledDivTrunc(2))] = id;
+                        collision.cardinal_index_to_fast_enterer[directionToCardinalIndex(delta.scaledDivTrunc(2))] = id;
                     } else unreachable;
-                    _ = try coord_to_collision.put(new_coord, collision);
                 }
             }
 
-            // Determine who wins each collision
-            for (coord_to_collision.values()) |*collision| {
-                // higher inertia trumps (and tramples) any lower inertia. (trumples?)
-                var is_trample = false;
-                for ([_]u1{ 1, 0 }) |inertia_index| {
-                    var inertia_winner: ?u32 = null;
+            // Determine who wins each collision in each layer.
+            for ([_]u2{ 3, 2, 1 }) |physics_layer| {
+                for (coord_to_collision[physics_layer].values()) |*collision| {
                     var incoming_vector_set: u9 = 0;
-                    if (collision.inertia_index_to_stationary_id[inertia_index] != null) incoming_vector_set |= 1 << 0;
-                    for (collision.inertia_index_to_cardinal_index_to_enterer[inertia_index]) |maybe_id, i| {
+                    if (collision.stationary_id != null) incoming_vector_set |= 1 << 0;
+                    for (collision.cardinal_index_to_enterer) |maybe_id, i| {
                         if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
                     }
-                    for (collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index]) |maybe_id, i| {
+                    for (collision.cardinal_index_to_fast_enterer) |maybe_id, i| {
                         if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
                     }
                     if (incoming_vector_set & 1 != 0) {
                         // Stationary entities always win.
-                        inertia_winner = collision.inertia_index_to_stationary_id[inertia_index];
-                        // Standing still doesn't trample.
+                        collision.winner_id = collision.stationary_id;
                     } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
                         // fast bois beat slow bois.
-                        inertia_winner = collision.inertia_index_to_cardinal_index_to_fast_enterer[inertia_index][index].?;
-                        if (inertia_index > 0) is_trample = true;
+                        collision.winner_id = collision.cardinal_index_to_fast_enterer[index].?;
                     } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
                         // a slow boi wins.
-                        inertia_winner = collision.inertia_index_to_cardinal_index_to_enterer[inertia_index][index].?;
-                        if (inertia_index > 0) is_trample = true;
+                        collision.winner_id = collision.cardinal_index_to_enterer[index].?;
                     } else {
                         // nobody wins. winner stays null.
-                    }
-
-                    if (inertia_winner) |winner_id| {
-                        if (collision.winner_id) |_| {
-                            // Someone has already won at a higher inertia index.
-                            if (is_trample) {
-                                // You get the second-place prize, which is ...
-                                try trample_deaths.putNoClobber(winner_id, {});
-                            }
-                        } else {
-                            // The space is yours.
-                            collision.winner_id = winner_id;
-                        }
                     }
                 }
             }
             id_loop: for (everybody.*) |id| {
-                if (trample_deaths.contains(id)) {
-                    // The move succeeds so that we see where the squashing happens.
-                    continue;
-                }
                 const next_position = next_positions.get(id) orelse continue;
+                const physics_layer = getPhysicsLayer(game_state.individuals.get(id).?.species);
+                if (physics_layer == 0) continue;
                 for (getAllPositions(&next_position)) |coord| {
-                    var collision = coord_to_collision.get(coord).?;
+                    var collision = coord_to_collision[physics_layer].get(coord).?;
                     if (collision.winner_id != id) {
                         // i lose.
                         assert(next_positions.swapRemove(id));
@@ -1007,24 +1055,15 @@ pub const GameEngine = struct {
                 var head_id = id;
                 conga_loop: while (true) {
                     const position = current_positions.get(head_id).?;
-                    const head_inertia_index = getInertiaIndex(game_state.individuals.get(head_id).?.species) orelse {
+                    const head_physics_layer = getPhysicsLayer(game_state.individuals.get(head_id).?.species);
+                    if (head_physics_layer == 0) {
                         // Don't let me stop the party.
                         break :conga_loop;
-                    };
+                    }
                     for (getAllPositions(&position)) |coord| {
-                        const follower_id = (coord_to_collision.fetchSwapRemove(coord) orelse continue).value.winner_id orelse continue;
+                        const follower_id = (coord_to_collision[head_physics_layer].fetchSwapRemove(coord) orelse continue).value.winner_id orelse continue;
                         if (follower_id == head_id) continue; // your tail is always allowed to follow your head.
-                        const follower_inertia_index = getInertiaIndex(game_state.individuals.get(follower_id).?.species) orelse {
-                            // Don't let me stop the party.
-                            break :conga_loop;
-                        };
                         // conga line is botched.
-                        if (follower_inertia_index > head_inertia_index) {
-                            // Outta my way!
-                            _ = try trample_deaths.put(head_id, {});
-                            // Party don't stop for this pushover's failure! Viva la conga!
-                            break :conga_loop;
-                        }
                         _ = next_positions.swapRemove(follower_id);
                         // and now you get to pass on the bad news.
                         head_id = follower_id;
@@ -1059,6 +1098,8 @@ pub const GameEngine = struct {
         }
 
         for (everybody.*) |id| {
+            // TODO: re-implement trample deaths.
+            // trample deaths got removed when physics layers were introduced.
             try self.observeFrame(
                 game_state,
                 id,
@@ -1080,7 +1121,7 @@ pub const GameEngine = struct {
         growths: Movement,
         shrinks: *const IdMap(u1),
         kicks: *const IdMap(Coord),
-        attacks: *const IdMap(Attack),
+        attacks: AttackishActivities,
         polymorphs: *const IdMap(Species),
 
         deaths: *const IdMap(void),
@@ -1088,6 +1129,11 @@ pub const GameEngine = struct {
         const Movement = struct {
             intended_moves: *const IdMap(Coord),
             next_positions: *const IdMap(ThingPosition),
+        };
+        const AttackishActivities = struct {
+            attacks: *const IdMap(Attack),
+            nibbles: *const IdMap(void),
+            stomps: *const IdMap(void),
         };
         const Attack = struct {
             direction: Coord,
@@ -1228,13 +1274,17 @@ pub const GameEngine = struct {
                 else
                     PerceivedActivity{ .none = {} },
 
-                .attacks => |data| if (data.get(id)) |attack|
+                .attacks => |data| if (data.attacks.get(id)) |attack|
                     PerceivedActivity{
                         .attack = PerceivedActivity.Attack{
                             .direction = attack.direction,
                             .distance = attack.distance,
                         },
                     }
+                else if (data.nibbles.contains(id))
+                    PerceivedActivity{ .nibble = {} }
+                else if (data.stomps.contains(id))
+                    PerceivedActivity{ .stomp = {} }
                 else
                     PerceivedActivity{ .none = {} },
 
@@ -1415,7 +1465,7 @@ fn isClearLineOfSightOneSided(terrain: Terrain, a: Coord, b: Coord) bool {
         var cursor_x = a.x + step_x;
         while (cursor_x != b.x) : (cursor_x += step_x) {
             const y = @divTrunc((cursor_x - a.x) * delta.y, delta.x) + a.y;
-            const is_open = isOpenSpace(terrain.get(cursor_x, y).wall);
+            const is_open = isTransparentSpace(terrain.get(cursor_x, y).wall);
             if (should_print) core.debug.testing.print("x,y: {},{}: {}", .{ cursor_x, y, is_open });
             if (!is_open) return false;
         }
@@ -1425,7 +1475,7 @@ fn isClearLineOfSightOneSided(terrain: Terrain, a: Coord, b: Coord) bool {
         var cursor_y = a.y + step_y;
         while (cursor_y != b.y) : (cursor_y += step_y) {
             const x = @divTrunc((cursor_y - a.y) * delta.x, delta.y) + a.x;
-            const is_open = isOpenSpace(terrain.get(x, cursor_y).wall);
+            const is_open = isTransparentSpace(terrain.get(x, cursor_y).wall);
             if (should_print) core.debug.testing.print("x,y: {},{}: {}", .{ x, cursor_y, is_open });
             if (!is_open) return false;
         }
