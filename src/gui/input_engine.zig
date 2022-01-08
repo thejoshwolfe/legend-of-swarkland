@@ -19,6 +19,7 @@ pub const Button = enum {
     start_attack,
     start_kick,
     charge,
+    stomp,
     backspace,
     spacebar,
     enter,
@@ -86,6 +87,7 @@ pub const InputEngine = struct {
             sdl.c.SDL_SCANCODE_F => return if (modifiers == 0) .start_attack else null,
             sdl.c.SDL_SCANCODE_K => return if (modifiers == 0) .start_kick else null,
             sdl.c.SDL_SCANCODE_C => return if (modifiers == 0) .charge else null,
+            sdl.c.SDL_SCANCODE_S => return if (modifiers == 0) .stomp else null,
             sdl.c.SDL_SCANCODE_R => if (modifiers == 0)
                 return .restart
             else if (modifiers == ctrl)

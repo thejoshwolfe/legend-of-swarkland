@@ -353,6 +353,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                             try state.client.act(Action{ .fast_move = delta.scaled(2) });
                                         }
                                     },
+                                    .stomp => {
+                                        if (canKick(state.client_state.?.self.species)) {
+                                            try state.client.act(.stomp);
+                                            state.input_prompt = .none;
+                                        }
+                                    },
                                     .backspace => {
                                         if (state.input_prompt != .none) {
                                             state.input_prompt = .none;
