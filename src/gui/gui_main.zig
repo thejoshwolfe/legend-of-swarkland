@@ -1065,13 +1065,27 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         },
 
         .polymorph => {
-            const sprites = textures.sprites.polymorph_effect[4..];
-            const sprite_index = @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator);
-            textures.renderSprite(renderer, sprites[@intCast(usize, sprite_index)], render_position);
+            textures.renderSprite(
+                renderer,
+                selectAnimatedFrame(
+                    textures.sprites.polymorph_effect[4..],
+                    progress,
+                    progress_denominator,
+                ),
+                render_position,
+            );
         },
 
         .nibble => {
-            textures.renderSprite(renderer, textures.sprites.equipment, render_position);
+            textures.renderSprite(
+                renderer,
+                selectAnimatedFrameBoomerang(
+                    textures.sprites.nibble_effect[0..],
+                    progress,
+                    @divTrunc(progress_denominator, 4),
+                ),
+                render_position,
+            );
         },
         .stomp => {
             textures.renderSprite(
@@ -1089,6 +1103,21 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .death => {
             textures.renderSprite(renderer, textures.sprites.death, render_position);
         },
+    }
+}
+
+fn selectAnimatedFrame(sprites: []const Rect, progress: i32, progress_denominator: i32) Rect {
+    const sprite_index = @intCast(usize, @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator));
+    return sprites[sprite_index];
+}
+fn selectAnimatedFrameBoomerang(sprites: []const Rect, progress: i32, progress_denominator: i32) Rect {
+    const sprite_index = @intCast(usize, @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator)) % (sprites.len * 2);
+    if (sprite_index >= sprites.len) {
+        // backwards
+        return sprites[sprites.len * 2 - 1 - sprite_index];
+    } else {
+        // forwards
+        return sprites[sprite_index];
     }
 }
 
