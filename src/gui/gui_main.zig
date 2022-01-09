@@ -540,6 +540,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .unknown => break :render_floor,
                                     .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
                                     .grass => selectAesthetic(textures.sprites.grass[0..], aesthetic_seed, cursor),
+                                    .sand => selectAestheticBiasedLow(textures.sprites.sand[0..], aesthetic_seed, cursor, 5),
                                     .marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, cursor),
                                     .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
                                     .hatch => textures.sprites.hatch,
@@ -1122,12 +1123,38 @@ fn selectAnimatedFrameBoomerang(sprites: []const Rect, progress: i32, progress_d
 }
 
 fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
+    return array[hashCoordToRange(array.len, seed, coord)];
+}
+fn selectAestheticBiasedLow(array: []const Rect, seed: u32, coord: Coord, bias: usize) Rect {
+    // (for bias=2)
+    // /--\ heavy_len
+    //     /--\ light_len
+    // 01234567
+    // |   \   \
+    // |     \   \
+    // 001122334567
+    const heavy_len = array.len / 2;
+    const light_len = array.len - heavy_len;
+    var index = hashCoordToRange(heavy_len * bias + light_len, seed, coord);
+    if (index < heavy_len * bias) {
+        // 00112233____
+        // 0123____
+        index /= bias;
+    } else {
+        // ________4567
+        // ____4567
+        index -= heavy_len * (bias - 1);
+    }
+    return array[index];
+}
+
+fn hashCoordToRange(less_than_this: usize, seed: u32, coord: Coord) usize {
     var hash = seed;
     hash ^= @bitCast(u32, coord.x);
     hash = hashU32(hash);
     hash ^= @bitCast(u32, coord.y);
     hash = hashU32(hash);
-    return array[@intCast(usize, std.rand.limitRangeBiased(u32, hash, @intCast(u32, array.len)))];
+    return std.rand.limitRangeBiased(u32, hash, @intCast(u32, less_than_this));
 }
 
 fn hashU32(input: u32) u32 {

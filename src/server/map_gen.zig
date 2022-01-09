@@ -253,9 +253,9 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         possible_spawn_locations.clearRetainingCapacity();
         var it = (Rect{
             .x = forest_rect.x + 2,
-            .y = forest_rect.y + 1,
-            .width = forest_rect.width - 3,
-            .height = forest_rect.height - 2,
+            .y = forest_rect.y + 2,
+            .width = forest_rect.width - 4,
+            .height = forest_rect.height - 4,
         }).rowMajorIterator();
         while (it.next()) |coord| {
             const cell_ptr = try terrain.getOrPutCoord(coord);
@@ -297,6 +297,58 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
             try individuals.putNoClobber(next_id, try makeIndividual(coord, .kangaroo).clone(allocator));
             next_id += 1;
+        }
+    }
+
+    // desert
+    var desert_rect: Rect = undefined;
+    {
+        // path to desert
+        var opening = makeCoord(
+            forest_rect.right() + 1,
+            r.intRangeAtMost(i32, forest_rect.y + 1, forest_rect.bottom() - 2),
+        );
+        try terrain.put(opening.x - 1, opening.y, TerrainSpace{
+            .floor = .dirt,
+            .wall = .air,
+        });
+        try terrain.putCoord(opening, TerrainSpace{
+            .floor = .dirt,
+            .wall = .air,
+        });
+
+        // we've arrived at the forest
+        desert_rect = Rect{
+            .x = opening.x,
+            .y = opening.y - 1, // offset below
+            .width = r.intRangeAtMost(i32, 40, 60),
+            .height = r.intRangeAtMost(i32, 40, 60),
+        };
+        const y_offset = r.intRangeLessThan(i32, 0, desert_rect.height - 2);
+        desert_rect.y -= y_offset;
+
+        // dig out the desert
+        var y = desert_rect.y;
+        while (y <= desert_rect.bottom()) : (y += 1) {
+            var x = desert_rect.x;
+            while (x <= desert_rect.right()) : (x += 1) {
+                const cell_ptr = try terrain.getOrPut(x, y);
+                if (cell_ptr.wall == .air) {
+                    // the one space of path that enters the forest
+                    continue;
+                }
+                if (x == desert_rect.x or y == desert_rect.y or x == desert_rect.right() or y == desert_rect.bottom()) {
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .dirt,
+                    };
+                } else {
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .sand,
+                        .wall = .air,
+                    };
+                }
+            }
         }
     }
 }
