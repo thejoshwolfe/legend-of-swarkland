@@ -122,7 +122,7 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
 pub fn isOpenSpace(wall: Wall) bool {
     return switch (wall) {
         .air => true,
-        .dirt, .stone => false,
+        .dirt, .stone, .sandstone => false,
         .tree_northwest, .tree_northeast, .tree_southwest, .tree_southeast => false,
         .bush => true,
         .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => true,

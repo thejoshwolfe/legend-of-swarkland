@@ -321,8 +321,8 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         desert_rect = Rect{
             .x = opening.x,
             .y = opening.y - 1, // offset below
-            .width = r.intRangeAtMost(i32, 40, 60),
-            .height = r.intRangeAtMost(i32, 40, 60),
+            .width = r.intRangeAtMost(i32, 60, 80),
+            .height = r.intRangeAtMost(i32, 60, 80),
         };
         const y_offset = r.intRangeLessThan(i32, 0, desert_rect.height - 2);
         desert_rect.y -= y_offset;
@@ -346,6 +346,36 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                     cell_ptr.* = TerrainSpace{
                         .floor = .sand,
                         .wall = .air,
+                    };
+                }
+            }
+        }
+
+        // build a structure
+        var building_rect = Rect{
+            .x = desert_rect.x + r.intRangeAtMost(i32, 5, 15),
+            .y = desert_rect.y + r.intRangeAtMost(i32, 5, 15),
+            .width = undefined,
+            .height = undefined,
+        };
+        building_rect.width = desert_rect.right() - building_rect.x - r.intRangeAtMost(i32, 5, 15);
+        building_rect.height = desert_rect.bottom() - building_rect.y - r.intRangeAtMost(i32, 5, 15);
+        const open_y = r.intRangeLessThan(i32, building_rect.y + 1, building_rect.bottom() - 1);
+
+        y = building_rect.y;
+        while (y <= building_rect.bottom()) : (y += 1) {
+            var x = building_rect.x;
+            while (x <= building_rect.right()) : (x += 1) {
+                const cell_ptr = try terrain.getOrPut(x, y);
+                if (y == open_y) {
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .sandstone,
+                        .wall = .air,
+                    };
+                } else {
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .sandstone,
+                        .wall = .sandstone,
                     };
                 }
             }
