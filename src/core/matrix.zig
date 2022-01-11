@@ -118,6 +118,17 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
 
             return chunk[inner_index];
         }
+
+        pub fn getExisting(self: @This(), x: i32, y: i32) *T {
+            const chunk_coord = Coord{
+                .x = x >> chunk_shift,
+                .y = y >> chunk_shift,
+            };
+            const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
+            const chunk = self.chunks.get(chunk_coord) orelse unreachable;
+
+            return &chunk[inner_index];
+        }
     };
 }
 

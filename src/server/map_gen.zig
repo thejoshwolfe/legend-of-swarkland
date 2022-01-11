@@ -33,144 +33,150 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     terrain.* = Terrain.init(allocator);
     var _r = std.rand.DefaultPrng.init(std.crypto.random.int(u64));
     var r = _r.random();
+    var next_id: u32 = 2;
 
-    var rooms = ArrayList(Rect).init(allocator);
+    // caves
+    var last_cave_room: Rect = undefined;
+    {
+        var rooms = ArrayList(Rect).init(allocator);
 
-    var rooms_remaining = r.intRangeAtMost(u32, 5, 9);
-    while (rooms_remaining > 0) : (rooms_remaining -= 1) {
-        const size = makeCoord(
-            r.intRangeAtMost(i32, 5, 9),
-            r.intRangeAtMost(i32, 5, 9),
-        );
-        const position = makeCoord(
-            r.intRangeAtMost(i32, terrain.metrics.min_x - 5 - size.x, terrain.metrics.max_x + 5),
-            r.intRangeAtMost(i32, terrain.metrics.min_y - 5 - size.y, terrain.metrics.max_y + 5),
-        );
-        const room_rect = makeRect(position, size);
-        try rooms.append(room_rect);
+        var rooms_remaining = r.intRangeAtMost(u32, 5, 9);
+        while (rooms_remaining > 0) : (rooms_remaining -= 1) {
+            const size = makeCoord(
+                r.intRangeAtMost(i32, 5, 9),
+                r.intRangeAtMost(i32, 5, 9),
+            );
+            const position = makeCoord(
+                r.intRangeAtMost(i32, terrain.metrics.min_x - 5 - size.x, terrain.metrics.max_x + 5),
+                r.intRangeAtMost(i32, terrain.metrics.min_y - 5 - size.y, terrain.metrics.max_y + 5),
+            );
+            const room_rect = makeRect(position, size);
+            try rooms.append(room_rect);
 
-        var y = position.y;
-        while (y <= room_rect.bottom()) : (y += 1) {
-            var x = position.x;
-            while (x <= room_rect.right()) : (x += 1) {
-                const cell_ptr = try terrain.getOrPut(x, y);
-                if (cell_ptr.wall == .air) {
-                    // already open
-                    continue;
+            var y = position.y;
+            while (y <= room_rect.bottom()) : (y += 1) {
+                var x = position.x;
+                while (x <= room_rect.right()) : (x += 1) {
+                    const cell_ptr = try terrain.getOrPut(x, y);
+                    if (cell_ptr.wall == .air) {
+                        // already open
+                        continue;
+                    }
+                    if (x == position.x or y == position.y or x == room_rect.right() or y == room_rect.bottom()) {
+                        cell_ptr.* = TerrainSpace{
+                            .floor = .dirt,
+                            .wall = .dirt,
+                        };
+                    } else {
+                        cell_ptr.* = TerrainSpace{
+                            .floor = .dirt,
+                            .wall = .air,
+                        };
+                    }
                 }
-                if (x == position.x or y == position.y or x == room_rect.right() or y == room_rect.bottom()) {
-                    cell_ptr.* = TerrainSpace{
-                        .floor = .dirt,
-                        .wall = .dirt,
-                    };
+            }
+        }
+
+        // fill rooms with individuals
+        var rooms_for_spawn = try clone(allocator, rooms);
+        var possible_spawn_locations = ArrayList(Coord).init(allocator);
+        while (rooms_for_spawn.items.len > 1) {
+            const room = popRandom(r, &rooms_for_spawn).?;
+            possible_spawn_locations.shrinkRetainingCapacity(0);
+            var it = (Rect{
+                .x = room.x + 1,
+                .y = room.y + 1,
+                .width = room.width - 2,
+                .height = room.height - 2,
+            }).rowMajorIterator();
+            while (it.next()) |coord| {
+                try possible_spawn_locations.append(coord);
+            }
+
+            // this is orc country
+            var individuals_remaining = r.intRangeAtMost(usize, 1, 3);
+            while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+                const coord = popRandom(r, &possible_spawn_locations) orelse break;
+                try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
+                next_id += 1;
+            }
+            individuals_remaining = r.intRangeAtMost(usize, 0, 1);
+            while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+                const coord = popRandom(r, &possible_spawn_locations) orelse break;
+                try individuals.putNoClobber(next_id, try makeIndividual(coord, .wolf).clone(allocator));
+                next_id += 1;
+            }
+            individuals_remaining = r.intRangeAtMost(usize, 3, 7) * r.int(u1);
+            while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+                const coord = popRandom(r, &possible_spawn_locations) orelse break;
+                try individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
+                next_id += 1;
+            }
+        }
+
+        try individuals.putNoClobber(1, try makeIndividual(makeCoord(
+            r.intRangeLessThan(i32, rooms_for_spawn.items[0].x + 1, rooms_for_spawn.items[0].right() - 1),
+            r.intRangeLessThan(i32, rooms_for_spawn.items[0].y + 1, rooms_for_spawn.items[0].bottom() - 1),
+        ), .human).clone(allocator));
+
+        // join rooms
+        var rooms_to_join = try clone(allocator, rooms);
+        while (rooms_to_join.items.len > 1) {
+            const room_a = popRandom(r, &rooms_to_join).?;
+            const room_b = choice(r, rooms_to_join.items);
+
+            var cursor = makeCoord(
+                r.intRangeAtMost(i32, room_a.x + 1, room_a.right() - 1),
+                r.intRangeAtMost(i32, room_a.y + 1, room_a.bottom() - 1),
+            );
+            var dest = makeCoord(
+                r.intRangeAtMost(i32, room_b.x + 1, room_b.right() - 1),
+                r.intRangeAtMost(i32, room_b.y + 1, room_b.bottom() - 1),
+            );
+            var unit_diagonal = dest.minus(cursor).signumed();
+            while (!cursor.equals(dest)) : ({
+                // derpizontal, and then derpicle
+                if (cursor.x != dest.x) {
+                    cursor.x += unit_diagonal.x;
                 } else {
+                    cursor.y += unit_diagonal.y;
+                }
+            }) {
+                {
+                    const cell_ptr = try terrain.getOrPutCoord(cursor);
+                    if (cell_ptr.wall == .air) {
+                        // already open
+                        continue;
+                    }
                     cell_ptr.* = TerrainSpace{
                         .floor = .dirt,
                         .wall = .air,
                     };
                 }
-            }
-        }
-    }
-
-    // fill rooms with individuals
-    var next_id: u32 = 2;
-    var rooms_for_spawn = try clone(allocator, rooms);
-    var possible_spawn_locations = ArrayList(Coord).init(allocator);
-    while (rooms_for_spawn.items.len > 1) {
-        const room = popRandom(r, &rooms_for_spawn).?;
-        possible_spawn_locations.shrinkRetainingCapacity(0);
-        var it = (Rect{
-            .x = room.x + 1,
-            .y = room.y + 1,
-            .width = room.width - 2,
-            .height = room.height - 2,
-        }).rowMajorIterator();
-        while (it.next()) |coord| {
-            try possible_spawn_locations.append(coord);
-        }
-
-        // this is orc country
-        var individuals_remaining = r.intRangeAtMost(usize, 1, 3);
-        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-            const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
-            next_id += 1;
-        }
-        individuals_remaining = r.intRangeAtMost(usize, 0, 1);
-        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-            const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .wolf).clone(allocator));
-            next_id += 1;
-        }
-        individuals_remaining = r.intRangeAtMost(usize, 3, 7) * r.int(u1);
-        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-            const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
-            next_id += 1;
-        }
-    }
-
-    try individuals.putNoClobber(1, try makeIndividual(makeCoord(
-        r.intRangeLessThan(i32, rooms_for_spawn.items[0].x + 1, rooms_for_spawn.items[0].right() - 1),
-        r.intRangeLessThan(i32, rooms_for_spawn.items[0].y + 1, rooms_for_spawn.items[0].bottom() - 1),
-    ), .human).clone(allocator));
-
-    // join rooms
-    var rooms_to_join = try clone(allocator, rooms);
-    while (rooms_to_join.items.len > 1) {
-        const room_a = popRandom(r, &rooms_to_join).?;
-        const room_b = choice(r, rooms_to_join.items);
-
-        var cursor = makeCoord(
-            r.intRangeAtMost(i32, room_a.x + 1, room_a.right() - 1),
-            r.intRangeAtMost(i32, room_a.y + 1, room_a.bottom() - 1),
-        );
-        var dest = makeCoord(
-            r.intRangeAtMost(i32, room_b.x + 1, room_b.right() - 1),
-            r.intRangeAtMost(i32, room_b.y + 1, room_b.bottom() - 1),
-        );
-        var unit_diagonal = dest.minus(cursor).signumed();
-        while (!cursor.equals(dest)) : ({
-            // derpizontal, and then derpicle
-            if (cursor.x != dest.x) {
-                cursor.x += unit_diagonal.x;
-            } else {
-                cursor.y += unit_diagonal.y;
-            }
-        }) {
-            {
-                const cell_ptr = try terrain.getOrPutCoord(cursor);
-                if (cell_ptr.wall == .air) {
-                    // already open
-                    continue;
+                // Surround with dirt walls
+                for ([_]Coord{
+                    cursor.plus(makeCoord(-1, -1)),
+                    cursor.plus(makeCoord(0, -1)),
+                    cursor.plus(makeCoord(1, -1)),
+                    cursor.plus(makeCoord(-1, 0)),
+                    cursor.plus(makeCoord(1, 0)),
+                    cursor.plus(makeCoord(-1, 1)),
+                    cursor.plus(makeCoord(0, 1)),
+                    cursor.plus(makeCoord(1, 1)),
+                }) |wall_cursor| {
+                    const cell_ptr = try terrain.getOrPutCoord(wall_cursor);
+                    if (cell_ptr.wall == .air) {
+                        continue;
+                    }
+                    cell_ptr.* = TerrainSpace{
+                        .floor = .dirt,
+                        .wall = .dirt,
+                    };
                 }
-                cell_ptr.* = TerrainSpace{
-                    .floor = .dirt,
-                    .wall = .air,
-                };
-            }
-            // Surround with dirt walls
-            for ([_]Coord{
-                cursor.plus(makeCoord(-1, -1)),
-                cursor.plus(makeCoord(0, -1)),
-                cursor.plus(makeCoord(1, -1)),
-                cursor.plus(makeCoord(-1, 0)),
-                cursor.plus(makeCoord(1, 0)),
-                cursor.plus(makeCoord(-1, 1)),
-                cursor.plus(makeCoord(0, 1)),
-                cursor.plus(makeCoord(1, 1)),
-            }) |wall_cursor| {
-                const cell_ptr = try terrain.getOrPutCoord(wall_cursor);
-                if (cell_ptr.wall == .air) {
-                    continue;
-                }
-                cell_ptr.* = TerrainSpace{
-                    .floor = .dirt,
-                    .wall = .dirt,
-                };
             }
         }
+
+        last_cave_room = rooms_to_join.items[0];
     }
 
     // forest
@@ -178,8 +184,8 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     {
         // path to forest
         var cursor = makeCoord(
-            r.intRangeAtMost(i32, rooms_to_join.items[0].x + 1, rooms_to_join.items[0].right() - 1),
-            r.intRangeAtMost(i32, rooms_to_join.items[0].y + 1, rooms_to_join.items[0].bottom() - 1),
+            r.intRangeAtMost(i32, last_cave_room.x + 1, last_cave_room.right() - 1),
+            r.intRangeAtMost(i32, last_cave_room.y + 1, last_cave_room.bottom() - 1),
         );
         const forest_start_x = terrain.metrics.max_x + 3;
         while (cursor.x < forest_start_x) : (cursor.x += 1) {
@@ -250,7 +256,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     }
     // fill the forest with foliage.
     {
-        possible_spawn_locations.clearRetainingCapacity();
+        var possible_spawn_locations = ArrayList(Coord).init(allocator);
         var it = (Rect{
             .x = forest_rect.x + 2,
             .y = forest_rect.y + 2,
@@ -360,26 +366,139 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         };
         building_rect.width = desert_rect.right() - building_rect.x - r.intRangeAtMost(i32, 5, 15);
         building_rect.height = desert_rect.bottom() - building_rect.y - r.intRangeAtMost(i32, 5, 15);
-        const open_y = r.intRangeLessThan(i32, building_rect.y + 1, building_rect.bottom() - 1);
 
+        // start filled in.
         y = building_rect.y;
         while (y <= building_rect.bottom()) : (y += 1) {
             var x = building_rect.x;
             while (x <= building_rect.right()) : (x += 1) {
-                const cell_ptr = try terrain.getOrPut(x, y);
-                if (y == open_y) {
-                    cell_ptr.* = TerrainSpace{
-                        .floor = .sandstone,
-                        .wall = .air,
-                    };
-                } else {
-                    cell_ptr.* = TerrainSpace{
-                        .floor = .sandstone,
-                        .wall = .sandstone,
-                    };
-                }
+                try terrain.put(x, y, TerrainSpace{
+                    .floor = .sandstone,
+                    .wall = .sandstone,
+                });
             }
         }
+
+        //     / west_divider_x
+        //     |   / main_hall_end.x
+        //     |   |   / east_divider_x
+        // ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+        // ▓6  ▓5  ▓7  ▓9  ▓
+        // ▓           ▓   ▓
+        // ▓▓▓▓▓▓ ▓▓   ▓▓ ▓▓ north_divider_y
+        // ▓0  ▓4  ▓   ▓8  ▓
+        // ▓   ▓   ▓   ▓   ▓
+        // ▓▓ ▓▓▓ ▓▓   ▓   ▓
+        // main h  ▓       ▓
+        // ▓▓ ▓▓▓ ▓▓   ▓   ▓
+        // ▓1  ▓2  ▓   ▓   ▓
+        // ▓   ▓   ▓   ▓   ▓
+        // ▓▓▓▓▓   ▓   ▓▓ ▓▓ south_divider_y
+        // ▓3      ▓   ▓10 ▓
+        // ▓       ▓   ▓   ▓
+        // ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+
+        // main hallway in the center.
+        const main_hall_end = Coord{
+            .x = randomMiddle(r, building_rect.x, building_rect.right()),
+            .y = randomMiddle(r, building_rect.y, building_rect.bottom()),
+        };
+        var x = building_rect.x;
+        while (x < main_hall_end.x) : (x += 1) {
+            terrain.getExisting(x, main_hall_end.y).wall = .air;
+        }
+
+        var north_divider_y = randomMiddle(r, building_rect.y, main_hall_end.y);
+        var south_divider_y = randomMiddle(r, main_hall_end.y, building_rect.bottom());
+        var west_divider_x = randomMiddle(r, building_rect.x, main_hall_end.x);
+        var east_divider_x = randomMiddle(r, main_hall_end.x, building_rect.right());
+
+        const rooms = [_]Rect{
+            rectFromCorners(
+                building_rect.x,
+                north_divider_y,
+                west_divider_x,
+                main_hall_end.y - 1,
+            ),
+            rectFromCorners(
+                building_rect.x,
+                main_hall_end.y + 1,
+                west_divider_x,
+                south_divider_y,
+            ),
+            rectFromCorners(
+                west_divider_x,
+                main_hall_end.y + 1,
+                main_hall_end.x,
+                south_divider_y,
+            ),
+            rectFromCorners(
+                building_rect.x,
+                south_divider_y,
+                main_hall_end.x,
+                building_rect.bottom(),
+            ),
+            rectFromCorners(
+                west_divider_x,
+                north_divider_y,
+                main_hall_end.x,
+                main_hall_end.y - 1,
+            ),
+            rectFromCorners(
+                west_divider_x,
+                building_rect.y,
+                main_hall_end.x,
+                north_divider_y,
+            ),
+            rectFromCorners(
+                building_rect.x,
+                building_rect.y,
+                west_divider_x,
+                north_divider_y,
+            ),
+            rectFromCorners(
+                main_hall_end.x,
+                building_rect.y,
+                east_divider_x,
+                building_rect.bottom(),
+            ),
+            rectFromCorners(
+                east_divider_x,
+                north_divider_y,
+                building_rect.right(),
+                south_divider_y,
+            ),
+            rectFromCorners(
+                east_divider_x,
+                building_rect.y,
+                building_rect.right(),
+                north_divider_y,
+            ),
+            rectFromCorners(
+                east_divider_x,
+                south_divider_y,
+                building_rect.right(),
+                building_rect.bottom(),
+            ),
+        };
+        for (rooms) |room| {
+            digOutRect(terrain, room);
+        }
+
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[0].x + 1, rooms[0].right()), rooms[0].bottom()).wall = .bush;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[1].x + 1, rooms[1].right()), rooms[1].y).wall = .bush;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[2].x + 1, rooms[2].right()), rooms[2].y).wall = .bush;
+        x = rooms[2].x + 1;
+        while (x < rooms[2].right()) : (x += 1) {
+            terrain.getExisting(x, rooms[2].bottom()).wall = .air;
+        }
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[4].x + 1, rooms[4].right()), rooms[4].bottom()).wall = .bush;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[5].x + 1, rooms[5].right()), rooms[5].bottom()).wall = .bush;
+        terrain.getExisting(rooms[6].right(), r.intRangeLessThan(i32, rooms[6].y + 1, rooms[6].bottom())).wall = .bush;
+        terrain.getExisting(rooms[5].right(), r.intRangeLessThan(i32, rooms[5].y + 1, rooms[5].bottom())).wall = .bush;
+        terrain.getExisting(rooms[8].x, main_hall_end.y).wall = .air;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[9].x + 1, rooms[9].right()), rooms[9].bottom()).wall = .bush;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[10].x + 1, rooms[10].right()), rooms[10].y).wall = .bush;
     }
 }
 
@@ -880,4 +999,28 @@ fn clone(allocator: Allocator, array_list: anytype) !@TypeOf(array_list) {
 fn popRandom(r: Random, array_list: anytype) ?@TypeOf(array_list.*.items[0]) {
     if (array_list.items.len == 0) return null;
     return array_list.swapRemove(r.uintLessThan(usize, array_list.items.len));
+}
+
+fn randomMiddle(r: Random, lower: i32, upper: i32) i32 {
+    const quarter_difference = @divFloor((upper - lower), 4);
+    return r.intRangeLessThan(i32, lower + quarter_difference, lower + 3 * quarter_difference);
+}
+
+fn rectFromCorners(x: i32, y: i32, right: i32, bottom: i32) Rect {
+    return Rect{
+        .x = x,
+        .y = y,
+        .width = right - x,
+        .height = bottom - y,
+    };
+}
+
+fn digOutRect(terrain: *Terrain, room_rect: Rect) void {
+    var y = room_rect.y + 1;
+    while (y < room_rect.bottom()) : (y += 1) {
+        var x = room_rect.x + 1;
+        while (x < room_rect.right()) : (x += 1) {
+            terrain.getExisting(x, y).wall = .air;
+        }
+    }
 }
