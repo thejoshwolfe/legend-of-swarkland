@@ -672,6 +672,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .grappled = textures.large_sprites.quadruped_grappled,
                             .limping = textures.large_sprites.quadruped_limping,
                         },
+                        .scorpionoid => @panic("TODO"),
+                        .serpentine => @panic("TODO"),
+                        .insectoid => @panic("TODO"),
                     };
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
@@ -1187,6 +1190,9 @@ fn speciesToSprite(species: Species) Rect {
         .wolf => textures.sprites.dog,
         .rat => textures.sprites.rat,
         .wood_golem => textures.sprites.wood_golem,
+        .scorpion => textures.sprites.scorpion,
+        .brown_snake => textures.sprites.brown_snake,
+        .ant => textures.sprites.ant,
     };
 }
 

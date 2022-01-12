@@ -92,6 +92,9 @@ pub fn canKick(species: Species) bool {
         .wolf => false,
         .rat => false,
         .wood_golem => true,
+        .scorpion => false,
+        .brown_snake => false,
+        .ant => false,
     };
 }
 
@@ -177,6 +180,9 @@ pub const Anatomy = enum {
     quadruped,
     kangaroid,
     bloboid,
+    scorpionoid,
+    serpentine,
+    insectoid,
 };
 pub fn getAnatomy(species: Species) Anatomy {
     switch (species) {
@@ -188,6 +194,9 @@ pub fn getAnatomy(species: Species) Anatomy {
         .wolf => return .quadruped,
         .rat => return .quadruped,
         .wood_golem => return .humanoid,
+        .scorpion => return .scorpionoid,
+        .brown_snake => return .serpentine,
+        .ant => return .insectoid,
     }
 }
 

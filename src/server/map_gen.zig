@@ -495,6 +495,35 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         terrain.getExisting(rooms[8].x, main_hall_end.y).wall = .air;
         terrain.getExisting(r.intRangeLessThan(i32, rooms[9].x + 1, rooms[9].right()), rooms[9].bottom()).wall = .bush;
         terrain.getExisting(r.intRangeLessThan(i32, rooms[10].x + 1, rooms[10].right()), rooms[10].y).wall = .bush;
+
+        // enemy time!
+        var possible_spawn_locations = ArrayList(Coord).init(allocator);
+        var it = desert_rect.rowMajorIterator();
+        while (it.next()) |coord| {
+            const cell = terrain.getCoord(coord);
+            if (cell.wall != .air) continue;
+            if (cell.floor != .sand) continue;
+            try possible_spawn_locations.append(coord);
+        }
+
+        var individuals_remaining = r.intRangeAtMost(usize, 10, 20);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .scorpion).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 5, 10);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .brown_snake).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 2, 4);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
+            next_id += 1;
+        }
     }
 }
 

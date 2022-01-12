@@ -201,22 +201,26 @@ fn hesitatesOneSpaceAway(species: Species) bool {
 const Faction = enum {
     humans,
     orcs,
-    centaurs,
+    team_forest,
+    team_desert,
     none,
 };
 
 fn getFaction(species: std.meta.Tag(core.protocol.Species)) Faction {
     return switch (species) {
         .human => .humans,
-        .centaur => .centaurs,
-        .turtle => .centaurs,
-        .rhino => .centaurs,
-        .kangaroo => .centaurs,
-        .wood_golem => .centaurs,
+        .centaur => .team_forest,
+        .turtle => .team_forest,
+        .rhino => .team_forest,
+        .kangaroo => .team_forest,
+        .wood_golem => .team_forest,
         .orc => .orcs,
         .wolf => .orcs,
         .rat => .orcs,
         .blob => .none,
+        .scorpion => .team_desert,
+        .brown_snake => .team_desert,
+        .ant => .team_desert,
     };
 }
 
