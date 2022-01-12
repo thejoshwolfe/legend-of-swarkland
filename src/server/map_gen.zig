@@ -309,10 +309,34 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     // desert
     var desert_rect: Rect = undefined;
     {
+        const desert_margin_min = 5;
+        const desert_margin_max = 15;
+        const room_size_min = 5;
+        const room_size_max = 20;
+        // x
+        desert_rect.x = forest_rect.right() + 1;
+        var building_rect: Rect = undefined;
+        building_rect.x = desert_rect.x + r.intRangeAtMost(i32, desert_margin_min, desert_margin_max);
+        const west_divider_x = building_rect.x + r.intRangeAtMost(i32, room_size_min, room_size_max);
+        const main_hall_end = Coord{
+            .x = west_divider_x + r.intRangeAtMost(i32, room_size_min, room_size_max),
+            .y = r.intRangeAtMost(i32, forest_rect.y + 1, forest_rect.bottom() - 2),
+        };
+        const east_divider_x = main_hall_end.x + r.intRangeAtMost(i32, room_size_min, room_size_max);
+        building_rect.width = east_divider_x + r.intRangeAtMost(i32, room_size_min, room_size_max) - building_rect.x;
+        desert_rect.width = building_rect.right() + r.intRangeAtMost(i32, desert_margin_min, desert_margin_max) - desert_rect.x;
+        // y
+        const north_divider_y = main_hall_end.y - 1 - r.intRangeAtMost(i32, room_size_min, room_size_max);
+        building_rect.y = north_divider_y - r.intRangeAtMost(i32, room_size_min, room_size_max);
+        desert_rect.y = building_rect.y - r.intRangeAtMost(i32, desert_margin_min, desert_margin_max);
+        const south_divider_y = main_hall_end.y + 1 + r.intRangeAtMost(i32, room_size_min, room_size_max);
+        building_rect.height = south_divider_y + r.intRangeAtMost(i32, room_size_min, room_size_max) - building_rect.y;
+        desert_rect.height = building_rect.bottom() + r.intRangeAtMost(i32, desert_margin_min, desert_margin_max) - desert_rect.y;
+
         // path to desert
         var opening = makeCoord(
             forest_rect.right() + 1,
-            r.intRangeAtMost(i32, forest_rect.y + 1, forest_rect.bottom() - 2),
+            r.intRangeAtMost(i32, std.math.max(forest_rect.y, desert_rect.y) + 1, std.math.min(forest_rect.bottom(), desert_rect.bottom()) - 1),
         );
         try terrain.put(opening.x - 1, opening.y, TerrainSpace{
             .floor = .dirt,
@@ -322,16 +346,6 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             .floor = .dirt,
             .wall = .air,
         });
-
-        // we've arrived at the forest
-        desert_rect = Rect{
-            .x = opening.x,
-            .y = opening.y - 1, // offset below
-            .width = r.intRangeAtMost(i32, 60, 80),
-            .height = r.intRangeAtMost(i32, 60, 80),
-        };
-        const y_offset = r.intRangeLessThan(i32, 0, desert_rect.height - 2);
-        desert_rect.y -= y_offset;
 
         // dig out the desert
         var y = desert_rect.y;
@@ -357,16 +371,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             }
         }
 
-        // build a structure
-        var building_rect = Rect{
-            .x = desert_rect.x + r.intRangeAtMost(i32, 5, 15),
-            .y = desert_rect.y + r.intRangeAtMost(i32, 5, 15),
-            .width = undefined,
-            .height = undefined,
-        };
-        building_rect.width = desert_rect.right() - building_rect.x - r.intRangeAtMost(i32, 5, 15);
-        building_rect.height = desert_rect.bottom() - building_rect.y - r.intRangeAtMost(i32, 5, 15);
-
+        // build a structure.
         // start filled in.
         y = building_rect.y;
         while (y <= building_rect.bottom()) : (y += 1) {
@@ -399,19 +404,10 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         // ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
         // main hallway in the center.
-        const main_hall_end = Coord{
-            .x = randomMiddle(r, building_rect.x, building_rect.right()),
-            .y = randomMiddle(r, building_rect.y, building_rect.bottom()),
-        };
         var x = building_rect.x;
         while (x < main_hall_end.x) : (x += 1) {
             terrain.getExisting(x, main_hall_end.y).wall = .air;
         }
-
-        var north_divider_y = randomMiddle(r, building_rect.y, main_hall_end.y);
-        var south_divider_y = randomMiddle(r, main_hall_end.y, building_rect.bottom());
-        var west_divider_x = randomMiddle(r, building_rect.x, main_hall_end.x);
-        var east_divider_x = randomMiddle(r, main_hall_end.x, building_rect.right());
 
         const rooms = [_]Rect{
             rectFromCorners(
@@ -999,11 +995,6 @@ fn clone(allocator: Allocator, array_list: anytype) !@TypeOf(array_list) {
 fn popRandom(r: Random, array_list: anytype) ?@TypeOf(array_list.*.items[0]) {
     if (array_list.items.len == 0) return null;
     return array_list.swapRemove(r.uintLessThan(usize, array_list.items.len));
-}
-
-fn randomMiddle(r: Random, lower: i32, upper: i32) i32 {
-    const quarter_difference = @divFloor((upper - lower), 4);
-    return r.intRangeLessThan(i32, lower + quarter_difference, lower + 3 * quarter_difference);
 }
 
 fn rectFromCorners(x: i32, y: i32, right: i32, bottom: i32) Rect {
