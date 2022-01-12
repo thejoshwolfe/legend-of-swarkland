@@ -51,8 +51,19 @@ pub fn renderTextScaled(renderer: *sdl.Renderer, text: []const u8, location: Coo
     return lower_right;
 }
 
-pub fn getCharRect(c: u8, bold: bool) Rect {
-    return (if (bold) fonts.console_bold else fonts.console)[c - ' '];
+pub fn getCharRect(c_: u8, bold: bool) Rect {
+    var c = c_;
+    if (c < ' ') {
+        core.debug.testing.print("less", .{});
+        c = '?';
+    }
+    var index = c - ' ';
+    const sheet = if (bold) &fonts.console_bold else &fonts.console;
+    if (index >= sheet.len) {
+        core.debug.testing.print("great", .{});
+        index = '?' - ' ';
+    }
+    return sheet[index];
 }
 
 fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
