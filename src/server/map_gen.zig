@@ -22,18 +22,20 @@ const IdMap = game_model.IdMap;
 const oob_terrain = game_model.oob_terrain;
 
 /// overwrites terrain. populates individuals.
-pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual), new_game_settings: NewGameSettings) !void {
+pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual), warp_points: *[]Coord, new_game_settings: NewGameSettings) !void {
     switch (new_game_settings) {
-        .regular => return generateRegular(allocator, terrain, individuals),
+        .regular => return generateRegular(allocator, terrain, individuals, warp_points),
         .puzzle_levels => return generatePuzzleLevels(allocator, terrain, individuals),
     }
 }
 
-pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
+pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual), warp_points: *[]Coord) !void {
     terrain.* = Terrain.init(allocator);
     var _r = std.rand.DefaultPrng.init(std.crypto.random.int(u64));
     var r = _r.random();
     var next_id: u32 = 2;
+
+    var warp_points_list = ArrayList(Coord).init(allocator);
 
     // caves
     var last_cave_room: Rect = undefined;
@@ -114,10 +116,12 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             }
         }
 
-        try individuals.putNoClobber(1, try makeIndividual(makeCoord(
+        const start_point = makeCoord(
             r.intRangeLessThan(i32, rooms_for_spawn.items[0].x + 1, rooms_for_spawn.items[0].right() - 1),
             r.intRangeLessThan(i32, rooms_for_spawn.items[0].y + 1, rooms_for_spawn.items[0].bottom() - 1),
-        ), .human).clone(allocator));
+        );
+        try individuals.putNoClobber(1, try makeIndividual(start_point, .human).clone(allocator));
+        try warp_points_list.append(start_point);
 
         // join rooms
         var rooms_to_join = try clone(allocator, rooms);
@@ -224,6 +228,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         }
 
         // we've arrived at the forest
+        try warp_points_list.append(makeCoord(cursor.x - 1, cursor.y));
         forest_rect = Rect{
             .x = cursor.x - 1,
             .y = cursor.y - r.intRangeAtMost(i32, 20, 30),
@@ -346,6 +351,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             .floor = .dirt,
             .wall = .air,
         });
+        try warp_points_list.append(opening);
 
         // dig out the desert
         var y = desert_rect.y;
@@ -525,6 +531,8 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             next_id += 1;
         }
     }
+
+    warp_points.* = warp_points_list.toOwnedSlice();
 }
 
 pub fn generatePuzzleLevels(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {

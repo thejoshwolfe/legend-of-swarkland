@@ -386,6 +386,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         game_state = mainMenuState(&save_file);
                                         continue :main_loop;
                                     },
+
                                     .beat_level => {
                                         try state.client.beatLevelMacro(1);
                                     },
@@ -398,6 +399,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .unbeat_level_5 => {
                                         try state.client.unbeatLevelMacro(5);
                                     },
+                                    .warp_0 => try state.client.act(Action{ .cheatcode_warp = 0 }),
+                                    .warp_1 => try state.client.act(Action{ .cheatcode_warp = 1 }),
+                                    .warp_2 => try state.client.act(Action{ .cheatcode_warp = 2 }),
+                                    .warp_3 => try state.client.act(Action{ .cheatcode_warp = 3 }),
+                                    .warp_4 => try state.client.act(Action{ .cheatcode_warp = 4 }),
+                                    .warp_5 => try state.client.act(Action{ .cheatcode_warp = 5 }),
+                                    .warp_6 => try state.client.act(Action{ .cheatcode_warp = 6 }),
+                                    .warp_7 => try state.client.act(Action{ .cheatcode_warp = 7 }),
+
                                     else => {},
                                 }
                             },

@@ -199,5 +199,7 @@ pub fn debugPrintAction(prefix_number: u32, action: Action) void {
         .stomp => core.debug.actions.print("{}: Action{{ .stomp = {{}} }},", .{prefix_number}),
         .lunge => |direction| core.debug.actions.print("{}: Action{{ .lunge = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
         .kick => |direction| core.debug.actions.print("{}: Action{{ .kick = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
+
+        .cheatcode_warp => |index| core.debug.actions.print("{}: Action{{ .cheatcode_warp = {} }},", .{ prefix_number, index }),
     }
 }

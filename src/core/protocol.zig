@@ -96,6 +96,8 @@ pub const Action = union(enum) {
     nibble,
     stomp,
     lunge: Coord,
+
+    cheatcode_warp: u3,
 };
 
 pub const Response = union(enum) {

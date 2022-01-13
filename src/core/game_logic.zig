@@ -102,8 +102,8 @@ pub fn canUseDoors(species: Species) bool {
     return switch (species) {
         .human, .orc => true,
         .centaur => true,
-        else =>false,
-    }
+        else => false,
+    };
 }
 
 pub fn getPhysicsLayer(species: Species) u2 {
@@ -249,6 +249,7 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
             if (!canLunge(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
         },
+        .cheatcode_warp => {},
     }
 }
 

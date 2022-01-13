@@ -106,6 +106,19 @@ pub const GameEngine = struct {
 
         var polymorphs = IdMap(Species).init(self.allocator);
 
+        // Cheating
+        {
+            for (everybody) |id| {
+                const index = switch (actions.get(id).?) {
+                    .cheatcode_warp => |index| index,
+                    else => continue,
+                };
+                if (index < game_state.warp_points.len) {
+                    current_positions.getEntry(id).?.value_ptr.* = ThingPosition{ .small = game_state.warp_points[index] };
+                }
+            }
+        }
+
         // Shrinking
         {
             var shrinks = IdMap(u1).init(self.allocator);
