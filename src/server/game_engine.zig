@@ -34,6 +34,7 @@ const applyMovementToPosition = core.game_logic.applyMovementToPosition;
 const offsetPosition = core.game_logic.offsetPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const isSlow = core.game_logic.isSlow;
+const limpsAfterLunge = core.game_logic.limpsAfterLunge;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -288,6 +289,7 @@ pub const GameEngine = struct {
         // Wounds and limping
         for (everybody) |id| {
             const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
+            const species = game_state.individuals.get(id).?.species;
             if (game_state.terrainAt(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
                 // this tile heals wounds for some reason.
                 status_conditions.* &= ~(core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping);
@@ -295,7 +297,8 @@ pub const GameEngine = struct {
                 // you held still, so you are free of any limping status.
                 status_conditions.* &= ~core.protocol.StatusCondition_limping;
             } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg or //
-                isSlow(game_state.individuals.get(id).?.species))
+                isSlow(species) or //
+                (actions.get(id).? == .lunge and limpsAfterLunge(species)))
             {
                 // now you limp.
                 status_conditions.* |= core.protocol.StatusCondition_limping;

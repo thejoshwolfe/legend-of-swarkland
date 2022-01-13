@@ -49,7 +49,15 @@ pub fn canCharge(species: Species) bool {
 pub fn canLunge(species: Species) bool {
     return switch (species) {
         .wolf => true,
+        .brown_snake => true,
         else => false,
+    };
+}
+pub fn limpsAfterLunge(species: Species) bool {
+    return switch (species) {
+        .wolf => false,
+        .brown_snake => true,
+        else => unreachable,
     };
 }
 
@@ -77,6 +85,7 @@ pub fn canGrowAndShrink(species: Species) bool {
 pub fn isSlow(species: Species) bool {
     return switch (species) {
         .wood_golem => true,
+        .scorpion => true,
         else => false,
     };
 }
