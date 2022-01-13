@@ -560,6 +560,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .tree_southwest => textures.sprites.tree[2],
                                     .tree_southeast => textures.sprites.tree[3],
                                     .bush => selectAesthetic(textures.sprites.bush[0..], aesthetic_seed, cursor),
+                                    .door_open => textures.sprites.open_door,
+                                    .door_closed => textures.sprites.closed_door,
                                     .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, cursor),
                                     .sandstone => selectAestheticBiasedLow(textures.sprites.sandstone_wall[0..], aesthetic_seed, cursor, 5),
                                     .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => textures.sprites.polymorph_trap,

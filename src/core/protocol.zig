@@ -27,6 +27,8 @@ pub const Wall = enum {
     tree_southwest,
     tree_southeast,
     bush,
+    door_open,
+    door_closed,
     polymorph_trap_centaur,
     polymorph_trap_kangaroo,
     polymorph_trap_turtle,

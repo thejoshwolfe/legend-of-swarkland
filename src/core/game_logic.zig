@@ -98,6 +98,14 @@ pub fn canKick(species: Species) bool {
     };
 }
 
+pub fn canUseDoors(species: Species) bool {
+    return switch (species) {
+        .human, .orc => true,
+        .centaur => true,
+        else =>false,
+    }
+}
+
 pub fn getPhysicsLayer(species: Species) u2 {
     switch (species) {
         .blob => return 0,
@@ -128,6 +136,8 @@ pub fn isOpenSpace(wall: Wall) bool {
         .dirt, .stone, .sandstone => false,
         .tree_northwest, .tree_northeast, .tree_southwest, .tree_southeast => false,
         .bush => true,
+        .door_open => true,
+        .door_closed => false,
         .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => true,
         .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => true,
         .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => true,

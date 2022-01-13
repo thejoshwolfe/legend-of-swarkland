@@ -481,20 +481,20 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             digOutRect(terrain, room);
         }
 
-        terrain.getExisting(r.intRangeLessThan(i32, rooms[0].x + 1, rooms[0].right()), rooms[0].bottom()).wall = .bush;
-        terrain.getExisting(r.intRangeLessThan(i32, rooms[1].x + 1, rooms[1].right()), rooms[1].y).wall = .bush;
-        terrain.getExisting(r.intRangeLessThan(i32, rooms[2].x + 1, rooms[2].right()), rooms[2].y).wall = .bush;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[0].x + 1, rooms[0].right()), rooms[0].bottom()).wall = .door_open;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[1].x + 1, rooms[1].right()), rooms[1].y).wall = .door_closed;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[2].x + 1, rooms[2].right()), rooms[2].y).wall = .door_closed;
         x = rooms[2].x + 1;
         while (x < rooms[2].right()) : (x += 1) {
             terrain.getExisting(x, rooms[2].bottom()).wall = .air;
         }
-        terrain.getExisting(r.intRangeLessThan(i32, rooms[4].x + 1, rooms[4].right()), rooms[4].bottom()).wall = .bush;
-        terrain.getExisting(r.intRangeLessThan(i32, rooms[5].x + 1, rooms[5].right()), rooms[5].bottom()).wall = .bush;
-        terrain.getExisting(rooms[6].right(), r.intRangeLessThan(i32, rooms[6].y + 1, rooms[6].bottom())).wall = .bush;
-        terrain.getExisting(rooms[5].right(), r.intRangeLessThan(i32, rooms[5].y + 1, rooms[5].bottom())).wall = .bush;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[4].x + 1, rooms[4].right()), rooms[4].bottom()).wall = .door_closed;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[5].x + 1, rooms[5].right()), rooms[5].bottom()).wall = .door_closed;
+        terrain.getExisting(rooms[6].right(), r.intRangeLessThan(i32, rooms[6].y + 1, rooms[6].bottom())).wall = .door_closed;
+        terrain.getExisting(rooms[5].right(), r.intRangeLessThan(i32, rooms[5].y + 1, rooms[5].bottom())).wall = .door_closed;
         terrain.getExisting(rooms[8].x, main_hall_end.y).wall = .air;
-        terrain.getExisting(r.intRangeLessThan(i32, rooms[9].x + 1, rooms[9].right()), rooms[9].bottom()).wall = .bush;
-        terrain.getExisting(r.intRangeLessThan(i32, rooms[10].x + 1, rooms[10].right()), rooms[10].y).wall = .bush;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[9].x + 1, rooms[9].right()), rooms[9].bottom()).wall = .door_closed;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[10].x + 1, rooms[10].right()), rooms[10].y).wall = .door_closed;
 
         // enemy time!
         var possible_spawn_locations = ArrayList(Coord).init(allocator);
