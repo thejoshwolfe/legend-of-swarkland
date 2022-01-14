@@ -156,15 +156,12 @@ pub const GameEngine = struct {
         {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
-                const move_delta: Coord = switch (actions.get(id).?) {
-                    .move, .fast_move, .lunge => |move_delta| move_delta,
+                switch (actions.get(id).?) {
+                    .move, .fast_move, .lunge => |move_delta| {
+                        try intended_moves.putNoClobber(id, move_delta);
+                    },
                     else => continue,
-                };
-                if (0 != current_status_conditions.get(id).? & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) {
-                    // nope.avi
-                    continue;
                 }
-                try intended_moves.putNoClobber(id, move_delta);
             }
 
             try self.doMovementAndCollisions(

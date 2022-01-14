@@ -11,11 +11,6 @@ const PerceivedThing = core.protocol.PerceivedThing;
 const ThingPosition = core.protocol.ThingPosition;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
-const canAttack = core.game_logic.canAttack;
-const canNibble = core.game_logic.canNibble;
-const canCharge = core.game_logic.canCharge;
-const canLunge = core.game_logic.canLunge;
-const canMoveNormally = core.game_logic.canMoveNormally;
 const canGrowAndShrink = core.game_logic.canGrowAndShrink;
 const isFastMoveAligned = core.game_logic.isFastMoveAligned;
 const terrainAt = core.game_logic.terrainAt;
@@ -27,11 +22,13 @@ const HistoryNode = HistoryList.Node;
 const allocator = std.heap.c_allocator;
 
 pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
+    const me = last_frame.self;
+
     var target_position: ?Coord = null;
     var target_distance: ?i32 = null;
     var target_priority: i32 = -0x80000000;
     for (last_frame.others) |other| {
-        const other_priority = getTargetHostilityPriority(last_frame.self.species, other.species) orelse continue;
+        const other_priority = getTargetHostilityPriority(me.species, other.species) orelse continue;
         if (target_priority > other_priority) continue;
         if (other_priority > target_priority) {
             target_position = null;
@@ -39,7 +36,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             target_priority = other_priority;
         }
         for (getAllPositions(&other.position)) |other_coord| {
-            const distance = distanceTo(other_coord, last_frame.self);
+            const distance = distanceTo(other_coord, me);
             if (target_distance) |previous_distance| {
                 // target whichever is closest.
                 if (distance < previous_distance) {
@@ -60,11 +57,9 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (target_distance.? == 0) {
         // Overlapping the target.
-        if (canNibble(last_frame.self.species)) {
-            // om nom nom
-            return .nibble;
-        } else if (canGrowAndShrink(last_frame.self.species)) {
-            switch (last_frame.self.position) {
+        if (can(me, .nibble)) |action| return action;
+        if (canGrowAndShrink(me.species)) {
+            switch (me.position) {
                 .large => |data| {
                     if (target_position.?.equals(data[0])) {
                         return Action{ .shrink = 0 };
@@ -82,35 +77,39 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         core.debug.ai.print("waiting: overlapping target, but i'm not a blob.", .{});
         return .wait;
     }
-    const my_head_position = getHeadPosition(last_frame.self.position);
+    const my_head_position = getHeadPosition(me.position);
     const delta = target_position.?.minus(my_head_position);
-    const range = if (hesitatesOneSpaceAway(last_frame.self.species))
+    const range = if (hesitatesOneSpaceAway(me.species))
         1
     else
-        core.game_logic.getAttackRange(last_frame.self.species);
+        core.game_logic.getAttackRange(me.species);
 
     if (delta.x * delta.y == 0) {
         // straight shot
         const delta_unit = delta.signumed();
-        if (hesitatesOneSpaceAway(last_frame.self.species) and delta.magnitudeOrtho() == 2) {
+        if (hesitatesOneSpaceAway(me.species) and delta.magnitudeOrtho() == 2) {
             // preemptive attack
-            return Action{ .kick = delta_unit };
+            if (can(me, Action{ .kick = delta_unit })) |action| return action;
+            // should anyone do a preemptive actual attack?
         }
 
-        if (canCharge(last_frame.self.species) and isFastMoveAligned(last_frame.self.position, delta_unit.scaled(2))) {
+        if (isFastMoveAligned(me.position, delta_unit.scaled(2))) {
             // charge!
-            return Action{ .fast_move = delta_unit.scaled(2) };
-        } else if (canLunge(last_frame.self.species) and delta.magnitudeOrtho() == 2) {
+            if (can(me, Action{ .fast_move = delta_unit.scaled(2) })) |action| return action;
+        }
+        if (delta.magnitudeOrtho() == 2) {
             // one lunge away
-            return Action{ .lunge = delta_unit };
-        } else if (delta.euclideanDistanceSquared() <= range * range) {
+            if (can(me, Action{ .lunge = delta_unit })) |action| return action;
+        }
+        if (delta.euclideanDistanceSquared() <= range * range) {
             // within attack range
-            if (hesitatesOneSpaceAway(last_frame.self.species)) {
-                // get away from me!
-                return Action{ .kick = delta_unit };
-            } else if (canAttack(last_frame.self.species)) {
-                return Action{ .attack = delta_unit };
-            } else unreachable;
+            if (hesitatesOneSpaceAway(me.species)) {
+                // too close. get away!
+                if (can(me, Action{ .kick = delta_unit })) |action| return action;
+            }
+            if (can(me, Action{ .attack = delta_unit })) |action| return action;
+            // I'd love to do something about this situation, but there's nothing i can do.
+            return .wait;
         } else {
             // We want to get closer.
             if (terrainAt(last_frame.terrain, my_head_position.plus(delta_unit))) |cell| {
@@ -121,11 +120,11 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 }
             }
             // Move straight twoard the target, even if someone else is in the way
-            return movelikeAction(last_frame.self.species, last_frame.self.position, delta_unit);
+            return movelikeAction(me, delta_unit);
         }
-    } else if (last_frame.self.species == .blob and last_frame.self.position == .large) {
+    } else if (me.species == .blob and me.position == .large) {
         // Is this a straight shot from my butt?
-        const butt_delta = target_position.?.minus(last_frame.self.position.large[1]);
+        const butt_delta = target_position.?.minus(me.position.large[1]);
         if (butt_delta.x * butt_delta.y == 0) {
             // shrink back to approach.
             return Action{ .shrink = 1 };
@@ -176,19 +175,19 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         }
     }
 
-    if (hesitatesOneSpaceAway(last_frame.self.species) and delta.magnitudeOrtho() == 2) {
+    if (hesitatesOneSpaceAway(me.species) and delta.magnitudeOrtho() == 2) {
         // preemptive attack
-        return Action{ .kick = options[option_index] };
-    } else {
-        if (terrainAt(last_frame.terrain, my_head_position.plus(options[option_index]))) |cell| {
-            if (cell.floor == .lava) {
-                // On second thought, let's not try this.
-                core.debug.ai.print("waiting: lava in my way (diagonal)", .{});
-                return .wait;
-            }
-        }
-        return movelikeAction(last_frame.self.species, last_frame.self.position, options[option_index]);
+        if (can(me, Action{ .kick = options[option_index] })) |action| return action;
+        // should anyone do a preemptive actual attack?
     }
+    if (terrainAt(last_frame.terrain, my_head_position.plus(options[option_index]))) |cell| {
+        if (cell.floor == .lava) {
+            // On second thought, let's not try this.
+            core.debug.ai.print("waiting: lava in my way (diagonal)", .{});
+            return .wait;
+        }
+    }
+    return movelikeAction(me, options[option_index]);
 }
 
 fn hesitatesOneSpaceAway(species: Species) bool {
@@ -244,11 +243,11 @@ fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: std.
     return 1;
 }
 
-fn movelikeAction(species: Species, position: ThingPosition, delta: Coord) Action {
-    if (canMoveNormally(species)) {
-        return Action{ .move = delta };
-    } else if (canGrowAndShrink(species)) {
-        switch (position) {
+fn movelikeAction(me: PerceivedThing, delta: Coord) Action {
+    if (can(me, Action{ .move = delta })) |action| return action;
+
+    if (canGrowAndShrink(me.species)) {
+        switch (me.position) {
             .small => return Action{ .grow = delta },
             .large => |positions| {
                 // i shrink in your general direction
@@ -268,10 +267,9 @@ fn movelikeAction(species: Species, position: ThingPosition, delta: Coord) Actio
                 }
             },
         }
-    } else {
-        // Can't move T_T
-        return .wait;
     }
+    // Can't move T_T
+    return .wait;
 }
 
 fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
@@ -284,4 +282,12 @@ fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
         // See with my head.
         return coord.minus(getHeadPosition(me.position)).magnitudeOrtho();
     }
+}
+
+fn can(me: PerceivedThing, action: Action) ?Action {
+    core.game_logic.validateAction(me.species, me.position, me.status_conditions, action) catch |err| switch (err) {
+        error.SpeciesIncapable, error.StatusForbids => return null,
+        error.BadDelta, error.BadAlignment, error.TooBig, error.TooSmall => unreachable,
+    };
+    return action;
 }

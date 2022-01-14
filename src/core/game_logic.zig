@@ -10,6 +10,7 @@ const Wall = core.protocol.Wall;
 const Action = core.protocol.Action;
 const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
+const StatusConditions = core.protocol.StatusConditions;
 
 const assert = @import("std").debug.assert;
 
@@ -156,6 +157,7 @@ pub fn getPhysicsLayer(species: Species) u2 {
 
 pub fn isFastMoveAligned(position: ThingPosition, move_delta: Coord) bool {
     assert(core.geometry.isScaledCardinalDirection(move_delta, 2));
+    if (position != .large) return false;
     const facing_delta = position.large[0].minus(position.large[1]);
     return facing_delta.scaled(2).equals(move_delta);
 }
@@ -249,17 +251,19 @@ pub fn getAnatomy(species: Species) Anatomy {
     }
 }
 
-pub fn validateAction(species: Species, position: ThingPosition, action: Action) !void {
+pub fn validateAction(species: Species, position: ThingPosition, status_conditions: StatusConditions, action: Action) !void {
     switch (action) {
         .wait => {},
         .move => |move_delta| {
             if (!isCardinalDirection(move_delta)) return error.BadDelta;
             if (!canMoveNormally(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) return error.StatusForbids;
         },
         .fast_move => |move_delta| {
             if (!isScaledCardinalDirection(move_delta, 2)) return error.BadDelta;
             if (!canCharge(species)) return error.SpeciesIncapable;
             if (!isFastMoveAligned(position, move_delta)) return error.BadAlignment;
+            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
         },
         .grow => |move_delta| {
             if (!isCardinalDirection(move_delta)) return error.BadDelta;
@@ -273,20 +277,25 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
         .attack => |direction| {
             if (!canAttack(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .kick => |direction| {
             if (!canKick(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .nibble => {
             if (!canNibble(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .stomp => {
             if (!canKick(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .lunge => |direction| {
             if (!canLunge(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
+            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
         },
         .cheatcode_warp => {},
     }
