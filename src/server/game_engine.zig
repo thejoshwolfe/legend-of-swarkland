@@ -35,6 +35,8 @@ const offsetPosition = core.game_logic.offsetPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const isSlow = core.game_logic.isSlow;
 const limpsAfterLunge = core.game_logic.limpsAfterLunge;
+const getAttackEffect = core.game_logic.getAttackEffect;
+const actionCausesPainWhileMalaised = core.game_logic.actionCausesPainWhileMalaised;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -286,14 +288,20 @@ pub const GameEngine = struct {
             }
         }
 
-        // Wounds and limping
+        // Wounds, limping, pain, etc.
         for (everybody) |id| {
             const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
             const species = game_state.individuals.get(id).?.species;
             if (game_state.terrainAt(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
-                // this tile heals wounds for some reason.
-                status_conditions.* &= ~(core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping);
-            } else if (!budges_at_all.contains(id)) {
+                // this tile heals you for some reason.
+                const healed_statuses = core.protocol.StatusCondition_wounded_leg | //
+                    core.protocol.StatusCondition_limping | //
+                    core.protocol.StatusCondition_malaise | //
+                    core.protocol.StatusCondition_pain;
+                status_conditions.* &= ~healed_statuses;
+                continue;
+            }
+            if (!budges_at_all.contains(id)) {
                 // you held still, so you are free of any limping status.
                 status_conditions.* &= ~core.protocol.StatusCondition_limping;
             } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg or //
@@ -302,6 +310,13 @@ pub const GameEngine = struct {
             {
                 // now you limp.
                 status_conditions.* |= core.protocol.StatusCondition_limping;
+            }
+            if (0 != status_conditions.* & core.protocol.StatusCondition_malaise and //
+                actionCausesPainWhileMalaised(actions.get(id).?))
+            {
+                status_conditions.* |= core.protocol.StatusCondition_pain;
+            } else {
+                status_conditions.* &= ~core.protocol.StatusCondition_pain;
             }
         }
 
@@ -431,8 +446,9 @@ pub const GameEngine = struct {
             switch (action) {
                 .attack, .lunge => |attack_direction| {
                     var attacker_coord = getHeadPosition(current_positions.get(id).?);
+                    const attacker_species = game_state.individuals.get(id).?.species;
                     var attack_distance: i32 = 1;
-                    const range = core.game_logic.getAttackRange(game_state.individuals.get(id).?.species);
+                    const range = core.game_logic.getAttackRange(attacker_species);
                     while (attack_distance <= range) : (attack_distance += 1) {
                         var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
                         var stop_the_attack = false;
@@ -457,12 +473,19 @@ pub const GameEngine = struct {
                                 if (is_effective) {
                                     // get wrecked
                                     const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
-                                    if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
-                                        // first hit is a wound
-                                        other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
-                                    } else {
-                                        // second hit. you ded.
-                                        _ = try attack_deaths.put(other_id, {});
+                                    switch (getAttackEffect(attacker_species)) {
+                                        .wound_then_kill => {
+                                            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
+                                                // first hit is a wound
+                                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                            } else {
+                                                // second hit. you ded.
+                                                _ = try attack_deaths.put(other_id, {});
+                                            }
+                                        },
+                                        .malaise => {
+                                            other_status_conditions.* |= core.protocol.StatusCondition_malaise;
+                                        },
                                     }
                                 }
                                 stop_the_attack = true;
@@ -662,7 +685,9 @@ pub const GameEngine = struct {
                     const blob_immune_statuses = core.protocol.StatusCondition_grappled | //
                         core.protocol.StatusCondition_being_digested | //
                         core.protocol.StatusCondition_wounded_leg | //
-                        core.protocol.StatusCondition_limping;
+                        core.protocol.StatusCondition_limping | //
+                        core.protocol.StatusCondition_malaise | //
+                        core.protocol.StatusCondition_pain;
                     if (dest_species == .blob) {
                         current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
                     } else {

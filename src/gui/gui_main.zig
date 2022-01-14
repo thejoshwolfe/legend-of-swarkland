@@ -639,6 +639,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         grappling_back: ?Rect = null,
                         digesting: ?Rect = null,
                         grappling_front: ?Rect = null,
+                        malaise: ?Rect = null,
+                        pain: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
                         .humanoid => AnatomySprites{
@@ -647,6 +649,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .leg_wound = textures.large_sprites.humanoid_leg_wound,
                             .grappled = textures.large_sprites.humanoid_grappled,
                             .limping = textures.large_sprites.humanoid_limping,
+                            .malaise = textures.large_sprites.humanoid_malaise,
+                            .pain = textures.large_sprites.humanoid_pain,
                         },
                         .centauroid => AnatomySprites{
                             .diagram = textures.large_sprites.centauroid,
@@ -694,7 +698,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_shieled, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
-                    var status_conditions: u6 = frame.self.status_conditions;
+                    var status_conditions: u8 = frame.self.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_being_digested) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.being_digested.?, anatomy_coord);
                     }
@@ -715,6 +719,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                     if (0 != status_conditions & core.protocol.StatusCondition_grappling) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.grappling_front.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_malaise) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.malaise.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_pain) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.pain.?, anatomy_coord);
                     }
                 }
 

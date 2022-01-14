@@ -39,6 +39,36 @@ pub fn getAttackRange(species: Species) i32 {
     }
 }
 
+pub const AttackEffect = enum {
+    wound_then_kill,
+    malaise,
+};
+
+pub fn getAttackEffect(species: Species) AttackEffect {
+    return switch (species) {
+        .human, .orc, .centaur => .wound_then_kill,
+        .turtle => .wound_then_kill,
+        .wolf => .wound_then_kill,
+        .wood_golem => .wound_then_kill,
+        .brown_snake => .wound_then_kill,
+        .ant => .wound_then_kill,
+
+        .scorpion => .malaise,
+
+        .rhino => unreachable,
+        .kangaroo => unreachable,
+        .blob => unreachable,
+        .rat => unreachable,
+    };
+}
+
+pub fn actionCausesPainWhileMalaised(action: std.meta.Tag(Action)) bool {
+    return switch (action) {
+        .fast_move, .attack, .kick, .nibble, .stomp, .lunge => true,
+        else => false,
+    };
+}
+
 pub fn canCharge(species: Species) bool {
     return switch (species) {
         .rhino => true,
