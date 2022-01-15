@@ -261,25 +261,65 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     }
     // fill the forest with foliage.
     {
+        const pool_rect = Rect{
+            .x = forest_rect.x + @divTrunc(forest_rect.width, 2) - 2,
+            .y = forest_rect.y + @divTrunc(forest_rect.height, 2) - 2,
+            .width = 4,
+            .height = 4,
+        };
+        var it = pool_rect.rowMajorIterator();
+        while (it.next()) |coord| {
+            if (coord.y == pool_rect.y) {
+                if (coord.x == pool_rect.x) {
+                    terrain.getExistingCoord(coord).floor = .grass_and_water_edge_northwest;
+                } else if (coord.x == pool_rect.right() - 1) {
+                    terrain.getExistingCoord(coord).floor = .grass_and_water_edge_northeast;
+                } else {
+                    terrain.getExistingCoord(coord).floor = .grass_and_water_edge_north;
+                }
+            } else if (coord.y == pool_rect.bottom() - 1) {
+                if (coord.x == pool_rect.x) {
+                    terrain.getExistingCoord(coord).floor = .grass_and_water_edge_southwest;
+                } else if (coord.x == pool_rect.right() - 1) {
+                    terrain.getExistingCoord(coord).floor = .grass_and_water_edge_southeast;
+                } else {
+                    terrain.getExistingCoord(coord).floor = .grass_and_water_edge_south;
+                }
+            } else {
+                if (coord.x == pool_rect.x) {
+                    terrain.getExistingCoord(coord).floor = .grass_and_water_edge_west;
+                } else if (coord.x == pool_rect.right() - 1) {
+                    terrain.getExistingCoord(coord).floor = .grass_and_water_edge_east;
+                } else {
+                    terrain.getExistingCoord(coord).floor = .water;
+                }
+            }
+        }
+
         var possible_spawn_locations = ArrayList(Coord).init(allocator);
-        var it = (Rect{
+        it = (Rect{
             .x = forest_rect.x + 2,
             .y = forest_rect.y + 2,
             .width = forest_rect.width - 4,
             .height = forest_rect.height - 4,
         }).rowMajorIterator();
         while (it.next()) |coord| {
-            const cell_ptr = try terrain.getOrPutCoord(coord);
-            if (cell_ptr.wall != .air) continue;
+            const cell_ptr = terrain.getExistingCoord(coord);
+            if (!(cell_ptr.wall == .air and cell_ptr.floor != .water)) continue;
             switch (r.int(u4)) {
                 0...10 => {},
                 11...13 => {
-                    const next_cell_ptr = (try terrain.getOrPut(coord.x + 1, coord.y + 0));
-                    if (next_cell_ptr.wall == .air) {
+                    const ne_ptr = terrain.getExisting(coord.x + 1, coord.y + 0);
+                    const sw_ptr = terrain.getExisting(coord.x + 0, coord.y + 1);
+                    const se_ptr = terrain.getExisting(coord.x + 1, coord.y + 1);
+                    if (ne_ptr.wall == .air and ne_ptr.floor != .water and //
+                        sw_ptr.wall == .air and sw_ptr.floor != .water and //
+                        se_ptr.wall == .air and se_ptr.floor != .water)
+                    {
                         cell_ptr.wall = .tree_northwest;
-                        next_cell_ptr.wall = .tree_northeast;
-                        (try terrain.getOrPut(coord.x + 0, coord.y + 1)).wall = .tree_southwest;
-                        (try terrain.getOrPut(coord.x + 1, coord.y + 1)).wall = .tree_southeast;
+                        ne_ptr.wall = .tree_northeast;
+                        sw_ptr.wall = .tree_southwest;
+                        se_ptr.wall = .tree_southeast;
                     }
                 },
                 14...15 => {

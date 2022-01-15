@@ -13,6 +13,15 @@ pub const Floor = enum {
     lava,
     hatch,
     stairs_down,
+    water,
+    grass_and_water_edge_east,
+    grass_and_water_edge_southeast,
+    grass_and_water_edge_south,
+    grass_and_water_edge_southwest,
+    grass_and_water_edge_west,
+    grass_and_water_edge_northwest,
+    grass_and_water_edge_north,
+    grass_and_water_edge_northeast,
     unknown_floor,
 };
 

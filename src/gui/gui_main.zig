@@ -549,16 +549,38 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 const floor_texture = switch (cell.floor) {
                                     .unknown => break :render_floor,
                                     .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
-                                    .grass => selectAesthetic(textures.sprites.grass[0..], aesthetic_seed, cursor),
+                                    .grass,
+                                    .grass_and_water_edge_east,
+                                    .grass_and_water_edge_southeast,
+                                    .grass_and_water_edge_south,
+                                    .grass_and_water_edge_southwest,
+                                    .grass_and_water_edge_west,
+                                    .grass_and_water_edge_northwest,
+                                    .grass_and_water_edge_north,
+                                    .grass_and_water_edge_northeast,
+                                    => selectAesthetic(textures.sprites.grass[0..], aesthetic_seed, cursor),
                                     .sand => selectAestheticBiasedLow(textures.sprites.sand[0..], aesthetic_seed, cursor, 5),
                                     .sandstone => selectAestheticBiasedLow(textures.sprites.sandstone_floor[0..], aesthetic_seed, cursor, 5),
                                     .marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, cursor),
                                     .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
                                     .hatch => textures.sprites.hatch,
                                     .stairs_down => textures.sprites.stairs_down,
+                                    .water => selectAesthetic(textures.sprites.water[0..], aesthetic_seed, cursor),
                                     .unknown_floor => textures.sprites.unknown_floor,
                                 };
                                 textures.renderSprite(renderer, floor_texture, render_position);
+                                const second_floor_texture = switch (cell.floor) {
+                                    .grass_and_water_edge_east => textures.sprites.water_edge[0],
+                                    .grass_and_water_edge_southeast => textures.sprites.water_edge[1],
+                                    .grass_and_water_edge_south => textures.sprites.water_edge[2],
+                                    .grass_and_water_edge_southwest => textures.sprites.water_edge[3],
+                                    .grass_and_water_edge_west => textures.sprites.water_edge[4],
+                                    .grass_and_water_edge_northwest => textures.sprites.water_edge[5],
+                                    .grass_and_water_edge_north => textures.sprites.water_edge[6],
+                                    .grass_and_water_edge_northeast => textures.sprites.water_edge[7],
+                                    else => break :render_floor,
+                                };
+                                textures.renderSprite(renderer, second_floor_texture, render_position);
                             }
                             render_wall: {
                                 const wall_texture = switch (cell.wall) {
