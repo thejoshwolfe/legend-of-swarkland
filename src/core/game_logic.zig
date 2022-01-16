@@ -7,6 +7,7 @@ const PerceivedActivity = core.protocol.PerceivedActivity;
 const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
 const Wall = core.protocol.Wall;
+const Floor = core.protocol.Floor;
 const Action = core.protocol.Action;
 const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
@@ -213,6 +214,12 @@ pub fn isOpenSpace(wall: Wall) bool {
         .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => true,
         .unknown => true,
         .unknown_wall => false,
+    };
+}
+pub fn isWet(floor: Floor) bool {
+    return switch (floor) {
+        .water, .water_bloody, .water_deep => true,
+        else => false,
     };
 }
 

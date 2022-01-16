@@ -29,6 +29,7 @@ const StatusConditions = core.protocol.StatusConditions;
 const PerceivedTerrain = core.game_logic.PerceivedTerrain;
 const getViewDistance = core.game_logic.getViewDistance;
 const isOpenSpace = core.game_logic.isOpenSpace;
+const isWet = core.game_logic.isWet;
 const isTransparentSpace = core.game_logic.isTransparentSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
@@ -733,23 +734,42 @@ pub const GameEngine = struct {
         var intended_polymorphs = IdMap(Species).init(self.allocator);
         for (everybody) |id| {
             const position = current_positions.get(id).?;
+            const from_species = game_state.individuals.get(id).?.species;
+            var dest_species: ?Species = null;
+            switch (from_species) {
+                .siren => |subspecies| switch (subspecies) {
+                    .water => {
+                        if (!isWet(game_state.terrainAt(position.small).floor)) {
+                            dest_species = .{ .siren = .land };
+                            core.debug.engine.print("transforming siren into land form.", .{});
+                        }
+                    },
+                    .land => {
+                        if (isWet(game_state.terrainAt(position.small).floor)) {
+                            dest_species = .{ .siren = .water };
+                            core.debug.engine.print("transforming siren into water form.", .{});
+                        }
+                    },
+                },
+                else => {},
+            }
             switch (position) {
                 .small => |coord| {
                     switch (game_state.terrainAt(coord).wall) {
                         .polymorph_trap_centaur => {
-                            try intended_polymorphs.putNoClobber(id, .centaur);
+                            dest_species = .centaur;
                         },
                         .polymorph_trap_kangaroo => {
-                            try intended_polymorphs.putNoClobber(id, .kangaroo);
+                            dest_species = .kangaroo;
                         },
                         .polymorph_trap_turtle => {
-                            try intended_polymorphs.putNoClobber(id, .turtle);
+                            dest_species = .turtle;
                         },
                         .polymorph_trap_blob => {
-                            try intended_polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                            dest_species = Species{ .blob = .small_blob };
                         },
                         .polymorph_trap_human => {
-                            try intended_polymorphs.putNoClobber(id, .human);
+                            dest_species = .human;
                         },
                         else => {},
                     }
@@ -773,17 +793,20 @@ pub const GameEngine = struct {
                         if (ordered_walls[0] == .polymorph_trap_rhino_west and //
                             ordered_walls[1] == .polymorph_trap_rhino_east)
                         {
-                            try intended_polymorphs.putNoClobber(id, .rhino);
+                            dest_species = .rhino;
                         }
                         if (ordered_walls[0] == .polymorph_trap_blob_west and //
                             ordered_walls[1] == .polymorph_trap_blob_east)
                         {
-                            try intended_polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                            dest_species = Species{ .blob = .small_blob };
                         }
                     } else {
                         // No north-south aligned traps exist.
                     }
                 },
+            }
+            if (dest_species) |species| {
+                try intended_polymorphs.putNoClobber(id, species);
             }
         }
         if (intended_polymorphs.count() > 0) {
@@ -817,9 +840,20 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 const dest_species = intended_polymorphs.get(id) orelse continue;
                 const from_species = game_state.individuals.get(id).?.species;
-                if (from_species == @as(std.meta.Tag(Species), dest_species)) {
-                    core.debug.engine.print("polymorph fails: already that species.", .{});
-                    continue;
+                var same_species = from_species == @as(std.meta.Tag(Species), dest_species);
+                if (same_species) {
+                    switch (from_species) {
+                        .siren => |subspecies| {
+                            if (subspecies != dest_species.siren) {
+                                same_species = false;
+                            }
+                        },
+                        else => {},
+                    }
+                    if (same_species) {
+                        core.debug.engine.print("polymorph fails: already that species.", .{});
+                        continue;
+                    }
                 }
                 const position = current_positions.get(id).?;
                 for (getAllPositions(&position)) |coord| {
