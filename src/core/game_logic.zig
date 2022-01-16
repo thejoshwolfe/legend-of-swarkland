@@ -29,18 +29,22 @@ pub fn getViewDistance(species: Species) i32 {
 }
 
 pub fn canAttack(species: Species) bool {
-    return getAttackRange(species) > 0;
+    return switch (species) {
+        .rhino, .blob, .kangaroo => false,
+        else => true,
+    };
 }
 
 pub fn getAttackRange(species: Species) i32 {
     switch (species) {
         .centaur => return 16,
-        .rhino, .blob, .kangaroo, .rat => return 0,
+        .rhino, .blob, .kangaroo, .rat, .ant => return 0,
         else => return 1,
     }
 }
 
 pub const AttackEffect = enum {
+    just_wound,
     wound_then_kill,
     malaise,
 };
@@ -54,12 +58,12 @@ pub fn getAttackEffect(species: Species) AttackEffect {
         .brown_snake => .wound_then_kill,
         .ant => .wound_then_kill,
 
+        .rat => .just_wound,
         .scorpion => .malaise,
 
         .rhino => unreachable,
         .kangaroo => unreachable,
         .blob => unreachable,
-        .rat => unreachable,
     };
 }
 
@@ -94,7 +98,7 @@ pub fn limpsAfterLunge(species: Species) bool {
 
 pub fn canNibble(species: Species) bool {
     return switch (species) {
-        .rat => true,
+        .rat, .scorpion, .ant => true,
         else => false,
     };
 }
@@ -150,6 +154,7 @@ pub fn getPhysicsLayer(species: Species) u2 {
     switch (species) {
         .blob => return 0,
         .rat => return 1,
+        .scorpion, .ant => return 1,
         .rhino => return 3,
         else => return 2,
     }

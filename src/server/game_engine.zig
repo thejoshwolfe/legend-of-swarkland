@@ -529,22 +529,7 @@ pub const GameEngine = struct {
                                 if (is_effective) {
                                     // get wrecked
                                     const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
-                                    switch (getAttackEffect(attacker_species)) {
-                                        .wound_then_kill => {
-                                            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0 and //
-                                                !woundThenKillGoesRightToKill(other.species))
-                                            {
-                                                // first hit is a wound
-                                                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
-                                            } else {
-                                                // second hit. you ded.
-                                                _ = try attack_deaths.put(other_id, {});
-                                            }
-                                        },
-                                        .malaise => {
-                                            other_status_conditions.* |= core.protocol.StatusCondition_malaise;
-                                        },
-                                    }
+                                    try doAttackDamage(attacker_species, other_id, other.species, other_status_conditions, &attack_deaths);
                                 }
                                 stop_the_attack = true;
                             }
@@ -582,9 +567,10 @@ pub const GameEngine = struct {
                                     // stomping is instant deth.
                                     _ = try attack_deaths.put(other_id, {});
                                 } else {
-                                    // nibbling only does wounds.
+                                    // nibbling does attack damage.
+                                    const attacker_species = game_state.individuals.get(id).?.species;
                                     const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
-                                    other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                    try doAttackDamage(attacker_species, other_id, other.species, other_status_conditions, &attack_deaths);
                                 }
                             }
                         }
@@ -1490,6 +1476,28 @@ fn flushDeaths(total_deaths: *IdMap(void), local_deaths: *IdMap(void), everybody
         }
     }
     local_deaths.clearRetainingCapacity();
+}
+
+fn doAttackDamage(attacker_species: Species, other_id: u32, other_species: Species, other_status_conditions: *StatusConditions, attack_deaths: *IdMap(void)) !void {
+    switch (getAttackEffect(attacker_species)) {
+        .wound_then_kill => {
+            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0 and //
+                !woundThenKillGoesRightToKill(other_species))
+            {
+                // first hit is a wound
+                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+            } else {
+                // second hit. you ded.
+                _ = try attack_deaths.put(other_id, {});
+            }
+        },
+        .just_wound => {
+            other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+        },
+        .malaise => {
+            other_status_conditions.* |= core.protocol.StatusCondition_malaise;
+        },
+    }
 }
 
 /// See geometry for cardinal index definition.
