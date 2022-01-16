@@ -14,6 +14,7 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const directionToRotation = core.geometry.directionToRotation;
+const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
 const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
 const FancyClient = @import("../client/FancyClient.zig");
 const Species = core.protocol.Species;
@@ -33,6 +34,7 @@ const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
+const canUseDoors = core.game_logic.canUseDoors;
 const terrainAtInner = core.game_logic.terrainAtInner;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
@@ -110,6 +112,7 @@ const InputPrompt = enum {
     none, // TODO: https://github.com/ziglang/zig/issues/1332 and use null instead of this.
     attack,
     kick,
+    open_close,
 };
 const GameState = union(enum) {
     main_menu: gui.LinearMenuState,
@@ -344,6 +347,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .start_kick => {
                                         if (canKick(state.client_state.?.self.species)) {
                                             state.input_prompt = .kick;
+                                        }
+                                    },
+                                    .start_open_close => {
+                                        if (canUseDoors(state.client_state.?.self.species)) {
+                                            state.input_prompt = .open_close;
                                         }
                                     },
                                     .charge => {
@@ -630,6 +638,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .kick => {
                             textures.renderSprite(renderer, textures.sprites.kick, render_position);
                         },
+                        .open_close => {
+                            textures.renderSprite(renderer, textures.sprites.open_close, render_position);
+                        },
                     }
                 }
                 // render activity effects
@@ -856,6 +867,11 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
         },
         .kick => {
             try state.client.kick(delta);
+            state.input_prompt = .none;
+            return;
+        },
+        .open_close => {
+            try state.client.act(Action{ .open_close = directionToCardinalIndex(delta) });
             state.input_prompt = .none;
             return;
         },

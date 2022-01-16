@@ -65,7 +65,7 @@ pub fn getAttackEffect(species: Species) AttackEffect {
 
 pub fn actionCausesPainWhileMalaised(action: std.meta.Tag(Action)) bool {
     return switch (action) {
-        .fast_move, .attack, .kick, .nibble, .stomp, .lunge => true,
+        .fast_move, .attack, .kick, .nibble, .stomp, .lunge, .open_close => true,
         else => false,
     };
 }
@@ -296,6 +296,10 @@ pub fn validateAction(species: Species, position: ThingPosition, status_conditio
             if (!canLunge(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
             if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
+        },
+        .open_close => {
+            if (!canUseDoors(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .cheatcode_warp => {},
     }

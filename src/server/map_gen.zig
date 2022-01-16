@@ -8,7 +8,7 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const makeRect = core.geometry.makeRect;
-const Cardinal = core.geometry.Cardinal;
+const CardinalDirection = core.geometry.CardinalDirection;
 
 const NewGameSettings = core.protocol.NewGameSettings;
 const Species = core.protocol.Species;
@@ -697,7 +697,7 @@ pub const the_levels = blk: {
             \\#########
         ),
 
-        compileLevel("Rhino", .{ .facing_directions = &[_]u2{Cardinal.left} },
+        compileLevel("Rhino", .{ .facing_directions = &[_]CardinalDirection{.west} },
             \\#######
             \\;;;;;;#
             \\      #
@@ -709,7 +709,7 @@ pub const the_levels = blk: {
             \\;;;;;;#
             \\#######
         ),
-        compileLevel("Rhino and archer", .{ .facing_directions = &[_]u2{Cardinal.right} },
+        compileLevel("Rhino and archer", .{ .facing_directions = &[_]CardinalDirection{.east} },
             \\#########
             \\        #
             \\  r     #
@@ -721,7 +721,7 @@ pub const the_levels = blk: {
             \\        #
             \\#########
         ),
-        compileLevel("turtles and a rhino", .{ .facing_directions = &[_]u2{Cardinal.right} },
+        compileLevel("turtles and a rhino", .{ .facing_directions = &[_]CardinalDirection{.east} },
             \\#########
             \\        #
             \\        #
@@ -924,7 +924,7 @@ const Options = struct {
     /// Each '^'.
     traps: []const Wall = &[_]Wall{},
     /// Cardinal directions for 'r' individuals.
-    facing_directions: []const u2 = &[_]u2{},
+    facing_directions: []const CardinalDirection = &[_]CardinalDirection{},
 };
 
 const Level = struct {

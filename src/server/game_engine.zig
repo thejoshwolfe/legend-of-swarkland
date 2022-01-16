@@ -6,9 +6,11 @@ const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const Rect = core.geometry.Rect;
 const sign = core.geometry.sign;
+const CardinalDirection = core.geometry.CardinalDirection;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
 const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
+const cardinalIndexToDirection = core.geometry.cardinalIndexToDirection;
 const makeCoord = core.geometry.makeCoord;
 const zero_vector = makeCoord(0, 0);
 
@@ -213,6 +215,62 @@ pub const GameEngine = struct {
                 const next_position = next_positions.get(id) orelse continue;
                 current_positions.getEntry(id).?.value_ptr.* = next_position;
             }
+        }
+
+        // Using doors
+        var state_changes = ArrayList(StateDiff).init(self.allocator);
+        {
+            var door_toggles = CoordMap(u2).init(self.allocator);
+            for (everybody) |id| {
+                const direction = switch (actions.get(id).?) {
+                    .open_close => |direction| direction,
+                    else => continue,
+                };
+                const door_position = getHeadPosition(current_positions.get(id).?).plus(cardinalIndexToDirection(direction));
+                const gop = try door_toggles.getOrPut(door_position);
+                if (gop.found_existing) {
+                    gop.value_ptr.* +|= 1;
+                } else {
+                    gop.value_ptr.* = 1;
+                }
+            }
+            for (door_toggles.keys()) |door_position, i| {
+                if (door_toggles.values()[i] > 1) continue;
+                var terrain_diff: StateDiff.TerrainDiff = undefined;
+                const cell = game_state.terrain.getCoord(door_position);
+                switch (cell.wall) {
+                    .door_open => {
+                        terrain_diff = .{
+                            .at = door_position,
+                            .from = cell,
+                            .to = TerrainSpace{
+                                .floor = cell.floor,
+                                .wall = .door_closed,
+                            },
+                        };
+                    },
+                    .door_closed => {
+                        terrain_diff = .{
+                            .at = door_position,
+                            .from = cell,
+                            .to = TerrainSpace{
+                                .floor = cell.floor,
+                                .wall = .door_open,
+                            },
+                        };
+                    },
+                    else => {
+                        // There's no door here. Nothing happens.
+                        continue;
+                    },
+                }
+                try state_changes.append(StateDiff{
+                    .terrain_update = terrain_diff,
+                });
+                // Use the new value for the rest of the computation.
+                game_state.terrain.getExistingCoord(door_position).* = terrain_diff.to;
+            }
+            // Do we need to explicitly observe this? is there going to be an animation for it or something?
         }
 
         // Kicks
@@ -706,7 +764,6 @@ pub const GameEngine = struct {
         }
 
         // measure state diffs so far.
-        var state_changes = ArrayList(StateDiff).init(self.allocator);
         for (everybody_including_dead) |id| {
             switch (game_state.individuals.get(id).?.abs_position) {
                 .small => |coord| {
@@ -1034,9 +1091,9 @@ pub const GameEngine = struct {
                     if (delta.equals(zero_vector)) {
                         collision.stationary_id = id;
                     } else if (isCardinalDirection(delta)) {
-                        collision.cardinal_index_to_enterer[directionToCardinalIndex(delta)] = id;
+                        collision.cardinal_index_to_enterer[@enumToInt(directionToCardinalIndex(delta))] = id;
                     } else if (isScaledCardinalDirection(delta, 2)) {
-                        collision.cardinal_index_to_fast_enterer[directionToCardinalIndex(delta.scaledDivTrunc(2))] = id;
+                        collision.cardinal_index_to_fast_enterer[@enumToInt(directionToCardinalIndex(delta.scaledDivTrunc(2)))] = id;
                     } else unreachable;
                 }
             }

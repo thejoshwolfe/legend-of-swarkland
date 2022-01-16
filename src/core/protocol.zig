@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
+const CardinalDirection = core.geometry.CardinalDirection;
 
 pub const Floor = enum {
     unknown,
@@ -105,6 +106,7 @@ pub const Action = union(enum) {
     nibble,
     stomp,
     lunge: Coord,
+    open_close: CardinalDirection,
 
     cheatcode_warp: u3,
 };
