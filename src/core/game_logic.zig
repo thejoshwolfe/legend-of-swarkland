@@ -58,6 +58,7 @@ pub fn getAttackEffect(species: Species) AttackEffect {
         .brown_snake => .wound_then_kill,
         .ant => .wound_then_kill,
         .minotaur => .wound_then_kill,
+        .siren => .wound_then_kill,
 
         .rat => .just_wound,
         .scorpion => .malaise,
@@ -86,6 +87,10 @@ pub fn canLunge(species: Species) bool {
     return switch (species) {
         .wolf => true,
         .brown_snake => true,
+        .siren => |subspecies| switch (subspecies) {
+            .water => true,
+            .land => false,
+        },
         else => false,
     };
 }
@@ -93,6 +98,7 @@ pub fn limpsAfterLunge(species: Species) bool {
     return switch (species) {
         .wolf => false,
         .brown_snake => true,
+        .siren => false,
         else => unreachable,
     };
 }
@@ -141,6 +147,10 @@ pub fn canKick(species: Species) bool {
         .brown_snake => false,
         .ant => false,
         .minotaur => true,
+        .siren => |subspecies| switch (subspecies) {
+            .water => false,
+            .land => true,
+        },
     };
 }
 
@@ -174,6 +184,10 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
         .turtle, .blob, .wood_golem => false,
         // only rhino's tail is affected, not head.
         .rhino => position_index == 1,
+        .siren => |subspecies| switch (subspecies) {
+            .water => false,
+            .land => true,
+        },
         else => true,
     };
 }
@@ -250,6 +264,7 @@ pub const Anatomy = enum {
     serpentine,
     insectoid,
     minotauroid,
+    mermoid,
 };
 pub fn getAnatomy(species: Species) Anatomy {
     switch (species) {
@@ -265,6 +280,10 @@ pub fn getAnatomy(species: Species) Anatomy {
         .brown_snake => return .serpentine,
         .ant => return .insectoid,
         .minotaur => return .minotauroid,
+        .siren => |subspecies| switch (subspecies) {
+            .water => return .mermoid,
+            .land => return .humanoid,
+        },
     }
 }
 

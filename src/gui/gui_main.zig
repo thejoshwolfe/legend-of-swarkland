@@ -573,7 +573,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
                                     .hatch => textures.sprites.hatch,
                                     .stairs_down => textures.sprites.stairs_down,
-                                    .water => selectAesthetic(textures.sprites.water[0..], aesthetic_seed, cursor),
+                                    .water, .water_bloody => selectAesthetic(textures.sprites.water[0..], aesthetic_seed, cursor),
+                                    .water_deep => selectAesthetic(textures.sprites.water_deep[0..], aesthetic_seed, cursor),
                                     .unknown_floor => textures.sprites.unknown_floor,
                                 };
                                 textures.renderSprite(renderer, floor_texture, render_position);
@@ -586,6 +587,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .grass_and_water_edge_northwest => textures.sprites.water_edge[5],
                                     .grass_and_water_edge_north => textures.sprites.water_edge[6],
                                     .grass_and_water_edge_northeast => textures.sprites.water_edge[7],
+                                    .water_bloody => textures.sprites.bloody_water_overlay,
                                     else => break :render_floor,
                                 };
                                 textures.renderSprite(renderer, second_floor_texture, render_position);
@@ -726,6 +728,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .serpentine => @panic("TODO"),
                         .insectoid => @panic("TODO"),
                         .minotauroid => @panic("TODO"),
+                        .mermoid => @panic("TODO"),
                     };
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
@@ -1256,6 +1259,10 @@ fn speciesToSprite(species: Species) Rect {
         .brown_snake => textures.sprites.brown_snake,
         .ant => textures.sprites.ant,
         .minotaur => textures.sprites.minotaur,
+        .siren => |subspecies| switch (subspecies) {
+            .water => textures.sprites.siren_water,
+            .land => textures.sprites.siren_land,
+        },
     };
 }
 

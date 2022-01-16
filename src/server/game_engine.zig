@@ -620,6 +620,115 @@ pub const GameEngine = struct {
         }
         try flushDeaths(&total_deaths, &attack_deaths, &everybody);
 
+        // Environmental death triggers
+        {
+            var check_bloody_water_near: ?Coord = null;
+            var regular_bloodying_diffs = ArrayList(StateDiff.TerrainDiff).init(self.allocator);
+            for (total_deaths.keys()) |id| {
+                const coord = getHeadPosition(current_positions.get(id).?);
+                const cell = game_state.terrain.getCoord(coord);
+                switch (cell.floor) {
+                    .water => {
+                        try regular_bloodying_diffs.append(.{
+                            .at = coord,
+                            .from = cell,
+                            .to = TerrainSpace{
+                                .floor = .water_bloody,
+                                .wall = cell.wall,
+                            },
+                        });
+                        check_bloody_water_near = coord;
+                    },
+                    else => {
+                        // There's no death trigger here.
+                        continue;
+                    },
+                }
+            }
+            if (check_bloody_water_near) |center| {
+                var bloody_spots = ArrayList(Coord).init(self.allocator);
+                var clean_spots = ArrayList(Coord).init(self.allocator);
+                var it = (Rect{
+                    .x = center.x - 2,
+                    .y = center.y - 2,
+                    .width = 5,
+                    .height = 5,
+                }).rowMajorIterator();
+                while (it.next()) |coord| {
+                    const cell = game_state.terrain.getCoord(coord);
+                    switch (cell.floor) {
+                        .water => {
+                            // is it just getting bloody?
+                            for (regular_bloodying_diffs.items) |terrain_diff| {
+                                if (terrain_diff.at.equals(coord)) {
+                                    try bloody_spots.append(coord);
+                                    break;
+                                }
+                            } else {
+                                try clean_spots.append(coord);
+                            }
+                        },
+                        .water_bloody => {
+                            try bloody_spots.append(coord);
+                        },
+                        else => continue,
+                    }
+                }
+                if (bloody_spots.items.len >= 3) {
+                    // siren attack.
+                    var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
+                    for (clean_spots.items) |coord| {
+                        // spawn siren
+                        const id = findAvailableId(&new_id_cursor, game_state.individuals);
+                        try state_changes.append(StateDiff{ .spawn = .{
+                            .id = id,
+                            .individual = Individual{
+                                .species = .{ .siren = .water },
+                                .abs_position = .{ .small = coord },
+                                .perceived_origin = coord,
+                            },
+                        } });
+                    }
+                    // corrupt the water.
+                    it = (Rect{
+                        .x = center.x - 2,
+                        .y = center.y - 2,
+                        .width = 5,
+                        .height = 5,
+                    }).rowMajorIterator();
+                    while (it.next()) |coord| {
+                        const cell = game_state.terrain.getCoord(coord);
+                        switch (cell.floor) {
+                            .water, .water_bloody => {},
+                            else => continue,
+                        }
+                        var terrain_diff = StateDiff.TerrainDiff{
+                            .at = coord,
+                            .from = cell,
+                            .to = TerrainSpace{
+                                .floor = .water_deep,
+                                .wall = .air,
+                            },
+                        };
+                        try state_changes.append(StateDiff{
+                            .terrain_update = terrain_diff,
+                        });
+                        // Use the new value for the rest of the computation.
+                        game_state.terrain.getExistingCoord(coord).* = terrain_diff.to;
+                    }
+                } else {
+                    // not angry enough yet.
+                    for (regular_bloodying_diffs.items) |terrain_diff| {
+                        try state_changes.append(StateDiff{
+                            .terrain_update = terrain_diff,
+                        });
+                        // Use the new value for the rest of the computation.
+                        game_state.terrain.getExistingCoord(terrain_diff.at).* = terrain_diff.to;
+                    }
+                }
+            }
+        }
+
         // Traps
         var intended_polymorphs = IdMap(Species).init(self.allocator);
         for (everybody) |id| {

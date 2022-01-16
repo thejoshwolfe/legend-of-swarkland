@@ -264,8 +264,8 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         const pool_rect = Rect{
             .x = forest_rect.x + @divTrunc(forest_rect.width, 2) - 2,
             .y = forest_rect.y + @divTrunc(forest_rect.height, 2) - 2,
-            .width = 4,
-            .height = 4,
+            .width = 5,
+            .height = 5,
         };
         var it = pool_rect.rowMajorIterator();
         while (it.next()) |coord| {

@@ -15,6 +15,8 @@ pub const Floor = enum {
     hatch,
     stairs_down,
     water,
+    water_bloody,
+    water_deep,
     grass_and_water_edge_east,
     grass_and_water_edge_southeast,
     grass_and_water_edge_south,
@@ -73,6 +75,10 @@ pub const Species = union(enum) {
     brown_snake,
     ant,
     minotaur,
+    siren: enum {
+        water,
+        land,
+    },
 };
 
 pub const TerrainChunk = struct {
