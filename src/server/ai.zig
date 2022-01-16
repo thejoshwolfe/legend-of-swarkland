@@ -220,6 +220,7 @@ fn getFaction(species: std.meta.Tag(core.protocol.Species)) Faction {
         .scorpion => .team_desert,
         .brown_snake => .team_desert,
         .ant => .team_desert,
+        .minotaur => .team_desert,
     };
 }
 

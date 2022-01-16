@@ -570,6 +570,64 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             try individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
             next_id += 1;
         }
+
+        // room 0 - a captive orc or something.
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[0]);
+        individuals_remaining = 1;
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
+            next_id += 1;
+        }
+        // room 1 - a wood golem that might come in handy.
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[1]);
+        individuals_remaining = 1;
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .wood_golem).clone(allocator));
+            next_id += 1;
+        }
+        // room 2,3 - a bunch of ants.
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[2]);
+        try appendInteriorCoords(&possible_spawn_locations, rooms[3]);
+        individuals_remaining = r.intRangeAtMost(usize, 12, 20);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
+            next_id += 1;
+        }
+        // room 4 - scorpions and snakes.
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[4]);
+        individuals_remaining = r.intRangeAtMost(usize, 2, 3);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .scorpion).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 2, 3);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .brown_snake).clone(allocator));
+            next_id += 1;
+        }
+        // room 5 - centaurs.
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[5]);
+        individuals_remaining = r.intRangeAtMost(usize, 2, 4);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
+            next_id += 1;
+        }
+        // room 6 - angel statue.
+        var statue_coord = Coord{
+            .x = rooms[6].x + 1,
+            .y = r.intRangeLessThan(i32, rooms[6].y + 2, rooms[6].bottom() - 2),
+        };
+        terrain.getExistingCoord(statue_coord).* = .{
+            .floor = .marble,
+            .wall = .angel_statue,
+        };
+        terrain.getExisting(statue_coord.x + 1, statue_coord.y).floor = .marble;
     }
 
     warp_points.* = warp_points_list.toOwnedSlice();
@@ -1090,5 +1148,21 @@ fn digOutRect(terrain: *Terrain, room_rect: Rect) void {
         while (x < room_rect.right()) : (x += 1) {
             terrain.getExisting(x, y).wall = .air;
         }
+    }
+}
+
+fn clearAndAppendInteriorCoords(coords: *ArrayList(Coord), room_rect: Rect) !void {
+    coords.clearRetainingCapacity();
+    return appendInteriorCoords(coords, room_rect);
+}
+fn appendInteriorCoords(coords: *ArrayList(Coord), room_rect: Rect) !void {
+    var it = (Rect{
+        .x = room_rect.x + 1,
+        .y = room_rect.y + 1,
+        .width = room_rect.width - 2,
+        .height = room_rect.height - 2,
+    }).rowMajorIterator();
+    while (it.next()) |coord| {
+        try coords.append(coord);
     }
 }

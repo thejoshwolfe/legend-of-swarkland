@@ -39,6 +39,7 @@ pub const Wall = enum {
     bush,
     door_open,
     door_closed,
+    angel_statue,
     polymorph_trap_centaur,
     polymorph_trap_kangaroo,
     polymorph_trap_turtle,
@@ -71,6 +72,7 @@ pub const Species = union(enum) {
     scorpion,
     brown_snake,
     ant,
+    minotaur,
 };
 
 pub const TerrainChunk = struct {
