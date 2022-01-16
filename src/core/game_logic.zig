@@ -171,6 +171,13 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
     };
 }
 
+pub fn woundThenKillGoesRightToKill(species: Species) bool {
+    return switch (species) {
+        .scorpion, .ant => true,
+        else => false,
+    };
+}
+
 pub fn isOpenSpace(wall: Wall) bool {
     return switch (wall) {
         .air => true,

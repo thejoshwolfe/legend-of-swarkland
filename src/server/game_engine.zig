@@ -39,6 +39,7 @@ const isSlow = core.game_logic.isSlow;
 const limpsAfterLunge = core.game_logic.limpsAfterLunge;
 const getAttackEffect = core.game_logic.getAttackEffect;
 const actionCausesPainWhileMalaised = core.game_logic.actionCausesPainWhileMalaised;
+const woundThenKillGoesRightToKill = core.game_logic.woundThenKillGoesRightToKill;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -530,7 +531,9 @@ pub const GameEngine = struct {
                                     const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
                                     switch (getAttackEffect(attacker_species)) {
                                         .wound_then_kill => {
-                                            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
+                                            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0 and //
+                                                !woundThenKillGoesRightToKill(other.species))
+                                            {
                                                 // first hit is a wound
                                                 other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
                                             } else {
