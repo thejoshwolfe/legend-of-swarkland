@@ -48,6 +48,7 @@ pub const AttackEffect = enum {
     just_wound,
     wound_then_kill,
     malaise,
+    smash,
 };
 
 pub fn getAttackEffect(species: Species) AttackEffect {
@@ -63,6 +64,8 @@ pub fn getAttackEffect(species: Species) AttackEffect {
 
         .rat => .just_wound,
         .scorpion => .malaise,
+
+        .ogre => .smash,
 
         .rhino => unreachable,
         .kangaroo => unreachable,
@@ -129,6 +132,7 @@ pub fn isSlow(species: Species) bool {
     return switch (species) {
         .wood_golem => true,
         .scorpion => true,
+        .ogre => true,
         else => false,
     };
 }
@@ -148,6 +152,7 @@ pub fn canKick(species: Species) bool {
         .brown_snake => false,
         .ant => false,
         .minotaur => true,
+        .ogre => true,
         .siren => |subspecies| switch (subspecies) {
             .water => false,
             .land => true,
@@ -168,7 +173,7 @@ pub fn getPhysicsLayer(species: Species) u2 {
         .blob => return 0,
         .rat => return 1,
         .scorpion, .ant => return 1,
-        .rhino => return 3,
+        .rhino, .ogre => return 3,
         else => return 2,
     }
 }
@@ -189,6 +194,8 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
             .water => false,
             .land => true,
         },
+        .ogre => false,
+        .minotaur => false,
         else => true,
     };
 }
@@ -209,6 +216,7 @@ pub fn isOpenSpace(wall: Wall) bool {
         .door_open => true,
         .door_closed => false,
         .angel_statue => false,
+        .chest => true,
         .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => true,
         .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => true,
         .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => true,
@@ -291,6 +299,7 @@ pub fn getAnatomy(species: Species) Anatomy {
             .water => return .mermoid,
             .land => return .humanoid,
         },
+        .ogre => return .humanoid,
     }
 }
 

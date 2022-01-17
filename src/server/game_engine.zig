@@ -1640,6 +1640,9 @@ fn doAttackDamage(attacker_species: Species, other_id: u32, other_species: Speci
         .malaise => {
             other_status_conditions.* |= core.protocol.StatusCondition_malaise;
         },
+        .smash => {
+            _ = try attack_deaths.put(other_id, {});
+        },
     }
 }
 

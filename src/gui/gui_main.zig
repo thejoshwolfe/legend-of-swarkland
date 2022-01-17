@@ -35,7 +35,6 @@ const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
 const canUseDoors = core.game_logic.canUseDoors;
-const terrainAtInner = core.game_logic.terrainAtInner;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
 
@@ -607,6 +606,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, cursor),
                                     .sandstone => selectAestheticBiasedLow(textures.sprites.sandstone_wall[0..], aesthetic_seed, cursor, 5),
                                     .angel_statue => textures.sprites.statue_angel,
+                                    .chest => textures.sprites.chest,
                                     .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
                                     .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => textures.sprites.polymorph_trap_wide[0],
                                     .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => textures.sprites.polymorph_trap_wide[1],
@@ -1263,6 +1263,7 @@ fn speciesToSprite(species: Species) Rect {
             .water => textures.sprites.siren_water,
             .land => textures.sprites.siren_land,
         },
+        .ogre => textures.sprites.ogre,
     };
 }
 

@@ -355,9 +355,9 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     var desert_rect: Rect = undefined;
     {
         const desert_margin_min = 5;
-        const desert_margin_max = 15;
+        const desert_margin_max = 25;
         const room_size_min = 5;
-        const room_size_max = 20;
+        const room_size_max = 8;
         // x
         desert_rect.x = forest_rect.right() + 1;
         var building_rect: Rect = undefined;
@@ -535,7 +535,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             terrain.getExisting(x, rooms[2].bottom()).wall = .air;
         }
         terrain.getExisting(r.intRangeLessThan(i32, rooms[4].x + 1, rooms[4].right()), rooms[4].bottom()).wall = .door_closed;
-        terrain.getExisting(r.intRangeLessThan(i32, rooms[5].x + 1, rooms[5].right()), rooms[5].bottom()).wall = .door_closed;
+        terrain.getExisting(r.intRangeLessThan(i32, rooms[5].x + 2, rooms[5].right() - 1), rooms[5].bottom()).wall = .door_closed;
         terrain.getExisting(rooms[6].right(), r.intRangeLessThan(i32, rooms[6].y + 1, rooms[6].bottom())).wall = .door_closed;
         terrain.getExisting(rooms[5].right(), r.intRangeLessThan(i32, rooms[5].y + 1, rooms[5].bottom())).wall = .door_closed;
         terrain.getExisting(rooms[8].x, main_hall_end.y).wall = .air;
@@ -615,6 +615,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         individuals_remaining = r.intRangeAtMost(usize, 2, 4);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            if (coord.y >= rooms[5].bottom() - 2) continue; // this can make it impossible to progress.
             try individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
             next_id += 1;
         }
@@ -628,6 +629,36 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             .wall = .angel_statue,
         };
         terrain.getExisting(statue_coord.x + 1, statue_coord.y).floor = .marble;
+        // room 7 - ogres
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[7]);
+        individuals_remaining = 2;
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .ogre).clone(allocator));
+            next_id += 1;
+        }
+        // room 8 - minotaur
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[8]);
+        individuals_remaining = 1;
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .minotaur).clone(allocator));
+            next_id += 1;
+        }
+        // room 9 - chest
+        var chest_coord = Coord{
+            .x = r.intRangeLessThan(i32, rooms[9].x + 2, rooms[9].right() - 2),
+            .y = rooms[9].y + 1,
+        };
+        terrain.getExistingCoord(chest_coord).wall = .chest;
+        // room 10 - human
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[10]);
+        individuals_remaining = 1;
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try individuals.putNoClobber(next_id, try makeIndividual(coord, .human).clone(allocator));
+            next_id += 1;
+        }
     }
 
     warp_points.* = warp_points_list.toOwnedSlice();

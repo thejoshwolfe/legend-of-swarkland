@@ -12,6 +12,7 @@ const ThingPosition = core.protocol.ThingPosition;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
 const canGrowAndShrink = core.game_logic.canGrowAndShrink;
+const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const isFastMoveAligned = core.game_logic.isFastMoveAligned;
 const terrainAt = core.game_logic.terrainAt;
 
@@ -27,6 +28,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     var target_position: ?Coord = null;
     var target_distance: ?i32 = null;
     var target_priority: i32 = -0x80000000;
+    var target_species: ?Species = null;
     for (last_frame.others) |other| {
         const other_priority = getTargetHostilityPriority(me.species, other.species) orelse continue;
         if (target_priority > other_priority) continue;
@@ -34,6 +36,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             target_position = null;
             target_distance = null;
             target_priority = other_priority;
+            target_species = null;
         }
         for (getAllPositions(&other.position)) |other_coord| {
             const distance = distanceTo(other_coord, me);
@@ -42,11 +45,13 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 if (distance < previous_distance) {
                     target_position = other_coord;
                     target_distance = distance;
+                    target_species = other.species;
                 }
             } else {
                 // First thing I see is the target so far.
                 target_position = other_coord;
                 target_distance = distance;
+                target_species = other.species;
             }
         }
     }
@@ -57,7 +62,11 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (target_distance.? == 0) {
         // Overlapping the target.
-        if (can(me, .nibble)) |action| return action;
+        if (getPhysicsLayer(me.species) > getPhysicsLayer(target_species.?)) {
+            if (can(me, .stomp)) |action| return action;
+        } else {
+            if (can(me, .nibble)) |action| return action;
+        }
         if (canGrowAndShrink(me.species)) {
             switch (me.position) {
                 .large => |data| {
@@ -217,11 +226,12 @@ fn getFaction(species: std.meta.Tag(core.protocol.Species)) Faction {
         .wolf => .orcs,
         .rat => .orcs,
         .blob => .none,
+        .siren => .none,
         .scorpion => .team_desert,
         .brown_snake => .team_desert,
         .ant => .team_desert,
         .minotaur => .team_desert,
-        .siren => .none,
+        .ogre => .team_desert,
     };
 }
 
