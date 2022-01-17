@@ -303,16 +303,18 @@ pub fn getAnatomy(species: Species) Anatomy {
     }
 }
 
-pub fn validateAction(species: Species, position: ThingPosition, status_conditions: StatusConditions, action: Action) !void {
+pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), status_conditions: StatusConditions, action: std.meta.Tag(Action)) !void {
+    const immobilizing_statuses = core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled;
+    const pain_statuses = core.protocol.StatusCondition_pain;
     switch (action) {
         .wait => {},
         .move => {
             if (!canMoveNormally(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) return error.StatusForbids;
+            if (0 != status_conditions & immobilizing_statuses) return error.StatusForbids;
         },
         .charge => {
             if (!canCharge(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
+            if (0 != status_conditions & (immobilizing_statuses | pain_statuses)) return error.StatusForbids;
         },
         .grow => {
             if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
@@ -324,27 +326,27 @@ pub fn validateAction(species: Species, position: ThingPosition, status_conditio
         },
         .attack => {
             if (!canAttack(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .kick => {
             if (!canKick(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .nibble => {
             if (!canNibble(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .stomp => {
             if (!canKick(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .lunge => {
             if (!canLunge(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
+            if (0 != status_conditions & (immobilizing_statuses | pain_statuses)) return error.StatusForbids;
         },
         .open_close => {
             if (!canUseDoors(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .cheatcode_warp => {},
     }
