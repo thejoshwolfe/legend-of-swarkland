@@ -161,7 +161,12 @@ pub const GameEngine = struct {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
                 switch (actions.get(id).?) {
-                    .move, .fast_move, .lunge => |move_delta| {
+                    .move, .lunge => |direction| {
+                        const move_delta = cardinalIndexToDirection(direction);
+                        try intended_moves.putNoClobber(id, move_delta);
+                    },
+                    .fast_move => |direction| {
+                        const move_delta = cardinalIndexToDirection(direction).scaled(2);
                         try intended_moves.putNoClobber(id, move_delta);
                     },
                     else => continue,
@@ -185,7 +190,7 @@ pub const GameEngine = struct {
             var next_positions = IdMap(ThingPosition).init(self.allocator);
             for (everybody) |id| {
                 const move_delta: Coord = switch (actions.get(id).?) {
-                    .grow => |move_delta| move_delta,
+                    .grow => |direction| cardinalIndexToDirection(direction),
                     else => continue,
                 };
                 try intended_moves.putNoClobber(id, move_delta);
@@ -282,7 +287,7 @@ pub const GameEngine = struct {
             var kicked_too_much = IdMap(void).init(self.allocator);
             for (everybody) |id| {
                 const kick_direction: Coord = switch (actions.get(id).?) {
-                    .kick => |direction| direction,
+                    .kick => |direction| cardinalIndexToDirection(direction),
                     else => continue,
                 };
                 const attacker_coord = getHeadPosition(current_positions.get(id).?);
@@ -502,12 +507,13 @@ pub const GameEngine = struct {
             const action = actions.get(id).?;
             switch (action) {
                 .attack, .lunge => |attack_direction| {
+                    const attack_delta = cardinalIndexToDirection(attack_direction);
                     var attacker_coord = getHeadPosition(current_positions.get(id).?);
                     const attacker_species = game_state.individuals.get(id).?.species;
                     var attack_distance: i32 = 1;
                     const range = core.game_logic.getAttackRange(attacker_species);
                     while (attack_distance <= range) : (attack_distance += 1) {
-                        var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
+                        var damage_position = attacker_coord.plus(attack_delta.scaled(attack_distance));
                         var stop_the_attack = false;
                         for (everybody) |other_id| {
                             switch (getPhysicsLayer(game_state.individuals.get(other_id).?.species)) {
@@ -538,7 +544,7 @@ pub const GameEngine = struct {
                         if (stop_the_attack) break;
                     }
                     try attacks.putNoClobber(id, Activities.Attack{
-                        .direction = attack_direction,
+                        .direction = attack_delta,
                         .distance = attack_distance,
                     });
                 },

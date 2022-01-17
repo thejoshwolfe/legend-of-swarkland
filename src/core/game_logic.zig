@@ -3,6 +3,7 @@ const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
+const cardinalIndexToDirection = core.geometry.cardinalIndexToDirection;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
@@ -306,19 +307,17 @@ pub fn getAnatomy(species: Species) Anatomy {
 pub fn validateAction(species: Species, position: ThingPosition, status_conditions: StatusConditions, action: Action) !void {
     switch (action) {
         .wait => {},
-        .move => |move_delta| {
-            if (!isCardinalDirection(move_delta)) return error.BadDelta;
+        .move => {
             if (!canMoveNormally(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) return error.StatusForbids;
         },
-        .fast_move => |move_delta| {
-            if (!isScaledCardinalDirection(move_delta, 2)) return error.BadDelta;
+        .fast_move => |direction| {
             if (!canCharge(species)) return error.SpeciesIncapable;
+            const move_delta = cardinalIndexToDirection(direction).scaled(2);
             if (!isFastMoveAligned(position, move_delta)) return error.BadAlignment;
             if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
         },
-        .grow => |move_delta| {
-            if (!isCardinalDirection(move_delta)) return error.BadDelta;
+        .grow => {
             if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
             if (position != .small) return error.TooBig;
         },
@@ -326,14 +325,12 @@ pub fn validateAction(species: Species, position: ThingPosition, status_conditio
             if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
             if (position != .large) return error.TooSmall;
         },
-        .attack => |direction| {
+        .attack => {
             if (!canAttack(species)) return error.SpeciesIncapable;
-            if (!isCardinalDirection(direction)) return error.BadDelta;
             if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
-        .kick => |direction| {
+        .kick => {
             if (!canKick(species)) return error.SpeciesIncapable;
-            if (!isCardinalDirection(direction)) return error.BadDelta;
             if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .nibble => {
@@ -344,9 +341,8 @@ pub fn validateAction(species: Species, position: ThingPosition, status_conditio
             if (!canKick(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
-        .lunge => |direction| {
+        .lunge => {
             if (!canLunge(species)) return error.SpeciesIncapable;
-            if (!isCardinalDirection(direction)) return error.BadDelta;
             if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
         },
         .open_close => {

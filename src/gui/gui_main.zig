@@ -357,7 +357,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         if (canCharge(state.client_state.?.self.species)) {
                                             const position_coords = state.client_state.?.self.position.large;
                                             const delta = position_coords[0].minus(position_coords[1]);
-                                            try state.client.act(Action{ .fast_move = delta.scaled(2) });
+                                            try state.client.act(Action{ .fast_move = directionToCardinalIndex(delta) });
                                         }
                                     },
                                     .stomp => {
@@ -866,12 +866,12 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     switch (state.input_prompt) {
         .none => {},
         .attack => {
-            try state.client.act(Action{ .attack = delta });
+            try state.client.act(Action{ .attack = directionToCardinalIndex(delta) });
             state.input_prompt = .none;
             return;
         },
         .kick => {
-            try state.client.act(Action{ .kick = delta });
+            try state.client.act(Action{ .kick = directionToCardinalIndex(delta) });
             state.input_prompt = .none;
             return;
         },
@@ -885,11 +885,11 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     // The default input behavior is a move-like action.
     const myself = state.client_state.?.self;
     if (core.game_logic.canMoveNormally(myself.species)) {
-        return state.client.act(Action{ .move = delta });
+        return state.client.act(Action{ .move = directionToCardinalIndex(delta) });
     } else if (core.game_logic.canGrowAndShrink(myself.species)) {
         switch (myself.position) {
             .small => {
-                return state.client.act(Action{ .grow = delta });
+                return state.client.act(Action{ .grow = directionToCardinalIndex(delta) });
             },
             .large => |large_position| {
                 // which direction should we shrink?

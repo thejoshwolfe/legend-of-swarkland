@@ -107,15 +107,15 @@ pub const NewGameSettings = enum {
 
 pub const Action = union(enum) {
     wait,
-    move: Coord,
-    fast_move: Coord,
-    grow: Coord,
+    move: CardinalDirection,
+    fast_move: CardinalDirection,
+    grow: CardinalDirection,
     shrink: u1,
-    attack: Coord,
-    kick: Coord,
+    attack: CardinalDirection,
+    kick: CardinalDirection,
     nibble,
     stomp,
-    lunge: Coord,
+    lunge: CardinalDirection,
     open_close: CardinalDirection,
 
     cheatcode_warp: u3,
@@ -579,12 +579,12 @@ test "channel" {
     // union(enum)
     _out_stream.reset();
     _in_stream.pos = 0;
-    try out_channel.write(Action{ .move = Coord{ .x = 3, .y = -4 } });
-    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{@enumToInt(Action.move)} ++ &[_]u8{
+    try out_channel.write(PerceivedActivity{ .movement = Coord{ .x = 3, .y = -4 } });
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{@enumToInt(PerceivedActivity.movement)} ++ &[_]u8{
         3,    0,    0,    0,
         0xfc, 0xff, 0xff, 0xff,
     }));
-    try std.testing.expect((Coord{ .x = 3, .y = -4 }).equals((try in_channel.read(Action)).move));
+    try std.testing.expect((Coord{ .x = 3, .y = -4 }).equals((try in_channel.read(PerceivedActivity)).movement));
 
     // nullable
     _out_stream.reset();

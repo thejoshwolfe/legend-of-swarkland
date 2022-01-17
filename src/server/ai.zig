@@ -3,6 +3,7 @@ const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const sign = core.geometry.sign;
+const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
 const game_model = @import("./game_model.zig");
 const Action = core.protocol.Action;
 const Species = core.protocol.Species;
@@ -96,27 +97,28 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     if (delta.x * delta.y == 0) {
         // straight shot
         const delta_unit = delta.signumed();
+        const delta_direction = directionToCardinalIndex(delta_unit);
         if (hesitatesOneSpaceAway(me.species) and delta.magnitudeOrtho() == 2) {
             // preemptive attack
-            if (can(me, Action{ .kick = delta_unit })) |action| return action;
+            if (can(me, Action{ .kick = delta_direction })) |action| return action;
             // should anyone do a preemptive actual attack?
         }
 
         if (isFastMoveAligned(me.position, delta_unit.scaled(2))) {
             // charge!
-            if (can(me, Action{ .fast_move = delta_unit.scaled(2) })) |action| return action;
+            if (can(me, Action{ .fast_move = delta_direction })) |action| return action;
         }
         if (delta.magnitudeOrtho() == 2) {
             // one lunge away
-            if (can(me, Action{ .lunge = delta_unit })) |action| return action;
+            if (can(me, Action{ .lunge = delta_direction })) |action| return action;
         }
         if (delta.euclideanDistanceSquared() <= range * range) {
             // within attack range
             if (hesitatesOneSpaceAway(me.species)) {
                 // too close. get away!
-                if (can(me, Action{ .kick = delta_unit })) |action| return action;
+                if (can(me, Action{ .kick = delta_direction })) |action| return action;
             }
-            if (can(me, Action{ .attack = delta_unit })) |action| return action;
+            if (can(me, Action{ .attack = delta_direction })) |action| return action;
             // I'd love to do something about this situation, but there's nothing i can do.
             return .wait;
         } else {
@@ -186,7 +188,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (hesitatesOneSpaceAway(me.species) and delta.magnitudeOrtho() == 2) {
         // preemptive attack
-        if (can(me, Action{ .kick = options[option_index] })) |action| return action;
+        if (can(me, Action{ .kick = directionToCardinalIndex(options[option_index]) })) |action| return action;
         // should anyone do a preemptive actual attack?
     }
     if (terrainAt(last_frame.terrain, my_head_position.plus(options[option_index]))) |cell| {
@@ -256,11 +258,12 @@ fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: std.
 }
 
 fn movelikeAction(me: PerceivedThing, delta: Coord) Action {
-    if (can(me, Action{ .move = delta })) |action| return action;
+    const delta_direction = directionToCardinalIndex(delta);
+    if (can(me, Action{ .move = delta_direction })) |action| return action;
 
     if (canGrowAndShrink(me.species)) {
         switch (me.position) {
-            .small => return Action{ .grow = delta },
+            .small => return Action{ .grow = delta_direction },
             .large => |positions| {
                 // i shrink in your general direction
                 const position_delta = positions[0].minus(positions[1]);
@@ -299,7 +302,7 @@ fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
 fn can(me: PerceivedThing, action: Action) ?Action {
     core.game_logic.validateAction(me.species, me.position, me.status_conditions, action) catch |err| switch (err) {
         error.SpeciesIncapable, error.StatusForbids => return null,
-        error.BadDelta, error.BadAlignment, error.TooBig, error.TooSmall => unreachable,
+        error.BadAlignment, error.TooBig, error.TooSmall => unreachable,
     };
     return action;
 }
