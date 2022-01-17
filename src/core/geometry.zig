@@ -87,18 +87,18 @@ pub fn makeCoord(x: i32, y: i32) Coord {
     };
 }
 
-pub fn isCardinalDirection(direction: Coord) bool {
-    return isScaledCardinalDirection(direction, 1);
+pub fn isOrthogonalUnitVector(direction: Coord) bool {
+    return isOrthogonalVectorOfMagnitude(direction, 1);
 }
-pub fn isScaledCardinalDirection(direction: Coord, scale: i32) bool {
+pub fn isOrthogonalVectorOfMagnitude(direction: Coord, scale: i32) bool {
     return direction.isOrthogonalOrZero() and direction.euclideanDistanceSquared() == scale * scale;
 }
 
 /// rotation is a number 0 <= r < 8
 /// representing the number of 45 degree clockwise turns from right.
-/// assert(isCardinalDirection(direction)).
+/// assert(isOrthogonalUnitVector(direction)).
 pub fn directionToRotation(direction: Coord) u3 {
-    return @as(u3, @enumToInt(directionToCardinalIndex(direction))) * 2;
+    return @as(u3, @enumToInt(deltaToCardinalDirection(direction))) * 2;
 }
 
 pub const CardinalDirection = enum(u2) {
@@ -108,15 +108,15 @@ pub const CardinalDirection = enum(u2) {
     north = 3,
 };
 
-/// assert(isCardinalDirection(direction)).
-pub fn directionToCardinalIndex(direction: Coord) CardinalDirection {
+/// assert(isOrthogonalUnitVector(direction)).
+pub fn deltaToCardinalDirection(direction: Coord) CardinalDirection {
     if (direction.x == 1 and direction.y == 0) return .east;
     if (direction.x == 0 and direction.y == 1) return .south;
     if (direction.x == -1 and direction.y == 0) return .west;
     if (direction.x == 0 and direction.y == -1) return .north;
     unreachable;
 }
-pub fn cardinalIndexToDirection(cardinal_index: CardinalDirection) Coord {
+pub fn cardinalDirectionToDelta(cardinal_index: CardinalDirection) Coord {
     return switch (cardinal_index) {
         .east => makeCoord(1, 0),
         .south => makeCoord(0, 1),

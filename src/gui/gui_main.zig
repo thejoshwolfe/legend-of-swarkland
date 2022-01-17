@@ -14,7 +14,7 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const directionToRotation = core.geometry.directionToRotation;
-const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
+const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
 const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
 const FancyClient = @import("../client/FancyClient.zig");
 const Species = core.protocol.Species;
@@ -208,7 +208,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.kicks_performed +|= 1;
                                     },
                                     .movement => |delta| {
-                                        if (core.geometry.isScaledCardinalDirection(delta, 2)) {
+                                        if (core.geometry.isOrthogonalVectorOfMagnitude(delta, 2)) {
                                             state.charge_performed = true;
                                         } else {
                                             state.moves_performed +|= 1;
@@ -357,7 +357,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         if (canCharge(state.client_state.?.self.species)) {
                                             const position_coords = state.client_state.?.self.position.large;
                                             const delta = position_coords[0].minus(position_coords[1]);
-                                            try state.client.act(Action{ .fast_move = directionToCardinalIndex(delta) });
+                                            try state.client.act(Action{ .fast_move = deltaToCardinalDirection(delta) });
                                         }
                                     },
                                     .stomp => {
@@ -866,17 +866,17 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     switch (state.input_prompt) {
         .none => {},
         .attack => {
-            try state.client.act(Action{ .attack = directionToCardinalIndex(delta) });
+            try state.client.act(Action{ .attack = deltaToCardinalDirection(delta) });
             state.input_prompt = .none;
             return;
         },
         .kick => {
-            try state.client.act(Action{ .kick = directionToCardinalIndex(delta) });
+            try state.client.act(Action{ .kick = deltaToCardinalDirection(delta) });
             state.input_prompt = .none;
             return;
         },
         .open_close => {
-            try state.client.act(Action{ .open_close = directionToCardinalIndex(delta) });
+            try state.client.act(Action{ .open_close = deltaToCardinalDirection(delta) });
             state.input_prompt = .none;
             return;
         },
@@ -885,11 +885,11 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     // The default input behavior is a move-like action.
     const myself = state.client_state.?.self;
     if (core.game_logic.canMoveNormally(myself.species)) {
-        return state.client.act(Action{ .move = directionToCardinalIndex(delta) });
+        return state.client.act(Action{ .move = deltaToCardinalDirection(delta) });
     } else if (core.game_logic.canGrowAndShrink(myself.species)) {
         switch (myself.position) {
             .small => {
-                return state.client.act(Action{ .grow = directionToCardinalIndex(delta) });
+                return state.client.act(Action{ .grow = deltaToCardinalDirection(delta) });
             },
             .large => |large_position| {
                 // which direction should we shrink?

@@ -1111,7 +1111,7 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
                     terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
                         makeCoord(x, y),
-                        makeCoord(x, y).minus(core.geometry.cardinalIndexToDirection(options.facing_directions[facing_directions_index])),
+                        makeCoord(x, y).minus(core.geometry.cardinalDirectionToDelta(options.facing_directions[facing_directions_index])),
                         .rhino,
                     )};
                     facing_directions_index += 1;

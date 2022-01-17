@@ -7,10 +7,10 @@ const Coord = core.geometry.Coord;
 const Rect = core.geometry.Rect;
 const sign = core.geometry.sign;
 const CardinalDirection = core.geometry.CardinalDirection;
-const isCardinalDirection = core.geometry.isCardinalDirection;
-const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
-const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
-const cardinalIndexToDirection = core.geometry.cardinalIndexToDirection;
+const isOrthogonalUnitVector = core.geometry.isOrthogonalUnitVector;
+const isOrthogonalVectorOfMagnitude = core.geometry.isOrthogonalVectorOfMagnitude;
+const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
+const cardinalDirectionToDelta = core.geometry.cardinalDirectionToDelta;
 const makeCoord = core.geometry.makeCoord;
 const zero_vector = makeCoord(0, 0);
 
@@ -162,11 +162,11 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 switch (actions.get(id).?) {
                     .move, .lunge => |direction| {
-                        const move_delta = cardinalIndexToDirection(direction);
+                        const move_delta = cardinalDirectionToDelta(direction);
                         try intended_moves.putNoClobber(id, move_delta);
                     },
                     .fast_move => |direction| {
-                        const move_delta = cardinalIndexToDirection(direction).scaled(2);
+                        const move_delta = cardinalDirectionToDelta(direction).scaled(2);
                         try intended_moves.putNoClobber(id, move_delta);
                     },
                     else => continue,
@@ -190,7 +190,7 @@ pub const GameEngine = struct {
             var next_positions = IdMap(ThingPosition).init(self.allocator);
             for (everybody) |id| {
                 const move_delta: Coord = switch (actions.get(id).?) {
-                    .grow => |direction| cardinalIndexToDirection(direction),
+                    .grow => |direction| cardinalDirectionToDelta(direction),
                     else => continue,
                 };
                 try intended_moves.putNoClobber(id, move_delta);
@@ -233,7 +233,7 @@ pub const GameEngine = struct {
                     .open_close => |direction| direction,
                     else => continue,
                 };
-                const door_position = getHeadPosition(current_positions.get(id).?).plus(cardinalIndexToDirection(direction));
+                const door_position = getHeadPosition(current_positions.get(id).?).plus(cardinalDirectionToDelta(direction));
                 const gop = try door_toggles.getOrPut(door_position);
                 if (gop.found_existing) {
                     gop.value_ptr.* +|= 1;
@@ -287,7 +287,7 @@ pub const GameEngine = struct {
             var kicked_too_much = IdMap(void).init(self.allocator);
             for (everybody) |id| {
                 const kick_direction: Coord = switch (actions.get(id).?) {
-                    .kick => |direction| cardinalIndexToDirection(direction),
+                    .kick => |direction| cardinalDirectionToDelta(direction),
                     else => continue,
                 };
                 const attacker_coord = getHeadPosition(current_positions.get(id).?);
@@ -507,7 +507,7 @@ pub const GameEngine = struct {
             const action = actions.get(id).?;
             switch (action) {
                 .attack, .lunge => |attack_direction| {
-                    const attack_delta = cardinalIndexToDirection(attack_direction);
+                    const attack_delta = cardinalDirectionToDelta(attack_direction);
                     var attacker_coord = getHeadPosition(current_positions.get(id).?);
                     const attacker_species = game_state.individuals.get(id).?.species;
                     var attack_distance: i32 = 1;
@@ -1228,10 +1228,10 @@ pub const GameEngine = struct {
                     var collision = gop.value_ptr;
                     if (delta.equals(zero_vector)) {
                         collision.stationary_id = id;
-                    } else if (isCardinalDirection(delta)) {
-                        collision.cardinal_index_to_enterer[@enumToInt(directionToCardinalIndex(delta))] = id;
-                    } else if (isScaledCardinalDirection(delta, 2)) {
-                        collision.cardinal_index_to_fast_enterer[@enumToInt(directionToCardinalIndex(delta.scaledDivTrunc(2)))] = id;
+                    } else if (isOrthogonalUnitVector(delta)) {
+                        collision.cardinal_index_to_enterer[@enumToInt(deltaToCardinalDirection(delta))] = id;
+                    } else if (isOrthogonalVectorOfMagnitude(delta, 2)) {
+                        collision.cardinal_index_to_fast_enterer[@enumToInt(deltaToCardinalDirection(delta.scaledDivTrunc(2)))] = id;
                     } else unreachable;
                 }
             }

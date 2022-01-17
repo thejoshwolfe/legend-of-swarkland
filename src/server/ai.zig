@@ -3,7 +3,7 @@ const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const sign = core.geometry.sign;
-const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
+const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
 const game_model = @import("./game_model.zig");
 const Action = core.protocol.Action;
 const Species = core.protocol.Species;
@@ -97,7 +97,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     if (delta.x * delta.y == 0) {
         // straight shot
         const delta_unit = delta.signumed();
-        const delta_direction = directionToCardinalIndex(delta_unit);
+        const delta_direction = deltaToCardinalDirection(delta_unit);
         if (hesitatesOneSpaceAway(me.species) and delta.magnitudeOrtho() == 2) {
             // preemptive attack
             if (can(me, Action{ .kick = delta_direction })) |action| return action;
@@ -188,7 +188,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (hesitatesOneSpaceAway(me.species) and delta.magnitudeOrtho() == 2) {
         // preemptive attack
-        if (can(me, Action{ .kick = directionToCardinalIndex(options[option_index]) })) |action| return action;
+        if (can(me, Action{ .kick = deltaToCardinalDirection(options[option_index]) })) |action| return action;
         // should anyone do a preemptive actual attack?
     }
     if (terrainAt(last_frame.terrain, my_head_position.plus(options[option_index]))) |cell| {
@@ -258,7 +258,7 @@ fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: std.
 }
 
 fn movelikeAction(me: PerceivedThing, delta: Coord) Action {
-    const delta_direction = directionToCardinalIndex(delta);
+    const delta_direction = deltaToCardinalDirection(delta);
     if (can(me, Action{ .move = delta_direction })) |action| return action;
 
     if (canGrowAndShrink(me.species)) {

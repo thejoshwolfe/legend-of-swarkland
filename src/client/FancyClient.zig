@@ -19,7 +19,7 @@ const core = @import("../index.zig");
 const game_server = @import("../server/game_server.zig");
 const debugPrintAction = game_server.debugPrintAction;
 const Coord = core.geometry.Coord;
-const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
+const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
 const Request = core.protocol.Request;
 const NewGameSettings = core.protocol.NewGameSettings;
 const Action = core.protocol.Action;
@@ -75,7 +75,7 @@ pub fn rewind(self: *@This()) !void {
 
 pub fn autoMove(self: *@This(), direction: Coord) !void {
     self.auto_move = direction;
-    try self.act(Action{ .move = directionToCardinalIndex(direction) });
+    try self.act(Action{ .move = deltaToCardinalDirection(direction) });
 }
 pub fn cancelAutoAction(self: *@This()) void {
     self.auto_move = null;
@@ -99,7 +99,7 @@ fn maybeContinueAutoAction(self: *@This(), happening: PerceivedHappening) !void 
     }
 
     core.debug.auto_action.print("continuing auto move: {},{}", .{ direction.x, direction.y });
-    try self.act(Action{ .move = directionToCardinalIndex(direction) });
+    try self.act(Action{ .move = deltaToCardinalDirection(direction) });
 }
 
 pub fn beatLevelMacro(self: *@This(), how_many: usize) !void {

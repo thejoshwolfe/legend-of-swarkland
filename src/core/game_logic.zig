@@ -1,9 +1,8 @@
 const std = @import("std");
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
-const isCardinalDirection = core.geometry.isCardinalDirection;
-const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
-const cardinalIndexToDirection = core.geometry.cardinalIndexToDirection;
+const isOrthogonalVectorOfMagnitude = core.geometry.isOrthogonalVectorOfMagnitude;
+const cardinalDirectionToDelta = core.geometry.cardinalDirectionToDelta;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
@@ -180,7 +179,7 @@ pub fn getPhysicsLayer(species: Species) u2 {
 }
 
 pub fn isFastMoveAligned(position: ThingPosition, move_delta: Coord) bool {
-    assert(core.geometry.isScaledCardinalDirection(move_delta, 2));
+    assert(isOrthogonalVectorOfMagnitude(move_delta, 2));
     if (position != .large) return false;
     const facing_delta = position.large[0].minus(position.large[1]);
     return facing_delta.scaled(2).equals(move_delta);
@@ -313,7 +312,7 @@ pub fn validateAction(species: Species, position: ThingPosition, status_conditio
         },
         .fast_move => |direction| {
             if (!canCharge(species)) return error.SpeciesIncapable;
-            const move_delta = cardinalIndexToDirection(direction).scaled(2);
+            const move_delta = cardinalDirectionToDelta(direction).scaled(2);
             if (!isFastMoveAligned(position, move_delta)) return error.BadAlignment;
             if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
         },
