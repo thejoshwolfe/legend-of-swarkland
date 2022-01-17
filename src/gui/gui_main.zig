@@ -866,12 +866,12 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     switch (state.input_prompt) {
         .none => {},
         .attack => {
-            try state.client.attack(delta);
+            try state.client.act(Action{ .attack = delta });
             state.input_prompt = .none;
             return;
         },
         .kick => {
-            try state.client.kick(delta);
+            try state.client.act(Action{ .kick = delta });
             state.input_prompt = .none;
             return;
         },
@@ -885,7 +885,7 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
     // The default input behavior is a move-like action.
     const myself = state.client_state.?.self;
     if (core.game_logic.canMoveNormally(myself.species)) {
-        return state.client.move(delta);
+        return state.client.act(Action{ .move = delta });
     } else if (core.game_logic.canGrowAndShrink(myself.species)) {
         switch (myself.position) {
             .small => {

@@ -70,19 +70,9 @@ pub fn rewind(self: *@This()) !void {
     core.debug.actions.print("[rewind]", .{});
 }
 
-pub fn move(self: *@This(), direction: Coord) !void {
-    return self.act(Action{ .move = direction });
-}
-pub fn attack(self: *@This(), direction: Coord) !void {
-    return self.act(Action{ .attack = direction });
-}
-pub fn kick(self: *@This(), direction: Coord) !void {
-    return self.act(Action{ .kick = direction });
-}
-
 pub fn autoMove(self: *@This(), direction: Coord) !void {
     self.auto_move = direction;
-    try self.move(direction);
+    try self.act(Action{ .move = direction });
 }
 pub fn cancelAutoAction(self: *@This()) void {
     self.auto_move = null;
@@ -106,7 +96,7 @@ fn maybeContinueAutoAction(self: *@This(), happening: PerceivedHappening) !void 
     }
 
     core.debug.auto_action.print("continuing auto move: {},{}", .{ direction.x, direction.y });
-    try self.move(direction);
+    try self.act(Action{ .move = direction });
 }
 
 pub fn beatLevelMacro(self: *@This(), how_many: usize) !void {
