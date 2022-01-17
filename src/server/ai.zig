@@ -106,7 +106,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
         if (isFastMoveAligned(me.position, delta_unit.scaled(2))) {
             // charge!
-            if (can(me, Action{ .fast_move = delta_direction })) |action| return action;
+            if (can(me, .charge)) |action| return action;
         }
         if (delta.magnitudeOrtho() == 2) {
             // one lunge away
@@ -302,7 +302,7 @@ fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
 fn can(me: PerceivedThing, action: Action) ?Action {
     core.game_logic.validateAction(me.species, me.position, me.status_conditions, action) catch |err| switch (err) {
         error.SpeciesIncapable, error.StatusForbids => return null,
-        error.BadAlignment, error.TooBig, error.TooSmall => unreachable,
+        error.TooBig, error.TooSmall => unreachable,
     };
     return action;
 }

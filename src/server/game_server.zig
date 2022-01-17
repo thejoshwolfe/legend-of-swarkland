@@ -191,7 +191,7 @@ pub fn debugPrintAction(prefix_number: u32, action: Action) void {
     switch (action) {
         .wait => core.debug.actions.print("{}: Action{{ .wait = {{}} }},", .{prefix_number}),
         .move => |direction| core.debug.actions.print("{}: Action{{ .move = .{s} }},", .{ prefix_number, @tagName(direction) }),
-        .fast_move => |direction| core.debug.actions.print("{}: Action{{ .fast_move = .{s} }},", .{ prefix_number, @tagName(direction) }),
+        .charge => core.debug.actions.print("{}: Action{{ .charge = {{}} }},", .{prefix_number}),
         .grow => |direction| core.debug.actions.print("{}: Action{{ .grow = .{s} }},", .{ prefix_number, @tagName(direction) }),
         .shrink => |index| core.debug.actions.print("{}: Action{{ .shrink = {} }},", .{ prefix_number, index }),
         .attack => |direction| core.debug.actions.print("{}: Action{{ .attack = .{s} }},", .{ prefix_number, @tagName(direction) }),

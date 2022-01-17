@@ -165,8 +165,10 @@ pub const GameEngine = struct {
                         const move_delta = cardinalDirectionToDelta(direction);
                         try intended_moves.putNoClobber(id, move_delta);
                     },
-                    .fast_move => |direction| {
-                        const move_delta = cardinalDirectionToDelta(direction).scaled(2);
+                    .charge => {
+                        const position_coords = current_positions.get(id).?.large;
+                        const position_delta = position_coords[0].minus(position_coords[1]);
+                        const move_delta = position_delta.scaled(2);
                         try intended_moves.putNoClobber(id, move_delta);
                     },
                     else => continue,

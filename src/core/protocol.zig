@@ -108,7 +108,7 @@ pub const NewGameSettings = enum {
 pub const Action = union(enum) {
     wait,
     move: CardinalDirection,
-    fast_move: CardinalDirection,
+    charge,
     grow: CardinalDirection,
     shrink: u1,
     attack: CardinalDirection,

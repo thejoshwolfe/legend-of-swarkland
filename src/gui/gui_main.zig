@@ -355,9 +355,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
                                     .charge => {
                                         if (canCharge(state.client_state.?.self.species)) {
-                                            const position_coords = state.client_state.?.self.position.large;
-                                            const delta = position_coords[0].minus(position_coords[1]);
-                                            try state.client.act(Action{ .fast_move = deltaToCardinalDirection(delta) });
+                                            try state.client.act(.charge);
                                         }
                                     },
                                     .stomp => {
