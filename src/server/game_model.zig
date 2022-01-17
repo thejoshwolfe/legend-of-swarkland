@@ -95,6 +95,7 @@ pub const GameState = struct {
     terrain: Terrain,
     individuals: IdMap(*Individual),
     level_number: u32,
+    warp_points: []Coord,
 
     pub fn generate(allocator: Allocator, new_game_settings: NewGameSettings) !GameState {
         var game_state = GameState{
@@ -102,8 +103,9 @@ pub const GameState = struct {
             .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
             .level_number = 0,
+            .warp_points = &[_]Coord{},
         };
-        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals, new_game_settings);
+        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals, &game_state.warp_points, new_game_settings);
         return game_state;
     }
 
@@ -120,6 +122,7 @@ pub const GameState = struct {
                 break :blk ret;
             },
             .level_number = self.level_number,
+            .warp_points = try self.allocator.dupe(Coord, self.warp_points),
         };
     }
 

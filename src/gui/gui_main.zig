@@ -14,6 +14,7 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const directionToRotation = core.geometry.directionToRotation;
+const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
 const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
 const FancyClient = @import("../client/FancyClient.zig");
 const Species = core.protocol.Species;
@@ -33,7 +34,7 @@ const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
-const terrainAtInner = core.game_logic.terrainAtInner;
+const canUseDoors = core.game_logic.canUseDoors;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
 
@@ -110,6 +111,7 @@ const InputPrompt = enum {
     none, // TODO: https://github.com/ziglang/zig/issues/1332 and use null instead of this.
     attack,
     kick,
+    open_close,
 };
 const GameState = union(enum) {
     main_menu: gui.LinearMenuState,
@@ -346,6 +348,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                             state.input_prompt = .kick;
                                         }
                                     },
+                                    .start_open_close => {
+                                        if (canUseDoors(state.client_state.?.self.species)) {
+                                            state.input_prompt = .open_close;
+                                        }
+                                    },
                                     .charge => {
                                         if (canCharge(state.client_state.?.self.species)) {
                                             const position_coords = state.client_state.?.self.position.large;
@@ -386,6 +393,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         game_state = mainMenuState(&save_file);
                                         continue :main_loop;
                                     },
+
                                     .beat_level => {
                                         try state.client.beatLevelMacro(1);
                                     },
@@ -398,6 +406,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .unbeat_level_5 => {
                                         try state.client.unbeatLevelMacro(5);
                                     },
+                                    .warp_0 => try state.client.act(Action{ .cheatcode_warp = 0 }),
+                                    .warp_1 => try state.client.act(Action{ .cheatcode_warp = 1 }),
+                                    .warp_2 => try state.client.act(Action{ .cheatcode_warp = 2 }),
+                                    .warp_3 => try state.client.act(Action{ .cheatcode_warp = 3 }),
+                                    .warp_4 => try state.client.act(Action{ .cheatcode_warp = 4 }),
+                                    .warp_5 => try state.client.act(Action{ .cheatcode_warp = 5 }),
+                                    .warp_6 => try state.client.act(Action{ .cheatcode_warp = 6 }),
+                                    .warp_7 => try state.client.act(Action{ .cheatcode_warp = 7 }),
+
                                     else => {},
                                 }
                             },
@@ -539,14 +556,40 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 const floor_texture = switch (cell.floor) {
                                     .unknown => break :render_floor,
                                     .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
-                                    .grass => selectAesthetic(textures.sprites.grass[0..], aesthetic_seed, cursor),
+                                    .grass,
+                                    .grass_and_water_edge_east,
+                                    .grass_and_water_edge_southeast,
+                                    .grass_and_water_edge_south,
+                                    .grass_and_water_edge_southwest,
+                                    .grass_and_water_edge_west,
+                                    .grass_and_water_edge_northwest,
+                                    .grass_and_water_edge_north,
+                                    .grass_and_water_edge_northeast,
+                                    => selectAesthetic(textures.sprites.grass[0..], aesthetic_seed, cursor),
+                                    .sand => selectAestheticBiasedLow(textures.sprites.sand[0..], aesthetic_seed, cursor, 5),
+                                    .sandstone => selectAestheticBiasedLow(textures.sprites.sandstone_floor[0..], aesthetic_seed, cursor, 5),
                                     .marble => selectAesthetic(textures.sprites.marble_floor[0..], aesthetic_seed, cursor),
                                     .lava => selectAesthetic(textures.sprites.lava[0..], aesthetic_seed, cursor),
                                     .hatch => textures.sprites.hatch,
                                     .stairs_down => textures.sprites.stairs_down,
+                                    .water, .water_bloody => selectAesthetic(textures.sprites.water[0..], aesthetic_seed, cursor),
+                                    .water_deep => selectAesthetic(textures.sprites.water_deep[0..], aesthetic_seed, cursor),
                                     .unknown_floor => textures.sprites.unknown_floor,
                                 };
                                 textures.renderSprite(renderer, floor_texture, render_position);
+                                const second_floor_texture = switch (cell.floor) {
+                                    .grass_and_water_edge_east => textures.sprites.water_edge[0],
+                                    .grass_and_water_edge_southeast => textures.sprites.water_edge[1],
+                                    .grass_and_water_edge_south => textures.sprites.water_edge[2],
+                                    .grass_and_water_edge_southwest => textures.sprites.water_edge[3],
+                                    .grass_and_water_edge_west => textures.sprites.water_edge[4],
+                                    .grass_and_water_edge_northwest => textures.sprites.water_edge[5],
+                                    .grass_and_water_edge_north => textures.sprites.water_edge[6],
+                                    .grass_and_water_edge_northeast => textures.sprites.water_edge[7],
+                                    .water_bloody => textures.sprites.bloody_water_overlay,
+                                    else => break :render_floor,
+                                };
+                                textures.renderSprite(renderer, second_floor_texture, render_position);
                             }
                             render_wall: {
                                 const wall_texture = switch (cell.wall) {
@@ -558,7 +601,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .tree_southwest => textures.sprites.tree[2],
                                     .tree_southeast => textures.sprites.tree[3],
                                     .bush => selectAesthetic(textures.sprites.bush[0..], aesthetic_seed, cursor),
+                                    .door_open => textures.sprites.open_door,
+                                    .door_closed => textures.sprites.closed_door,
                                     .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, cursor),
+                                    .sandstone => selectAestheticBiasedLow(textures.sprites.sandstone_wall[0..], aesthetic_seed, cursor, 5),
+                                    .angel_statue => textures.sprites.statue_angel,
+                                    .chest => textures.sprites.chest,
                                     .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
                                     .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => textures.sprites.polymorph_trap_wide[0],
                                     .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => textures.sprites.polymorph_trap_wide[1],
@@ -593,6 +641,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .kick => {
                             textures.renderSprite(renderer, textures.sprites.kick, render_position);
                         },
+                        .open_close => {
+                            textures.renderSprite(renderer, textures.sprites.open_close, render_position);
+                        },
                     }
                 }
                 // render activity effects
@@ -624,6 +675,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         grappling_back: ?Rect = null,
                         digesting: ?Rect = null,
                         grappling_front: ?Rect = null,
+                        malaise: ?Rect = null,
+                        pain: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
                         .humanoid => AnatomySprites{
@@ -632,6 +685,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .leg_wound = textures.large_sprites.humanoid_leg_wound,
                             .grappled = textures.large_sprites.humanoid_grappled,
                             .limping = textures.large_sprites.humanoid_limping,
+                            .malaise = textures.large_sprites.humanoid_malaise,
+                            .pain = textures.large_sprites.humanoid_pain,
                         },
                         .centauroid => AnatomySprites{
                             .diagram = textures.large_sprites.centauroid,
@@ -669,6 +724,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .grappled = textures.large_sprites.quadruped_grappled,
                             .limping = textures.large_sprites.quadruped_limping,
                         },
+                        .scorpionoid => @panic("TODO"),
+                        .serpentine => @panic("TODO"),
+                        .insectoid => @panic("TODO"),
+                        .minotauroid => @panic("TODO"),
+                        .mermoid => @panic("TODO"),
                     };
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
@@ -676,7 +736,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_shieled, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
-                    var status_conditions: u6 = frame.self.status_conditions;
+                    var status_conditions: u8 = frame.self.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_being_digested) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.being_digested.?, anatomy_coord);
                     }
@@ -697,6 +757,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                     if (0 != status_conditions & core.protocol.StatusCondition_grappling) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.grappling_front.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_malaise) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.malaise.?, anatomy_coord);
+                    }
+                    if (0 != status_conditions & core.protocol.StatusCondition_pain) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.pain.?, anatomy_coord);
                     }
                 }
 
@@ -806,6 +872,11 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
         },
         .kick => {
             try state.client.kick(delta);
+            state.input_prompt = .none;
+            return;
+        },
+        .open_close => {
+            try state.client.act(Action{ .open_close = directionToCardinalIndex(delta) });
             state.input_prompt = .none;
             return;
         },
@@ -1122,12 +1193,38 @@ fn selectAnimatedFrameBoomerang(sprites: []const Rect, progress: i32, progress_d
 }
 
 fn selectAesthetic(array: []const Rect, seed: u32, coord: Coord) Rect {
+    return array[hashCoordToRange(array.len, seed, coord)];
+}
+fn selectAestheticBiasedLow(array: []const Rect, seed: u32, coord: Coord, bias: usize) Rect {
+    // (for bias=2)
+    // /--\ heavy_len
+    //     /--\ light_len
+    // 01234567
+    // |   \   \
+    // |     \   \
+    // 001122334567
+    const heavy_len = array.len / 2;
+    const light_len = array.len - heavy_len;
+    var index = hashCoordToRange(heavy_len * bias + light_len, seed, coord);
+    if (index < heavy_len * bias) {
+        // 00112233____
+        // 0123____
+        index /= bias;
+    } else {
+        // ________4567
+        // ____4567
+        index -= heavy_len * (bias - 1);
+    }
+    return array[index];
+}
+
+fn hashCoordToRange(less_than_this: usize, seed: u32, coord: Coord) usize {
     var hash = seed;
     hash ^= @bitCast(u32, coord.x);
     hash = hashU32(hash);
     hash ^= @bitCast(u32, coord.y);
     hash = hashU32(hash);
-    return array[@intCast(usize, std.rand.limitRangeBiased(u32, hash, @intCast(u32, array.len)))];
+    return std.rand.limitRangeBiased(u32, hash, @intCast(u32, less_than_this));
 }
 
 fn hashU32(input: u32) u32 {
@@ -1158,6 +1255,15 @@ fn speciesToSprite(species: Species) Rect {
         .wolf => textures.sprites.dog,
         .rat => textures.sprites.rat,
         .wood_golem => textures.sprites.wood_golem,
+        .scorpion => textures.sprites.scorpion,
+        .brown_snake => textures.sprites.brown_snake,
+        .ant => textures.sprites.ant,
+        .minotaur => textures.sprites.minotaur,
+        .siren => |subspecies| switch (subspecies) {
+            .water => textures.sprites.siren_water,
+            .land => textures.sprites.siren_land,
+        },
+        .ogre => textures.sprites.ogre,
     };
 }
 

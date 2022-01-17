@@ -7,9 +7,11 @@ const PerceivedActivity = core.protocol.PerceivedActivity;
 const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
 const Wall = core.protocol.Wall;
+const Floor = core.protocol.Floor;
 const Action = core.protocol.Action;
 const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
+const StatusConditions = core.protocol.StatusConditions;
 
 const assert = @import("std").debug.assert;
 
@@ -28,15 +30,54 @@ pub fn getViewDistance(species: Species) i32 {
 }
 
 pub fn canAttack(species: Species) bool {
-    return getAttackRange(species) > 0;
+    return switch (species) {
+        .rhino, .blob, .kangaroo => false,
+        else => true,
+    };
 }
 
 pub fn getAttackRange(species: Species) i32 {
     switch (species) {
         .centaur => return 16,
-        .rhino, .blob, .kangaroo, .rat => return 0,
+        .rhino, .blob, .kangaroo, .rat, .ant => return 0,
         else => return 1,
     }
+}
+
+pub const AttackEffect = enum {
+    just_wound,
+    wound_then_kill,
+    malaise,
+    smash,
+};
+
+pub fn getAttackEffect(species: Species) AttackEffect {
+    return switch (species) {
+        .human, .orc, .centaur => .wound_then_kill,
+        .turtle => .wound_then_kill,
+        .wolf => .wound_then_kill,
+        .wood_golem => .wound_then_kill,
+        .brown_snake => .wound_then_kill,
+        .ant => .wound_then_kill,
+        .minotaur => .wound_then_kill,
+        .siren => .wound_then_kill,
+
+        .rat => .just_wound,
+        .scorpion => .malaise,
+
+        .ogre => .smash,
+
+        .rhino => unreachable,
+        .kangaroo => unreachable,
+        .blob => unreachable,
+    };
+}
+
+pub fn actionCausesPainWhileMalaised(action: std.meta.Tag(Action)) bool {
+    return switch (action) {
+        .fast_move, .attack, .kick, .nibble, .stomp, .lunge, .open_close => true,
+        else => false,
+    };
 }
 
 pub fn canCharge(species: Species) bool {
@@ -49,13 +90,26 @@ pub fn canCharge(species: Species) bool {
 pub fn canLunge(species: Species) bool {
     return switch (species) {
         .wolf => true,
+        .brown_snake => true,
+        .siren => |subspecies| switch (subspecies) {
+            .water => true,
+            .land => false,
+        },
         else => false,
+    };
+}
+pub fn limpsAfterLunge(species: Species) bool {
+    return switch (species) {
+        .wolf => false,
+        .brown_snake => true,
+        .siren => false,
+        else => unreachable,
     };
 }
 
 pub fn canNibble(species: Species) bool {
     return switch (species) {
-        .rat => true,
+        .rat, .scorpion, .ant => true,
         else => false,
     };
 }
@@ -77,6 +131,8 @@ pub fn canGrowAndShrink(species: Species) bool {
 pub fn isSlow(species: Species) bool {
     return switch (species) {
         .wood_golem => true,
+        .scorpion => true,
+        .ogre => true,
         else => false,
     };
 }
@@ -92,6 +148,23 @@ pub fn canKick(species: Species) bool {
         .wolf => false,
         .rat => false,
         .wood_golem => true,
+        .scorpion => false,
+        .brown_snake => false,
+        .ant => false,
+        .minotaur => true,
+        .ogre => true,
+        .siren => |subspecies| switch (subspecies) {
+            .water => false,
+            .land => true,
+        },
+    };
+}
+
+pub fn canUseDoors(species: Species) bool {
+    return switch (species) {
+        .human, .orc => true,
+        .centaur => true,
+        else => false,
     };
 }
 
@@ -99,13 +172,15 @@ pub fn getPhysicsLayer(species: Species) u2 {
     switch (species) {
         .blob => return 0,
         .rat => return 1,
-        .rhino => return 3,
+        .scorpion, .ant => return 1,
+        .rhino, .ogre => return 3,
         else => return 2,
     }
 }
 
 pub fn isFastMoveAligned(position: ThingPosition, move_delta: Coord) bool {
     assert(core.geometry.isScaledCardinalDirection(move_delta, 2));
+    if (position != .large) return false;
     const facing_delta = position.large[0].minus(position.large[1]);
     return facing_delta.scaled(2).equals(move_delta);
 }
@@ -115,21 +190,44 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
         .turtle, .blob, .wood_golem => false,
         // only rhino's tail is affected, not head.
         .rhino => position_index == 1,
+        .siren => |subspecies| switch (subspecies) {
+            .water => false,
+            .land => true,
+        },
+        .ogre => false,
+        .minotaur => false,
         else => true,
+    };
+}
+
+pub fn woundThenKillGoesRightToKill(species: Species) bool {
+    return switch (species) {
+        .scorpion, .ant => true,
+        else => false,
     };
 }
 
 pub fn isOpenSpace(wall: Wall) bool {
     return switch (wall) {
         .air => true,
-        .dirt, .stone => false,
+        .dirt, .stone, .sandstone => false,
         .tree_northwest, .tree_northeast, .tree_southwest, .tree_southeast => false,
         .bush => true,
+        .door_open => true,
+        .door_closed => false,
+        .angel_statue => false,
+        .chest => true,
         .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => true,
         .polymorph_trap_rhino_west, .polymorph_trap_blob_west, .unknown_polymorph_trap_west => true,
         .polymorph_trap_rhino_east, .polymorph_trap_blob_east, .unknown_polymorph_trap_east => true,
         .unknown => true,
         .unknown_wall => false,
+    };
+}
+pub fn isWet(floor: Floor) bool {
+    return switch (floor) {
+        .water, .water_bloody, .water_deep => true,
+        else => false,
     };
 }
 
@@ -177,6 +275,11 @@ pub const Anatomy = enum {
     quadruped,
     kangaroid,
     bloboid,
+    scorpionoid,
+    serpentine,
+    insectoid,
+    minotauroid,
+    mermoid,
 };
 pub fn getAnatomy(species: Species) Anatomy {
     switch (species) {
@@ -188,20 +291,31 @@ pub fn getAnatomy(species: Species) Anatomy {
         .wolf => return .quadruped,
         .rat => return .quadruped,
         .wood_golem => return .humanoid,
+        .scorpion => return .scorpionoid,
+        .brown_snake => return .serpentine,
+        .ant => return .insectoid,
+        .minotaur => return .minotauroid,
+        .siren => |subspecies| switch (subspecies) {
+            .water => return .mermoid,
+            .land => return .humanoid,
+        },
+        .ogre => return .humanoid,
     }
 }
 
-pub fn validateAction(species: Species, position: ThingPosition, action: Action) !void {
+pub fn validateAction(species: Species, position: ThingPosition, status_conditions: StatusConditions, action: Action) !void {
     switch (action) {
         .wait => {},
         .move => |move_delta| {
             if (!isCardinalDirection(move_delta)) return error.BadDelta;
             if (!canMoveNormally(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) return error.StatusForbids;
         },
         .fast_move => |move_delta| {
             if (!isScaledCardinalDirection(move_delta, 2)) return error.BadDelta;
             if (!canCharge(species)) return error.SpeciesIncapable;
             if (!isFastMoveAligned(position, move_delta)) return error.BadAlignment;
+            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
         },
         .grow => |move_delta| {
             if (!isCardinalDirection(move_delta)) return error.BadDelta;
@@ -215,21 +329,31 @@ pub fn validateAction(species: Species, position: ThingPosition, action: Action)
         .attack => |direction| {
             if (!canAttack(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .kick => |direction| {
             if (!canKick(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .nibble => {
             if (!canNibble(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .stomp => {
             if (!canKick(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
         },
         .lunge => |direction| {
             if (!canLunge(species)) return error.SpeciesIncapable;
             if (!isCardinalDirection(direction)) return error.BadDelta;
+            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
         },
+        .open_close => {
+            if (!canUseDoors(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+        },
+        .cheatcode_warp => {},
     }
 }
 

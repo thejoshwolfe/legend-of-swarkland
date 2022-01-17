@@ -2,15 +2,29 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
+const CardinalDirection = core.geometry.CardinalDirection;
 
 pub const Floor = enum {
     unknown,
     dirt,
     grass,
+    sand,
+    sandstone,
     marble,
     lava,
     hatch,
     stairs_down,
+    water,
+    water_bloody,
+    water_deep,
+    grass_and_water_edge_east,
+    grass_and_water_edge_southeast,
+    grass_and_water_edge_south,
+    grass_and_water_edge_southwest,
+    grass_and_water_edge_west,
+    grass_and_water_edge_northwest,
+    grass_and_water_edge_north,
+    grass_and_water_edge_northeast,
     unknown_floor,
 };
 
@@ -19,11 +33,16 @@ pub const Wall = enum {
     air,
     dirt,
     stone,
+    sandstone,
     tree_northwest,
     tree_northeast,
     tree_southwest,
     tree_southeast,
     bush,
+    door_open,
+    door_closed,
+    angel_statue,
+    chest,
     polymorph_trap_centaur,
     polymorph_trap_kangaroo,
     polymorph_trap_turtle,
@@ -53,6 +72,15 @@ pub const Species = union(enum) {
     wolf,
     rat,
     wood_golem,
+    scorpion,
+    brown_snake,
+    ant,
+    minotaur,
+    siren: enum {
+        water,
+        land,
+    },
+    ogre,
 };
 
 pub const TerrainChunk = struct {
@@ -88,6 +116,9 @@ pub const Action = union(enum) {
     nibble,
     stomp,
     lunge: Coord,
+    open_close: CardinalDirection,
+
+    cheatcode_warp: u3,
 };
 
 pub const Response = union(enum) {
@@ -136,13 +167,15 @@ pub const PerceivedThing = struct {
     activity: PerceivedActivity,
 };
 
-pub const StatusConditions = u6;
+pub const StatusConditions = u8;
 pub const StatusCondition_wounded_leg: StatusConditions = 0x1;
 pub const StatusCondition_limping: StatusConditions = 0x2;
 pub const StatusCondition_grappling: StatusConditions = 0x4;
 pub const StatusCondition_grappled: StatusConditions = 0x8;
 pub const StatusCondition_digesting: StatusConditions = 0x10;
 pub const StatusCondition_being_digested: StatusConditions = 0x20;
+pub const StatusCondition_malaise: StatusConditions = 0x40;
+pub const StatusCondition_pain: StatusConditions = 0x80;
 
 pub const PerceivedActivity = union(enum) {
     none,

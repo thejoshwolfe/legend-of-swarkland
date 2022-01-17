@@ -6,9 +6,11 @@ const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const Rect = core.geometry.Rect;
 const sign = core.geometry.sign;
+const CardinalDirection = core.geometry.CardinalDirection;
 const isCardinalDirection = core.geometry.isCardinalDirection;
 const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
 const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
+const cardinalIndexToDirection = core.geometry.cardinalIndexToDirection;
 const makeCoord = core.geometry.makeCoord;
 const zero_vector = makeCoord(0, 0);
 
@@ -27,6 +29,7 @@ const StatusConditions = core.protocol.StatusConditions;
 const PerceivedTerrain = core.game_logic.PerceivedTerrain;
 const getViewDistance = core.game_logic.getViewDistance;
 const isOpenSpace = core.game_logic.isOpenSpace;
+const isWet = core.game_logic.isWet;
 const isTransparentSpace = core.game_logic.isTransparentSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
@@ -34,6 +37,10 @@ const applyMovementToPosition = core.game_logic.applyMovementToPosition;
 const offsetPosition = core.game_logic.offsetPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const isSlow = core.game_logic.isSlow;
+const limpsAfterLunge = core.game_logic.limpsAfterLunge;
+const getAttackEffect = core.game_logic.getAttackEffect;
+const actionCausesPainWhileMalaised = core.game_logic.actionCausesPainWhileMalaised;
+const woundThenKillGoesRightToKill = core.game_logic.woundThenKillGoesRightToKill;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -106,6 +113,19 @@ pub const GameEngine = struct {
 
         var polymorphs = IdMap(Species).init(self.allocator);
 
+        // Cheating
+        {
+            for (everybody) |id| {
+                const index = switch (actions.get(id).?) {
+                    .cheatcode_warp => |index| index,
+                    else => continue,
+                };
+                if (index < game_state.warp_points.len) {
+                    current_positions.getEntry(id).?.value_ptr.* = ThingPosition{ .small = game_state.warp_points[index] };
+                }
+            }
+        }
+
         // Shrinking
         {
             var shrinks = IdMap(u1).init(self.allocator);
@@ -140,15 +160,12 @@ pub const GameEngine = struct {
         {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
-                const move_delta: Coord = switch (actions.get(id).?) {
-                    .move, .fast_move, .lunge => |move_delta| move_delta,
+                switch (actions.get(id).?) {
+                    .move, .fast_move, .lunge => |move_delta| {
+                        try intended_moves.putNoClobber(id, move_delta);
+                    },
                     else => continue,
-                };
-                if (0 != current_status_conditions.get(id).? & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) {
-                    // nope.avi
-                    continue;
                 }
-                try intended_moves.putNoClobber(id, move_delta);
             }
 
             try self.doMovementAndCollisions(
@@ -200,6 +217,62 @@ pub const GameEngine = struct {
                 const next_position = next_positions.get(id) orelse continue;
                 current_positions.getEntry(id).?.value_ptr.* = next_position;
             }
+        }
+
+        // Using doors
+        var state_changes = ArrayList(StateDiff).init(self.allocator);
+        {
+            var door_toggles = CoordMap(u2).init(self.allocator);
+            for (everybody) |id| {
+                const direction = switch (actions.get(id).?) {
+                    .open_close => |direction| direction,
+                    else => continue,
+                };
+                const door_position = getHeadPosition(current_positions.get(id).?).plus(cardinalIndexToDirection(direction));
+                const gop = try door_toggles.getOrPut(door_position);
+                if (gop.found_existing) {
+                    gop.value_ptr.* +|= 1;
+                } else {
+                    gop.value_ptr.* = 1;
+                }
+            }
+            for (door_toggles.keys()) |door_position, i| {
+                if (door_toggles.values()[i] > 1) continue;
+                var terrain_diff: StateDiff.TerrainDiff = undefined;
+                const cell = game_state.terrain.getCoord(door_position);
+                switch (cell.wall) {
+                    .door_open => {
+                        terrain_diff = .{
+                            .at = door_position,
+                            .from = cell,
+                            .to = TerrainSpace{
+                                .floor = cell.floor,
+                                .wall = .door_closed,
+                            },
+                        };
+                    },
+                    .door_closed => {
+                        terrain_diff = .{
+                            .at = door_position,
+                            .from = cell,
+                            .to = TerrainSpace{
+                                .floor = cell.floor,
+                                .wall = .door_open,
+                            },
+                        };
+                    },
+                    else => {
+                        // There's no door here. Nothing happens.
+                        continue;
+                    },
+                }
+                try state_changes.append(StateDiff{
+                    .terrain_update = terrain_diff,
+                });
+                // Use the new value for the rest of the computation.
+                game_state.terrain.getExistingCoord(door_position).* = terrain_diff.to;
+            }
+            // Do we need to explicitly observe this? is there going to be an animation for it or something?
         }
 
         // Kicks
@@ -272,20 +345,35 @@ pub const GameEngine = struct {
             }
         }
 
-        // Wounds and limping
+        // Wounds, limping, pain, etc.
         for (everybody) |id| {
             const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
+            const species = game_state.individuals.get(id).?.species;
             if (game_state.terrainAt(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
-                // this tile heals wounds for some reason.
-                status_conditions.* &= ~(core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_limping);
-            } else if (!budges_at_all.contains(id)) {
+                // this tile heals you for some reason.
+                const healed_statuses = core.protocol.StatusCondition_wounded_leg | //
+                    core.protocol.StatusCondition_limping | //
+                    core.protocol.StatusCondition_malaise | //
+                    core.protocol.StatusCondition_pain;
+                status_conditions.* &= ~healed_statuses;
+                continue;
+            }
+            if (!budges_at_all.contains(id)) {
                 // you held still, so you are free of any limping status.
                 status_conditions.* &= ~core.protocol.StatusCondition_limping;
             } else if (0 != status_conditions.* & core.protocol.StatusCondition_wounded_leg or //
-                isSlow(game_state.individuals.get(id).?.species))
+                isSlow(species) or //
+                (actions.get(id).? == .lunge and limpsAfterLunge(species)))
             {
                 // now you limp.
                 status_conditions.* |= core.protocol.StatusCondition_limping;
+            }
+            if (0 != status_conditions.* & core.protocol.StatusCondition_malaise and //
+                actionCausesPainWhileMalaised(actions.get(id).?))
+            {
+                status_conditions.* |= core.protocol.StatusCondition_pain;
+            } else {
+                status_conditions.* &= ~core.protocol.StatusCondition_pain;
             }
         }
 
@@ -415,8 +503,9 @@ pub const GameEngine = struct {
             switch (action) {
                 .attack, .lunge => |attack_direction| {
                     var attacker_coord = getHeadPosition(current_positions.get(id).?);
+                    const attacker_species = game_state.individuals.get(id).?.species;
                     var attack_distance: i32 = 1;
-                    const range = core.game_logic.getAttackRange(game_state.individuals.get(id).?.species);
+                    const range = core.game_logic.getAttackRange(attacker_species);
                     while (attack_distance <= range) : (attack_distance += 1) {
                         var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
                         var stop_the_attack = false;
@@ -441,13 +530,7 @@ pub const GameEngine = struct {
                                 if (is_effective) {
                                     // get wrecked
                                     const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
-                                    if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0) {
-                                        // first hit is a wound
-                                        other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
-                                    } else {
-                                        // second hit. you ded.
-                                        _ = try attack_deaths.put(other_id, {});
-                                    }
+                                    try doAttackDamage(attacker_species, other_id, other.species, other_status_conditions, &attack_deaths);
                                 }
                                 stop_the_attack = true;
                             }
@@ -485,9 +568,10 @@ pub const GameEngine = struct {
                                     // stomping is instant deth.
                                     _ = try attack_deaths.put(other_id, {});
                                 } else {
-                                    // nibbling only does wounds.
+                                    // nibbling does attack damage.
+                                    const attacker_species = game_state.individuals.get(id).?.species;
                                     const other_status_conditions = current_status_conditions.getEntry(other_id).?.value_ptr;
-                                    other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+                                    try doAttackDamage(attacker_species, other_id, other.species, other_status_conditions, &attack_deaths);
                                 }
                             }
                         }
@@ -537,27 +621,155 @@ pub const GameEngine = struct {
         }
         try flushDeaths(&total_deaths, &attack_deaths, &everybody);
 
+        // Environmental death triggers
+        {
+            var check_bloody_water_near: ?Coord = null;
+            var regular_bloodying_diffs = ArrayList(StateDiff.TerrainDiff).init(self.allocator);
+            for (total_deaths.keys()) |id| {
+                const coord = getHeadPosition(current_positions.get(id).?);
+                const cell = game_state.terrain.getCoord(coord);
+                switch (cell.floor) {
+                    .water => {
+                        try regular_bloodying_diffs.append(.{
+                            .at = coord,
+                            .from = cell,
+                            .to = TerrainSpace{
+                                .floor = .water_bloody,
+                                .wall = cell.wall,
+                            },
+                        });
+                        check_bloody_water_near = coord;
+                    },
+                    else => {
+                        // There's no death trigger here.
+                        continue;
+                    },
+                }
+            }
+            if (check_bloody_water_near) |center| {
+                var bloody_spots = ArrayList(Coord).init(self.allocator);
+                var clean_spots = ArrayList(Coord).init(self.allocator);
+                var it = (Rect{
+                    .x = center.x - 2,
+                    .y = center.y - 2,
+                    .width = 5,
+                    .height = 5,
+                }).rowMajorIterator();
+                while (it.next()) |coord| {
+                    const cell = game_state.terrain.getCoord(coord);
+                    switch (cell.floor) {
+                        .water => {
+                            // is it just getting bloody?
+                            for (regular_bloodying_diffs.items) |terrain_diff| {
+                                if (terrain_diff.at.equals(coord)) {
+                                    try bloody_spots.append(coord);
+                                    break;
+                                }
+                            } else {
+                                try clean_spots.append(coord);
+                            }
+                        },
+                        .water_bloody => {
+                            try bloody_spots.append(coord);
+                        },
+                        else => continue,
+                    }
+                }
+                if (bloody_spots.items.len >= 3) {
+                    // siren attack.
+                    var new_id_cursor: u32 = @intCast(u32, game_state.individuals.count());
+                    for (clean_spots.items) |coord| {
+                        // spawn siren
+                        const id = findAvailableId(&new_id_cursor, game_state.individuals);
+                        try state_changes.append(StateDiff{ .spawn = .{
+                            .id = id,
+                            .individual = Individual{
+                                .species = .{ .siren = .water },
+                                .abs_position = .{ .small = coord },
+                                .perceived_origin = coord,
+                            },
+                        } });
+                    }
+                    // corrupt the water.
+                    it = (Rect{
+                        .x = center.x - 2,
+                        .y = center.y - 2,
+                        .width = 5,
+                        .height = 5,
+                    }).rowMajorIterator();
+                    while (it.next()) |coord| {
+                        const cell = game_state.terrain.getCoord(coord);
+                        switch (cell.floor) {
+                            .water, .water_bloody => {},
+                            else => continue,
+                        }
+                        var terrain_diff = StateDiff.TerrainDiff{
+                            .at = coord,
+                            .from = cell,
+                            .to = TerrainSpace{
+                                .floor = .water_deep,
+                                .wall = .air,
+                            },
+                        };
+                        try state_changes.append(StateDiff{
+                            .terrain_update = terrain_diff,
+                        });
+                        // Use the new value for the rest of the computation.
+                        game_state.terrain.getExistingCoord(coord).* = terrain_diff.to;
+                    }
+                } else {
+                    // not angry enough yet.
+                    for (regular_bloodying_diffs.items) |terrain_diff| {
+                        try state_changes.append(StateDiff{
+                            .terrain_update = terrain_diff,
+                        });
+                        // Use the new value for the rest of the computation.
+                        game_state.terrain.getExistingCoord(terrain_diff.at).* = terrain_diff.to;
+                    }
+                }
+            }
+        }
+
         // Traps
         var intended_polymorphs = IdMap(Species).init(self.allocator);
         for (everybody) |id| {
             const position = current_positions.get(id).?;
+            const from_species = game_state.individuals.get(id).?.species;
+            var dest_species: ?Species = null;
+            switch (from_species) {
+                .siren => |subspecies| switch (subspecies) {
+                    .water => {
+                        if (!isWet(game_state.terrainAt(position.small).floor)) {
+                            dest_species = .{ .siren = .land };
+                            core.debug.engine.print("transforming siren into land form.", .{});
+                        }
+                    },
+                    .land => {
+                        if (isWet(game_state.terrainAt(position.small).floor)) {
+                            dest_species = .{ .siren = .water };
+                            core.debug.engine.print("transforming siren into water form.", .{});
+                        }
+                    },
+                },
+                else => {},
+            }
             switch (position) {
                 .small => |coord| {
                     switch (game_state.terrainAt(coord).wall) {
                         .polymorph_trap_centaur => {
-                            try intended_polymorphs.putNoClobber(id, .centaur);
+                            dest_species = .centaur;
                         },
                         .polymorph_trap_kangaroo => {
-                            try intended_polymorphs.putNoClobber(id, .kangaroo);
+                            dest_species = .kangaroo;
                         },
                         .polymorph_trap_turtle => {
-                            try intended_polymorphs.putNoClobber(id, .turtle);
+                            dest_species = .turtle;
                         },
                         .polymorph_trap_blob => {
-                            try intended_polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                            dest_species = Species{ .blob = .small_blob };
                         },
                         .polymorph_trap_human => {
-                            try intended_polymorphs.putNoClobber(id, .human);
+                            dest_species = .human;
                         },
                         else => {},
                     }
@@ -581,17 +793,20 @@ pub const GameEngine = struct {
                         if (ordered_walls[0] == .polymorph_trap_rhino_west and //
                             ordered_walls[1] == .polymorph_trap_rhino_east)
                         {
-                            try intended_polymorphs.putNoClobber(id, .rhino);
+                            dest_species = .rhino;
                         }
                         if (ordered_walls[0] == .polymorph_trap_blob_west and //
                             ordered_walls[1] == .polymorph_trap_blob_east)
                         {
-                            try intended_polymorphs.putNoClobber(id, Species{ .blob = .small_blob });
+                            dest_species = Species{ .blob = .small_blob };
                         }
                     } else {
                         // No north-south aligned traps exist.
                     }
                 },
+            }
+            if (dest_species) |species| {
+                try intended_polymorphs.putNoClobber(id, species);
             }
         }
         if (intended_polymorphs.count() > 0) {
@@ -625,9 +840,20 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 const dest_species = intended_polymorphs.get(id) orelse continue;
                 const from_species = game_state.individuals.get(id).?.species;
-                if (from_species == @as(std.meta.Tag(Species), dest_species)) {
-                    core.debug.engine.print("polymorph fails: already that species.", .{});
-                    continue;
+                var same_species = from_species == @as(std.meta.Tag(Species), dest_species);
+                if (same_species) {
+                    switch (from_species) {
+                        .siren => |subspecies| {
+                            if (subspecies != dest_species.siren) {
+                                same_species = false;
+                            }
+                        },
+                        else => {},
+                    }
+                    if (same_species) {
+                        core.debug.engine.print("polymorph fails: already that species.", .{});
+                        continue;
+                    }
                 }
                 const position = current_positions.get(id).?;
                 for (getAllPositions(&position)) |coord| {
@@ -646,7 +872,9 @@ pub const GameEngine = struct {
                     const blob_immune_statuses = core.protocol.StatusCondition_grappled | //
                         core.protocol.StatusCondition_being_digested | //
                         core.protocol.StatusCondition_wounded_leg | //
-                        core.protocol.StatusCondition_limping;
+                        core.protocol.StatusCondition_limping | //
+                        core.protocol.StatusCondition_malaise | //
+                        core.protocol.StatusCondition_pain;
                     if (dest_species == .blob) {
                         current_status_conditions.getEntry(id).?.value_ptr.* &= ~blob_immune_statuses;
                     } else {
@@ -668,7 +896,6 @@ pub const GameEngine = struct {
         }
 
         // measure state diffs so far.
-        var state_changes = ArrayList(StateDiff).init(self.allocator);
         for (everybody_including_dead) |id| {
             switch (game_state.individuals.get(id).?.abs_position) {
                 .small => |coord| {
@@ -996,9 +1223,9 @@ pub const GameEngine = struct {
                     if (delta.equals(zero_vector)) {
                         collision.stationary_id = id;
                     } else if (isCardinalDirection(delta)) {
-                        collision.cardinal_index_to_enterer[directionToCardinalIndex(delta)] = id;
+                        collision.cardinal_index_to_enterer[@enumToInt(directionToCardinalIndex(delta))] = id;
                     } else if (isScaledCardinalDirection(delta, 2)) {
-                        collision.cardinal_index_to_fast_enterer[directionToCardinalIndex(delta.scaledDivTrunc(2))] = id;
+                        collision.cardinal_index_to_fast_enterer[@enumToInt(directionToCardinalIndex(delta.scaledDivTrunc(2)))] = id;
                     } else unreachable;
                 }
             }
@@ -1392,6 +1619,31 @@ fn flushDeaths(total_deaths: *IdMap(void), local_deaths: *IdMap(void), everybody
         }
     }
     local_deaths.clearRetainingCapacity();
+}
+
+fn doAttackDamage(attacker_species: Species, other_id: u32, other_species: Species, other_status_conditions: *StatusConditions, attack_deaths: *IdMap(void)) !void {
+    switch (getAttackEffect(attacker_species)) {
+        .wound_then_kill => {
+            if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0 and //
+                !woundThenKillGoesRightToKill(other_species))
+            {
+                // first hit is a wound
+                other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+            } else {
+                // second hit. you ded.
+                _ = try attack_deaths.put(other_id, {});
+            }
+        },
+        .just_wound => {
+            other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
+        },
+        .malaise => {
+            other_status_conditions.* |= core.protocol.StatusCondition_malaise;
+        },
+        .smash => {
+            _ = try attack_deaths.put(other_id, {});
+        },
+    }
 }
 
 /// See geometry for cardinal index definition.

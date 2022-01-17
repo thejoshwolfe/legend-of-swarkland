@@ -18,6 +18,7 @@ pub const Button = enum {
 
     start_attack,
     start_kick,
+    start_open_close,
     charge,
     stomp,
     backspace,
@@ -34,6 +35,15 @@ pub const Button = enum {
     page_down,
     home,
     end,
+
+    warp_0,
+    warp_1,
+    warp_2,
+    warp_3,
+    warp_4,
+    warp_5,
+    warp_6,
+    warp_7,
 };
 
 pub const InputEngine = struct {
@@ -86,6 +96,7 @@ pub const InputEngine = struct {
                 return null,
             sdl.c.SDL_SCANCODE_F => return if (modifiers == 0) .start_attack else null,
             sdl.c.SDL_SCANCODE_K => return if (modifiers == 0) .start_kick else null,
+            sdl.c.SDL_SCANCODE_O => return if (modifiers == 0) .start_open_close else null,
             sdl.c.SDL_SCANCODE_C => return if (modifiers == 0) .charge else null,
             sdl.c.SDL_SCANCODE_S => return if (modifiers == 0) .stomp else null,
             sdl.c.SDL_SCANCODE_R => if (modifiers == 0)
@@ -120,6 +131,16 @@ pub const InputEngine = struct {
             sdl.c.SDL_SCANCODE_PAGEDOWN => return if (modifiers == 0) .page_down else null,
             sdl.c.SDL_SCANCODE_HOME => return if (modifiers == 0) .home else null,
             sdl.c.SDL_SCANCODE_END => return if (modifiers == 0) .end else null,
+
+            sdl.c.SDL_SCANCODE_1 => return if (modifiers == ctrl) .warp_0 else null,
+            sdl.c.SDL_SCANCODE_2 => return if (modifiers == ctrl) .warp_1 else null,
+            sdl.c.SDL_SCANCODE_3 => return if (modifiers == ctrl) .warp_2 else null,
+            sdl.c.SDL_SCANCODE_4 => return if (modifiers == ctrl) .warp_3 else null,
+            sdl.c.SDL_SCANCODE_5 => return if (modifiers == ctrl) .warp_4 else null,
+            sdl.c.SDL_SCANCODE_6 => return if (modifiers == ctrl) .warp_5 else null,
+            sdl.c.SDL_SCANCODE_7 => return if (modifiers == ctrl) .warp_6 else null,
+            sdl.c.SDL_SCANCODE_8 => return if (modifiers == ctrl) .warp_7 else null,
+
             else => return null,
         }
     }

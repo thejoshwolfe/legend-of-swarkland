@@ -61,7 +61,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
             const action = doAi(response);
             const individual = game_state.individuals.get(id).?;
-            validateAction(individual.species, individual.abs_position, action) catch |err| @panic(@errorName(err));
+            validateAction(individual.species, individual.abs_position, individual.status_conditions, action) catch |err| @panic(@errorName(err));
             debugPrintAction(id, action);
             try actions.putNoClobber(id, action);
         }
@@ -85,7 +85,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                             continue :retryRead;
                         }
                         const individual = game_state.individuals.get(main_player_id).?;
-                        validateAction(individual.species, individual.abs_position, action) catch |err| {
+                        validateAction(individual.species, individual.abs_position, individual.status_conditions, action) catch |err| {
                             core.debug.warning.print("Main player attempted invalid action: {s}", .{@errorName(err)});
                             try main_player_queues.enqueueResponse(Response{ .reject_request = request });
                             continue :retryRead;
@@ -199,5 +199,8 @@ pub fn debugPrintAction(prefix_number: u32, action: Action) void {
         .stomp => core.debug.actions.print("{}: Action{{ .stomp = {{}} }},", .{prefix_number}),
         .lunge => |direction| core.debug.actions.print("{}: Action{{ .lunge = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
         .kick => |direction| core.debug.actions.print("{}: Action{{ .kick = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
+        .open_close => |direction| core.debug.actions.print("{}: Action{{ .open_close = .{s} }},", .{ prefix_number, @tagName(direction) }),
+
+        .cheatcode_warp => |index| core.debug.actions.print("{}: Action{{ .cheatcode_warp = {} }},", .{ prefix_number, index }),
     }
 }
