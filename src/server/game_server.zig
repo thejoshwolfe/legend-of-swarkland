@@ -46,7 +46,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
     const main_player_id: u32 = 1;
     var you_are_alive = true;
     // Welcome to swarkland!
-    try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
+    try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(&game_state, main_player_id) });
 
     var response_for_ais = IdMap(Response).init(allocator);
     var history = HistoryList{};
@@ -58,7 +58,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         // do ai
         for (game_state.individuals.keys()) |id| {
             if (id == main_player_id) continue;
-            const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
+            const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(&game_state, id) };
             const action = doAi(response);
             const individual = game_state.individuals.get(id).?;
             validateAction(individual.species, individual.abs_position, individual.status_conditions, action) catch |err| @panic(@errorName(err));
@@ -128,7 +128,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                     else => {},
                 }
             }
-            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
+            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(&game_state, main_player_id) });
         } else {
 
             // Time goes forward.

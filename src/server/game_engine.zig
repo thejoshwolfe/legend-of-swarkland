@@ -198,7 +198,7 @@ pub const GameEngine = struct {
                 try intended_moves.putNoClobber(id, move_delta);
                 const old_coord = current_positions.get(id).?.small;
                 const new_head_coord = old_coord.plus(move_delta);
-                if (!isOpenSpace(game_state.terrainAt(new_head_coord).wall)) {
+                if (!isOpenSpace(game_state.terrain.getCoord(new_head_coord).wall)) {
                     // that's a wall
                     continue;
                 }
@@ -356,7 +356,7 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
             const species = game_state.individuals.get(id).?.species;
-            if (game_state.terrainAt(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
+            if (game_state.terrain.getCoord(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
                 // this tile heals you for some reason.
                 const healed_statuses = core.protocol.StatusCondition_wounded_leg | //
                     core.protocol.StatusCondition_limping | //
@@ -597,7 +597,7 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             const position = current_positions.get(id).?;
             for (getAllPositions(&position)) |coord| {
-                if (game_state.terrainAt(coord).floor == .lava) {
+                if (game_state.terrain.getCoord(coord).floor == .lava) {
                     _ = try attack_deaths.put(id, {});
                 }
             }
@@ -747,13 +747,13 @@ pub const GameEngine = struct {
             switch (from_species) {
                 .siren => |subspecies| switch (subspecies) {
                     .water => {
-                        if (!isWet(game_state.terrainAt(position.small).floor)) {
+                        if (!isWet(game_state.terrain.getCoord(position.small).floor)) {
                             dest_species = .{ .siren = .land };
                             core.debug.engine.print("transforming siren into land form.", .{});
                         }
                     },
                     .land => {
-                        if (isWet(game_state.terrainAt(position.small).floor)) {
+                        if (isWet(game_state.terrain.getCoord(position.small).floor)) {
                             dest_species = .{ .siren = .water };
                             core.debug.engine.print("transforming siren into water form.", .{});
                         }
@@ -763,7 +763,7 @@ pub const GameEngine = struct {
             }
             switch (position) {
                 .small => |coord| {
-                    switch (game_state.terrainAt(coord).wall) {
+                    switch (game_state.terrain.getCoord(coord).wall) {
                         .polymorph_trap_centaur => {
                             dest_species = .centaur;
                         },
@@ -794,8 +794,8 @@ pub const GameEngine = struct {
                             ordered_coords[1] = coords[0];
                         }
                         const ordered_walls = [_]Wall{
-                            game_state.terrainAt(ordered_coords[0]).wall,
-                            game_state.terrainAt(ordered_coords[1]).wall,
+                            game_state.terrain.getCoord(ordered_coords[0]).wall,
+                            game_state.terrain.getCoord(ordered_coords[1]).wall,
                         };
 
                         if (ordered_walls[0] == .polymorph_trap_rhino_west and //
@@ -1019,7 +1019,7 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 const position = current_positions.get(id).?;
                 for (getAllPositions(&position)) |coord| {
-                    if (game_state.terrainAt(coord).floor == .hatch) {
+                    if (game_state.terrain.getCoord(coord).floor == .hatch) {
                         button_getting_pressed = coord;
                         break;
                     }
@@ -1175,7 +1175,7 @@ pub const GameEngine = struct {
             var distance: i32 = 1;
             while (true) : (distance += 1) {
                 const new_head_coord = initial_head_coord.plus(move_unit.scaled(distance));
-                if (!isOpenSpace(game_state.terrainAt(new_head_coord).wall)) {
+                if (!isOpenSpace(game_state.terrain.getCoord(new_head_coord).wall)) {
                     // bonk
                     distance -= 1;
                     break;
@@ -1377,7 +1377,7 @@ pub const GameEngine = struct {
     };
     fn observeFrame(
         self: *const GameEngine,
-        game_state: *const GameState,
+        game_state: *GameState,
         my_id: u32,
         perception: *MutablePerceivedHappening,
         maybe_current_positions: ?*const IdMap(ThingPosition),
@@ -1392,10 +1392,10 @@ pub const GameEngine = struct {
         ));
     }
 
-    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: u32) !PerceivedFrame {
+    pub fn getStaticPerception(self: *const GameEngine, game_state: *GameState, individual_id: u32) !PerceivedFrame {
         return getPerceivedFrame(
             self,
-            &game_state,
+            game_state,
             individual_id,
             null,
             Activities.static_state,
@@ -1404,7 +1404,7 @@ pub const GameEngine = struct {
 
     fn getPerceivedFrame(
         self: *const GameEngine,
-        game_state: *const GameState,
+        game_state: *GameState,
         my_id: u32,
         maybe_current_positions: ?*const IdMap(ThingPosition),
         activities: Activities,
@@ -1450,7 +1450,7 @@ pub const GameEngine = struct {
         {
             var it = view_bounding_box.rowMajorIterator();
             while (it.next()) |cursor| {
-                if (!isClearLineOfSight(game_state.terrain, my_head_coord, cursor)) continue;
+                if (!isClearLineOfSight(&game_state.terrain, my_head_coord, cursor)) continue;
                 try in_view_matrix.putCoord(cursor, true);
 
                 var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor);
@@ -1571,7 +1571,7 @@ pub const GameEngine = struct {
             }
         }
 
-        var terrain_chunk = try self.exportTerrain(seen_terrain);
+        var terrain_chunk = try self.exportTerrain(&seen_terrain);
         terrain_chunk.position = terrain_chunk.position.minus(perceived_origin);
 
         return PerceivedFrame{
@@ -1582,7 +1582,7 @@ pub const GameEngine = struct {
         };
     }
 
-    fn exportTerrain(self: @This(), terrain: anytype) !TerrainChunk {
+    fn exportTerrain(self: @This(), terrain: *PerceivedTerrain) !TerrainChunk {
         const width = @intCast(u16, terrain.metrics.max_x - terrain.metrics.min_x + 1);
         const height = @intCast(u16, terrain.metrics.max_y - terrain.metrics.min_y + 1);
         var terrain_chunk = core.protocol.TerrainChunk{
@@ -1709,11 +1709,11 @@ fn getLevelTransitionBoundingBox(current_level_number: usize) ?Rect {
     };
 }
 
-fn isClearLineOfSight(terrain: Terrain, a: Coord, b: Coord) bool {
+fn isClearLineOfSight(terrain: *Terrain, a: Coord, b: Coord) bool {
     return isClearLineOfSightOneSided(terrain, a, b) or isClearLineOfSightOneSided(terrain, b, a);
 }
 
-fn isClearLineOfSightOneSided(terrain: Terrain, a: Coord, b: Coord) bool {
+fn isClearLineOfSightOneSided(terrain: *Terrain, a: Coord, b: Coord) bool {
     const delta = b.minus(a);
     const should_print = false;
     if (should_print) core.debug.testing.print("los: {},{} => {},{}", .{ a.x, a.y, b.x, b.y });

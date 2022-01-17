@@ -5,8 +5,13 @@ const Coord = core.geometry.Coord;
 
 pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
     return struct {
-        chunks: std.AutoArrayHashMap(Coord, *[chunk_side_length * chunk_side_length]T),
+        chunks: std.AutoArrayHashMap(Coord, *Chunk),
         metrics: Metrics = .{},
+        // lru cache
+        last_chunk_coord: Coord = .{ .x = 0, .y = 0 },
+        last_chunk: ?*Chunk = null,
+
+        const Chunk = [chunk_side_length * chunk_side_length]T;
 
         const chunk_shift = 4;
         const chunk_side_length = 1 << chunk_shift;
@@ -21,7 +26,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
 
         pub fn init(allocator: Allocator) @This() {
             return .{
-                .chunks = std.AutoArrayHashMap(Coord, *[chunk_side_length * chunk_side_length]T).init(allocator),
+                .chunks = std.AutoArrayHashMap(Coord, *Chunk).init(allocator),
             };
         }
         pub fn deinit(self: *@This()) void {
@@ -42,7 +47,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
             var it = self.chunks.iterator();
             while (it.next()) |entry| {
                 other.chunks.putAssumeCapacity(entry.key_ptr.*, //
-                    @ptrCast(*[chunk_side_length * chunk_side_length]T, //
+                    @ptrCast(*Chunk, //
                     (try allocator.dupe(T, entry.value_ptr.*)) //
                     .ptr));
             }
@@ -76,6 +81,12 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
             return self.getOrPut(coord.x, coord.y);
         }
         pub fn getOrPut(self: *@This(), x: i32, y: i32) !*T {
+            const chunk_coord = Coord{
+                .x = x >> chunk_shift,
+                .y = y >> chunk_shift,
+            };
+            const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
+
             if (self.chunks.count() == 0) {
                 // first put
                 self.metrics.min_x = x;
@@ -87,48 +98,72 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
                 if (y < self.metrics.min_y) self.metrics.min_y = y;
                 if (x > self.metrics.max_x) self.metrics.max_x = x;
                 if (y > self.metrics.max_y) self.metrics.max_y = y;
+
+                // check the lru cache.
+                if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
+                    return &self.last_chunk.?[inner_index];
+                }
             }
 
-            const chunk_coord = Coord{
-                .x = x >> chunk_shift,
-                .y = y >> chunk_shift,
-            };
-            const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
             const gop = try self.chunks.getOrPut(chunk_coord);
             if (!gop.found_existing) {
-                gop.value_ptr.* = @ptrCast(*[chunk_side_length * chunk_side_length]T, //
+                gop.value_ptr.* = @ptrCast(*Chunk, //
                     (try self.chunks.allocator.alloc(T, chunk_side_length * chunk_side_length)) //
                     .ptr);
                 std.mem.set(T, gop.value_ptr.*, default_value);
             }
 
+            // update the lru cache
+            self.last_chunk_coord = chunk_coord;
+            self.last_chunk = gop.value_ptr.*;
+
             return &gop.value_ptr.*[inner_index];
         }
 
-        pub fn getCoord(self: @This(), coord: Coord) T {
+        pub fn getCoord(self: *@This(), coord: Coord) T {
             return self.get(coord.x, coord.y);
         }
-        pub fn get(self: @This(), x: i32, y: i32) T {
+        pub fn get(self: *@This(), x: i32, y: i32) T {
+            if (self.chunks.count() == 0) {
+                // completely empty
+                return default_value;
+            }
             const chunk_coord = Coord{
                 .x = x >> chunk_shift,
                 .y = y >> chunk_shift,
             };
             const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
+            // check the lru cache
+            if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
+                return self.last_chunk.?[inner_index];
+            }
             const chunk = self.chunks.get(chunk_coord) orelse return default_value;
 
+            // update the lru cache
+            self.last_chunk_coord = chunk_coord;
+            self.last_chunk = chunk;
             return chunk[inner_index];
         }
 
-        pub fn getExistingCoord(self: @This(), coord: Coord) *T {
+        pub fn getExistingCoord(self: *@This(), coord: Coord) *T {
             return self.getExisting(coord.x, coord.y);
         }
-        pub fn getExisting(self: @This(), x: i32, y: i32) *T {
+        pub fn getExisting(self: *@This(), x: i32, y: i32) *T {
             const chunk_coord = Coord{
                 .x = x >> chunk_shift,
                 .y = y >> chunk_shift,
             };
             const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
+
+            // check the lru cache
+            if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
+                return &self.last_chunk.?[inner_index];
+            }
             const chunk = self.chunks.get(chunk_coord) orelse unreachable;
+
+            // update the lru cache
+            self.last_chunk_coord = chunk_coord;
+            self.last_chunk = chunk;
 
             return &chunk[inner_index];
         }
