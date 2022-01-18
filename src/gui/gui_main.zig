@@ -529,7 +529,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 const screen_display_position = b: {
                     const self_display_rect = getDisplayRect(progress, move_frame_time, frame.self);
                     const self_display_center = self_display_rect.position().plus(self_display_rect.size().scaledDivTrunc(2));
-                    const screen_half_size = makeCoord(15, 15).scaled(32 / 2);
+                    const screen_half_size = makeCoord(16, 16).scaled(32 / 2);
                     break :b self_display_center.minus(screen_half_size);
                 };
 
