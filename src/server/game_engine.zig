@@ -7,10 +7,10 @@ const Coord = core.geometry.Coord;
 const Rect = core.geometry.Rect;
 const sign = core.geometry.sign;
 const CardinalDirection = core.geometry.CardinalDirection;
-const isCardinalDirection = core.geometry.isCardinalDirection;
-const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
-const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
-const cardinalIndexToDirection = core.geometry.cardinalIndexToDirection;
+const isOrthogonalUnitVector = core.geometry.isOrthogonalUnitVector;
+const isOrthogonalVectorOfMagnitude = core.geometry.isOrthogonalVectorOfMagnitude;
+const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
+const cardinalDirectionToDelta = core.geometry.cardinalDirectionToDelta;
 const makeCoord = core.geometry.makeCoord;
 const zero_vector = makeCoord(0, 0);
 
@@ -161,7 +161,14 @@ pub const GameEngine = struct {
             var intended_moves = IdMap(Coord).init(self.allocator);
             for (everybody) |id| {
                 switch (actions.get(id).?) {
-                    .move, .fast_move, .lunge => |move_delta| {
+                    .move, .lunge => |direction| {
+                        const move_delta = cardinalDirectionToDelta(direction);
+                        try intended_moves.putNoClobber(id, move_delta);
+                    },
+                    .charge => {
+                        const position_coords = current_positions.get(id).?.large;
+                        const position_delta = position_coords[0].minus(position_coords[1]);
+                        const move_delta = position_delta.scaled(2);
                         try intended_moves.putNoClobber(id, move_delta);
                     },
                     else => continue,
@@ -185,13 +192,13 @@ pub const GameEngine = struct {
             var next_positions = IdMap(ThingPosition).init(self.allocator);
             for (everybody) |id| {
                 const move_delta: Coord = switch (actions.get(id).?) {
-                    .grow => |move_delta| move_delta,
+                    .grow => |direction| cardinalDirectionToDelta(direction),
                     else => continue,
                 };
                 try intended_moves.putNoClobber(id, move_delta);
                 const old_coord = current_positions.get(id).?.small;
                 const new_head_coord = old_coord.plus(move_delta);
-                if (!isOpenSpace(game_state.terrainAt(new_head_coord).wall)) {
+                if (!isOpenSpace(game_state.terrain.getCoord(new_head_coord).wall)) {
                     // that's a wall
                     continue;
                 }
@@ -228,7 +235,7 @@ pub const GameEngine = struct {
                     .open_close => |direction| direction,
                     else => continue,
                 };
-                const door_position = getHeadPosition(current_positions.get(id).?).plus(cardinalIndexToDirection(direction));
+                const door_position = getHeadPosition(current_positions.get(id).?).plus(cardinalDirectionToDelta(direction));
                 const gop = try door_toggles.getOrPut(door_position);
                 if (gop.found_existing) {
                     gop.value_ptr.* +|= 1;
@@ -282,7 +289,7 @@ pub const GameEngine = struct {
             var kicked_too_much = IdMap(void).init(self.allocator);
             for (everybody) |id| {
                 const kick_direction: Coord = switch (actions.get(id).?) {
-                    .kick => |direction| direction,
+                    .kick => |direction| cardinalDirectionToDelta(direction),
                     else => continue,
                 };
                 const attacker_coord = getHeadPosition(current_positions.get(id).?);
@@ -349,7 +356,7 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             const status_conditions = current_status_conditions.getEntry(id).?.value_ptr;
             const species = game_state.individuals.get(id).?.species;
-            if (game_state.terrainAt(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
+            if (game_state.terrain.getCoord(getHeadPosition(current_positions.get(id).?)).floor == .marble) {
                 // this tile heals you for some reason.
                 const healed_statuses = core.protocol.StatusCondition_wounded_leg | //
                     core.protocol.StatusCondition_limping | //
@@ -502,12 +509,13 @@ pub const GameEngine = struct {
             const action = actions.get(id).?;
             switch (action) {
                 .attack, .lunge => |attack_direction| {
+                    const attack_delta = cardinalDirectionToDelta(attack_direction);
                     var attacker_coord = getHeadPosition(current_positions.get(id).?);
                     const attacker_species = game_state.individuals.get(id).?.species;
                     var attack_distance: i32 = 1;
                     const range = core.game_logic.getAttackRange(attacker_species);
                     while (attack_distance <= range) : (attack_distance += 1) {
-                        var damage_position = attacker_coord.plus(attack_direction.scaled(attack_distance));
+                        var damage_position = attacker_coord.plus(attack_delta.scaled(attack_distance));
                         var stop_the_attack = false;
                         for (everybody) |other_id| {
                             switch (getPhysicsLayer(game_state.individuals.get(other_id).?.species)) {
@@ -538,7 +546,7 @@ pub const GameEngine = struct {
                         if (stop_the_attack) break;
                     }
                     try attacks.putNoClobber(id, Activities.Attack{
-                        .direction = attack_direction,
+                        .direction = attack_delta,
                         .distance = attack_distance,
                     });
                 },
@@ -589,7 +597,7 @@ pub const GameEngine = struct {
         for (everybody) |id| {
             const position = current_positions.get(id).?;
             for (getAllPositions(&position)) |coord| {
-                if (game_state.terrainAt(coord).floor == .lava) {
+                if (game_state.terrain.getCoord(coord).floor == .lava) {
                     _ = try attack_deaths.put(id, {});
                 }
             }
@@ -739,13 +747,13 @@ pub const GameEngine = struct {
             switch (from_species) {
                 .siren => |subspecies| switch (subspecies) {
                     .water => {
-                        if (!isWet(game_state.terrainAt(position.small).floor)) {
+                        if (!isWet(game_state.terrain.getCoord(position.small).floor)) {
                             dest_species = .{ .siren = .land };
                             core.debug.engine.print("transforming siren into land form.", .{});
                         }
                     },
                     .land => {
-                        if (isWet(game_state.terrainAt(position.small).floor)) {
+                        if (isWet(game_state.terrain.getCoord(position.small).floor)) {
                             dest_species = .{ .siren = .water };
                             core.debug.engine.print("transforming siren into water form.", .{});
                         }
@@ -755,7 +763,7 @@ pub const GameEngine = struct {
             }
             switch (position) {
                 .small => |coord| {
-                    switch (game_state.terrainAt(coord).wall) {
+                    switch (game_state.terrain.getCoord(coord).wall) {
                         .polymorph_trap_centaur => {
                             dest_species = .centaur;
                         },
@@ -786,8 +794,8 @@ pub const GameEngine = struct {
                             ordered_coords[1] = coords[0];
                         }
                         const ordered_walls = [_]Wall{
-                            game_state.terrainAt(ordered_coords[0]).wall,
-                            game_state.terrainAt(ordered_coords[1]).wall,
+                            game_state.terrain.getCoord(ordered_coords[0]).wall,
+                            game_state.terrain.getCoord(ordered_coords[1]).wall,
                         };
 
                         if (ordered_walls[0] == .polymorph_trap_rhino_west and //
@@ -1011,7 +1019,7 @@ pub const GameEngine = struct {
             for (everybody) |id| {
                 const position = current_positions.get(id).?;
                 for (getAllPositions(&position)) |coord| {
-                    if (game_state.terrainAt(coord).floor == .hatch) {
+                    if (game_state.terrain.getCoord(coord).floor == .hatch) {
                         button_getting_pressed = coord;
                         break;
                     }
@@ -1167,7 +1175,7 @@ pub const GameEngine = struct {
             var distance: i32 = 1;
             while (true) : (distance += 1) {
                 const new_head_coord = initial_head_coord.plus(move_unit.scaled(distance));
-                if (!isOpenSpace(game_state.terrainAt(new_head_coord).wall)) {
+                if (!isOpenSpace(game_state.terrain.getCoord(new_head_coord).wall)) {
                     // bonk
                     distance -= 1;
                     break;
@@ -1222,10 +1230,10 @@ pub const GameEngine = struct {
                     var collision = gop.value_ptr;
                     if (delta.equals(zero_vector)) {
                         collision.stationary_id = id;
-                    } else if (isCardinalDirection(delta)) {
-                        collision.cardinal_index_to_enterer[@enumToInt(directionToCardinalIndex(delta))] = id;
-                    } else if (isScaledCardinalDirection(delta, 2)) {
-                        collision.cardinal_index_to_fast_enterer[@enumToInt(directionToCardinalIndex(delta.scaledDivTrunc(2)))] = id;
+                    } else if (isOrthogonalUnitVector(delta)) {
+                        collision.cardinal_index_to_enterer[@enumToInt(deltaToCardinalDirection(delta))] = id;
+                    } else if (isOrthogonalVectorOfMagnitude(delta, 2)) {
+                        collision.cardinal_index_to_fast_enterer[@enumToInt(deltaToCardinalDirection(delta.scaledDivTrunc(2)))] = id;
                     } else unreachable;
                 }
             }
@@ -1369,7 +1377,7 @@ pub const GameEngine = struct {
     };
     fn observeFrame(
         self: *const GameEngine,
-        game_state: *const GameState,
+        game_state: *GameState,
         my_id: u32,
         perception: *MutablePerceivedHappening,
         maybe_current_positions: ?*const IdMap(ThingPosition),
@@ -1384,10 +1392,10 @@ pub const GameEngine = struct {
         ));
     }
 
-    pub fn getStaticPerception(self: *const GameEngine, game_state: GameState, individual_id: u32) !PerceivedFrame {
+    pub fn getStaticPerception(self: *const GameEngine, game_state: *GameState, individual_id: u32) !PerceivedFrame {
         return getPerceivedFrame(
             self,
-            &game_state,
+            game_state,
             individual_id,
             null,
             Activities.static_state,
@@ -1396,7 +1404,7 @@ pub const GameEngine = struct {
 
     fn getPerceivedFrame(
         self: *const GameEngine,
-        game_state: *const GameState,
+        game_state: *GameState,
         my_id: u32,
         maybe_current_positions: ?*const IdMap(ThingPosition),
         activities: Activities,
@@ -1442,7 +1450,7 @@ pub const GameEngine = struct {
         {
             var it = view_bounding_box.rowMajorIterator();
             while (it.next()) |cursor| {
-                if (!isClearLineOfSight(game_state.terrain, my_head_coord, cursor)) continue;
+                if (!isClearLineOfSight(&game_state.terrain, my_head_coord, cursor)) continue;
                 try in_view_matrix.putCoord(cursor, true);
 
                 var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor);
@@ -1563,7 +1571,7 @@ pub const GameEngine = struct {
             }
         }
 
-        var terrain_chunk = try self.exportTerrain(seen_terrain);
+        var terrain_chunk = try self.exportTerrain(&seen_terrain);
         terrain_chunk.position = terrain_chunk.position.minus(perceived_origin);
 
         return PerceivedFrame{
@@ -1574,7 +1582,7 @@ pub const GameEngine = struct {
         };
     }
 
-    fn exportTerrain(self: @This(), terrain: anytype) !TerrainChunk {
+    fn exportTerrain(self: @This(), terrain: *PerceivedTerrain) !TerrainChunk {
         const width = @intCast(u16, terrain.metrics.max_x - terrain.metrics.min_x + 1);
         const height = @intCast(u16, terrain.metrics.max_y - terrain.metrics.min_y + 1);
         var terrain_chunk = core.protocol.TerrainChunk{
@@ -1701,11 +1709,11 @@ fn getLevelTransitionBoundingBox(current_level_number: usize) ?Rect {
     };
 }
 
-fn isClearLineOfSight(terrain: Terrain, a: Coord, b: Coord) bool {
+fn isClearLineOfSight(terrain: *Terrain, a: Coord, b: Coord) bool {
     return isClearLineOfSightOneSided(terrain, a, b) or isClearLineOfSightOneSided(terrain, b, a);
 }
 
-fn isClearLineOfSightOneSided(terrain: Terrain, a: Coord, b: Coord) bool {
+fn isClearLineOfSightOneSided(terrain: *Terrain, a: Coord, b: Coord) bool {
     const delta = b.minus(a);
     const should_print = false;
     if (should_print) core.debug.testing.print("los: {},{} => {},{}", .{ a.x, a.y, b.x, b.y });

@@ -1,8 +1,8 @@
 const std = @import("std");
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
-const isCardinalDirection = core.geometry.isCardinalDirection;
-const isScaledCardinalDirection = core.geometry.isScaledCardinalDirection;
+const isOrthogonalVectorOfMagnitude = core.geometry.isOrthogonalVectorOfMagnitude;
+const cardinalDirectionToDelta = core.geometry.cardinalDirectionToDelta;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const ThingPosition = core.protocol.ThingPosition;
 const Species = core.protocol.Species;
@@ -75,7 +75,7 @@ pub fn getAttackEffect(species: Species) AttackEffect {
 
 pub fn actionCausesPainWhileMalaised(action: std.meta.Tag(Action)) bool {
     return switch (action) {
-        .fast_move, .attack, .kick, .nibble, .stomp, .lunge, .open_close => true,
+        .charge, .attack, .kick, .nibble, .stomp, .lunge, .open_close => true,
         else => false,
     };
 }
@@ -179,7 +179,7 @@ pub fn getPhysicsLayer(species: Species) u2 {
 }
 
 pub fn isFastMoveAligned(position: ThingPosition, move_delta: Coord) bool {
-    assert(core.geometry.isScaledCardinalDirection(move_delta, 2));
+    assert(isOrthogonalVectorOfMagnitude(move_delta, 2));
     if (position != .large) return false;
     const facing_delta = position.large[0].minus(position.large[1]);
     return facing_delta.scaled(2).equals(move_delta);
@@ -303,22 +303,20 @@ pub fn getAnatomy(species: Species) Anatomy {
     }
 }
 
-pub fn validateAction(species: Species, position: ThingPosition, status_conditions: StatusConditions, action: Action) !void {
+pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), status_conditions: StatusConditions, action: std.meta.Tag(Action)) !void {
+    const immobilizing_statuses = core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled;
+    const pain_statuses = core.protocol.StatusCondition_pain;
     switch (action) {
         .wait => {},
-        .move => |move_delta| {
-            if (!isCardinalDirection(move_delta)) return error.BadDelta;
+        .move => {
             if (!canMoveNormally(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled)) return error.StatusForbids;
+            if (0 != status_conditions & immobilizing_statuses) return error.StatusForbids;
         },
-        .fast_move => |move_delta| {
-            if (!isScaledCardinalDirection(move_delta, 2)) return error.BadDelta;
+        .charge => {
             if (!canCharge(species)) return error.SpeciesIncapable;
-            if (!isFastMoveAligned(position, move_delta)) return error.BadAlignment;
-            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
+            if (0 != status_conditions & (immobilizing_statuses | pain_statuses)) return error.StatusForbids;
         },
-        .grow => |move_delta| {
-            if (!isCardinalDirection(move_delta)) return error.BadDelta;
+        .grow => {
             if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
             if (position != .small) return error.TooBig;
         },
@@ -326,32 +324,29 @@ pub fn validateAction(species: Species, position: ThingPosition, status_conditio
             if (!canGrowAndShrink(species)) return error.SpeciesIncapable;
             if (position != .large) return error.TooSmall;
         },
-        .attack => |direction| {
+        .attack => {
             if (!canAttack(species)) return error.SpeciesIncapable;
-            if (!isCardinalDirection(direction)) return error.BadDelta;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
-        .kick => |direction| {
+        .kick => {
             if (!canKick(species)) return error.SpeciesIncapable;
-            if (!isCardinalDirection(direction)) return error.BadDelta;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .nibble => {
             if (!canNibble(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .stomp => {
             if (!canKick(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
-        .lunge => |direction| {
+        .lunge => {
             if (!canLunge(species)) return error.SpeciesIncapable;
-            if (!isCardinalDirection(direction)) return error.BadDelta;
-            if (0 != status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled | core.protocol.StatusCondition_pain)) return error.StatusForbids;
+            if (0 != status_conditions & (immobilizing_statuses | pain_statuses)) return error.StatusForbids;
         },
         .open_close => {
             if (!canUseDoors(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & core.protocol.StatusCondition_pain) return error.StatusForbids;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .cheatcode_warp => {},
     }

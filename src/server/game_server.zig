@@ -46,7 +46,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
     const main_player_id: u32 = 1;
     var you_are_alive = true;
     // Welcome to swarkland!
-    try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
+    try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(&game_state, main_player_id) });
 
     var response_for_ais = IdMap(Response).init(allocator);
     var history = HistoryList{};
@@ -58,7 +58,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         // do ai
         for (game_state.individuals.keys()) |id| {
             if (id == main_player_id) continue;
-            const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(game_state, id) };
+            const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(&game_state, id) };
             const action = doAi(response);
             const individual = game_state.individuals.get(id).?;
             validateAction(individual.species, individual.abs_position, individual.status_conditions, action) catch |err| @panic(@errorName(err));
@@ -128,7 +128,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                     else => {},
                 }
             }
-            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(game_state, main_player_id) });
+            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(&game_state, main_player_id) });
         } else {
 
             // Time goes forward.
@@ -190,15 +190,15 @@ fn doAi(response: Response) Action {
 pub fn debugPrintAction(prefix_number: u32, action: Action) void {
     switch (action) {
         .wait => core.debug.actions.print("{}: Action{{ .wait = {{}} }},", .{prefix_number}),
-        .move => |move_delta| core.debug.actions.print("{}: Action{{ .move = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
-        .fast_move => |move_delta| core.debug.actions.print("{}: Action{{ .fast_move = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
-        .grow => |move_delta| core.debug.actions.print("{}: Action{{ .grow = makeCoord({}, {}) }},", .{ prefix_number, move_delta.x, move_delta.y }),
+        .move => |direction| core.debug.actions.print("{}: Action{{ .move = .{s} }},", .{ prefix_number, @tagName(direction) }),
+        .charge => core.debug.actions.print("{}: Action{{ .charge = {{}} }},", .{prefix_number}),
+        .grow => |direction| core.debug.actions.print("{}: Action{{ .grow = .{s} }},", .{ prefix_number, @tagName(direction) }),
         .shrink => |index| core.debug.actions.print("{}: Action{{ .shrink = {} }},", .{ prefix_number, index }),
-        .attack => |direction| core.debug.actions.print("{}: Action{{ .attack = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
+        .attack => |direction| core.debug.actions.print("{}: Action{{ .attack = .{s} }},", .{ prefix_number, @tagName(direction) }),
         .nibble => core.debug.actions.print("{}: Action{{ .nibble = {{}} }},", .{prefix_number}),
         .stomp => core.debug.actions.print("{}: Action{{ .stomp = {{}} }},", .{prefix_number}),
-        .lunge => |direction| core.debug.actions.print("{}: Action{{ .lunge = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
-        .kick => |direction| core.debug.actions.print("{}: Action{{ .kick = makeCoord({}, {}) }},", .{ prefix_number, direction.x, direction.y }),
+        .lunge => |direction| core.debug.actions.print("{}: Action{{ .lunge = .{s} }},", .{ prefix_number, @tagName(direction) }),
+        .kick => |direction| core.debug.actions.print("{}: Action{{ .kick = .{s} }},", .{ prefix_number, @tagName(direction) }),
         .open_close => |direction| core.debug.actions.print("{}: Action{{ .open_close = .{s} }},", .{ prefix_number, @tagName(direction) }),
 
         .cheatcode_warp => |index| core.debug.actions.print("{}: Action{{ .cheatcode_warp = {} }},", .{ prefix_number, index }),

@@ -241,9 +241,4 @@ pub const GameState = struct {
             }
         }
     }
-
-    /// @depracated . just call the thing.
-    pub fn terrainAt(self: GameState, coord: Coord) TerrainSpace {
-        return self.terrain.getCoord(coord);
-    }
 };

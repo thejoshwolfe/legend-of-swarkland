@@ -14,7 +14,7 @@ const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const directionToRotation = core.geometry.directionToRotation;
-const directionToCardinalIndex = core.geometry.directionToCardinalIndex;
+const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
 const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
 const FancyClient = @import("../client/FancyClient.zig");
 const Species = core.protocol.Species;
@@ -35,6 +35,7 @@ const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
 const canUseDoors = core.game_logic.canUseDoors;
+const validateAction = core.game_logic.validateAction;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
 
@@ -127,14 +128,17 @@ const RunningState = struct {
 
     // tutorial state should *not* reset through undo.
     // these values cap out at small values, because we only use them for showing/hiding tutorials.
-    kicks_performed: u2 = 0,
-    observed_kangaroo_death: bool = false,
+    kick_performed: bool = false,
+    kick_observed: bool = false,
     charge_performed: bool = false,
     moves_performed: u2 = 0,
     attacks_performed: u2 = 0,
-    performed_wait: bool = false,
+    wait_performed: bool = false,
+    // puzzle level tutorials
     consecutive_undos: u3 = 0,
     performed_restart: bool = false,
+    // feedback for pressing inputs wrong
+    input_tutorial: ?[]const u8 = null,
 
     new_game_settings: union(enum) {
         regular,
@@ -192,6 +196,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             } else {
                                 // Show animations for what's going on.
                                 try loadAnimations(&state.animations, happening.frames, now);
+                                state.input_tutorial = null;
                             }
                             state.client_state = happening.frames[happening.frames.len - 1];
 
@@ -199,16 +204,16 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             state.consecutive_undos = 0;
                             for (happening.frames) |frame| {
                                 for (frame.others) |other| {
-                                    if (other.activity == .death and other.species == .kangaroo) {
-                                        state.observed_kangaroo_death = true;
+                                    if (other.activity == .kick) {
+                                        state.kick_observed = true;
                                     }
                                 }
                                 switch (frame.self.activity) {
                                     .kick => {
-                                        state.kicks_performed +|= 1;
+                                        state.kick_performed = true;
                                     },
                                     .movement => |delta| {
-                                        if (core.geometry.isScaledCardinalDirection(delta, 2)) {
+                                        if (core.geometry.isOrthogonalVectorOfMagnitude(delta, 2)) {
                                             state.charge_performed = true;
                                         } else {
                                             state.moves_performed +|= 1;
@@ -333,60 +338,52 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                                     .greaterthan => {
                                         if (state.input_prompt == .kick) {
-                                            try state.client.act(.stomp);
+                                            clearInputState(state);
+                                            try doActionOrShowTutorialForError(state, .stomp);
                                         }
-                                        state.input_prompt = .none;
                                     },
 
                                     .start_attack => {
-                                        if (canAttack(state.client_state.?.self.species)) {
-                                            state.input_prompt = .attack;
-                                        }
+                                        _ = validateAndShowTotorialForError(state, .attack);
+                                        state.input_prompt = .attack;
                                     },
                                     .start_kick => {
-                                        if (canKick(state.client_state.?.self.species)) {
-                                            state.input_prompt = .kick;
-                                        }
+                                        _ = validateAndShowTotorialForError(state, .kick);
+                                        state.input_prompt = .kick;
                                     },
                                     .start_open_close => {
-                                        if (canUseDoors(state.client_state.?.self.species)) {
-                                            state.input_prompt = .open_close;
-                                        }
+                                        _ = validateAndShowTotorialForError(state, .open_close);
+                                        state.input_prompt = .open_close;
                                     },
                                     .charge => {
-                                        if (canCharge(state.client_state.?.self.species)) {
-                                            const position_coords = state.client_state.?.self.position.large;
-                                            const delta = position_coords[0].minus(position_coords[1]);
-                                            try state.client.act(Action{ .fast_move = delta.scaled(2) });
-                                        }
+                                        try doActionOrShowTutorialForError(state, .charge);
                                     },
                                     .stomp => {
-                                        if (canKick(state.client_state.?.self.species)) {
-                                            try state.client.act(.stomp);
-                                            state.input_prompt = .none;
-                                        }
+                                        try doActionOrShowTutorialForError(state, .stomp);
+                                        state.input_prompt = .none;
                                     },
                                     .backspace => {
-                                        if (state.input_prompt != .none) {
-                                            state.input_prompt = .none;
-                                        } else {
+                                        if (state.input_prompt == .none) {
                                             try state.client.rewind();
                                             state.consecutive_undos +|= 1;
                                         }
+                                        clearInputState(state);
                                     },
                                     .spacebar => {
+                                        clearInputState(state);
                                         try state.client.act(.wait);
-                                        state.performed_wait = true;
+                                        state.wait_performed = true;
                                     },
                                     .escape => {
-                                        state.input_prompt = .none;
+                                        clearInputState(state);
                                         state.animations = null;
-                                        state.client.cancelAutoAction();
                                     },
                                     .restart => {
-                                        try state.client.restartLevel();
-                                        state.input_prompt = .none;
-                                        state.performed_restart = true;
+                                        if (state.new_game_settings == .puzzle_level) {
+                                            try state.client.restartLevel();
+                                            clearInputState(state);
+                                            state.performed_restart = true;
+                                        }
                                     },
                                     .quit => {
                                         state.client.client.stopEngine();
@@ -532,7 +529,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 const screen_display_position = b: {
                     const self_display_rect = getDisplayRect(progress, move_frame_time, frame.self);
                     const self_display_center = self_display_rect.position().plus(self_display_rect.size().scaledDivTrunc(2));
-                    const screen_half_size = makeCoord(15, 15).scaled(32 / 2);
+                    const screen_half_size = makeCoord(16, 16).scaled(32 / 2);
                     break :b self_display_center.minus(screen_half_size);
                 };
 
@@ -772,11 +769,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     maybe_tutorial_text = "Use Escape to skip animations.";
                 } else if (frame.self.activity == .death) {
                     maybe_tutorial_text = "You died. Use Backspace to undo.";
-                } else if (state.consecutive_undos >= 6 and !state.performed_restart) {
+                } else if (state.new_game_settings == .puzzle_level and state.consecutive_undos >= 6 and !state.performed_restart) {
                     maybe_tutorial_text = "Press R to restart the current level.";
-                } else if (frame.completed_levels == the_levels.len - 1) {
+                } else if (state.input_tutorial) |text| {
+                    maybe_tutorial_text = text;
+                } else if (state.new_game_settings == .puzzle_level and frame.completed_levels == the_levels.len - 1) {
                     maybe_tutorial_text = "You're are win. Use Ctrl+R to quit.";
-                } else if (state.observed_kangaroo_death and state.kicks_performed < 2 and canKick(frame.self.species)) {
+                } else if (state.kick_observed and canKick(frame.self.species) and !state.kick_performed) {
                     maybe_tutorial_text = "You learned to kick! Use K then a direction.";
                 } else if (frame.self.species == .rhino and !state.charge_performed) {
                     maybe_tutorial_text = "Press C to charge.";
@@ -784,7 +783,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     maybe_tutorial_text = "Use Arrow Keys to move.";
                 } else if (state.attacks_performed < 2) {
                     maybe_tutorial_text = "Press F then a direction to attack.";
-                } else if (!state.performed_wait and frame.self.status_conditions & core.protocol.StatusCondition_digesting != 0) {
+                } else if (!state.wait_performed and frame.self.status_conditions & core.protocol.StatusCondition_digesting != 0) {
                     maybe_tutorial_text = "Use Spacebar to wait.";
                 }
                 if (maybe_tutorial_text) |tutorial_text| {
@@ -863,62 +862,82 @@ fn startGame(game_state: *GameState) !void {
 }
 
 fn doDirectionInput(state: *RunningState, delta: Coord) !void {
-    switch (state.input_prompt) {
-        .none => {},
-        .attack => {
-            try state.client.attack(delta);
-            state.input_prompt = .none;
-            return;
-        },
-        .kick => {
-            try state.client.kick(delta);
-            state.input_prompt = .none;
-            return;
-        },
-        .open_close => {
-            try state.client.act(Action{ .open_close = directionToCardinalIndex(delta) });
-            state.input_prompt = .none;
-            return;
-        },
-    }
-
-    // The default input behavior is a move-like action.
-    const myself = state.client_state.?.self;
-    if (core.game_logic.canMoveNormally(myself.species)) {
-        return state.client.move(delta);
-    } else if (core.game_logic.canGrowAndShrink(myself.species)) {
-        switch (myself.position) {
-            .small => {
-                return state.client.act(Action{ .grow = delta });
-            },
-            .large => |large_position| {
-                // which direction should we shrink?
-                const position_delta = large_position[0].minus(large_position[1]);
-                if (position_delta.equals(delta)) {
-                    // foward
-                    return state.client.act(Action{ .shrink = 0 });
-                } else if (position_delta.equals(delta.scaled(-1))) {
-                    // backward
-                    return state.client.act(Action{ .shrink = 1 });
-                } else {
-                    // You cannot shrink sideways.
-                    return;
+    const action = switch (state.input_prompt) {
+        .none => blk: {
+            // The default input behavior is a move-like action.
+            const myself = state.client_state.?.self;
+            if (core.game_logic.canMoveNormally(myself.species)) {
+                break :blk Action{ .move = deltaToCardinalDirection(delta) };
+            } else if (core.game_logic.canGrowAndShrink(myself.species)) {
+                switch (myself.position) {
+                    .small => {
+                        break :blk Action{ .grow = deltaToCardinalDirection(delta) };
+                    },
+                    .large => |large_position| {
+                        // which direction should we shrink?
+                        const position_delta = large_position[0].minus(large_position[1]);
+                        if (position_delta.equals(delta)) {
+                            // foward
+                            break :blk Action{ .shrink = 0 };
+                        } else if (position_delta.equals(delta.scaled(-1))) {
+                            // backward
+                            break :blk Action{ .shrink = 1 };
+                        } else {
+                            // You cannot shrink sideways.
+                            return;
+                        }
+                    },
                 }
-            },
-        }
-    } else {
-        // You're not a moving one.
-        return;
-    }
+            } else {
+                // You're not a moving one.
+                return;
+            }
+        },
+        .attack => Action{ .attack = deltaToCardinalDirection(delta) },
+        .kick => Action{ .kick = deltaToCardinalDirection(delta) },
+        .open_close => Action{ .open_close = deltaToCardinalDirection(delta) },
+    };
+    clearInputState(state);
+    try doActionOrShowTutorialForError(state, action);
 }
 
 fn doAutoDirectionInput(state: *RunningState, delta: Coord) !void {
-    state.input_prompt = .none;
+    clearInputState(state);
 
     const myself = state.client_state.?.self;
     if (core.game_logic.canMoveNormally(myself.species)) {
         return state.client.autoMove(delta);
     }
+}
+
+fn doActionOrShowTutorialForError(state: *RunningState, action: Action) !void {
+    if (validateAndShowTotorialForError(state, action)) {
+        try state.client.act(action);
+    }
+}
+
+var tutorial_text_buffer: [0x100]u8 = undefined;
+fn validateAndShowTotorialForError(state: *RunningState, action: std.meta.Tag(Action)) bool {
+    const myself = state.client_state.?.self;
+    if (validateAction(myself.species, myself.position, myself.status_conditions, action)) {
+        state.input_tutorial = null;
+        return true;
+    } else |err| switch (err) {
+        error.StatusForbids => {
+            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "You cannot {s}. Try Spacebar to wait.", .{@tagName(action)}) catch unreachable;
+        },
+        error.SpeciesIncapable => {
+            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "A {s} cannot {s}.", .{ @tagName(myself.species), @tagName(action) }) catch unreachable;
+        },
+        error.TooBig, error.TooSmall => unreachable,
+    }
+    return false;
+}
+
+fn clearInputState(state: *RunningState) void {
+    state.input_prompt = .none;
+    state.input_tutorial = null;
+    state.client.cancelAutoAction();
 }
 
 fn positionedRect32(position: Coord) Rect {

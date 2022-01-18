@@ -120,7 +120,8 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             r.intRangeLessThan(i32, rooms_for_spawn.items[0].x + 1, rooms_for_spawn.items[0].right() - 1),
             r.intRangeLessThan(i32, rooms_for_spawn.items[0].y + 1, rooms_for_spawn.items[0].bottom() - 1),
         );
-        try individuals.putNoClobber(1, try makeIndividual(start_point, .human).clone(allocator));
+        const human = try makeIndividual(start_point, .human).clone(allocator);
+        try individuals.putNoClobber(1, human);
         try warp_points_list.append(start_point);
 
         // join rooms
@@ -1111,7 +1112,7 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
                     terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
                     level.individuals = level.individuals ++ [_]Individual{makeLargeIndividual(
                         makeCoord(x, y),
-                        makeCoord(x, y).minus(core.geometry.cardinalIndexToDirection(options.facing_directions[facing_directions_index])),
+                        makeCoord(x, y).minus(core.geometry.cardinalDirectionToDelta(options.facing_directions[facing_directions_index])),
                         .rhino,
                     )};
                     facing_directions_index += 1;

@@ -19,6 +19,7 @@ const core = @import("../index.zig");
 const game_server = @import("../server/game_server.zig");
 const debugPrintAction = game_server.debugPrintAction;
 const Coord = core.geometry.Coord;
+const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
 const Request = core.protocol.Request;
 const NewGameSettings = core.protocol.NewGameSettings;
 const Action = core.protocol.Action;
@@ -30,7 +31,9 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 const TerrainSpace = core.protocol.TerrainSpace;
 const Wall = core.protocol.Wall;
 const Floor = core.protocol.Floor;
-const cheatcodes = @import("cheatcodes.zig");
+const cheatcodes = struct {
+    pub const beat_level_actions = [_][]const Action{}; // TODO: fix or delete.
+};
 const GameEngineClient = @import("game_engine_client.zig").GameEngineClient;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
@@ -70,19 +73,9 @@ pub fn rewind(self: *@This()) !void {
     core.debug.actions.print("[rewind]", .{});
 }
 
-pub fn move(self: *@This(), direction: Coord) !void {
-    return self.act(Action{ .move = direction });
-}
-pub fn attack(self: *@This(), direction: Coord) !void {
-    return self.act(Action{ .attack = direction });
-}
-pub fn kick(self: *@This(), direction: Coord) !void {
-    return self.act(Action{ .kick = direction });
-}
-
 pub fn autoMove(self: *@This(), direction: Coord) !void {
     self.auto_move = direction;
-    try self.move(direction);
+    try self.act(Action{ .move = deltaToCardinalDirection(direction) });
 }
 pub fn cancelAutoAction(self: *@This()) void {
     self.auto_move = null;
@@ -106,7 +99,7 @@ fn maybeContinueAutoAction(self: *@This(), happening: PerceivedHappening) !void 
     }
 
     core.debug.auto_action.print("continuing auto move: {},{}", .{ direction.x, direction.y });
-    try self.move(direction);
+    try self.act(Action{ .move = deltaToCardinalDirection(direction) });
 }
 
 pub fn beatLevelMacro(self: *@This(), how_many: usize) !void {
