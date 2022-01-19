@@ -5,6 +5,7 @@ const Coord = geometry.Coord;
 const Rect = geometry.Rect;
 const makeCoord = geometry.makeCoord;
 const textures = @import("./textures.zig");
+const Font = textures.Font;
 
 pub const LinearMenuState = struct {
     cursor_position: usize = 0,
@@ -40,24 +41,24 @@ pub const LinearMenuState = struct {
 
 pub const Gui = struct {
     _renderer: *sdl.Renderer,
-    _menu_state: *LinearMenuState,
-    _cursor_icon: Rect,
+    _menu_state: ?*LinearMenuState = null,
+    _cursor_icon: ?Rect = null,
 
-    _button_count: usize,
-    _cursor: Coord,
-    _scale: i32,
-    _bold: bool,
-    _marginBottom: i32,
-    pub fn init(renderer: *sdl.Renderer, menu_state: *LinearMenuState, cursor_icon: Rect) Gui {
+    _button_count: usize = 0,
+    _cursor: Coord = .{ .x = 0, .y = 0 },
+    _scale: i32 = 1,
+    _font: Font = .large,
+    _marginBottom: i32 = 0,
+    pub fn initInteractive(renderer: *sdl.Renderer, menu_state: *LinearMenuState, cursor_icon: Rect) Gui {
         return Gui{
             ._renderer = renderer,
             ._menu_state = menu_state,
             ._cursor_icon = cursor_icon,
-            ._button_count = 0,
-            ._cursor = geometry.makeCoord(0, 0),
-            ._scale = 1,
-            ._bold = false,
-            ._marginBottom = 0,
+        };
+    }
+    pub fn init(renderer: *sdl.Renderer) Gui {
+        return Gui{
+            ._renderer = renderer,
         };
     }
 
@@ -73,28 +74,28 @@ pub const Gui = struct {
     pub fn scale(self: *Gui, s: i32) void {
         self._scale = s;
     }
-    pub fn bold(self: *Gui, b: bool) void {
-        self._bold = b;
+    pub fn font(self: *Gui, f: Font) void {
+        self._font = f;
     }
     pub fn marginBottom(self: *Gui, m: i32) void {
         self._marginBottom = m;
     }
 
     pub fn text(self: *Gui, string: []const u8) void {
-        self._cursor.y = textures.renderTextScaled(self._renderer, string, self._cursor, self._bold, self._scale).y;
+        self._cursor.y = textures.renderTextScaled(self._renderer, string, self._cursor, self._font, self._scale).y;
         self._cursor.y += self._marginBottom * self._scale;
     }
 
     pub fn imageAndText(self: *Gui, sprite: Rect, string: []const u8) void {
         textures.renderSprite(self._renderer, sprite, self._cursor);
-        const text_heigh = textures.getCharRect(' ', self._bold).height * self._scale;
+        const text_heigh = textures.getCharRect(' ', self._font).height * self._scale;
         const text_position = Coord{
             .x = self._cursor.x + sprite.width + 4,
             .y = self._cursor.y + if (sprite.height < text_heigh) 0 else @divTrunc(sprite.height, 2) - @divTrunc(text_heigh, 2),
         };
 
         const starting_y = self._cursor.y;
-        self._cursor.y = textures.renderTextScaled(self._renderer, string, text_position, self._bold, self._scale).y;
+        self._cursor.y = textures.renderTextScaled(self._renderer, string, text_position, self._font, self._scale).y;
         if (self._cursor.y < starting_y + sprite.height) {
             self._cursor.y = starting_y + sprite.height;
         }
@@ -106,12 +107,12 @@ pub const Gui = struct {
         self.text(string);
         const this_button_index = self._button_count;
         self._button_count += 1;
-        self._menu_state.ensureButtonCount(self._button_count);
-        if (self._menu_state.cursor_position == this_button_index) {
+        self._menu_state.?.ensureButtonCount(self._button_count);
+        if (self._menu_state.?.cursor_position == this_button_index) {
             // also render the cursor
-            const icon_position = makeCoord(start_position.x - self._cursor_icon.width, start_position.y);
-            textures.renderSprite(self._renderer, self._cursor_icon, icon_position);
-            return self._menu_state.enter_pressed;
+            const icon_position = makeCoord(start_position.x - self._cursor_icon.?.width, start_position.y);
+            textures.renderSprite(self._renderer, self._cursor_icon.?, icon_position);
+            return self._menu_state.?.enter_pressed;
         }
         return false;
     }

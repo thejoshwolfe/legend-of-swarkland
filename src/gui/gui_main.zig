@@ -427,15 +427,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
         switch (game_state) {
             .main_menu => |*menu_state| {
-                var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.dagger);
+                var menu_renderer = gui.Gui.initInteractive(renderer, menu_state, textures.sprites.dagger);
 
                 menu_renderer.seek(10, 10);
                 menu_renderer.scale(2);
-                menu_renderer.bold(true);
+                menu_renderer.font(.large_bold);
                 menu_renderer.marginBottom(5);
                 menu_renderer.text("Legend of Swarkland");
                 menu_renderer.scale(1);
-                menu_renderer.bold(false);
+                menu_renderer.font(.large);
                 menu_renderer.seekRelative(70, 30);
                 if (menu_renderer.button("New Game")) {
                     try startGame(&game_state);
@@ -470,7 +470,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             },
 
             .level_select => |*menu_state| {
-                var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.dagger);
+                var menu_renderer = gui.Gui.initInteractive(renderer, menu_state, textures.sprites.dagger);
                 menu_renderer.seek(32, 32);
                 menu_renderer.marginBottom(3);
 
@@ -483,12 +483,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         }
                     } else if (i == save_file.completed_levels) {
                         // Current level
-                        menu_renderer.bold(true);
+                        menu_renderer.font(.large_bold);
                         if (menu_renderer.button("??? (New)")) {
                             try startPuzzleGame(&game_state, i);
                             continue :main_loop;
                         }
-                        menu_renderer.bold(false);
+                        menu_renderer.font(.large);
                     } else {
                         // Future level
                         menu_renderer.text("---");
@@ -761,6 +761,21 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     if (0 != status_conditions & core.protocol.StatusCondition_pain) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.pain.?, anatomy_coord);
                     }
+
+                    // input options
+                    var g = gui.Gui.init(renderer);
+                    g.seek(anatomy_coord.x, anatomy_coord.y + 200);
+                    g.font(.small);
+                    g.marginBottom(1);
+                    g.text("Input:");
+                    g.text(" Space: Wait");
+                    g.text(" Arrows: Move");
+                    g.text(" Shif+Arrows: Move repeatedly");
+                    g.text(" F: Start attack");
+                    g.text(" K: Start kick");
+                    g.text(" S: Stomp");
+                    g.text(" O: Open/close door");
+                    g.text(" C: Charge");
                 }
 
                 // tutorials
@@ -791,7 +806,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
                     if (animated_y > 10) animated_y = 20 - animated_y;
                     const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
-                    _ = textures.renderTextScaled(renderer, tutorial_text, coord, true, 1);
+                    _ = textures.renderTextScaled(renderer, tutorial_text, coord, .large_bold, 1);
                 }
             },
         }
