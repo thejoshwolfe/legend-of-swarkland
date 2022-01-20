@@ -674,6 +674,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         grappling_front: ?Rect = null,
                         malaise: ?Rect = null,
                         pain: ?Rect = null,
+                        shielded: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
                         .humanoid => AnatomySprites{
@@ -684,6 +685,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .limping = textures.large_sprites.humanoid_limping,
                             .malaise = textures.large_sprites.humanoid_malaise,
                             .pain = textures.large_sprites.humanoid_pain,
+                            .shielded = textures.large_sprites.humanoid_shielded,
                         },
                         .centauroid => AnatomySprites{
                             .diagram = textures.large_sprites.centauroid,
@@ -730,7 +732,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
                     if (frame.self.has_shield) {
-                        textures.renderLargeSprite(renderer, textures.large_sprites.humanoid_shieled, anatomy_coord);
+                        textures.renderLargeSprite(renderer, anatomy_sprites.shielded.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
                     var status_conditions: u8 = frame.self.status_conditions;
@@ -1151,7 +1153,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
         textures.renderSprite(renderer, textures.sprites.limping, render_position);
     }
     if (thing.has_shield) {
-        textures.renderSprite(renderer, textures.sprites.equipment, render_position);
+        textures.renderSprite(renderer, textures.sprites.equipped_shield, render_position);
     }
 
     return render_position;
