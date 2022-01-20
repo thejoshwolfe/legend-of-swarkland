@@ -42,7 +42,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     {
         var rooms = ArrayList(Rect).init(allocator);
 
-        var rooms_remaining = r.intRangeAtMost(u32, 5, 9);
+        var rooms_remaining: usize = 7;
         while (rooms_remaining > 0) : (rooms_remaining -= 1) {
             const size = makeCoord(
                 r.intRangeAtMost(i32, 5, 9),
@@ -95,20 +95,47 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                 try possible_spawn_locations.append(coord);
             }
 
-            // this is orc country
-            var individuals_remaining = r.intRangeAtMost(usize, 1, 3);
+            var orc_count: usize = 1;
+            var wolf_count: usize = 0;
+            var rat_count: usize = 0;
+            var boss_room = false;
+            switch (rooms_for_spawn.items.len) {
+                0 => unreachable, // human starting room.
+                1 => {
+                    // boss room
+                    orc_count = 4;
+                    wolf_count = 2;
+                    boss_room = true;
+                },
+                2...3 => {
+                    // wolf room
+                    orc_count = r.intRangeAtMost(usize, 2, 3);
+                    wolf_count = 1;
+                },
+                4...999 => {
+                    // rat room
+                    orc_count = 2;
+                    rat_count = 7;
+                },
+                else => unreachable,
+            }
+            var individuals_remaining = orc_count;
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {
                 const coord = popRandom(r, &possible_spawn_locations) orelse break;
-                try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
+                const orc = try makeIndividual(coord, .orc).clone(allocator);
+                if (boss_room and individuals_remaining == 1) {
+                    orc.has_shield = true;
+                }
+                try individuals.putNoClobber(next_id, orc);
                 next_id += 1;
             }
-            individuals_remaining = r.intRangeAtMost(usize, 0, 1);
+            individuals_remaining = wolf_count;
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {
                 const coord = popRandom(r, &possible_spawn_locations) orelse break;
                 try individuals.putNoClobber(next_id, try makeIndividual(coord, .wolf).clone(allocator));
                 next_id += 1;
             }
-            individuals_remaining = r.intRangeAtMost(usize, 3, 7) * r.int(u1);
+            individuals_remaining = rat_count;
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {
                 const coord = popRandom(r, &possible_spawn_locations) orelse break;
                 try individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
