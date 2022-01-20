@@ -370,9 +370,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         clearInputState(state);
                                     },
                                     .spacebar => {
-                                        clearInputState(state);
-                                        try state.client.act(.wait);
-                                        state.wait_performed = true;
+                                        if (state.input_prompt == .none) {
+                                            clearInputState(state);
+                                            try state.client.act(.wait);
+                                            state.wait_performed = true;
+                                        }
                                     },
                                     .escape => {
                                         clearInputState(state);
@@ -427,15 +429,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
         switch (game_state) {
             .main_menu => |*menu_state| {
-                var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.dagger);
+                var menu_renderer = gui.Gui.initInteractive(renderer, menu_state, textures.sprites.dagger);
 
                 menu_renderer.seek(10, 10);
                 menu_renderer.scale(2);
-                menu_renderer.bold(true);
+                menu_renderer.font(.large_bold);
                 menu_renderer.marginBottom(5);
                 menu_renderer.text("Legend of Swarkland");
                 menu_renderer.scale(1);
-                menu_renderer.bold(false);
+                menu_renderer.font(.large);
                 menu_renderer.seekRelative(70, 30);
                 if (menu_renderer.button("New Game")) {
                     try startGame(&game_state);
@@ -470,7 +472,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             },
 
             .level_select => |*menu_state| {
-                var menu_renderer = gui.Gui.init(renderer, menu_state, textures.sprites.dagger);
+                var menu_renderer = gui.Gui.initInteractive(renderer, menu_state, textures.sprites.dagger);
                 menu_renderer.seek(32, 32);
                 menu_renderer.marginBottom(3);
 
@@ -483,12 +485,12 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         }
                     } else if (i == save_file.completed_levels) {
                         // Current level
-                        menu_renderer.bold(true);
+                        menu_renderer.font(.large_bold);
                         if (menu_renderer.button("??? (New)")) {
                             try startPuzzleGame(&game_state, i);
                             continue :main_loop;
                         }
-                        menu_renderer.bold(false);
+                        menu_renderer.font(.large);
                     } else {
                         // Future level
                         menu_renderer.text("---");
@@ -650,18 +652,16 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 renderActivity(renderer, progress, move_frame_time, screen_display_position, frame.self);
 
                 // sidebar
+                const anatomy_coord = makeCoord(512, 0);
                 {
-                    const anatomy_coord = makeCoord(512, 0);
-                    {
-                        const sidebard_render_rect = sdl.makeRect(Rect{
-                            .x = anatomy_coord.x,
-                            .y = anatomy_coord.y,
-                            .width = 200,
-                            .height = 512,
-                        });
-                        sdl.assertZero(sdl.c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
-                        sdl.assertZero(sdl.c.SDL_RenderFillRect(renderer, &sidebard_render_rect));
-                    }
+                    const sidebard_render_rect = sdl.makeRect(Rect{
+                        .x = anatomy_coord.x,
+                        .y = anatomy_coord.y,
+                        .width = 200,
+                        .height = 512,
+                    });
+                    sdl.assertZero(sdl.c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
+                    sdl.assertZero(sdl.c.SDL_RenderFillRect(renderer, &sidebard_render_rect));
 
                     const AnatomySprites = struct {
                         diagram: Rect,
@@ -762,12 +762,79 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         textures.renderLargeSprite(renderer, anatomy_sprites.pain.?, anatomy_coord);
                     }
                 }
+                // input options
+                {
+                    const myself = state.client_state.?.self;
+                    const species = myself.species;
+                    const position = myself.position;
+                    const status_conditions = myself.status_conditions;
+                    var g = gui.Gui.init(renderer);
+                    g.seek(anatomy_coord.x, anatomy_coord.y + 200);
+                    g.font(.small);
+                    g.marginBottom(1);
+                    g.text("Inputs:");
+                    switch (state.input_prompt) {
+                        .none => {
+                            g.text(" Space: Wait");
+                            if (validateAction(species, position, status_conditions, .move)) {
+                                g.text(" Arrows: Move");
+                                g.text(" Shift+Arrows: Move repeatedly");
+                            } else |_| if (validateAction(species, position, status_conditions, .grow)) {
+                                g.text(" Arrows: Grow");
+                                g.text(" Shift+Arrows: Grow/shrink repeatedly");
+                            } else |_| if (validateAction(species, position, status_conditions, .shrink)) {
+                                if (position.large[0].x == position.large[1].x) {
+                                    g.text(" Up/Down: Shrink");
+                                    g.text(" Shift+Up/Down: Shrink/grow repeatedly");
+                                } else {
+                                    g.text(" Left/Right: Shrink");
+                                    g.text(" Shift+Left/Right: Shrink/grow repeatedly");
+                                }
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .attack)) {
+                                g.text(" F: Start attack...");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .kick)) {
+                                g.text(" K: Start kick...");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .stomp)) {
+                                g.text(" S: Stomp");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .open_close)) {
+                                g.text(" O: Start open/close door...");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .charge)) {
+                                g.text(" C: Charge");
+                            } else |_| {}
+                            g.text(" Backspace: Undo");
+                            if (state.animations != null) {
+                                g.text(" Esc: Skip animation");
+                            }
+                        },
+                        .attack => {
+                            if (validateAction(species, position, status_conditions, .attack)) {
+                                g.text(" Arrows: Attack");
+                            } else |_| {}
+                            g.text(" Esc/Backspace: Cancel");
+                        },
+                        .kick => {
+                            if (validateAction(species, position, status_conditions, .kick)) {
+                                g.text(" Arrows: Kick");
+                            } else |_| {}
+                            g.text(" Esc/Backspace: Cancel");
+                        },
+                        .open_close => {
+                            if (validateAction(species, position, status_conditions, .open_close)) {
+                                g.text(" Arrows: Open/close");
+                            } else |_| {}
+                            g.text(" Esc/Backspace: Cancel");
+                        },
+                    }
+                }
 
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;
-                if (state.animations != null and state.animations.?.turns > 10) {
-                    maybe_tutorial_text = "Use Escape to skip animations.";
-                } else if (frame.self.activity == .death) {
+                if (frame.self.activity == .death) {
                     maybe_tutorial_text = "You died. Use Backspace to undo.";
                 } else if (state.new_game_settings == .puzzle_level and state.consecutive_undos >= 6 and !state.performed_restart) {
                     maybe_tutorial_text = "Press R to restart the current level.";
@@ -791,7 +858,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     var animated_y: i32 = @divFloor(@mod(now, 2000), 100);
                     if (animated_y > 10) animated_y = 20 - animated_y;
                     const coord = makeCoord(512 / 2 - 384 / 2, 512 - 32 + animated_y);
-                    _ = textures.renderTextScaled(renderer, tutorial_text, coord, true, 1);
+                    _ = textures.renderTextScaled(renderer, tutorial_text, coord, .large_bold, 1);
                 }
             },
         }

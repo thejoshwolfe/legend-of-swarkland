@@ -9,21 +9,38 @@ pub const version_string = @embedFile("../../zig-cache/version.txt");
 
 pub const sprites = @import("../../zig-cache/spritesheet32.zig");
 pub const large_sprites = @import("../../zig-cache/spritesheet200.zig");
-pub const fonts = @import("../../zig-cache/fontsheet.zig");
+pub const fonts12x16 = @import("../../zig-cache/fontsheet12x16.zig");
+pub const fonts6x10 = @import("../../zig-cache/fontsheet6x10.zig");
 
 var sprites_texture: *sdl.c.SDL_Texture = undefined;
 var large_sprites_texture: *sdl.c.SDL_Texture = undefined;
-var fonts_texture: *sdl.c.SDL_Texture = undefined;
+var fonts12x16_texture: *sdl.c.SDL_Texture = undefined;
+var fonts6x10_texture: *sdl.c.SDL_Texture = undefined;
 pub fn init(renderer: *sdl.Renderer) void {
     sprites_texture = loadTexture(renderer, sprites.buffer, sprites.width, sprites.height);
     large_sprites_texture = loadTexture(renderer, large_sprites.buffer, large_sprites.width, large_sprites.height);
-    fonts_texture = loadTexture(renderer, fonts.buffer, fonts.width, fonts.height);
+    fonts12x16_texture = loadTexture(renderer, fonts12x16.buffer, fonts12x16.width, fonts12x16.height);
+    fonts6x10_texture = loadTexture(renderer, fonts6x10.buffer, fonts6x10.width, fonts6x10.height);
 }
 
 pub fn deinit() void {
     sdl.c.SDL_DestroyTexture(sprites_texture);
     sdl.c.SDL_DestroyTexture(large_sprites_texture);
-    sdl.c.SDL_DestroyTexture(fonts_texture);
+    sdl.c.SDL_DestroyTexture(fonts12x16_texture);
+    sdl.c.SDL_DestroyTexture(fonts6x10_texture);
+}
+
+pub const Font = enum {
+    large,
+    large_bold,
+    small,
+};
+
+fn fontToTexture(font: Font) *sdl.c.SDL_Texture {
+    return switch (font) {
+        .large, .large_bold => fonts12x16_texture,
+        .small => fonts6x10_texture,
+    };
 }
 
 fn loadTexture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height: i32) *sdl.c.SDL_Texture {
@@ -43,22 +60,26 @@ fn loadTexture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height: 
     return texture;
 }
 
-pub fn renderTextScaled(renderer: *sdl.Renderer, text: []const u8, location: Coord, bold: bool, scale: i32) Coord {
+pub fn renderTextScaled(renderer: *sdl.Renderer, text: []const u8, location: Coord, font: Font, scale: i32) Coord {
     var lower_right = location;
     for (text) |c| {
-        lower_right = renderChar(renderer, c, makeCoord(lower_right.x, location.y), bold, scale);
+        lower_right = renderChar(renderer, c, makeCoord(lower_right.x, location.y), font, scale);
     }
     return lower_right;
 }
 
-pub fn getCharRect(c_: u8, bold: bool) Rect {
+pub fn getCharRect(c_: u8, font: Font) Rect {
     var c = c_;
     if (c < ' ') {
         core.debug.testing.print("less", .{});
         c = '?';
     }
     var index = c - ' ';
-    const sheet = if (bold) &fonts.console_bold else &fonts.console;
+    const sheet = switch (font) {
+        .large => &fonts12x16.console,
+        .large_bold => &fonts12x16.console_bold,
+        .small => &fonts6x10.simple,
+    };
     if (index >= sheet.len) {
         core.debug.testing.print("great", .{});
         index = '?' - ' ';
@@ -66,9 +87,9 @@ pub fn getCharRect(c_: u8, bold: bool) Rect {
     return sheet[index];
 }
 
-fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale: i32) Coord {
+fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, font: Font, scale: i32) Coord {
     std.debug.assert(scale > 0);
-    const char_rect = getCharRect(c, bold);
+    const char_rect = getCharRect(c, font);
     const dest = Rect{
         .x = location.x,
         .y = location.y,
@@ -78,7 +99,7 @@ fn renderChar(renderer: *sdl.Renderer, c: u8, location: Coord, bold: bool, scale
 
     const source_sdl = sdl.makeRect(char_rect);
     const dest_sdl = sdl.makeRect(dest);
-    sdl.assertZero(sdl.SDL_RenderCopy(renderer, fonts_texture, &source_sdl, &dest_sdl));
+    sdl.assertZero(sdl.SDL_RenderCopy(renderer, fontToTexture(font), &source_sdl, &dest_sdl));
 
     return makeCoord(dest.x + dest.width, dest.y + dest.height);
 }
