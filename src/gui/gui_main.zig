@@ -370,9 +370,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         clearInputState(state);
                                     },
                                     .spacebar => {
-                                        clearInputState(state);
-                                        try state.client.act(.wait);
-                                        state.wait_performed = true;
+                                        if (state.input_prompt == .none) {
+                                            clearInputState(state);
+                                            try state.client.act(.wait);
+                                            state.wait_performed = true;
+                                        }
                                     },
                                     .escape => {
                                         clearInputState(state);
@@ -650,18 +652,16 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 renderActivity(renderer, progress, move_frame_time, screen_display_position, frame.self);
 
                 // sidebar
+                const anatomy_coord = makeCoord(512, 0);
                 {
-                    const anatomy_coord = makeCoord(512, 0);
-                    {
-                        const sidebard_render_rect = sdl.makeRect(Rect{
-                            .x = anatomy_coord.x,
-                            .y = anatomy_coord.y,
-                            .width = 200,
-                            .height = 512,
-                        });
-                        sdl.assertZero(sdl.c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
-                        sdl.assertZero(sdl.c.SDL_RenderFillRect(renderer, &sidebard_render_rect));
-                    }
+                    const sidebard_render_rect = sdl.makeRect(Rect{
+                        .x = anatomy_coord.x,
+                        .y = anatomy_coord.y,
+                        .width = 200,
+                        .height = 512,
+                    });
+                    sdl.assertZero(sdl.c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
+                    sdl.assertZero(sdl.c.SDL_RenderFillRect(renderer, &sidebard_render_rect));
 
                     const AnatomySprites = struct {
                         diagram: Rect,
@@ -761,28 +761,80 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     if (0 != status_conditions & core.protocol.StatusCondition_pain) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.pain.?, anatomy_coord);
                     }
-
-                    // input options
+                }
+                // input options
+                {
+                    const myself = state.client_state.?.self;
+                    const species = myself.species;
+                    const position = myself.position;
+                    const status_conditions = myself.status_conditions;
                     var g = gui.Gui.init(renderer);
                     g.seek(anatomy_coord.x, anatomy_coord.y + 200);
                     g.font(.small);
                     g.marginBottom(1);
-                    g.text("Input:");
-                    g.text(" Space: Wait");
-                    g.text(" Arrows: Move");
-                    g.text(" Shif+Arrows: Move repeatedly");
-                    g.text(" F: Start attack");
-                    g.text(" K: Start kick");
-                    g.text(" S: Stomp");
-                    g.text(" O: Open/close door");
-                    g.text(" C: Charge");
+                    g.text("Inputs:");
+                    switch (state.input_prompt) {
+                        .none => {
+                            g.text(" Space: Wait");
+                            if (validateAction(species, position, status_conditions, .move)) {
+                                g.text(" Arrows: Move");
+                                g.text(" Shift+Arrows: Move repeatedly");
+                            } else |_| if (validateAction(species, position, status_conditions, .grow)) {
+                                g.text(" Arrows: Grow");
+                                g.text(" Shift+Arrows: Grow/shrink repeatedly");
+                            } else |_| if (validateAction(species, position, status_conditions, .shrink)) {
+                                if (position.large[0].x == position.large[1].x) {
+                                    g.text(" Up/Down: Shrink");
+                                    g.text(" Shift+Up/Down: Shrink/grow repeatedly");
+                                } else {
+                                    g.text(" Left/Right: Shrink");
+                                    g.text(" Shift+Left/Right: Shrink/grow repeatedly");
+                                }
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .attack)) {
+                                g.text(" F: Start attack...");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .kick)) {
+                                g.text(" K: Start kick...");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .stomp)) {
+                                g.text(" S: Stomp");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .open_close)) {
+                                g.text(" O: Start open/close door...");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .charge)) {
+                                g.text(" C: Charge");
+                            } else |_| {}
+                            g.text(" Backspace: Undo");
+                            if (state.animations != null) {
+                                g.text(" Esc: Skip animation");
+                            }
+                        },
+                        .attack => {
+                            if (validateAction(species, position, status_conditions, .attack)) {
+                                g.text(" Arrows: Attack");
+                            } else |_| {}
+                            g.text(" Esc/Backspace: Cancel");
+                        },
+                        .kick => {
+                            if (validateAction(species, position, status_conditions, .kick)) {
+                                g.text(" Arrows: Kick");
+                            } else |_| {}
+                            g.text(" Esc/Backspace: Cancel");
+                        },
+                        .open_close => {
+                            if (validateAction(species, position, status_conditions, .open_close)) {
+                                g.text(" Arrows: Open/close");
+                            } else |_| {}
+                            g.text(" Esc/Backspace: Cancel");
+                        },
+                    }
                 }
 
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;
-                if (state.animations != null and state.animations.?.turns > 10) {
-                    maybe_tutorial_text = "Use Escape to skip animations.";
-                } else if (frame.self.activity == .death) {
+                if (frame.self.activity == .death) {
                     maybe_tutorial_text = "You died. Use Backspace to undo.";
                 } else if (state.new_game_settings == .puzzle_level and state.consecutive_undos >= 6 and !state.performed_restart) {
                     maybe_tutorial_text = "Press R to restart the current level.";
