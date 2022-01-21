@@ -25,13 +25,15 @@ const allocator = std.heap.c_allocator;
 
 pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     const me = last_frame.self;
+    const my_species = me.kind.individual.species;
 
     var target_position: ?Coord = null;
     var target_distance: ?i32 = null;
     var target_priority: i32 = -0x80000000;
     var target_species: ?Species = null;
     for (last_frame.others) |other| {
-        const other_priority = getTargetHostilityPriority(me.species, other.species) orelse continue;
+        if (other.kind != .individual) continue;
+        const other_priority = getTargetHostilityPriority(my_species, other.kind.individual.species) orelse continue;
         if (target_priority > other_priority) continue;
         if (other_priority > target_priority) {
             target_position = null;
@@ -46,13 +48,13 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 if (distance < previous_distance) {
                     target_position = other_coord;
                     target_distance = distance;
-                    target_species = other.species;
+                    target_species = other.kind.individual.species;
                 }
             } else {
                 // First thing I see is the target so far.
                 target_position = other_coord;
                 target_distance = distance;
-                target_species = other.species;
+                target_species = other.kind.individual.species;
             }
         }
     }
@@ -63,12 +65,12 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (target_distance.? == 0) {
         // Overlapping the target.
-        if (getPhysicsLayer(me.species) > getPhysicsLayer(target_species.?)) {
+        if (getPhysicsLayer(my_species) > getPhysicsLayer(target_species.?)) {
             if (can(me, .stomp)) |action| return action;
         } else {
             if (can(me, .nibble)) |action| return action;
         }
-        if (canGrowAndShrink(me.species)) {
+        if (canGrowAndShrink(my_species)) {
             switch (me.position) {
                 .large => |data| {
                     if (target_position.?.equals(data[0])) {
@@ -89,16 +91,16 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     }
     const my_head_position = getHeadPosition(me.position);
     const delta = target_position.?.minus(my_head_position);
-    const range = if (hesitatesOneSpaceAway(me.species))
+    const range = if (hesitatesOneSpaceAway(my_species))
         1
     else
-        core.game_logic.getAttackRange(me.species);
+        core.game_logic.getAttackRange(my_species);
 
     if (delta.x * delta.y == 0) {
         // straight shot
         const delta_unit = delta.signumed();
         const delta_direction = deltaToCardinalDirection(delta_unit);
-        if (hesitatesOneSpaceAway(me.species) and delta.magnitudeOrtho() == 2) {
+        if (hesitatesOneSpaceAway(my_species) and delta.magnitudeOrtho() == 2) {
             // preemptive attack
             if (can(me, Action{ .kick = delta_direction })) |action| return action;
             // should anyone do a preemptive actual attack?
@@ -114,7 +116,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         }
         if (delta.euclideanDistanceSquared() <= range * range) {
             // within attack range
-            if (hesitatesOneSpaceAway(me.species)) {
+            if (hesitatesOneSpaceAway(my_species)) {
                 // too close. get away!
                 if (can(me, Action{ .kick = delta_direction })) |action| return action;
             }
@@ -133,7 +135,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             // Move straight twoard the target, even if someone else is in the way
             return movelikeAction(me, delta_unit);
         }
-    } else if (me.species == .blob and me.position == .large) {
+    } else if (my_species == .blob and me.position == .large) {
         // Is this a straight shot from my butt?
         const butt_delta = target_position.?.minus(me.position.large[1]);
         if (butt_delta.x * butt_delta.y == 0) {
@@ -186,7 +188,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         }
     }
 
-    if (hesitatesOneSpaceAway(me.species) and delta.magnitudeOrtho() == 2) {
+    if (hesitatesOneSpaceAway(my_species) and delta.magnitudeOrtho() == 2) {
         // preemptive attack
         if (can(me, Action{ .kick = deltaToCardinalDirection(options[option_index]) })) |action| return action;
         // should anyone do a preemptive actual attack?
@@ -261,7 +263,7 @@ fn movelikeAction(me: PerceivedThing, delta: Coord) Action {
     const delta_direction = deltaToCardinalDirection(delta);
     if (can(me, Action{ .move = delta_direction })) |action| return action;
 
-    if (canGrowAndShrink(me.species)) {
+    if (canGrowAndShrink(me.kind.individual.species)) {
         switch (me.position) {
             .small => return Action{ .grow = delta_direction },
             .large => |positions| {
@@ -288,7 +290,7 @@ fn movelikeAction(me: PerceivedThing, delta: Coord) Action {
 }
 
 fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
-    if (me.species == .blob and me.position == .large) {
+    if (me.kind.individual.species == .blob and me.position == .large) {
         // measure distance from whichever of my coords is closer.
         const distance0 = coord.minus(me.position.large[0]).magnitudeOrtho();
         const distance1 = coord.minus(me.position.large[1]).magnitudeOrtho();
@@ -300,7 +302,7 @@ fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
 }
 
 fn can(me: PerceivedThing, action: Action) ?Action {
-    core.game_logic.validateAction(me.species, me.position, me.status_conditions, action) catch |err| switch (err) {
+    core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, action) catch |err| switch (err) {
         error.SpeciesIncapable, error.StatusForbids => return null,
         error.TooBig, error.TooSmall => unreachable,
     };

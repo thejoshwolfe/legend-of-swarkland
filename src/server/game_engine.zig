@@ -1138,9 +1138,9 @@ pub const GameEngine = struct {
                     var i: usize = 0;
                     frameLoop: while (i + 1 < frame_list.items.len) : (i +%= 1) {
                         const frame = frame_list.items[i];
-                        if (frame.self.activity != PerceivedActivity.none) continue :frameLoop;
+                        if (frame.self.kind.individual.activity != PerceivedActivity.none) continue :frameLoop;
                         for (frame.others) |other| {
-                            if (other.activity != PerceivedActivity.none) continue :frameLoop;
+                            if (other.kind == .individual and other.kind.individual.activity != PerceivedActivity.none) continue :frameLoop;
                         }
                         // delete this frame
                         _ = frame_list.orderedRemove(i);
@@ -1558,11 +1558,15 @@ pub const GameEngine = struct {
             const actual_thing = game_state.individuals.get(id).?;
             const rel_position = offsetPosition(abs_position, perceived_origin.scaled(-1));
             const thing = PerceivedThing{
-                .species = actual_thing.species,
                 .position = rel_position,
-                .status_conditions = actual_thing.status_conditions,
-                .has_shield = actual_thing.has_shield,
-                .activity = activity,
+                .kind = .{
+                    .individual = .{
+                        .species = actual_thing.species,
+                        .status_conditions = actual_thing.status_conditions,
+                        .has_shield = actual_thing.has_shield,
+                        .activity = activity,
+                    },
+                },
             };
             if (id == my_id) {
                 perceived_self = thing;

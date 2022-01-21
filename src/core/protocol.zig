@@ -159,12 +159,17 @@ pub const ThingPosition = union(enum) {
 
 pub const PerceivedThing = struct {
     position: ThingPosition,
-    species: Species,
+    kind: union(enum) {
+        individual: struct {
+            species: Species,
 
-    status_conditions: StatusConditions,
-    has_shield: bool,
+            status_conditions: StatusConditions,
+            has_shield: bool,
 
-    activity: PerceivedActivity,
+            activity: PerceivedActivity,
+        },
+        shield,
+    },
 };
 
 pub const StatusConditions = u8;

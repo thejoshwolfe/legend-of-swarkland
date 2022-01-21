@@ -204,11 +204,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             state.consecutive_undos = 0;
                             for (happening.frames) |frame| {
                                 for (frame.others) |other| {
-                                    if (other.activity == .kick) {
+                                    if (other.kind == .individual and other.kind.individual.activity == .kick) {
                                         state.kick_observed = true;
                                     }
                                 }
-                                switch (frame.self.activity) {
+                                switch (frame.self.kind.individual.activity) {
                                     .kick => {
                                         state.kick_performed = true;
                                     },
@@ -625,7 +625,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 // render the things
                 for ([4]u2{ 0, 1, 2, 3 }) |physics_layer| {
                     for (frame.others) |other| {
-                        if (getPhysicsLayer(other.species) != physics_layer) continue;
+                        switch (other.kind) {
+                            .individual => {
+                                if (getPhysicsLayer(other.kind.individual.species) != physics_layer) continue;
+                            },
+                            .shield => {
+                                // put items on layer 0?
+                                if (physics_layer != 0) continue;
+                            },
+                        }
                         _ = renderThing(renderer, progress, move_frame_time, screen_display_position, other);
                     }
                 }
@@ -676,7 +684,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         pain: ?Rect = null,
                         shielded: ?Rect = null,
                     };
-                    const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.species)) {
+                    const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.kind.individual.species)) {
                         .humanoid => AnatomySprites{
                             .diagram = textures.large_sprites.humanoid,
                             .being_digested = textures.large_sprites.humanoid_being_digested,
@@ -695,7 +703,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .limping = textures.large_sprites.centauroid_limping,
                         },
                         .bloboid => AnatomySprites{
-                            .diagram = switch (frame.self.species.blob) {
+                            .diagram = switch (frame.self.kind.individual.species.blob) {
                                 .small_blob => switch (frame.self.position) {
                                     .small => textures.large_sprites.bloboid_small,
                                     .large => textures.large_sprites.bloboid_small_wide,
@@ -731,11 +739,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
-                    if (frame.self.has_shield) {
+                    if (frame.self.kind.individual.has_shield) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.shielded.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
-                    var status_conditions: u8 = frame.self.status_conditions;
+                    var status_conditions: u8 = frame.self.kind.individual.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_being_digested) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.being_digested.?, anatomy_coord);
                     }
@@ -767,9 +775,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 // input options
                 {
                     const myself = state.client_state.?.self;
-                    const species = myself.species;
+                    const species = myself.kind.individual.species;
                     const position = myself.position;
-                    const status_conditions = myself.status_conditions;
+                    const status_conditions = myself.kind.individual.status_conditions;
                     var g = gui.Gui.init(renderer);
                     g.seek(anatomy_coord.x, anatomy_coord.y + 200);
                     g.font(.small);
@@ -836,7 +844,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
                 // tutorials
                 var maybe_tutorial_text: ?[]const u8 = null;
-                if (frame.self.activity == .death) {
+                if (frame.self.kind.individual.activity == .death) {
                     maybe_tutorial_text = "You died. Use Backspace to undo.";
                 } else if (state.new_game_settings == .puzzle_level and state.consecutive_undos >= 6 and !state.performed_restart) {
                     maybe_tutorial_text = "Press R to restart the current level.";
@@ -844,15 +852,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     maybe_tutorial_text = text;
                 } else if (state.new_game_settings == .puzzle_level and frame.completed_levels == the_levels.len - 1) {
                     maybe_tutorial_text = "You're are win. Use Ctrl+R to quit.";
-                } else if (state.kick_observed and canKick(frame.self.species) and !state.kick_performed) {
+                } else if (state.kick_observed and canKick(frame.self.kind.individual.species) and !state.kick_performed) {
                     maybe_tutorial_text = "You learned to kick! Use K then a direction.";
-                } else if (frame.self.species == .rhino and !state.charge_performed) {
+                } else if (frame.self.kind.individual.species == .rhino and !state.charge_performed) {
                     maybe_tutorial_text = "Press C to charge.";
                 } else if (state.moves_performed < 2) {
                     maybe_tutorial_text = "Use Arrow Keys to move.";
                 } else if (state.attacks_performed < 2) {
                     maybe_tutorial_text = "Press F then a direction to attack.";
-                } else if (!state.wait_performed and frame.self.status_conditions & core.protocol.StatusCondition_digesting != 0) {
+                } else if (!state.wait_performed and frame.self.kind.individual.status_conditions & core.protocol.StatusCondition_digesting != 0) {
                     maybe_tutorial_text = "Use Spacebar to wait.";
                 }
                 if (maybe_tutorial_text) |tutorial_text| {
@@ -935,9 +943,9 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
         .none => blk: {
             // The default input behavior is a move-like action.
             const myself = state.client_state.?.self;
-            if (core.game_logic.canMoveNormally(myself.species)) {
+            if (core.game_logic.canMoveNormally(myself.kind.individual.species)) {
                 break :blk Action{ .move = deltaToCardinalDirection(delta) };
-            } else if (core.game_logic.canGrowAndShrink(myself.species)) {
+            } else if (core.game_logic.canGrowAndShrink(myself.kind.individual.species)) {
                 switch (myself.position) {
                     .small => {
                         break :blk Action{ .grow = deltaToCardinalDirection(delta) };
@@ -974,7 +982,7 @@ fn doAutoDirectionInput(state: *RunningState, delta: Coord) !void {
     clearInputState(state);
 
     const myself = state.client_state.?.self;
-    if (core.game_logic.canMoveNormally(myself.species)) {
+    if (core.game_logic.canMoveNormally(myself.kind.individual.species)) {
         return state.client.autoMove(delta);
     }
 }
@@ -988,7 +996,7 @@ fn doActionOrShowTutorialForError(state: *RunningState, action: Action) !void {
 var tutorial_text_buffer: [0x100]u8 = undefined;
 fn validateAndShowTotorialForError(state: *RunningState, action: std.meta.Tag(Action)) bool {
     const myself = state.client_state.?.self;
-    if (validateAction(myself.species, myself.position, myself.status_conditions, action)) {
+    if (validateAction(myself.kind.individual.species, myself.position, myself.kind.individual.status_conditions, action)) {
         state.input_tutorial = null;
         return true;
     } else |err| switch (err) {
@@ -996,7 +1004,7 @@ fn validateAndShowTotorialForError(state: *RunningState, action: std.meta.Tag(Ac
             state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "You cannot {s}. Try Spacebar to wait.", .{@tagName(action)}) catch unreachable;
         },
         error.SpeciesIncapable => {
-            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "A {s} cannot {s}.", .{ @tagName(myself.species), @tagName(action) }) catch unreachable;
+            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "A {s} cannot {s}.", .{ @tagName(myself.kind.individual.species), @tagName(action) }) catch unreachable;
         },
         error.TooBig, error.TooSmall => unreachable,
     }
@@ -1015,7 +1023,14 @@ fn positionedRect32(position: Coord) Rect {
 
 fn getDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedThing) Rect {
     const head_coord = getHeadPosition(thing.position);
-    switch (thing.activity) {
+    var activity: core.protocol.PerceivedActivity = .none;
+    switch (thing.kind) {
+        .individual => {
+            activity = thing.kind.individual.activity;
+        },
+        else => {},
+    }
+    switch (activity) {
         .movement => |move_delta| {
             return positionedRect32(core.geometry.bezierMove(
                 head_coord.scaled(32),
@@ -1107,7 +1122,7 @@ fn getDisplayRect(progress: i32, progress_denominator: i32, thing: PerceivedThin
             );
         },
         else => {
-            if (thing.species == .blob and thing.position == .large) {
+            if (thing.kind == .individual and thing.kind.individual.species == .blob and thing.position == .large) {
                 const position_delta = thing.position.large[0].minus(thing.position.large[1]);
                 return core.geometry.makeRect(
                     core.geometry.min(thing.position.large[0], thing.position.large[1]).scaled(32),
@@ -1126,44 +1141,52 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
     const render_position = display_rect.position().minus(screen_display_position);
 
     // render main sprite
-    switch (thing.species) {
-        else => {
-            textures.renderSpriteScaled(renderer, speciesToSprite(thing.species), render_rect);
-        },
-        .rhino => {
-            const oriented_delta = if (progress < @divTrunc(progress_denominator, 2))
-                thing.position.large[1].minus(thing.position.large[0])
-            else blk: {
-                const future_position = core.game_logic.applyMovementFromActivity(thing.activity, thing.position);
-                break :blk future_position.large[1].minus(future_position.large[0]);
-            };
-            const tail_render_position = render_position.plus(oriented_delta.scaled(32));
-            const rhino_sprite_normalizing_rotation = 0;
-            const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
-            textures.renderSpriteRotated(renderer, speciesToSprite(thing.species), render_position, rotation);
-            textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.species), tail_render_position, rotation);
-        },
-    }
+    switch (thing.kind) {
+        .individual => {
+            switch (thing.kind.individual.species) {
+                else => {
+                    textures.renderSpriteScaled(renderer, speciesToSprite(thing.kind.individual.species), render_rect);
+                },
+                .rhino => {
+                    const oriented_delta = if (progress < @divTrunc(progress_denominator, 2))
+                        thing.position.large[1].minus(thing.position.large[0])
+                    else blk: {
+                        const future_position = core.game_logic.applyMovementFromActivity(thing.kind.individual.activity, thing.position);
+                        break :blk future_position.large[1].minus(future_position.large[0]);
+                    };
+                    const tail_render_position = render_position.plus(oriented_delta.scaled(32));
+                    const rhino_sprite_normalizing_rotation = 0;
+                    const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
+                    textures.renderSpriteRotated(renderer, speciesToSprite(thing.kind.individual.species), render_position, rotation);
+                    textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.kind.individual.species), tail_render_position, rotation);
+                },
+            }
 
-    // render status effects
-    if (thing.status_conditions & (core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_being_digested) != 0) {
-        textures.renderSprite(renderer, textures.sprites.wounded, render_position);
-    }
-    if (thing.status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled) != 0) {
-        textures.renderSprite(renderer, textures.sprites.limping, render_position);
-    }
-    if (thing.has_shield) {
-        textures.renderSprite(renderer, textures.sprites.equipped_shield, render_position);
+            // render status effects
+            if (thing.kind.individual.status_conditions & (core.protocol.StatusCondition_wounded_leg | core.protocol.StatusCondition_being_digested) != 0) {
+                textures.renderSprite(renderer, textures.sprites.wounded, render_position);
+            }
+            if (thing.kind.individual.status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled) != 0) {
+                textures.renderSprite(renderer, textures.sprites.limping, render_position);
+            }
+            if (thing.kind.individual.has_shield) {
+                textures.renderSprite(renderer, textures.sprites.equipped_shield, render_position);
+            }
+        },
+        .shield => {
+            textures.renderSprite(renderer, textures.sprites.shield, render_position);
+        },
     }
 
     return render_position;
 }
 
 fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32, screen_display_position: Coord, thing: PerceivedThing) void {
+    if (thing.kind != .individual) return;
     const display_position = getDisplayRect(progress, progress_denominator, thing).position();
     const render_position = display_position.minus(screen_display_position);
 
-    switch (thing.activity) {
+    switch (thing.kind.individual.activity) {
         .none => {},
         .movement => {},
         .failed_movement => {},
@@ -1172,7 +1195,7 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .shrink => {},
 
         .attack => |data| {
-            const max_range = core.game_logic.getAttackRange(thing.species);
+            const max_range = core.game_logic.getAttackRange(thing.kind.individual.species);
             if (max_range == 1) {
                 const dagger_sprite_normalizing_rotation = 1;
                 textures.renderSpriteRotated(
@@ -1459,17 +1482,28 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
     // which is intentionally not possible sometimes.
     const others_mapping = try allocator.alloc(usize, base_frame.others.len);
     for (base_frame.others) |base_other, i| {
-        const new_position = core.game_logic.applyMovementFromActivity(base_other.activity, base_other.position);
+        var new_position = base_other.position;
+        if (base_other.kind == .individual) {
+            new_position = core.game_logic.applyMovementFromActivity(base_other.kind.individual.activity, new_position);
+        }
 
         var mapped_index: ?usize = null;
         for (patch_frame.others) |patch_other, j| {
             // Are these the same person?
             const could_be = blk: {
-                if (base_other.species != @as(std.meta.Tag(Species), patch_other.species)) break :blk false;
                 if (!core.game_logic.positionEquals(
                     new_position,
                     patch_other.position,
                 )) break :blk false;
+                switch (base_other.kind) {
+                    .individual => {
+                        if (patch_other.kind != .individual) break :blk false;
+                        if (base_other.kind.individual.species != @as(std.meta.Tag(Species), patch_other.kind.individual.species)) break :blk false;
+                    },
+                    .shield => {
+                        if (patch_other.kind != .shield) break :blk false;
+                    },
+                }
                 break :blk true;
             };
             if (could_be) {
@@ -1496,13 +1530,14 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
     core.debug.animation_compression.print("...all ({}) individuals tracked...", .{base_frame.others.len});
 
     // If someone does two different things in subsequent frames, then we can't compress those.
-    if (base_frame.self.activity != .none and patch_frame.self.activity != .none) {
+    if (base_frame.self.kind.individual.activity != .none and patch_frame.self.kind.individual.activity != .none) {
         core.debug.animation_compression.print("NOPE: self doing two different things.", .{});
         return false;
     }
     for (base_frame.others) |base_other, i| {
+        if (base_other.kind == .shield) continue;
         const patch_other = patch_frame.others[others_mapping[i]];
-        if (base_other.activity != .none and patch_other.activity != .none) {
+        if (base_other.kind.individual.activity != .none and patch_other.kind.individual.activity != .none) {
             core.debug.animation_compression.print("NOPE: someone({}, {}) doing two different things.", .{ i, others_mapping[i] });
             return false;
         }
@@ -1522,7 +1557,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
 }
 
 fn compressPerceivedThings(base_thing: *PerceivedThing, patch_thing: PerceivedThing) void {
-    if (patch_thing.activity == .none) {
+    if (patch_thing.kind == .individual and patch_thing.kind.individual.activity == .none) {
         // That was easy.
         return;
     }
