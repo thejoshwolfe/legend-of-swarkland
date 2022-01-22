@@ -1432,7 +1432,7 @@ fn getPerceivedFrame(
     }
 
     var seen_terrain = PerceivedTerrain.init(self.allocator);
-    var in_view_matrix = core.matrix.SparseChunkedMatrix(bool, false).init(self.allocator);
+    var in_view_matrix = core.matrix.SparseChunkedMatrix(bool, false, .{}).init(self.allocator);
 
     {
         var it = view_bounding_box.rowMajorIterator();

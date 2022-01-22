@@ -3,10 +3,15 @@ const Allocator = std.mem.Allocator;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 
-pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
+pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime options: struct {
+    metrics: bool = false,
+    track_dirty_after_clone: bool = false,
+}) type {
     return struct {
         chunks: std.AutoArrayHashMap(Coord, *Chunk),
-        metrics: Metrics = .{},
+        // optional fields
+        metrics: if (options.metrics) Metrics else void = if (options.metrics) .{} else {},
+        dirty_chunks: if (options.track_dirty_after_clone) std.AutoArrayHashMap(Coord, void) else void,
         // lru cache
         last_chunk_coord: Coord = .{ .x = 0, .y = 0 },
         last_chunk: ?*Chunk = null,
@@ -27,11 +32,15 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
         pub fn init(allocator: Allocator) @This() {
             return .{
                 .chunks = std.AutoArrayHashMap(Coord, *Chunk).init(allocator),
+                .dirty_chunks = if (options.track_dirty_after_clone) std.AutoArrayHashMap(Coord, void).init(allocator) else {},
             };
         }
         pub fn deinit(self: *@This()) void {
             self.clear();
             self.chunks.deinit();
+            if (options.track_dirty_after_clone) {
+                self.dirty_chunks.deinit();
+            }
         }
         pub fn clear(self: *@This()) void {
             var it = self.chunks.iterator();
@@ -51,6 +60,8 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
                     (try allocator.dupe(T, entry.value_ptr.*)) //
                     .ptr));
             }
+            other.metrics = self.metrics;
+            // intentionally leave dirty_chunks empty.
             return other;
         }
 
@@ -89,15 +100,19 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
 
             if (self.chunks.count() == 0) {
                 // first put
-                self.metrics.min_x = x;
-                self.metrics.min_y = y;
-                self.metrics.max_x = x;
-                self.metrics.max_y = y;
+                if (options.metrics) {
+                    self.metrics.min_x = x;
+                    self.metrics.min_y = y;
+                    self.metrics.max_x = x;
+                    self.metrics.max_y = y;
+                }
             } else {
-                if (x < self.metrics.min_x) self.metrics.min_x = x;
-                if (y < self.metrics.min_y) self.metrics.min_y = y;
-                if (x > self.metrics.max_x) self.metrics.max_x = x;
-                if (y > self.metrics.max_y) self.metrics.max_y = y;
+                if (options.metrics) {
+                    if (x < self.metrics.min_x) self.metrics.min_x = x;
+                    if (y < self.metrics.min_y) self.metrics.min_y = y;
+                    if (x > self.metrics.max_x) self.metrics.max_x = x;
+                    if (y > self.metrics.max_y) self.metrics.max_y = y;
+                }
 
                 // check the lru cache.
                 if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
@@ -116,6 +131,9 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
             // update the lru cache
             self.last_chunk_coord = chunk_coord;
             self.last_chunk = gop.value_ptr.*;
+            if (options.track_dirty_after_clone) {
+                try self.dirty_chunks.put(chunk_coord, {});
+            }
 
             return &gop.value_ptr.*[inner_index];
         }
@@ -171,7 +189,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T) type {
 }
 
 test "SparseChunkedMatrix" {
-    var m = SparseChunkedMatrix(u8, 42).init(std.testing.allocator);
+    var m = SparseChunkedMatrix(u8, 42, .{}).init(std.testing.allocator);
     defer m.deinit();
 
     try std.testing.expect(m.get(0, 0) == 42);

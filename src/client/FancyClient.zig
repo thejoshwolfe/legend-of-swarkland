@@ -2,7 +2,7 @@ client: GameEngineClient,
 
 // client-side memory
 remembered_terrain: PerceivedTerrain,
-terrain_is_currently_in_view: core.matrix.SparseChunkedMatrix(bool, false),
+terrain_is_currently_in_view: BoolTerrain,
 
 // convenience things
 auto_move: ?Coord = null,
@@ -39,6 +39,8 @@ const GameEngineClient = @import("game_engine_client.zig").GameEngineClient;
 const the_levels = @import("../server/map_gen.zig").the_levels;
 const allocator = std.heap.c_allocator;
 
+const BoolTerrain = core.matrix.SparseChunkedMatrix(bool, false, .{});
+
 pub fn init(client: GameEngineClient) !@This() {
     const moves_per_level = try allocator.alloc(usize, the_levels.len);
     std.mem.set(usize, moves_per_level, 0);
@@ -47,7 +49,7 @@ pub fn init(client: GameEngineClient) !@This() {
     return @This(){
         .client = client,
         .remembered_terrain = PerceivedTerrain.init(allocator),
-        .terrain_is_currently_in_view = core.matrix.SparseChunkedMatrix(bool, false).init(allocator),
+        .terrain_is_currently_in_view = BoolTerrain.init(allocator),
         .moves_per_level = moves_per_level,
     };
 }

@@ -28,7 +28,9 @@ pub const oob_terrain = TerrainSpace{
     .floor = .unknown,
     .wall = .stone,
 };
-pub const Terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, oob_terrain);
+pub const Terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, oob_terrain, .{
+    .metrics = true, // TODO: map generator should not use metrics
+});
 
 pub const Individual = struct {
     species: Species,

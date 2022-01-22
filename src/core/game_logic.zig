@@ -20,7 +20,9 @@ pub const unseen_terrain = TerrainSpace{
     .wall = .unknown,
 };
 
-pub const PerceivedTerrain = core.matrix.SparseChunkedMatrix(TerrainSpace, unseen_terrain);
+pub const PerceivedTerrain = core.matrix.SparseChunkedMatrix(TerrainSpace, unseen_terrain, .{
+    .metrics = true,
+});
 
 pub fn getViewDistance(species: Species) i32 {
     return switch (species) {
