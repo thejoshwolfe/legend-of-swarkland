@@ -44,6 +44,16 @@ pub const Individual = struct {
     }
 };
 
+pub const Item = struct {
+    floor_coord: Coord,
+
+    pub fn clone(self: @This(), allocator: Allocator) !*@This() {
+        var other = try allocator.create(@This());
+        other.* = self;
+        return other;
+    }
+};
+
 pub const StateDiff = union(enum) {
     spawn: IdAndIndividual,
     despawn: IdAndIndividual,
@@ -63,6 +73,17 @@ pub const StateDiff = union(enum) {
     },
 
     terrain_update: TerrainDiff,
+
+    drop_shield: struct {
+        individual_id: u32,
+        item_id: u32,
+        item: Item,
+    },
+    pick_up_shield: struct {
+        individual_id: u32,
+        item_id: u32,
+        item: Item,
+    },
 
     transition_to_next_level,
 
@@ -94,6 +115,7 @@ pub const GameState = struct {
     allocator: Allocator,
     terrain: Terrain,
     individuals: IdMap(*Individual),
+    items: IdMap(*Item),
     level_number: u32,
     warp_points: []Coord,
 
@@ -102,6 +124,7 @@ pub const GameState = struct {
             .allocator = allocator,
             .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
+            .items = IdMap(*Item).init(allocator),
             .level_number = 0,
             .warp_points = &[_]Coord{},
         };
@@ -116,6 +139,14 @@ pub const GameState = struct {
             .individuals = blk: {
                 var ret = IdMap(*Individual).init(self.allocator);
                 var iterator = self.individuals.iterator();
+                while (iterator.next()) |kv| {
+                    try ret.putNoClobber(kv.key_ptr.*, try kv.value_ptr.*.clone(self.allocator));
+                }
+                break :blk ret;
+            },
+            .items = blk: {
+                var ret = IdMap(*Item).init(self.allocator);
+                var iterator = self.items.iterator();
                 while (iterator.next()) |kv| {
                     try ret.putNoClobber(kv.key_ptr.*, try kv.value_ptr.*.clone(self.allocator));
                 }
@@ -174,6 +205,18 @@ pub const GameState = struct {
                 },
                 .terrain_update => |data| {
                     try self.terrain.putCoord(data.at, data.to);
+                },
+                .drop_shield => |data| {
+                    const individual = self.individuals.get(data.individual_id).?;
+                    assert(individual.has_shield);
+                    individual.has_shield = false;
+                    try self.items.putNoClobber(data.item_id, try data.item.clone(self.allocator));
+                },
+                .pick_up_shield => |data| {
+                    const individual = self.individuals.get(data.individual_id).?;
+                    assert(!individual.has_shield);
+                    individual.has_shield = true;
+                    assert(self.items.swapRemove(data.item_id));
                 },
                 .transition_to_next_level => {
                     self.level_number += 1;
@@ -234,6 +277,18 @@ pub const GameState = struct {
                 },
                 .terrain_update => |data| {
                     try self.terrain.putCoord(data.at, data.from);
+                },
+                .drop_shield => |data| {
+                    const individual = self.individuals.get(data.individual_id).?;
+                    assert(!individual.has_shield);
+                    individual.has_shield = true;
+                    assert(self.items.swapRemove(data.item_id));
+                },
+                .pick_up_shield => |data| {
+                    const individual = self.individuals.get(data.individual_id).?;
+                    assert(individual.has_shield);
+                    individual.has_shield = false;
+                    try self.items.putNoClobber(data.item_id, try data.item.clone(self.allocator));
                 },
                 .transition_to_next_level => {
                     self.level_number -= 1;
