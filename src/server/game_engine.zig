@@ -62,17 +62,6 @@ pub const Happenings = struct {
     state_changes: []StateDiff,
 };
 
-/// Computes what would happen to the state of the game.
-/// Does not modify the game state.
-/// This is the entry point for all game rules.
-pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, actions: IdMap(Action)) !Happenings {
-    var self = GameEngine{
-        .allocator = allocator,
-        .state = try pristine_game_state.clone(),
-    };
-    return self.computeHappeningsImpl(actions);
-}
-
 /// Does not modify the game state.
 pub fn getStaticPerception(allocator: Allocator, game_state: *GameState, individual_id: u32) !PerceivedFrame {
     var self = GameEngine{
@@ -86,7 +75,117 @@ pub fn getStaticPerception(allocator: Allocator, game_state: *GameState, individ
     );
 }
 
-fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings {
+/// Computes what would happen to the state of the game.
+/// Does not modify the game state.
+/// This is the entry point for all game rules.
+pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, actions: IdMap(Action)) !Happenings {
+    var self = GameEngine{
+        .allocator = allocator,
+        .state = try pristine_game_state.clone(),
+    };
+    const individual_to_perception = try self.doAllTheThings(actions);
+
+    return Happenings{
+        .individual_to_perception = blk: {
+            var ret = IdMap([]PerceivedFrame).init(self.allocator);
+            for (pristine_game_state.individuals.keys()) |id| {
+                var frame_list = individual_to_perception.get(id).?.frames;
+                // remove empty frames, except the last one
+                var i: usize = 0;
+                frameLoop: while (i + 1 < frame_list.items.len) : (i +%= 1) {
+                    const frame = frame_list.items[i];
+                    if (frame.self.kind.individual.activity != PerceivedActivity.none) continue :frameLoop;
+                    for (frame.others) |other| {
+                        if (other.kind == .individual and other.kind.individual.activity != PerceivedActivity.none) continue :frameLoop;
+                    }
+                    // delete this frame
+                    _ = frame_list.orderedRemove(i);
+                    i -%= 1;
+                }
+                try ret.putNoClobber(id, frame_list.toOwnedSlice());
+            }
+            break :blk ret;
+        },
+        .state_changes = blk: {
+            var ret = ArrayList(StateDiff).init(self.allocator);
+            // terrain
+            for (self.state.terrain.dirty_chunks.keys()) |chunk_coord| {
+                const old_chunk = pristine_game_state.terrain.chunks.get(chunk_coord).?;
+                const new_chunk = self.state.terrain.chunks.get(chunk_coord).?;
+                for (old_chunk) |old_cell, i| {
+                    const new_cell = new_chunk[i];
+                    if (old_cell.floor == new_cell.floor and old_cell.wall == new_cell.wall) continue;
+                    try ret.append(StateDiff{ .terrain_update = .{
+                        .at = Terrain.chunkCoordAndInnerIndexToCoord(chunk_coord, i),
+                        .from = old_cell,
+                        .to = new_cell,
+                    } });
+                }
+            }
+            // individual updates and despawns
+            {
+                var it = pristine_game_state.individuals.iterator();
+                while (it.next()) |entry| {
+                    const id = entry.key_ptr.*;
+                    const old_individual = entry.value_ptr.*;
+                    const new_individual = self.state.individuals.get(id) orelse {
+                        // despawned
+                        try ret.append(StateDiff{ .despawn = .{
+                            .id = id,
+                            .individual = old_individual.*,
+                        } });
+                        continue;
+                    };
+                    if (!std.meta.eql(old_individual.species, new_individual.species)) {
+                        try ret.append(StateDiff{ .polymorph = .{
+                            .id = id,
+                            .from = old_individual.species,
+                            .to = new_individual.species,
+                        } });
+                    }
+                    if (!std.meta.eql(old_individual.abs_position, new_individual.abs_position)) {
+                        try ret.append(StateDiff{ .reposition = .{
+                            .id = id,
+                            .from = old_individual.abs_position,
+                            .to = new_individual.abs_position,
+                        } });
+                    }
+                    if (!std.meta.eql(old_individual.status_conditions, new_individual.status_conditions)) {
+                        try ret.append(StateDiff{ .status_condition_diff = .{
+                            .id = id,
+                            .from = old_individual.status_conditions,
+                            .to = new_individual.status_conditions,
+                        } });
+                    }
+                    if (old_individual.has_shield != new_individual.has_shield) {
+                        @panic("TODO");
+                    }
+                    assert(std.meta.eql(old_individual.perceived_origin, new_individual.perceived_origin));
+                }
+            }
+            // spawns
+            {
+                var it = self.state.individuals.iterator();
+                while (it.next()) |entry| {
+                    const id = entry.key_ptr.*;
+                    const new_individual = entry.value_ptr.*;
+                    if (pristine_game_state.individuals.contains(id)) continue;
+                    // new individual.
+                    try ret.append(StateDiff{ .spawn = .{
+                        .id = id,
+                        .individual = new_individual.*,
+                    } });
+                }
+            }
+            if (pristine_game_state.level_number != self.state.level_number) {
+                @panic("TODO");
+            }
+            break :blk ret.toOwnedSlice();
+        },
+    };
+}
+
+fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerceivedHappening) {
     // cache the set of keys so iterator is easier.
     var everybody = try self.allocator.alloc(u32, self.state.individuals.count());
     for (everybody) |*x, i| {
@@ -230,7 +329,6 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
     }
 
     // Using doors
-    var state_changes = ArrayList(StateDiff).init(self.allocator);
     {
         var door_toggles = CoordMap(u2).init(self.allocator);
         for (everybody) |id| {
@@ -248,39 +346,18 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
         }
         for (door_toggles.keys()) |door_position, i| {
             if (door_toggles.values()[i] > 1) continue;
-            var terrain_diff: StateDiff.TerrainDiff = undefined;
             const cell = self.state.terrain.getCoord(door_position);
             switch (cell.wall) {
                 .door_open => {
-                    terrain_diff = .{
-                        .at = door_position,
-                        .from = cell,
-                        .to = TerrainSpace{
-                            .floor = cell.floor,
-                            .wall = .door_closed,
-                        },
-                    };
+                    self.state.terrain.getExistingCoord(door_position).wall = .door_closed;
                 },
                 .door_closed => {
-                    terrain_diff = .{
-                        .at = door_position,
-                        .from = cell,
-                        .to = TerrainSpace{
-                            .floor = cell.floor,
-                            .wall = .door_open,
-                        },
-                    };
+                    self.state.terrain.getExistingCoord(door_position).wall = .door_open;
                 },
                 else => {
                     // There's no door here. Nothing happens.
-                    continue;
                 },
             }
-            try state_changes.append(StateDiff{
-                .terrain_update = terrain_diff,
-            });
-            // Use the new value for the rest of the computation.
-            self.state.terrain.getExistingCoord(door_position).* = terrain_diff.to;
         }
         // Do we need to explicitly observe this? is there going to be an animation for it or something?
     }
@@ -634,20 +711,12 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
     // Environmental death triggers
     {
         var check_bloody_water_near: ?Coord = null;
-        var regular_bloodying_diffs = ArrayList(StateDiff.TerrainDiff).init(self.allocator);
         for (total_deaths.keys()) |id| {
             const coord = getHeadPosition(current_positions.get(id).?);
             const cell = self.state.terrain.getCoord(coord);
             switch (cell.floor) {
                 .water => {
-                    try regular_bloodying_diffs.append(.{
-                        .at = coord,
-                        .from = cell,
-                        .to = TerrainSpace{
-                            .floor = .water_bloody,
-                            .wall = cell.wall,
-                        },
-                    });
+                    self.state.terrain.getExistingCoord(coord).floor = .water_bloody;
                     check_bloody_water_near = coord;
                 },
                 else => {
@@ -669,15 +738,7 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
                 const cell = self.state.terrain.getCoord(coord);
                 switch (cell.floor) {
                     .water => {
-                        // is it just getting bloody?
-                        for (regular_bloodying_diffs.items) |terrain_diff| {
-                            if (terrain_diff.at.equals(coord)) {
-                                try bloody_spots.append(coord);
-                                break;
-                            }
-                        } else {
-                            try clean_spots.append(coord);
-                        }
+                        try clean_spots.append(coord);
                     },
                     .water_bloody => {
                         try bloody_spots.append(coord);
@@ -687,18 +748,16 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
             }
             if (bloody_spots.items.len >= 3) {
                 // siren attack.
-                var new_id_cursor: u32 = @intCast(u32, self.state.individuals.count());
                 for (clean_spots.items) |coord| {
                     // spawn siren
-                    const id = findAvailableId(&new_id_cursor, self.state.individuals);
-                    try state_changes.append(StateDiff{ .spawn = .{
-                        .id = id,
-                        .individual = Individual{
+                    try self.state.individuals.putNoClobber(
+                        self.findAvailableId(),
+                        try (Individual{
                             .species = .{ .siren = .water },
                             .abs_position = .{ .small = coord },
                             .perceived_origin = coord,
-                        },
-                    } });
+                        }).clone(self.allocator),
+                    );
                 }
                 // corrupt the water.
                 it = (Rect{
@@ -710,31 +769,11 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
                 while (it.next()) |coord| {
                     const cell = self.state.terrain.getCoord(coord);
                     switch (cell.floor) {
-                        .water, .water_bloody => {},
-                        else => continue,
-                    }
-                    var terrain_diff = StateDiff.TerrainDiff{
-                        .at = coord,
-                        .from = cell,
-                        .to = TerrainSpace{
-                            .floor = .water_deep,
-                            .wall = .air,
+                        .water, .water_bloody => {
+                            self.state.terrain.getExistingCoord(coord).floor = .water_deep;
                         },
-                    };
-                    try state_changes.append(StateDiff{
-                        .terrain_update = terrain_diff,
-                    });
-                    // Use the new value for the rest of the computation.
-                    self.state.terrain.getExistingCoord(coord).* = terrain_diff.to;
-                }
-            } else {
-                // not angry enough yet.
-                for (regular_bloodying_diffs.items) |terrain_diff| {
-                    try state_changes.append(StateDiff{
-                        .terrain_update = terrain_diff,
-                    });
-                    // Use the new value for the rest of the computation.
-                    self.state.terrain.getExistingCoord(terrain_diff.at).* = terrain_diff.to;
+                        else => {},
+                    }
                 }
             }
         }
@@ -905,107 +944,6 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
         }
     }
 
-    // measure state diffs so far.
-    for (everybody_including_dead) |id| {
-        switch (self.state.individuals.get(id).?.abs_position) {
-            .small => |coord| {
-                const from = coord;
-                switch (current_positions.get(id).?) {
-                    .small => |to| {
-                        if (to.equals(from)) continue;
-                        const delta = to.minus(from);
-                        try state_changes.append(StateDiff{
-                            .small_move = .{
-                                .id = id,
-                                .coord = delta,
-                            },
-                        });
-                    },
-                    .large => |to| {
-                        const delta = to[0].minus(from);
-                        try state_changes.append(StateDiff{
-                            .growth = .{
-                                .id = id,
-                                .coord = delta,
-                            },
-                        });
-                    },
-                }
-            },
-            .large => |coords| {
-                const from = coords;
-                switch (current_positions.get(id).?) {
-                    .large => |to| {
-                        if (to[0].equals(from[0]) and to[1].equals(from[1])) continue;
-                        try state_changes.append(StateDiff{
-                            .large_move = .{
-                                .id = id,
-                                .coords = .{
-                                    to[0].minus(from[0]),
-                                    to[1].minus(from[1]),
-                                },
-                            },
-                        });
-                    },
-                    .small => |to| {
-                        if (to.equals(from[0])) {
-                            try state_changes.append(StateDiff{
-                                .shrink_forward = .{
-                                    .id = id,
-                                    .coord = to.minus(from[1]),
-                                },
-                            });
-                        } else {
-                            try state_changes.append(StateDiff{
-                                .shrink_backward = .{
-                                    .id = id,
-                                    .coord = to.minus(from[0]),
-                                },
-                            });
-                        }
-                    },
-                }
-            },
-        }
-    }
-    {
-        var iterator = polymorphs.iterator();
-        while (iterator.next()) |kv| {
-            try state_changes.append(StateDiff{
-                .polymorph = .{
-                    .id = kv.key_ptr.*,
-                    .from = self.state.individuals.get(kv.key_ptr.*).?.species,
-                    .to = kv.value_ptr.*,
-                },
-            });
-        }
-    }
-    for (everybody_including_dead) |id| {
-        const old = self.state.individuals.get(id).?.status_conditions;
-        const new = current_status_conditions.get(id).?;
-        if (old != new) {
-            try state_changes.append(StateDiff{
-                .status_condition_diff = .{
-                    .id = id,
-                    .from = old,
-                    .to = new,
-                },
-            });
-        }
-    }
-    for (total_deaths.keys()) |id| {
-        try state_changes.append(StateDiff{
-            .despawn = blk: {
-                var individual = self.state.individuals.get(id).?.*;
-                individual.abs_position = current_positions.get(id).?;
-                break :blk .{
-                    .id = id,
-                    .individual = individual,
-                };
-            },
-        });
-    }
-
     // Check for completing and starting the next level.
     // We push these changes directly into the state diff after all the above is resolved,
     // because these changes don't affect any of the above logic.
@@ -1035,19 +973,13 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
             find_the_doors: while (x < level_transition_bounding_box.x + level_transition_bounding_box.width) : (x += 1) {
                 var y: i32 = level_transition_bounding_box.y;
                 while (y < level_transition_bounding_box.y + level_transition_bounding_box.height) : (y += 1) {
-                    const terrain_space = self.state.terrain.get(x, y);
-                    if (terrain_space.wall == .dirt) {
-                        try state_changes.append(StateDiff{
-                            .terrain_update = StateDiff.TerrainDiff{
-                                .at = makeCoord(x, y),
-                                .from = terrain_space,
-                                .to = TerrainSpace{
-                                    .floor = .marble,
-                                    .wall = .air,
-                                },
-                            },
-                        });
-                    } else if (terrain_space.floor == .hatch) {
+                    const cell = try self.state.terrain.getOrPut(x, y);
+                    if (cell.wall == .dirt) {
+                        cell.* = .{
+                            .floor = .marble,
+                            .wall = .air,
+                        };
+                    } else if (cell.floor == .hatch) {
                         // only open doors until the next hatch
                         break :find_the_doors;
                     }
@@ -1057,69 +989,48 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
     }
 
     if (button_getting_pressed) |button_coord| button_blk: {
-        const new_level_number = blk: {
-            if (self.state.level_number + 1 < the_levels.len) {
-                try state_changes.append(StateDiff.transition_to_next_level);
-                break :blk self.state.level_number + 1;
-            } else {
-                // Can't advance.
-                break :button_blk;
-            }
-        };
+        if (self.state.level_number + 1 < the_levels.len) {
+            self.state.level_number += 1;
+        } else {
+            // Can't advance.
+            break :button_blk;
+        }
         // close any open paths
-        if (getLevelTransitionBoundingBox(self.state.level_number)) |level_transition_bounding_box| {
+        if (getLevelTransitionBoundingBox(self.state.level_number - 1)) |level_transition_bounding_box| {
             var x: i32 = level_transition_bounding_box.x;
             while (x < level_transition_bounding_box.x + level_transition_bounding_box.width) : (x += 1) {
                 var y: i32 = level_transition_bounding_box.y;
                 while (y < level_transition_bounding_box.y + level_transition_bounding_box.height) : (y += 1) {
-                    const terrain_space = self.state.terrain.get(x, y);
-                    if (terrain_space.floor == .marble) {
-                        try state_changes.append(StateDiff{
-                            .terrain_update = StateDiff.TerrainDiff{
-                                .at = makeCoord(x, y),
-                                .from = terrain_space,
-                                .to = TerrainSpace{
-                                    .floor = .unknown,
-                                    .wall = .stone,
-                                },
-                            },
-                        });
+                    const cell = try self.state.terrain.getOrPut(x, y);
+                    if (cell.floor == .marble) {
+                        cell.* = .{
+                            .floor = .unknown,
+                            .wall = .stone,
+                        };
                     }
                 }
             }
         }
 
         // destroy the button
-        try state_changes.append(StateDiff{
-            .terrain_update = StateDiff.TerrainDiff{
-                .at = button_coord,
-                .from = self.state.terrain.getCoord(button_coord),
-                .to = TerrainSpace{
-                    .floor = .dirt,
-                    .wall = .air,
-                },
-            },
+        try self.state.terrain.putCoord(button_coord, TerrainSpace{
+            .floor = .dirt,
+            .wall = .air,
         });
 
         // spawn enemies
         var level_x: u16 = 0;
-        for (the_levels[0..new_level_number]) |level| {
+        for (the_levels[0..self.state.level_number]) |level| {
             level_x += level.width;
         }
-        var new_id_cursor: u32 = @intCast(u32, self.state.individuals.count());
-        for (the_levels[new_level_number].individuals) |_individual| {
+        for (the_levels[self.state.level_number].individuals) |_individual| {
             var individual = _individual;
             individual.abs_position = offsetPosition(individual.abs_position, makeCoord(level_x, 0));
-            const id = findAvailableId(&new_id_cursor, self.state.individuals);
-            try state_changes.append(StateDiff{ .spawn = .{
-                .id = id,
-                .individual = individual,
-            } });
+            try self.state.individuals.putNoClobber(self.findAvailableId(), try individual.clone(self.allocator));
         }
     }
 
     // final observations
-    try self.state.applyStateChanges(state_changes.items);
     current_positions.clearRetainingCapacity();
     for (everybody) |id| {
         try observeFrame(
@@ -1131,29 +1042,7 @@ fn computeHappeningsImpl(self: *GameEngine, actions: IdMap(Action)) !Happenings 
         );
     }
 
-    return Happenings{
-        .individual_to_perception = blk: {
-            var ret = IdMap([]PerceivedFrame).init(self.allocator);
-            for (everybody_including_dead) |id| {
-                var frame_list = individual_to_perception.get(id).?.frames;
-                // remove empty frames, except the last one
-                var i: usize = 0;
-                frameLoop: while (i + 1 < frame_list.items.len) : (i +%= 1) {
-                    const frame = frame_list.items[i];
-                    if (frame.self.kind.individual.activity != PerceivedActivity.none) continue :frameLoop;
-                    for (frame.others) |other| {
-                        if (other.kind == .individual and other.kind.individual.activity != PerceivedActivity.none) continue :frameLoop;
-                    }
-                    // delete this frame
-                    _ = frame_list.orderedRemove(i);
-                    i -%= 1;
-                }
-                try ret.putNoClobber(id, frame_list.toOwnedSlice());
-            }
-            break :blk ret;
-        },
-        .state_changes = state_changes.items,
-    };
+    return individual_to_perception;
 }
 
 fn doMovementAndCollisions(
@@ -1733,10 +1622,10 @@ fn isClearLineOfSightOneSided(terrain: *Terrain, a: Coord, b: Coord) bool {
     return true;
 }
 
-fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
-    while (usedIds.contains(cursor.*)) {
-        cursor.* += 1;
+fn findAvailableId(self: *GameEngine) u32 {
+    var cursor: u32 = @intCast(u32, self.state.individuals.count());
+    while (self.state.individuals.contains(cursor)) {
+        cursor += 1;
     }
-    defer cursor.* += 1;
-    return cursor.*;
+    return cursor;
 }

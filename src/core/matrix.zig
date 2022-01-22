@@ -1,5 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 
@@ -182,8 +183,21 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
             // update the lru cache
             self.last_chunk_coord = chunk_coord;
             self.last_chunk = chunk;
+            if (options.track_dirty_after_clone) {
+                self.dirty_chunks.put(chunk_coord, {}) catch {
+                    @panic("TODO: move dirty_chunks to a field of the chunk."); // TODO
+                };
+            }
 
             return &chunk[inner_index];
+        }
+
+        pub fn chunkCoordAndInnerIndexToCoord(chunk_coord: Coord, inner_index: usize) Coord {
+            assert(inner_index < chunk_side_length * chunk_side_length);
+            return Coord{
+                .x = (chunk_coord.x << chunk_shift) | (@intCast(i32, inner_index) & chunk_mask),
+                .y = (chunk_coord.y << chunk_shift) | (@intCast(i32, inner_index) >> chunk_shift),
+            };
         }
     };
 }

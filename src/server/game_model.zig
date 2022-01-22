@@ -30,6 +30,7 @@ pub const oob_terrain = TerrainSpace{
 };
 pub const Terrain = core.matrix.SparseChunkedMatrix(TerrainSpace, oob_terrain, .{
     .metrics = true, // TODO: map generator should not use metrics
+    .track_dirty_after_clone = true,
 });
 
 pub const Individual = struct {
@@ -57,16 +58,26 @@ pub const Item = struct {
 };
 
 pub const StateDiff = union(enum) {
-    spawn: IdAndIndividual,
-    despawn: IdAndIndividual,
+    spawn: struct {
+        id: u32,
+        individual: Individual,
+    },
+    despawn: struct {
+        id: u32,
+        individual: Individual,
+    },
 
-    small_move: IdAndCoord,
-    large_move: IdAndCoords,
-    growth: IdAndCoord,
-    shrink_forward: IdAndCoord,
-    shrink_backward: IdAndCoord,
+    reposition: struct {
+        id: u32,
+        from: ThingPosition,
+        to: ThingPosition,
+    },
 
-    polymorph: Polymorph,
+    polymorph: struct {
+        id: u32,
+        from: Species,
+        to: Species,
+    },
 
     status_condition_diff: struct {
         id: u32,
@@ -74,7 +85,11 @@ pub const StateDiff = union(enum) {
         to: StatusConditions,
     },
 
-    terrain_update: TerrainDiff,
+    terrain_update: struct {
+        at: Coord,
+        from: TerrainSpace,
+        to: TerrainSpace,
+    },
 
     drop_shield: struct {
         individual_id: u32,
@@ -88,29 +103,6 @@ pub const StateDiff = union(enum) {
     },
 
     transition_to_next_level,
-
-    pub const IdAndIndividual = struct {
-        id: u32,
-        individual: Individual,
-    };
-    pub const IdAndCoord = struct {
-        id: u32,
-        coord: Coord,
-    };
-    pub const IdAndCoords = struct {
-        id: u32,
-        coords: [2]Coord,
-    };
-    pub const Polymorph = struct {
-        id: u32,
-        from: Species,
-        to: Species,
-    };
-    pub const TerrainDiff = struct {
-        at: Coord,
-        from: TerrainSpace,
-        to: TerrainSpace,
-    };
 };
 
 pub const GameState = struct {
@@ -171,34 +163,8 @@ pub const GameState = struct {
                 .despawn => |data| {
                     assert(self.individuals.swapRemove(data.id));
                 },
-                .small_move => |*id_and_coord| {
-                    const individual = self.individuals.get(id_and_coord.id).?;
-                    individual.abs_position.small = individual.abs_position.small.plus(id_and_coord.coord);
-                },
-                .large_move => |id_and_coords| {
-                    const individual = self.individuals.get(id_and_coords.id).?;
-                    individual.abs_position.large = .{
-                        individual.abs_position.large[0].plus(id_and_coords.coords[0]),
-                        individual.abs_position.large[1].plus(id_and_coords.coords[1]),
-                    };
-                },
-                .growth => |id_and_coord| {
-                    const individual = self.individuals.get(id_and_coord.id).?;
-                    const new_position = ThingPosition{ .large = .{
-                        individual.abs_position.small.plus(id_and_coord.coord),
-                        individual.abs_position.small,
-                    } };
-                    individual.abs_position = new_position;
-                },
-                .shrink_forward => |id_and_coord| {
-                    const individual = self.individuals.get(id_and_coord.id).?;
-                    const new_position = ThingPosition{ .small = individual.abs_position.large[0] };
-                    individual.abs_position = new_position;
-                },
-                .shrink_backward => |id_and_coord| {
-                    const individual = self.individuals.get(id_and_coord.id).?;
-                    const new_position = ThingPosition{ .small = individual.abs_position.large[1] };
-                    individual.abs_position = new_position;
+                .reposition => |data| {
+                    self.individuals.get(data.id).?.abs_position = data.to;
                 },
                 .polymorph => |polymorph| {
                     const individual = self.individuals.get(polymorph.id).?;
@@ -240,37 +206,8 @@ pub const GameState = struct {
                 .despawn => |data| {
                     try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
-                .small_move => |id_and_coord| {
-                    const individual = self.individuals.get(id_and_coord.id).?;
-                    individual.abs_position.small = individual.abs_position.small.minus(id_and_coord.coord);
-                },
-                .large_move => |id_and_coords| {
-                    const individual = self.individuals.get(id_and_coords.id).?;
-                    individual.abs_position.large = .{
-                        individual.abs_position.large[0].minus(id_and_coords.coords[0]),
-                        individual.abs_position.large[1].minus(id_and_coords.coords[1]),
-                    };
-                },
-                .growth => |id_and_coord| {
-                    const individual = self.individuals.get(id_and_coord.id).?;
-                    const new_position = ThingPosition{ .small = individual.abs_position.large[1] };
-                    individual.abs_position = new_position;
-                },
-                .shrink_forward => |id_and_coord| {
-                    const individual = self.individuals.get(id_and_coord.id).?;
-                    const new_position = ThingPosition{ .large = .{
-                        individual.abs_position.small,
-                        individual.abs_position.small.minus(id_and_coord.coord),
-                    } };
-                    individual.abs_position = new_position;
-                },
-                .shrink_backward => |id_and_coord| {
-                    const individual = self.individuals.get(id_and_coord.id).?;
-                    const new_position = ThingPosition{ .large = .{
-                        individual.abs_position.small.minus(id_and_coord.coord),
-                        individual.abs_position.small,
-                    } };
-                    individual.abs_position = new_position;
+                .reposition => |data| {
+                    self.individuals.get(data.id).?.abs_position = data.from;
                 },
                 .polymorph => |polymorph| {
                     const individual = self.individuals.get(polymorph.id).?;
