@@ -1,9 +1,9 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
 const core = @import("../index.zig");
-const ai = @import("./ai.zig");
-const GameEngine = @import("./game_engine.zig").GameEngine;
-const game_model = @import("./game_model.zig");
+const ai = @import("ai.zig");
+const game_engine = @import("game_engine.zig");
+const game_model = @import("game_model.zig");
 const GameState = game_model.GameState;
 const IdMap = game_model.IdMap;
 const SomeQueues = core.protocol.SomeQueues;
@@ -38,15 +38,13 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         return;
     } else unreachable;
 
-    var game_engine: GameEngine = undefined;
-    game_engine.init(allocator);
     var game_state = try GameState.generate(allocator, new_game_settings);
 
     // create ai clients
     const main_player_id: u32 = 1;
     var you_are_alive = true;
     // Welcome to swarkland!
-    try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(&game_state, main_player_id) });
+    try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(allocator, &game_state, main_player_id) });
 
     var response_for_ais = IdMap(Response).init(allocator);
     var history = HistoryList{};
@@ -58,7 +56,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
         // do ai
         for (game_state.individuals.keys()) |id| {
             if (id == main_player_id) continue;
-            const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(&game_state, id) };
+            const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(allocator, &game_state, id) };
             const action = doAi(response);
             const individual = game_state.individuals.get(id).?;
             validateAction(individual.species, individual.abs_position, individual.status_conditions, action) catch |err| @panic(@errorName(err));
@@ -128,12 +126,11 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                     else => {},
                 }
             }
-            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(&game_state, main_player_id) });
+            try main_player_queues.enqueueResponse(Response{ .load_state = try game_engine.getStaticPerception(allocator, &game_state, main_player_id) });
         } else {
 
             // Time goes forward.
-            var scratch_game_state = try game_state.clone();
-            const happenings = try game_engine.computeHappenings(&scratch_game_state, actions);
+            const happenings = try game_engine.computeHappenings(allocator, &game_state, actions);
             core.debug.happening.deepPrint("happenings: ", happenings);
             try pushHistoryRecord(&history, happenings.state_changes);
             try game_state.applyStateChanges(happenings.state_changes);

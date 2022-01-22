@@ -68,23 +68,24 @@ fn findAvailableId(cursor: *u32, usedIds: IdMap(*Individual)) u32 {
     return cursor.*;
 }
 
+/// Computes what would happen to the state of the game.
+/// This is the entry point for all game rules.
+pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, actions: IdMap(Action)) !Happenings {
+    var game_state = try pristine_game_state.clone();
+    var self = GameEngine{
+        .allocator = allocator,
+    };
+    return self.computeHappeningsImpl(&game_state, actions);
+}
+pub const Happenings = struct {
+    individual_to_perception: IdMap([]PerceivedFrame),
+    state_changes: []StateDiff,
+};
+
 pub const GameEngine = struct {
     allocator: Allocator,
 
-    pub fn init(self: *GameEngine, allocator: Allocator) void {
-        self.* = GameEngine{
-            .allocator = allocator,
-        };
-    }
-
-    pub const Happenings = struct {
-        individual_to_perception: IdMap([]PerceivedFrame),
-        state_changes: []StateDiff,
-    };
-
-    /// Computes what would happen to the state of the game.
-    /// This is the entry point for all game rules.
-    pub fn computeHappenings(self: *const GameEngine, game_state: *GameState, actions: IdMap(Action)) !Happenings {
+    fn computeHappeningsImpl(self: *const GameEngine, game_state: *GameState, actions: IdMap(Action)) !Happenings {
         // cache the set of keys so iterator is easier.
         var everybody = try self.allocator.alloc(u32, game_state.individuals.count());
         for (everybody) |*x, i| {
@@ -140,7 +141,8 @@ pub const GameEngine = struct {
                 try shrinks.putNoClobber(id, index);
             }
             for (everybody) |id| {
-                try self.observeFrame(
+                try observeFrame(
+                    self,
                     game_state,
                     id,
                     individual_to_perception.get(id).?,
@@ -206,7 +208,8 @@ pub const GameEngine = struct {
             }
 
             for (everybody) |id| {
-                try self.observeFrame(
+                try observeFrame(
+                    self,
                     game_state,
                     id,
                     individual_to_perception.get(id).?,
@@ -324,7 +327,8 @@ pub const GameEngine = struct {
             }
             if (kicks.count() > 0) {
                 for (everybody) |id| {
-                    try self.observeFrame(
+                    try observeFrame(
+                        self,
                         game_state,
                         id,
                         individual_to_perception.get(id).?,
@@ -488,7 +492,8 @@ pub const GameEngine = struct {
 
             for (everybody) |id| {
                 if (digestion_deaths.count() != 0) {
-                    try self.observeFrame(
+                    try observeFrame(
+                        self,
                         game_state,
                         id,
                         individual_to_perception.get(id).?,
@@ -605,7 +610,8 @@ pub const GameEngine = struct {
         // Perception of Attacks and Death
         for (everybody) |id| {
             if (attacks.count() + nibbles.count() + stomps.count() != 0) {
-                try self.observeFrame(
+                try observeFrame(
+                    self,
                     game_state,
                     id,
                     individual_to_perception.get(id).?,
@@ -618,7 +624,8 @@ pub const GameEngine = struct {
                 );
             }
             if (attack_deaths.count() != 0) {
-                try self.observeFrame(
+                try observeFrame(
+                    self,
                     game_state,
                     id,
                     individual_to_perception.get(id).?,
@@ -893,7 +900,8 @@ pub const GameEngine = struct {
         }
         if (polymorphs.count() != 0) {
             for (everybody) |id| {
-                try self.observeFrame(
+                try observeFrame(
+                    self,
                     game_state,
                     id,
                     individual_to_perception.get(id).?,
@@ -1120,7 +1128,8 @@ pub const GameEngine = struct {
         try game_state.applyStateChanges(state_changes.items);
         current_positions.clearRetainingCapacity();
         for (everybody) |id| {
-            try self.observeFrame(
+            try observeFrame(
+                self,
                 game_state,
                 id,
                 individual_to_perception.get(id).?,
@@ -1312,7 +1321,8 @@ pub const GameEngine = struct {
 
         // Observe movement.
         for (everybody.*) |id| {
-            try self.observeFrame(
+            try observeFrame(
+                self,
                 game_state,
                 id,
                 individual_to_perception.get(id).?,
@@ -1335,7 +1345,8 @@ pub const GameEngine = struct {
         for (everybody.*) |id| {
             // TODO: re-implement trample deaths.
             // trample deaths got removed when physics layers were introduced.
-            try self.observeFrame(
+            try observeFrame(
+                self,
                 game_state,
                 id,
                 individual_to_perception.get(id).?,
@@ -1349,266 +1360,267 @@ pub const GameEngine = struct {
             _ = try budges_at_all.put(id, {});
         }
     }
+};
 
-    const Activities = union(enum) {
-        static_state,
-        movement: Movement,
-        growths: Movement,
-        shrinks: *const IdMap(u1),
-        kicks: *const IdMap(Coord),
-        attacks: AttackishActivities,
-        polymorphs: *const IdMap(Species),
+const Activities = union(enum) {
+    static_state,
+    movement: Movement,
+    growths: Movement,
+    shrinks: *const IdMap(u1),
+    kicks: *const IdMap(Coord),
+    attacks: AttackishActivities,
+    polymorphs: *const IdMap(Species),
 
-        deaths: *const IdMap(void),
+    deaths: *const IdMap(void),
 
-        const Movement = struct {
-            intended_moves: *const IdMap(Coord),
-            next_positions: *const IdMap(ThingPosition),
-        };
-        const AttackishActivities = struct {
-            attacks: *const IdMap(Attack),
-            nibbles: *const IdMap(void),
-            stomps: *const IdMap(void),
-        };
-        const Attack = struct {
-            direction: Coord,
-            distance: i32,
-        };
+    const Movement = struct {
+        intended_moves: *const IdMap(Coord),
+        next_positions: *const IdMap(ThingPosition),
     };
-    fn observeFrame(
-        self: *const GameEngine,
-        game_state: *GameState,
-        my_id: u32,
-        perception: *MutablePerceivedHappening,
-        maybe_current_positions: ?*const IdMap(ThingPosition),
-        activities: Activities,
-    ) !void {
-        try perception.frames.append(try getPerceivedFrame(
-            self,
-            game_state,
-            my_id,
-            maybe_current_positions,
-            activities,
-        ));
+    const AttackishActivities = struct {
+        attacks: *const IdMap(Attack),
+        nibbles: *const IdMap(void),
+        stomps: *const IdMap(void),
+    };
+    const Attack = struct {
+        direction: Coord,
+        distance: i32,
+    };
+};
+fn observeFrame(
+    self: *const GameEngine,
+    game_state: *GameState,
+    my_id: u32,
+    perception: *MutablePerceivedHappening,
+    maybe_current_positions: ?*const IdMap(ThingPosition),
+    activities: Activities,
+) !void {
+    try perception.frames.append(try getPerceivedFrame(
+        self.allocator,
+        game_state,
+        my_id,
+        maybe_current_positions,
+        activities,
+    ));
+}
+
+/// Does not modify the game state.
+pub fn getStaticPerception(allocator: Allocator, game_state: *GameState, individual_id: u32) !PerceivedFrame {
+    return getPerceivedFrame(
+        allocator,
+        game_state,
+        individual_id,
+        null,
+        Activities.static_state,
+    );
+}
+
+fn getPerceivedFrame(
+    allocator: Allocator,
+    game_state: *GameState,
+    my_id: u32,
+    maybe_current_positions: ?*const IdMap(ThingPosition),
+    activities: Activities,
+) !PerceivedFrame {
+    const actual_me = game_state.individuals.get(my_id).?;
+    const my_abs_position = if (maybe_current_positions) |current_positions|
+        current_positions.get(my_id).?
+    else
+        actual_me.abs_position;
+    const my_head_coord = getHeadPosition(my_abs_position);
+
+    const view_distance = getViewDistance(actual_me.species);
+    var view_bounding_box = Rect{
+        .x = my_head_coord.x - view_distance,
+        .y = my_head_coord.y - view_distance,
+        .width = view_distance * 2 + 1,
+        .height = view_distance * 2 + 1,
+    };
+    if (actual_me.species == .blob) {
+        switch (actual_me.abs_position) {
+            .large => |data| {
+                // Blobs can also see with their butts.
+                // Grow the bounding box by 1 in the tail direction.
+                if (data[1].x < data[0].x) {
+                    view_bounding_box.x -= 1;
+                    view_bounding_box.width += 1;
+                } else if (data[1].x > data[0].x) {
+                    view_bounding_box.width += 1;
+                } else if (data[1].y < data[0].y) {
+                    view_bounding_box.y -= 1;
+                    view_bounding_box.height += 1;
+                } else if (data[1].y > data[0].y) {
+                    view_bounding_box.height += 1;
+                } else unreachable;
+            },
+            else => {},
+        }
     }
 
-    pub fn getStaticPerception(self: *const GameEngine, game_state: *GameState, individual_id: u32) !PerceivedFrame {
-        return getPerceivedFrame(
-            self,
-            game_state,
-            individual_id,
-            null,
-            Activities.static_state,
-        );
-    }
+    var seen_terrain = PerceivedTerrain.init(allocator);
+    var in_view_matrix = core.matrix.SparseChunkedMatrix(bool, false).init(allocator);
 
-    fn getPerceivedFrame(
-        self: *const GameEngine,
-        game_state: *GameState,
-        my_id: u32,
-        maybe_current_positions: ?*const IdMap(ThingPosition),
-        activities: Activities,
-    ) !PerceivedFrame {
-        const actual_me = game_state.individuals.get(my_id).?;
-        const my_abs_position = if (maybe_current_positions) |current_positions|
-            current_positions.get(my_id).?
-        else
-            actual_me.abs_position;
-        const my_head_coord = getHeadPosition(my_abs_position);
+    {
+        var it = view_bounding_box.rowMajorIterator();
+        while (it.next()) |cursor| {
+            if (!isClearLineOfSight(&game_state.terrain, my_head_coord, cursor)) continue;
+            try in_view_matrix.putCoord(cursor, true);
 
-        const view_distance = getViewDistance(actual_me.species);
-        var view_bounding_box = Rect{
-            .x = my_head_coord.x - view_distance,
-            .y = my_head_coord.y - view_distance,
-            .width = view_distance * 2 + 1,
-            .height = view_distance * 2 + 1,
-        };
-        if (actual_me.species == .blob) {
-            switch (actual_me.abs_position) {
-                .large => |data| {
-                    // Blobs can also see with their butts.
-                    // Grow the bounding box by 1 in the tail direction.
-                    if (data[1].x < data[0].x) {
-                        view_bounding_box.x -= 1;
-                        view_bounding_box.width += 1;
-                    } else if (data[1].x > data[0].x) {
-                        view_bounding_box.width += 1;
-                    } else if (data[1].y < data[0].y) {
-                        view_bounding_box.y -= 1;
-                        view_bounding_box.height += 1;
-                    } else if (data[1].y > data[0].y) {
-                        view_bounding_box.height += 1;
-                    } else unreachable;
+            var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor);
+            if (actual_me.species == .blob) {
+                // blobs are blind.
+                if (seen_cell.floor == .lava and cursor.equals(my_head_coord)) {
+                    // Blobs can see lava if they're right on top of it. Also RIP.
+                } else {
+                    seen_cell = if (isOpenSpace(seen_cell.wall))
+                        TerrainSpace{ .floor = .unknown_floor, .wall = .air }
+                    else
+                        TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
+                }
+            }
+            // Don't spoil trap behavior.
+            switch (seen_cell.wall) {
+                .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob => {
+                    seen_cell.wall = .unknown_polymorph_trap;
+                },
+                .polymorph_trap_rhino_west, .polymorph_trap_blob_west => {
+                    seen_cell.wall = .unknown_polymorph_trap_west;
+                },
+                .polymorph_trap_rhino_east, .polymorph_trap_blob_east => {
+                    seen_cell.wall = .unknown_polymorph_trap_east;
                 },
                 else => {},
             }
+            try seen_terrain.putCoord(cursor, seen_cell);
         }
+    }
 
-        var seen_terrain = PerceivedTerrain.init(self.allocator);
-        var in_view_matrix = core.matrix.SparseChunkedMatrix(bool, false).init(self.allocator);
+    const perceived_origin = actual_me.perceived_origin;
+    var perceived_self: ?PerceivedThing = null;
+    var others = ArrayList(PerceivedThing).init(allocator);
 
-        {
-            var it = view_bounding_box.rowMajorIterator();
-            while (it.next()) |cursor| {
-                if (!isClearLineOfSight(&game_state.terrain, my_head_coord, cursor)) continue;
-                try in_view_matrix.putCoord(cursor, true);
-
-                var seen_cell: TerrainSpace = game_state.terrain.getCoord(cursor);
-                if (actual_me.species == .blob) {
-                    // blobs are blind.
-                    if (seen_cell.floor == .lava and cursor.equals(my_head_coord)) {
-                        // Blobs can see lava if they're right on top of it. Also RIP.
-                    } else {
-                        seen_cell = if (isOpenSpace(seen_cell.wall))
-                            TerrainSpace{ .floor = .unknown_floor, .wall = .air }
-                        else
-                            TerrainSpace{ .floor = .unknown, .wall = .unknown_wall };
-                    }
-                }
-                // Don't spoil trap behavior.
-                switch (seen_cell.wall) {
-                    .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob => {
-                        seen_cell.wall = .unknown_polymorph_trap;
-                    },
-                    .polymorph_trap_rhino_west, .polymorph_trap_blob_west => {
-                        seen_cell.wall = .unknown_polymorph_trap_west;
-                    },
-                    .polymorph_trap_rhino_east, .polymorph_trap_blob_east => {
-                        seen_cell.wall = .unknown_polymorph_trap_east;
-                    },
-                    else => {},
-                }
-                try seen_terrain.putCoord(cursor, seen_cell);
-            }
-        }
-
-        const perceived_origin = actual_me.perceived_origin;
-        var perceived_self: ?PerceivedThing = null;
-        var others = ArrayList(PerceivedThing).init(self.allocator);
-
-        for (game_state.individuals.keys()) |id| {
-            const activity = switch (activities) {
-                .movement => |data| if (data.intended_moves.get(id)) |move_delta|
-                    if (data.next_positions.contains(id))
-                        PerceivedActivity{ .movement = move_delta }
-                    else
-                        PerceivedActivity{ .failed_movement = move_delta }
+    for (game_state.individuals.keys()) |id| {
+        const activity = switch (activities) {
+            .movement => |data| if (data.intended_moves.get(id)) |move_delta|
+                if (data.next_positions.contains(id))
+                    PerceivedActivity{ .movement = move_delta }
                 else
-                    PerceivedActivity{ .none = {} },
-
-                .shrinks => |data| if (data.get(id)) |index|
-                    PerceivedActivity{ .shrink = index }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .growths => |data| if (data.intended_moves.get(id)) |move_delta|
-                    if (data.next_positions.contains(id))
-                        PerceivedActivity{ .growth = move_delta }
-                    else
-                        PerceivedActivity{ .failed_growth = move_delta }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .attacks => |data| if (data.attacks.get(id)) |attack|
-                    PerceivedActivity{
-                        .attack = PerceivedActivity.Attack{
-                            .direction = attack.direction,
-                            .distance = attack.distance,
-                        },
-                    }
-                else if (data.nibbles.contains(id))
-                    PerceivedActivity{ .nibble = {} }
-                else if (data.stomps.contains(id))
-                    PerceivedActivity{ .stomp = {} }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .kicks => |data| if (data.get(id)) |coord|
-                    PerceivedActivity{ .kick = coord }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .polymorphs => |data| if (data.get(id)) |species|
-                    PerceivedActivity{ .polymorph = species }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .deaths => |data| if (data.get(id)) |_|
-                    PerceivedActivity{ .death = {} }
-                else
-                    PerceivedActivity{ .none = {} },
-
-                .static_state => PerceivedActivity{ .none = {} },
-            };
-
-            const abs_position = if (maybe_current_positions) |current_positions|
-                current_positions.get(id).?
+                    PerceivedActivity{ .failed_movement = move_delta }
             else
-                game_state.individuals.get(id).?.abs_position;
-            // if any position is within view, we can see all of it.
-            var within_view = false;
-            for (getAllPositions(&abs_position)) |coord| {
-                if (in_view_matrix.getCoord(coord)) {
-                    within_view = true;
-                    break;
-                }
-            }
-            if (!within_view) continue;
+                PerceivedActivity{ .none = {} },
 
-            const actual_thing = game_state.individuals.get(id).?;
-            const rel_position = offsetPosition(abs_position, perceived_origin.scaled(-1));
-            const thing = PerceivedThing{
-                .position = rel_position,
-                .kind = .{
-                    .individual = .{
-                        .species = actual_thing.species,
-                        .status_conditions = actual_thing.status_conditions,
-                        .has_shield = actual_thing.has_shield,
-                        .activity = activity,
+            .shrinks => |data| if (data.get(id)) |index|
+                PerceivedActivity{ .shrink = index }
+            else
+                PerceivedActivity{ .none = {} },
+
+            .growths => |data| if (data.intended_moves.get(id)) |move_delta|
+                if (data.next_positions.contains(id))
+                    PerceivedActivity{ .growth = move_delta }
+                else
+                    PerceivedActivity{ .failed_growth = move_delta }
+            else
+                PerceivedActivity{ .none = {} },
+
+            .attacks => |data| if (data.attacks.get(id)) |attack|
+                PerceivedActivity{
+                    .attack = PerceivedActivity.Attack{
+                        .direction = attack.direction,
+                        .distance = attack.distance,
                     },
+                }
+            else if (data.nibbles.contains(id))
+                PerceivedActivity{ .nibble = {} }
+            else if (data.stomps.contains(id))
+                PerceivedActivity{ .stomp = {} }
+            else
+                PerceivedActivity{ .none = {} },
+
+            .kicks => |data| if (data.get(id)) |coord|
+                PerceivedActivity{ .kick = coord }
+            else
+                PerceivedActivity{ .none = {} },
+
+            .polymorphs => |data| if (data.get(id)) |species|
+                PerceivedActivity{ .polymorph = species }
+            else
+                PerceivedActivity{ .none = {} },
+
+            .deaths => |data| if (data.get(id)) |_|
+                PerceivedActivity{ .death = {} }
+            else
+                PerceivedActivity{ .none = {} },
+
+            .static_state => PerceivedActivity{ .none = {} },
+        };
+
+        const abs_position = if (maybe_current_positions) |current_positions|
+            current_positions.get(id).?
+        else
+            game_state.individuals.get(id).?.abs_position;
+        // if any position is within view, we can see all of it.
+        var within_view = false;
+        for (getAllPositions(&abs_position)) |coord| {
+            if (in_view_matrix.getCoord(coord)) {
+                within_view = true;
+                break;
+            }
+        }
+        if (!within_view) continue;
+
+        const actual_thing = game_state.individuals.get(id).?;
+        const rel_position = offsetPosition(abs_position, perceived_origin.scaled(-1));
+        const thing = PerceivedThing{
+            .position = rel_position,
+            .kind = .{
+                .individual = .{
+                    .species = actual_thing.species,
+                    .status_conditions = actual_thing.status_conditions,
+                    .has_shield = actual_thing.has_shield,
+                    .activity = activity,
                 },
-            };
-            if (id == my_id) {
-                perceived_self = thing;
-            } else {
-                try others.append(thing);
-            }
-        }
-
-        var terrain_chunk = try self.exportTerrain(&seen_terrain);
-        terrain_chunk.position = terrain_chunk.position.minus(perceived_origin);
-
-        return PerceivedFrame{
-            .self = perceived_self.?,
-            .others = others.toOwnedSlice(),
-            .terrain = terrain_chunk,
-            .completed_levels = game_state.level_number,
+            },
         };
+        if (id == my_id) {
+            perceived_self = thing;
+        } else {
+            try others.append(thing);
+        }
     }
 
-    fn exportTerrain(self: @This(), terrain: *PerceivedTerrain) !TerrainChunk {
-        const width = @intCast(u16, terrain.metrics.max_x - terrain.metrics.min_x + 1);
-        const height = @intCast(u16, terrain.metrics.max_y - terrain.metrics.min_y + 1);
-        var terrain_chunk = core.protocol.TerrainChunk{
-            .position = makeCoord(terrain.metrics.min_x, terrain.metrics.min_y),
-            .width = width,
-            .height = height,
-            .matrix = try self.allocator.alloc(TerrainSpace, width * height),
-        };
+    var terrain_chunk = try exportTerrain(allocator, &seen_terrain);
+    terrain_chunk.position = terrain_chunk.position.minus(perceived_origin);
 
-        var y = terrain.metrics.min_y;
-        while (y <= terrain.metrics.max_y) : (y += 1) {
-            const inner_y = @intCast(u16, y - terrain.metrics.min_y);
-            var x = terrain.metrics.min_x;
-            while (x <= terrain.metrics.max_x) : (x += 1) {
-                const inner_x = @intCast(u16, x - terrain.metrics.min_x);
-                terrain_chunk.matrix[inner_y * width + inner_x] = terrain.get(x, y);
-            }
+    return PerceivedFrame{
+        .self = perceived_self.?,
+        .others = others.toOwnedSlice(),
+        .terrain = terrain_chunk,
+        .completed_levels = game_state.level_number,
+    };
+}
+
+fn exportTerrain(allocator: Allocator, terrain: *PerceivedTerrain) !TerrainChunk {
+    const width = @intCast(u16, terrain.metrics.max_x - terrain.metrics.min_x + 1);
+    const height = @intCast(u16, terrain.metrics.max_y - terrain.metrics.min_y + 1);
+    var terrain_chunk = core.protocol.TerrainChunk{
+        .position = makeCoord(terrain.metrics.min_x, terrain.metrics.min_y),
+        .width = width,
+        .height = height,
+        .matrix = try allocator.alloc(TerrainSpace, width * height),
+    };
+
+    var y = terrain.metrics.min_y;
+    while (y <= terrain.metrics.max_y) : (y += 1) {
+        const inner_y = @intCast(u16, y - terrain.metrics.min_y);
+        var x = terrain.metrics.min_x;
+        while (x <= terrain.metrics.max_x) : (x += 1) {
+            const inner_x = @intCast(u16, x - terrain.metrics.min_x);
+            terrain_chunk.matrix[inner_y * width + inner_x] = terrain.get(x, y);
         }
-
-        return terrain_chunk;
     }
-};
+
+    return terrain_chunk;
+}
 
 const MutablePerceivedHappening = struct {
     frames: ArrayList(PerceivedFrame),
