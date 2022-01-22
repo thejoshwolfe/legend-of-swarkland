@@ -119,8 +119,9 @@ pub const GameState = struct {
     level_number: u32,
     warp_points: []Coord,
 
-    pub fn generate(allocator: Allocator, new_game_settings: NewGameSettings) !GameState {
-        var game_state = GameState{
+    pub fn generate(allocator: Allocator, new_game_settings: NewGameSettings) !*GameState {
+        const game_state = try allocator.create(GameState);
+        game_state.* = GameState{
             .allocator = allocator,
             .terrain = undefined,
             .individuals = IdMap(*Individual).init(allocator),
@@ -132,8 +133,9 @@ pub const GameState = struct {
         return game_state;
     }
 
-    pub fn clone(self: GameState) !GameState {
-        return GameState{
+    pub fn clone(self: *GameState) !*GameState {
+        const game_state = try self.allocator.create(GameState);
+        game_state.* = GameState{
             .allocator = self.allocator,
             .terrain = try self.terrain.clone(self.allocator),
             .individuals = blk: {
@@ -155,6 +157,7 @@ pub const GameState = struct {
             .level_number = self.level_number,
             .warp_points = try self.allocator.dupe(Coord, self.warp_points),
         };
+        return game_state;
     }
 
     pub fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
