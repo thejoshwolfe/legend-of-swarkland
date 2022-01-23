@@ -162,9 +162,6 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                             .to = new_individual.status_conditions,
                         } });
                     }
-                    if (old_individual.has_shield != new_individual.has_shield) {
-                        @panic("TODO");
-                    }
                     assert(std.meta.eql(old_individual.perceived_origin, new_individual.perceived_origin));
                 }
             }
@@ -604,7 +601,8 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                 // innate defense
                                 if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
                                 // shield blocks arrows
-                                if (range > 1 and other.has_shield) break :blk false;
+                                const other_has_shield = false; // TODO
+                                if (range > 1 and other_has_shield) break :blk false;
                                 break :blk true;
                             };
                             if (is_effective) {
@@ -1418,7 +1416,7 @@ fn getPerceivedFrame(
                 .individual = .{
                     .species = actual_thing.species,
                     .status_conditions = actual_thing.status_conditions,
-                    .has_shield = actual_thing.has_shield,
+                    .has_shield = false, // TODO
                     .activity = activity,
                 },
             },

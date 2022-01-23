@@ -38,7 +38,6 @@ pub const Individual = struct {
     abs_position: ThingPosition,
     perceived_origin: Coord,
     status_conditions: StatusConditions = 0,
-    has_shield: bool = false,
 
     pub fn clone(self: Individual, allocator: Allocator) !*Individual {
         var other = try allocator.create(Individual);
@@ -48,7 +47,10 @@ pub const Individual = struct {
 };
 
 pub const Item = struct {
-    floor_coord: Coord,
+    location: union(enum) {
+        floor_coord: Coord,
+        holder_id: u32,
+    },
 
     pub fn clone(self: @This(), allocator: Allocator) !*@This() {
         var other = try allocator.create(@This());
@@ -91,17 +93,6 @@ pub const StateDiff = union(enum) {
         to: TerrainSpace,
     },
 
-    drop_shield: struct {
-        individual_id: u32,
-        item_id: u32,
-        item: Item,
-    },
-    pick_up_shield: struct {
-        individual_id: u32,
-        item_id: u32,
-        item: Item,
-    },
-
     transition_to_next_level,
 };
 
@@ -117,13 +108,13 @@ pub const GameState = struct {
         const game_state = try allocator.create(GameState);
         game_state.* = GameState{
             .allocator = allocator,
-            .terrain = undefined,
+            .terrain = Terrain.init(allocator),
             .individuals = IdMap(*Individual).init(allocator),
             .items = IdMap(*Item).init(allocator),
             .level_number = 0,
             .warp_points = &[_]Coord{},
         };
-        try map_gen.generate(allocator, &game_state.terrain, &game_state.individuals, &game_state.warp_points, new_game_settings);
+        try map_gen.generate(game_state, new_game_settings);
         return game_state;
     }
 
@@ -177,18 +168,6 @@ pub const GameState = struct {
                 .terrain_update => |data| {
                     try self.terrain.putCoord(data.at, data.to);
                 },
-                .drop_shield => |data| {
-                    const individual = self.individuals.get(data.individual_id).?;
-                    assert(individual.has_shield);
-                    individual.has_shield = false;
-                    try self.items.putNoClobber(data.item_id, try data.item.clone(self.allocator));
-                },
-                .pick_up_shield => |data| {
-                    const individual = self.individuals.get(data.individual_id).?;
-                    assert(!individual.has_shield);
-                    individual.has_shield = true;
-                    assert(self.items.swapRemove(data.item_id));
-                },
                 .transition_to_next_level => {
                     self.level_number += 1;
                 },
@@ -219,18 +198,6 @@ pub const GameState = struct {
                 },
                 .terrain_update => |data| {
                     try self.terrain.putCoord(data.at, data.from);
-                },
-                .drop_shield => |data| {
-                    const individual = self.individuals.get(data.individual_id).?;
-                    assert(!individual.has_shield);
-                    individual.has_shield = true;
-                    assert(self.items.swapRemove(data.item_id));
-                },
-                .pick_up_shield => |data| {
-                    const individual = self.individuals.get(data.individual_id).?;
-                    assert(individual.has_shield);
-                    individual.has_shield = false;
-                    try self.items.putNoClobber(data.item_id, try data.item.clone(self.allocator));
                 },
                 .transition_to_next_level => {
                     self.level_number -= 1;
