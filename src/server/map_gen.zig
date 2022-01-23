@@ -18,6 +18,7 @@ const Wall = core.protocol.Wall;
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
 const Individual = game_model.Individual;
+const Item = game_model.Item;
 const Terrain = game_model.Terrain;
 const IdMap = game_model.IdMap;
 const oob_terrain = game_model.oob_terrain;
@@ -126,11 +127,16 @@ pub fn generateRegular(game_state: *GameState) !void {
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {
                 const coord = popRandom(r, &possible_spawn_locations) orelse break;
                 const orc = try makeIndividual(coord, .orc).clone(allocator);
-                if (boss_room and individuals_remaining == 1) {
-                    // TODO: shield
-                }
-                try game_state.individuals.putNoClobber(next_id, orc);
+                const orc_id = next_id;
+                try game_state.individuals.putNoClobber(orc_id, orc);
                 next_id += 1;
+                if (boss_room and individuals_remaining == 1) {
+                    // give the boss a shield
+                    try game_state.items.putNoClobber(next_id, try (Item{
+                        .location = .{ .holder_id = orc_id },
+                    }).clone(allocator));
+                    next_id += 1;
+                }
             }
             individuals_remaining = wolf_count;
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {

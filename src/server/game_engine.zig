@@ -45,6 +45,7 @@ const woundThenKillGoesRightToKill = core.game_logic.woundThenKillGoesRightToKil
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
 const Individual = game_model.Individual;
+const Item = game_model.Item;
 const StateDiff = game_model.StateDiff;
 const IdMap = game_model.IdMap;
 const CoordMap = game_model.CoordMap;
@@ -601,7 +602,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                 // innate defense
                                 if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
                                 // shield blocks arrows
-                                const other_has_shield = false; // TODO
+                                const other_has_shield = self.hasShield(other_id);
                                 if (range > 1 and other_has_shield) break :blk false;
                                 break :blk true;
                             };
@@ -1416,7 +1417,7 @@ fn getPerceivedFrame(
                 .individual = .{
                     .species = actual_thing.species,
                     .status_conditions = actual_thing.status_conditions,
-                    .has_shield = false, // TODO
+                    .has_shield = self.hasShield(id),
                     .activity = activity,
                 },
             },
@@ -1605,4 +1606,35 @@ fn findAvailableId(self: *GameEngine) u32 {
         cursor += 1;
     }
     return cursor;
+}
+
+fn hasShield(self: *GameEngine, id: u32) bool {
+    var it = self.inventoryIterator(id);
+    while (it.next()) |_| {
+        return true;
+    }
+    return false;
+}
+
+const InventoryIterator = struct {
+    sub_it: IdMap(*Item).Iterator,
+    holder_id: u32,
+    pub fn next(self: *@This()) ?IdMap(*Item).Entry {
+        while (self.sub_it.next()) |entry| {
+            const item = entry.value_ptr.*;
+            switch (item.location) {
+                .floor_coord => {},
+                .holder_id => |holder_id| {
+                    if (holder_id == self.holder_id) return entry;
+                },
+            }
+        }
+        return null;
+    }
+};
+fn inventoryIterator(self: *GameEngine, holder_id: u32) InventoryIterator {
+    return .{
+        .sub_it = self.state.items.iterator(),
+        .holder_id = holder_id,
+    };
 }
