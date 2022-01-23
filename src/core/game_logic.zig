@@ -20,7 +20,9 @@ pub const unseen_terrain = TerrainSpace{
     .wall = .unknown,
 };
 
-pub const PerceivedTerrain = core.matrix.SparseChunkedMatrix(TerrainSpace, unseen_terrain);
+pub const PerceivedTerrain = core.matrix.SparseChunkedMatrix(TerrainSpace, unseen_terrain, .{
+    .metrics = true,
+});
 
 pub fn getViewDistance(species: Species) i32 {
     return switch (species) {
@@ -161,10 +163,19 @@ pub fn canKick(species: Species) bool {
 }
 
 pub fn canUseDoors(species: Species) bool {
-    return switch (species) {
-        .human, .orc => true,
-        .centaur => true,
-        else => false,
+    return hasHands(species);
+}
+pub fn canUseItems(species: Species) bool {
+    return hasHands(species);
+}
+
+fn hasHands(species: Species) bool {
+    return switch (getAnatomy(species)) {
+        .humanoid => true,
+        .centauroid => true,
+        .minotauroid => true,
+        .mermoid => true,
+        .insectoid, .quadruped, .serpentine, .scorpionoid, .bloboid, .kangaroid => false,
     };
 }
 
@@ -346,6 +357,10 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
         },
         .open_close => {
             if (!canUseDoors(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
+        },
+        .pick_up => {
+            if (!canUseItems(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .cheatcode_warp => {},

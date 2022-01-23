@@ -16,21 +16,25 @@ const TerrainSpace = core.protocol.TerrainSpace;
 const Wall = core.protocol.Wall;
 
 const game_model = @import("./game_model.zig");
+const GameState = game_model.GameState;
 const Individual = game_model.Individual;
+const Item = game_model.Item;
 const Terrain = game_model.Terrain;
 const IdMap = game_model.IdMap;
 const oob_terrain = game_model.oob_terrain;
 
 /// overwrites terrain. populates individuals.
-pub fn generate(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual), warp_points: *[]Coord, new_game_settings: NewGameSettings) !void {
+pub fn generate(game_state: *GameState, new_game_settings: NewGameSettings) !void {
     switch (new_game_settings) {
-        .regular => return generateRegular(allocator, terrain, individuals, warp_points),
-        .puzzle_levels => return generatePuzzleLevels(allocator, terrain, individuals),
+        .regular => return generateRegular(game_state),
+        .puzzle_levels => return generatePuzzleLevels(game_state),
     }
 }
 
-pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual), warp_points: *[]Coord) !void {
-    terrain.* = Terrain.init(allocator);
+pub fn generateRegular(game_state: *GameState) !void {
+    const allocator = game_state.allocator;
+    const terrain = &game_state.terrain;
+
     var _r = std.rand.DefaultPrng.init(std.crypto.random.int(u64));
     var r = _r.random();
     var next_id: u32 = 2;
@@ -42,7 +46,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
     {
         var rooms = ArrayList(Rect).init(allocator);
 
-        var rooms_remaining = r.intRangeAtMost(u32, 5, 9);
+        var rooms_remaining: usize = 7;
         while (rooms_remaining > 0) : (rooms_remaining -= 1) {
             const size = makeCoord(
                 r.intRangeAtMost(i32, 5, 9),
@@ -95,23 +99,55 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
                 try possible_spawn_locations.append(coord);
             }
 
-            // this is orc country
-            var individuals_remaining = r.intRangeAtMost(usize, 1, 3);
+            var orc_count: usize = 1;
+            var wolf_count: usize = 0;
+            var rat_count: usize = 0;
+            var boss_room = false;
+            switch (rooms_for_spawn.items.len) {
+                0 => unreachable, // human starting room.
+                1 => {
+                    // boss room
+                    orc_count = 4;
+                    wolf_count = 2;
+                    boss_room = true;
+                },
+                2...3 => {
+                    // wolf room
+                    orc_count = r.intRangeAtMost(usize, 2, 3);
+                    wolf_count = 1;
+                },
+                4...999 => {
+                    // rat room
+                    orc_count = 2;
+                    rat_count = 7;
+                },
+                else => unreachable,
+            }
+            var individuals_remaining = orc_count;
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {
                 const coord = popRandom(r, &possible_spawn_locations) orelse break;
-                try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
+                const orc = try makeIndividual(coord, .orc).clone(allocator);
+                const orc_id = next_id;
+                try game_state.individuals.putNoClobber(orc_id, orc);
+                next_id += 1;
+                if (boss_room and individuals_remaining == 1) {
+                    // give the boss a shield
+                    try game_state.items.putNoClobber(next_id, try (Item{
+                        .location = .{ .holder_id = orc_id },
+                    }).clone(allocator));
+                    next_id += 1;
+                }
+            }
+            individuals_remaining = wolf_count;
+            while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+                const coord = popRandom(r, &possible_spawn_locations) orelse break;
+                try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .wolf).clone(allocator));
                 next_id += 1;
             }
-            individuals_remaining = r.intRangeAtMost(usize, 0, 1);
+            individuals_remaining = rat_count;
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {
                 const coord = popRandom(r, &possible_spawn_locations) orelse break;
-                try individuals.putNoClobber(next_id, try makeIndividual(coord, .wolf).clone(allocator));
-                next_id += 1;
-            }
-            individuals_remaining = r.intRangeAtMost(usize, 3, 7) * r.int(u1);
-            while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-                const coord = popRandom(r, &possible_spawn_locations) orelse break;
-                try individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
+                try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
                 next_id += 1;
             }
         }
@@ -121,7 +157,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
             r.intRangeLessThan(i32, rooms_for_spawn.items[0].y + 1, rooms_for_spawn.items[0].bottom() - 1),
         );
         const human = try makeIndividual(start_point, .human).clone(allocator);
-        try individuals.putNoClobber(1, human);
+        try game_state.individuals.putNoClobber(1, human);
         try warp_points_list.append(start_point);
 
         // join rooms
@@ -335,19 +371,19 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         var individuals_remaining = r.intRangeAtMost(usize, 4, 10);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
             next_id += 1;
         }
         individuals_remaining = r.intRangeAtMost(usize, 1, 3);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .wood_golem).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .wood_golem).clone(allocator));
             next_id += 1;
         }
         individuals_remaining = r.intRangeAtMost(usize, 1, 3);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .kangaroo).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .kangaroo).clone(allocator));
             next_id += 1;
         }
     }
@@ -556,19 +592,19 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         var individuals_remaining = r.intRangeAtMost(usize, 10, 20);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .scorpion).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .scorpion).clone(allocator));
             next_id += 1;
         }
         individuals_remaining = r.intRangeAtMost(usize, 5, 10);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .brown_snake).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .brown_snake).clone(allocator));
             next_id += 1;
         }
         individuals_remaining = r.intRangeAtMost(usize, 2, 4);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
             next_id += 1;
         }
 
@@ -577,7 +613,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         individuals_remaining = 1;
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
             next_id += 1;
         }
         // room 1 - a wood golem that might come in handy.
@@ -585,7 +621,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         individuals_remaining = 1;
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .wood_golem).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .wood_golem).clone(allocator));
             next_id += 1;
         }
         // room 2,3 - a bunch of ants.
@@ -594,7 +630,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         individuals_remaining = r.intRangeAtMost(usize, 12, 20);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
             next_id += 1;
         }
         // room 4 - scorpions and snakes.
@@ -602,13 +638,13 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         individuals_remaining = r.intRangeAtMost(usize, 2, 3);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .scorpion).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .scorpion).clone(allocator));
             next_id += 1;
         }
         individuals_remaining = r.intRangeAtMost(usize, 2, 3);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .brown_snake).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .brown_snake).clone(allocator));
             next_id += 1;
         }
         // room 5 - centaurs.
@@ -617,7 +653,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
             if (coord.y >= rooms[5].bottom() - 2) continue; // this can make it impossible to progress.
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
             next_id += 1;
         }
         // room 6 - angel statue.
@@ -635,7 +671,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         individuals_remaining = 2;
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .ogre).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .ogre).clone(allocator));
             next_id += 1;
         }
         // room 8 - minotaur
@@ -643,7 +679,7 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         individuals_remaining = 1;
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .minotaur).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .minotaur).clone(allocator));
             next_id += 1;
         }
         // room 9 - chest
@@ -657,16 +693,16 @@ pub fn generateRegular(allocator: Allocator, terrain: *Terrain, individuals: *Id
         individuals_remaining = 1;
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try individuals.putNoClobber(next_id, try makeIndividual(coord, .human).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .human).clone(allocator));
             next_id += 1;
         }
     }
 
-    warp_points.* = warp_points_list.toOwnedSlice();
+    game_state.warp_points = warp_points_list.toOwnedSlice();
 }
 
-pub fn generatePuzzleLevels(allocator: Allocator, terrain: *Terrain, individuals: *IdMap(*Individual)) !void {
-    terrain.* = try buildTheTerrain(allocator);
+pub fn generatePuzzleLevels(game_state: *GameState) !void {
+    try buildTheTerrain(&game_state.terrain);
 
     // start level 0
 
@@ -675,7 +711,7 @@ pub fn generatePuzzleLevels(allocator: Allocator, terrain: *Terrain, individuals
     var found_human = false;
     const level_x = 0;
     for (the_levels[0].individuals) |_individual| {
-        const individual = try _individual.clone(allocator);
+        const individual = try _individual.clone(game_state.allocator);
         individual.abs_position = core.game_logic.offsetPosition(individual.abs_position, makeCoord(level_x, 0));
 
         var id: u32 = undefined;
@@ -686,7 +722,7 @@ pub fn generatePuzzleLevels(allocator: Allocator, terrain: *Terrain, individuals
             id = non_human_id_cursor;
             non_human_id_cursor += 1;
         }
-        try individuals.putNoClobber(id, individual);
+        try game_state.individuals.putNoClobber(id, individual);
     }
     std.debug.assert(found_human);
 }
@@ -1130,7 +1166,7 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
     return level;
 }
 
-fn buildTheTerrain(allocator: Allocator) !Terrain {
+fn buildTheTerrain(terrain: *Terrain) !void {
     var width: u16 = 0;
     var height: u16 = 1;
     for (the_levels) |level| {
@@ -1138,15 +1174,11 @@ fn buildTheTerrain(allocator: Allocator) !Terrain {
         height = std.math.max(height, level.height);
     }
 
-    var terrain = Terrain.init(allocator);
-
     var level_x: u16 = 0;
     for (the_levels) |level| {
         try terrain.copyFromSlice(level.terrain, level.width, level.height, level_x, 0, 0, 0, level.width, level.height);
         level_x += level.width;
     }
-
-    return terrain;
 }
 
 fn choice(r: Random, arr: anytype) @TypeOf(arr[0]) {

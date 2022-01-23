@@ -21,6 +21,7 @@ pub const Button = enum {
     start_open_close,
     charge,
     stomp,
+    pick_up,
     backspace,
     spacebar,
     enter,
@@ -105,6 +106,7 @@ pub const InputEngine = struct {
                 return .quit
             else
                 return null,
+            sdl.c.SDL_SCANCODE_G => return if (modifiers == 0) .pick_up else null,
             sdl.c.SDL_SCANCODE_PERIOD => if (modifiers == 0)
                 return null // .
             else if (modifiers == shift)

@@ -117,6 +117,7 @@ pub const Action = union(enum) {
     stomp,
     lunge: CardinalDirection,
     open_close: CardinalDirection,
+    pick_up,
 
     cheatcode_warp: u3,
 };
@@ -159,12 +160,17 @@ pub const ThingPosition = union(enum) {
 
 pub const PerceivedThing = struct {
     position: ThingPosition,
-    species: Species,
+    kind: union(enum) {
+        individual: struct {
+            species: Species,
 
-    status_conditions: StatusConditions,
-    has_shield: bool,
+            status_conditions: StatusConditions,
+            has_shield: bool,
 
-    activity: PerceivedActivity,
+            activity: PerceivedActivity,
+        },
+        shield,
+    },
 };
 
 pub const StatusConditions = u8;
@@ -191,7 +197,7 @@ pub const PerceivedActivity = union(enum) {
     stomp,
 
     kick: Coord,
-    polymorph: Species,
+    polymorph,
 
     death,
 
