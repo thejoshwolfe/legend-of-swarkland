@@ -208,8 +208,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
     }
 
     var total_deaths = IdMap(void).init(self.allocator);
-
-    var polymorphs = IdMap(Species).init(self.allocator);
+    var polymorphers = IdMap(void).init(self.allocator);
 
     // Cheating
     {
@@ -539,7 +538,8 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
 
                         if (blob_subpecies == .small_blob) {
                             // Grow up to be large.
-                            try polymorphs.putNoClobber(attacker_id, Species{ .blob = .large_blob });
+                            self.state.individuals.get(attacker_id).?.species = .{ .blob = .large_blob };
+                            try polymorphers.put(attacker_id, {});
                         }
                     }
                 }
@@ -902,10 +902,8 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 }
             } else {
                 // The polymoph succeeds.
-                if (try polymorphs.fetchPut(id, dest_species)) |_| {
-                    // This can happen if a digestion got interrupted by a polymorph trap.
-                    // Discard the digestion transform.
-                }
+                self.state.individuals.get(id).?.species = dest_species;
+                try polymorphers.put(id, {});
                 const blob_only_statuses = core.protocol.StatusCondition_grappling | //
                     core.protocol.StatusCondition_digesting;
                 const blob_immune_statuses = core.protocol.StatusCondition_grappled | //
@@ -922,13 +920,13 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
     }
-    if (polymorphs.count() != 0) {
+    if (polymorphers.count() != 0) {
         for (everybody) |id| {
             try observeFrame(
                 self,
                 id,
                 individual_to_perception.get(id).?,
-                Activities{ .polymorphs = &polymorphs },
+                Activities{ .polymorphs = &polymorphers },
             );
         }
     }
@@ -1237,7 +1235,7 @@ const Activities = union(enum) {
     shrinks: *const IdMap(u1),
     kicks: *const IdMap(Coord),
     attacks: AttackishActivities,
-    polymorphs: *const IdMap(Species),
+    polymorphs: *const IdMap(void),
 
     deaths: *const IdMap(void),
 
@@ -1388,8 +1386,8 @@ fn getPerceivedFrame(
             else
                 PerceivedActivity{ .none = {} },
 
-            .polymorphs => |data| if (data.get(id)) |species|
-                PerceivedActivity{ .polymorph = species }
+            .polymorphs => |data| if (data.contains(id))
+                PerceivedActivity{ .polymorph = {} }
             else
                 PerceivedActivity{ .none = {} },
 

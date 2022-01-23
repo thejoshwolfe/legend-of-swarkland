@@ -196,7 +196,7 @@ pub const PerceivedActivity = union(enum) {
     stomp,
 
     kick: Coord,
-    polymorph: Species,
+    polymorph,
 
     death,
 
