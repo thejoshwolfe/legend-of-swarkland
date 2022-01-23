@@ -1475,6 +1475,19 @@ fn getPerceivedFrame(
         }
     }
 
+    for (self.state.items.values()) |item| {
+        switch (item.location) {
+            .floor_coord => |coord| {
+                if (!in_view_matrix.getCoord(coord)) continue;
+                try others.append(PerceivedThing{
+                    .position = .{ .small = coord.minus(perceived_origin) },
+                    .kind = .shield,
+                });
+            },
+            .holder_id => {}, // handled above
+        }
+    }
+
     var terrain_chunk = try self.exportTerrain(&seen_terrain);
     terrain_chunk.position = terrain_chunk.position.minus(perceived_origin);
 
