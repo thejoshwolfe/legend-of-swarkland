@@ -357,11 +357,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
                                     .charge => {
                                         try doActionOrShowTutorialForError(state, .charge);
+                                        state.input_prompt = .none;
                                     },
                                     .stomp => {
                                         try doActionOrShowTutorialForError(state, .stomp);
                                         state.input_prompt = .none;
                                     },
+                                    .pick_up => {
+                                        try doActionOrShowTutorialForError(state, .pick_up);
+                                        state.input_prompt = .none;
+                                    },
+
                                     .backspace => {
                                         if (state.input_prompt == .none) {
                                             try state.client.rewind();

@@ -465,6 +465,41 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         }
     }
 
+    // pick up, drop
+    {
+        var item_claims = IdMap(?u32).init(self.allocator);
+        for (everybody) |individual_id| {
+            if (actions.get(individual_id).? != .pick_up) continue;
+            const individual = self.state.individuals.get(individual_id).?;
+            const pick_up_coord = getHeadPosition(individual.abs_position);
+            var it = self.state.items.iterator();
+            while (it.next()) |entry| {
+                const item_id = entry.key_ptr.*;
+                const item = entry.value_ptr.*;
+                switch (item.location) {
+                    .floor_coord => |floor_coord| {
+                        if (!floor_coord.equals(pick_up_coord)) continue;
+                    },
+                    .holder_id => continue,
+                }
+                const gop = try item_claims.getOrPut(item_id);
+                if (gop.found_existing) {
+                    // too many claims on this item.
+                    gop.value_ptr.* = null;
+                } else {
+                    gop.value_ptr.* = individual_id;
+                }
+            }
+        }
+        var it = item_claims.iterator();
+        while (it.next()) |entry| {
+            const item_id = entry.key_ptr.*;
+            const individual_id = entry.value_ptr.* orelse continue;
+            // the pick up succeeds.
+            self.state.items.get(item_id).?.location = .{ .holder_id = individual_id };
+        }
+    }
+
     // Wounds, limping, pain, etc.
     for (everybody) |id| {
         const individual = self.state.individuals.get(id).?;

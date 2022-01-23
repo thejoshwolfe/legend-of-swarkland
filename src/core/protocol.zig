@@ -117,6 +117,7 @@ pub const Action = union(enum) {
     stomp,
     lunge: CardinalDirection,
     open_close: CardinalDirection,
+    pick_up,
 
     cheatcode_warp: u3,
 };
