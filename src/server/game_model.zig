@@ -46,11 +46,12 @@ pub const Individual = struct {
     }
 };
 
+pub const ItemLocation = union(enum) {
+    floor_coord: Coord,
+    holder_id: u32,
+};
 pub const Item = struct {
-    location: union(enum) {
-        floor_coord: Coord,
-        holder_id: u32,
-    },
+    location: ItemLocation,
 
     pub fn clone(self: @This(), allocator: Allocator) !*@This() {
         var other = try allocator.create(@This());
@@ -60,31 +61,42 @@ pub const Item = struct {
 };
 
 pub const StateDiff = union(enum) {
-    spawn: struct {
+    individual_spawn: struct {
         id: u32,
         individual: Individual,
     },
-    despawn: struct {
+    individual_despawn: struct {
         id: u32,
         individual: Individual,
     },
-
-    reposition: struct {
+    individual_reposition: struct {
         id: u32,
         from: ThingPosition,
         to: ThingPosition,
     },
-
-    polymorph: struct {
+    individual_polymorph: struct {
         id: u32,
         from: Species,
         to: Species,
     },
-
-    status_condition_diff: struct {
+    individual_status_condition_update: struct {
         id: u32,
         from: StatusConditions,
         to: StatusConditions,
+    },
+
+    item_spawn: struct {
+        id: u32,
+        item: Item,
+    },
+    item_despawn: struct {
+        id: u32,
+        item: Item,
+    },
+    item_relocation: struct {
+        id: u32,
+        from: ItemLocation,
+        to: ItemLocation,
     },
 
     terrain_update: struct {
@@ -148,23 +160,34 @@ pub const GameState = struct {
     pub fn applyStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
         for (state_changes) |diff| {
             switch (diff) {
-                .spawn => |data| {
+                .individual_spawn => |data| {
                     try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
-                .despawn => |data| {
+                .individual_despawn => |data| {
                     assert(self.individuals.swapRemove(data.id));
                 },
-                .reposition => |data| {
+                .individual_reposition => |data| {
                     self.individuals.get(data.id).?.abs_position = data.to;
                 },
-                .polymorph => |polymorph| {
+                .individual_polymorph => |polymorph| {
                     const individual = self.individuals.get(polymorph.id).?;
                     individual.species = polymorph.to;
                 },
-                .status_condition_diff => |data| {
+                .individual_status_condition_update => |data| {
                     const individual = self.individuals.get(data.id).?;
                     individual.status_conditions = data.to;
                 },
+
+                .item_spawn => |data| {
+                    try self.items.putNoClobber(data.id, try data.item.clone(self.allocator));
+                },
+                .item_despawn => |data| {
+                    assert(self.items.swapRemove(data.id));
+                },
+                .item_relocation => |data| {
+                    self.items.get(data.id).?.location = data.to;
+                },
+
                 .terrain_update => |data| {
                     try self.terrain.putCoord(data.at, data.to);
                 },
@@ -179,23 +202,34 @@ pub const GameState = struct {
             // undo backwards
             const diff = state_changes[state_changes.len - 1 - forwards_i];
             switch (diff) {
-                .spawn => |data| {
+                .individual_spawn => |data| {
                     assert(self.individuals.swapRemove(data.id));
                 },
-                .despawn => |data| {
+                .individual_despawn => |data| {
                     try self.individuals.putNoClobber(data.id, try data.individual.clone(self.allocator));
                 },
-                .reposition => |data| {
+                .individual_reposition => |data| {
                     self.individuals.get(data.id).?.abs_position = data.from;
                 },
-                .polymorph => |polymorph| {
+                .individual_polymorph => |polymorph| {
                     const individual = self.individuals.get(polymorph.id).?;
                     individual.species = polymorph.from;
                 },
-                .status_condition_diff => |data| {
+                .individual_status_condition_update => |data| {
                     const individual = self.individuals.get(data.id).?;
                     individual.status_conditions = data.from;
                 },
+
+                .item_spawn => |data| {
+                    assert(self.items.swapRemove(data.id));
+                },
+                .item_despawn => |data| {
+                    try self.items.putNoClobber(data.id, try data.item.clone(self.allocator));
+                },
+                .item_relocation => |data| {
+                    self.items.get(data.id).?.location = data.from;
+                },
+
                 .terrain_update => |data| {
                     try self.terrain.putCoord(data.at, data.from);
                 },

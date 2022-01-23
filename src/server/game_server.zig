@@ -118,7 +118,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             for (state_changes) |_, i| {
                 const diff = state_changes[state_changes.len - 1 - i];
                 switch (diff) {
-                    .despawn => |individual| {
+                    .individual_despawn => |individual| {
                         if (individual.id == main_player_id) {
                             you_are_alive = true;
                         }
@@ -136,7 +136,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             try game_state.applyStateChanges(happenings.state_changes);
             for (happenings.state_changes) |diff| {
                 switch (diff) {
-                    .despawn => |id_and_individual| {
+                    .individual_despawn => |id_and_individual| {
                         if (id_and_individual.id == main_player_id) {
                             you_are_alive = false;
                         }

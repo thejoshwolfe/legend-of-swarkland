@@ -128,6 +128,7 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                     }
                 }
             }
+
             // individual updates and despawns
             {
                 var it = pristine_game_state.individuals.iterator();
@@ -136,28 +137,28 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                     const old_individual = entry.value_ptr.*;
                     const new_individual = self.state.individuals.get(id) orelse {
                         // despawned
-                        try ret.append(StateDiff{ .despawn = .{
+                        try ret.append(StateDiff{ .individual_despawn = .{
                             .id = id,
                             .individual = old_individual.*,
                         } });
                         continue;
                     };
                     if (!std.meta.eql(old_individual.species, new_individual.species)) {
-                        try ret.append(StateDiff{ .polymorph = .{
+                        try ret.append(StateDiff{ .individual_polymorph = .{
                             .id = id,
                             .from = old_individual.species,
                             .to = new_individual.species,
                         } });
                     }
                     if (!std.meta.eql(old_individual.abs_position, new_individual.abs_position)) {
-                        try ret.append(StateDiff{ .reposition = .{
+                        try ret.append(StateDiff{ .individual_reposition = .{
                             .id = id,
                             .from = old_individual.abs_position,
                             .to = new_individual.abs_position,
                         } });
                     }
                     if (!std.meta.eql(old_individual.status_conditions, new_individual.status_conditions)) {
-                        try ret.append(StateDiff{ .status_condition_diff = .{
+                        try ret.append(StateDiff{ .individual_status_condition_update = .{
                             .id = id,
                             .from = old_individual.status_conditions,
                             .to = new_individual.status_conditions,
@@ -166,7 +167,7 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                     assert(std.meta.eql(old_individual.perceived_origin, new_individual.perceived_origin));
                 }
             }
-            // spawns
+            // individual spawns
             {
                 var it = self.state.individuals.iterator();
                 while (it.next()) |entry| {
@@ -174,12 +175,57 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                     const new_individual = entry.value_ptr.*;
                     if (pristine_game_state.individuals.contains(id)) continue;
                     // new individual.
-                    try ret.append(StateDiff{ .spawn = .{
+                    try ret.append(StateDiff{ .individual_spawn = .{
                         .id = id,
                         .individual = new_individual.*,
                     } });
                 }
             }
+
+            // item updates and despawns
+            {
+                var it = pristine_game_state.items.iterator();
+                while (it.next()) |entry| {
+                    const id = entry.key_ptr.*;
+                    const old_item = entry.value_ptr.*;
+                    const new_item = self.state.items.get(id) orelse {
+                        // despawned
+                        try ret.append(StateDiff{ .item_despawn = .{
+                            .id = id,
+                            .item = old_item.*,
+                        } });
+                        continue;
+                    };
+                    if (!std.meta.eql(old_item.location, new_item.location)) {
+                        try ret.append(StateDiff{ .item_relocation = .{
+                            .id = id,
+                            .from = old_item.location,
+                            .to = new_item.location,
+                        } });
+                    }
+                    switch (new_item.location) {
+                        .holder_id => |holder_id| {
+                            assert(self.state.individuals.contains(holder_id));
+                        },
+                        else => {},
+                    }
+                }
+            }
+            // item spawns
+            {
+                var it = self.state.items.iterator();
+                while (it.next()) |entry| {
+                    const id = entry.key_ptr.*;
+                    const new_item = entry.value_ptr.*;
+                    if (pristine_game_state.items.contains(id)) continue;
+                    // new item.
+                    try ret.append(StateDiff{ .item_spawn = .{
+                        .id = id,
+                        .item = new_item.*,
+                    } });
+                }
+            }
+
             if (pristine_game_state.level_number != self.state.level_number) {
                 @panic("TODO");
             }
@@ -567,7 +613,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 );
             }
         }
-        try flushDeaths(&total_deaths, &digestion_deaths, &everybody);
+        try self.flushDeaths(&total_deaths, &digestion_deaths, &everybody);
     }
 
     // Attacks
@@ -693,7 +739,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             );
         }
     }
-    try flushDeaths(&total_deaths, &attack_deaths, &everybody);
+    try self.flushDeaths(&total_deaths, &attack_deaths, &everybody);
 
     // Environmental death triggers
     {
@@ -1220,7 +1266,7 @@ fn doMovementAndCollisions(
             Activities{ .deaths = &trample_deaths },
         );
     }
-    try flushDeaths(total_deaths, &trample_deaths, everybody);
+    try self.flushDeaths(total_deaths, &trample_deaths, everybody);
 
     for (intended_moves.keys()) |id| {
         _ = try budges_at_all.put(id, {});
@@ -1472,15 +1518,22 @@ const MutablePerceivedHappening = struct {
     }
 };
 
-fn flushDeaths(total_deaths: *IdMap(void), local_deaths: *IdMap(void), everybody: *[]u32) !void {
+/// write local deaths to total deaths, and drop items.
+fn flushDeaths(self: *GameEngine, total_deaths: *IdMap(void), local_deaths: *IdMap(void), everybody: *[]u32) !void {
     for (local_deaths.keys()) |id| {
-        // write local deaths to total deaths
-        if (null == try total_deaths.fetchPut(id, {})) {
-            // actually removed.
+        if (null != try total_deaths.fetchPut(id, {})) continue;
+        // remove from everybody
+        {
             const index = std.mem.indexOfScalar(u32, everybody.*, id).?;
-            // swap remove
             everybody.*[index] = everybody.*[everybody.len - 1];
             everybody.len -= 1;
+        }
+        // drop items
+        const coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
+        var it = self.inventoryIterator(id);
+        while (it.next()) |entry| {
+            const item = entry.value_ptr.*;
+            item.location = .{ .floor_coord = coord };
         }
     }
     local_deaths.clearRetainingCapacity();
