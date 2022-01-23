@@ -10,14 +10,15 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
 }) type {
     return struct {
         chunks: std.AutoArrayHashMap(Coord, *Chunk),
-        // optional fields
         metrics: if (options.metrics) Metrics else void = if (options.metrics) .{} else {},
-        dirty_chunks: if (options.track_dirty_after_clone) std.AutoArrayHashMap(Coord, void) else void,
         // lru cache
         last_chunk_coord: Coord = .{ .x = 0, .y = 0 },
         last_chunk: ?*Chunk = null,
 
-        const Chunk = [chunk_side_length * chunk_side_length]T;
+        const Chunk = struct {
+            is_dirty: if (options.track_dirty_after_clone) bool else void,
+            data: [chunk_side_length * chunk_side_length]T,
+        };
 
         const chunk_shift = 4;
         const chunk_side_length = 1 << chunk_shift;
@@ -33,20 +34,16 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
         pub fn init(allocator: Allocator) @This() {
             return .{
                 .chunks = std.AutoArrayHashMap(Coord, *Chunk).init(allocator),
-                .dirty_chunks = if (options.track_dirty_after_clone) std.AutoArrayHashMap(Coord, void).init(allocator) else {},
             };
         }
         pub fn deinit(self: *@This()) void {
             self.clear();
             self.chunks.deinit();
-            if (options.track_dirty_after_clone) {
-                self.dirty_chunks.deinit();
-            }
         }
         pub fn clear(self: *@This()) void {
             var it = self.chunks.iterator();
             while (it.next()) |entry| {
-                self.chunks.allocator.free(entry.value_ptr.*);
+                self.chunks.allocator.destroy(entry.value_ptr.*);
             }
             self.chunks.clearRetainingCapacity();
         }
@@ -56,13 +53,15 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
             try other.chunks.ensureTotalCapacity(self.chunks.count());
             var it = self.chunks.iterator();
             while (it.next()) |entry| {
-                other.chunks.putAssumeCapacity(entry.key_ptr.*, //
-                    @ptrCast(*Chunk, //
-                    (try allocator.dupe(T, entry.value_ptr.*)) //
-                    .ptr));
+                const chunk = try self.chunks.allocator.create(Chunk);
+                if (options.track_dirty_after_clone) {
+                    // chunks are clean after a clone.
+                    chunk.is_dirty = false;
+                }
+                std.mem.copy(T, &chunk.data, &entry.value_ptr.*.data);
+                other.chunks.putAssumeCapacity(entry.key_ptr.*, chunk);
             }
             other.metrics = self.metrics;
-            // intentionally leave dirty_chunks empty.
             return other;
         }
 
@@ -117,26 +116,32 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
 
                 // check the lru cache.
                 if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
-                    return &self.last_chunk.?[inner_index];
+                    const chunk = self.last_chunk.?;
+                    if (options.track_dirty_after_clone) {
+                        chunk.is_dirty = true;
+                    }
+                    return &chunk.data[inner_index];
                 }
             }
 
             const gop = try self.chunks.getOrPut(chunk_coord);
             if (!gop.found_existing) {
-                gop.value_ptr.* = @ptrCast(*Chunk, //
-                    (try self.chunks.allocator.alloc(T, chunk_side_length * chunk_side_length)) //
-                    .ptr);
-                std.mem.set(T, gop.value_ptr.*, default_value);
+                const chunk = try self.chunks.allocator.create(Chunk);
+                if (options.track_dirty_after_clone) {
+                    chunk.is_dirty = false;
+                }
+                std.mem.set(T, &chunk.data, default_value);
+                gop.value_ptr.* = chunk;
             }
+            const chunk = gop.value_ptr.*;
 
             // update the lru cache
             self.last_chunk_coord = chunk_coord;
-            self.last_chunk = gop.value_ptr.*;
+            self.last_chunk = chunk;
             if (options.track_dirty_after_clone) {
-                try self.dirty_chunks.put(chunk_coord, {});
+                chunk.is_dirty = true;
             }
-
-            return &gop.value_ptr.*[inner_index];
+            return &chunk.data[inner_index];
         }
 
         pub fn getCoord(self: *@This(), coord: Coord) T {
@@ -154,14 +159,14 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
             const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
             // check the lru cache
             if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
-                return self.last_chunk.?[inner_index];
+                return self.last_chunk.?.data[inner_index];
             }
             const chunk = self.chunks.get(chunk_coord) orelse return default_value;
 
             // update the lru cache
             self.last_chunk_coord = chunk_coord;
             self.last_chunk = chunk;
-            return chunk[inner_index];
+            return chunk.data[inner_index];
         }
 
         pub fn getExistingCoord(self: *@This(), coord: Coord) *T {
@@ -176,7 +181,11 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
 
             // check the lru cache
             if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
-                return &self.last_chunk.?[inner_index];
+                const chunk = self.last_chunk.?;
+                if (options.track_dirty_after_clone) {
+                    chunk.is_dirty = true;
+                }
+                return &chunk.data[inner_index];
             }
             const chunk = self.chunks.get(chunk_coord) orelse unreachable;
 
@@ -184,12 +193,9 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
             self.last_chunk_coord = chunk_coord;
             self.last_chunk = chunk;
             if (options.track_dirty_after_clone) {
-                self.dirty_chunks.put(chunk_coord, {}) catch {
-                    @panic("TODO: move dirty_chunks to a field of the chunk."); // TODO
-                };
+                chunk.is_dirty = true;
             }
-
-            return &chunk[inner_index];
+            return &chunk.data[inner_index];
         }
 
         pub fn chunkCoordAndInnerIndexToCoord(chunk_coord: Coord, inner_index: usize) Coord {

@@ -108,17 +108,23 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
         .state_changes = blk: {
             var ret = ArrayList(StateDiff).init(self.allocator);
             // terrain
-            for (self.state.terrain.dirty_chunks.keys()) |chunk_coord| {
-                const old_chunk = pristine_game_state.terrain.chunks.get(chunk_coord).?;
-                const new_chunk = self.state.terrain.chunks.get(chunk_coord).?;
-                for (old_chunk) |old_cell, i| {
-                    const new_cell = new_chunk[i];
-                    if (old_cell.floor == new_cell.floor and old_cell.wall == new_cell.wall) continue;
-                    try ret.append(StateDiff{ .terrain_update = .{
-                        .at = Terrain.chunkCoordAndInnerIndexToCoord(chunk_coord, i),
-                        .from = old_cell,
-                        .to = new_cell,
-                    } });
+            {
+                var it = self.state.terrain.chunks.iterator();
+                while (it.next()) |entry| {
+                    const chunk_coord = entry.key_ptr.*;
+                    const new_chunk = entry.value_ptr.*;
+                    if (!new_chunk.is_dirty) continue;
+                    const old_chunk = pristine_game_state.terrain.chunks.get(chunk_coord).?;
+                    for (old_chunk.data) |old_cell, i| {
+                        const new_cell = new_chunk.data[i];
+                        if (!std.meta.eql(old_cell, new_cell)) {
+                            try ret.append(StateDiff{ .terrain_update = .{
+                                .at = Terrain.chunkCoordAndInnerIndexToCoord(chunk_coord, i),
+                                .from = old_cell,
+                                .to = new_cell,
+                            } });
+                        }
+                    }
                 }
             }
             // individual updates and despawns
