@@ -817,7 +817,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 g.text(" S: Stomp");
                             } else |_| {}
                             if (validateAction(species, position, status_conditions, .open_close)) {
-                                g.text(" O: Start open/close door...");
+                                if (isNextToDoor(state.client_state.?)) g.text(" O: Start open/close door...");
+                            } else |_| {}
+                            if (validateAction(species, position, status_conditions, .pick_up)) {
+                                if (isStandingOnItem(state.client_state.?)) g.text(" G: Pick up item");
                             } else |_| {}
                             if (validateAction(species, position, status_conditions, .charge)) {
                                 g.text(" C: Charge");
@@ -1572,4 +1575,23 @@ fn compressPerceivedThings(base_thing: *PerceivedThing, patch_thing: PerceivedTh
 
 fn lastPtr(arr: anytype) @TypeOf(&arr[arr.len - 1]) {
     return &arr[arr.len - 1];
+}
+
+fn isNextToDoor(frame: PerceivedFrame) bool {
+    _ = frame; // TODO: implement this some day.
+    return true;
+}
+
+fn isStandingOnItem(frame: PerceivedFrame) bool {
+    const coord = getHeadPosition(frame.self.position);
+    for (frame.others) |other| {
+        switch (other.kind) {
+            .individual => continue,
+            .shield => {
+                if (!coord.equals(other.position.small)) continue;
+                return true;
+            },
+        }
+    }
+    return false;
 }
