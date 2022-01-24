@@ -91,10 +91,12 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     }
     const my_head_position = getHeadPosition(me.position);
     const delta = target_position.?.minus(my_head_position);
-    const range = if (hesitatesOneSpaceAway(my_species))
-        1
+    const range = if (core.game_logic.hasBow(my_species))
+        core.game_logic.bow_range
+    else if (core.game_logic.canAttack(my_species) or hesitatesOneSpaceAway(my_species))
+        @as(i32, 1)
     else
-        core.game_logic.getAttackRange(my_species);
+        0;
 
     if (delta.x * delta.y == 0) {
         // straight shot
@@ -119,6 +121,16 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             if (hesitatesOneSpaceAway(my_species)) {
                 // too close. get away!
                 if (can(me, Action{ .kick = delta_direction })) |action| return action;
+            }
+            if (core.game_logic.hasBow(my_species)) {
+                // two step process
+                if (0 == me.kind.individual.status_conditions & core.protocol.StatusCondition_arrow_nocked) {
+                    // ready, aim,
+                    if (can(me, .nock_arrow)) |action| return action;
+                } else {
+                    // fire!
+                    if (can(me, Action{ .fire_bow = delta_direction })) |action| return action;
+                }
             }
             if (can(me, Action{ .attack = delta_direction })) |action| return action;
             // I'd love to do something about this situation, but there's nothing i can do.

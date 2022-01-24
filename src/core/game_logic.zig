@@ -33,17 +33,17 @@ pub fn getViewDistance(species: Species) i32 {
 
 pub fn canAttack(species: Species) bool {
     return switch (species) {
-        .rhino, .blob, .kangaroo => false,
+        .rhino, .blob, .kangaroo, .centaur => false,
         else => true,
     };
 }
 
-pub fn getAttackRange(species: Species) i32 {
-    switch (species) {
-        .centaur => return 16,
-        .rhino, .blob, .kangaroo, .rat, .ant => return 0,
-        else => return 1,
-    }
+pub const bow_range = 16;
+pub fn hasBow(species: Species) bool {
+    return switch (species) {
+        .centaur => true,
+        else => false,
+    };
 }
 
 pub const AttackEffect = enum {
@@ -362,6 +362,13 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
         .pick_up => {
             if (!canUseItems(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
+        },
+        .nock_arrow => {
+            if (!hasBow(species)) return error.SpeciesIncapable;
+            if (0 != status_conditions & (pain_statuses | core.protocol.StatusCondition_arrow_nocked)) return error.StatusForbids;
+        },
+        .fire_bow => {
+            if (0 == status_conditions & core.protocol.StatusCondition_arrow_nocked) return error.StatusForbids;
         },
         .cheatcode_warp => {},
     }

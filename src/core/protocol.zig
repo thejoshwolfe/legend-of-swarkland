@@ -118,6 +118,8 @@ pub const Action = union(enum) {
     lunge: CardinalDirection,
     open_close: CardinalDirection,
     pick_up,
+    nock_arrow,
+    fire_bow: CardinalDirection,
 
     cheatcode_warp: u3,
 };
@@ -173,7 +175,7 @@ pub const PerceivedThing = struct {
     },
 };
 
-pub const StatusConditions = u8;
+pub const StatusConditions = u9;
 pub const StatusCondition_wounded_leg: StatusConditions = 0x1;
 pub const StatusCondition_limping: StatusConditions = 0x2;
 pub const StatusCondition_grappling: StatusConditions = 0x4;
@@ -182,6 +184,7 @@ pub const StatusCondition_digesting: StatusConditions = 0x10;
 pub const StatusCondition_being_digested: StatusConditions = 0x20;
 pub const StatusCondition_malaise: StatusConditions = 0x40;
 pub const StatusCondition_pain: StatusConditions = 0x80;
+pub const StatusCondition_arrow_nocked: StatusConditions = 0x100;
 
 pub const PerceivedActivity = union(enum) {
     none,

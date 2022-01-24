@@ -511,17 +511,21 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 core.protocol.StatusCondition_malaise | //
                 core.protocol.StatusCondition_pain;
             individual.status_conditions &= ~healed_statuses;
-            continue;
         }
-        if (!budges_at_all.contains(id)) {
+        if (budges_at_all.contains(id)) {
+            // You moved.
+            if (0 != individual.status_conditions & core.protocol.StatusCondition_wounded_leg or //
+                isSlow(species) or //
+                (actions.get(id).? == .lunge and limpsAfterLunge(species)))
+            {
+                // now you limp.
+                individual.status_conditions |= core.protocol.StatusCondition_limping;
+            }
+            // A nocked arrow does not survive moving.
+            individual.status_conditions &= ~core.protocol.StatusCondition_arrow_nocked;
+        } else {
             // you held still, so you are free of any limping status.
             individual.status_conditions &= ~core.protocol.StatusCondition_limping;
-        } else if (0 != individual.status_conditions & core.protocol.StatusCondition_wounded_leg or //
-            isSlow(species) or //
-            (actions.get(id).? == .lunge and limpsAfterLunge(species)))
-        {
-            // now you limp.
-            individual.status_conditions |= core.protocol.StatusCondition_limping;
         }
         if (0 != individual.status_conditions & core.protocol.StatusCondition_malaise and //
             actionCausesPainWhileMalaised(actions.get(id).?))
@@ -659,13 +663,14 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
     for (everybody) |id| {
         const action = actions.get(id).?;
         switch (action) {
-            .attack, .lunge => |attack_direction| {
+            .attack, .lunge, .fire_bow => |attack_direction| {
                 const attack_delta = cardinalDirectionToDelta(attack_direction);
                 const attacker = self.state.individuals.get(id).?;
+                attacker.status_conditions &= ~core.protocol.StatusCondition_arrow_nocked;
                 var attacker_coord = getHeadPosition(attacker.abs_position);
                 const attacker_species = attacker.species;
                 var attack_distance: i32 = 1;
-                const range = core.game_logic.getAttackRange(attacker_species);
+                const range: i32 = if (action == .fire_bow) core.game_logic.bow_range else 1;
                 while (attack_distance <= range) : (attack_distance += 1) {
                     var damage_position = attacker_coord.plus(attack_delta.scaled(attack_distance));
                     var stop_the_attack = false;
@@ -738,6 +743,10 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 } else {
                     try nibbles.putNoClobber(id, {});
                 }
+            },
+            .nock_arrow => {
+                const attacker = self.state.individuals.get(id).?;
+                attacker.status_conditions |= core.protocol.StatusCondition_arrow_nocked;
             },
             else => continue,
         }

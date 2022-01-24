@@ -749,7 +749,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         textures.renderLargeSprite(renderer, anatomy_sprites.shielded.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
-                    var status_conditions: u8 = frame.self.kind.individual.status_conditions;
+                    var status_conditions: u9 = frame.self.kind.individual.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_being_digested) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.being_digested.?, anatomy_coord);
                     }
@@ -1154,7 +1154,8 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
         .individual => {
             switch (thing.kind.individual.species) {
                 else => {
-                    textures.renderSpriteScaled(renderer, speciesToSprite(thing.kind.individual.species), render_rect);
+                    const is_arrow_nocked = thing.kind.individual.status_conditions & core.protocol.StatusCondition_arrow_nocked != 0;
+                    textures.renderSpriteScaled(renderer, speciesToSprite(thing.kind.individual.species, is_arrow_nocked), render_rect);
                 },
                 .rhino => {
                     const oriented_delta = if (progress < @divTrunc(progress_denominator, 2))
@@ -1166,7 +1167,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                     const tail_render_position = render_position.plus(oriented_delta.scaled(32));
                     const rhino_sprite_normalizing_rotation = 0;
                     const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
-                    textures.renderSpriteRotated(renderer, speciesToSprite(thing.kind.individual.species), render_position, rotation);
+                    textures.renderSpriteRotated(renderer, speciesToSprite(thing.kind.individual.species, false), render_position, rotation);
                     textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.kind.individual.species), tail_render_position, rotation);
                 },
             }
@@ -1204,7 +1205,7 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .shrink => {},
 
         .attack => |data| {
-            const max_range = core.game_logic.getAttackRange(thing.kind.individual.species);
+            const max_range = if (core.game_logic.hasBow(thing.kind.individual.species)) core.game_logic.bow_range else @as(i32, 1);
             if (max_range == 1) {
                 const dagger_sprite_normalizing_rotation = 1;
                 textures.renderSpriteRotated(
@@ -1360,11 +1361,11 @@ fn hashU32(input: u32) u32 {
     return x;
 }
 
-fn speciesToSprite(species: Species) Rect {
+fn speciesToSprite(species: Species, is_arrow_nocked: bool) Rect {
     return switch (species) {
         .human => textures.sprites.human,
         .orc => textures.sprites.orc,
-        .centaur => textures.sprites.centaur_archer,
+        .centaur => if (is_arrow_nocked) textures.sprites.centaur_archer_nocked else textures.sprites.centaur_archer,
         .turtle => textures.sprites.turtle,
         .rhino => textures.sprites.rhino[0],
         .kangaroo => textures.sprites.kangaroo,
