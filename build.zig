@@ -88,7 +88,7 @@ fn make_binary_variant(
     exe.install();
     exe.addPackagePath("core", "src/index.zig");
     if (!headless) {
-        if (target.getOsTag() == .windows and target.getAbi() == .gnu) {
+        if ((target.getOsTag() == .windows and target.getAbi() == .gnu) or target.getOsTag() == .macos) {
             @import("deps/zig-sdl/build.zig").linkArtifact(b, .{
                 .artifact = exe,
                 .prefix = "deps/zig-sdl",
