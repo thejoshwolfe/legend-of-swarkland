@@ -657,9 +657,18 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
 
     // Attacks
     var attacks = IdMap(Activities.Attack).init(self.allocator);
+    var defends = IdMap(CardinalDirection).init(self.allocator);
     var nibbles = IdMap(void).init(self.allocator);
     var stomps = IdMap(void).init(self.allocator);
     var attack_deaths = IdMap(void).init(self.allocator);
+    for (everybody) |id| {
+        switch (actions.get(id).?) {
+            .defend => |direction| {
+                try defends.putNoClobber(id, direction);
+            },
+            else => {},
+        }
+    }
     for (everybody) |id| {
         const action = actions.get(id).?;
         switch (action) {
@@ -687,9 +696,16 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                             const is_effective = blk: {
                                 // innate defense
                                 if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
-                                // shield blocks arrows
-                                const other_has_shield = self.hasShield(other_id);
-                                if (range > 1 and other_has_shield) break :blk false;
+                                // shield defense
+                                if (defends.get(other_id)) |direction| {
+                                    if (@enumToInt(direction) +% 2 == @enumToInt(attack_direction)) {
+                                        if (range == 1) {
+                                            // melee shield parry.
+                                            attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
+                                        }
+                                        break :blk false;
+                                    }
+                                }
                                 break :blk true;
                             };
                             if (is_effective) {
@@ -762,13 +778,14 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
     }
     // Perception of Attacks and Death
     for (everybody) |id| {
-        if (attacks.count() + nibbles.count() + stomps.count() != 0) {
+        if (attacks.count() + defends.count() + nibbles.count() + stomps.count() != 0) {
             try observeFrame(
                 self,
                 id,
                 individual_to_perception.get(id).?,
                 Activities{ .attacks = .{
                     .attacks = &attacks,
+                    .defends = &defends,
                     .nibbles = &nibbles,
                     .stomps = &stomps,
                 } },
@@ -1334,6 +1351,7 @@ const Activities = union(enum) {
     };
     const AttackishActivities = struct {
         attacks: *const IdMap(Attack),
+        defends: *const IdMap(CardinalDirection),
         nibbles: *const IdMap(void),
         stomps: *const IdMap(void),
     };
@@ -1463,6 +1481,8 @@ fn getPerceivedFrame(
                         .distance = attack.distance,
                     },
                 }
+            else if (data.defends.get(id)) |direction|
+                PerceivedActivity{ .defend = direction }
             else if (data.nibbles.contains(id))
                 PerceivedActivity{ .nibble = {} }
             else if (data.stomps.contains(id))
@@ -1507,7 +1527,7 @@ fn getPerceivedFrame(
                 .individual = .{
                     .species = actual_thing.species,
                     .status_conditions = actual_thing.status_conditions,
-                    .has_shield = self.hasShield(id),
+                    .has_shield = hasShield(self.state, id),
                     .activity = activity,
                 },
             },
@@ -1587,7 +1607,7 @@ fn flushDeaths(self: *GameEngine, total_deaths: *IdMap(void), local_deaths: *IdM
         }
         // drop items
         const coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
-        var it = self.inventoryIterator(id);
+        var it = inventoryIterator(self.state, id);
         while (it.next()) |entry| {
             const item = entry.value_ptr.*;
             item.location = .{ .floor_coord = coord };
@@ -1718,8 +1738,8 @@ fn findAvailableId(self: *GameEngine) u32 {
     return cursor;
 }
 
-fn hasShield(self: *GameEngine, id: u32) bool {
-    var it = self.inventoryIterator(id);
+pub fn hasShield(game_state: *GameState, id: u32) bool {
+    var it = inventoryIterator(game_state, id);
     while (it.next()) |_| {
         return true;
     }
@@ -1742,9 +1762,9 @@ const InventoryIterator = struct {
         return null;
     }
 };
-fn inventoryIterator(self: *GameEngine, holder_id: u32) InventoryIterator {
+fn inventoryIterator(game_state: *GameState, holder_id: u32) InventoryIterator {
     return .{
-        .sub_it = self.state.items.iterator(),
+        .sub_it = game_state.items.iterator(),
         .holder_id = holder_id,
     };
 }

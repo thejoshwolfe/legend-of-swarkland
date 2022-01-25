@@ -33,7 +33,7 @@ pub fn getViewDistance(species: Species) i32 {
 
 pub fn canAttack(species: Species) bool {
     return switch (species) {
-        .rhino, .blob, .kangaroo, .centaur => false,
+        .rhino, .blob, .kangaroo, .centaur, .rat, .ant => false,
         else => true,
     };
 }
@@ -77,8 +77,10 @@ pub fn getAttackEffect(species: Species) AttackEffect {
 
 pub fn actionCausesPainWhileMalaised(action: std.meta.Tag(Action)) bool {
     return switch (action) {
-        .charge, .attack, .kick, .nibble, .stomp, .lunge, .open_close => true,
-        else => false,
+        .charge, .attack, .kick, .nibble, .stomp, .lunge, .open_close, .fire_bow, .defend, .pick_up => true,
+        .move, .grow, .shrink, .wait => false,
+        .nock_arrow => false,
+        .cheatcode_warp => false,
     };
 }
 
@@ -314,7 +316,7 @@ pub fn getAnatomy(species: Species) Anatomy {
     }
 }
 
-pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), status_conditions: StatusConditions, action: std.meta.Tag(Action)) !void {
+pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), status_conditions: StatusConditions, has_shield: bool, action: std.meta.Tag(Action)) !void {
     const immobilizing_statuses = core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled;
     const pain_statuses = core.protocol.StatusCondition_pain;
     switch (action) {
@@ -369,6 +371,10 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
         },
         .fire_bow => {
             if (0 == status_conditions & core.protocol.StatusCondition_arrow_nocked) return error.StatusForbids;
+        },
+        .defend => {
+            if (!has_shield) return error.MissingItem;
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .cheatcode_warp => {},
     }

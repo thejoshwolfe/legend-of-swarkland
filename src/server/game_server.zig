@@ -58,8 +58,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             if (id == main_player_id) continue;
             const response = response_for_ais.get(id) orelse Response{ .load_state = try game_engine.getStaticPerception(allocator, game_state, id) };
             const action = doAi(response);
-            const individual = game_state.individuals.get(id).?;
-            validateAction(individual.species, individual.abs_position, individual.status_conditions, action) catch |err| @panic(@errorName(err));
+            validateActionWithGameState(game_state, id, action) catch |err| @panic(@errorName(err));
             debugPrintAction(id, action);
             try actions.putNoClobber(id, action);
         }
@@ -82,8 +81,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
                             try main_player_queues.enqueueResponse(Response{ .reject_request = request });
                             continue :retryRead;
                         }
-                        const individual = game_state.individuals.get(main_player_id).?;
-                        validateAction(individual.species, individual.abs_position, individual.status_conditions, action) catch |err| {
+                        validateActionWithGameState(game_state, main_player_id, action) catch |err| {
                             core.debug.warning.print("Main player attempted invalid action: {s}", .{@errorName(err)});
                             try main_player_queues.enqueueResponse(Response{ .reject_request = request });
                             continue :retryRead;
@@ -184,23 +182,33 @@ fn doAi(response: Response) Action {
     return ai.getNaiveAiDecision(last_frame);
 }
 
+fn validateActionWithGameState(game_state: *GameState, id: u32, action: Action) !void {
+    const individual = game_state.individuals.get(id).?;
+    const has_shield = game_engine.hasShield(game_state, id);
+    return validateAction(individual.species, individual.abs_position, individual.status_conditions, has_shield, action);
+}
+
 pub fn debugPrintAction(prefix_number: u32, action: Action) void {
     switch (action) {
-        .wait => core.debug.actions.print("{}: Action{{ .wait = {{}} }},", .{prefix_number}),
-        .move => |direction| core.debug.actions.print("{}: Action{{ .move = .{s} }},", .{ prefix_number, @tagName(direction) }),
-        .charge => core.debug.actions.print("{}: Action{{ .charge = {{}} }},", .{prefix_number}),
-        .grow => |direction| core.debug.actions.print("{}: Action{{ .grow = .{s} }},", .{ prefix_number, @tagName(direction) }),
-        .shrink => |index| core.debug.actions.print("{}: Action{{ .shrink = {} }},", .{ prefix_number, index }),
-        .attack => |direction| core.debug.actions.print("{}: Action{{ .attack = .{s} }},", .{ prefix_number, @tagName(direction) }),
-        .nibble => core.debug.actions.print("{}: Action{{ .nibble = {{}} }},", .{prefix_number}),
-        .stomp => core.debug.actions.print("{}: Action{{ .stomp = {{}} }},", .{prefix_number}),
-        .lunge => |direction| core.debug.actions.print("{}: Action{{ .lunge = .{s} }},", .{ prefix_number, @tagName(direction) }),
-        .kick => |direction| core.debug.actions.print("{}: Action{{ .kick = .{s} }},", .{ prefix_number, @tagName(direction) }),
-        .open_close => |direction| core.debug.actions.print("{}: Action{{ .open_close = .{s} }},", .{ prefix_number, @tagName(direction) }),
-        .pick_up => core.debug.actions.print("{}: Action{{ .pick_up = {{}} }},", .{prefix_number}),
-        .nock_arrow => core.debug.actions.print("{}: Action{{ .nock_arrow = {{}} }},", .{prefix_number}),
-        .fire_bow => |direction| core.debug.actions.print("{}: Action{{ .fire_bow = .{s} }},", .{ prefix_number, @tagName(direction) }),
+        .wait,
+        .charge,
+        .nibble,
+        .stomp,
+        .pick_up,
+        .nock_arrow,
+        => core.debug.actions.print("{}: Action{{ .{s} = {{}} }},", .{ prefix_number, @tagName(action) }),
 
-        .cheatcode_warp => |index| core.debug.actions.print("{}: Action{{ .cheatcode_warp = {} }},", .{ prefix_number, index }),
+        .move,
+        .grow,
+        .attack,
+        .lunge,
+        .kick,
+        .open_close,
+        .fire_bow,
+        .defend,
+        => |direction| core.debug.actions.print("{}: Action{{ .{s} = .{s} }},", .{ prefix_number, @tagName(action), @tagName(direction) }),
+
+        .shrink => |index| core.debug.actions.print("{}: Action{{ .{s} = {} }},", .{ prefix_number, @tagName(action), index }),
+        .cheatcode_warp => |index| core.debug.actions.print("{}: Action{{ .{s} = {} }},", .{ prefix_number, @tagName(action), index }),
     }
 }

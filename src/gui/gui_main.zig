@@ -35,7 +35,6 @@ const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
 const canUseDoors = core.game_logic.canUseDoors;
-const validateAction = core.game_logic.validateAction;
 
 const the_levels = @import("../server/map_gen.zig").the_levels;
 
@@ -113,6 +112,7 @@ const InputPrompt = enum {
     attack,
     kick,
     open_close,
+    defend,
 };
 const GameState = union(enum) {
     main_menu: gui.LinearMenuState,
@@ -354,6 +354,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .start_open_close => {
                                         _ = validateAndShowTotorialForError(state, .open_close);
                                         state.input_prompt = .open_close;
+                                    },
+                                    .start_defend => {
+                                        _ = validateAndShowTotorialForError(state, .defend);
+                                        state.input_prompt = .defend;
                                     },
                                     .charge => {
                                         try doActionOrShowTutorialForError(state, .charge);
@@ -657,6 +661,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         .open_close => {
                             textures.renderSprite(renderer, textures.sprites.open_close, render_position);
                         },
+                        .defend => {
+                            textures.renderSprite(renderer, textures.sprites.shield, render_position);
+                        },
                     }
                 }
                 // render activity effects
@@ -781,9 +788,6 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 // input options
                 {
                     const myself = state.client_state.?.self;
-                    const species = myself.kind.individual.species;
-                    const position = myself.position;
-                    const status_conditions = myself.kind.individual.status_conditions;
                     var g = gui.Gui.init(renderer);
                     g.seek(anatomy_coord.x, anatomy_coord.y + 200);
                     g.font(.small);
@@ -792,60 +796,69 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     switch (state.input_prompt) {
                         .none => {
                             g.text(" Space: Wait");
-                            if (validateAction(species, position, status_conditions, .move)) {
+                            if (can(myself, .move)) {
                                 g.text(" Arrows: Move");
                                 g.text(" Shift+Arrows: Move repeatedly");
-                            } else |_| if (validateAction(species, position, status_conditions, .grow)) {
+                            } else if (can(myself, .grow)) {
                                 g.text(" Arrows: Grow");
                                 g.text(" Shift+Arrows: Grow/shrink repeatedly");
-                            } else |_| if (validateAction(species, position, status_conditions, .shrink)) {
-                                if (position.large[0].x == position.large[1].x) {
+                            } else if (can(myself, .shrink)) {
+                                if (myself.position.large[0].x == myself.position.large[1].x) {
                                     g.text(" Up/Down: Shrink");
                                     g.text(" Shift+Up/Down: Shrink/grow repeatedly");
                                 } else {
                                     g.text(" Left/Right: Shrink");
                                     g.text(" Shift+Left/Right: Shrink/grow repeatedly");
                                 }
-                            } else |_| {}
-                            if (validateAction(species, position, status_conditions, .attack)) {
+                            }
+                            if (can(myself, .attack)) {
                                 g.text(" F: Start attack...");
-                            } else |_| {}
-                            if (validateAction(species, position, status_conditions, .kick)) {
+                            }
+                            if (can(myself, .defend)) {
+                                g.text(" D: Start defend...");
+                            }
+                            if (can(myself, .kick)) {
                                 g.text(" K: Start kick...");
-                            } else |_| {}
-                            if (validateAction(species, position, status_conditions, .stomp)) {
+                            }
+                            if (can(myself, .stomp)) {
                                 g.text(" S: Stomp");
-                            } else |_| {}
-                            if (validateAction(species, position, status_conditions, .open_close)) {
-                                if (isNextToDoor(state.client_state.?)) g.text(" O: Start open/close door...");
-                            } else |_| {}
-                            if (validateAction(species, position, status_conditions, .pick_up)) {
-                                if (isStandingOnItem(state.client_state.?)) g.text(" G: Pick up item");
-                            } else |_| {}
-                            if (validateAction(species, position, status_conditions, .charge)) {
+                            }
+                            if (can(myself, .open_close) and isNextToDoor(state.client_state.?)) {
+                                g.text(" O: Start open/close door...");
+                            }
+                            if (can(myself, .pick_up) and isStandingOnItem(state.client_state.?)) {
+                                g.text(" G: Pick up item");
+                            }
+                            if (can(myself, .charge)) {
                                 g.text(" C: Charge");
-                            } else |_| {}
+                            }
                             g.text(" Backspace: Undo");
                             if (state.animations != null) {
                                 g.text(" Esc: Skip animation");
                             }
                         },
                         .attack => {
-                            if (validateAction(species, position, status_conditions, .attack)) {
+                            if (can(myself, .attack)) {
                                 g.text(" Arrows: Attack");
-                            } else |_| {}
+                            }
                             g.text(" Esc/Backspace: Cancel");
                         },
                         .kick => {
-                            if (validateAction(species, position, status_conditions, .kick)) {
+                            if (can(myself, .kick)) {
                                 g.text(" Arrows: Kick");
-                            } else |_| {}
+                            }
                             g.text(" Esc/Backspace: Cancel");
                         },
                         .open_close => {
-                            if (validateAction(species, position, status_conditions, .open_close)) {
+                            if (can(myself, .open_close)) {
                                 g.text(" Arrows: Open/close");
-                            } else |_| {}
+                            }
+                            g.text(" Esc/Backspace: Cancel");
+                        },
+                        .defend => {
+                            if (can(myself, .defend)) {
+                                g.text(" Arrows: Defend");
+                            }
                             g.text(" Esc/Backspace: Cancel");
                         },
                     }
@@ -982,6 +995,7 @@ fn doDirectionInput(state: *RunningState, delta: Coord) !void {
         .attack => Action{ .attack = deltaToCardinalDirection(delta) },
         .kick => Action{ .kick = deltaToCardinalDirection(delta) },
         .open_close => Action{ .open_close = deltaToCardinalDirection(delta) },
+        .defend => Action{ .defend = deltaToCardinalDirection(delta) },
     };
     clearInputState(state);
     try doActionOrShowTutorialForError(state, action);
@@ -1005,7 +1019,7 @@ fn doActionOrShowTutorialForError(state: *RunningState, action: Action) !void {
 var tutorial_text_buffer: [0x100]u8 = undefined;
 fn validateAndShowTotorialForError(state: *RunningState, action: std.meta.Tag(Action)) bool {
     const myself = state.client_state.?.self;
-    if (validateAction(myself.kind.individual.species, myself.position, myself.kind.individual.status_conditions, action)) {
+    if (can(myself, action)) {
         state.input_tutorial = null;
         return true;
     } else |err| switch (err) {
@@ -1289,6 +1303,23 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                     progress,
                     progress_denominator,
                 ),
+            );
+        },
+        .defend => |direction| {
+            const delta = core.geometry.cardinalDirectionToDelta(direction);
+            textures.renderSpriteRotated(
+                renderer,
+                textures.sprites.shield,
+                core.geometry.bezierBounce(
+                    render_position.plus(delta.scaled(32 * 1 / 8)),
+                    render_position.plus(delta.scaled(32 * 5 / 8)),
+                    progress,
+                    progress_denominator,
+                ),
+                switch (direction) {
+                    .east, .west => 0,
+                    .north, .south => 2,
+                },
             );
         },
 
@@ -1595,4 +1626,12 @@ fn isStandingOnItem(frame: PerceivedFrame) bool {
         }
     }
     return false;
+}
+
+fn can(me: PerceivedThing, action: std.meta.Tag(Action)) bool {
+    if (core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, me.kind.individual.has_shield, action)) {
+        return true;
+    } else |_| {
+        return false;
+    }
 }

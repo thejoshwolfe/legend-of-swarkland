@@ -120,6 +120,7 @@ pub const Action = union(enum) {
     pick_up,
     nock_arrow,
     fire_bow: CardinalDirection,
+    defend: CardinalDirection,
 
     cheatcode_warp: u3,
 };
@@ -198,6 +199,7 @@ pub const PerceivedActivity = union(enum) {
     attack: Attack,
     nibble,
     stomp,
+    defend: CardinalDirection,
 
     kick: Coord,
     polymorph,

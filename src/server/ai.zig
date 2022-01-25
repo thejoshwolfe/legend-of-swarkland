@@ -30,7 +30,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     var target_position: ?Coord = null;
     var target_distance: ?i32 = null;
     var target_priority: i32 = -0x80000000;
-    var target_species: ?Species = null;
+    var target_other: ?PerceivedThing = null;
     for (last_frame.others) |other| {
         if (other.kind != .individual) continue;
         const other_priority = getTargetHostilityPriority(my_species, other.kind.individual.species) orelse continue;
@@ -39,7 +39,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             target_position = null;
             target_distance = null;
             target_priority = other_priority;
-            target_species = null;
+            target_other = null;
         }
         for (getAllPositions(&other.position)) |other_coord| {
             const distance = distanceTo(other_coord, me);
@@ -48,13 +48,13 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 if (distance < previous_distance) {
                     target_position = other_coord;
                     target_distance = distance;
-                    target_species = other.kind.individual.species;
+                    target_other = other;
                 }
             } else {
                 // First thing I see is the target so far.
                 target_position = other_coord;
                 target_distance = distance;
-                target_species = other.kind.individual.species;
+                target_other = other;
             }
         }
     }
@@ -65,7 +65,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
 
     if (target_distance.? == 0) {
         // Overlapping the target.
-        if (getPhysicsLayer(my_species) > getPhysicsLayer(target_species.?)) {
+        if (getPhysicsLayer(my_species) > getPhysicsLayer(target_other.?.kind.individual.species)) {
             if (can(me, .stomp)) |action| return action;
         } else {
             if (can(me, .nibble)) |action| return action;
@@ -102,25 +102,35 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         // straight shot
         const delta_unit = delta.signumed();
         const delta_direction = deltaToCardinalDirection(delta_unit);
-        if (hesitatesOneSpaceAway(my_species) and delta.magnitudeOrtho() == 2) {
-            // preemptive attack
-            if (can(me, Action{ .kick = delta_direction })) |action| return action;
-            // should anyone do a preemptive actual attack?
-        }
-
         if (isFastMoveAligned(me.position, delta_unit.scaled(2))) {
             // charge!
             if (can(me, .charge)) |action| return action;
         }
+
         if (delta.magnitudeOrtho() == 2) {
+            if (hesitatesOneSpaceAway(my_species)) {
+                // preemptive kick
+                if (can(me, Action{ .kick = delta_direction })) |action| return action;
+            }
             // one lunge away
             if (can(me, Action{ .lunge = delta_direction })) |action| return action;
+            if (me.kind.individual.has_shield) {
+                // shield makes me smarter for some reason. preemptive attack.
+                if (can(me, Action{ .attack = delta_direction })) |action| return action;
+            }
         }
+
         if (delta.euclideanDistanceSquared() <= range * range) {
             // within attack range
             if (hesitatesOneSpaceAway(my_species)) {
                 // too close. get away!
                 if (can(me, Action{ .kick = delta_direction })) |action| return action;
+            }
+            if (me.kind.individual.has_shield) {
+                if (0 == target_other.?.kind.individual.status_conditions & core.protocol.StatusCondition_pain) {
+                    // You're are scary. Attempt to parry.
+                    if (can(me, Action{ .defend = delta_direction })) |action| return action;
+                }
             }
             if (core.game_logic.hasBow(my_species)) {
                 // two step process
@@ -200,10 +210,16 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         }
     }
 
-    if (hesitatesOneSpaceAway(my_species) and delta.magnitudeOrtho() == 2) {
-        // preemptive attack
-        if (can(me, Action{ .kick = deltaToCardinalDirection(options[option_index]) })) |action| return action;
-        // should anyone do a preemptive actual attack?
+    if (delta.magnitudeOrtho() == 2) {
+        const delta_direction = deltaToCardinalDirection(options[option_index]);
+        if (hesitatesOneSpaceAway(my_species)) {
+            // preemptive kick
+            if (can(me, Action{ .kick = delta_direction })) |action| return action;
+        }
+        if (me.kind.individual.has_shield) {
+            // shield makes me smarter for some reason. preemptive attack.
+            if (can(me, Action{ .attack = delta_direction })) |action| return action;
+        }
     }
     if (terrainAt(last_frame.terrain, my_head_position.plus(options[option_index]))) |cell| {
         if (cell.floor == .lava) {
@@ -314,9 +330,9 @@ fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
 }
 
 fn can(me: PerceivedThing, action: Action) ?Action {
-    core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, action) catch |err| switch (err) {
+    core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, me.kind.individual.has_shield, action) catch |err| switch (err) {
         error.SpeciesIncapable, error.StatusForbids => return null,
-        error.TooBig, error.TooSmall => unreachable,
+        error.TooBig, error.TooSmall, error.MissingItem => unreachable,
     };
     return action;
 }
