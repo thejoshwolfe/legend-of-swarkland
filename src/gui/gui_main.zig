@@ -1193,6 +1193,9 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             if (thing.kind.individual.status_conditions & (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled) != 0) {
                 textures.renderSprite(renderer, textures.sprites.limping, render_position);
             }
+            if (thing.kind.individual.status_conditions & core.protocol.StatusCondition_pain != 0) {
+                textures.renderSprite(renderer, textures.sprites.pain, render_position);
+            }
             if (thing.kind.individual.has_shield) {
                 textures.renderSprite(renderer, textures.sprites.equipped_shield, render_position);
             }
