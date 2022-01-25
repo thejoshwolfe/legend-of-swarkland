@@ -158,7 +158,6 @@ pub fn generateRegular(game_state: *GameState) !void {
         );
         const human = try makeIndividual(start_point, .human).clone(allocator);
         try game_state.individuals.putNoClobber(1, human);
-        try game_state.items.putNoClobber(next_id, try (Item{ .location = .{ .holder_id = 1 } }).clone(allocator)); // TODO: tmp
         try warp_points_list.append(start_point);
 
         // join rooms
