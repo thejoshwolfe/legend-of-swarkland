@@ -1245,13 +1245,27 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                         renderSpriteSwing(
                             renderer,
                             textures.sprites.hammer,
-                            render_position, //.plus(data.direction.scaled(32 * 4 / 4)),
+                            render_position,
                             directionToRotation(data.direction),
                             hammer_sprite_normalizing_rotation,
                             hammer_handle_coord,
                             progress,
                             progress_denominator,
                         );
+                        if (progress >= @divTrunc(progress_denominator, 2)) {
+                            // whooshes
+                            const impact_render_position = render_position.plus(data.direction.scaled(32));
+                            for ([_]core.geometry.CardinalDirection{ .east, .south, .west, .north }) |dir| {
+                                if (@enumToInt(dir) +% 2 == @enumToInt(deltaToCardinalDirection(data.direction))) continue;
+                                const offset = core.geometry.cardinalDirectionToDelta(dir).scaled(@divTrunc(32 * progress, progress_denominator));
+                                textures.renderSpriteRotated45Degrees(
+                                    renderer,
+                                    textures.sprites.whoosh,
+                                    impact_render_position.plus(offset),
+                                    @as(u3, @enumToInt(dir)) * 2,
+                                );
+                            }
+                        }
                     },
                 }
             } else {
