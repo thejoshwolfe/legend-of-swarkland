@@ -1181,8 +1181,8 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
                     const tail_render_position = render_position.plus(oriented_delta.scaled(32));
                     const rhino_sprite_normalizing_rotation = 0;
                     const rotation = directionToRotation(oriented_delta) +% rhino_sprite_normalizing_rotation;
-                    textures.renderSpriteRotated(renderer, speciesToSprite(thing.kind.individual.species, false), render_position, rotation);
-                    textures.renderSpriteRotated(renderer, speciesToTailSprite(thing.kind.individual.species), tail_render_position, rotation);
+                    textures.renderSpriteRotated45Degrees(renderer, speciesToSprite(thing.kind.individual.species, false), render_position, rotation);
+                    textures.renderSpriteRotated45Degrees(renderer, speciesToTailSprite(thing.kind.individual.species), tail_render_position, rotation);
                 },
             }
 
@@ -1224,18 +1224,36 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .attack => |data| {
             const max_range = if (core.game_logic.hasBow(thing.kind.individual.species)) core.game_logic.bow_range else @as(i32, 1);
             if (max_range == 1) {
-                const dagger_sprite_normalizing_rotation = 1;
-                textures.renderSpriteRotated(
-                    renderer,
-                    textures.sprites.dagger,
-                    core.geometry.bezierBounce(
-                        render_position.plus(data.direction.scaled(32 * 2 / 4)),
-                        render_position.plus(data.direction.scaled(32 * 4 / 4)),
-                        progress,
-                        progress_denominator,
-                    ),
-                    directionToRotation(data.direction) +% dagger_sprite_normalizing_rotation,
-                );
+                switch (core.game_logic.getAttackEffect(thing.kind.individual.species)) {
+                    .just_wound, .wound_then_kill, .malaise => {
+                        const dagger_sprite_normalizing_rotation = 1;
+                        textures.renderSpriteRotated45Degrees(
+                            renderer,
+                            textures.sprites.dagger,
+                            core.geometry.bezierBounce(
+                                render_position.plus(data.direction.scaled(32 * 2 / 4)),
+                                render_position.plus(data.direction.scaled(32 * 4 / 4)),
+                                progress,
+                                progress_denominator,
+                            ),
+                            directionToRotation(data.direction) +% dagger_sprite_normalizing_rotation,
+                        );
+                    },
+                    .smash => {
+                        const hammer_sprite_normalizing_rotation = 5;
+                        const hammer_handle_coord = makeCoord(28, 3);
+                        renderSpriteSwing(
+                            renderer,
+                            textures.sprites.hammer,
+                            render_position, //.plus(data.direction.scaled(32 * 4 / 4)),
+                            directionToRotation(data.direction),
+                            hammer_sprite_normalizing_rotation,
+                            hammer_handle_coord,
+                            progress,
+                            progress_denominator,
+                        );
+                    },
+                }
             } else {
                 // The animated bullet speed is determined by the max range,
                 // but interrupt the progress if the arrow hits something.
@@ -1244,7 +1262,7 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                     clamped_progress = data.distance * progress_denominator;
                 }
                 const arrow_sprite_normalizing_rotation = 4;
-                textures.renderSpriteRotated(
+                textures.renderSpriteRotated45Degrees(
                     renderer,
                     textures.sprites.arrow,
                     core.geometry.bezier2(
@@ -1260,7 +1278,7 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
 
         .kick => |coord| {
             const kick_sprite_normalizing_rotation = 6;
-            textures.renderSpriteRotated(
+            textures.renderSpriteRotated45Degrees(
                 renderer,
                 textures.sprites.kick,
                 core.geometry.bezierBounce(
@@ -1310,7 +1328,7 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         },
         .defend => |direction| {
             const delta = core.geometry.cardinalDirectionToDelta(direction);
-            textures.renderSpriteRotated(
+            textures.renderSpriteRotated45Degrees(
                 renderer,
                 textures.sprites.shield,
                 core.geometry.bezierBounce(
@@ -1637,4 +1655,39 @@ fn can(me: PerceivedThing, action: std.meta.Tag(Action)) bool {
     } else |_| {
         return false;
     }
+}
+
+fn renderSpriteSwing(
+    renderer: *sdl.Renderer,
+    sprite: Rect,
+    wielder_location: Coord,
+    rotation_45_degrees: u3,
+    normalizing_rotation_45_degrees: u3,
+    local_center: Coord,
+    s: i32,
+    max_s: i32,
+) void {
+    const s_mid = @divFloor(max_s, 2);
+    const flip = textures.Flip.none;
+    var degrees = @intToFloat(f64, rotation_45_degrees +% normalizing_rotation_45_degrees) * 45.0;
+    if (s < s_mid) {
+        degrees -= 45.0 * (1.0 - @intToFloat(f64, s) / @intToFloat(f64, s_mid));
+    }
+
+    const sprite_location = wielder_location.minus(local_center).plus(switch (rotation_45_degrees) {
+        0 => makeCoord(28, 16),
+        2 => makeCoord(16, 28),
+        4 => makeCoord(4, 16),
+        6 => makeCoord(16, 4),
+        else => unreachable,
+    });
+
+    textures.renderSpriteRotatedFlipped(
+        renderer,
+        sprite,
+        sprite_location,
+        degrees,
+        local_center,
+        flip,
+    );
 }
