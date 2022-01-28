@@ -118,7 +118,13 @@ pub fn renderSpriteScaled(renderer: *sdl.Renderer, sprite: Rect, dest: Rect) voi
     const dest_sdl = sdl.makeRect(dest);
     sdl.assertZero(sdl.SDL_RenderCopy(renderer, sprites_texture, &source_sdl, &dest_sdl));
 }
-pub fn renderSpriteRotated(renderer: *sdl.Renderer, sprite: Rect, location: Coord, rotation: u3) void {
+pub fn renderSpriteRotated45Degrees(renderer: *sdl.Renderer, sprite: Rect, location: Coord, rotation: u3) void {
+    const degrees = @intToFloat(f64, rotation) * 45.0;
+    return renderSpriteRotatedFlipped(renderer, sprite, location, degrees, null, .none);
+}
+
+pub const Flip = enum { none, horizontal, vertical, both };
+pub fn renderSpriteRotatedFlipped(renderer: *sdl.Renderer, sprite: Rect, location: Coord, degrees: f64, local_center: ?Coord, flip: Flip) void {
     const dest = Rect{
         .x = location.x,
         .y = location.y,
@@ -129,8 +135,21 @@ pub fn renderSpriteRotated(renderer: *sdl.Renderer, sprite: Rect, location: Coor
     const source_sdl = sdl.makeRect(sprite);
     const dest_sdl = sdl.makeRect(dest);
 
-    const angle = @intToFloat(f64, rotation) * 45.0;
-    sdl.assertZero(sdl.SDL_RenderCopyEx(renderer, sprites_texture, &source_sdl, &dest_sdl, angle, null, sdl.c.SDL_FLIP_NONE));
+    var center_point: sdl.c.SDL_Point = undefined;
+    const center_point_ptr: ?*sdl.c.SDL_Point = if (local_center) |coord| blk: {
+        center_point = .{
+            .x = coord.x,
+            .y = coord.y,
+        };
+        break :blk &center_point;
+    } else null;
+
+    sdl.assertZero(sdl.SDL_RenderCopyEx(renderer, sprites_texture, &source_sdl, &dest_sdl, degrees, center_point_ptr, switch (flip) {
+        .none => sdl.c.SDL_FLIP_NONE,
+        .vertical => sdl.c.SDL_FLIP_VERTICAL,
+        .horizontal => sdl.c.SDL_FLIP_HORIZONTAL,
+        .both => sdl.c.SDL_FLIP_VERTICAL | sdl.c.SDL_FLIP_HORIZONTAL,
+    }));
 }
 
 pub fn renderLargeSprite(renderer: *sdl.Renderer, large_sprite: Rect, location: Coord) void {
