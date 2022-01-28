@@ -701,13 +701,25 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                 // hit something.
                                 const is_effective = blk: {
                                     // innate defense
-                                    if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
+                                    if (!is_smash and !core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
                                     // shield defense
                                     if (defends.get(other_id)) |direction| {
                                         if (@enumToInt(direction) +% 2 == @enumToInt(attack_direction)) {
                                             if (range == 1) {
-                                                // melee shield parry.
-                                                attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
+                                                if (is_smash) {
+                                                    // hammer counters shield
+                                                    // drop the shield.
+                                                    var it = inventoryIterator(self.state, other_id);
+                                                    while (it.next()) |entry| {
+                                                        const item = entry.value_ptr.*;
+                                                        item.location = .{ .floor_coord = coord };
+                                                    }
+                                                    // become pain.
+                                                    other.status_conditions |= core.protocol.StatusCondition_pain;
+                                                } else {
+                                                    // shield parry.
+                                                    attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
+                                                }
                                             }
                                             break :blk false;
                                         }
