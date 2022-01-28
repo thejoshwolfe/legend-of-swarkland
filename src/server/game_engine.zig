@@ -656,39 +656,112 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
     }
 
     // Attacks
-    var attacks = IdMap(Activities.Attack).init(self.allocator);
-    var defends = IdMap(CardinalDirection).init(self.allocator);
-    var nibbles = IdMap(void).init(self.allocator);
-    var stomps = IdMap(void).init(self.allocator);
     var attack_deaths = IdMap(void).init(self.allocator);
-    for (everybody) |id| {
-        switch (actions.get(id).?) {
-            .defend => |direction| {
-                try defends.putNoClobber(id, direction);
-            },
-            else => {},
+    {
+        var attacks = IdMap(Activities.Attack).init(self.allocator);
+        var defends = IdMap(CardinalDirection).init(self.allocator);
+        var nibbles = IdMap(void).init(self.allocator);
+        var stomps = IdMap(void).init(self.allocator);
+        var intended_moves = IdMap(Coord).init(self.allocator);
+        var pushed_too_much = IdMap(void).init(self.allocator);
+        for (everybody) |id| {
+            switch (actions.get(id).?) {
+                .defend => |direction| {
+                    try defends.putNoClobber(id, direction);
+                },
+                else => {},
+            }
         }
-    }
-    for (everybody) |id| {
-        const action = actions.get(id).?;
-        switch (action) {
-            .attack, .lunge, .fire_bow => |attack_direction| {
-                const attack_delta = cardinalDirectionToDelta(attack_direction);
-                const attacker = self.state.individuals.get(id).?;
-                attacker.status_conditions &= ~core.protocol.StatusCondition_arrow_nocked;
-                var attacker_coord = getHeadPosition(attacker.abs_position);
-                const attacker_species = attacker.species;
-                var attack_distance: i32 = 1;
-                const range: i32 = if (action == .fire_bow) core.game_logic.bow_range else 1;
-                while (attack_distance <= range) : (attack_distance += 1) {
-                    var damage_position = attacker_coord.plus(attack_delta.scaled(attack_distance));
-                    var stop_the_attack = false;
+        for (everybody) |id| {
+            const action = actions.get(id).?;
+            switch (action) {
+                .attack, .lunge, .fire_bow => |attack_direction| {
+                    const attack_delta = cardinalDirectionToDelta(attack_direction);
+                    const attacker = self.state.individuals.get(id).?;
+                    attacker.status_conditions &= ~core.protocol.StatusCondition_arrow_nocked;
+                    var attacker_coord = getHeadPosition(attacker.abs_position);
+                    const attacker_species = attacker.species;
+                    const is_smash = getAttackEffect(attacker_species) == .smash;
+                    var attack_distance: i32 = 1;
+                    const range: i32 = if (action == .fire_bow) core.game_logic.bow_range else 1;
+                    while (attack_distance <= range) : (attack_distance += 1) {
+                        var damage_position = attacker_coord.plus(attack_delta.scaled(attack_distance));
+                        var stop_the_attack = false;
+                        for (everybody) |other_id| {
+                            const other = self.state.individuals.get(other_id).?;
+                            if (!is_smash) {
+                                switch (getPhysicsLayer(other.species)) {
+                                    // too short to be attacked.
+                                    0, 1 => continue,
+                                    2, 3 => {},
+                                }
+                            }
+                            for (getAllPositions(&other.abs_position)) |coord, i| {
+                                if (!coord.equals(damage_position)) continue;
+                                // hit something.
+                                const is_effective = blk: {
+                                    // innate defense
+                                    if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
+                                    // shield defense
+                                    if (defends.get(other_id)) |direction| {
+                                        if (@enumToInt(direction) +% 2 == @enumToInt(attack_direction)) {
+                                            if (range == 1) {
+                                                // melee shield parry.
+                                                attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
+                                            }
+                                            break :blk false;
+                                        }
+                                    }
+                                    break :blk true;
+                                };
+                                if (is_effective) {
+                                    // get wrecked
+                                    try doAttackDamage(attacker_species, other_id, other.species, &other.status_conditions, &attack_deaths);
+                                }
+                                stop_the_attack = true;
+                            }
+                        }
+                        if (is_smash) {
+                            // whoosh effects push people around.
+                            for ([_]core.geometry.CardinalDirection{ .east, .south, .west, .north }) |whoosh_dir| {
+                                if (@enumToInt(whoosh_dir) +% 2 == @enumToInt(attack_direction)) continue;
+                                const whoosh_delta = cardinalDirectionToDelta(whoosh_dir);
+                                const whoosh_coord = damage_position.plus(whoosh_delta);
+                                for (everybody) |other_id| {
+                                    const other = self.state.individuals.get(other_id).?;
+                                    switch (getPhysicsLayer(other.species)) {
+                                        // unaffected by whoosh.
+                                        0, 3 => continue,
+                                        1, 2 => {},
+                                    }
+                                    for (getAllPositions(&other.abs_position)) |coord| {
+                                        if (!coord.equals(whoosh_coord)) continue;
+                                        if (try intended_moves.fetchPut(other_id, whoosh_delta)) |_| {
+                                            // pushed multiple times at once
+                                            _ = try pushed_too_much.put(other_id, {});
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (stop_the_attack) break;
+                    }
+                    try attacks.putNoClobber(id, Activities.Attack{
+                        .direction = attack_delta,
+                        .distance = attack_distance,
+                    });
+                },
+                .nibble, .stomp => {
+                    const is_stomp = action == .stomp;
+                    const attacker = self.state.individuals.get(id).?;
+                    const attacker_coord = getHeadPosition(attacker.abs_position);
+                    const damage_position = attacker_coord;
                     for (everybody) |other_id| {
+                        if (other_id == id) continue; // Don't hit yourself.
                         const other = self.state.individuals.get(other_id).?;
-                        switch (getPhysicsLayer(other.species)) {
-                            // too short to be attacked.
-                            0, 1 => continue,
-                            2, 3 => {},
+                        if (is_stomp and getPhysicsLayer(other.species) != 1) {
+                            // stomping only works on scurriers.
+                            continue;
                         }
                         for (getAllPositions(&other.abs_position)) |coord, i| {
                             if (!coord.equals(damage_position)) continue;
@@ -696,111 +769,88 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                             const is_effective = blk: {
                                 // innate defense
                                 if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
-                                // shield defense
-                                if (defends.get(other_id)) |direction| {
-                                    if (@enumToInt(direction) +% 2 == @enumToInt(attack_direction)) {
-                                        if (range == 1) {
-                                            // melee shield parry.
-                                            attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
-                                        }
-                                        break :blk false;
-                                    }
-                                }
                                 break :blk true;
                             };
                             if (is_effective) {
                                 // get wrecked
-                                try doAttackDamage(attacker_species, other_id, other.species, &other.status_conditions, &attack_deaths);
-                            }
-                            stop_the_attack = true;
-                        }
-                    }
-                    if (stop_the_attack) break;
-                }
-                try attacks.putNoClobber(id, Activities.Attack{
-                    .direction = attack_delta,
-                    .distance = attack_distance,
-                });
-            },
-            .nibble, .stomp => {
-                const is_stomp = action == .stomp;
-                const attacker = self.state.individuals.get(id).?;
-                const attacker_coord = getHeadPosition(attacker.abs_position);
-                const damage_position = attacker_coord;
-                for (everybody) |other_id| {
-                    if (other_id == id) continue; // Don't hit yourself.
-                    const other = self.state.individuals.get(other_id).?;
-                    if (is_stomp and getPhysicsLayer(other.species) != 1) {
-                        // stomping only works on scurriers.
-                        continue;
-                    }
-                    for (getAllPositions(&other.abs_position)) |coord, i| {
-                        if (!coord.equals(damage_position)) continue;
-                        // hit something.
-                        const is_effective = blk: {
-                            // innate defense
-                            if (!core.game_logic.isAffectedByAttacks(other.species, i)) break :blk false;
-                            break :blk true;
-                        };
-                        if (is_effective) {
-                            // get wrecked
-                            if (is_stomp) {
-                                // stomping is instant deth.
-                                _ = try attack_deaths.put(other_id, {});
-                            } else {
-                                // nibbling does attack damage.
-                                try doAttackDamage(attacker.species, other_id, other.species, &other.status_conditions, &attack_deaths);
+                                if (is_stomp) {
+                                    // stomping is instant deth.
+                                    _ = try attack_deaths.put(other_id, {});
+                                } else {
+                                    // nibbling does attack damage.
+                                    try doAttackDamage(attacker.species, other_id, other.species, &other.status_conditions, &attack_deaths);
+                                }
                             }
                         }
                     }
-                }
-                if (is_stomp) {
-                    try stomps.putNoClobber(id, {});
-                } else {
-                    try nibbles.putNoClobber(id, {});
-                }
-            },
-            .nock_arrow => {
-                const attacker = self.state.individuals.get(id).?;
-                attacker.status_conditions |= core.protocol.StatusCondition_arrow_nocked;
-            },
-            else => continue,
-        }
-    }
-    // Lava
-    for (everybody) |id| {
-        const position = self.state.individuals.get(id).?.abs_position;
-        for (getAllPositions(&position)) |coord| {
-            if (self.state.terrain.getCoord(coord).floor == .lava) {
-                _ = try attack_deaths.put(id, {});
+                    if (is_stomp) {
+                        try stomps.putNoClobber(id, {});
+                    } else {
+                        try nibbles.putNoClobber(id, {});
+                    }
+                },
+                .nock_arrow => {
+                    const attacker = self.state.individuals.get(id).?;
+                    attacker.status_conditions |= core.protocol.StatusCondition_arrow_nocked;
+                },
+                else => continue,
             }
         }
-    }
-    // Perception of Attacks and Death
-    for (everybody) |id| {
-        if (attacks.count() + defends.count() + nibbles.count() + stomps.count() != 0) {
-            try observeFrame(
-                self,
-                id,
-                individual_to_perception.get(id).?,
-                Activities{ .attacks = .{
-                    .attacks = &attacks,
-                    .defends = &defends,
-                    .nibbles = &nibbles,
-                    .stomps = &stomps,
-                } },
+
+        // observe
+        if (attacks.count() + defends.count() + nibbles.count() + stomps.count() > 0) {
+            for (everybody) |id| {
+                try observeFrame(
+                    self,
+                    id,
+                    individual_to_perception.get(id).?,
+                    Activities{ .attacks = .{
+                        .attacks = &attacks,
+                        .defends = &defends,
+                        .nibbles = &nibbles,
+                        .stomps = &stomps,
+                    } },
+                );
+            }
+        }
+
+        // resolve pushes
+        if (intended_moves.count() > 0) {
+            for (pushed_too_much.keys()) |key| {
+                assert(intended_moves.swapRemove(key));
+            }
+
+            try self.doMovementAndCollisions(
+                &everybody,
+                &individual_to_perception,
+                &intended_moves,
+                &budges_at_all,
+                &total_deaths,
             );
         }
-        if (attack_deaths.count() != 0) {
-            try observeFrame(
-                self,
-                id,
-                individual_to_perception.get(id).?,
-                Activities{ .deaths = &attack_deaths },
-            );
-        }
     }
-    try self.flushDeaths(&total_deaths, &attack_deaths, &everybody);
+    // Lava (and deaths from attacks for some reason)
+    {
+        for (everybody) |id| {
+            const position = self.state.individuals.get(id).?.abs_position;
+            for (getAllPositions(&position)) |coord| {
+                if (self.state.terrain.getCoord(coord).floor == .lava) {
+                    _ = try attack_deaths.put(id, {});
+                }
+            }
+        }
+        if (attack_deaths.count() > 0) {
+            for (everybody) |id| {
+                try observeFrame(
+                    self,
+                    id,
+                    individual_to_perception.get(id).?,
+                    Activities{ .deaths = &attack_deaths },
+                );
+            }
+        }
+        try self.flushDeaths(&total_deaths, &attack_deaths, &everybody);
+    }
 
     // Environmental death triggers
     {
