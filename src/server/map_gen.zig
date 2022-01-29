@@ -582,7 +582,7 @@ pub fn generateRegular(game_state: *GameState) !void {
             // cracks in the bottom of room 2-3.
             var cracks_remaining = r.intRangeAtMost(usize, 1, 4);
             while (cracks_remaining > 0) : (cracks_remaining -= 1) {
-                const x = r.intRangeLessThan(i32, rooms[3].x + 1, if (cracks_remaining == 0)
+                const x = r.intRangeLessThan(i32, rooms[3].x + 1, if (cracks_remaining == 1)
                     rooms[3].right()
                 else
                     rooms[2].right());
