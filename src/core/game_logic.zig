@@ -33,7 +33,11 @@ pub fn getViewDistance(species: Species) i32 {
 
 pub fn canAttack(species: Species) bool {
     return switch (species) {
-        .rhino, .blob, .kangaroo, .centaur, .rat, .ant => false,
+        .rhino, .blob, .kangaroo, .centaur, .rat => false,
+        .ant => |subspecies| switch (subspecies) {
+            .worker => false,
+            .queen => true,
+        },
         else => true,
     };
 }
@@ -60,7 +64,10 @@ pub fn getAttackEffect(species: Species) AttackEffect {
         .wolf => .wound_then_kill,
         .wood_golem => .wound_then_kill,
         .brown_snake => .wound_then_kill,
-        .ant => .wound_then_kill,
+        .ant => |subspecies| switch (subspecies) {
+            .worker => unreachable,
+            .queen => .wound_then_kill,
+        },
         .minotaur => .wound_then_kill,
         .siren => .wound_then_kill,
 
@@ -113,7 +120,11 @@ pub fn limpsAfterLunge(species: Species) bool {
 
 pub fn canNibble(species: Species) bool {
     return switch (species) {
-        .rat, .scorpion, .ant => true,
+        .rat, .scorpion => true,
+        .ant => |subspecies| switch (subspecies) {
+            .worker => false,
+            .queen => true,
+        },
         else => false,
     };
 }
@@ -224,6 +235,7 @@ pub fn isOpenSpace(wall: Wall) bool {
     return switch (wall) {
         .air => true,
         .dirt, .stone, .sandstone => false,
+        .sandstone_cracked => true,
         .tree_northwest, .tree_northeast, .tree_southwest, .tree_southeast => false,
         .bush => true,
         .door_open => true,
@@ -247,6 +259,7 @@ pub fn isWet(floor: Floor) bool {
 pub fn isTransparentSpace(wall: Wall) bool {
     return switch (wall) {
         .tree_northwest, .tree_northeast, .tree_southwest, .tree_southeast => true,
+        .sandstone_cracked => false,
         else => return isOpenSpace(wall),
     };
 }

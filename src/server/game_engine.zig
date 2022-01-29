@@ -313,6 +313,17 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 },
                 else => continue,
             }
+            const individual = self.state.individuals.get(id).?;
+            if (0 != individual.status_conditions & core.protocol.StatusCondition_grappling) {
+                // also move the grapplee
+                const coord = getHeadPosition(individual.abs_position);
+                for (everybody) |other_id| {
+                    const other = self.state.individuals.get(other_id).?;
+                    if (0 == other.status_conditions & core.protocol.StatusCondition_grappled) continue;
+                    if (!coord.equals(getHeadPosition(other.abs_position))) continue;
+                    try intended_moves.putNoClobber(other_id, intended_moves.get(id).?);
+                }
+            }
         }
 
         try self.doMovementAndCollisions(
@@ -407,13 +418,16 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 .kick => |direction| cardinalDirectionToDelta(direction),
                 else => continue,
             };
+            try kicks.putNoClobber(id, kick_direction);
+
+            var kicked_anybody = false;
             const attacker_coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
-            const kick_position = attacker_coord.plus(kick_direction);
+            const kick_coord = attacker_coord.plus(kick_direction);
             for (everybody) |other_id| {
                 const other = self.state.individuals.get(other_id).?;
                 const position = other.abs_position;
                 for (getAllPositions(&position)) |coord| {
-                    if (!coord.equals(kick_position)) continue;
+                    if (!coord.equals(kick_coord)) continue;
                     // gotchya
                     switch (getPhysicsLayer(other.species)) {
                         3 => {
@@ -430,13 +444,19 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         },
                         else => {},
                     }
+                    kicked_anybody = true;
                     if (try intended_moves.fetchPut(other_id, kick_direction)) |_| {
                         // kicked multiple times at once!
                         _ = try kicked_too_much.put(other_id, {});
                     }
                 }
             }
-            try kicks.putNoClobber(id, kick_direction);
+            if (!kicked_anybody and !isOpenSpace(self.state.terrain.getCoord(kick_coord).wall)) {
+                // Shove off the wall.
+                if (try intended_moves.fetchPut(id, kick_direction.scaled(-1))) |_| {
+                    _ = try kicked_too_much.put(id, {});
+                }
+            }
         }
         if (kicks.count() > 0) {
             for (everybody) |id| {
@@ -534,125 +554,6 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         } else {
             individual.status_conditions &= ~core.protocol.StatusCondition_pain;
         }
-    }
-
-    // Grapple and digestion
-    {
-        var grappler_to_victim_count = IdMap(u2).init(self.allocator);
-        var victim_to_has_multiple_attackers = IdMap(bool).init(self.allocator);
-        var victim_to_unique_attacker = IdMap(u32).init(self.allocator);
-        for (everybody) |id| {
-            const blob_individual = self.state.individuals.get(id).?;
-            if (blob_individual.species != .blob) continue;
-            const position = blob_individual.abs_position;
-            for (everybody) |other_id| {
-                if (other_id == id) continue;
-                const other = self.state.individuals.get(other_id).?;
-                if (other.species == .blob) continue;
-                find_collision: for (getAllPositions(&position)) |coord| {
-                    const other_position = other.abs_position;
-                    for (getAllPositions(&other_position)) |other_coord| {
-                        if (other_coord.equals(coord)) break :find_collision;
-                    }
-                } else {
-                    continue;
-                }
-
-                // any overlap means you get grappled.
-                {
-                    const gop = try victim_to_has_multiple_attackers.getOrPut(other_id);
-                    if (gop.found_existing) {
-                        // multiple attackers.
-                        assert(victim_to_unique_attacker.swapRemove(other_id));
-                        gop.value_ptr.* = true;
-                    } else {
-                        // we're the first attacker.
-                        try victim_to_unique_attacker.putNoClobber(other_id, id);
-                        gop.value_ptr.* = false;
-                    }
-                }
-                const gop = try grappler_to_victim_count.getOrPut(id);
-                if (gop.found_existing) {
-                    gop.value_ptr.* += 1;
-                } else {
-                    gop.value_ptr.* = 1;
-                }
-            }
-        }
-
-        var digestion_deaths = IdMap(void).init(self.allocator);
-        var digesters = IdMap(void).init(self.allocator);
-        for (everybody) |id| {
-            const victim = self.state.individuals.get(id).?;
-            if (!victim_to_has_multiple_attackers.contains(id)) {
-                // Not grappled.
-                victim.status_conditions &= ~core.protocol.StatusCondition_grappled;
-                if (0 != victim.status_conditions & core.protocol.StatusCondition_being_digested) {
-                    // you've escaped digestion. the status effect turns into a leg wound i guess.
-                    victim.status_conditions &= ~core.protocol.StatusCondition_being_digested;
-                    victim.status_conditions |= core.protocol.StatusCondition_wounded_leg;
-                }
-            } else {
-                // All victims are grappled at least.
-                victim.status_conditions |= core.protocol.StatusCondition_grappled;
-                if (victim_to_unique_attacker.get(id)) |attacker_id| {
-                    // Is the victim vulnerable to digestion attacks?
-                    if (!core.game_logic.isAffectedByAttacks(self.state.individuals.get(id).?.species, 0)) {
-                        // Too strong for the blob's attacks.
-                        continue;
-                    }
-
-                    // Need a sufficient density of blob on this space to do a digestion.
-                    const blob_individual = self.state.individuals.get(attacker_id).?;
-                    const blob_subpecies = blob_individual.species.blob;
-                    const can_digest = switch (blob_subpecies) {
-                        .large_blob => true,
-                        .small_blob => blob_individual.abs_position == .small,
-                    };
-                    if (!can_digest) continue;
-                    if (0 == victim.status_conditions & core.protocol.StatusCondition_being_digested) {
-                        // Start getting digested.
-                        victim.status_conditions |= core.protocol.StatusCondition_being_digested;
-                        _ = try digesters.put(attacker_id, {});
-                    } else {
-                        // Complete the digestion
-                        try digestion_deaths.put(id, {});
-                        grappler_to_victim_count.getEntry(attacker_id).?.value_ptr.* -= 1;
-
-                        if (blob_subpecies == .small_blob) {
-                            // Grow up to be large.
-                            self.state.individuals.get(attacker_id).?.species = .{ .blob = .large_blob };
-                            try polymorphers.put(attacker_id, {});
-                        }
-                    }
-                }
-            }
-        }
-        for (everybody) |id| {
-            const individual = self.state.individuals.get(id).?;
-            if ((grappler_to_victim_count.get(id) orelse 0) > 0) {
-                individual.status_conditions |= core.protocol.StatusCondition_grappling;
-            } else {
-                individual.status_conditions &= ~core.protocol.StatusCondition_grappling;
-            }
-            if (digesters.contains(id)) {
-                individual.status_conditions |= core.protocol.StatusCondition_digesting;
-            } else {
-                individual.status_conditions &= ~core.protocol.StatusCondition_digesting;
-            }
-        }
-
-        for (everybody) |id| {
-            if (digestion_deaths.count() != 0) {
-                try observeFrame(
-                    self,
-                    id,
-                    individual_to_perception.get(id).?,
-                    Activities{ .deaths = &digestion_deaths },
-                );
-            }
-        }
-        try self.flushDeaths(&total_deaths, &digestion_deaths, &everybody);
     }
 
     // Attacks
@@ -862,6 +763,141 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
         try self.flushDeaths(&total_deaths, &attack_deaths, &everybody);
+    }
+
+    // Grapple and digestion
+    {
+        var grappler_to_victim_count = IdMap(u32).init(self.allocator);
+        var victim_to_has_multiple_attackers = IdMap(bool).init(self.allocator);
+        var victim_to_unique_attacker = IdMap(u32).init(self.allocator);
+        for (everybody) |id| {
+            const individual = self.state.individuals.get(id).?;
+            switch (individual.species) {
+                .blob, .ant => {},
+                else => continue,
+            }
+            // grappler
+            const grappler_physics_layer = getPhysicsLayer(individual.species);
+            for (everybody) |other_id| {
+                if (other_id == id) continue;
+                const other = self.state.individuals.get(other_id).?;
+                switch (getPhysicsLayer(other.species)) {
+                    0 => continue, // blobs are ungrapplable.
+                    1 => if (grappler_physics_layer == 1) continue, // how'd you get there.
+                    2 => {}, // always grapplable.
+                    3 => if (grappler_physics_layer == 1) continue, // too small to grapple large bois.
+                }
+                find_collision: for (getAllPositions(&individual.abs_position)) |coord| {
+                    const other_position = other.abs_position;
+                    for (getAllPositions(&other_position)) |other_coord| {
+                        // any overlap means you get grappled.
+                        if (other_coord.equals(coord)) break :find_collision;
+                    }
+                } else {
+                    continue;
+                }
+
+                // Grapple is happening.
+                {
+                    const gop = try victim_to_has_multiple_attackers.getOrPut(other_id);
+                    if (gop.found_existing) {
+                        // multiple attackers.
+                        assert(victim_to_unique_attacker.swapRemove(other_id));
+                        gop.value_ptr.* = true;
+                    } else {
+                        // we're the first attacker.
+                        try victim_to_unique_attacker.putNoClobber(other_id, id);
+                        gop.value_ptr.* = false;
+                    }
+                }
+                const gop = try grappler_to_victim_count.getOrPut(id);
+                if (gop.found_existing) {
+                    gop.value_ptr.* += 1;
+                } else {
+                    gop.value_ptr.* = 1;
+                }
+            }
+        }
+
+        var digestion_deaths = IdMap(void).init(self.allocator);
+        var digesters = IdMap(void).init(self.allocator);
+        for (everybody) |id| {
+            const victim = self.state.individuals.get(id).?;
+            if (!victim_to_has_multiple_attackers.contains(id)) {
+                // Not grappled.
+                victim.status_conditions &= ~core.protocol.StatusCondition_grappled;
+                if (0 != victim.status_conditions & core.protocol.StatusCondition_being_digested) {
+                    // you've escaped digestion. the status effect turns into a leg wound i guess.
+                    victim.status_conditions &= ~core.protocol.StatusCondition_being_digested;
+                    victim.status_conditions |= core.protocol.StatusCondition_wounded_leg;
+                }
+            } else {
+                // Grappled.
+                victim.status_conditions |= core.protocol.StatusCondition_grappled;
+                if (victim_to_unique_attacker.get(id)) |attacker_id| {
+                    const attacker_individual = self.state.individuals.get(attacker_id).?;
+                    const blob_subspecies = switch (attacker_individual.species) {
+                        .blob => |subspecies| subspecies,
+                        else => continue,
+                    };
+                    // Blobs digest their prey.
+
+                    // Is the victim vulnerable to digestion attacks?
+                    if (!core.game_logic.isAffectedByAttacks(self.state.individuals.get(id).?.species, 0)) {
+                        // Too strong for the blob's attacks.
+                        continue;
+                    }
+
+                    // Need a sufficient density of blob on this space to do a digestion.
+                    const can_digest = switch (blob_subspecies) {
+                        .large_blob => true,
+                        .small_blob => attacker_individual.abs_position == .small,
+                    };
+                    if (!can_digest) continue;
+                    if (0 == victim.status_conditions & core.protocol.StatusCondition_being_digested) {
+                        // Start getting digested.
+                        victim.status_conditions |= core.protocol.StatusCondition_being_digested;
+                        _ = try digesters.put(attacker_id, {});
+                    } else {
+                        // Complete the digestion
+                        try digestion_deaths.put(id, {});
+                        grappler_to_victim_count.getEntry(attacker_id).?.value_ptr.* -= 1;
+
+                        if (blob_subspecies == .small_blob) {
+                            // Grow up to be large.
+                            self.state.individuals.get(attacker_id).?.species = .{ .blob = .large_blob };
+                            try polymorphers.put(attacker_id, {});
+                        }
+                    }
+                }
+            }
+        }
+        // attacker-side statuses.
+        for (everybody) |id| {
+            const individual = self.state.individuals.get(id).?;
+            if ((grappler_to_victim_count.get(id) orelse 0) > 0) {
+                individual.status_conditions |= core.protocol.StatusCondition_grappling;
+            } else {
+                individual.status_conditions &= ~core.protocol.StatusCondition_grappling;
+            }
+            if (digesters.contains(id)) {
+                individual.status_conditions |= core.protocol.StatusCondition_digesting;
+            } else {
+                individual.status_conditions &= ~core.protocol.StatusCondition_digesting;
+            }
+        }
+
+        for (everybody) |id| {
+            if (digestion_deaths.count() != 0) {
+                try observeFrame(
+                    self,
+                    id,
+                    individual_to_perception.get(id).?,
+                    Activities{ .deaths = &digestion_deaths },
+                );
+            }
+        }
+        try self.flushDeaths(&total_deaths, &digestion_deaths, &everybody);
     }
 
     // Environmental death triggers

@@ -10,6 +10,8 @@ const Species = core.protocol.Species;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
 const ThingPosition = core.protocol.ThingPosition;
+const TerrainChunk = core.protocol.TerrainChunk;
+const TerrainSpace = core.protocol.TerrainSpace;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getAllPositions = core.game_logic.getAllPositions;
 const canGrowAndShrink = core.game_logic.canGrowAndShrink;
@@ -34,6 +36,13 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     for (last_frame.others) |other| {
         if (other.kind != .individual) continue;
         const other_priority = getTargetHostilityPriority(my_species, other.kind.individual.species) orelse continue;
+        if (my_species == .ant and //
+            0 != other.kind.individual.status_conditions & core.protocol.StatusCondition_grappled and //
+            !getHeadPosition(other.position).equals(me.position.small))
+        {
+            // Someone else has got that prey covered.
+            continue;
+        }
         if (target_priority > other_priority) continue;
         if (other_priority > target_priority) {
             target_position = null;
@@ -60,6 +69,10 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     }
     if (target_position == null) {
         // no targets.
+        if (my_species == .ant and my_species.ant == .queen and !me.position.small.equals(makeCoord(0, 0))) {
+            // Go back home.
+            if (can(me, doAntPathfinding(last_frame))) |action| return action;
+        }
         return .wait;
     }
 
@@ -85,9 +98,19 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 },
             }
         }
-        // Don't know how to handle this.
-        core.debug.ai.print("waiting: overlapping target, but i'm not a blob.", .{});
+        if (my_species == .ant and my_species.ant == .worker) {
+            // carry the prey home.
+            if (can(me, doAntPathfinding(last_frame))) |action| return action;
+        }
+        // I've arrived at the destination, but I have nothing to do here.
         return .wait;
+    }
+    if (my_species == .ant and my_species.ant == .queen) {
+        if (0 != target_other.?.kind.individual.status_conditions & core.protocol.StatusCondition_grappled) {
+            // Bring me food. I don't want to move.
+            return .wait;
+        }
+        // Useless minions! I'll fight them myself!
     }
     const my_head_position = getHeadPosition(me.position);
     const delta = target_position.?.minus(my_head_position);
@@ -268,6 +291,18 @@ fn getFaction(species: std.meta.Tag(core.protocol.Species)) Faction {
 }
 
 fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: std.meta.Tag(core.protocol.Species)) ?i32 {
+    switch (me) {
+        .ant => {
+            switch (you) {
+                // i also eat snakes
+                .brown_snake => return 1,
+                // humans are not special to me.
+                .human => return 1,
+                else => {},
+            }
+        },
+        else => {},
+    }
     const my_team = getFaction(me);
     const your_team = getFaction(you);
     if (my_team == your_team) return null;
@@ -335,4 +370,115 @@ fn can(me: PerceivedThing, action: Action) ?Action {
         error.TooBig, error.TooSmall, error.MissingItem => unreachable,
     };
     return action;
+}
+
+fn doAntPathfinding(last_frame: PerceivedFrame) Action {
+    const my_coord = getHeadPosition(last_frame.self.position);
+    // origin is home.
+    var queen_coord = makeCoord(0, 0);
+    for (last_frame.others) |other| {
+        if (other.kind == .individual and other.kind.individual.species == .ant and other.kind.individual.species.ant == .queen) {
+            // there you are.
+            queen_coord = getHeadPosition(other.position);
+            break;
+        }
+    }
+
+    switch (terrainOrWhatever(last_frame.terrain, my_coord).floor) {
+        .sand => {
+            // find the door to the ant home.
+            if (queen_coord.y > my_coord.y) {
+                if (terrainOrWhatever(last_frame.terrain, my_coord.plus(makeCoord(0, 1))).wall == .sandstone) {
+                    // We're on the north edge of the building.
+                    return Action{ .move = .west };
+                } else {
+                    return Action{ .move = .south };
+                }
+            }
+            switch (terrainOrWhatever(last_frame.terrain, my_coord.plus(makeCoord(0, -1))).wall) {
+                .sandstone_cracked => {
+                    // We're at the door!
+                    return Action{ .move = .north };
+                },
+                .sandstone => {
+                    // we're on the south edge of the building.
+                    // look around for the opening.
+                    const view_distance = core.game_logic.getViewDistance(last_frame.self.kind.individual.species);
+                    var distance: i32 = 1;
+                    while (distance <= view_distance) : (distance += 1) {
+                        if (terrainOrWhatever(last_frame.terrain, my_coord.plus(makeCoord(-distance, -1))).wall == .sandstone_cracked) {
+                            // there it is (Original Mix)
+                            return Action{ .move = .west };
+                        }
+                        if (terrainOrWhatever(last_frame.terrain, my_coord.plus(makeCoord(distance, -1))).wall == .sandstone_cracked) {
+                            // there it is (PAL Version)
+                            return Action{ .move = .east };
+                        }
+                    }
+                    // We don't see the door.
+                    return Action{ .move = .west };
+                },
+                else => {},
+            }
+            if (queen_coord.x < my_coord.x) {
+                if (terrainOrWhatever(last_frame.terrain, my_coord.plus(makeCoord(-1, 0))).wall == .sandstone) {
+                    // We're on the east edge of the building.
+                    return Action{ .move = .south };
+                } else {
+                    return Action{ .move = .west };
+                }
+            }
+            if (queen_coord.x > my_coord.x) {
+                if (terrainOrWhatever(last_frame.terrain, my_coord.plus(makeCoord(1, 0))).wall == .sandstone) {
+                    // We're on the west edge of the building.
+                    return Action{ .move = .south };
+                } else {
+                    return Action{ .move = .east };
+                }
+            }
+            if (queen_coord.y < my_coord.y) {
+                return Action{ .move = .north };
+            }
+            // My home is gone. Is my homing sense wrong?
+            return .wait;
+        },
+        .sandstone => {
+            // walk straight to the queen.
+            // south and east before north and west, because of the L-shaped orientation of the room.
+            if (queen_coord.y > my_coord.y) {
+                return Action{ .move = .south };
+            }
+            if (queen_coord.x > my_coord.x) {
+                if (terrainOrWhatever(last_frame.terrain, my_coord.plus(makeCoord(1, 0))).wall == .sandstone) {
+                    return Action{ .move = .north };
+                } else {
+                    return Action{ .move = .east };
+                }
+            }
+            if (queen_coord.y < my_coord.y) {
+                return Action{ .move = .north };
+            }
+            if (queen_coord.x < my_coord.x) {
+                if (terrainOrWhatever(last_frame.terrain, my_coord.plus(makeCoord(-1, 0))).wall == .sandstone) {
+                    return Action{ .move = .north };
+                } else {
+                    return Action{ .move = .west };
+                }
+            }
+            // Where's the queen? She's supposed to be right here.
+            // I miss the queen.
+            return .wait;
+        },
+        else => {
+            // No sand? What planet am i on?
+            return .wait;
+        },
+    }
+}
+
+fn terrainOrWhatever(terrain: TerrainChunk, coord: Coord) TerrainSpace {
+    return terrainAt(terrain, coord) orelse TerrainSpace{
+        .floor = .unknown,
+        .wall = .unknown,
+    };
 }

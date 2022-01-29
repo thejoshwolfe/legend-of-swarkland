@@ -431,39 +431,43 @@ pub fn generateRegular(game_state: *GameState) !void {
         try warp_points_list.append(opening);
 
         // dig out the desert
-        var y = desert_rect.y;
-        while (y <= desert_rect.bottom()) : (y += 1) {
-            var x = desert_rect.x;
-            while (x <= desert_rect.right()) : (x += 1) {
-                const cell_ptr = try terrain.getOrPut(x, y);
-                if (cell_ptr.wall == .air) {
-                    // the one space of path that enters the forest
-                    continue;
-                }
-                if (x == desert_rect.x or y == desert_rect.y or x == desert_rect.right() or y == desert_rect.bottom()) {
-                    cell_ptr.* = TerrainSpace{
-                        .floor = .dirt,
-                        .wall = .dirt,
-                    };
-                } else {
-                    cell_ptr.* = TerrainSpace{
-                        .floor = .sand,
-                        .wall = .air,
-                    };
+        {
+            var y = desert_rect.y;
+            while (y <= desert_rect.bottom()) : (y += 1) {
+                var x = desert_rect.x;
+                while (x <= desert_rect.right()) : (x += 1) {
+                    const cell_ptr = try terrain.getOrPut(x, y);
+                    if (cell_ptr.wall == .air) {
+                        // the one space of path that enters the forest
+                        continue;
+                    }
+                    if (x == desert_rect.x or y == desert_rect.y or x == desert_rect.right() or y == desert_rect.bottom()) {
+                        cell_ptr.* = TerrainSpace{
+                            .floor = .dirt,
+                            .wall = .dirt,
+                        };
+                    } else {
+                        cell_ptr.* = TerrainSpace{
+                            .floor = .sand,
+                            .wall = .air,
+                        };
+                    }
                 }
             }
         }
 
         // build a structure.
         // start filled in.
-        y = building_rect.y;
-        while (y <= building_rect.bottom()) : (y += 1) {
-            var x = building_rect.x;
-            while (x <= building_rect.right()) : (x += 1) {
-                try terrain.put(x, y, TerrainSpace{
-                    .floor = .sandstone,
-                    .wall = .sandstone,
-                });
+        {
+            var y = building_rect.y;
+            while (y <= building_rect.bottom()) : (y += 1) {
+                var x = building_rect.x;
+                while (x <= building_rect.right()) : (x += 1) {
+                    try terrain.put(x, y, TerrainSpace{
+                        .floor = .sandstone,
+                        .wall = .sandstone,
+                    });
+                }
             }
         }
 
@@ -487,9 +491,11 @@ pub fn generateRegular(game_state: *GameState) !void {
         // ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
         // main hallway in the center.
-        var x = building_rect.x;
-        while (x < main_hall_end.x) : (x += 1) {
-            terrain.getExisting(x, main_hall_end.y).wall = .air;
+        {
+            var x = building_rect.x;
+            while (x < main_hall_end.x) : (x += 1) {
+                terrain.getExisting(x, main_hall_end.y).wall = .air;
+            }
         }
 
         const rooms = [_]Rect{
@@ -509,12 +515,12 @@ pub fn generateRegular(game_state: *GameState) !void {
                 west_divider_x,
                 main_hall_end.y + 1,
                 main_hall_end.x,
-                south_divider_y,
+                building_rect.bottom(),
             ),
             rectFromCorners(
                 building_rect.x,
                 south_divider_y,
-                main_hall_end.x,
+                west_divider_x,
                 building_rect.bottom(),
             ),
             rectFromCorners(
@@ -567,9 +573,21 @@ pub fn generateRegular(game_state: *GameState) !void {
         terrain.getExisting(r.intRangeLessThan(i32, rooms[0].x + 1, rooms[0].right()), rooms[0].bottom()).wall = .door_open;
         terrain.getExisting(r.intRangeLessThan(i32, rooms[1].x + 1, rooms[1].right()), rooms[1].y).wall = .door_closed;
         terrain.getExisting(r.intRangeLessThan(i32, rooms[2].x + 1, rooms[2].right()), rooms[2].y).wall = .door_closed;
-        x = rooms[2].x + 1;
-        while (x < rooms[2].right()) : (x += 1) {
-            terrain.getExisting(x, rooms[2].bottom()).wall = .air;
+        {
+            // join rooms 2-3 with all open space.
+            var y = rooms[3].y + 1;
+            while (y < rooms[3].bottom()) : (y += 1) {
+                terrain.getExisting(rooms[3].right(), y).wall = .air;
+            }
+            // cracks in the bottom of room 2-3.
+            var cracks_remaining = r.intRangeAtMost(usize, 1, 4);
+            while (cracks_remaining > 0) : (cracks_remaining -= 1) {
+                const x = r.intRangeLessThan(i32, rooms[3].x + 1, if (cracks_remaining == 1)
+                    rooms[3].right()
+                else
+                    rooms[2].right());
+                terrain.getExisting(x, rooms[3].bottom()).wall = .sandstone_cracked;
+            }
         }
         terrain.getExisting(r.intRangeLessThan(i32, rooms[4].x + 1, rooms[4].right()), rooms[4].bottom()).wall = .door_closed;
         terrain.getExisting(r.intRangeLessThan(i32, rooms[5].x + 2, rooms[5].right() - 1), rooms[5].bottom()).wall = .door_closed;
@@ -581,36 +599,9 @@ pub fn generateRegular(game_state: *GameState) !void {
 
         // enemy time!
         var possible_spawn_locations = ArrayList(Coord).init(allocator);
-        var it = desert_rect.rowMajorIterator();
-        while (it.next()) |coord| {
-            const cell = terrain.getCoord(coord);
-            if (cell.wall != .air) continue;
-            if (cell.floor != .sand) continue;
-            try possible_spawn_locations.append(coord);
-        }
-
-        var individuals_remaining = r.intRangeAtMost(usize, 10, 20);
-        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-            const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .scorpion).clone(allocator));
-            next_id += 1;
-        }
-        individuals_remaining = r.intRangeAtMost(usize, 5, 10);
-        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-            const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .brown_snake).clone(allocator));
-            next_id += 1;
-        }
-        individuals_remaining = r.intRangeAtMost(usize, 2, 4);
-        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-            const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
-            next_id += 1;
-        }
-
         // room 0 - a captive orc or something.
         try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[0]);
-        individuals_remaining = 1;
+        var individuals_remaining: usize = 1;
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
             try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .orc).clone(allocator));
@@ -625,12 +616,18 @@ pub fn generateRegular(game_state: *GameState) !void {
             next_id += 1;
         }
         // room 2,3 - a bunch of ants.
-        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[2]);
-        try appendInteriorCoords(&possible_spawn_locations, rooms[3]);
+        try clearAndAppendInteriorCoords(&possible_spawn_locations, rooms[3]);
+        // queen in the corner
+        const queen_coord = popRandom(r, &possible_spawn_locations) orelse unreachable;
+        try game_state.individuals.putNoClobber(next_id, try makeIndividual(queen_coord, Species{ .ant = .queen }).clone(allocator));
+        next_id += 1;
+        try appendInteriorCoords(&possible_spawn_locations, rooms[2]);
         individuals_remaining = r.intRangeAtMost(usize, 12, 20);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .ant).clone(allocator));
+            const ant = try makeIndividual(coord, Species{ .ant = .worker }).clone(allocator);
+            ant.perceived_origin = queen_coord;
+            try game_state.individuals.putNoClobber(next_id, ant);
             next_id += 1;
         }
         // room 4 - scorpions and snakes.
@@ -694,6 +691,36 @@ pub fn generateRegular(game_state: *GameState) !void {
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
             try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .human).clone(allocator));
+            next_id += 1;
+        }
+
+        // outdoor enemies
+        var it = desert_rect.rowMajorIterator();
+        while (it.next()) |coord| {
+            const cell = terrain.getCoord(coord);
+            if (cell.wall != .air) continue;
+            if (cell.floor != .sand) continue;
+            try possible_spawn_locations.append(coord);
+        }
+
+        individuals_remaining = r.intRangeAtMost(usize, 10, 20);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .scorpion).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 5, 10);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .brown_snake).clone(allocator));
+            next_id += 1;
+        }
+        individuals_remaining = r.intRangeAtMost(usize, 2, 4);
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom(r, &possible_spawn_locations) orelse break;
+            const ant = try makeIndividual(coord, Species{ .ant = .worker }).clone(allocator);
+            ant.perceived_origin = queen_coord;
+            try game_state.individuals.putNoClobber(next_id, ant);
             next_id += 1;
         }
     }
