@@ -291,6 +291,18 @@ fn getFaction(species: std.meta.Tag(core.protocol.Species)) Faction {
 }
 
 fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: std.meta.Tag(core.protocol.Species)) ?i32 {
+    switch (me) {
+        .ant => {
+            switch (you) {
+                // i also eat snakes
+                .brown_snake => return 1,
+                // humans are not special to me.
+                .human => return 1,
+                else => {},
+            }
+        },
+        else => {},
+    }
     const my_team = getFaction(me);
     const your_team = getFaction(you);
     if (my_team == your_team) return null;
