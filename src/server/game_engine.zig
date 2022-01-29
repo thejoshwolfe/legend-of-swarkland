@@ -418,13 +418,16 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 .kick => |direction| cardinalDirectionToDelta(direction),
                 else => continue,
             };
+            try kicks.putNoClobber(id, kick_direction);
+
+            var kicked_anybody = false;
             const attacker_coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
-            const kick_position = attacker_coord.plus(kick_direction);
+            const kick_coord = attacker_coord.plus(kick_direction);
             for (everybody) |other_id| {
                 const other = self.state.individuals.get(other_id).?;
                 const position = other.abs_position;
                 for (getAllPositions(&position)) |coord| {
-                    if (!coord.equals(kick_position)) continue;
+                    if (!coord.equals(kick_coord)) continue;
                     // gotchya
                     switch (getPhysicsLayer(other.species)) {
                         3 => {
@@ -441,13 +444,19 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         },
                         else => {},
                     }
+                    kicked_anybody = true;
                     if (try intended_moves.fetchPut(other_id, kick_direction)) |_| {
                         // kicked multiple times at once!
                         _ = try kicked_too_much.put(other_id, {});
                     }
                 }
             }
-            try kicks.putNoClobber(id, kick_direction);
+            if (!kicked_anybody and !isOpenSpace(self.state.terrain.getCoord(kick_coord).wall)) {
+                // Shove off the wall.
+                if (try intended_moves.fetchPut(id, kick_direction.scaled(-1))) |_| {
+                    _ = try kicked_too_much.put(id, {});
+                }
+            }
         }
         if (kicks.count() > 0) {
             for (everybody) |id| {
