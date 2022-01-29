@@ -34,6 +34,7 @@ pub const Wall = enum {
     dirt,
     stone,
     sandstone,
+    sandstone_cracked,
     tree_northwest,
     tree_northeast,
     tree_southwest,
@@ -74,7 +75,10 @@ pub const Species = union(enum) {
     wood_golem,
     scorpion,
     brown_snake,
-    ant,
+    ant: enum {
+        worker,
+        queen,
+    },
     minotaur,
     siren: enum {
         water,

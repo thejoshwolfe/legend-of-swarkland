@@ -614,6 +614,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .door_closed => textures.sprites.closed_door,
                                     .stone => selectAesthetic(textures.sprites.gray_brick[0..], aesthetic_seed, cursor),
                                     .sandstone => selectAestheticBiasedLow(textures.sprites.sandstone_wall[0..], aesthetic_seed, cursor, 5),
+                                    .sandstone_cracked => textures.sprites.sandstone_wall_cracked,
                                     .angel_statue => textures.sprites.statue_angel,
                                     .chest => textures.sprites.chest,
                                     .polymorph_trap_centaur, .polymorph_trap_kangaroo, .polymorph_trap_turtle, .polymorph_trap_blob, .polymorph_trap_human, .unknown_polymorph_trap => textures.sprites.polymorph_trap,
@@ -1444,7 +1445,10 @@ fn speciesToSprite(species: Species, is_arrow_nocked: bool) Rect {
         .wood_golem => textures.sprites.wood_golem,
         .scorpion => textures.sprites.scorpion,
         .brown_snake => textures.sprites.brown_snake,
-        .ant => textures.sprites.ant,
+        .ant => |subspecies| switch (subspecies) {
+            .worker => textures.sprites.ant_worker,
+            .queen => textures.sprites.ant_queen,
+        },
         .minotaur => textures.sprites.minotaur,
         .siren => |subspecies| switch (subspecies) {
             .water => textures.sprites.siren_water,
