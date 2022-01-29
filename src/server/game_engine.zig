@@ -313,6 +313,17 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 },
                 else => continue,
             }
+            const individual = self.state.individuals.get(id).?;
+            if (0 != individual.status_conditions & core.protocol.StatusCondition_grappling) {
+                // also move the grapplee
+                const coord = getHeadPosition(individual.abs_position);
+                for (everybody) |other_id| {
+                    const other = self.state.individuals.get(other_id).?;
+                    if (0 == other.status_conditions & core.protocol.StatusCondition_grappled) continue;
+                    if (!coord.equals(getHeadPosition(other.abs_position))) continue;
+                    try intended_moves.putNoClobber(other_id, intended_moves.get(id).?);
+                }
+            }
         }
 
         try self.doMovementAndCollisions(
@@ -538,27 +549,37 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
 
     // Grapple and digestion
     {
-        var grappler_to_victim_count = IdMap(u2).init(self.allocator);
+        var grappler_to_victim_count = IdMap(u32).init(self.allocator);
         var victim_to_has_multiple_attackers = IdMap(bool).init(self.allocator);
         var victim_to_unique_attacker = IdMap(u32).init(self.allocator);
         for (everybody) |id| {
-            const blob_individual = self.state.individuals.get(id).?;
-            if (blob_individual.species != .blob) continue;
-            const position = blob_individual.abs_position;
+            const individual = self.state.individuals.get(id).?;
+            switch (individual.species) {
+                .blob, .ant => {},
+                else => continue,
+            }
+            // grappler
+            const grappler_physics_layer = getPhysicsLayer(individual.species);
             for (everybody) |other_id| {
                 if (other_id == id) continue;
                 const other = self.state.individuals.get(other_id).?;
-                if (other.species == .blob) continue;
-                find_collision: for (getAllPositions(&position)) |coord| {
+                switch (getPhysicsLayer(other.species)) {
+                    0 => continue, // blobs are ungrapplable.
+                    1 => if (grappler_physics_layer == 1) continue, // how'd you get there.
+                    2 => {}, // always grapplable.
+                    3 => if (grappler_physics_layer == 1) continue, // too small to grapple large bois.
+                }
+                find_collision: for (getAllPositions(&individual.abs_position)) |coord| {
                     const other_position = other.abs_position;
                     for (getAllPositions(&other_position)) |other_coord| {
+                        // any overlap means you get grappled.
                         if (other_coord.equals(coord)) break :find_collision;
                     }
                 } else {
                     continue;
                 }
 
-                // any overlap means you get grappled.
+                // Grapple is happening.
                 {
                     const gop = try victim_to_has_multiple_attackers.getOrPut(other_id);
                     if (gop.found_existing) {
@@ -593,9 +614,16 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     victim.status_conditions |= core.protocol.StatusCondition_wounded_leg;
                 }
             } else {
-                // All victims are grappled at least.
+                // Grappled.
                 victim.status_conditions |= core.protocol.StatusCondition_grappled;
                 if (victim_to_unique_attacker.get(id)) |attacker_id| {
+                    const attacker_individual = self.state.individuals.get(attacker_id).?;
+                    const blob_subspecies = switch (attacker_individual.species) {
+                        .blob => |subspecies| subspecies,
+                        else => continue,
+                    };
+                    // Blobs digest their prey.
+
                     // Is the victim vulnerable to digestion attacks?
                     if (!core.game_logic.isAffectedByAttacks(self.state.individuals.get(id).?.species, 0)) {
                         // Too strong for the blob's attacks.
@@ -603,11 +631,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     }
 
                     // Need a sufficient density of blob on this space to do a digestion.
-                    const blob_individual = self.state.individuals.get(attacker_id).?;
-                    const blob_subpecies = blob_individual.species.blob;
-                    const can_digest = switch (blob_subpecies) {
+                    const can_digest = switch (blob_subspecies) {
                         .large_blob => true,
-                        .small_blob => blob_individual.abs_position == .small,
+                        .small_blob => attacker_individual.abs_position == .small,
                     };
                     if (!can_digest) continue;
                     if (0 == victim.status_conditions & core.protocol.StatusCondition_being_digested) {
@@ -619,7 +645,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         try digestion_deaths.put(id, {});
                         grappler_to_victim_count.getEntry(attacker_id).?.value_ptr.* -= 1;
 
-                        if (blob_subpecies == .small_blob) {
+                        if (blob_subspecies == .small_blob) {
                             // Grow up to be large.
                             self.state.individuals.get(attacker_id).?.species = .{ .blob = .large_blob };
                             try polymorphers.put(attacker_id, {});
@@ -628,6 +654,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 }
             }
         }
+        // attacker-side statuses.
         for (everybody) |id| {
             const individual = self.state.individuals.get(id).?;
             if ((grappler_to_victim_count.get(id) orelse 0) > 0) {

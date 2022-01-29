@@ -113,7 +113,7 @@ pub fn limpsAfterLunge(species: Species) bool {
 
 pub fn canNibble(species: Species) bool {
     return switch (species) {
-        .rat, .scorpion, .ant => true,
+        .rat, .scorpion => true,
         else => false,
     };
 }
