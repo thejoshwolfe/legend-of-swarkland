@@ -11,6 +11,7 @@ const Floor = core.protocol.Floor;
 const Action = core.protocol.Action;
 const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
+const Equipment = core.protocol.Equipment;
 const StatusConditions = core.protocol.StatusConditions;
 
 const assert = @import("std").debug.assert;
@@ -329,7 +330,7 @@ pub fn getAnatomy(species: Species) Anatomy {
     }
 }
 
-pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), status_conditions: StatusConditions, has_shield: bool, action: std.meta.Tag(Action)) !void {
+pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), status_conditions: StatusConditions, equipment: Equipment, action: std.meta.Tag(Action)) !void {
     const immobilizing_statuses = core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled;
     const pain_statuses = core.protocol.StatusCondition_pain;
     switch (action) {
@@ -386,7 +387,7 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (0 == status_conditions & core.protocol.StatusCondition_arrow_nocked) return error.StatusForbids;
         },
         .defend => {
-            if (!has_shield) return error.MissingItem;
+            if (!equipment.has(.shield)) return error.MissingItem;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .cheatcode_warp => {},

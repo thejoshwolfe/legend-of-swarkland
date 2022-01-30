@@ -697,6 +697,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         malaise: ?Rect = null,
                         pain: ?Rect = null,
                         shielded: ?Rect = null,
+                        equipped_axe: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.kind.individual.species)) {
                         .humanoid => AnatomySprites{
@@ -708,6 +709,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .malaise = textures.large_sprites.humanoid_malaise,
                             .pain = textures.large_sprites.humanoid_pain,
                             .shielded = textures.large_sprites.humanoid_shielded,
+                            .equipped_axe = textures.large_sprites.humanoid_equipped_axe,
                         },
                         .centauroid => AnatomySprites{
                             .diagram = textures.large_sprites.centauroid,
@@ -753,8 +755,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
-                    if (frame.self.kind.individual.has_shield) {
+                    if (frame.self.kind.individual.equipment.has(.shield)) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.shielded.?, anatomy_coord);
+                    }
+                    if (frame.self.kind.individual.equipment.has(.axe)) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.equipped_axe.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
                     var status_conditions: u9 = frame.self.kind.individual.status_conditions;
@@ -1197,8 +1202,11 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             if (thing.kind.individual.status_conditions & core.protocol.StatusCondition_pain != 0) {
                 textures.renderSprite(renderer, textures.sprites.pain, render_position);
             }
-            if (thing.kind.individual.has_shield) {
+            if (thing.kind.individual.equipment.has(.shield)) {
                 textures.renderSprite(renderer, textures.sprites.equipped_shield, render_position);
+            }
+            if (thing.kind.individual.equipment.has(.axe)) {
+                textures.renderSprite(renderer, textures.sprites.equipped_axe, render_position);
             }
         },
         .shield => {
@@ -1432,7 +1440,10 @@ fn speciesToSprite(species: Species, is_arrow_nocked: bool) Rect {
     return switch (species) {
         .human => textures.sprites.human,
         .orc => textures.sprites.orc,
-        .centaur => if (is_arrow_nocked) textures.sprites.centaur_archer_nocked else textures.sprites.centaur_archer,
+        .centaur => |subspecies| switch (subspecies) {
+            .archer => if (is_arrow_nocked) textures.sprites.centaur_archer_nocked else textures.sprites.centaur_archer,
+            .warrior => textures.sprites.centaur_warrior,
+        },
         .turtle => textures.sprites.turtle,
         .rhino => textures.sprites.rhino[0],
         .kangaroo => textures.sprites.kangaroo,
@@ -1668,7 +1679,7 @@ fn isStandingOnItem(frame: PerceivedFrame) bool {
 }
 
 fn can(me: PerceivedThing, action: std.meta.Tag(Action)) bool {
-    if (core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, me.kind.individual.has_shield, action)) {
+    if (core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, me.kind.individual.equipment, action)) {
         return true;
     } else |_| {
         return false;

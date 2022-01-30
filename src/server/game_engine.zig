@@ -24,6 +24,7 @@ const PerceivedThing = core.protocol.PerceivedThing;
 const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
+const Equipment = core.protocol.Equipment;
 const StatusConditions = core.protocol.StatusConditions;
 
 const PerceivedTerrain = core.game_logic.PerceivedTerrain;
@@ -999,7 +1000,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             .small => |coord| {
                 switch (self.state.terrain.getCoord(coord).wall) {
                     .polymorph_trap_centaur => {
-                        dest_species = .centaur;
+                        dest_species = .{ .centaur = .archer };
                     },
                     .polymorph_trap_kangaroo => {
                         dest_species = .kangaroo;
@@ -1625,7 +1626,7 @@ fn getPerceivedFrame(
                 .individual = .{
                     .species = actual_thing.species,
                     .status_conditions = actual_thing.status_conditions,
-                    .has_shield = hasShield(self.state, id),
+                    .equipment = getEquipment(self.state, id),
                     .activity = activity,
                 },
             },
@@ -1836,12 +1837,21 @@ fn findAvailableId(self: *GameEngine) u32 {
     return cursor;
 }
 
-pub fn hasShield(game_state: *GameState, id: u32) bool {
+pub fn getEquipment(game_state: *GameState, id: u32) Equipment {
+    var equipment: Equipment = .{};
     var it = inventoryIterator(game_state, id);
-    while (it.next()) |_| {
-        return true;
+    while (it.next()) |entry| {
+        const item = entry.value_ptr.*;
+        switch (item.kind) {
+            .shield => {
+                equipment.set(.shield, true);
+            },
+            .axe => {
+                equipment.set(.axe, true);
+            },
+        }
     }
-    return false;
+    return equipment;
 }
 
 const InventoryIterator = struct {

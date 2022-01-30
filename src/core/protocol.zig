@@ -62,7 +62,10 @@ pub const Wall = enum {
 pub const Species = union(enum) {
     human,
     orc,
-    centaur,
+    centaur: enum {
+        archer,
+        warrior,
+    },
     turtle,
     rhino,
     kangaroo,
@@ -172,12 +175,32 @@ pub const PerceivedThing = struct {
             species: Species,
 
             status_conditions: StatusConditions,
-            has_shield: bool,
+            equipment: Equipment,
 
             activity: PerceivedActivity,
         },
         shield,
     },
+};
+
+pub const Equipment = struct {
+    data: DataInt = 0,
+    const DataInt = std.meta.Int(.unsigned, std.meta.fields(EquippedItem).len);
+
+    pub fn has(self: Equipment, item: EquippedItem) bool {
+        return self.data & (@as(DataInt, 1) << @enumToInt(item)) != 0;
+    }
+    pub fn set(self: *Equipment, item: EquippedItem, value: bool) void {
+        if (value) {
+            self.data |= (@as(DataInt, 1) << @enumToInt(item));
+        } else {
+            self.data &= ~(@as(DataInt, 1) << @enumToInt(item));
+        }
+    }
+};
+pub const EquippedItem = enum {
+    shield,
+    axe,
 };
 
 pub const StatusConditions = u9;
