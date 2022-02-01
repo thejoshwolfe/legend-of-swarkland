@@ -34,19 +34,27 @@ pub fn getViewDistance(species: Species) i32 {
 
 pub fn canAttack(species: Species) bool {
     return switch (species) {
-        .rhino, .blob, .kangaroo, .centaur, .rat => false,
+        .rhino, .blob, .kangaroo, .rat => false,
+        .centaur => |subspecies| switch (subspecies) {
+            .archer => false,
+            .warrior => true,
+        },
         .ant => |subspecies| switch (subspecies) {
             .worker => false,
             .queen => true,
         },
-        else => true,
+
+        .human, .orc, .turtle, .wolf, .wood_golem, .scorpion, .brown_snake, .minotaur, .ogre, .siren => true,
     };
 }
 
 pub const bow_range = 16;
 pub fn hasBow(species: Species) bool {
     return switch (species) {
-        .centaur => true,
+        .centaur => |subspecies| switch (subspecies) {
+            .archer => true,
+            .warrior => false,
+        },
         else => false,
     };
 }
@@ -56,9 +64,13 @@ pub const AttackEffect = enum {
     wound_then_kill,
     malaise,
     smash,
+    chop,
 };
 
-pub fn getAttackEffect(species: Species) AttackEffect {
+pub fn getAttackEffect(species: Species, equipment: Equipment) AttackEffect {
+    if (equipment.has(.axe)) {
+        return .chop;
+    }
     return switch (species) {
         .human, .orc, .centaur => .wound_then_kill,
         .turtle => .wound_then_kill,

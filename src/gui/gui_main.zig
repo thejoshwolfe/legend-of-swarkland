@@ -1205,7 +1205,7 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             if (thing.kind.individual.equipment.has(.shield)) {
                 textures.renderSprite(renderer, textures.sprites.equipped_shield, render_position);
             }
-            if (thing.kind.individual.equipment.has(.axe)) {
+            if (thing.kind.individual.equipment.has(.axe) and thing.kind.individual.activity != .attack) {
                 textures.renderSprite(renderer, textures.sprites.equipped_axe, render_position);
             }
         },
@@ -1233,7 +1233,7 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .attack => |data| {
             const max_range = if (core.game_logic.hasBow(thing.kind.individual.species)) core.game_logic.bow_range else @as(i32, 1);
             if (max_range == 1) {
-                switch (core.game_logic.getAttackEffect(thing.kind.individual.species)) {
+                switch (core.game_logic.getAttackEffect(thing.kind.individual.species, thing.kind.individual.equipment)) {
                     .just_wound, .wound_then_kill, .malaise => {
                         const dagger_sprite_normalizing_rotation = 1;
                         textures.renderSpriteRotated45Degrees(
@@ -1275,6 +1275,20 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                                 );
                             }
                         }
+                    },
+                    .chop => {
+                        const axe_sprite_normalizing_rotation = 1;
+                        const axe_handle_coord = makeCoord(7, 24);
+                        renderSpriteSwing(
+                            renderer,
+                            textures.sprites.axe,
+                            render_position,
+                            directionToRotation(data.direction),
+                            axe_sprite_normalizing_rotation,
+                            axe_handle_coord,
+                            progress,
+                            progress_denominator,
+                        );
                     },
                 }
             } else {
