@@ -412,7 +412,7 @@ pub fn InChannel(comptime Reader: type) type {
                 },
             });
             const x_aligned = try self.stream.readIntLittle(T_aligned);
-            return std.math.cast(T, x_aligned);
+            return std.math.cast(T, x_aligned) orelse return error.Overflow;
         }
     };
 }
