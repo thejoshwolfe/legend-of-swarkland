@@ -104,10 +104,10 @@ fn deepPrintImpl(prefix: []const u8, something: anytype) void {
         pub fn recurse(obj: anytype, comptime indent: comptime_int) void {
             const T = @TypeOf(obj);
             const indentation = comptime ("  " ** indent);
-            if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_list.AlignedArrayList(")) {
+            if (comptime std.mem.indexOf(u8, @typeName(T), "AlignedArrayList(") != null) {
                 return recurse(obj.items, indent);
             }
-            if (comptime std.mem.startsWith(u8, @typeName(T), "std.array_hash_map.ArrayHashMap(u32,")) {
+            if (comptime std.mem.indexOf(u8, @typeName(T), "ArrayHashMap(u32,") != null) {
                 if (obj.count() == 0) {
                     return std.debug.print("{{}}", .{});
                 }

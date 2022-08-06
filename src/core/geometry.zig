@@ -217,14 +217,14 @@ pub const Rect = struct {
 
     pub fn rowMajorIterator(self: @This()) RowMajorIterator {
         return RowMajorIterator{
-            .r = &self,
+            .r = self,
             .x = self.x,
             .y = self.y,
         };
     }
 };
 const RowMajorIterator = struct {
-    r: *const Rect,
+    r: Rect,
     x: i32,
     y: i32,
 
