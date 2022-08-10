@@ -1701,7 +1701,7 @@ fn flushDeaths(self: *GameEngine, total_deaths: *IdMap(void), local_deaths: *IdM
         {
             const index = std.mem.indexOfScalar(u32, everybody.*, id).?;
             everybody.*[index] = everybody.*[everybody.len - 1];
-            everybody.len -= 1;
+            everybody.* = everybody.*[0 .. everybody.len - 1];
         }
         // drop items
         const coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
