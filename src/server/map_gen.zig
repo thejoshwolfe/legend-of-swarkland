@@ -338,11 +338,6 @@ pub fn generateRegular(game_state: *GameState) !void {
             const coord = pool_rect.position().plus(pool_rect.size().scaledDivTrunc(2));
             try game_state.individuals.putNoClobber(boss_id, try makeIndividual(coord, Species{ .centaur = .warrior }).clone(allocator));
             next_id += 1;
-            try game_state.items.putNoClobber(next_id, try (Item{
-                .location = .{ .holder_id = boss_id },
-                .kind = .axe,
-            }).clone(allocator));
-            next_id += 1;
         }
 
         var possible_spawn_locations = ArrayList(Coord).init(allocator);

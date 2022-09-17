@@ -72,7 +72,11 @@ pub fn getAttackEffect(species: Species, equipment: Equipment) AttackEffect {
         return .chop;
     }
     return switch (species) {
-        .human, .orc, .centaur => .wound_then_kill,
+        .human, .orc => .wound_then_kill,
+        .centaur => |subspecies| switch (subspecies) {
+            .archer => .wound_then_kill,
+            .warrior => .chop,
+        },
         .turtle => .wound_then_kill,
         .wolf => .wound_then_kill,
         .wood_golem => .wound_then_kill,
