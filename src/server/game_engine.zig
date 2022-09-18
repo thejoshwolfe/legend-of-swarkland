@@ -517,7 +517,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             const item_id = entry.key_ptr.*;
             const individual_id = entry.value_ptr.* orelse continue;
             // the pick up succeeds.
-            self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = individual_id, .is_equipped = false } };
+            self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = individual_id, .is_equipped = true } };
         }
     }
 
