@@ -132,7 +132,7 @@ pub fn generateRegular(game_state: *GameState) !void {
                 if (boss_room and individuals_remaining == 1) {
                     // give the boss a shield
                     try game_state.items.putNoClobber(next_id, try (Item{
-                        .location = .{ .holder_id = orc_id },
+                        .location = .{ .held = .{ .holder_id = orc_id, .is_equipped = true } },
                         .kind = .shield,
                     }).clone(allocator));
                     next_id += 1;

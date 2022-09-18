@@ -755,10 +755,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
-                    if (frame.self.kind.individual.equipment.has(.shield)) {
+                    if (frame.self.kind.individual.equipment.is_equipped(.shield)) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.shielded.?, anatomy_coord);
                     }
-                    if (frame.self.kind.individual.equipment.has(.axe)) {
+                    if (frame.self.kind.individual.equipment.is_equipped(.axe)) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.equipped_axe.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
@@ -1202,10 +1202,10 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             if (thing.kind.individual.status_conditions & core.protocol.StatusCondition_pain != 0) {
                 textures.renderSprite(renderer, textures.sprites.pain, render_position);
             }
-            if (thing.kind.individual.equipment.has(.shield)) {
+            if (thing.kind.individual.equipment.is_equipped(.shield)) {
                 textures.renderSprite(renderer, textures.sprites.equipped_shield, render_position);
             }
-            if (thing.kind.individual.equipment.has(.axe) and thing.kind.individual.activity != .attack) {
+            if (thing.kind.individual.equipment.is_equipped(.axe) and thing.kind.individual.activity != .attack) {
                 textures.renderSprite(renderer, textures.sprites.equipped_axe, render_position);
             }
         },

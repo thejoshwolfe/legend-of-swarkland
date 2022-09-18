@@ -205,8 +205,8 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                         } });
                     }
                     switch (new_item.location) {
-                        .holder_id => |holder_id| {
-                            assert(self.state.individuals.contains(holder_id));
+                        .held => |held| {
+                            assert(self.state.individuals.contains(held.holder_id));
                         },
                         else => {},
                     }
@@ -501,7 +501,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     .floor_coord => |floor_coord| {
                         if (!floor_coord.equals(pick_up_coord)) continue;
                     },
-                    .holder_id => continue,
+                    .held => continue,
                 }
                 const gop = try item_claims.getOrPut(item_id);
                 if (gop.found_existing) {
@@ -517,7 +517,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             const item_id = entry.key_ptr.*;
             const individual_id = entry.value_ptr.* orelse continue;
             // the pick up succeeds.
-            self.state.items.get(item_id).?.location = .{ .holder_id = individual_id };
+            self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = individual_id, .is_equipped = false } };
         }
     }
 
@@ -1662,7 +1662,7 @@ fn getPerceivedFrame(
                     .kind = .shield,
                 });
             },
-            .holder_id => {}, // handled above
+            .held => {}, // handled above
         }
     }
 
@@ -1860,12 +1860,16 @@ pub fn getEquipment(game_state: *GameState, id: u32) Equipment {
     var it = inventoryIterator(game_state, id);
     while (it.next()) |entry| {
         const item = entry.value_ptr.*;
+        const is_equipped = item.location.held.is_equipped;
         switch (item.kind) {
             .shield => {
-                equipment.set(.shield, true);
+                equipment.set(.shield, true, is_equipped);
             },
             .axe => {
-                equipment.set(.axe, true);
+                equipment.set(.axe, true, is_equipped);
+            },
+            .torch => {
+                equipment.set(.torch, true, is_equipped);
             },
         }
     }
@@ -1880,8 +1884,8 @@ const InventoryIterator = struct {
             const item = entry.value_ptr.*;
             switch (item.location) {
                 .floor_coord => {},
-                .holder_id => |holder_id| {
-                    if (holder_id == self.holder_id) return entry;
+                .held => |held| {
+                    if (held.holder_id == self.holder_id) return entry;
                 },
             }
         }

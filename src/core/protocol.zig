@@ -184,23 +184,39 @@ pub const PerceivedThing = struct {
 };
 
 pub const Equipment = struct {
-    data: DataInt = 0,
+    held: DataInt = 0,
+    /// equipped is a subset of held.
+    equipped: DataInt = 0,
+
     const DataInt = std.meta.Int(.unsigned, std.meta.fields(EquippedItem).len);
 
-    pub fn has(self: Equipment, item: EquippedItem) bool {
-        return self.data & (@as(DataInt, 1) << @enumToInt(item)) != 0;
+    pub fn is_held(self: Equipment, item: EquippedItem) bool {
+        const bit = @as(DataInt, 1) << @enumToInt(item);
+        return self.held & bit != 0;
     }
-    pub fn set(self: *Equipment, item: EquippedItem, value: bool) void {
-        if (value) {
-            self.data |= (@as(DataInt, 1) << @enumToInt(item));
+    pub fn is_equipped(self: Equipment, item: EquippedItem) bool {
+        const bit = @as(DataInt, 1) << @enumToInt(item);
+        return self.equipped & bit != 0;
+    }
+    pub fn set(self: *Equipment, item: EquippedItem, held: bool, equipped: bool) void {
+        std.debug.assert(!(equipped and !held)); // equipped is a subset of held.
+        const bit = @as(DataInt, 1) << @enumToInt(item);
+        if (held) {
+            self.held |= bit;
         } else {
-            self.data &= ~(@as(DataInt, 1) << @enumToInt(item));
+            self.held &= ~bit;
+        }
+        if (equipped) {
+            self.equipped |= bit;
+        } else {
+            self.equipped &= ~bit;
         }
     }
 };
 pub const EquippedItem = enum {
     shield,
     axe,
+    torch,
 };
 
 pub const StatusConditions = u9;

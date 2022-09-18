@@ -48,13 +48,18 @@ pub const Individual = struct {
 
 pub const ItemLocation = union(enum) {
     floor_coord: Coord,
+    held: HeldLocation,
+};
+pub const HeldLocation = struct {
     holder_id: u32,
+    is_equipped: bool,
 };
 pub const Item = struct {
     location: ItemLocation,
     kind: enum {
         shield,
         axe,
+        torch,
     },
 
     pub fn clone(self: @This(), allocator: Allocator) !*@This() {

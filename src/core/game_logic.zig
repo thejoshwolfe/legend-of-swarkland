@@ -68,7 +68,7 @@ pub const AttackEffect = enum {
 };
 
 pub fn getAttackEffect(species: Species, equipment: Equipment) AttackEffect {
-    if (equipment.has(.axe)) {
+    if (equipment.is_equipped(.axe)) {
         return .chop;
     }
     return switch (species) {
@@ -403,7 +403,7 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (0 == status_conditions & core.protocol.StatusCondition_arrow_nocked) return error.StatusForbids;
         },
         .defend => {
-            if (!equipment.has(.shield)) return error.MissingItem;
+            if (!equipment.is_equipped(.shield)) return error.MissingItem;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .cheatcode_warp => {},
