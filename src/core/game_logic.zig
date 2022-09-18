@@ -11,6 +11,7 @@ const Floor = core.protocol.Floor;
 const Action = core.protocol.Action;
 const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
+const Equipment = core.protocol.Equipment;
 const StatusConditions = core.protocol.StatusConditions;
 
 const assert = @import("std").debug.assert;
@@ -33,19 +34,27 @@ pub fn getViewDistance(species: Species) i32 {
 
 pub fn canAttack(species: Species) bool {
     return switch (species) {
-        .rhino, .blob, .kangaroo, .centaur, .rat => false,
+        .rhino, .blob, .kangaroo, .rat => false,
+        .centaur => |subspecies| switch (subspecies) {
+            .archer => false,
+            .warrior => true,
+        },
         .ant => |subspecies| switch (subspecies) {
             .worker => false,
             .queen => true,
         },
-        else => true,
+
+        .human, .orc, .turtle, .wolf, .wood_golem, .scorpion, .brown_snake, .minotaur, .ogre, .siren => true,
     };
 }
 
 pub const bow_range = 16;
 pub fn hasBow(species: Species) bool {
     return switch (species) {
-        .centaur => true,
+        .centaur => |subspecies| switch (subspecies) {
+            .archer => true,
+            .warrior => false,
+        },
         else => false,
     };
 }
@@ -55,11 +64,19 @@ pub const AttackEffect = enum {
     wound_then_kill,
     malaise,
     smash,
+    chop,
 };
 
-pub fn getAttackEffect(species: Species) AttackEffect {
+pub fn getAttackEffect(species: Species, equipment: Equipment) AttackEffect {
+    if (equipment.has(.axe)) {
+        return .chop;
+    }
     return switch (species) {
-        .human, .orc, .centaur => .wound_then_kill,
+        .human, .orc => .wound_then_kill,
+        .centaur => |subspecies| switch (subspecies) {
+            .archer => .wound_then_kill,
+            .warrior => .chop,
+        },
         .turtle => .wound_then_kill,
         .wolf => .wound_then_kill,
         .wood_golem => .wound_then_kill,
@@ -329,7 +346,7 @@ pub fn getAnatomy(species: Species) Anatomy {
     }
 }
 
-pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), status_conditions: StatusConditions, has_shield: bool, action: std.meta.Tag(Action)) !void {
+pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), status_conditions: StatusConditions, equipment: Equipment, action: std.meta.Tag(Action)) !void {
     const immobilizing_statuses = core.protocol.StatusCondition_limping | core.protocol.StatusCondition_grappled;
     const pain_statuses = core.protocol.StatusCondition_pain;
     switch (action) {
@@ -386,7 +403,7 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (0 == status_conditions & core.protocol.StatusCondition_arrow_nocked) return error.StatusForbids;
         },
         .defend => {
-            if (!has_shield) return error.MissingItem;
+            if (!equipment.has(.shield)) return error.MissingItem;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .cheatcode_warp => {},

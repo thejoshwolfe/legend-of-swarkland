@@ -52,6 +52,10 @@ pub const ItemLocation = union(enum) {
 };
 pub const Item = struct {
     location: ItemLocation,
+    kind: enum {
+        shield,
+        axe,
+    },
 
     pub fn clone(self: @This(), allocator: Allocator) !*@This() {
         var other = try allocator.create(@This());

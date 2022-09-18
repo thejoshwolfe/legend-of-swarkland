@@ -137,7 +137,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             }
             // one lunge away
             if (can(me, Action{ .lunge = delta_direction })) |action| return action;
-            if (me.kind.individual.has_shield) {
+            if (me.kind.individual.equipment.has(.shield)) {
                 // shield makes me smarter for some reason. preemptive attack.
                 if (can(me, Action{ .attack = delta_direction })) |action| return action;
             }
@@ -149,7 +149,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 // too close. get away!
                 if (can(me, Action{ .kick = delta_direction })) |action| return action;
             }
-            if (me.kind.individual.has_shield) {
+            if (me.kind.individual.equipment.has(.shield)) {
                 if (0 == target_other.?.kind.individual.status_conditions & core.protocol.StatusCondition_pain) {
                     // You're are scary. Attempt to parry.
                     if (can(me, Action{ .defend = delta_direction })) |action| return action;
@@ -239,7 +239,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             // preemptive kick
             if (can(me, Action{ .kick = delta_direction })) |action| return action;
         }
-        if (me.kind.individual.has_shield) {
+        if (me.kind.individual.equipment.has(.shield)) {
             // shield makes me smarter for some reason. preemptive attack.
             if (can(me, Action{ .attack = delta_direction })) |action| return action;
         }
@@ -365,7 +365,7 @@ fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
 }
 
 fn can(me: PerceivedThing, action: Action) ?Action {
-    core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, me.kind.individual.has_shield, action) catch |err| switch (err) {
+    core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, me.kind.individual.equipment, action) catch |err| switch (err) {
         error.SpeciesIncapable, error.StatusForbids => return null,
         error.TooBig, error.TooSmall, error.MissingItem => unreachable,
     };

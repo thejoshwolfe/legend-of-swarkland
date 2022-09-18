@@ -126,14 +126,14 @@ pub fn generateRegular(game_state: *GameState) !void {
             var individuals_remaining = orc_count;
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {
                 const coord = popRandom(r, &possible_spawn_locations) orelse break;
-                const orc = try makeIndividual(coord, .orc).clone(allocator);
                 const orc_id = next_id;
-                try game_state.individuals.putNoClobber(orc_id, orc);
+                try game_state.individuals.putNoClobber(orc_id, try makeIndividual(coord, .orc).clone(allocator));
                 next_id += 1;
                 if (boss_room and individuals_remaining == 1) {
                     // give the boss a shield
                     try game_state.items.putNoClobber(next_id, try (Item{
                         .location = .{ .holder_id = orc_id },
+                        .kind = .shield,
                     }).clone(allocator));
                     next_id += 1;
                 }
@@ -332,6 +332,13 @@ pub fn generateRegular(game_state: *GameState) !void {
                 }
             }
         }
+        // boss starts in the middle of the pool
+        {
+            const boss_id = next_id;
+            const coord = pool_rect.position().plus(pool_rect.size().scaledDivTrunc(2));
+            try game_state.individuals.putNoClobber(boss_id, try makeIndividual(coord, Species{ .centaur = .warrior }).clone(allocator));
+            next_id += 1;
+        }
 
         var possible_spawn_locations = ArrayList(Coord).init(allocator);
         it = (Rect{
@@ -371,7 +378,7 @@ pub fn generateRegular(game_state: *GameState) !void {
         var individuals_remaining = r.intRangeAtMost(usize, 4, 10);
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
-            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, Species{ .centaur = .archer }).clone(allocator));
             next_id += 1;
         }
         individuals_remaining = r.intRangeAtMost(usize, 1, 3);
@@ -650,7 +657,7 @@ pub fn generateRegular(game_state: *GameState) !void {
         while (individuals_remaining > 0) : (individuals_remaining -= 1) {
             const coord = popRandom(r, &possible_spawn_locations) orelse break;
             if (coord.y >= rooms[5].bottom() - 2) continue; // this can make it impossible to progress.
-            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .centaur).clone(allocator));
+            try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, Species{ .centaur = .archer }).clone(allocator));
             next_id += 1;
         }
         // room 6 - angel statue.
@@ -1157,7 +1164,7 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
                 },
                 'C' => {
                     terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };
-                    level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), .centaur)};
+                    level.individuals = level.individuals ++ [_]Individual{makeIndividual(makeCoord(x, y), Species{ .centaur = .archer })};
                 },
                 'k' => {
                     terrain[index] = TerrainSpace{ .floor = .dirt, .wall = .air };

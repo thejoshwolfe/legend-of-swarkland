@@ -184,8 +184,8 @@ fn doAi(response: Response) Action {
 
 fn validateActionWithGameState(game_state: *GameState, id: u32, action: Action) !void {
     const individual = game_state.individuals.get(id).?;
-    const has_shield = game_engine.hasShield(game_state, id);
-    return validateAction(individual.species, individual.abs_position, individual.status_conditions, has_shield, action);
+    const equipment = game_engine.getEquipment(game_state, id);
+    return validateAction(individual.species, individual.abs_position, individual.status_conditions, equipment, action);
 }
 
 pub fn debugPrintAction(prefix_number: u32, action: Action) void {
