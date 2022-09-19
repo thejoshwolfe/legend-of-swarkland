@@ -179,7 +179,7 @@ pub const PerceivedThing = struct {
 
             activity: PerceivedActivity,
         },
-        shield,
+        item: FloorItem,
     },
 };
 
@@ -214,6 +214,11 @@ pub const Equipment = struct {
     }
 };
 pub const EquippedItem = enum {
+    shield,
+    axe,
+    torch,
+};
+pub const FloorItem = enum {
     shield,
     axe,
     torch,

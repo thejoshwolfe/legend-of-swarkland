@@ -1659,7 +1659,11 @@ fn getPerceivedFrame(
                 if (!in_view_matrix.getCoord(coord)) continue;
                 try others.append(PerceivedThing{
                     .position = .{ .small = coord.minus(perceived_origin) },
-                    .kind = .shield,
+                    .kind = .{ .item = switch (item.kind) {
+                        .shield => .shield,
+                        .axe => .axe,
+                        .torch => .torch,
+                    } },
                 });
             },
             .held => {}, // handled above

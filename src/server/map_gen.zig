@@ -436,6 +436,11 @@ pub fn generateRegular(game_state: *GameState) !void {
             .wall = .air,
         });
         try warp_points_list.append(opening);
+        // Throw an item on the ground here for debugging.
+        try game_state.items.putNoClobber(next_id, try (Item{
+            .location = .{ .floor_coord = opening },
+            .kind = .torch,
+        }).clone(allocator));
 
         // dig out the desert
         {

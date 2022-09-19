@@ -640,7 +640,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .individual => {
                                 if (getPhysicsLayer(other.kind.individual.species) != physics_layer) continue;
                             },
-                            .shield => {
+                            .item => {
                                 // put items on layer 0?
                                 if (physics_layer != 0) continue;
                             },
@@ -698,6 +698,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         pain: ?Rect = null,
                         shielded: ?Rect = null,
                         equipped_axe: ?Rect = null,
+                        equipped_torch: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.kind.individual.species)) {
                         .humanoid => AnatomySprites{
@@ -710,6 +711,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .pain = textures.large_sprites.humanoid_pain,
                             .shielded = textures.large_sprites.humanoid_shielded,
                             .equipped_axe = textures.large_sprites.humanoid_equipped_axe,
+                            .equipped_torch = textures.large_sprites.humanoid_equipped_torch,
                         },
                         .centauroid => AnatomySprites{
                             .diagram = textures.large_sprites.centauroid,
@@ -760,6 +762,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                     if (frame.self.kind.individual.equipment.is_equipped(.axe)) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.equipped_axe.?, anatomy_coord);
+                    }
+                    if (frame.self.kind.individual.equipment.is_equipped(.torch)) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.equipped_torch.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
                     var status_conditions: u9 = frame.self.kind.individual.status_conditions;
@@ -1208,9 +1213,16 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             if (thing.kind.individual.equipment.is_equipped(.axe) and thing.kind.individual.activity != .attack) {
                 textures.renderSprite(renderer, textures.sprites.equipped_axe, render_position);
             }
+            if (thing.kind.individual.equipment.is_equipped(.torch) and thing.kind.individual.activity != .attack) {
+                textures.renderSprite(renderer, textures.sprites.equipped_torch, render_position);
+            }
         },
-        .shield => {
-            textures.renderSprite(renderer, textures.sprites.shield, render_position);
+        .item => |item| {
+            textures.renderSprite(renderer, switch (item) {
+                .shield => textures.sprites.shield,
+                .axe => textures.sprites.axe,
+                .torch => textures.sprites.torch,
+            }, render_position);
         },
     }
 
@@ -1605,8 +1617,9 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
                         if (patch_other.kind != .individual) break :blk false;
                         if (base_other.kind.individual.species != @as(std.meta.Tag(Species), patch_other.kind.individual.species)) break :blk false;
                     },
-                    .shield => {
-                        if (patch_other.kind != .shield) break :blk false;
+                    .item => |item| {
+                        if (patch_other.kind != .item) break :blk false;
+                        if (patch_other.kind.item != item) break :blk false;
                     },
                 }
                 break :blk true;
@@ -1640,7 +1653,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
         return false;
     }
     for (base_frame.others) |base_other, i| {
-        if (base_other.kind == .shield) continue;
+        if (base_other.kind != .individual) continue;
         const patch_other = patch_frame.others[others_mapping[i]];
         if (base_other.kind.individual.activity != .none and patch_other.kind.individual.activity != .none) {
             core.debug.animation_compression.print("NOPE: someone({}, {}) doing two different things.", .{ i, others_mapping[i] });
@@ -1683,7 +1696,7 @@ fn isStandingOnItem(frame: PerceivedFrame) bool {
     for (frame.others) |other| {
         switch (other.kind) {
             .individual => continue,
-            .shield => {
+            .item => {
                 if (!coord.equals(other.position.small)) continue;
                 return true;
             },
