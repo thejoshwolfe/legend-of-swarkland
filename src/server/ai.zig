@@ -116,7 +116,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     const delta = target_position.?.minus(my_head_position);
     const range = if (core.game_logic.hasBow(my_species))
         core.game_logic.bow_range
-    else if (core.game_logic.canAttack(my_species) or hesitatesOneSpaceAway(my_species))
+    else if (canAttack(me) or hesitatesOneSpaceAway(my_species))
         @as(i32, 1)
     else
         0;
@@ -252,6 +252,14 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         }
     }
     return movelikeAction(me, options[option_index]);
+}
+
+fn canAttack(me: PerceivedThing) bool {
+    if (core.game_logic.validateAttack(me.kind.individual.species, me.kind.individual.equipment)) {
+        return true;
+    } else |_| {
+        return false;
+    }
 }
 
 fn hesitatesOneSpaceAway(species: Species) bool {

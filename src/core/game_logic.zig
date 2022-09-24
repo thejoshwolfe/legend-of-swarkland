@@ -32,19 +32,23 @@ pub fn getViewDistance(species: Species) i32 {
     };
 }
 
-pub fn canAttack(species: Species) bool {
+pub fn validateAttack(species: Species, equipment: Equipment) !void {
     return switch (species) {
-        .rhino, .blob, .kangaroo, .rat => false,
+        .rhino, .blob, .kangaroo, .rat => error.SpeciesIncapable,
         .centaur => |subspecies| switch (subspecies) {
-            .archer => false,
-            .warrior => true,
+            .archer => error.SpeciesIncapable,
+            .warrior => {},
         },
         .ant => |subspecies| switch (subspecies) {
-            .worker => false,
-            .queen => true,
+            .worker => error.SpeciesIncapable,
+            .queen => {},
+        },
+        .human => {
+            if (equipment.is_equipped(.axe) or equipment.is_equipped(.torch)) return {};
+            return error.MissingItem;
         },
 
-        .human, .orc, .turtle, .wolf, .wood_golem, .scorpion, .brown_snake, .minotaur, .ogre, .siren => true,
+        .orc, .turtle, .wolf, .wood_golem, .scorpion, .brown_snake, .minotaur, .ogre, .siren => {},
     };
 }
 
@@ -463,7 +467,7 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (position != .large) return error.TooSmall;
         },
         .attack => {
-            if (!canAttack(species)) return error.SpeciesIncapable;
+            try validateAttack(species, equipment);
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .kick => {

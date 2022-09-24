@@ -31,7 +31,6 @@ const PerceivedThing = core.protocol.PerceivedThing;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
-const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
 const canUseDoors = core.game_logic.canUseDoors;
@@ -344,8 +343,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
 
                                     .start_attack => {
-                                        _ = validateAndShowTotorialForError(state, .attack);
-                                        state.input_prompt = .attack;
+                                        if (validateAndShowTotorialForError(state, .attack)) {
+                                            state.input_prompt = .attack;
+                                        }
                                     },
                                     .start_kick => {
                                         _ = validateAndShowTotorialForError(state, .kick);
@@ -1035,8 +1035,8 @@ fn doActionOrShowTutorialForError(state: *RunningState, action: Action) !void {
 
 var tutorial_text_buffer: [0x100]u8 = undefined;
 fn validateAndShowTotorialForError(state: *RunningState, action: std.meta.Tag(Action)) bool {
-    const myself = state.client_state.?.self;
-    if (can(myself, action)) {
+    const me = state.client_state.?.self;
+    if (core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, me.kind.individual.equipment, action)) {
         state.input_tutorial = null;
         return true;
     } else |err| switch (err) {
@@ -1044,7 +1044,10 @@ fn validateAndShowTotorialForError(state: *RunningState, action: std.meta.Tag(Ac
             state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "You cannot {s}. Try Spacebar to wait.", .{@tagName(action)}) catch unreachable;
         },
         error.SpeciesIncapable => {
-            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "A {s} cannot {s}.", .{ @tagName(myself.kind.individual.species), @tagName(action) }) catch unreachable;
+            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "A {s} cannot {s}.", .{ @tagName(me.kind.individual.species), @tagName(action) }) catch unreachable;
+        },
+        error.MissingItem => {
+            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "You are missing an item.", .{}) catch unreachable;
         },
         error.TooBig, error.TooSmall => unreachable,
     }
