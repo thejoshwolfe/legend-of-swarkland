@@ -582,7 +582,8 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     const attacker = self.state.individuals.get(id).?;
                     attacker.status_conditions &= ~core.protocol.StatusCondition_arrow_nocked;
                     var attacker_coord = getHeadPosition(attacker.abs_position);
-                    const attack_function = getAttackFunction(attacker.species, getEquipment(self.state, id));
+                    const attacker_equipment = getEquipment(self.state, id);
+                    const attack_function = getAttackFunction(attacker.species, attacker_equipment);
                     var attack_distance: i32 = 1;
                     const range: i32 = if (action == .fire_bow) core.game_logic.bow_range else 1;
                     while (attack_distance <= range) : (attack_distance += 1) {
@@ -590,57 +591,61 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         var stop_the_attack = false;
                         for (everybody) |other_id| {
                             const other = self.state.individuals.get(other_id).?;
-                            switch (getPhysicsLayer(other.species)) {
-                                0, 1 => switch (attack_function) {
-                                    // too short to be hit by "regular" attacks
-                                    .wound_then_kill, .just_wound, .malaise => continue,
-                                    // these still reach
-                                    .chop, .smash => {},
-                                },
-                                2, 3 => {},
+                            const other_position_index = blk: for (getAllPositions(&other.abs_position)) |coord, i| {
+                                if (coord.equals(damage_position)) break :blk i;
+                            } else {
+                                // Not in this position.
+                                continue;
+                            };
+
+                            const is_shielding = blk: {
+                                if (defends.get(other_id)) |direction| {
+                                    break :blk (@enumToInt(direction) +% 2 == @enumToInt(attack_direction));
+                                } else break :blk false;
+                            };
+
+                            const effect = core.game_logic.getAttackEffect(
+                                attacker.species,
+                                attacker_equipment,
+                                other.species,
+                                other_position_index,
+                                other.status_conditions,
+                                is_shielding,
+                            );
+                            if (effect == .miss) {
+                                // Don't stop the attack.
+                                continue;
                             }
-                            for (getAllPositions(&other.abs_position)) |coord, i| {
-                                if (!coord.equals(damage_position)) continue;
-                                // hit something.
-                                const is_effective = blk: {
-                                    // innate defense
-                                    if (!core.game_logic.isAffectedByAttacks(other.species, i)) {
-                                        switch (attack_function) {
-                                            // "regular" attacks
-                                            .wound_then_kill, .just_wound, .malaise => break :blk false,
-                                            // these are still effective
-                                            .chop, .smash => {},
+                            stop_the_attack = true;
+                            switch (effect) {
+                                .miss => unreachable, // Handled above.
+                                .no_effect => {},
+                                .kill => {
+                                    _ = try attack_deaths.put(other_id, {});
+                                },
+                                .wound => {
+                                    other.status_conditions |= core.protocol.StatusCondition_wounded_leg;
+                                },
+                                .malaise => {
+                                    other.status_conditions |= core.protocol.StatusCondition_malaise;
+                                },
+                                .shield_parry => {
+                                    if (range == 1) {
+                                        attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
+                                    }
+                                },
+                                .heavy_hit_knocks_away_shield => {
+                                    // drop the shield.
+                                    var it = inventoryIterator(self.state, other_id);
+                                    while (it.next()) |entry| {
+                                        const item = entry.value_ptr.*;
+                                        if (item.kind == .shield) {
+                                            item.location = .{ .floor_coord = damage_position };
                                         }
                                     }
-                                    // shield defense
-                                    if (defends.get(other_id)) |direction| {
-                                        if (@enumToInt(direction) +% 2 == @enumToInt(attack_direction)) {
-                                            if (range == 1) {
-                                                if (attack_function == .smash) {
-                                                    // hammer counters shield
-                                                    // drop the shield.
-                                                    var it = inventoryIterator(self.state, other_id);
-                                                    while (it.next()) |entry| {
-                                                        const item = entry.value_ptr.*;
-                                                        item.location = .{ .floor_coord = coord };
-                                                    }
-                                                    // become pain.
-                                                    other.status_conditions |= core.protocol.StatusCondition_pain;
-                                                } else {
-                                                    // shield parry.
-                                                    attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
-                                                }
-                                            }
-                                            break :blk false;
-                                        }
-                                    }
-                                    break :blk true;
-                                };
-                                if (is_effective) {
-                                    // get wrecked
-                                    try doAttackDamage(attack_function, other_id, other.species, &other.status_conditions, &attack_deaths);
-                                }
-                                stop_the_attack = true;
+                                    // become pain.
+                                    other.status_conditions |= core.protocol.StatusCondition_pain;
+                                },
                             }
                         }
                         if (attack_function == .smash) {

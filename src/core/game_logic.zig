@@ -59,6 +59,85 @@ pub fn hasBow(species: Species) bool {
     };
 }
 
+pub const AttackEffect = enum {
+    miss, // arrow flies past.
+    no_effect, // arrow stops.
+    kill,
+    wound,
+    malaise,
+    shield_parry,
+    heavy_hit_knocks_away_shield,
+};
+
+pub fn getAttackEffect(
+    attacker_species: Species,
+    attacker_equipment: Equipment, // TODO: replace with some kind of attack action, including stomp etc?
+    target_species: Species,
+    target_position_index: usize,
+    target_status_conditions: StatusConditions,
+    target_defending_with_shield: bool,
+) AttackEffect {
+    const attack_function = getAttackFunction(attacker_species, attacker_equipment);
+
+    // Miss due to size?
+    switch (getPhysicsLayer(target_species)) {
+        0, 1 => switch (attack_function) {
+            // too short to be hit by "regular" attacks
+            .wound_then_kill, .just_wound, .malaise => return .miss,
+            // these still reach
+            .chop, .smash => {},
+        },
+        2, 3 => {},
+    }
+
+    // Innate defense?
+    if (!isAffectedByAttacks(target_species, target_position_index)) {
+        switch (attack_function) {
+            // "regular" attacks
+            .wound_then_kill, .just_wound, .malaise => return .no_effect,
+            // these are still effective
+            .chop, .smash => {},
+        }
+    }
+
+    // Active defense?
+    if (target_defending_with_shield) {
+        if (attack_function == .smash) {
+            // hammer counters shield
+            return .heavy_hit_knocks_away_shield;
+        }
+        // shield parry (if within range).
+        return .shield_parry;
+    }
+
+    // Get wrecked.
+    switch (attack_function) {
+        .wound_then_kill => {
+            if (woundThenKillGoesRightToKill(target_species)) {
+                // Fragile target gets instakilled.
+                return .kill;
+            }
+            if (target_status_conditions & core.protocol.StatusCondition_wounded_leg == 0) {
+                // First hit is a wound.
+                return .wound;
+            } else {
+                // Second hit is a ded.
+                return .kill;
+            }
+        },
+        .just_wound => {
+            return .wound;
+        },
+        .malaise => {
+            return .malaise;
+        },
+        .smash, .chop => {
+            return .kill;
+        },
+    }
+    unreachable;
+}
+
 pub const AttackFunction = enum {
     just_wound,
     wound_then_kill,
