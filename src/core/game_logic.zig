@@ -59,7 +59,7 @@ pub fn hasBow(species: Species) bool {
     };
 }
 
-pub const AttackEffect = enum {
+pub const AttackFunction = enum {
     just_wound,
     wound_then_kill,
     malaise,
@@ -67,7 +67,7 @@ pub const AttackEffect = enum {
     chop,
 };
 
-pub fn getAttackEffect(species: Species, equipment: Equipment) AttackEffect {
+pub fn getAttackFunction(species: Species, equipment: Equipment) AttackFunction {
     if (equipment.is_equipped(.axe)) {
         return .chop;
     }

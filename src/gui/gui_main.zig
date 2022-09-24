@@ -1245,7 +1245,7 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .attack => |data| {
             const max_range = if (core.game_logic.hasBow(thing.kind.individual.species)) core.game_logic.bow_range else @as(i32, 1);
             if (max_range == 1) {
-                switch (core.game_logic.getAttackEffect(thing.kind.individual.species, thing.kind.individual.equipment)) {
+                switch (core.game_logic.getAttackFunction(thing.kind.individual.species, thing.kind.individual.equipment)) {
                     .just_wound, .wound_then_kill, .malaise => {
                         const dagger_sprite_normalizing_rotation = 1;
                         textures.renderSpriteRotated45Degrees(

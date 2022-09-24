@@ -39,7 +39,7 @@ const offsetPosition = core.game_logic.offsetPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const isSlow = core.game_logic.isSlow;
 const limpsAfterLunge = core.game_logic.limpsAfterLunge;
-const getAttackEffect = core.game_logic.getAttackEffect;
+const getAttackFunction = core.game_logic.getAttackFunction;
 const actionCausesPainWhileMalaised = core.game_logic.actionCausesPainWhileMalaised;
 const woundThenKillGoesRightToKill = core.game_logic.woundThenKillGoesRightToKill;
 
@@ -582,7 +582,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     const attacker = self.state.individuals.get(id).?;
                     attacker.status_conditions &= ~core.protocol.StatusCondition_arrow_nocked;
                     var attacker_coord = getHeadPosition(attacker.abs_position);
-                    const attack_effect = getAttackEffect(attacker.species, getEquipment(self.state, id));
+                    const attack_function = getAttackFunction(attacker.species, getEquipment(self.state, id));
                     var attack_distance: i32 = 1;
                     const range: i32 = if (action == .fire_bow) core.game_logic.bow_range else 1;
                     while (attack_distance <= range) : (attack_distance += 1) {
@@ -591,7 +591,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         for (everybody) |other_id| {
                             const other = self.state.individuals.get(other_id).?;
                             switch (getPhysicsLayer(other.species)) {
-                                0, 1 => switch (attack_effect) {
+                                0, 1 => switch (attack_function) {
                                     // too short to be hit by "regular" attacks
                                     .wound_then_kill, .just_wound, .malaise => continue,
                                     // these still reach
@@ -605,7 +605,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                 const is_effective = blk: {
                                     // innate defense
                                     if (!core.game_logic.isAffectedByAttacks(other.species, i)) {
-                                        switch (attack_effect) {
+                                        switch (attack_function) {
                                             // "regular" attacks
                                             .wound_then_kill, .just_wound, .malaise => break :blk false,
                                             // these are still effective
@@ -616,7 +616,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                     if (defends.get(other_id)) |direction| {
                                         if (@enumToInt(direction) +% 2 == @enumToInt(attack_direction)) {
                                             if (range == 1) {
-                                                if (attack_effect == .smash) {
+                                                if (attack_function == .smash) {
                                                     // hammer counters shield
                                                     // drop the shield.
                                                     var it = inventoryIterator(self.state, other_id);
@@ -638,12 +638,12 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                 };
                                 if (is_effective) {
                                     // get wrecked
-                                    try doAttackDamage(attack_effect, other_id, other.species, &other.status_conditions, &attack_deaths);
+                                    try doAttackDamage(attack_function, other_id, other.species, &other.status_conditions, &attack_deaths);
                                 }
                                 stop_the_attack = true;
                             }
                         }
-                        if (attack_effect == .smash) {
+                        if (attack_function == .smash) {
                             // whoosh effects push people around.
                             for ([_]core.geometry.CardinalDirection{ .east, .south, .west, .north }) |whoosh_dir| {
                                 if (@enumToInt(whoosh_dir) +% 2 == @enumToInt(attack_direction)) continue;
@@ -676,7 +676,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 .nibble, .stomp => {
                     const is_stomp = action == .stomp;
                     const attacker = self.state.individuals.get(id).?;
-                    const attack_effect = getAttackEffect(attacker.species, getEquipment(self.state, id));
+                    const attack_function = getAttackFunction(attacker.species, getEquipment(self.state, id));
                     const attacker_coord = getHeadPosition(attacker.abs_position);
                     const attacker_physics_layer = getPhysicsLayer(attacker.species);
                     const damage_position = attacker_coord;
@@ -707,7 +707,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                     _ = try attack_deaths.put(other_id, {});
                                 } else {
                                     // nibbling does attack damage.
-                                    try doAttackDamage(attack_effect, other_id, other.species, &other.status_conditions, &attack_deaths);
+                                    try doAttackDamage(attack_function, other_id, other.species, &other.status_conditions, &attack_deaths);
                                 }
                             }
                         }
@@ -1734,8 +1734,8 @@ fn flushDeaths(self: *GameEngine, total_deaths: *IdMap(void), local_deaths: *IdM
     local_deaths.clearRetainingCapacity();
 }
 
-fn doAttackDamage(attack_effect: core.game_logic.AttackEffect, other_id: u32, other_species: Species, other_status_conditions: *StatusConditions, attack_deaths: *IdMap(void)) !void {
-    switch (attack_effect) {
+fn doAttackDamage(attack_function: core.game_logic.AttackFunction, other_id: u32, other_species: Species, other_status_conditions: *StatusConditions, attack_deaths: *IdMap(void)) !void {
+    switch (attack_function) {
         .wound_then_kill => {
             if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0 and //
                 !woundThenKillGoesRightToKill(other_species))
