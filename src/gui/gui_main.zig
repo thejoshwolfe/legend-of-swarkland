@@ -654,7 +654,13 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     switch (state.input_prompt) {
                         .none => {},
                         .attack => {
-                            textures.renderSprite(renderer, textures.sprites.dagger, render_position);
+                            var attack_prompt_sprite = textures.sprites.dagger;
+                            if (frame.self.kind.individual.equipment.is_equipped(.axe)) {
+                                attack_prompt_sprite = textures.sprites.axe;
+                            } else if (frame.self.kind.individual.equipment.is_equipped(.torch)) {
+                                attack_prompt_sprite = textures.sprites.torch;
+                            }
+                            textures.renderSprite(renderer, attack_prompt_sprite, render_position);
                         },
                         .kick => {
                             textures.renderSprite(renderer, textures.sprites.kick, render_position);
@@ -1300,6 +1306,20 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                             axe_handle_coord,
                             progress,
                             progress_denominator,
+                        );
+                    },
+                    .burn => {
+                        const torch_sprite_normalizing_rotation = 1;
+                        textures.renderSpriteRotated45Degrees(
+                            renderer,
+                            textures.sprites.torch,
+                            core.geometry.bezierBounce(
+                                render_position.plus(data.direction.scaled(32 * 2 / 4)),
+                                render_position.plus(data.direction.scaled(32 * 4 / 4)),
+                                progress,
+                                progress_denominator,
+                            ),
+                            directionToRotation(data.direction) +% torch_sprite_normalizing_rotation,
                         );
                     },
                 }

@@ -83,7 +83,7 @@ pub fn getAttackEffect(
     switch (getPhysicsLayer(target_species)) {
         0, 1 => switch (attack_function) {
             // too short to be hit by "regular" attacks
-            .wound_then_kill, .just_wound, .malaise => return .miss,
+            .wound_then_kill, .just_wound, .malaise, .burn => return .miss,
             // these still reach
             .chop, .smash => {},
         },
@@ -96,7 +96,7 @@ pub fn getAttackEffect(
             // "regular" attacks
             .wound_then_kill, .just_wound, .malaise => return .no_effect,
             // these are still effective
-            .chop, .smash => {},
+            .chop, .smash, .burn => {},
         }
     }
 
@@ -134,6 +134,18 @@ pub fn getAttackEffect(
         .smash, .chop => {
             return .kill;
         },
+        .burn => {
+            if (target_species == .wood_golem) {
+                // You solved the puzzle!
+                return .kill;
+            }
+            if (woundThenKillGoesRightToKill(target_species)) {
+                // Fragile target can't handle the heat.
+                return .kill;
+            }
+            // Fire isn't that deadly.
+            return .wound;
+        },
     }
     unreachable;
 }
@@ -144,11 +156,15 @@ pub const AttackFunction = enum {
     malaise,
     smash,
     chop,
+    burn,
 };
 
 pub fn getAttackFunction(species: Species, equipment: Equipment) AttackFunction {
     if (equipment.is_equipped(.axe)) {
         return .chop;
+    }
+    if (equipment.is_equipped(.torch)) {
+        return .burn;
     }
     return switch (species) {
         .human, .orc => .wound_then_kill,
@@ -322,7 +338,7 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
 
 pub fn woundThenKillGoesRightToKill(species: Species) bool {
     return switch (species) {
-        .scorpion, .ant => true,
+        .scorpion, .ant, .brown_snake => true,
         else => false,
     };
 }

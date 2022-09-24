@@ -41,7 +41,6 @@ const isSlow = core.game_logic.isSlow;
 const limpsAfterLunge = core.game_logic.limpsAfterLunge;
 const getAttackFunction = core.game_logic.getAttackFunction;
 const actionCausesPainWhileMalaised = core.game_logic.actionCausesPainWhileMalaised;
-const woundThenKillGoesRightToKill = core.game_logic.woundThenKillGoesRightToKill;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -1743,7 +1742,7 @@ fn doAttackDamage(attack_function: core.game_logic.AttackFunction, other_id: u32
     switch (attack_function) {
         .wound_then_kill => {
             if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0 and //
-                !woundThenKillGoesRightToKill(other_species))
+                !core.game_logic.woundThenKillGoesRightToKill(other_species))
             {
                 // first hit is a wound
                 other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
@@ -1764,6 +1763,7 @@ fn doAttackDamage(attack_function: core.game_logic.AttackFunction, other_id: u32
         .chop => {
             _ = try attack_deaths.put(other_id, {});
         },
+        .burn => unreachable, // Handled in getAttackEffect().
     }
 }
 
