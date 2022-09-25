@@ -10,6 +10,7 @@ const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const ThingPosition = core.protocol.ThingPosition;
+const EquipmentSlot = core.protocol.EquipmentSlot;
 const TerrainSpace = core.protocol.TerrainSpace;
 const StatusConditions = core.protocol.StatusConditions;
 
@@ -48,13 +49,19 @@ pub const Individual = struct {
 
 pub const ItemLocation = union(enum) {
     floor_coord: Coord,
+    held: HeldLocation,
+};
+pub const HeldLocation = struct {
     holder_id: u32,
+    equipped_to_slot: EquipmentSlot,
 };
 pub const Item = struct {
     location: ItemLocation,
     kind: enum {
         shield,
         axe,
+        torch,
+        dagger,
     },
 
     pub fn clone(self: @This(), allocator: Allocator) !*@This() {

@@ -189,26 +189,5 @@ fn validateActionWithGameState(game_state: *GameState, id: u32, action: Action) 
 }
 
 pub fn debugPrintAction(prefix_number: u32, action: Action) void {
-    switch (action) {
-        .wait,
-        .charge,
-        .nibble,
-        .stomp,
-        .pick_up,
-        .nock_arrow,
-        => core.debug.actions.print("{}: Action{{ .{s} = {{}} }},", .{ prefix_number, @tagName(action) }),
-
-        .move,
-        .grow,
-        .attack,
-        .lunge,
-        .kick,
-        .open_close,
-        .fire_bow,
-        .defend,
-        => |direction| core.debug.actions.print("{}: Action{{ .{s} = .{s} }},", .{ prefix_number, @tagName(action), @tagName(direction) }),
-
-        .shrink => |index| core.debug.actions.print("{}: Action{{ .{s} = {} }},", .{ prefix_number, @tagName(action), index }),
-        .cheatcode_warp => |index| core.debug.actions.print("{}: Action{{ .{s} = {} }},", .{ prefix_number, @tagName(action), index }),
-    }
+    core.debug.actions.print("{}: {},", .{ prefix_number, action });
 }

@@ -116,7 +116,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
     const delta = target_position.?.minus(my_head_position);
     const range = if (core.game_logic.hasBow(my_species))
         core.game_logic.bow_range
-    else if (core.game_logic.canAttack(my_species) or hesitatesOneSpaceAway(my_species))
+    else if (canAttack(me) or hesitatesOneSpaceAway(my_species))
         @as(i32, 1)
     else
         0;
@@ -137,7 +137,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             }
             // one lunge away
             if (can(me, Action{ .lunge = delta_direction })) |action| return action;
-            if (me.kind.individual.equipment.has(.shield)) {
+            if (me.kind.individual.equipment.is_equipped(.shield)) {
                 // shield makes me smarter for some reason. preemptive attack.
                 if (can(me, Action{ .attack = delta_direction })) |action| return action;
             }
@@ -149,7 +149,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
                 // too close. get away!
                 if (can(me, Action{ .kick = delta_direction })) |action| return action;
             }
-            if (me.kind.individual.equipment.has(.shield)) {
+            if (me.kind.individual.equipment.is_equipped(.shield)) {
                 if (0 == target_other.?.kind.individual.status_conditions & core.protocol.StatusCondition_pain) {
                     // You're are scary. Attempt to parry.
                     if (can(me, Action{ .defend = delta_direction })) |action| return action;
@@ -239,7 +239,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             // preemptive kick
             if (can(me, Action{ .kick = delta_direction })) |action| return action;
         }
-        if (me.kind.individual.equipment.has(.shield)) {
+        if (me.kind.individual.equipment.is_equipped(.shield)) {
             // shield makes me smarter for some reason. preemptive attack.
             if (can(me, Action{ .attack = delta_direction })) |action| return action;
         }
@@ -252,6 +252,14 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
         }
     }
     return movelikeAction(me, options[option_index]);
+}
+
+fn canAttack(me: PerceivedThing) bool {
+    if (core.game_logic.validateAttack(me.kind.individual.species, me.kind.individual.equipment)) {
+        return true;
+    } else |_| {
+        return false;
+    }
 }
 
 fn hesitatesOneSpaceAway(species: Species) bool {

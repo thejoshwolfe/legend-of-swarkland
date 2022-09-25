@@ -132,7 +132,7 @@ pub fn generateRegular(game_state: *GameState) !void {
                 if (boss_room and individuals_remaining == 1) {
                     // give the boss a shield
                     try game_state.items.putNoClobber(next_id, try (Item{
-                        .location = .{ .holder_id = orc_id },
+                        .location = .{ .held = .{ .holder_id = orc_id, .equipped_to_slot = .right_hand } },
                         .kind = .shield,
                     }).clone(allocator));
                     next_id += 1;
@@ -159,6 +159,12 @@ pub fn generateRegular(game_state: *GameState) !void {
         const human = try makeIndividual(start_point, .human).clone(allocator);
         try game_state.individuals.putNoClobber(1, human);
         try warp_points_list.append(start_point);
+        // It's dangerous to go alone. Take this.
+        try game_state.items.putNoClobber(next_id, try (Item{
+            .location = .{ .floor_coord = start_point },
+            .kind = .dagger,
+        }).clone(allocator));
+        next_id += 1;
 
         // join rooms
         var rooms_to_join = try clone(allocator, rooms);
@@ -436,6 +442,12 @@ pub fn generateRegular(game_state: *GameState) !void {
             .wall = .air,
         });
         try warp_points_list.append(opening);
+        // Throw an item on the ground here for debugging.
+        try game_state.items.putNoClobber(next_id, try (Item{
+            .location = .{ .floor_coord = opening },
+            .kind = .torch,
+        }).clone(allocator));
+        next_id += 1;
 
         // dig out the desert
         {

@@ -25,6 +25,7 @@ const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
 const Equipment = core.protocol.Equipment;
+const EquipmentSlot = core.protocol.EquipmentSlot;
 const StatusConditions = core.protocol.StatusConditions;
 
 const PerceivedTerrain = core.game_logic.PerceivedTerrain;
@@ -39,9 +40,8 @@ const offsetPosition = core.game_logic.offsetPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
 const isSlow = core.game_logic.isSlow;
 const limpsAfterLunge = core.game_logic.limpsAfterLunge;
-const getAttackEffect = core.game_logic.getAttackEffect;
+const getAttackFunction = core.game_logic.getAttackFunction;
 const actionCausesPainWhileMalaised = core.game_logic.actionCausesPainWhileMalaised;
-const woundThenKillGoesRightToKill = core.game_logic.woundThenKillGoesRightToKill;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -205,8 +205,8 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                         } });
                     }
                     switch (new_item.location) {
-                        .holder_id => |holder_id| {
-                            assert(self.state.individuals.contains(holder_id));
+                        .held => |held| {
+                            assert(self.state.individuals.contains(held.holder_id));
                         },
                         else => {},
                     }
@@ -486,38 +486,89 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         }
     }
 
-    // pick up, drop
+    // pick up, equip, unequp
     {
-        var item_claims = IdMap(?u32).init(self.allocator);
+        var item_claims = IdMap(?struct { individual_id: u32, to_slot: EquipmentSlot }).init(self.allocator);
         for (everybody) |individual_id| {
-            if (actions.get(individual_id).? != .pick_up) continue;
-            const individual = self.state.individuals.get(individual_id).?;
-            const pick_up_coord = getHeadPosition(individual.abs_position);
-            var it = self.state.items.iterator();
-            while (it.next()) |entry| {
-                const item_id = entry.key_ptr.*;
-                const item = entry.value_ptr.*;
-                switch (item.location) {
-                    .floor_coord => |floor_coord| {
-                        if (!floor_coord.equals(pick_up_coord)) continue;
-                    },
-                    .holder_id => continue,
-                }
-                const gop = try item_claims.getOrPut(item_id);
-                if (gop.found_existing) {
-                    // too many claims on this item.
-                    gop.value_ptr.* = null;
-                } else {
-                    gop.value_ptr.* = individual_id;
-                }
+            const action = actions.get(individual_id).?;
+            switch (action) {
+                .pick_up_and_equip, .pick_up_unequipped => {
+                    const individual = self.state.individuals.get(individual_id).?;
+                    const pick_up_coord = getHeadPosition(individual.abs_position);
+                    var it = self.state.items.iterator();
+                    while (it.next()) |entry| {
+                        const item_id = entry.key_ptr.*;
+                        const item = entry.value_ptr.*;
+                        switch (item.location) {
+                            .floor_coord => |floor_coord| {
+                                if (!floor_coord.equals(pick_up_coord)) continue;
+                            },
+                            .held => continue,
+                        }
+                        const gop = try item_claims.getOrPut(item_id);
+                        if (gop.found_existing) {
+                            // Too many claims on this item.
+                            gop.value_ptr.* = null;
+                        } else {
+                            const to_slot: EquipmentSlot = if (action == .pick_up_unequipped) .none else itemToEquipmentSlot(item);
+                            gop.value_ptr.* = .{ .individual_id = individual_id, .to_slot = to_slot };
+                        }
+                    }
+                },
+                .unequip => |equipped_item| {
+                    var it = inventoryIterator(self.state, individual_id);
+                    while (it.next()) |entry| {
+                        const inventory_item = entry.value_ptr.*;
+                        if (itemToEquippedItem(inventory_item) == equipped_item) {
+                            inventory_item.location.held.equipped_to_slot = .none;
+                        }
+                    }
+                },
+                .equip => |equipped_item| {
+                    var bumped_out_of_slot: ?EquipmentSlot = null;
+                    {
+                        var it = inventoryIterator(self.state, individual_id);
+                        while (it.next()) |entry| {
+                            const inventory_item = entry.value_ptr.*;
+                            if (itemToEquippedItem(inventory_item) == equipped_item and inventory_item.location.held.equipped_to_slot == .none) {
+                                const slot = itemToEquipmentSlot(inventory_item);
+                                inventory_item.location.held.equipped_to_slot = slot;
+                                bumped_out_of_slot = slot;
+                            }
+                        }
+                    }
+                    if (bumped_out_of_slot) |slot_to_vacate| {
+                        var it = inventoryIterator(self.state, individual_id);
+                        while (it.next()) |entry| {
+                            const inventory_item = entry.value_ptr.*;
+                            if (itemToEquippedItem(inventory_item) != equipped_item and inventory_item.location.held.equipped_to_slot == slot_to_vacate) {
+                                // Drop the item in the conflicting slot.
+                                inventory_item.location = .{
+                                    .floor_coord = getHeadPosition(self.state.individuals.get(individual_id).?.abs_position),
+                                };
+                            }
+                        }
+                    }
+                },
+                else => {},
             }
         }
         var it = item_claims.iterator();
         while (it.next()) |entry| {
             const item_id = entry.key_ptr.*;
-            const individual_id = entry.value_ptr.* orelse continue;
+            const claim = entry.value_ptr.* orelse continue;
             // the pick up succeeds.
-            self.state.items.get(item_id).?.location = .{ .holder_id = individual_id };
+            var other_it = inventoryIterator(self.state, claim.individual_id);
+            while (other_it.next()) |other_entry| {
+                const other_item = other_entry.value_ptr.*;
+                if (other_item.location.held.equipped_to_slot == claim.to_slot) {
+                    // Drop the item in the conflicting slot.
+                    other_item.location = .{
+                        .floor_coord = getHeadPosition(self.state.individuals.get(claim.individual_id).?.abs_position),
+                    };
+                }
+            }
+            self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = claim.individual_id, .equipped_to_slot = claim.to_slot } };
         }
     }
 
@@ -582,7 +633,8 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     const attacker = self.state.individuals.get(id).?;
                     attacker.status_conditions &= ~core.protocol.StatusCondition_arrow_nocked;
                     var attacker_coord = getHeadPosition(attacker.abs_position);
-                    const attack_effect = getAttackEffect(attacker.species, getEquipment(self.state, id));
+                    const attacker_equipment = getEquipment(self.state, id);
+                    const attack_function = getAttackFunction(attacker.species, attacker_equipment);
                     var attack_distance: i32 = 1;
                     const range: i32 = if (action == .fire_bow) core.game_logic.bow_range else 1;
                     while (attack_distance <= range) : (attack_distance += 1) {
@@ -590,60 +642,64 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         var stop_the_attack = false;
                         for (everybody) |other_id| {
                             const other = self.state.individuals.get(other_id).?;
-                            switch (getPhysicsLayer(other.species)) {
-                                0, 1 => switch (attack_effect) {
-                                    // too short to be hit by "regular" attacks
-                                    .wound_then_kill, .just_wound, .malaise => continue,
-                                    // these still reach
-                                    .chop, .smash => {},
-                                },
-                                2, 3 => {},
+                            const other_position_index = blk: for (getAllPositions(&other.abs_position)) |coord, i| {
+                                if (coord.equals(damage_position)) break :blk i;
+                            } else {
+                                // Not in this position.
+                                continue;
+                            };
+
+                            const is_shielding = blk: {
+                                if (defends.get(other_id)) |direction| {
+                                    break :blk (@enumToInt(direction) +% 2 == @enumToInt(attack_direction));
+                                } else break :blk false;
+                            };
+
+                            const effect = core.game_logic.getAttackEffect(
+                                attacker.species,
+                                attacker_equipment,
+                                other.species,
+                                other_position_index,
+                                other.status_conditions,
+                                is_shielding,
+                            );
+                            if (effect == .miss) {
+                                // Don't stop the attack.
+                                continue;
                             }
-                            for (getAllPositions(&other.abs_position)) |coord, i| {
-                                if (!coord.equals(damage_position)) continue;
-                                // hit something.
-                                const is_effective = blk: {
-                                    // innate defense
-                                    if (!core.game_logic.isAffectedByAttacks(other.species, i)) {
-                                        switch (attack_effect) {
-                                            // "regular" attacks
-                                            .wound_then_kill, .just_wound, .malaise => break :blk false,
-                                            // these are still effective
-                                            .chop, .smash => {},
+                            stop_the_attack = true;
+                            switch (effect) {
+                                .miss => unreachable, // Handled above.
+                                .no_effect => {},
+                                .kill => {
+                                    _ = try attack_deaths.put(other_id, {});
+                                },
+                                .wound => {
+                                    other.status_conditions |= core.protocol.StatusCondition_wounded_leg;
+                                },
+                                .malaise => {
+                                    other.status_conditions |= core.protocol.StatusCondition_malaise;
+                                },
+                                .shield_parry => {
+                                    if (range == 1) {
+                                        attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
+                                    }
+                                },
+                                .heavy_hit_knocks_away_shield => {
+                                    // drop the shield.
+                                    var it = inventoryIterator(self.state, other_id);
+                                    while (it.next()) |entry| {
+                                        const item = entry.value_ptr.*;
+                                        if (item.kind == .shield) {
+                                            item.location = .{ .floor_coord = damage_position };
                                         }
                                     }
-                                    // shield defense
-                                    if (defends.get(other_id)) |direction| {
-                                        if (@enumToInt(direction) +% 2 == @enumToInt(attack_direction)) {
-                                            if (range == 1) {
-                                                if (attack_effect == .smash) {
-                                                    // hammer counters shield
-                                                    // drop the shield.
-                                                    var it = inventoryIterator(self.state, other_id);
-                                                    while (it.next()) |entry| {
-                                                        const item = entry.value_ptr.*;
-                                                        item.location = .{ .floor_coord = coord };
-                                                    }
-                                                    // become pain.
-                                                    other.status_conditions |= core.protocol.StatusCondition_pain;
-                                                } else {
-                                                    // shield parry.
-                                                    attacker.status_conditions |= (core.protocol.StatusCondition_limping | core.protocol.StatusCondition_pain);
-                                                }
-                                            }
-                                            break :blk false;
-                                        }
-                                    }
-                                    break :blk true;
-                                };
-                                if (is_effective) {
-                                    // get wrecked
-                                    try doAttackDamage(attack_effect, other_id, other.species, &other.status_conditions, &attack_deaths);
-                                }
-                                stop_the_attack = true;
+                                    // become pain.
+                                    other.status_conditions |= core.protocol.StatusCondition_pain;
+                                },
                             }
                         }
-                        if (attack_effect == .smash) {
+                        if (attack_function == .smash) {
                             // whoosh effects push people around.
                             for ([_]core.geometry.CardinalDirection{ .east, .south, .west, .north }) |whoosh_dir| {
                                 if (@enumToInt(whoosh_dir) +% 2 == @enumToInt(attack_direction)) continue;
@@ -676,7 +732,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 .nibble, .stomp => {
                     const is_stomp = action == .stomp;
                     const attacker = self.state.individuals.get(id).?;
-                    const attack_effect = getAttackEffect(attacker.species, getEquipment(self.state, id));
+                    const attack_function = getAttackFunction(attacker.species, getEquipment(self.state, id));
                     const attacker_coord = getHeadPosition(attacker.abs_position);
                     const attacker_physics_layer = getPhysicsLayer(attacker.species);
                     const damage_position = attacker_coord;
@@ -707,7 +763,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                     _ = try attack_deaths.put(other_id, {});
                                 } else {
                                     // nibbling does attack damage.
-                                    try doAttackDamage(attack_effect, other_id, other.species, &other.status_conditions, &attack_deaths);
+                                    try doAttackDamage(attack_function, other_id, other.species, &other.status_conditions, &attack_deaths);
                                 }
                             }
                         }
@@ -1659,10 +1715,10 @@ fn getPerceivedFrame(
                 if (!in_view_matrix.getCoord(coord)) continue;
                 try others.append(PerceivedThing{
                     .position = .{ .small = coord.minus(perceived_origin) },
-                    .kind = .shield,
+                    .kind = .{ .item = itemToFloorItem(item) },
                 });
             },
-            .holder_id => {}, // handled above
+            .held => {}, // handled above
         }
     }
 
@@ -1730,11 +1786,11 @@ fn flushDeaths(self: *GameEngine, total_deaths: *IdMap(void), local_deaths: *IdM
     local_deaths.clearRetainingCapacity();
 }
 
-fn doAttackDamage(attack_effect: core.game_logic.AttackEffect, other_id: u32, other_species: Species, other_status_conditions: *StatusConditions, attack_deaths: *IdMap(void)) !void {
-    switch (attack_effect) {
+fn doAttackDamage(attack_function: core.game_logic.AttackFunction, other_id: u32, other_species: Species, other_status_conditions: *StatusConditions, attack_deaths: *IdMap(void)) !void {
+    switch (attack_function) {
         .wound_then_kill => {
             if (other_status_conditions.* & core.protocol.StatusCondition_wounded_leg == 0 and //
-                !woundThenKillGoesRightToKill(other_species))
+                !core.game_logic.woundThenKillGoesRightToKill(other_species))
             {
                 // first hit is a wound
                 other_status_conditions.* |= core.protocol.StatusCondition_wounded_leg;
@@ -1755,6 +1811,7 @@ fn doAttackDamage(attack_effect: core.game_logic.AttackEffect, other_id: u32, ot
         .chop => {
             _ = try attack_deaths.put(other_id, {});
         },
+        .burn => unreachable, // Handled in getAttackEffect().
     }
 }
 
@@ -1860,12 +1917,19 @@ pub fn getEquipment(game_state: *GameState, id: u32) Equipment {
     var it = inventoryIterator(game_state, id);
     while (it.next()) |entry| {
         const item = entry.value_ptr.*;
+        const is_equipped = item.location.held.equipped_to_slot != .none;
         switch (item.kind) {
             .shield => {
-                equipment.set(.shield, true);
+                equipment.set(.shield, true, is_equipped);
             },
             .axe => {
-                equipment.set(.axe, true);
+                equipment.set(.axe, true, is_equipped);
+            },
+            .torch => {
+                equipment.set(.torch, true, is_equipped);
+            },
+            .dagger => {
+                equipment.set(.dagger, true, is_equipped);
             },
         }
     }
@@ -1880,8 +1944,8 @@ const InventoryIterator = struct {
             const item = entry.value_ptr.*;
             switch (item.location) {
                 .floor_coord => {},
-                .holder_id => |holder_id| {
-                    if (holder_id == self.holder_id) return entry;
+                .held => |held| {
+                    if (held.holder_id == self.holder_id) return entry;
                 },
             }
         }
@@ -1892,5 +1956,28 @@ fn inventoryIterator(game_state: *GameState, holder_id: u32) InventoryIterator {
     return .{
         .sub_it = game_state.items.iterator(),
         .holder_id = holder_id,
+    };
+}
+
+fn itemToEquippedItem(item: *const Item) core.protocol.EquippedItem {
+    return switch (item.kind) {
+        .shield => .shield,
+        .axe => .axe,
+        .torch => .torch,
+        .dagger => .dagger,
+    };
+}
+fn itemToFloorItem(item: *const Item) core.protocol.FloorItem {
+    return switch (item.kind) {
+        .shield => .shield,
+        .axe => .axe,
+        .torch => .torch,
+        .dagger => .dagger,
+    };
+}
+fn itemToEquipmentSlot(item: *const Item) EquipmentSlot {
+    return switch (item.kind) {
+        .dagger, .axe, .torch => .right_hand,
+        .shield => .left_hand,
     };
 }

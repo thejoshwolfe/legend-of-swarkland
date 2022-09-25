@@ -32,19 +32,23 @@ pub fn getViewDistance(species: Species) i32 {
     };
 }
 
-pub fn canAttack(species: Species) bool {
+pub fn validateAttack(species: Species, equipment: Equipment) !void {
     return switch (species) {
-        .rhino, .blob, .kangaroo, .rat => false,
+        .rhino, .blob, .kangaroo, .rat => error.SpeciesIncapable,
         .centaur => |subspecies| switch (subspecies) {
-            .archer => false,
-            .warrior => true,
+            .archer => error.SpeciesIncapable,
+            .warrior => {},
         },
         .ant => |subspecies| switch (subspecies) {
-            .worker => false,
-            .queen => true,
+            .worker => error.SpeciesIncapable,
+            .queen => {},
+        },
+        .human => {
+            if (equipment.is_equipped(.axe) or equipment.is_equipped(.torch) or equipment.is_equipped(.dagger)) return {};
+            return error.MissingItem;
         },
 
-        .human, .orc, .turtle, .wolf, .wood_golem, .scorpion, .brown_snake, .minotaur, .ogre, .siren => true,
+        .orc, .turtle, .wolf, .wood_golem, .scorpion, .brown_snake, .minotaur, .ogre, .siren => {},
     };
 }
 
@@ -60,19 +64,117 @@ pub fn hasBow(species: Species) bool {
 }
 
 pub const AttackEffect = enum {
+    miss, // arrow flies past.
+    no_effect, // arrow stops.
+    kill,
+    wound,
+    malaise,
+    shield_parry,
+    heavy_hit_knocks_away_shield,
+};
+
+pub fn getAttackEffect(
+    attacker_species: Species,
+    attacker_equipment: Equipment, // TODO: replace with some kind of attack action, including stomp etc?
+    target_species: Species,
+    target_position_index: usize,
+    target_status_conditions: StatusConditions,
+    target_defending_with_shield: bool,
+) AttackEffect {
+    const attack_function = getAttackFunction(attacker_species, attacker_equipment);
+
+    // Miss due to size?
+    switch (getPhysicsLayer(target_species)) {
+        0, 1 => switch (attack_function) {
+            // too short to be hit by "regular" attacks
+            .wound_then_kill, .just_wound, .malaise, .burn => return .miss,
+            // these still reach
+            .chop, .smash => {},
+        },
+        2, 3 => {},
+    }
+
+    // Innate defense?
+    if (!isAffectedByAttacks(target_species, target_position_index)) {
+        switch (attack_function) {
+            // "regular" attacks
+            .wound_then_kill, .just_wound, .malaise => return .no_effect,
+            // these are still effective
+            .chop, .smash, .burn => {},
+        }
+    }
+
+    // Active defense?
+    if (target_defending_with_shield) {
+        if (attack_function == .smash) {
+            // hammer counters shield
+            return .heavy_hit_knocks_away_shield;
+        }
+        // shield parry (if within range).
+        return .shield_parry;
+    }
+
+    // Get wrecked.
+    switch (attack_function) {
+        .wound_then_kill => {
+            if (woundThenKillGoesRightToKill(target_species)) {
+                // Fragile target gets instakilled.
+                return .kill;
+            }
+            if (target_status_conditions & core.protocol.StatusCondition_wounded_leg == 0) {
+                // First hit is a wound.
+                return .wound;
+            } else {
+                // Second hit is a ded.
+                return .kill;
+            }
+        },
+        .just_wound => {
+            return .wound;
+        },
+        .malaise => {
+            return .malaise;
+        },
+        .smash, .chop => {
+            return .kill;
+        },
+        .burn => {
+            if (target_species == .wood_golem) {
+                // You solved the puzzle!
+                return .kill;
+            }
+            if (woundThenKillGoesRightToKill(target_species)) {
+                // Fragile target can't handle the heat.
+                return .kill;
+            }
+            // Fire isn't that deadly.
+            return .wound;
+        },
+    }
+    unreachable;
+}
+
+pub const AttackFunction = enum {
     just_wound,
     wound_then_kill,
     malaise,
     smash,
     chop,
+    burn,
 };
 
-pub fn getAttackEffect(species: Species, equipment: Equipment) AttackEffect {
-    if (equipment.has(.axe)) {
+pub fn getAttackFunction(species: Species, equipment: Equipment) AttackFunction {
+    if (equipment.is_equipped(.axe)) {
         return .chop;
     }
+    if (equipment.is_equipped(.torch)) {
+        return .burn;
+    }
+    if (equipment.is_equipped(.dagger)) {
+        return .wound_then_kill;
+    }
     return switch (species) {
-        .human, .orc => .wound_then_kill,
+        .orc => .wound_then_kill,
         .centaur => |subspecies| switch (subspecies) {
             .archer => .wound_then_kill,
             .warrior => .chop,
@@ -93,6 +195,7 @@ pub fn getAttackEffect(species: Species, equipment: Equipment) AttackEffect {
 
         .ogre => .smash,
 
+        .human => unreachable, // Handled by equipment checks.
         .rhino => unreachable,
         .kangaroo => unreachable,
         .blob => unreachable,
@@ -101,7 +204,8 @@ pub fn getAttackEffect(species: Species, equipment: Equipment) AttackEffect {
 
 pub fn actionCausesPainWhileMalaised(action: std.meta.Tag(Action)) bool {
     return switch (action) {
-        .charge, .attack, .kick, .nibble, .stomp, .lunge, .open_close, .fire_bow, .defend, .pick_up => true,
+        .charge, .attack, .kick, .nibble, .stomp, .lunge, .open_close, .fire_bow, .defend => true,
+        .pick_up_and_equip, .pick_up_unequipped, .equip, .unequip => true,
         .move, .grow, .shrink, .wait => false,
         .nock_arrow => false,
         .cheatcode_warp => false,
@@ -243,7 +347,7 @@ pub fn isAffectedByAttacks(species: Species, position_index: usize) bool {
 
 pub fn woundThenKillGoesRightToKill(species: Species) bool {
     return switch (species) {
-        .scorpion, .ant => true,
+        .scorpion, .ant, .brown_snake => true,
         else => false,
     };
 }
@@ -368,7 +472,7 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (position != .large) return error.TooSmall;
         },
         .attack => {
-            if (!canAttack(species)) return error.SpeciesIncapable;
+            try validateAttack(species, equipment);
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
         .kick => {
@@ -391,7 +495,7 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (!canUseDoors(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
-        .pick_up => {
+        .pick_up_and_equip, .pick_up_unequipped => {
             if (!canUseItems(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
@@ -403,9 +507,16 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (0 == status_conditions & core.protocol.StatusCondition_arrow_nocked) return error.StatusForbids;
         },
         .defend => {
-            if (!equipment.has(.shield)) return error.MissingItem;
+            if (!equipment.is_equipped(.shield)) return error.MissingItem;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
+        .equip => {
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
+        },
+        .unequip => {
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
+        },
+
         .cheatcode_warp => {},
     }
 }

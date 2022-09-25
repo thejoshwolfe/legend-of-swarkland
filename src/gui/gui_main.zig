@@ -28,10 +28,12 @@ const Action = core.protocol.Action;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
+const Equipment = core.protocol.Equipment;
+const EquippedItem = core.protocol.EquippedItem;
+const EquipmentSlot = core.protocol.EquipmentSlot;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
-const canAttack = core.game_logic.canAttack;
 const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
 const canUseDoors = core.game_logic.canUseDoors;
@@ -344,8 +346,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     },
 
                                     .start_attack => {
-                                        _ = validateAndShowTotorialForError(state, .attack);
-                                        state.input_prompt = .attack;
+                                        if (validateAndShowTotorialForError(state, .attack)) {
+                                            state.input_prompt = .attack;
+                                        }
                                     },
                                     .start_kick => {
                                         _ = validateAndShowTotorialForError(state, .kick);
@@ -368,9 +371,20 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.input_prompt = .none;
                                     },
                                     .pick_up => {
-                                        try doActionOrShowTutorialForError(state, .pick_up);
+                                        if (isFloorItemSuggestedEquip(state.client_state.?)) |should_equip| {
+                                            if (should_equip) {
+                                                try doActionOrShowTutorialForError(state, .pick_up_and_equip);
+                                            } else {
+                                                try doActionOrShowTutorialForError(state, .pick_up_unequipped);
+                                            }
+                                        }
                                         state.input_prompt = .none;
                                     },
+
+                                    .equip_0 => try doEquipmentAction(state, .dagger, false),
+                                    .force_equip_0 => try doEquipmentAction(state, .dagger, true),
+                                    .equip_1 => try doEquipmentAction(state, .torch, false),
+                                    .force_equip_1 => try doEquipmentAction(state, .torch, true),
 
                                     .backspace => {
                                         if (state.input_prompt == .none) {
@@ -640,7 +654,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .individual => {
                                 if (getPhysicsLayer(other.kind.individual.species) != physics_layer) continue;
                             },
-                            .shield => {
+                            .item => {
                                 // put items on layer 0?
                                 if (physics_layer != 0) continue;
                             },
@@ -654,7 +668,15 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     switch (state.input_prompt) {
                         .none => {},
                         .attack => {
-                            textures.renderSprite(renderer, textures.sprites.dagger, render_position);
+                            var attack_prompt_sprite = textures.sprites.dagger;
+                            if (frame.self.kind.individual.equipment.is_equipped(.axe)) {
+                                attack_prompt_sprite = textures.sprites.axe;
+                            } else if (frame.self.kind.individual.equipment.is_equipped(.torch)) {
+                                attack_prompt_sprite = textures.sprites.torch;
+                            } else if (frame.self.kind.individual.equipment.is_equipped(.dagger)) {
+                                attack_prompt_sprite = textures.sprites.dagger;
+                            }
+                            textures.renderSprite(renderer, attack_prompt_sprite, render_position);
                         },
                         .kick => {
                             textures.renderSprite(renderer, textures.sprites.kick, render_position);
@@ -698,6 +720,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         pain: ?Rect = null,
                         shielded: ?Rect = null,
                         equipped_axe: ?Rect = null,
+                        equipped_torch: ?Rect = null,
+                        equipped_dagger: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.kind.individual.species)) {
                         .humanoid => AnatomySprites{
@@ -710,6 +734,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .pain = textures.large_sprites.humanoid_pain,
                             .shielded = textures.large_sprites.humanoid_shielded,
                             .equipped_axe = textures.large_sprites.humanoid_equipped_axe,
+                            .equipped_torch = textures.large_sprites.humanoid_equipped_torch,
+                            .equipped_dagger = textures.large_sprites.humanoid_equipped_dagger,
                         },
                         .centauroid => AnatomySprites{
                             .diagram = textures.large_sprites.centauroid,
@@ -755,11 +781,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     };
                     textures.renderLargeSprite(renderer, anatomy_sprites.diagram, anatomy_coord);
 
-                    if (frame.self.kind.individual.equipment.has(.shield)) {
+                    if (frame.self.kind.individual.equipment.is_equipped(.shield)) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.shielded.?, anatomy_coord);
                     }
-                    if (frame.self.kind.individual.equipment.has(.axe)) {
+                    if (frame.self.kind.individual.equipment.is_equipped(.axe)) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.equipped_axe.?, anatomy_coord);
+                    }
+                    if (frame.self.kind.individual.equipment.is_equipped(.torch)) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.equipped_torch.?, anatomy_coord);
+                    }
+                    if (frame.self.kind.individual.equipment.is_equipped(.dagger)) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.equipped_dagger.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
                     var status_conditions: u9 = frame.self.kind.individual.status_conditions;
@@ -792,10 +824,33 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                 }
                 // input options
+                const inventory_coord = makeCoord(anatomy_coord.x, anatomy_coord.y + 200);
+                var inventory_height: i32 = 0;
+                {
+                    const myself = state.client_state.?.self;
+                    const equipment = myself.kind.individual.equipment;
+
+                    var unequipped = equipment.held & ~equipment.equipped;
+                    var cursor_x = inventory_coord.x;
+                    while (unequipped != 0) {
+                        const item_int = @intCast(@TypeOf(@enumToInt(@as(EquippedItem, undefined))), @ctz(unequipped));
+                        unequipped &= ~(@as(@TypeOf(unequipped), 1) << item_int);
+                        const item = @intToEnum(EquippedItem, item_int);
+
+                        textures.renderSprite(renderer, switch (item) {
+                            .shield => textures.sprites.shield,
+                            .axe => textures.sprites.axe,
+                            .torch => textures.sprites.torch,
+                            .dagger => textures.sprites.dagger,
+                        }, makeCoord(cursor_x, inventory_coord.y));
+                        cursor_x += 32;
+                        inventory_height = 32;
+                    }
+                }
                 {
                     const myself = state.client_state.?.self;
                     var g = gui.Gui.init(renderer);
-                    g.seek(anatomy_coord.x, anatomy_coord.y + 200);
+                    g.seek(anatomy_coord.x, inventory_coord.y + inventory_height);
                     g.font(.small);
                     g.marginBottom(1);
                     g.text("Inputs:");
@@ -832,7 +887,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             if (can(myself, .open_close) and isNextToDoor(state.client_state.?)) {
                                 g.text(" O: Start open/close door...");
                             }
-                            if (can(myself, .pick_up) and isStandingOnItem(state.client_state.?)) {
+                            if (can(myself, .pick_up_unequipped) and isFloorItemSuggestedEquip(state.client_state.?) != null) {
                                 g.text(" G: Pick up item");
                             }
                             if (can(myself, .charge)) {
@@ -1024,8 +1079,8 @@ fn doActionOrShowTutorialForError(state: *RunningState, action: Action) !void {
 
 var tutorial_text_buffer: [0x100]u8 = undefined;
 fn validateAndShowTotorialForError(state: *RunningState, action: std.meta.Tag(Action)) bool {
-    const myself = state.client_state.?.self;
-    if (can(myself, action)) {
+    const me = state.client_state.?.self;
+    if (core.game_logic.validateAction(me.kind.individual.species, me.position, me.kind.individual.status_conditions, me.kind.individual.equipment, action)) {
         state.input_tutorial = null;
         return true;
     } else |err| switch (err) {
@@ -1033,7 +1088,10 @@ fn validateAndShowTotorialForError(state: *RunningState, action: std.meta.Tag(Ac
             state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "You cannot {s}. Try Spacebar to wait.", .{@tagName(action)}) catch unreachable;
         },
         error.SpeciesIncapable => {
-            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "A {s} cannot {s}.", .{ @tagName(myself.kind.individual.species), @tagName(action) }) catch unreachable;
+            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "A {s} cannot {s}.", .{ @tagName(me.kind.individual.species), @tagName(action) }) catch unreachable;
+        },
+        error.MissingItem => {
+            state.input_tutorial = std.fmt.bufPrint(&tutorial_text_buffer, "You are missing an item.", .{}) catch unreachable;
         },
         error.TooBig, error.TooSmall => unreachable,
     }
@@ -1044,6 +1102,19 @@ fn clearInputState(state: *RunningState) void {
     state.input_prompt = .none;
     state.input_tutorial = null;
     state.client.cancelAutoAction();
+}
+
+fn getUnequipAction(equipment: Equipment) ?Action {
+    if (equipment.is_equipped(.axe)) {
+        return .{ .unequip = .axe };
+    }
+    if (equipment.is_equipped(.dagger)) {
+        return .{ .unequip = .dagger };
+    }
+    if (equipment.is_equipped(.torch)) {
+        return .{ .unequip = .torch };
+    }
+    return null;
 }
 
 fn positionedRect32(position: Coord) Rect {
@@ -1202,15 +1273,26 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             if (thing.kind.individual.status_conditions & core.protocol.StatusCondition_pain != 0) {
                 textures.renderSprite(renderer, textures.sprites.pain, render_position);
             }
-            if (thing.kind.individual.equipment.has(.shield)) {
+            if (thing.kind.individual.equipment.is_equipped(.shield)) {
                 textures.renderSprite(renderer, textures.sprites.equipped_shield, render_position);
             }
-            if (thing.kind.individual.equipment.has(.axe) and thing.kind.individual.activity != .attack) {
+            if (thing.kind.individual.equipment.is_equipped(.axe) and thing.kind.individual.activity != .attack) {
                 textures.renderSprite(renderer, textures.sprites.equipped_axe, render_position);
             }
+            if (thing.kind.individual.equipment.is_equipped(.torch) and thing.kind.individual.activity != .attack) {
+                textures.renderSprite(renderer, textures.sprites.equipped_torch, render_position);
+            }
+            if (thing.kind.individual.equipment.is_equipped(.dagger) and thing.kind.individual.activity != .attack) {
+                textures.renderSprite(renderer, textures.sprites.equipped_dagger, render_position);
+            }
         },
-        .shield => {
-            textures.renderSprite(renderer, textures.sprites.shield, render_position);
+        .item => |item| {
+            textures.renderSprite(renderer, switch (item) {
+                .shield => textures.sprites.shield,
+                .axe => textures.sprites.axe,
+                .torch => textures.sprites.torch,
+                .dagger => textures.sprites.dagger,
+            }, render_position);
         },
     }
 
@@ -1233,7 +1315,7 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
         .attack => |data| {
             const max_range = if (core.game_logic.hasBow(thing.kind.individual.species)) core.game_logic.bow_range else @as(i32, 1);
             if (max_range == 1) {
-                switch (core.game_logic.getAttackEffect(thing.kind.individual.species, thing.kind.individual.equipment)) {
+                switch (core.game_logic.getAttackFunction(thing.kind.individual.species, thing.kind.individual.equipment)) {
                     .just_wound, .wound_then_kill, .malaise => {
                         const dagger_sprite_normalizing_rotation = 1;
                         textures.renderSpriteRotated45Degrees(
@@ -1288,6 +1370,20 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                             axe_handle_coord,
                             progress,
                             progress_denominator,
+                        );
+                    },
+                    .burn => {
+                        const torch_sprite_normalizing_rotation = 1;
+                        textures.renderSpriteRotated45Degrees(
+                            renderer,
+                            textures.sprites.torch,
+                            core.geometry.bezierBounce(
+                                render_position.plus(data.direction.scaled(32 * 2 / 4)),
+                                render_position.plus(data.direction.scaled(32 * 4 / 4)),
+                                progress,
+                                progress_denominator,
+                            ),
+                            directionToRotation(data.direction) +% torch_sprite_normalizing_rotation,
                         );
                     },
                 }
@@ -1605,8 +1701,9 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
                         if (patch_other.kind != .individual) break :blk false;
                         if (base_other.kind.individual.species != @as(std.meta.Tag(Species), patch_other.kind.individual.species)) break :blk false;
                     },
-                    .shield => {
-                        if (patch_other.kind != .shield) break :blk false;
+                    .item => |item| {
+                        if (patch_other.kind != .item) break :blk false;
+                        if (patch_other.kind.item != item) break :blk false;
                     },
                 }
                 break :blk true;
@@ -1640,7 +1737,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
         return false;
     }
     for (base_frame.others) |base_other, i| {
-        if (base_other.kind == .shield) continue;
+        if (base_other.kind != .individual) continue;
         const patch_other = patch_frame.others[others_mapping[i]];
         if (base_other.kind.individual.activity != .none and patch_other.kind.individual.activity != .none) {
             core.debug.animation_compression.print("NOPE: someone({}, {}) doing two different things.", .{ i, others_mapping[i] });
@@ -1678,18 +1775,38 @@ fn isNextToDoor(frame: PerceivedFrame) bool {
     return true;
 }
 
-fn isStandingOnItem(frame: PerceivedFrame) bool {
+fn isFloorItemSuggestedEquip(frame: PerceivedFrame) ?bool {
     const coord = getHeadPosition(frame.self.position);
     for (frame.others) |other| {
         switch (other.kind) {
             .individual => continue,
-            .shield => {
+            .item => |item| {
                 if (!coord.equals(other.position.small)) continue;
-                return true;
+                return switch (item) {
+                    .dagger, .axe => true,
+                    .shield => true,
+                    .torch => false,
+                };
             },
         }
     }
-    return false;
+    return null;
+}
+
+fn doEquipmentAction(state: *RunningState, item: EquippedItem, force: bool) !void {
+    if (state.input_prompt != .none) return;
+    const myself = state.client_state.?.self;
+    const equipment = myself.kind.individual.equipment;
+    if (equipment.is_equipped(item)) {
+        try doActionOrShowTutorialForError(state, .{ .unequip = item });
+    } else if (equipment.is_held(item)) {
+        if (!force) {
+            if (getUnequipAction(equipment)) |unequip_action| {
+                return doActionOrShowTutorialForError(state, unequip_action);
+            }
+        }
+        try doActionOrShowTutorialForError(state, .{ .equip = item });
+    }
 }
 
 fn can(me: PerceivedThing, action: std.meta.Tag(Action)) bool {
