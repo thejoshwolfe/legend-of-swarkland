@@ -52,7 +52,12 @@ pub const ItemLocation = union(enum) {
 };
 pub const HeldLocation = struct {
     holder_id: u32,
-    is_equipped: bool,
+    equipped_to_slot: EquipmentSlot,
+};
+pub const EquipmentSlot = enum {
+    none,
+    right_hand,
+    left_hand,
 };
 pub const Item = struct {
     location: ItemLocation,

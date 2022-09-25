@@ -46,6 +46,7 @@ const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
 const Individual = game_model.Individual;
 const Item = game_model.Item;
+const EquipmentSlot = game_model.EquipmentSlot;
 const StateDiff = game_model.StateDiff;
 const IdMap = game_model.IdMap;
 const CoordMap = game_model.CoordMap;
@@ -487,7 +488,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
 
     // pick up, drop
     {
-        var item_claims = IdMap(?u32).init(self.allocator);
+        var item_claims = IdMap(?struct { individual_id: u32, to_slot: EquipmentSlot }).init(self.allocator);
         for (everybody) |individual_id| {
             if (actions.get(individual_id).? != .pick_up) continue;
             const individual = self.state.individuals.get(individual_id).?;
@@ -507,16 +508,24 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     // too many claims on this item.
                     gop.value_ptr.* = null;
                 } else {
-                    gop.value_ptr.* = individual_id;
+                    gop.value_ptr.* = .{ .individual_id = individual_id, .to_slot = .right_hand };
                 }
             }
         }
         var it = item_claims.iterator();
         while (it.next()) |entry| {
             const item_id = entry.key_ptr.*;
-            const individual_id = entry.value_ptr.* orelse continue;
+            const claim = entry.value_ptr.* orelse continue;
             // the pick up succeeds.
-            self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = individual_id, .is_equipped = true } };
+            var other_it = inventoryIterator(self.state, claim.individual_id);
+            while (other_it.next()) |other_entry| {
+                const other_item = other_entry.value_ptr.*;
+                if (other_item.location.held.equipped_to_slot == claim.to_slot) {
+                    // Bump this item out of the slot.
+                    other_item.location.held.equipped_to_slot = .none;
+                }
+            }
+            self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = claim.individual_id, .equipped_to_slot = claim.to_slot } };
         }
     }
 
@@ -1870,7 +1879,7 @@ pub fn getEquipment(game_state: *GameState, id: u32) Equipment {
     var it = inventoryIterator(game_state, id);
     while (it.next()) |entry| {
         const item = entry.value_ptr.*;
-        const is_equipped = item.location.held.is_equipped;
+        const is_equipped = item.location.held.equipped_to_slot != .none;
         switch (item.kind) {
             .shield => {
                 equipment.set(.shield, true, is_equipped);
