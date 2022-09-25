@@ -46,6 +46,24 @@ pub const Button = enum {
     warp_5,
     warp_6,
     warp_7,
+
+    equip_0,
+    equip_1,
+    equip_2,
+    equip_3,
+    equip_4,
+    equip_5,
+    equip_6,
+    equip_7,
+
+    force_equip_0,
+    force_equip_1,
+    force_equip_2,
+    force_equip_3,
+    force_equip_4,
+    force_equip_5,
+    force_equip_6,
+    force_equip_7,
 };
 
 pub const InputEngine = struct {
@@ -136,14 +154,14 @@ pub const InputEngine = struct {
             sdl.c.SDL_SCANCODE_HOME => return if (modifiers == 0) .home else null,
             sdl.c.SDL_SCANCODE_END => return if (modifiers == 0) .end else null,
 
-            sdl.c.SDL_SCANCODE_1 => return if (modifiers == ctrl) .warp_0 else null,
-            sdl.c.SDL_SCANCODE_2 => return if (modifiers == ctrl) .warp_1 else null,
-            sdl.c.SDL_SCANCODE_3 => return if (modifiers == ctrl) .warp_2 else null,
-            sdl.c.SDL_SCANCODE_4 => return if (modifiers == ctrl) .warp_3 else null,
-            sdl.c.SDL_SCANCODE_5 => return if (modifiers == ctrl) .warp_4 else null,
-            sdl.c.SDL_SCANCODE_6 => return if (modifiers == ctrl) .warp_5 else null,
-            sdl.c.SDL_SCANCODE_7 => return if (modifiers == ctrl) .warp_6 else null,
-            sdl.c.SDL_SCANCODE_8 => return if (modifiers == ctrl) .warp_7 else null,
+            sdl.c.SDL_SCANCODE_1 => return if (modifiers == ctrl) .warp_0 else if (modifiers == shift) .force_equip_0 else if (modifiers == 0) .equip_0 else null,
+            sdl.c.SDL_SCANCODE_2 => return if (modifiers == ctrl) .warp_1 else if (modifiers == shift) .force_equip_1 else if (modifiers == 0) .equip_1 else null,
+            sdl.c.SDL_SCANCODE_3 => return if (modifiers == ctrl) .warp_2 else if (modifiers == shift) .force_equip_2 else if (modifiers == 0) .equip_2 else null,
+            sdl.c.SDL_SCANCODE_4 => return if (modifiers == ctrl) .warp_3 else if (modifiers == shift) .force_equip_3 else if (modifiers == 0) .equip_3 else null,
+            sdl.c.SDL_SCANCODE_5 => return if (modifiers == ctrl) .warp_4 else if (modifiers == shift) .force_equip_4 else if (modifiers == 0) .equip_4 else null,
+            sdl.c.SDL_SCANCODE_6 => return if (modifiers == ctrl) .warp_5 else if (modifiers == shift) .force_equip_5 else if (modifiers == 0) .equip_5 else null,
+            sdl.c.SDL_SCANCODE_7 => return if (modifiers == ctrl) .warp_6 else if (modifiers == shift) .force_equip_6 else if (modifiers == 0) .equip_6 else null,
+            sdl.c.SDL_SCANCODE_8 => return if (modifiers == ctrl) .warp_7 else if (modifiers == shift) .force_equip_7 else if (modifiers == 0) .equip_7 else null,
 
             else => return null,
         }

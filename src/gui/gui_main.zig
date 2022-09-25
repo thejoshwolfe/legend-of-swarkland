@@ -28,6 +28,8 @@ const Action = core.protocol.Action;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
+const Equipment = core.protocol.Equipment;
+const EquippedItem = core.protocol.EquippedItem;
 const EquipmentSlot = core.protocol.EquipmentSlot;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
@@ -369,11 +371,20 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.input_prompt = .none;
                                     },
                                     .pick_up => {
-                                        if (floorItemSuggestedSlot(state.client_state.?)) |to_slot| {
-                                            try doActionOrShowTutorialForError(state, .{ .pick_up = to_slot });
+                                        if (isFloorItemSuggestedEquip(state.client_state.?)) |should_equip| {
+                                            if (should_equip) {
+                                                try doActionOrShowTutorialForError(state, .pick_up_and_equip);
+                                            } else {
+                                                try doActionOrShowTutorialForError(state, .pick_up_unequipped);
+                                            }
                                         }
                                         state.input_prompt = .none;
                                     },
+
+                                    .equip_0 => try doEquipmentAction(state, .dagger, false),
+                                    .force_equip_0 => try doEquipmentAction(state, .dagger, true),
+                                    .equip_1 => try doEquipmentAction(state, .torch, false),
+                                    .force_equip_1 => try doEquipmentAction(state, .torch, true),
 
                                     .backspace => {
                                         if (state.input_prompt == .none) {
@@ -813,10 +824,33 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                 }
                 // input options
+                const inventory_coord = makeCoord(anatomy_coord.x, anatomy_coord.y + 200);
+                var inventory_height: i32 = 0;
+                {
+                    const myself = state.client_state.?.self;
+                    const equipment = myself.kind.individual.equipment;
+
+                    var unequipped = equipment.held & ~equipment.equipped;
+                    var cursor_x = inventory_coord.x;
+                    while (unequipped != 0) {
+                        const item_int = @intCast(@TypeOf(@enumToInt(@as(EquippedItem, undefined))), @ctz(unequipped));
+                        unequipped &= ~(@as(@TypeOf(unequipped), 1) << item_int);
+                        const item = @intToEnum(EquippedItem, item_int);
+
+                        textures.renderSprite(renderer, switch (item) {
+                            .shield => textures.sprites.shield,
+                            .axe => textures.sprites.axe,
+                            .torch => textures.sprites.torch,
+                            .dagger => textures.sprites.dagger,
+                        }, makeCoord(cursor_x, inventory_coord.y));
+                        cursor_x += 32;
+                        inventory_height = 32;
+                    }
+                }
                 {
                     const myself = state.client_state.?.self;
                     var g = gui.Gui.init(renderer);
-                    g.seek(anatomy_coord.x, anatomy_coord.y + 200);
+                    g.seek(anatomy_coord.x, inventory_coord.y + inventory_height);
                     g.font(.small);
                     g.marginBottom(1);
                     g.text("Inputs:");
@@ -853,7 +887,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             if (can(myself, .open_close) and isNextToDoor(state.client_state.?)) {
                                 g.text(" O: Start open/close door...");
                             }
-                            if (can(myself, .pick_up) and floorItemSuggestedSlot(state.client_state.?) != null) {
+                            if (can(myself, .pick_up_unequipped) and isFloorItemSuggestedEquip(state.client_state.?) != null) {
                                 g.text(" G: Pick up item");
                             }
                             if (can(myself, .charge)) {
@@ -1068,6 +1102,19 @@ fn clearInputState(state: *RunningState) void {
     state.input_prompt = .none;
     state.input_tutorial = null;
     state.client.cancelAutoAction();
+}
+
+fn getUnequipAction(equipment: Equipment) ?Action {
+    if (equipment.is_equipped(.axe)) {
+        return .{ .unequip = .axe };
+    }
+    if (equipment.is_equipped(.dagger)) {
+        return .{ .unequip = .dagger };
+    }
+    if (equipment.is_equipped(.torch)) {
+        return .{ .unequip = .torch };
+    }
+    return null;
 }
 
 fn positionedRect32(position: Coord) Rect {
@@ -1728,7 +1775,7 @@ fn isNextToDoor(frame: PerceivedFrame) bool {
     return true;
 }
 
-fn floorItemSuggestedSlot(frame: PerceivedFrame) ?EquipmentSlot {
+fn isFloorItemSuggestedEquip(frame: PerceivedFrame) ?bool {
     const coord = getHeadPosition(frame.self.position);
     for (frame.others) |other| {
         switch (other.kind) {
@@ -1736,13 +1783,30 @@ fn floorItemSuggestedSlot(frame: PerceivedFrame) ?EquipmentSlot {
             .item => |item| {
                 if (!coord.equals(other.position.small)) continue;
                 return switch (item) {
-                    .dagger, .axe, .torch => .right_hand,
-                    .shield => .left_hand,
+                    .dagger, .axe => true,
+                    .shield => true,
+                    .torch => false,
                 };
             },
         }
     }
     return null;
+}
+
+fn doEquipmentAction(state: *RunningState, item: EquippedItem, force: bool) !void {
+    if (state.input_prompt != .none) return;
+    const myself = state.client_state.?.self;
+    const equipment = myself.kind.individual.equipment;
+    if (equipment.is_equipped(item)) {
+        try doActionOrShowTutorialForError(state, .{ .unequip = item });
+    } else if (equipment.is_held(item)) {
+        if (!force) {
+            if (getUnequipAction(equipment)) |unequip_action| {
+                return doActionOrShowTutorialForError(state, unequip_action);
+            }
+        }
+        try doActionOrShowTutorialForError(state, .{ .equip = item });
+    }
 }
 
 fn can(me: PerceivedThing, action: std.meta.Tag(Action)) bool {

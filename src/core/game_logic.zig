@@ -204,7 +204,8 @@ pub fn getAttackFunction(species: Species, equipment: Equipment) AttackFunction 
 
 pub fn actionCausesPainWhileMalaised(action: std.meta.Tag(Action)) bool {
     return switch (action) {
-        .charge, .attack, .kick, .nibble, .stomp, .lunge, .open_close, .fire_bow, .defend, .pick_up => true,
+        .charge, .attack, .kick, .nibble, .stomp, .lunge, .open_close, .fire_bow, .defend => true,
+        .pick_up_and_equip, .pick_up_unequipped, .equip, .unequip => true,
         .move, .grow, .shrink, .wait => false,
         .nock_arrow => false,
         .cheatcode_warp => false,
@@ -494,7 +495,7 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (!canUseDoors(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
-        .pick_up => {
+        .pick_up_and_equip, .pick_up_unequipped => {
             if (!canUseItems(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
@@ -509,6 +510,13 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
             if (!equipment.is_equipped(.shield)) return error.MissingItem;
             if (0 != status_conditions & pain_statuses) return error.StatusForbids;
         },
+        .equip => {
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
+        },
+        .unequip => {
+            if (0 != status_conditions & pain_statuses) return error.StatusForbids;
+        },
+
         .cheatcode_warp => {},
     }
 }

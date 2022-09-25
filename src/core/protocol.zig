@@ -124,10 +124,13 @@ pub const Action = union(enum) {
     stomp,
     lunge: CardinalDirection,
     open_close: CardinalDirection,
-    pick_up: EquipmentSlot,
+    pick_up_unequipped,
+    pick_up_and_equip,
     nock_arrow,
     fire_bow: CardinalDirection,
     defend: CardinalDirection,
+    unequip: EquippedItem,
+    equip: EquippedItem,
 
     cheatcode_warp: u3,
 };
@@ -213,6 +216,7 @@ pub const Equipment = struct {
         }
     }
 };
+/// TODO: move out of this file. (game logic?)
 pub const EquipmentSlot = enum {
     none,
     right_hand,

@@ -486,13 +486,13 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         }
     }
 
-    // pick up, drop
+    // pick up, equip, unequp
     {
         var item_claims = IdMap(?struct { individual_id: u32, to_slot: EquipmentSlot }).init(self.allocator);
         for (everybody) |individual_id| {
-            switch (actions.get(individual_id).?) {
-                .pick_up => |to_slot| {
-                    if (actions.get(individual_id).? != .pick_up) continue;
+            const action = actions.get(individual_id).?;
+            switch (action) {
+                .pick_up_and_equip, .pick_up_unequipped => {
                     const individual = self.state.individuals.get(individual_id).?;
                     const pick_up_coord = getHeadPosition(individual.abs_position);
                     var it = self.state.items.iterator();
@@ -510,7 +510,43 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                             // Too many claims on this item.
                             gop.value_ptr.* = null;
                         } else {
+                            const to_slot: EquipmentSlot = if (action == .pick_up_unequipped) .none else itemToEquipmentSlot(item);
                             gop.value_ptr.* = .{ .individual_id = individual_id, .to_slot = to_slot };
+                        }
+                    }
+                },
+                .unequip => |equipped_item| {
+                    var it = inventoryIterator(self.state, individual_id);
+                    while (it.next()) |entry| {
+                        const inventory_item = entry.value_ptr.*;
+                        if (itemToEquippedItem(inventory_item) == equipped_item) {
+                            inventory_item.location.held.equipped_to_slot = .none;
+                        }
+                    }
+                },
+                .equip => |equipped_item| {
+                    var bumped_out_of_slot: ?EquipmentSlot = null;
+                    {
+                        var it = inventoryIterator(self.state, individual_id);
+                        while (it.next()) |entry| {
+                            const inventory_item = entry.value_ptr.*;
+                            if (itemToEquippedItem(inventory_item) == equipped_item and inventory_item.location.held.equipped_to_slot == .none) {
+                                const slot = itemToEquipmentSlot(inventory_item);
+                                inventory_item.location.held.equipped_to_slot = slot;
+                                bumped_out_of_slot = slot;
+                            }
+                        }
+                    }
+                    if (bumped_out_of_slot) |slot_to_vacate| {
+                        var it = inventoryIterator(self.state, individual_id);
+                        while (it.next()) |entry| {
+                            const inventory_item = entry.value_ptr.*;
+                            if (itemToEquippedItem(inventory_item) != equipped_item and inventory_item.location.held.equipped_to_slot == slot_to_vacate) {
+                                // Drop the item in the conflicting slot.
+                                inventory_item.location = .{
+                                    .floor_coord = getHeadPosition(self.state.individuals.get(individual_id).?.abs_position),
+                                };
+                            }
                         }
                     }
                 },
@@ -1679,12 +1715,7 @@ fn getPerceivedFrame(
                 if (!in_view_matrix.getCoord(coord)) continue;
                 try others.append(PerceivedThing{
                     .position = .{ .small = coord.minus(perceived_origin) },
-                    .kind = .{ .item = switch (item.kind) {
-                        .shield => .shield,
-                        .axe => .axe,
-                        .torch => .torch,
-                        .dagger => .dagger,
-                    } },
+                    .kind = .{ .item = itemToFloorItem(item) },
                 });
             },
             .held => {}, // handled above
@@ -1925,5 +1956,28 @@ fn inventoryIterator(game_state: *GameState, holder_id: u32) InventoryIterator {
     return .{
         .sub_it = game_state.items.iterator(),
         .holder_id = holder_id,
+    };
+}
+
+fn itemToEquippedItem(item: *const Item) core.protocol.EquippedItem {
+    return switch (item.kind) {
+        .shield => .shield,
+        .axe => .axe,
+        .torch => .torch,
+        .dagger => .dagger,
+    };
+}
+fn itemToFloorItem(item: *const Item) core.protocol.FloorItem {
+    return switch (item.kind) {
+        .shield => .shield,
+        .axe => .axe,
+        .torch => .torch,
+        .dagger => .dagger,
+    };
+}
+fn itemToEquipmentSlot(item: *const Item) EquipmentSlot {
+    return switch (item.kind) {
+        .dagger, .axe, .torch => .right_hand,
+        .shield => .left_hand,
     };
 }
