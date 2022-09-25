@@ -124,7 +124,7 @@ pub const Action = union(enum) {
     stomp,
     lunge: CardinalDirection,
     open_close: CardinalDirection,
-    pick_up,
+    pick_up: EquipmentSlot,
     nock_arrow,
     fire_bow: CardinalDirection,
     defend: CardinalDirection,
@@ -212,6 +212,11 @@ pub const Equipment = struct {
             self.equipped &= ~bit;
         }
     }
+};
+pub const EquipmentSlot = enum {
+    none,
+    right_hand,
+    left_hand,
 };
 pub const EquippedItem = enum {
     shield,

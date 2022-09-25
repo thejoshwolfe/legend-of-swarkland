@@ -28,6 +28,7 @@ const Action = core.protocol.Action;
 const PerceivedHappening = core.protocol.PerceivedHappening;
 const PerceivedFrame = core.protocol.PerceivedFrame;
 const PerceivedThing = core.protocol.PerceivedThing;
+const EquipmentSlot = core.protocol.EquipmentSlot;
 const allocator = std.heap.c_allocator;
 const getHeadPosition = core.game_logic.getHeadPosition;
 const getPhysicsLayer = core.game_logic.getPhysicsLayer;
@@ -368,7 +369,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                         state.input_prompt = .none;
                                     },
                                     .pick_up => {
-                                        try doActionOrShowTutorialForError(state, .pick_up);
+                                        if (floorItemSuggestedSlot(state.client_state.?)) |to_slot| {
+                                            try doActionOrShowTutorialForError(state, .{ .pick_up = to_slot });
+                                        }
                                         state.input_prompt = .none;
                                     },
 
@@ -850,7 +853,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             if (can(myself, .open_close) and isNextToDoor(state.client_state.?)) {
                                 g.text(" O: Start open/close door...");
                             }
-                            if (can(myself, .pick_up) and isStandingOnItem(state.client_state.?)) {
+                            if (can(myself, .pick_up) and floorItemSuggestedSlot(state.client_state.?) != null) {
                                 g.text(" G: Pick up item");
                             }
                             if (can(myself, .charge)) {
@@ -1725,18 +1728,21 @@ fn isNextToDoor(frame: PerceivedFrame) bool {
     return true;
 }
 
-fn isStandingOnItem(frame: PerceivedFrame) bool {
+fn floorItemSuggestedSlot(frame: PerceivedFrame) ?EquipmentSlot {
     const coord = getHeadPosition(frame.self.position);
     for (frame.others) |other| {
         switch (other.kind) {
             .individual => continue,
-            .item => {
+            .item => |item| {
                 if (!coord.equals(other.position.small)) continue;
-                return true;
+                return switch (item) {
+                    .dagger, .axe, .torch => .right_hand,
+                    .shield => .left_hand,
+                };
             },
         }
     }
-    return false;
+    return null;
 }
 
 fn can(me: PerceivedThing, action: std.meta.Tag(Action)) bool {

@@ -25,6 +25,7 @@ const PerceivedActivity = core.protocol.PerceivedActivity;
 const TerrainSpace = core.protocol.TerrainSpace;
 const TerrainChunk = core.protocol.TerrainChunk;
 const Equipment = core.protocol.Equipment;
+const EquipmentSlot = core.protocol.EquipmentSlot;
 const StatusConditions = core.protocol.StatusConditions;
 
 const PerceivedTerrain = core.game_logic.PerceivedTerrain;
@@ -46,7 +47,6 @@ const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
 const Individual = game_model.Individual;
 const Item = game_model.Item;
-const EquipmentSlot = game_model.EquipmentSlot;
 const StateDiff = game_model.StateDiff;
 const IdMap = game_model.IdMap;
 const CoordMap = game_model.CoordMap;
@@ -490,26 +490,31 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
     {
         var item_claims = IdMap(?struct { individual_id: u32, to_slot: EquipmentSlot }).init(self.allocator);
         for (everybody) |individual_id| {
-            if (actions.get(individual_id).? != .pick_up) continue;
-            const individual = self.state.individuals.get(individual_id).?;
-            const pick_up_coord = getHeadPosition(individual.abs_position);
-            var it = self.state.items.iterator();
-            while (it.next()) |entry| {
-                const item_id = entry.key_ptr.*;
-                const item = entry.value_ptr.*;
-                switch (item.location) {
-                    .floor_coord => |floor_coord| {
-                        if (!floor_coord.equals(pick_up_coord)) continue;
-                    },
-                    .held => continue,
-                }
-                const gop = try item_claims.getOrPut(item_id);
-                if (gop.found_existing) {
-                    // too many claims on this item.
-                    gop.value_ptr.* = null;
-                } else {
-                    gop.value_ptr.* = .{ .individual_id = individual_id, .to_slot = .right_hand };
-                }
+            switch (actions.get(individual_id).?) {
+                .pick_up => |to_slot| {
+                    if (actions.get(individual_id).? != .pick_up) continue;
+                    const individual = self.state.individuals.get(individual_id).?;
+                    const pick_up_coord = getHeadPosition(individual.abs_position);
+                    var it = self.state.items.iterator();
+                    while (it.next()) |entry| {
+                        const item_id = entry.key_ptr.*;
+                        const item = entry.value_ptr.*;
+                        switch (item.location) {
+                            .floor_coord => |floor_coord| {
+                                if (!floor_coord.equals(pick_up_coord)) continue;
+                            },
+                            .held => continue,
+                        }
+                        const gop = try item_claims.getOrPut(item_id);
+                        if (gop.found_existing) {
+                            // Too many claims on this item.
+                            gop.value_ptr.* = null;
+                        } else {
+                            gop.value_ptr.* = .{ .individual_id = individual_id, .to_slot = to_slot };
+                        }
+                    }
+                },
+                else => {},
             }
         }
         var it = item_claims.iterator();
@@ -521,8 +526,10 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             while (other_it.next()) |other_entry| {
                 const other_item = other_entry.value_ptr.*;
                 if (other_item.location.held.equipped_to_slot == claim.to_slot) {
-                    // Bump this item out of the slot.
-                    other_item.location.held.equipped_to_slot = .none;
+                    // Drop the item in the conflicting slot.
+                    other_item.location = .{
+                        .floor_coord = getHeadPosition(self.state.individuals.get(claim.individual_id).?.abs_position),
+                    };
                 }
             }
             self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = claim.individual_id, .equipped_to_slot = claim.to_slot } };
