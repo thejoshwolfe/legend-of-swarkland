@@ -217,11 +217,13 @@ pub const EquippedItem = enum {
     shield,
     axe,
     torch,
+    dagger,
 };
 pub const FloorItem = enum {
     shield,
     axe,
     torch,
+    dagger,
 };
 
 pub const StatusConditions = u9;

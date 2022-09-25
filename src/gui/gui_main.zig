@@ -659,6 +659,8 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                 attack_prompt_sprite = textures.sprites.axe;
                             } else if (frame.self.kind.individual.equipment.is_equipped(.torch)) {
                                 attack_prompt_sprite = textures.sprites.torch;
+                            } else if (frame.self.kind.individual.equipment.is_equipped(.dagger)) {
+                                attack_prompt_sprite = textures.sprites.dagger;
                             }
                             textures.renderSprite(renderer, attack_prompt_sprite, render_position);
                         },
@@ -705,6 +707,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         shielded: ?Rect = null,
                         equipped_axe: ?Rect = null,
                         equipped_torch: ?Rect = null,
+                        equipped_dagger: ?Rect = null,
                     };
                     const anatomy_sprites = switch (core.game_logic.getAnatomy(frame.self.kind.individual.species)) {
                         .humanoid => AnatomySprites{
@@ -718,6 +721,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                             .shielded = textures.large_sprites.humanoid_shielded,
                             .equipped_axe = textures.large_sprites.humanoid_equipped_axe,
                             .equipped_torch = textures.large_sprites.humanoid_equipped_torch,
+                            .equipped_dagger = textures.large_sprites.humanoid_equipped_dagger,
                         },
                         .centauroid => AnatomySprites{
                             .diagram = textures.large_sprites.centauroid,
@@ -771,6 +775,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     }
                     if (frame.self.kind.individual.equipment.is_equipped(.torch)) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.equipped_torch.?, anatomy_coord);
+                    }
+                    if (frame.self.kind.individual.equipment.is_equipped(.dagger)) {
+                        textures.renderLargeSprite(renderer, anatomy_sprites.equipped_dagger.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
                     var status_conditions: u9 = frame.self.kind.individual.status_conditions;
@@ -1225,12 +1232,16 @@ fn renderThing(renderer: *sdl.Renderer, progress: i32, progress_denominator: i32
             if (thing.kind.individual.equipment.is_equipped(.torch) and thing.kind.individual.activity != .attack) {
                 textures.renderSprite(renderer, textures.sprites.equipped_torch, render_position);
             }
+            if (thing.kind.individual.equipment.is_equipped(.dagger) and thing.kind.individual.activity != .attack) {
+                textures.renderSprite(renderer, textures.sprites.equipped_dagger, render_position);
+            }
         },
         .item => |item| {
             textures.renderSprite(renderer, switch (item) {
                 .shield => textures.sprites.shield,
                 .axe => textures.sprites.axe,
                 .torch => textures.sprites.torch,
+                .dagger => textures.sprites.dagger,
             }, render_position);
         },
     }

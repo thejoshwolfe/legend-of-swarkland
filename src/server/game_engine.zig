@@ -1667,6 +1667,7 @@ fn getPerceivedFrame(
                         .shield => .shield,
                         .axe => .axe,
                         .torch => .torch,
+                        .dagger => .dagger,
                     } },
                 });
             },
@@ -1879,6 +1880,9 @@ pub fn getEquipment(game_state: *GameState, id: u32) Equipment {
             },
             .torch => {
                 equipment.set(.torch, true, is_equipped);
+            },
+            .dagger => {
+                equipment.set(.dagger, true, is_equipped);
             },
         }
     }

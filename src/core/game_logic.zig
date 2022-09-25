@@ -44,7 +44,7 @@ pub fn validateAttack(species: Species, equipment: Equipment) !void {
             .queen => {},
         },
         .human => {
-            if (equipment.is_equipped(.axe) or equipment.is_equipped(.torch)) return {};
+            if (equipment.is_equipped(.axe) or equipment.is_equipped(.torch) or equipment.is_equipped(.dagger)) return {};
             return error.MissingItem;
         },
 
@@ -170,8 +170,11 @@ pub fn getAttackFunction(species: Species, equipment: Equipment) AttackFunction 
     if (equipment.is_equipped(.torch)) {
         return .burn;
     }
+    if (equipment.is_equipped(.dagger)) {
+        return .wound_then_kill;
+    }
     return switch (species) {
-        .human, .orc => .wound_then_kill,
+        .orc => .wound_then_kill,
         .centaur => |subspecies| switch (subspecies) {
             .archer => .wound_then_kill,
             .warrior => .chop,
@@ -192,6 +195,7 @@ pub fn getAttackFunction(species: Species, equipment: Equipment) AttackFunction 
 
         .ogre => .smash,
 
+        .human => unreachable, // Handled by equipment checks.
         .rhino => unreachable,
         .kangaroo => unreachable,
         .blob => unreachable,

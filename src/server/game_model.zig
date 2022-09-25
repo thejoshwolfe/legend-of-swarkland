@@ -60,6 +60,7 @@ pub const Item = struct {
         shield,
         axe,
         torch,
+        dagger,
     },
 
     pub fn clone(self: @This(), allocator: Allocator) !*@This() {
