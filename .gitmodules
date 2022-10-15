@@ -1,6 +1,0 @@
-[submodule "deps/simplepng.py"]
-	path = deps/simplepng.py
-	url = http://github.com/thejoshwolfe/simplepng.py
-[submodule "deps/zig-sdl"]
-	path = deps/zig-sdl
-	url = https://github.com/andrewrk/zig-sdl.git
