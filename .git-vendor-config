@@ -1,0 +1,15 @@
+# This is a git-vendor config file.
+# For details see https://github.com/thejoshwolfe/git-vendor/blob/main/README.md
+
+dir=deps/simplepng.py
+url=https://github.com/thejoshwolfe/simplepng.py/
+pin-to-commit=9025e08c1f4ffaedd4a3d6d4ba2c5b2bec1f1e96
+commit=9025e08c1f4ffaedd4a3d6d4ba2c5b2bec1f1e96
+exclude=test
+
+---
+
+dir=deps/zig-sdl
+url=https://github.com/andrewrk/zig-sdl/
+follow-branch=master
+commit=9f20fed745356c03fc38d9976a099011ad0d0846
