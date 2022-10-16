@@ -16,10 +16,10 @@ Here's how to build from source on Linux:
 2. Get other dependencies:
     * NixOS: `nix-shell --pure -p python3 -p git -p clang -p SDL2`
     * Ubuntu: `sudo apt-get install python3 git clang libsdl2-dev`
-3. Finish downloading the code: `git submodule update --init`
-4. `zig build`
+3. `zig build`
     * Bonus points: `zig test -lc src/index.zig`
-5. `./zig-out/bin/legend-of-swarkland`
+    * To build for Windows, add: `-Dtarget=x86_64-windows-gnu -Drelease-fast=true`
+4. `./zig-out/bin/legend-of-swarkland`
 
 ## Design goals
 
@@ -375,7 +375,7 @@ Legend of Swarkland is licensed under the MIT License. See `LICENSE.md`.
 
  * line of sight
  * items
- * randomly generated dungeon
+ * randomly generated world
 
 ## Version History
 
