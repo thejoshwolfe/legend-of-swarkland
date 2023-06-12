@@ -3,7 +3,7 @@ const Random = std.rand.Random;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
-const core = @import("../index.zig");
+const core = @import("core");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
@@ -744,7 +744,7 @@ pub fn generateRegular(game_state: *GameState) !void {
         }
     }
 
-    game_state.warp_points = warp_points_list.toOwnedSlice();
+    game_state.warp_points = try warp_points_list.toOwnedSlice();
 }
 
 pub fn generatePuzzleLevels(game_state: *GameState) !void {

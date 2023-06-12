@@ -19,7 +19,6 @@ def cli():
   tiling_group = parser.add_mutually_exclusive_group(required=True)
   tiling_group.add_argument("--tile-size", type=int)
   tiling_group.add_argument("--slice-tiles", metavar="WxH")
-  parser.add_argument("--spritesheet-path", required=True)
   parser.add_argument("--defs-path", required=True)
   parser.add_argument("--deps")
 
@@ -34,8 +33,9 @@ def cli():
     slice_dimensions = tuple(int(x) for x in match.groups())
   else:
     slice_dimensions = None
-  spritesheet_path = args.spritesheet_path
+  # this will look like ".../zig-cache/.../foo.zig"
   defs_path = args.defs_path
+  spritesheet_path = os.path.splitext(args.defs_path)[0]
   deps_path = args.deps
 
   if glob_pattern != "*.png":

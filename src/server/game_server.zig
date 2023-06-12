@@ -1,6 +1,6 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
-const core = @import("../index.zig");
+const core = @import("core");
 const ai = @import("ai.zig");
 const game_engine = @import("game_engine.zig");
 const game_model = @import("game_model.zig");
@@ -20,6 +20,8 @@ const HistoryList = std.TailQueue([]StateDiff);
 const HistoryNode = HistoryList.Node;
 
 const allocator = std.heap.c_allocator;
+
+pub const the_levels = @import("map_gen.zig").the_levels;
 
 pub fn server_main(main_player_queues: *SomeQueues) !void {
     var new_game_settings: NewGameSettings = readSettings: while (true) {
@@ -113,7 +115,7 @@ pub fn server_main(main_player_queues: *SomeQueues) !void {
             // Time goes backward.
             const state_changes = rewind(&history).?;
             try game_state.undoStateChanges(state_changes);
-            for (state_changes) |_, i| {
+            for (state_changes, 0..) |_, i| {
                 const diff = state_changes[state_changes.len - 1 - i];
                 switch (diff) {
                     .individual_despawn => |individual| {

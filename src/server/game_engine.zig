@@ -2,7 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
-const core = @import("../index.zig");
+const core = @import("core");
 const Coord = core.geometry.Coord;
 const Rect = core.geometry.Rect;
 const sign = core.geometry.sign;
@@ -103,7 +103,7 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                     _ = frame_list.orderedRemove(i);
                     i -%= 1;
                 }
-                try ret.putNoClobber(id, frame_list.toOwnedSlice());
+                try ret.putNoClobber(id, try frame_list.toOwnedSlice());
             }
             break :blk ret;
         },
@@ -117,7 +117,7 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
                     const new_chunk = entry.value_ptr.*;
                     if (!new_chunk.is_dirty) continue;
                     const old_chunk = pristine_game_state.terrain.chunks.get(chunk_coord).?;
-                    for (old_chunk.data) |old_cell, i| {
+                    for (old_chunk.data, 0..) |old_cell, i| {
                         const new_cell = new_chunk.data[i];
                         if (!std.meta.eql(old_cell, new_cell)) {
                             try ret.append(StateDiff{ .terrain_update = .{
@@ -230,7 +230,7 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
             if (pristine_game_state.level_number != self.state.level_number) {
                 @panic("TODO");
             }
-            break :blk ret.toOwnedSlice();
+            break :blk try ret.toOwnedSlice();
         },
     };
 }
@@ -238,7 +238,7 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
 fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerceivedHappening) {
     // cache the set of keys so iterator is easier.
     var everybody = try self.allocator.alloc(u32, self.state.individuals.count());
-    for (everybody) |*x, i| {
+    for (everybody, 0..) |*x, i| {
         x.* = self.state.individuals.keys()[i];
     }
     const everybody_including_dead = try self.allocator.dupe(u32, everybody);
@@ -391,7 +391,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 gop.value_ptr.* = 1;
             }
         }
-        for (door_toggles.keys()) |door_position, i| {
+        for (door_toggles.keys(), 0..) |door_position, i| {
             if (door_toggles.values()[i] > 1) continue;
             const cell = self.state.terrain.getCoord(door_position);
             switch (cell.wall) {
@@ -642,7 +642,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         var stop_the_attack = false;
                         for (everybody) |other_id| {
                             const other = self.state.individuals.get(other_id).?;
-                            const other_position_index = blk: for (getAllPositions(&other.abs_position)) |coord, i| {
+                            const other_position_index = blk: for (getAllPositions(&other.abs_position), 0..) |coord, i| {
                                 if (coord.equals(damage_position)) break :blk i;
                             } else {
                                 // Not in this position.
@@ -748,7 +748,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                             // nibbling only works upward.
                             if (!(attacker_physics_layer < other_physics_layer)) continue;
                         }
-                        for (getAllPositions(&other.abs_position)) |coord, i| {
+                        for (getAllPositions(&other.abs_position), 0..) |coord, i| {
                             if (!coord.equals(damage_position)) continue;
                             // hit something.
                             const is_effective = blk: {
@@ -1376,7 +1376,7 @@ fn doMovementAndCollisions(
             }
             const old_position = individual.abs_position;
             const new_position = next_positions.get(id) orelse old_position;
-            for (getAllPositions(&new_position)) |new_coord, i| {
+            for (getAllPositions(&new_position), 0..) |new_coord, i| {
                 const old_coord = getAllPositions(&old_position)[i];
                 const delta = new_coord.minus(old_coord);
                 const gop = try coord_to_collision[physics_layer].getOrPut(new_coord);
@@ -1399,10 +1399,10 @@ fn doMovementAndCollisions(
             for (coord_to_collision[physics_layer].values()) |*collision| {
                 var incoming_vector_set: u9 = 0;
                 if (collision.stationary_id != null) incoming_vector_set |= 1 << 0;
-                for (collision.cardinal_index_to_enterer) |maybe_id, i| {
+                for (collision.cardinal_index_to_enterer, 0..) |maybe_id, i| {
                     if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
                 }
-                for (collision.cardinal_index_to_fast_enterer) |maybe_id, i| {
+                for (collision.cardinal_index_to_fast_enterer, 0..) |maybe_id, i| {
                     if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
                 }
                 if (incoming_vector_set & 1 != 0) {
@@ -1727,7 +1727,7 @@ fn getPerceivedFrame(
 
     return PerceivedFrame{
         .self = perceived_self.?,
-        .others = others.toOwnedSlice(),
+        .others = try others.toOwnedSlice(),
         .terrain = terrain_chunk,
         .completed_levels = self.state.level_number,
     };

@@ -2,7 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const HashMap = std.HashMap;
-const core = @import("../index.zig");
+const core = @import("core");
 const Coord = core.geometry.Coord;
 
 const NewGameSettings = core.protocol.NewGameSettings;
@@ -209,7 +209,7 @@ pub const GameState = struct {
         }
     }
     pub fn undoStateChanges(self: *GameState, state_changes: []const StateDiff) !void {
-        for (state_changes) |_, forwards_i| {
+        for (state_changes, 0..) |_, forwards_i| {
             // undo backwards
             const diff = state_changes[state_changes.len - 1 - forwards_i];
             switch (diff) {

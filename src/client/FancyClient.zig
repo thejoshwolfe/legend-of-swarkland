@@ -15,8 +15,8 @@ pending_forward_actions: usize = 0,
 pending_backward_actions: usize = 0,
 
 const std = @import("std");
-const core = @import("../index.zig");
-const game_server = @import("../server/game_server.zig");
+const core = @import("core");
+const game_server = @import("server");
 const debugPrintAction = game_server.debugPrintAction;
 const Coord = core.geometry.Coord;
 const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
@@ -36,14 +36,14 @@ const cheatcodes = struct {
 };
 const GameEngineClient = @import("game_engine_client.zig").GameEngineClient;
 
-const the_levels = @import("../server/map_gen.zig").the_levels;
+const the_levels = @import("server").the_levels;
 const allocator = std.heap.c_allocator;
 
 const BoolTerrain = core.matrix.SparseChunkedMatrix(bool, false, .{});
 
 pub fn init(client: GameEngineClient) !@This() {
     const moves_per_level = try allocator.alloc(usize, the_levels.len);
-    std.mem.set(usize, moves_per_level, 0);
+    @memset(moves_per_level, 0);
     moves_per_level[0] = 1;
 
     return @This(){
@@ -112,7 +112,7 @@ pub fn beatLevelMacro(self: *@This(), how_many: usize) !void {
             try self.rewind();
         }
     }
-    for (times(how_many)) |_, i| {
+    for (times(how_many), 0..) |_, i| {
         if (data.current_level + i >= cheatcodes.beat_level_actions.len) {
             core.debug.move_counter.print("beat level is stopping at the end of the levels.", .{});
             return;

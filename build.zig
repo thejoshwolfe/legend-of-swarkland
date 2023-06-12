@@ -2,108 +2,151 @@ const std = @import("std");
 const Builder = std.build.Builder;
 
 pub fn build(b: *Builder) void {
-    const build_mode = b.standardReleaseOptions();
+    const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
 
-    const compile_image_commands = [_]*std.build.RunStep{
-        b.addSystemCommand(&[_][]const u8{
-            "./tools/compile_spritesheet.py",
-            "assets/img32/",
-            "--glob=*.png",
-            "--tile-size=32",
-            "--spritesheet-path=zig-cache/spritesheet32_resource",
-            "--defs-path=zig-cache/spritesheet32.zig",
-            "--deps=zig-cache/spritesheet32_resource.d",
-        }),
-        b.addSystemCommand(&[_][]const u8{
-            "./tools/compile_spritesheet.py",
-            "assets/img200/",
-            "--glob=*.png",
-            "--tile-size=200",
-            "--spritesheet-path=zig-cache/spritesheet200_resource",
-            "--defs-path=zig-cache/spritesheet200.zig",
-            "--deps=zig-cache/spritesheet200_resource.d",
-        }),
-        b.addSystemCommand(&[_][]const u8{
-            "./tools/compile_spritesheet.py",
-            "assets/font12x16/",
-            "--glob=*.png",
-            "--slice-tiles=12x16",
-            "--spritesheet-path=zig-cache/fontsheet12x16_resource",
-            "--defs-path=zig-cache/fontsheet12x16.zig",
-            "--deps=zig-cache/fontsheet12x16_resource.d",
-        }),
-        b.addSystemCommand(&[_][]const u8{
-            "./tools/compile_spritesheet.py",
-            "assets/font6x10/",
-            "--glob=*.png",
-            "--slice-tiles=6x10",
-            "--spritesheet-path=zig-cache/fontsheet6x10_resource",
-            "--defs-path=zig-cache/fontsheet6x10.zig",
-            "--deps=zig-cache/fontsheet6x10_resource.d",
-        }),
-        b.addSystemCommand(&[_][]const u8{
-            "python3",
-            "-c",
-            \\import subprocess
-            \\tag_str = subprocess.check_output(["git", "describe", "--tags"]).strip()
-            \\with open("zig-cache/version.txt", "wb") as f:
-            \\    f.write(tag_str)
-        }),
-    };
-    for (compile_image_commands) |compile_image_command| {
-        compile_image_command.setEnvironmentVariable("PYTHONPATH", "deps/simplepng.py/");
-    }
+    const headless_build = make_binary_variant(b, optimize, target, "legend-of-swarkland_headless", true);
+    const gui_build = make_binary_variant(b, optimize, target, "legend-of-swarkland", false);
 
-    const headless_build = make_binary_variant(b, build_mode, target, "legend-of-swarkland_headless", true);
-    const gui_build = make_binary_variant(b, build_mode, target, "legend-of-swarkland", false);
-    for (compile_image_commands) |compile_image_command| {
-        gui_build.dependOn(&compile_image_command.step);
-    }
+    addCompileSpritesheet(b, gui_build, .{
+        .dir = "assets/img32/",
+        .tile_arg = "--tile-size=32",
+        .basename = "spritesheet32",
+        .module_name = "sprites",
+    });
+    addCompileSpritesheet(b, gui_build, .{
+        .dir = "assets/img200/",
+        .tile_arg = "--tile-size=200",
+        .basename = "spritesheet200",
+        .module_name = "large_sprites",
+    });
+    addCompileSpritesheet(b, gui_build, .{
+        .dir = "assets/font12x16/",
+        .tile_arg = "--slice-tiles=12x16",
+        .basename = "fontsheet12x16",
+        .module_name = "fonts12x16",
+    });
+    addCompileSpritesheet(b, gui_build, .{
+        .dir = "assets/font6x10/",
+        .tile_arg = "--slice-tiles=6x10",
+        .basename = "fontsheet6x10",
+        .module_name = "fonts6x10",
+    });
 
-    b.default_step.dependOn(headless_build);
-    b.default_step.dependOn(gui_build);
+    b.installArtifact(headless_build);
+    b.installArtifact(gui_build);
 
     const do_fmt = b.option(bool, "fmt", "zig fmt before building") orelse true;
     if (do_fmt) {
-        const fmt_command = b.addFmt(&[_][]const u8{
-            "build.zig",
-            "src/core",
-            "src/gui",
+        const fmt_command = b.addFmt(.{
+            .paths = &.{
+                "build.zig",
+                "src/core",
+                "src/gui",
+            },
         });
-        headless_build.dependOn(&fmt_command.step);
-        gui_build.dependOn(&fmt_command.step);
+        headless_build.step.dependOn(&fmt_command.step);
+        gui_build.step.dependOn(&fmt_command.step);
     }
+
+    const config = b.addOptions();
+    config.addOption([]const u8, "version", v: {
+        const git_describe_untrimmed = b.exec(&.{
+            "git", "-C", b.build_root.path orelse ".", "describe", "--tags",
+        });
+        break :v std.mem.trim(u8, git_describe_untrimmed, " \n\r");
+    });
+    gui_build.addOptions("config", config);
 }
 
 fn make_binary_variant(
     b: *Builder,
-    build_mode: std.builtin.Mode,
+    optimize: std.builtin.Mode,
     target: std.zig.CrossTarget,
     name: []const u8,
     headless: bool,
-) *std.build.Step {
-    const exe = if (headless) b.addExecutable(name, "src/server/server_main.zig") else b.addExecutable(name, "src/gui/gui_main.zig");
-    exe.setTarget(target);
-    exe.install();
-    exe.addPackagePath("core", "src/index.zig");
+) *std.build.Step.Compile {
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_source_file = .{
+            .path = if (headless) "src/server/server_main.zig" else "src/gui/gui_main.zig",
+        },
+        .target = target,
+        .optimize = optimize,
+    });
+    b.installArtifact(exe);
+
+    const core = b.addModule("core", .{
+        .source_file = .{ .path = "src/index.zig" },
+    });
+    const server = b.addModule("server", .{
+        .source_file = .{ .path = "src/server/game_server.zig" },
+        .dependencies = &.{
+            .{ .name = "core", .module = core },
+        },
+    });
+    const client = b.addModule("client", .{
+        .source_file = .{ .path = "src/client/main.zig" },
+        .dependencies = &.{
+            .{ .name = "core", .module = core },
+            .{ .name = "server", .module = server },
+        },
+    });
+
+    exe.addModule("core", core);
+    exe.addModule("server", server);
+    exe.addModule("client", client);
+
     if (!headless) {
         if ((target.getOsTag() == .windows and target.getAbi() == .gnu) or target.getOsTag() == .macos) {
-            @import("deps/zig-sdl/build.zig").linkArtifact(b, .{
-                .artifact = exe,
-                .prefix = "deps/zig-sdl",
-                .override_mode = .ReleaseFast,
+            const zig_sdl = b.dependency("zig_sdl", .{
+                .target = target,
+                .optimize = .ReleaseFast,
             });
+            exe.linkLibrary(zig_sdl.artifact("SDL2"));
         } else {
             exe.linkSystemLibrary("SDL2");
         }
-        exe.linkSystemLibrary("c");
+        exe.linkLibC();
     } else {
         // TODO: only used for malloc
-        exe.linkSystemLibrary("c");
+        exe.linkLibC();
     }
-    // FIXME: workaround https://github.com/ziglang/zig/issues/855
-    exe.setMainPkgPath(".");
-    exe.setBuildMode(build_mode);
-    return &exe.step;
+    return exe;
+}
+
+const CompileSpritesheetOptions = struct {
+    dir: []const u8,
+    tile_arg: []const u8,
+    basename: []const u8,
+    module_name: []const u8,
+};
+
+fn addCompileSpritesheet(
+    b: *std.Build,
+    gui: *std.Build.Step.Compile,
+    options: CompileSpritesheetOptions,
+) void {
+    const run = b.addSystemCommand(&.{
+        "./tools/compile_spritesheet.py",
+        options.dir,
+        "--glob=*.png",
+        options.tile_arg,
+    });
+
+    run.setEnvironmentVariable("PYTHONPATH", "deps/simplepng.py/");
+
+    const zig_name = b.fmt("{s}.zig", .{options.basename});
+    gui.addAnonymousModule(options.module_name, .{
+        .source_file = run.addPrefixedOutputFileArg("--defs-path=", zig_name),
+        .dependencies = &.{
+            .{
+                .name = "core",
+                .module = gui.modules.get("core").?,
+            },
+        },
+    });
+
+    // TODO add .d file parsing to zig build system
+    // run.addPrefixedDepFileOutputArg("--deps=");
 }

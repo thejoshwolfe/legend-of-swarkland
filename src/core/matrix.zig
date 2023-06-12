@@ -130,7 +130,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
                 if (options.track_dirty_after_clone) {
                     chunk.is_dirty = false;
                 }
-                std.mem.set(T, &chunk.data, default_value);
+                @memset(&chunk.data, default_value);
                 gop.value_ptr.* = chunk;
             }
             const chunk = gop.value_ptr.*;

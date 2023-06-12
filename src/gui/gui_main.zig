@@ -15,8 +15,8 @@ const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const directionToRotation = core.geometry.directionToRotation;
 const deltaToCardinalDirection = core.geometry.deltaToCardinalDirection;
-const GameEngineClient = @import("../client/game_engine_client.zig").GameEngineClient;
-const FancyClient = @import("../client/FancyClient.zig");
+const GameEngineClient = @import("client").GameEngineClient;
+const FancyClient = @import("client").FancyClient;
 const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
@@ -38,7 +38,7 @@ const canCharge = core.game_logic.canCharge;
 const canKick = core.game_logic.canKick;
 const canUseDoors = core.game_logic.canUseDoors;
 
-const the_levels = @import("../server/map_gen.zig").the_levels;
+const the_levels = @import("server").the_levels;
 
 const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 712, .height = 512 });
 
@@ -249,7 +249,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
         var event: sdl.c.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event) != 0) {
-            switch (event.@"type") {
+            switch (event.type) {
                 sdl.c.SDL_QUIT => {
                     core.debug.thread_lifecycle.print("sdl quit", .{});
                     return;
@@ -500,7 +500,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.seek(32, 32);
                 menu_renderer.marginBottom(3);
 
-                for (the_levels[0 .. the_levels.len - 1]) |level, i| {
+                for (the_levels[0 .. the_levels.len - 1], 0..) |level, i| {
                     if (i < save_file.completed_levels) {
                         // Past levels
                         if (menu_renderer.button(level.name)) {
@@ -1658,7 +1658,7 @@ fn loadAnimations(animations: *?Animations, frames: []PerceivedFrame, now: i32) 
         animations.*.?.speedUp(now);
     }
     var have_previous_frame = animations.*.?.frames.items.len > 0;
-    for (frames) |frame, i| {
+    for (frames, 0..) |frame, i| {
         if (have_previous_frame and i < frames.len - 1) {
             // try compressing the new frame into the previous one.
             if (try tryCompressingFrames(lastPtr(animations.*.?.frames.items), frame)) {
@@ -1682,14 +1682,14 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
     // The order of frame.others is not meaningful, so we need to derrive continuity ourselves,
     // which is intentionally not possible sometimes.
     const others_mapping = try allocator.alloc(usize, base_frame.others.len);
-    for (base_frame.others) |base_other, i| {
+    for (base_frame.others, 0..) |base_other, i| {
         var new_position = base_other.position;
         if (base_other.kind == .individual) {
             new_position = core.game_logic.applyMovementFromActivity(base_other.kind.individual.activity, new_position);
         }
 
         var mapped_index: ?usize = null;
-        for (patch_frame.others) |patch_other, j| {
+        for (patch_frame.others, 0..) |patch_other, j| {
             // Are these the same person?
             const could_be = blk: {
                 if (!core.game_logic.positionEquals(
@@ -1736,7 +1736,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
         core.debug.animation_compression.print("NOPE: self doing two different things.", .{});
         return false;
     }
-    for (base_frame.others) |base_other, i| {
+    for (base_frame.others, 0..) |base_other, i| {
         if (base_other.kind != .individual) continue;
         const patch_other = patch_frame.others[others_mapping[i]];
         if (base_other.kind.individual.activity != .none and patch_other.kind.individual.activity != .none) {
@@ -1747,7 +1747,7 @@ fn tryCompressingFrames(base_frame: *PerceivedFrame, patch_frame: PerceivedFrame
 
     compressPerceivedThings(&base_frame.self, patch_frame.self);
     core.debug.animation_compression.print("...compressing...", .{});
-    for (base_frame.others) |*base_other, i| {
+    for (base_frame.others, 0..) |*base_other, i| {
         const patch_other = patch_frame.others[others_mapping[i]];
         compressPerceivedThings(base_other, patch_other);
     }

@@ -72,7 +72,7 @@ pub const InputEngine = struct {
     }
 
     pub fn handleEvent(self: *InputEngine, event: sdl.c.SDL_Event) ?Button {
-        switch (event.@"type") {
+        switch (event.type) {
             sdl.c.SDL_KEYUP => {
                 return null;
             },

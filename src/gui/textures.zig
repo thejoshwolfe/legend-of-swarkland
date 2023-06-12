@@ -5,12 +5,12 @@ const Rect = core.geometry.Rect;
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 
-pub const version_string = @embedFile("../../zig-cache/version.txt");
+pub const version_string = @import("config").version;
 
-pub const sprites = @import("../../zig-cache/spritesheet32.zig");
-pub const large_sprites = @import("../../zig-cache/spritesheet200.zig");
-pub const fonts12x16 = @import("../../zig-cache/fontsheet12x16.zig");
-pub const fonts6x10 = @import("../../zig-cache/fontsheet6x10.zig");
+pub const sprites = @import("sprites");
+pub const large_sprites = @import("large_sprites");
+pub const fonts12x16 = @import("fonts12x16");
+pub const fonts6x10 = @import("fonts6x10");
 
 var sprites_texture: *sdl.c.SDL_Texture = undefined;
 var large_sprites_texture: *sdl.c.SDL_Texture = undefined;

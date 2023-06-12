@@ -87,7 +87,7 @@ pub fn unnameThisThread() void {
     mutex.lock();
     defer mutex.unlock();
     const me = std.Thread.getCurrentId();
-    for (thread_names.items) |it, i| {
+    for (thread_names.items, 0..) |it, i| {
         if (it.thread_id == me) {
             _ = thread_names.swapRemove(i);
             return;
@@ -145,7 +145,7 @@ fn deepPrintImpl(prefix: []const u8, something: anytype) void {
                 .Struct => |StructT| {
                     const multiline = @sizeOf(T) >= 12;
                     std.debug.print(".{{", .{});
-                    inline for (StructT.fields) |field, i| {
+                    inline for (StructT.fields, 0..) |field, i| {
                         if (i > 0) {
                             if (!multiline) {
                                 std.debug.print(", ", .{});

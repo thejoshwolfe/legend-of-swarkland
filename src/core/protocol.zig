@@ -359,7 +359,7 @@ pub fn OutChannel(comptime Writer: type) type {
                     inline for (info.fields) |u_field| {
                         if (tag == @field(T, u_field.name)) {
                             // FIXME: this `if` is because inferred error sets require at least one error.
-                            return if (u_field.field_type != void) {
+                            return if (u_field.type != void) {
                                 try self.write(@field(x, u_field.name));
                             };
                         }
@@ -380,7 +380,7 @@ pub fn OutChannel(comptime Writer: type) type {
 
         pub fn writeInt(self: Self, x: anytype) !void {
             const int_info = @typeInfo(@TypeOf(x)).Int;
-            const T_aligned = @Type(std.builtin.TypeInfo{
+            const T_aligned = @Type(std.builtin.Type{
                 .Int = .{
                     .signedness = int_info.signedness,
                     .bits = @divTrunc(int_info.bits + 7, 8) * 8,
@@ -415,7 +415,7 @@ pub fn InChannel(comptime Reader: type) type {
                 .Struct => |info| {
                     var x: T = undefined;
                     inline for (info.fields) |field| {
-                        @field(x, field.name) = try self.read(field.field_type);
+                        @field(x, field.name) = try self.read(field.type);
                     }
                     return x;
                 },
@@ -444,7 +444,7 @@ pub fn InChannel(comptime Reader: type) type {
                     inline for (info.fields) |u_field| {
                         if (tag == @field(T, u_field.name)) {
                             // FIXME: this `if` is because inferred error sets require at least one error.
-                            return @unionInit(T, u_field.name, if (u_field.field_type == void) {} else try self.read(u_field.field_type));
+                            return @unionInit(T, u_field.name, if (u_field.type == void) {} else try self.read(u_field.type));
                         }
                     }
                     unreachable;
@@ -460,7 +460,7 @@ pub fn InChannel(comptime Reader: type) type {
 
         pub fn readInt(self: Self, comptime T: type) !T {
             const int_info = @typeInfo(T).Int;
-            const T_aligned = @Type(std.builtin.TypeInfo{
+            const T_aligned = @Type(std.builtin.Type{
                 .Int = .{
                     .signedness = int_info.signedness,
                     .bits = @divTrunc(int_info.bits + 7, 8) * 8,

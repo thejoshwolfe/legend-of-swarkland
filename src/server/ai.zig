@@ -1,5 +1,5 @@
 const std = @import("std");
-const core = @import("../index.zig");
+const core = @import("core");
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
 const sign = core.geometry.sign;

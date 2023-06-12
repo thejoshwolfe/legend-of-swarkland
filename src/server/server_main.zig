@@ -1,6 +1,6 @@
 const std = @import("std");
 const core = @import("core");
-const game_server = @import("game_server.zig");
+const game_server = @import("server");
 const SomeQueues = core.protocol.SomeQueues;
 const Socket = core.protocol.Socket;
 const Request = core.protocol.Request;
