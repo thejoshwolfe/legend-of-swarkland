@@ -108,11 +108,11 @@ pub fn beatLevelMacro(self: *@This(), how_many: usize) !void {
     const data = self.getMoveCounterInfo();
     if (data.moves_into_current_level > 0) {
         core.debug.move_counter.print("beat level is restarting first with {} undos.", .{data.moves_into_current_level});
-        for (times(data.moves_into_current_level)) |_| {
+        for (0..data.moves_into_current_level) |_| {
             try self.rewind();
         }
     }
-    for (times(how_many), 0..) |_, i| {
+    for (0..how_many) |i| {
         if (data.current_level + i >= cheatcodes.beat_level_actions.len) {
             core.debug.move_counter.print("beat level is stopping at the end of the levels.", .{});
             return;
@@ -123,11 +123,11 @@ pub fn beatLevelMacro(self: *@This(), how_many: usize) !void {
     }
 }
 pub fn unbeatLevelMacro(self: *@This(), how_many: usize) !void {
-    for (times(how_many)) |_| {
+    for (0..how_many) |_| {
         const data = self.getMoveCounterInfo();
         if (data.moves_into_current_level > 0) {
             core.debug.move_counter.print("unbeat level is restarting first with {} undos.", .{data.moves_into_current_level});
-            for (times(data.moves_into_current_level)) |_| {
+            for (0..data.moves_into_current_level) |_| {
                 try self.rewind();
             }
         } else if (data.current_level <= self.starting_level) {
@@ -137,7 +137,7 @@ pub fn unbeatLevelMacro(self: *@This(), how_many: usize) !void {
             const unbeat_level = data.current_level - 1;
             const moves_counter = self.moves_per_level[unbeat_level];
             core.debug.move_counter.print("unbeat level is undoing level {} with {} undos.", .{ unbeat_level, moves_counter });
-            for (times(moves_counter)) |_| {
+            for (0..moves_counter) |_| {
                 try self.rewind();
             }
         }
@@ -147,7 +147,7 @@ pub fn unbeatLevelMacro(self: *@This(), how_many: usize) !void {
 pub fn restartLevel(self: *@This()) !void {
     const data = self.getMoveCounterInfo();
     core.debug.move_counter.print("restarting is undoing {} times.", .{data.moves_into_current_level});
-    for (times(data.moves_into_current_level)) |_| {
+    for (0..data.moves_into_current_level) |_| {
         try self.rewind();
     }
 }
@@ -270,10 +270,6 @@ fn updateRememberedTerrain(self: *@This(), frame: PerceivedFrame) !void {
 
 fn last(arr: anytype) @TypeOf(arr[arr.len - 1]) {
     return arr[arr.len - 1];
-}
-
-fn times(n: usize) []const void {
-    return @as([(1 << (@sizeOf(usize) * 8) - 1)]void, undefined)[0..n];
 }
 
 fn terrainSpaceEquals(a: TerrainSpace, b: TerrainSpace) bool {
