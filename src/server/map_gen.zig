@@ -431,7 +431,7 @@ pub fn generateRegular(game_state: *GameState) !void {
         // path to desert
         var opening = makeCoord(
             forest_rect.right() + 1,
-            r.intRangeAtMost(i32, std.math.max(forest_rect.y, desert_rect.y) + 1, std.math.min(forest_rect.bottom(), desert_rect.bottom()) - 1),
+            r.intRangeAtMost(i32, @max(forest_rect.y, desert_rect.y) + 1, @min(forest_rect.bottom(), desert_rect.bottom()) - 1),
         );
         try terrain.put(opening.x - 1, opening.y, TerrainSpace{
             .floor = .dirt,
@@ -1108,8 +1108,8 @@ const Level = struct {
 };
 fn compileLevel(name: []const u8, comptime options: Options, comptime source: []const u8) Level {
     // measure dimensions.
-    const width = @intCast(u16, std.mem.indexOfScalar(u8, source, '\n').?);
-    const height = @intCast(u16, @divExact(source.len + 1, width + 1));
+    const width = @as(u16, @intCast(std.mem.indexOfScalar(u8, source, '\n').?));
+    const height = @as(u16, @intCast(@divExact(source.len + 1, width + 1)));
     var terrain = [_]TerrainSpace{oob_terrain} ** (width * height);
     comptime var level = Level{
         .width = width,
@@ -1217,7 +1217,7 @@ fn buildTheTerrain(terrain: *Terrain) !void {
     var height: u16 = 1;
     for (the_levels) |level| {
         width += level.width;
-        height = std.math.max(height, level.height);
+        height = @max(height, level.height);
     }
 
     var level_x: u16 = 0;

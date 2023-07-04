@@ -87,7 +87,7 @@ pub fn main() anyerror!void {
     {
         var renderer_info: sdl.c.SDL_RendererInfo = undefined;
         sdl.assertZero(sdl.c.SDL_GetRendererInfo(renderer, &renderer_info));
-        if (renderer_info.flags & @bitCast(u32, sdl.c.SDL_RENDERER_TARGETTEXTURE) == 0) {
+        if (renderer_info.flags & @as(u32, @bitCast(sdl.c.SDL_RENDERER_TARGETTEXTURE)) == 0) {
             std.debug.panic("rendering to a temporary texture is not supported", .{});
         }
     }
@@ -180,7 +180,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
 
     main_loop: while (true) {
         // TODO: use better source of time (that doesn't crash after running for a month)
-        const now = @intCast(i32, sdl.c.SDL_GetTicks());
+        const now = @as(i32, @intCast(sdl.c.SDL_GetTicks()));
         switch (game_state) {
             .main_menu => |*menu_state| {
                 menu_state.beginFrame();
@@ -833,9 +833,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                     var unequipped = equipment.held & ~equipment.equipped;
                     var cursor_x = inventory_coord.x;
                     while (unequipped != 0) {
-                        const item_int = @intCast(@TypeOf(@enumToInt(@as(EquippedItem, undefined))), @ctz(unequipped));
+                        const item_int = @as(@TypeOf(@intFromEnum(@as(EquippedItem, undefined))), @intCast(@ctz(unequipped)));
                         unequipped &= ~(@as(@TypeOf(unequipped), 1) << item_int);
-                        const item = @intToEnum(EquippedItem, item_int);
+                        const item = @as(EquippedItem, @enumFromInt(item_int));
 
                         textures.renderSprite(renderer, switch (item) {
                             .shield => textures.sprites.shield,
@@ -960,17 +960,17 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             sdl.assertZero(sdl.c.SDL_SetRenderTarget(renderer, null));
             sdl.assertZero(sdl.c.SDL_GetRendererOutputSize(renderer, &output_rect.w, &output_rect.h));
             // preserve aspect ratio
-            const source_aspect_ratio = comptime @intToFloat(f32, logical_window_size.w) / @intToFloat(f32, logical_window_size.h);
-            const dest_aspect_ratio = @intToFloat(f32, output_rect.w) / @intToFloat(f32, output_rect.h);
+            const source_aspect_ratio = comptime @as(f32, @floatFromInt(logical_window_size.w)) / @as(f32, @floatFromInt(logical_window_size.h));
+            const dest_aspect_ratio = @as(f32, @floatFromInt(output_rect.w)) / @as(f32, @floatFromInt(output_rect.h));
             if (source_aspect_ratio > dest_aspect_ratio) {
                 // use width
-                const new_height = @floatToInt(c_int, @intToFloat(f32, output_rect.w) / source_aspect_ratio);
+                const new_height = @as(c_int, @intFromFloat(@as(f32, @floatFromInt(output_rect.w)) / source_aspect_ratio));
                 output_rect.x = 0;
                 output_rect.y = @divTrunc(output_rect.h - new_height, 2);
                 output_rect.h = new_height;
             } else {
                 // use height
-                const new_width = @floatToInt(c_int, @intToFloat(f32, output_rect.h) * source_aspect_ratio);
+                const new_width = @as(c_int, @intFromFloat(@as(f32, @floatFromInt(output_rect.h)) * source_aspect_ratio));
                 output_rect.x = @divTrunc(output_rect.w - new_width, 2);
                 output_rect.y = 0;
                 output_rect.w = new_width;
@@ -1347,13 +1347,13 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
                             // whooshes
                             const impact_render_position = render_position.plus(data.direction.scaled(32));
                             for ([_]core.geometry.CardinalDirection{ .east, .south, .west, .north }) |dir| {
-                                if (@enumToInt(dir) +% 2 == @enumToInt(deltaToCardinalDirection(data.direction))) continue;
+                                if (@intFromEnum(dir) +% 2 == @intFromEnum(deltaToCardinalDirection(data.direction))) continue;
                                 const offset = core.geometry.cardinalDirectionToDelta(dir).scaled(@divTrunc(32 * progress, progress_denominator));
                                 textures.renderSpriteRotated45Degrees(
                                     renderer,
                                     textures.sprites.whoosh,
                                     impact_render_position.plus(offset),
-                                    @as(u3, @enumToInt(dir)) * 2,
+                                    @as(u3, @intFromEnum(dir)) * 2,
                                 );
                             }
                         }
@@ -1484,11 +1484,11 @@ fn renderActivity(renderer: *sdl.Renderer, progress: i32, progress_denominator: 
 }
 
 fn selectAnimatedFrame(sprites: []const Rect, progress: i32, progress_denominator: i32) Rect {
-    const sprite_index = @intCast(usize, @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator));
+    const sprite_index = @as(usize, @intCast(@divTrunc(progress * @as(i32, @intCast(sprites.len)), progress_denominator)));
     return sprites[sprite_index];
 }
 fn selectAnimatedFrameBoomerang(sprites: []const Rect, progress: i32, progress_denominator: i32) Rect {
-    const sprite_index = @intCast(usize, @divTrunc(progress * @intCast(i32, sprites.len), progress_denominator)) % (sprites.len * 2);
+    const sprite_index = @as(usize, @intCast(@divTrunc(progress * @as(i32, @intCast(sprites.len)), progress_denominator))) % (sprites.len * 2);
     if (sprite_index >= sprites.len) {
         // backwards
         return sprites[sprites.len * 2 - 1 - sprite_index];
@@ -1526,11 +1526,11 @@ fn selectAestheticBiasedLow(array: []const Rect, seed: u32, coord: Coord, bias: 
 
 fn hashCoordToRange(less_than_this: usize, seed: u32, coord: Coord) usize {
     var hash = seed;
-    hash ^= @bitCast(u32, coord.x);
+    hash ^= @as(u32, @bitCast(coord.x));
     hash = hashU32(hash);
-    hash ^= @bitCast(u32, coord.y);
+    hash ^= @as(u32, @bitCast(coord.y));
     hash = hashU32(hash);
-    return std.rand.limitRangeBiased(u32, hash, @intCast(u32, less_than_this));
+    return std.rand.limitRangeBiased(u32, hash, @as(u32, @intCast(less_than_this)));
 }
 
 fn hashU32(input: u32) u32 {
@@ -1599,17 +1599,17 @@ const Animations = struct {
 
     const SomeData = struct { frame_index: usize, progress: i32, time_per_frame: i32 };
     pub fn frameAtTime(self: @This(), now: i32) ?SomeData {
-        const animation_time = @bitCast(u32, now -% self.start_time);
-        const index = @divFloor(animation_time, @intCast(u32, self.time_per_frame));
+        const animation_time = @as(u32, @bitCast(now -% self.start_time));
+        const index = @divFloor(animation_time, @as(u32, @intCast(self.time_per_frame)));
         if (index >= self.last_turn_first_frame) {
             // Always show the last turn of animations slowly.
-            const time_since_turn = animation_time - @intCast(u32, self.time_per_frame) * @intCast(u32, self.last_turn_first_frame);
+            const time_since_turn = animation_time - @as(u32, @intCast(self.time_per_frame)) * @as(u32, @intCast(self.last_turn_first_frame));
             const adjusted_index = self.last_turn_first_frame + @divFloor(time_since_turn, slow_animation_speed);
             if (adjusted_index >= self.frames.items.len - 1) {
                 // The last frame is always everyone standing still.
                 return null;
             }
-            const progress = @intCast(i32, time_since_turn - (adjusted_index - self.last_turn_first_frame) * slow_animation_speed);
+            const progress = @as(i32, @intCast(time_since_turn - (adjusted_index - self.last_turn_first_frame) * slow_animation_speed));
             return SomeData{
                 .frame_index = adjusted_index,
                 .progress = progress,
@@ -1619,7 +1619,7 @@ const Animations = struct {
             // The last frame is always everyone standing still.
             return null;
         } else {
-            const progress = @intCast(i32, animation_time - index * @intCast(u32, self.time_per_frame));
+            const progress = @as(i32, @intCast(animation_time - index * @as(u32, @intCast(self.time_per_frame))));
             return SomeData{
                 .frame_index = index,
                 .progress = progress,
@@ -1638,7 +1638,7 @@ const Animations = struct {
             self.time_per_frame = fast_animation_speed;
         } else return;
         self.start_time = now - ( //
-            self.time_per_frame * @intCast(i32, data.frame_index) + //
+            self.time_per_frame * @as(i32, @intCast(data.frame_index)) + //
             @divFloor(data.progress * self.time_per_frame, old_time_per_frame) //
         );
     }
@@ -1829,9 +1829,9 @@ fn renderSpriteSwing(
 ) void {
     const s_mid = @divFloor(max_s, 2);
     const flip = textures.Flip.none;
-    var degrees = @intToFloat(f64, rotation_45_degrees +% normalizing_rotation_45_degrees) * 45.0;
+    var degrees = @as(f64, @floatFromInt(rotation_45_degrees +% normalizing_rotation_45_degrees)) * 45.0;
     if (s < s_mid) {
-        degrees -= 45.0 * (1.0 - @intToFloat(f64, s) / @intToFloat(f64, s_mid));
+        degrees -= 45.0 * (1.0 - @as(f64, @floatFromInt(s)) / @as(f64, @floatFromInt(s_mid)));
     }
 
     const sprite_location = wielder_location.minus(local_center).plus(switch (rotation_45_degrees) {

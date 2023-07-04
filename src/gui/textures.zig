@@ -53,7 +53,7 @@ fn loadTexture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height: 
     }
 
     const pitch = width * 4;
-    if (sdl.c.SDL_UpdateTexture(texture, 0, @ptrCast(?*const anyopaque, buffer.ptr), pitch) != 0) {
+    if (sdl.c.SDL_UpdateTexture(texture, 0, @as(?*const anyopaque, @ptrCast(buffer.ptr)), pitch) != 0) {
         std.debug.panic("SDL_UpdateTexture failed: {s}\n", .{sdl.c.SDL_GetError()});
     }
 
@@ -119,7 +119,7 @@ pub fn renderSpriteScaled(renderer: *sdl.Renderer, sprite: Rect, dest: Rect) voi
     sdl.assertZero(sdl.SDL_RenderCopy(renderer, sprites_texture, &source_sdl, &dest_sdl));
 }
 pub fn renderSpriteRotated45Degrees(renderer: *sdl.Renderer, sprite: Rect, location: Coord, rotation: u3) void {
-    const degrees = @intToFloat(f64, rotation) * 45.0;
+    const degrees = @as(f64, @floatFromInt(rotation)) * 45.0;
     return renderSpriteRotatedFlipped(renderer, sprite, location, degrees, null, .none);
 }
 

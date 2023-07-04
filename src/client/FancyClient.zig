@@ -246,9 +246,9 @@ fn updateRememberedTerrain(self: *@This(), frame: PerceivedFrame) !void {
     var y = frame.terrain.position.y;
     while (y < frame.terrain.position.y + frame.terrain.height) : (y += 1) {
         var x = frame.terrain.position.x;
-        const inner_y = @intCast(u16, y - frame.terrain.position.y);
+        const inner_y = @as(u16, @intCast(y - frame.terrain.position.y));
         while (x < frame.terrain.position.x + frame.terrain.width) : (x += 1) {
-            const inner_x = @intCast(u16, x - frame.terrain.position.x);
+            const inner_x = @as(u16, @intCast(x - frame.terrain.position.x));
             const cell = frame.terrain.matrix[inner_y * frame.terrain.width + inner_x];
             if (terrainSpaceEquals(cell, unseen_terrain)) continue;
             const cell_ptr = try self.remembered_terrain.getOrPut(x, y);

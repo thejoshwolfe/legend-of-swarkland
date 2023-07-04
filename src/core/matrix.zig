@@ -96,7 +96,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
                 .x = x >> chunk_shift,
                 .y = y >> chunk_shift,
             };
-            const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
+            const inner_index = @as(usize, @intCast((y & chunk_mask) * chunk_side_length + (x & chunk_mask)));
 
             if (self.chunks.count() == 0) {
                 // first put
@@ -156,7 +156,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
                 .x = x >> chunk_shift,
                 .y = y >> chunk_shift,
             };
-            const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
+            const inner_index = @as(usize, @intCast((y & chunk_mask) * chunk_side_length + (x & chunk_mask)));
             // check the lru cache
             if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
                 return self.last_chunk.?.data[inner_index];
@@ -177,7 +177,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
                 .x = x >> chunk_shift,
                 .y = y >> chunk_shift,
             };
-            const inner_index = @intCast(usize, (y & chunk_mask) * chunk_side_length + (x & chunk_mask));
+            const inner_index = @as(usize, @intCast((y & chunk_mask) * chunk_side_length + (x & chunk_mask)));
 
             // check the lru cache
             if (self.last_chunk != null and self.last_chunk_coord.equals(chunk_coord)) {
@@ -201,8 +201,8 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
         pub fn chunkCoordAndInnerIndexToCoord(chunk_coord: Coord, inner_index: usize) Coord {
             assert(inner_index < chunk_side_length * chunk_side_length);
             return Coord{
-                .x = (chunk_coord.x << chunk_shift) | (@intCast(i32, inner_index) & chunk_mask),
-                .y = (chunk_coord.y << chunk_shift) | (@intCast(i32, inner_index) >> chunk_shift),
+                .x = (chunk_coord.x << chunk_shift) | (@as(i32, @intCast(inner_index)) & chunk_mask),
+                .y = (chunk_coord.y << chunk_shift) | (@as(i32, @intCast(inner_index)) >> chunk_shift),
             };
         }
     };

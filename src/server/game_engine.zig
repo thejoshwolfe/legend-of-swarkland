@@ -651,7 +651,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
 
                             const is_shielding = blk: {
                                 if (defends.get(other_id)) |direction| {
-                                    break :blk (@enumToInt(direction) +% 2 == @enumToInt(attack_direction));
+                                    break :blk (@intFromEnum(direction) +% 2 == @intFromEnum(attack_direction));
                                 } else break :blk false;
                             };
 
@@ -702,7 +702,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         if (attack_function == .smash) {
                             // whoosh effects push people around.
                             for ([_]core.geometry.CardinalDirection{ .east, .south, .west, .north }) |whoosh_dir| {
-                                if (@enumToInt(whoosh_dir) +% 2 == @enumToInt(attack_direction)) continue;
+                                if (@intFromEnum(whoosh_dir) +% 2 == @intFromEnum(attack_direction)) continue;
                                 const whoosh_delta = cardinalDirectionToDelta(whoosh_dir);
                                 const whoosh_coord = damage_position.plus(whoosh_delta);
                                 for (everybody) |other_id| {
@@ -1387,9 +1387,9 @@ fn doMovementAndCollisions(
                 if (delta.equals(zero_vector)) {
                     collision.stationary_id = id;
                 } else if (isOrthogonalUnitVector(delta)) {
-                    collision.cardinal_index_to_enterer[@enumToInt(deltaToCardinalDirection(delta))] = id;
+                    collision.cardinal_index_to_enterer[@intFromEnum(deltaToCardinalDirection(delta))] = id;
                 } else if (isOrthogonalVectorOfMagnitude(delta, 2)) {
-                    collision.cardinal_index_to_fast_enterer[@enumToInt(deltaToCardinalDirection(delta.scaledDivTrunc(2)))] = id;
+                    collision.cardinal_index_to_fast_enterer[@intFromEnum(deltaToCardinalDirection(delta.scaledDivTrunc(2)))] = id;
                 } else unreachable;
             }
         }
@@ -1400,18 +1400,18 @@ fn doMovementAndCollisions(
                 var incoming_vector_set: u9 = 0;
                 if (collision.stationary_id != null) incoming_vector_set |= 1 << 0;
                 for (collision.cardinal_index_to_enterer, 0..) |maybe_id, i| {
-                    if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @intCast(u2, i)));
+                    if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (1 + @as(u4, @as(u2, @intCast(i))));
                 }
                 for (collision.cardinal_index_to_fast_enterer, 0..) |maybe_id, i| {
-                    if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @intCast(u2, i)));
+                    if (maybe_id != null) incoming_vector_set |= @as(u9, 1) << (5 + @as(u4, @as(u2, @intCast(i))));
                 }
                 if (incoming_vector_set & 1 != 0) {
                     // Stationary entities always win.
                     collision.winner_id = collision.stationary_id;
-                } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b111100000) >> 5))) |index| {
+                } else if (cardinalIndexBitSetToCollisionWinnerIndex(@as(u4, @intCast((incoming_vector_set & 0b111100000) >> 5)))) |index| {
                     // fast bois beat slow bois.
                     collision.winner_id = collision.cardinal_index_to_fast_enterer[index].?;
-                } else if (cardinalIndexBitSetToCollisionWinnerIndex(@intCast(u4, (incoming_vector_set & 0b11110) >> 1))) |index| {
+                } else if (cardinalIndexBitSetToCollisionWinnerIndex(@as(u4, @intCast((incoming_vector_set & 0b11110) >> 1)))) |index| {
                     // a slow boi wins.
                     collision.winner_id = collision.cardinal_index_to_enterer[index].?;
                 } else {
@@ -1734,8 +1734,8 @@ fn getPerceivedFrame(
 }
 
 fn exportTerrain(self: *GameEngine, terrain: *PerceivedTerrain) !TerrainChunk {
-    const width = @intCast(u16, terrain.metrics.max_x - terrain.metrics.min_x + 1);
-    const height = @intCast(u16, terrain.metrics.max_y - terrain.metrics.min_y + 1);
+    const width = @as(u16, @intCast(terrain.metrics.max_x - terrain.metrics.min_x + 1));
+    const height = @as(u16, @intCast(terrain.metrics.max_y - terrain.metrics.min_y + 1));
     var terrain_chunk = core.protocol.TerrainChunk{
         .position = makeCoord(terrain.metrics.min_x, terrain.metrics.min_y),
         .width = width,
@@ -1745,10 +1745,10 @@ fn exportTerrain(self: *GameEngine, terrain: *PerceivedTerrain) !TerrainChunk {
 
     var y = terrain.metrics.min_y;
     while (y <= terrain.metrics.max_y) : (y += 1) {
-        const inner_y = @intCast(u16, y - terrain.metrics.min_y);
+        const inner_y = @as(u16, @intCast(y - terrain.metrics.min_y));
         var x = terrain.metrics.min_x;
         while (x <= terrain.metrics.max_x) : (x += 1) {
-            const inner_x = @intCast(u16, x - terrain.metrics.min_x);
+            const inner_x = @as(u16, @intCast(x - terrain.metrics.min_x));
             terrain_chunk.matrix[inner_y * width + inner_x] = terrain.get(x, y);
         }
     }
@@ -1857,7 +1857,7 @@ fn getLevelTransitionBoundingBox(current_level_number: usize) ?Rect {
     const width = //
         the_levels[current_level_number].width + //
         the_levels[current_level_number + 1].width;
-    const height = std.math.max(
+    const height = @max(
         the_levels[current_level_number].width,
         the_levels[current_level_number + 1].width,
     );
@@ -1905,7 +1905,7 @@ fn isClearLineOfSightOneSided(terrain: *Terrain, a: Coord, b: Coord) bool {
 }
 
 fn findAvailableId(self: *GameEngine) u32 {
-    var cursor: u32 = @intCast(u32, self.state.individuals.count());
+    var cursor: u32 = @as(u32, @intCast(self.state.individuals.count()));
     while (self.state.individuals.contains(cursor)) {
         cursor += 1;
     }

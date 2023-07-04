@@ -203,7 +203,7 @@ pub fn getNaiveAiDecision(last_frame: PerceivedFrame) Action {
             break :blk 1;
         } else {
             // exactly diagonal. let's say that clockwise is longer.
-            break :blk @boolToInt(delta.x != delta.y);
+            break :blk @intFromBool(delta.x != delta.y);
         }
     };
     // Archers want to line up for a shot; melee wants to avoid lining up for a shot.
@@ -365,7 +365,7 @@ fn distanceTo(coord: Coord, me: PerceivedThing) i32 {
         // measure distance from whichever of my coords is closer.
         const distance0 = coord.minus(me.position.large[0]).magnitudeOrtho();
         const distance1 = coord.minus(me.position.large[1]).magnitudeOrtho();
-        return std.math.min(distance0, distance1);
+        return @min(distance0, distance1);
     } else {
         // See with my head.
         return coord.minus(getHeadPosition(me.position)).magnitudeOrtho();

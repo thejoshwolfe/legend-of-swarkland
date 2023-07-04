@@ -561,5 +561,5 @@ pub fn terrainAtInner(terrain: TerrainChunk, inner_coord: Coord) ?TerrainSpace {
     {
         return null;
     }
-    return terrain.matrix[@intCast(usize, inner_coord.y * terrain.width + inner_coord.x)];
+    return terrain.matrix[@as(usize, @intCast(inner_coord.y * terrain.width + inner_coord.x))];
 }

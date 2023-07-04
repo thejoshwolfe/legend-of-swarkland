@@ -98,7 +98,7 @@ pub fn isOrthogonalVectorOfMagnitude(direction: Coord, scale: i32) bool {
 /// representing the number of 45 degree clockwise turns from right.
 /// assert(isOrthogonalUnitVector(direction)).
 pub fn directionToRotation(direction: Coord) u3 {
-    return @as(u3, @enumToInt(deltaToCardinalDirection(direction))) * 2;
+    return @as(u3, @intFromEnum(deltaToCardinalDirection(direction))) * 2;
 }
 
 pub const CardinalDirection = enum(u2) {

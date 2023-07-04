@@ -194,16 +194,16 @@ pub const Equipment = struct {
     const DataInt = std.meta.Int(.unsigned, std.meta.fields(EquippedItem).len);
 
     pub fn is_held(self: Equipment, item: EquippedItem) bool {
-        const bit = @as(DataInt, 1) << @enumToInt(item);
+        const bit = @as(DataInt, 1) << @intFromEnum(item);
         return self.held & bit != 0;
     }
     pub fn is_equipped(self: Equipment, item: EquippedItem) bool {
-        const bit = @as(DataInt, 1) << @enumToInt(item);
+        const bit = @as(DataInt, 1) << @intFromEnum(item);
         return self.equipped & bit != 0;
     }
     pub fn set(self: *Equipment, item: EquippedItem, held: bool, equipped: bool) void {
         std.debug.assert(!(equipped and !held)); // equipped is a subset of held.
-        const bit = @as(DataInt, 1) << @enumToInt(item);
+        const bit = @as(DataInt, 1) << @intFromEnum(item);
         if (held) {
             self.held |= bit;
         } else {
@@ -320,8 +320,8 @@ pub fn OutChannel(comptime Writer: type) type {
             const T = @TypeOf(x);
             switch (@typeInfo(T)) {
                 .Int => return self.writeInt(x),
-                .Bool => return self.writeInt(@boolToInt(x)),
-                .Enum => return self.writeInt(@enumToInt(x)),
+                .Bool => return self.writeInt(@intFromBool(x)),
+                .Enum => return self.writeInt(@intFromEnum(x)),
                 .Struct => |info| {
                     inline for (info.fields) |field| {
                         try self.write(@field(x, field.name));
@@ -355,7 +355,7 @@ pub fn OutChannel(comptime Writer: type) type {
                 },
                 .Union => |info| {
                     const tag = @as(info.tag_type.?, x);
-                    try self.writeInt(@enumToInt(tag));
+                    try self.writeInt(@intFromEnum(tag));
                     inline for (info.fields) |u_field| {
                         if (tag == @field(T, u_field.name)) {
                             // FIXME: this `if` is because inferred error sets require at least one error.
@@ -411,7 +411,7 @@ pub fn InChannel(comptime Reader: type) type {
             switch (@typeInfo(T)) {
                 .Int => return self.readInt(T),
                 .Bool => return 0 != try self.readInt(u1),
-                .Enum => return @intToEnum(T, try self.readInt(std.meta.Tag(T))),
+                .Enum => return @as(T, @enumFromInt(try self.readInt(std.meta.Tag(T)))),
                 .Struct => |info| {
                     var x: T = undefined;
                     inline for (info.fields) |field| {
@@ -604,7 +604,7 @@ test "channel" {
     _out_stream.reset();
     _in_stream.pos = 0;
     try out_channel.write(Wall.stone);
-    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{@enumToInt(Wall.stone)}));
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{@intFromEnum(Wall.stone)}));
     try std.testing.expect(Wall.stone == try in_channel.read(Wall));
 
     // bool
@@ -650,7 +650,7 @@ test "channel" {
     _out_stream.reset();
     _in_stream.pos = 0;
     try out_channel.write(PerceivedActivity{ .movement = Coord{ .x = 3, .y = -4 } });
-    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{@enumToInt(PerceivedActivity.movement)} ++ &[_]u8{
+    try std.testing.expect(std.mem.eql(u8, _out_stream.getWritten(), &[_]u8{@intFromEnum(PerceivedActivity.movement)} ++ &[_]u8{
         3,    0,    0,    0,
         0xfc, 0xff, 0xff, 0xff,
     }));
