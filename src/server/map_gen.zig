@@ -752,8 +752,8 @@ pub fn generatePuzzleLevels(game_state: *GameState) !void {
 
     // start level 0
 
-    // human is always id 1
-    var non_human_id_cursor: u32 = 2;
+    // human is always id 1. (and dagger is id 2)
+    var non_human_id_cursor: u32 = 3;
     var found_human = false;
     const level_x = 0;
     for (the_levels[0].individuals) |_individual| {
@@ -764,6 +764,11 @@ pub fn generatePuzzleLevels(game_state: *GameState) !void {
         if (individual.species == .human) {
             id = 1;
             found_human = true;
+            // Start with a dagger.
+            try game_state.items.putNoClobber(2, try (Item{
+                .location = .{ .held = .{ .holder_id = id, .equipped_to_slot = .right_hand } },
+                .kind = .dagger,
+            }).clone(game_state.allocator));
         } else {
             id = non_human_id_cursor;
             non_human_id_cursor += 1;
