@@ -35,7 +35,12 @@ pub fn generateRegular(game_state: *GameState) !void {
     const allocator = game_state.allocator;
     const terrain = &game_state.terrain;
 
-    var _r = std.rand.DefaultPrng.init(std.crypto.random.int(u64));
+    const random_seed: u64 = s: {
+        var buf: [8]u8 = undefined;
+        std.options.cryptoRandomSeed(&buf);
+        break :s @bitCast(buf);
+    };
+    var _r = std.rand.DefaultPrng.init(random_seed);
     var r = _r.random();
     var next_id: u32 = 2;
 
