@@ -5,8 +5,9 @@ pub fn build(b: *Builder) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
 
-    const headless_build = make_binary_variant(b, optimize, target, "legend-of-swarkland_headless", true);
-    const gui_build = make_binary_variant(b, optimize, target, "legend-of-swarkland", false);
+    const use_llvm = b.option(bool, "use-llvm", "use the LLVM backend");
+    const headless_build = make_binary_variant(b, optimize, target, "legend-of-swarkland_headless", true, use_llvm);
+    const gui_build = make_binary_variant(b, optimize, target, "legend-of-swarkland", false, use_llvm);
 
     addCompileSpritesheet(b, gui_build, .{
         .dir = "assets/img32/",
@@ -65,6 +66,7 @@ fn make_binary_variant(
     target: std.zig.CrossTarget,
     name: []const u8,
     headless: bool,
+    use_llvm: ?bool,
 ) *std.build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = name,
@@ -74,6 +76,8 @@ fn make_binary_variant(
         .target = target,
         .optimize = optimize,
     });
+    exe.use_llvm = use_llvm;
+    exe.use_lld = use_llvm;
     b.installArtifact(exe);
 
     const core = b.addModule("core", .{
