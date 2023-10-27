@@ -52,7 +52,7 @@ pub fn build(b: *Builder) void {
 
     const config = b.addOptions();
     config.addOption([]const u8, "version", v: {
-        const git_describe_untrimmed = b.exec(&.{
+        const git_describe_untrimmed = b.run(&.{
             "git", "-C", b.build_root.path orelse ".", "describe", "--tags",
         });
         break :v std.mem.trim(u8, git_describe_untrimmed, " \n\r");
