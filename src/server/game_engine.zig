@@ -453,7 +453,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 },
 
                 .swarm_move => |direction| {
-                    // Moving with a swam gives a movement boost to your neighbors.
+                    // Moving with a swam gives you a movement boost while you're with a swarm.
                     const move_direction = cardinalDirectionToDelta(direction);
                     const mover_coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
                     for (everybody) |other_id| {
@@ -464,8 +464,8 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                             if (!(coord.distanceDiag(mover_coord) <= 1)) continue;
                             // You're within my aura.
                             if (!canSwarmMove(other.species)) continue;
-                            // Take a movement boost!
-                            try putKickOrConflict(other_id, move_direction, &intended_moves, &kicked_too_much);
+                            // Get a movement boost!
+                            try putKickOrConflict(id, move_direction, &intended_moves, &kicked_too_much);
                             break;
                         }
                     }
