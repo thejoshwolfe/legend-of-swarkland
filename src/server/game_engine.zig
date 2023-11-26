@@ -42,6 +42,7 @@ const isSlow = core.game_logic.isSlow;
 const limpsAfterLunge = core.game_logic.limpsAfterLunge;
 const getAttackFunction = core.game_logic.getAttackFunction;
 const actionCausesPainWhileMalaised = core.game_logic.actionCausesPainWhileMalaised;
+const canSwarmMove = core.game_logic.canSwarmMove;
 
 const game_model = @import("./game_model.zig");
 const GameState = game_model.GameState;
@@ -302,7 +303,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         var intended_moves = IdMap(Coord).init(self.allocator);
         for (everybody) |id| {
             switch (actions.get(id).?) {
-                .move, .lunge => |direction| {
+                .move, .swarm_move, .lunge => |direction| {
                     const move_delta = cardinalDirectionToDelta(direction);
                     try intended_moves.putNoClobber(id, move_delta);
                 },
@@ -415,50 +416,64 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         var intended_moves = IdMap(Coord).init(self.allocator);
         var kicked_too_much = IdMap(void).init(self.allocator);
         for (everybody) |id| {
-            const kick_direction: Coord = switch (actions.get(id).?) {
-                .kick => |direction| cardinalDirectionToDelta(direction),
-                else => continue,
-            };
-            try kicks.putNoClobber(id, kick_direction);
+            switch (actions.get(id).?) {
+                .kick => |direction| {
+                    const kick_direction = cardinalDirectionToDelta(direction);
+                    try kicks.putNoClobber(id, kick_direction);
 
-            var kicked_anybody = false;
-            const attacker_coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
-            const kick_coord = attacker_coord.plus(kick_direction);
-            for (everybody) |other_id| {
-                const other = self.state.individuals.get(other_id).?;
-                const position = other.abs_position;
-                for (getAllPositions(&position)) |coord| {
-                    if (!coord.equals(kick_coord)) continue;
-                    // gotchya
-                    switch (getPhysicsLayer(other.species)) {
-                        3 => {
-                            // Your kick is not stronk enough.
-                            continue;
-                        },
-                        0 => {
-                            // Instead you get sucked in!
-                            if (try intended_moves.fetchPut(id, kick_direction)) |_| {
-                                // kicked multiple times at once!
-                                _ = try kicked_too_much.put(id, {});
+                    var kicked_anybody = false;
+                    const attacker_coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
+                    const kick_coord = attacker_coord.plus(kick_direction);
+                    for (everybody) |other_id| {
+                        const other = self.state.individuals.get(other_id).?;
+                        for (getAllPositions(&other.abs_position)) |coord| {
+                            if (!coord.equals(kick_coord)) continue;
+                            // gotchya
+                            switch (getPhysicsLayer(other.species)) {
+                                3 => {
+                                    // Your kick is not stronk enough.
+                                    continue;
+                                },
+                                0 => {
+                                    // Instead you get sucked in!
+                                    try putKickOrConflict(id, kick_direction, &intended_moves, &kicked_too_much);
+                                    continue;
+                                },
+                                else => {},
                             }
-                            continue;
-                        },
-                        else => {},
+                            kicked_anybody = true;
+                            try putKickOrConflict(other_id, kick_direction, &intended_moves, &kicked_too_much);
+                            break;
+                        }
                     }
-                    kicked_anybody = true;
-                    if (try intended_moves.fetchPut(other_id, kick_direction)) |_| {
-                        // kicked multiple times at once!
-                        _ = try kicked_too_much.put(other_id, {});
+                    if (!kicked_anybody and !isOpenSpace(self.state.terrain.getCoord(kick_coord).wall)) {
+                        // Shove off the wall.
+                        try putKickOrConflict(id, kick_direction.scaled(-1), &intended_moves, &kicked_too_much);
                     }
-                }
-            }
-            if (!kicked_anybody and !isOpenSpace(self.state.terrain.getCoord(kick_coord).wall)) {
-                // Shove off the wall.
-                if (try intended_moves.fetchPut(id, kick_direction.scaled(-1))) |_| {
-                    _ = try kicked_too_much.put(id, {});
-                }
+                },
+
+                .swarm_move => |direction| {
+                    // Moving with a swam gives a movement boost to your neighbors.
+                    const move_direction = cardinalDirectionToDelta(direction);
+                    const mover_coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
+                    for (everybody) |other_id| {
+                        if (id == other_id) continue;
+                        const other = self.state.individuals.get(other_id).?;
+                        for (getAllPositions(&other.abs_position)) |coord| {
+                            // 3x3 aura
+                            if (!(coord.distanceDiag(mover_coord) <= 1)) continue;
+                            // You're within my aura.
+                            if (!canSwarmMove(other.species)) continue;
+                            // Take a movement boost!
+                            try putKickOrConflict(other_id, move_direction, &intended_moves, &kicked_too_much);
+                            break;
+                        }
+                    }
+                },
+                else => continue,
             }
         }
+
         if (kicks.count() > 0) {
             for (everybody) |id| {
                 try observeFrame(
@@ -470,12 +485,14 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     },
                 );
             }
+        }
 
-            // for now, multiple kicks at once just fail.
-            for (kicked_too_much.keys()) |key| {
-                assert(intended_moves.swapRemove(key));
-            }
+        // for now, multiple kicks at once just fail.
+        for (kicked_too_much.keys()) |key| {
+            assert(intended_moves.swapRemove(key));
+        }
 
+        if (intended_moves.count() > 0) {
             try self.doMovementAndCollisions(
                 &everybody,
                 &individual_to_perception,
@@ -1501,6 +1518,16 @@ fn doMovementAndCollisions(
 
     for (intended_moves.keys()) |id| {
         _ = try budges_at_all.put(id, {});
+    }
+}
+
+fn putKickOrConflict(id: u32, direction: Coord, intended_moves: *IdMap(Coord), kicked_too_much: *IdMap(void)) !void {
+    if (try intended_moves.fetchPut(id, direction)) |kv| {
+        const existing_direction = kv.value;
+        if (!existing_direction.equals(direction)) {
+            // Pushed in conflicting directions.
+            _ = try kicked_too_much.put(id, {});
+        }
     }
 }
 
