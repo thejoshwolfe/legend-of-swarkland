@@ -794,7 +794,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                         textures.renderLargeSprite(renderer, anatomy_sprites.equipped_dagger.?, anatomy_coord);
                     }
                     // explicit integer here to provide a compile error when new items get added.
-                    var status_conditions: u9 = frame.self.kind.individual.status_conditions;
+                    const status_conditions: u9 = frame.self.kind.individual.status_conditions;
                     if (0 != status_conditions & core.protocol.StatusCondition_being_digested) {
                         textures.renderLargeSprite(renderer, anatomy_sprites.being_digested.?, anatomy_coord);
                     }

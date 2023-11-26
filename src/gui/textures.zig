@@ -44,7 +44,7 @@ fn fontToTexture(font: Font) *sdl.c.SDL_Texture {
 }
 
 fn loadTexture(renderer: *sdl.Renderer, buffer: []const u8, width: i32, height: i32) *sdl.c.SDL_Texture {
-    var texture: *sdl.c.SDL_Texture = sdl.c.SDL_CreateTexture(renderer, sdl.c.SDL_PIXELFORMAT_RGBA8888, sdl.c.SDL_TEXTUREACCESS_STATIC, width, height) orelse {
+    const texture: *sdl.c.SDL_Texture = sdl.c.SDL_CreateTexture(renderer, sdl.c.SDL_PIXELFORMAT_RGBA8888, sdl.c.SDL_TEXTUREACCESS_STATIC, width, height) orelse {
         std.debug.panic("SDL_CreateTexture failed: {s}\n", .{sdl.c.SDL_GetError()});
     };
 

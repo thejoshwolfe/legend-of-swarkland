@@ -185,7 +185,7 @@ pub fn generateRegular(game_state: *GameState) !void {
                 r.intRangeAtMost(i32, room_b.x + 1, room_b.right() - 1),
                 r.intRangeAtMost(i32, room_b.y + 1, room_b.bottom() - 1),
             );
-            var unit_diagonal = dest.minus(cursor).signumed();
+            const unit_diagonal = dest.minus(cursor).signumed();
             while (!cursor.equals(dest)) : ({
                 // derpizontal, and then derpicle
                 if (cursor.x != dest.x) {
@@ -434,7 +434,7 @@ pub fn generateRegular(game_state: *GameState) !void {
         desert_rect.height = building_rect.bottom() + r.intRangeAtMost(i32, desert_margin_min, desert_margin_max) - desert_rect.y;
 
         // path to desert
-        var opening = makeCoord(
+        const opening = makeCoord(
             forest_rect.right() + 1,
             r.intRangeAtMost(i32, @max(forest_rect.y, desert_rect.y) + 1, @min(forest_rect.bottom(), desert_rect.bottom()) - 1),
         );
@@ -678,7 +678,7 @@ pub fn generateRegular(game_state: *GameState) !void {
             next_id += 1;
         }
         // room 6 - angel statue.
-        var statue_coord = Coord{
+        const statue_coord = Coord{
             .x = rooms[6].x + 1,
             .y = r.intRangeLessThan(i32, rooms[6].y + 2, rooms[6].bottom() - 2),
         };
@@ -704,7 +704,7 @@ pub fn generateRegular(game_state: *GameState) !void {
             next_id += 1;
         }
         // room 9 - chest
-        var chest_coord = Coord{
+        const chest_coord = Coord{
             .x = r.intRangeLessThan(i32, rooms[9].x + 2, rooms[9].right() - 2),
             .y = rooms[9].y + 1,
         };

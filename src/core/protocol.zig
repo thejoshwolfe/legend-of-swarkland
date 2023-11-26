@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 const core = @import("../index.zig");
 const Coord = core.geometry.Coord;
 const CardinalDirection = core.geometry.CardinalDirection;
+const AtomicQueue = @import("./old_std_atomic_queue.zig").Queue;
 
 pub const Floor = enum {
     unknown,
@@ -386,7 +387,7 @@ pub fn OutChannel(comptime Writer: type) type {
                     .bits = @divTrunc(int_info.bits + 7, 8) * 8,
                 },
             });
-            try self.stream.writeIntLittle(T_aligned, x);
+            try self.stream.writeInt(T_aligned, x, .little);
         }
     };
 }
@@ -421,7 +422,7 @@ pub fn InChannel(comptime Reader: type) type {
                 },
                 .Array => {
                     var x: T = undefined;
-                    for (x) |*x_i| {
+                    for (&x) |*x_i| {
                         x_i.* = try self.read(@TypeOf(x_i.*));
                     }
                     return x;
@@ -431,7 +432,7 @@ pub fn InChannel(comptime Reader: type) type {
                         .Slice => {
                             const len = try self.readInt(usize);
                             var x = try self.allocator.alloc(info.child, len);
-                            for (x) |*x_i| {
+                            for (&x) |*x_i| {
                                 x_i.* = try self.read(info.child);
                             }
                             return x;
@@ -466,7 +467,7 @@ pub fn InChannel(comptime Reader: type) type {
                     .bits = @divTrunc(int_info.bits + 7, 8) * 8,
                 },
             });
-            const x_aligned = try self.stream.readIntLittle(T_aligned);
+            const x_aligned = try self.stream.readInt(T_aligned, .little);
             return std.math.cast(T, x_aligned) orelse return error.Overflow;
         }
     };
@@ -474,18 +475,18 @@ pub fn InChannel(comptime Reader: type) type {
 
 pub const SomeQueues = struct {
     allocator: Allocator,
-    requests_alive: std.atomic.Atomic(bool),
-    requests: std.atomic.Queue(Request),
-    responses_alive: std.atomic.Atomic(bool),
-    responses: std.atomic.Queue(Response),
+    requests_alive: std.atomic.Value(bool),
+    requests: AtomicQueue(Request),
+    responses_alive: std.atomic.Value(bool),
+    responses: AtomicQueue(Response),
 
     pub fn init(allocator: Allocator) @This() {
         return .{
             .allocator = allocator,
-            .requests_alive = std.atomic.Atomic(bool).init(true),
-            .requests = std.atomic.Queue(Request).init(),
-            .responses_alive = std.atomic.Atomic(bool).init(true),
-            .responses = std.atomic.Queue(Response).init(),
+            .requests_alive = std.atomic.Value(bool).init(true),
+            .requests = AtomicQueue(Request).init(),
+            .responses_alive = std.atomic.Value(bool).init(true),
+            .responses = AtomicQueue(Response).init(),
         };
     }
 
@@ -530,14 +531,14 @@ pub const SomeQueues = struct {
         return null;
     }
 
-    fn queuePut(self: *SomeQueues, comptime T: type, queue: *std.atomic.Queue(T), x: T) !void {
-        const Node = std.atomic.Queue(T).Node;
+    fn queuePut(self: *SomeQueues, comptime T: type, queue: *AtomicQueue(T), x: T) !void {
+        const Node = AtomicQueue(T).Node;
         const node: *Node = try self.allocator.create(Node);
         node.data = x;
         queue.put(node);
     }
-    fn queueGet(self: *SomeQueues, comptime T: type, queue: *std.atomic.Queue(T)) ?T {
-        const Node = std.atomic.Queue(T).Node;
+    fn queueGet(self: *SomeQueues, comptime T: type, queue: *AtomicQueue(T)) ?T {
+        const Node = AtomicQueue(T).Node;
         const node: *Node = queue.get() orelse return null;
         defer self.allocator.destroy(node);
         const hack = node.data; // TODO: https://github.com/ziglang/zig/issues/961

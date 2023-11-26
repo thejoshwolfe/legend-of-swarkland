@@ -9,7 +9,7 @@ pub fn load() @This() {
     var file = std.fs.cwd().openFile(filename, .{}) catch return @This(){};
     defer file.close();
     return @This(){
-        .completed_levels = file.reader().readIntLittle(u32) catch return @This(){},
+        .completed_levels = file.reader().readInt(u32, .little) catch return @This(){},
     };
 }
 
@@ -17,5 +17,5 @@ pub fn load() @This() {
 pub fn save(save_file: @This()) void {
     var file = std.fs.cwd().createFile(filename, .{}) catch return;
     defer file.close();
-    file.writer().writeIntLittle(u32, save_file.completed_levels) catch return;
+    file.writer().writeInt(u32, save_file.completed_levels, .little) catch return;
 }

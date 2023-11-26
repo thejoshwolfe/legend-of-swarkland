@@ -24,11 +24,11 @@ const allocator = std.heap.c_allocator;
 pub const the_levels = @import("map_gen.zig").the_levels;
 
 pub fn server_main(main_player_queues: *SomeQueues) !void {
-    var new_game_settings: NewGameSettings = readSettings: while (true) {
+    const new_game_settings: NewGameSettings = readSettings: while (true) {
         if (main_player_queues.waitAndTakeRequest()) |request| {
             switch (request) {
                 .start_game => |settings| {
-                    var other_settings: NewGameSettings = settings;
+                    const other_settings: NewGameSettings = settings;
                     break :readSettings other_settings;
                 },
                 else => {},
@@ -176,7 +176,7 @@ fn pushHistoryRecord(history: *HistoryList, state_changes: []StateDiff) !void {
 
 fn doAi(response: Response) Action {
     // This should be sitting waiting for us already, since we just wrote it earlier.
-    var last_frame = switch (response) {
+    const last_frame = switch (response) {
         .load_state => |frame| frame,
         .stuff_happens => |perceived_happening| perceived_happening.frames[perceived_happening.frames.len - 1],
         else => @panic("unexpected response type in AI"),

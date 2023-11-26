@@ -247,7 +247,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
 
     var individual_to_perception = IdMap(*MutablePerceivedHappening).init(self.allocator);
     for (everybody_including_dead) |id| {
-        var h = try self.allocator.create(MutablePerceivedHappening);
+        const h = try self.allocator.create(MutablePerceivedHappening);
         h.* = MutablePerceivedHappening.init(self.allocator);
         try individual_to_perception.putNoClobber(id, h);
     }
@@ -1424,7 +1424,7 @@ fn doMovementAndCollisions(
             const physics_layer = getPhysicsLayer(self.state.individuals.get(id).?.species);
             if (physics_layer == 0) continue;
             for (getAllPositions(&next_position)) |coord| {
-                var collision = coord_to_collision[physics_layer].get(coord).?;
+                const collision = coord_to_collision[physics_layer].get(coord).?;
                 if (collision.winner_id != id) {
                     // i lose.
                     assert(next_positions.swapRemove(id));

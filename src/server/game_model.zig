@@ -41,7 +41,7 @@ pub const Individual = struct {
     status_conditions: StatusConditions = 0,
 
     pub fn clone(self: Individual, allocator: Allocator) !*Individual {
-        var other = try allocator.create(Individual);
+        const other = try allocator.create(Individual);
         other.* = self;
         return other;
     }
@@ -65,7 +65,7 @@ pub const Item = struct {
     },
 
     pub fn clone(self: @This(), allocator: Allocator) !*@This() {
-        var other = try allocator.create(@This());
+        const other = try allocator.create(@This());
         other.* = self;
         return other;
     }

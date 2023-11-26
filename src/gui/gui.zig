@@ -103,7 +103,7 @@ pub const Gui = struct {
     }
 
     pub fn button(self: *Gui, string: []const u8) bool {
-        var start_position = self._cursor;
+        const start_position = self._cursor;
         self.text(string);
         const this_button_index = self._button_count;
         self._button_count += 1;
