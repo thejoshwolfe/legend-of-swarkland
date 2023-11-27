@@ -332,7 +332,6 @@ fn getTargetHostilityPriority(me: std.meta.Tag(core.protocol.Species), you: std.
 
 fn movelikeAction(me: PerceivedThing, delta: Coord) Action {
     const delta_direction = deltaToCardinalDirection(delta);
-    if (can(me, Action{ .swarm_move = delta_direction })) |action| return action;
     if (can(me, Action{ .move = delta_direction })) |action| return action;
 
     if (canGrowAndShrink(me.kind.individual.species)) {

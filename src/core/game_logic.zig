@@ -206,7 +206,7 @@ pub fn actionCausesPainWhileMalaised(action: std.meta.Tag(Action)) bool {
     return switch (action) {
         .charge, .attack, .kick, .nibble, .stomp, .lunge, .open_close, .fire_bow, .defend => true,
         .pick_up_and_equip, .pick_up_unequipped, .equip, .unequip => true,
-        .move, .swarm_move, .grow, .shrink, .wait => false,
+        .move, .grow, .shrink, .wait => false,
         .nock_arrow => false,
         .cheatcode_warp => false,
     };
@@ -254,13 +254,6 @@ pub fn canMoveNormally(species: Species) bool {
     return switch (species) {
         .blob => false,
         else => true,
-    };
-}
-
-pub fn canSwarmMove(species: Species) bool {
-    return switch (species) {
-        .rat => true,
-        else => false,
     };
 }
 
@@ -464,10 +457,6 @@ pub fn validateAction(species: Species, position: std.meta.Tag(ThingPosition), s
         .wait => {},
         .move => {
             if (!canMoveNormally(species)) return error.SpeciesIncapable;
-            if (0 != status_conditions & immobilizing_statuses) return error.StatusForbids;
-        },
-        .swarm_move => {
-            if (!canSwarmMove(species)) return error.SpeciesIncapable;
             if (0 != status_conditions & immobilizing_statuses) return error.StatusForbids;
         },
         .charge => {
