@@ -246,13 +246,14 @@ const HappeningsComputation = struct {
     polymorphers: IdMap(void),
 };
 fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerceivedHappening) {
-    var hc = HappeningsComputation{
+    var hc_var = HappeningsComputation{
         .everybody = try self.allocator.dupe(u32, self.state.individuals.keys()),
         .budges_at_all = IdMap(void).init(self.allocator),
         .individual_to_perception = IdMap(*MutablePerceivedHappening).init(self.allocator),
         .total_deaths = IdMap(void).init(self.allocator),
         .polymorphers = IdMap(void).init(self.allocator),
     };
+    const hc = &hc_var;
 
     for (hc.everybody) |id| {
         // TODO: why is this on the heap?
@@ -333,13 +334,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
 
-        try self.doMovementAndCollisions(
-            &hc.everybody,
-            &hc.individual_to_perception,
-            &intended_moves,
-            &hc.budges_at_all,
-            &hc.total_deaths,
-        );
+        try self.doMovementAndCollisions(hc, &intended_moves);
     }
 
     // Growing
@@ -482,13 +477,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 assert(intended_moves.swapRemove(key));
             }
 
-            try self.doMovementAndCollisions(
-                &hc.everybody,
-                &hc.individual_to_perception,
-                &intended_moves,
-                &hc.budges_at_all,
-                &hc.total_deaths,
-            );
+            try self.doMovementAndCollisions(hc, &intended_moves);
         }
     }
 
@@ -811,13 +800,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 assert(intended_moves.swapRemove(key));
             }
 
-            try self.doMovementAndCollisions(
-                &hc.everybody,
-                &hc.individual_to_perception,
-                &intended_moves,
-                &hc.budges_at_all,
-                &hc.total_deaths,
-            );
+            try self.doMovementAndCollisions(hc, &intended_moves);
         }
     }
     // Lava (and deaths from attacks for some reason)
@@ -840,7 +823,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 );
             }
         }
-        try self.flushDeaths(&hc.total_deaths, &attack_deaths, &hc.everybody);
+        try self.flushDeaths(hc, &attack_deaths);
     }
 
     // Grapple and digestion
@@ -975,7 +958,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 );
             }
         }
-        try self.flushDeaths(&hc.total_deaths, &digestion_deaths, &hc.everybody);
+        try self.flushDeaths(hc, &digestion_deaths);
     }
 
     // Environmental death triggers
@@ -1316,17 +1299,10 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
     return hc.individual_to_perception;
 }
 
-fn doMovementAndCollisions(
-    self: *GameEngine,
-    everybody: *[]u32,
-    individual_to_perception: *IdMap(*MutablePerceivedHappening),
-    intended_moves: *IdMap(Coord),
-    budges_at_all: *IdMap(void),
-    total_deaths: *IdMap(void),
-) !void {
+fn doMovementAndCollisions(self: *GameEngine, hc: *HappeningsComputation, intended_moves: *IdMap(Coord)) !void {
     var next_positions = IdMap(ThingPosition).init(self.allocator);
 
-    for (everybody.*) |id| {
+    for (hc.everybody) |id| {
         // seek forward and stop at any wall.
         const position = self.state.individuals.get(id).?.abs_position;
         const initial_head_coord = getHeadPosition(position);
@@ -1373,7 +1349,7 @@ fn doMovementAndCollisions(
             CoordMap(Collision).init(self.allocator),
             CoordMap(Collision).init(self.allocator),
         };
-        for (everybody.*) |id| {
+        for (hc.everybody) |id| {
             const individual = self.state.individuals.get(id).?;
             const physics_layer = getPhysicsLayer(individual.species);
             if (physics_layer == 0) {
@@ -1425,7 +1401,7 @@ fn doMovementAndCollisions(
                 }
             }
         }
-        id_loop: for (everybody.*) |id| {
+        id_loop: for (hc.everybody) |id| {
             const next_position = next_positions.get(id) orelse continue;
             const physics_layer = getPhysicsLayer(self.state.individuals.get(id).?.species);
             if (physics_layer == 0) continue;
@@ -1445,7 +1421,7 @@ fn doMovementAndCollisions(
         //         V
         //   🐕 <- 🐕
         // This conga line would be unsuccessful because the head of the line isn't successfully moving.
-        for (everybody.*) |id| {
+        for (hc.everybody) |id| {
             // anyone who fails to move could be the head of a sad conga line.
             if (next_positions.contains(id)) continue;
             // You are not moving (successfully).
@@ -1473,11 +1449,11 @@ fn doMovementAndCollisions(
     }
 
     // Observe movement.
-    for (everybody.*) |id| {
+    for (hc.everybody) |id| {
         try observeFrame(
             self,
             id,
-            individual_to_perception.get(id).?,
+            hc.individual_to_perception.get(id).?,
             Activities{
                 .movement = .{
                     .intended_moves = intended_moves,
@@ -1488,25 +1464,25 @@ fn doMovementAndCollisions(
     }
 
     // Update positions from movement.
-    for (everybody.*) |id| {
+    for (hc.everybody) |id| {
         const next_position = next_positions.get(id) orelse continue;
         self.state.individuals.get(id).?.abs_position = next_position;
     }
 
-    for (everybody.*) |id| {
+    for (hc.everybody) |id| {
         // TODO: re-implement trample deaths.
         // trample deaths got removed when physics layers were introduced.
         try observeFrame(
             self,
             id,
-            individual_to_perception.get(id).?,
+            hc.individual_to_perception.get(id).?,
             Activities{ .deaths = &trample_deaths },
         );
     }
-    try self.flushDeaths(total_deaths, &trample_deaths, everybody);
+    try self.flushDeaths(hc, &trample_deaths);
 
     for (intended_moves.keys()) |id| {
-        _ = try budges_at_all.put(id, {});
+        _ = try hc.budges_at_all.put(id, {});
     }
 }
 
@@ -1772,14 +1748,14 @@ const MutablePerceivedHappening = struct {
 };
 
 /// write local deaths to total deaths, and drop items.
-fn flushDeaths(self: *GameEngine, total_deaths: *IdMap(void), local_deaths: *IdMap(void), everybody: *[]u32) !void {
+fn flushDeaths(self: *GameEngine, hc: *HappeningsComputation, local_deaths: *IdMap(void)) !void {
     for (local_deaths.keys()) |id| {
-        if (null != try total_deaths.fetchPut(id, {})) continue;
+        if (null != try hc.total_deaths.fetchPut(id, {})) continue;
         // remove from everybody
         {
-            const index = std.mem.indexOfScalar(u32, everybody.*, id).?;
-            everybody.*[index] = everybody.*[everybody.len - 1];
-            everybody.* = everybody.*[0 .. everybody.len - 1];
+            const index = std.mem.indexOfScalar(u32, hc.everybody, id).?;
+            hc.everybody[index] = hc.everybody[hc.everybody.len - 1];
+            hc.everybody = hc.everybody[0 .. hc.everybody.len - 1];
         }
         // drop items
         const coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
