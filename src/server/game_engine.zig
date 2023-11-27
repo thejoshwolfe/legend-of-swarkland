@@ -262,6 +262,46 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         try hc.individual_to_perception.putNoClobber(id, h);
     }
 
+    try self.doCheatcodeActions(hc, actions);
+
+    try self.doIntentionalMovement(hc, actions);
+
+    try self.doOpenCloseDoors(hc, actions); // TODO: why is this separate from doItemInteractions()?
+
+    try self.doKicks(hc, actions);
+
+    try self.doItemInteractions(hc, actions);
+
+    try self.doStatusEffects(hc, actions);
+
+    try self.doAttacks(hc, actions);
+
+    try self.doGrappleAndDigestion(hc);
+
+    try self.checkEnvironmentalDeathTriggers(hc);
+
+    try self.doTraps(hc);
+
+    try self.checkPuzzleLevelComplete(hc);
+
+    // final observations
+    for (hc.total_deaths.keys()) |id| {
+        assert(self.state.individuals.swapRemove(id));
+    }
+
+    for (hc.everybody) |id| {
+        try observeFrame(
+            self,
+            id,
+            hc.individual_to_perception.get(id).?,
+            Activities.static_state,
+        );
+    }
+
+    return hc.individual_to_perception;
+}
+
+fn doCheatcodeActions(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
     // Cheating
     {
         for (hc.everybody) |id| {
@@ -274,6 +314,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
     }
+}
+
+fn doIntentionalMovement(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
 
     // Shrinking
     {
@@ -375,7 +418,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             self.state.individuals.get(id).?.abs_position = next_position;
         }
     }
+}
 
+fn doOpenCloseDoors(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
     // Using doors
     {
         var door_toggles = CoordMap(u2).init(self.allocator);
@@ -409,6 +454,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         }
         // Do we need to explicitly observe this? is there going to be an animation for it or something?
     }
+}
+
+fn doKicks(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
 
     // Kicks
     {
@@ -480,6 +528,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             try self.doMovementAndCollisions(hc, &intended_moves);
         }
     }
+}
+
+fn doItemInteractions(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
 
     // pick up, equip, unequp
     {
@@ -566,7 +617,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = claim.individual_id, .equipped_to_slot = claim.to_slot } };
         }
     }
+}
 
+fn doStatusEffects(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
     // Wounds, limping, pain, etc.
     for (hc.everybody) |id| {
         const individual = self.state.individuals.get(id).?;
@@ -602,8 +655,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             individual.status_conditions &= ~core.protocol.StatusCondition_pain;
         }
     }
+}
 
-    // Attacks
+fn doAttacks(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
     var attack_deaths = IdMap(void).init(self.allocator);
     {
         var attacks = IdMap(Activities.Attack).init(self.allocator);
@@ -825,7 +879,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         }
         try self.flushDeaths(hc, &attack_deaths);
     }
+}
 
+fn doGrappleAndDigestion(self: *GameEngine, hc: *HappeningsComputation) !void {
     // Grapple and digestion
     {
         var grappler_to_victim_count = IdMap(u32).init(self.allocator);
@@ -960,7 +1016,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         }
         try self.flushDeaths(hc, &digestion_deaths);
     }
+}
 
+fn checkEnvironmentalDeathTriggers(self: *GameEngine, hc: *HappeningsComputation) !void {
     // Environmental death triggers
     {
         var check_bloody_water_near: ?Coord = null;
@@ -1031,7 +1089,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
     }
+}
 
+fn doTraps(self: *GameEngine, hc: *HappeningsComputation) !void {
     // Traps
     var intended_polymorphs = IdMap(Species).init(self.allocator);
     for (hc.everybody) |id| {
@@ -1195,7 +1255,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             );
         }
     }
+}
 
+fn checkPuzzleLevelComplete(self: *GameEngine, hc: *HappeningsComputation) !void {
     // Check for completing and starting the next level.
     // We push these changes directly into the state diff after all the above is resolved,
     // because these changes don't affect any of the above logic.
@@ -1281,22 +1343,6 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             try self.state.individuals.putNoClobber(self.findAvailableId(), try individual.clone(self.allocator));
         }
     }
-
-    // final observations
-    for (hc.total_deaths.keys()) |id| {
-        assert(self.state.individuals.swapRemove(id));
-    }
-
-    for (hc.everybody) |id| {
-        try observeFrame(
-            self,
-            id,
-            hc.individual_to_perception.get(id).?,
-            Activities.static_state,
-        );
-    }
-
-    return hc.individual_to_perception;
 }
 
 fn doMovementAndCollisions(self: *GameEngine, hc: *HappeningsComputation, intended_moves: *IdMap(Coord)) !void {
