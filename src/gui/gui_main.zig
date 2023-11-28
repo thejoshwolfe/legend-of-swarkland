@@ -22,7 +22,6 @@ const Species = core.protocol.Species;
 const Floor = core.protocol.Floor;
 const Wall = core.protocol.Wall;
 const TerrainSpace = core.protocol.TerrainSpace;
-const NewGameSettings = core.protocol.NewGameSettings;
 const Response = core.protocol.Response;
 const Event = core.protocol.Event;
 const Action = core.protocol.Action;
@@ -289,6 +288,14 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                                     .enter => {
                                         menu_state.enter();
                                     },
+                                    .equip_0 => menu_state.buffered_cheatcode = 1,
+                                    .equip_1 => menu_state.buffered_cheatcode = 2,
+                                    .equip_2 => menu_state.buffered_cheatcode = 3,
+                                    .equip_3 => menu_state.buffered_cheatcode = 4,
+                                    .equip_4 => menu_state.buffered_cheatcode = 5,
+                                    .equip_5 => menu_state.buffered_cheatcode = 6,
+                                    .equip_6 => menu_state.buffered_cheatcode = 7,
+                                    .equip_7 => menu_state.buffered_cheatcode = null,
                                     else => {},
                                 }
                             },
@@ -460,7 +467,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.font(.large);
                 menu_renderer.seekRelative(70, 30);
                 if (menu_renderer.button("New Game")) {
-                    try startGame(&game_state);
+                    // FIXME: workaround compiler bug (feature?)
+                    const avoid_pointer_aliasing = (struct { a: ?u64 }){ .a = menu_state.buffered_cheatcode };
+                    try startGame(&game_state, avoid_pointer_aliasing.a);
                     continue :main_loop;
                 }
                 if (menu_renderer.button("Puzzle Levels")) {
@@ -587,7 +596,7 @@ fn startPuzzleGame(game_state: *GameState, levels_to_skip: usize) !void {
     game_state.running.client.stopUndoPastLevel(levels_to_skip);
 }
 
-fn startGame(game_state: *GameState) !void {
+fn startGame(game_state: *GameState, seed: ?u64) !void {
     game_state.* = GameState{
         .running = .{
             .client = try FancyClient.init(GameEngineClient.init()),
@@ -595,7 +604,7 @@ fn startGame(game_state: *GameState) !void {
         },
     };
     try game_state.running.client.client.startAsThread();
-    try game_state.running.client.startGame(.regular);
+    try game_state.running.client.startGame(.{ .regular = .{ .seed = seed } });
 }
 
 fn doDirectionInput(state: *RunningState, delta: Coord) !void {
