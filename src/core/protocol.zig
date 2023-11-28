@@ -108,8 +108,10 @@ pub const Request = union(enum) {
     start_game: NewGameSettings,
 };
 
-pub const NewGameSettings = enum {
-    regular,
+pub const NewGameSettings = union(enum) {
+    regular: struct {
+        seed: ?u64 = null,
+    },
     puzzle_levels,
 };
 

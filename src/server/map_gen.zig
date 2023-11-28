@@ -26,16 +26,16 @@ const oob_terrain = game_model.oob_terrain;
 /// overwrites terrain. populates individuals.
 pub fn generate(game_state: *GameState, new_game_settings: NewGameSettings) !void {
     switch (new_game_settings) {
-        .regular => return generateRegular(game_state),
+        .regular => |data| return generateRegular(game_state, data.seed),
         .puzzle_levels => return generatePuzzleLevels(game_state),
     }
 }
 
-pub fn generateRegular(game_state: *GameState) !void {
+pub fn generateRegular(game_state: *GameState, specified_seed: ?u64) !void {
     const allocator = game_state.allocator;
     const terrain = &game_state.terrain;
 
-    const random_seed: u64 = s: {
+    const random_seed: u64 = specified_seed orelse s: {
         var buf: [8]u8 = undefined;
         std.options.cryptoRandomSeed(&buf);
         break :s @bitCast(buf);
@@ -150,9 +150,13 @@ pub fn generateRegular(game_state: *GameState) !void {
                 next_id += 1;
             }
             individuals_remaining = rat_count;
+            // All the rats in a room use an arbitrary but matching origin coordinate to make caching their ai decision more efficient.
+            const rat_home = popRandom(r, &possible_spawn_locations) orelse undefined;
             while (individuals_remaining > 0) : (individuals_remaining -= 1) {
                 const coord = popRandom(r, &possible_spawn_locations) orelse break;
-                try game_state.individuals.putNoClobber(next_id, try makeIndividual(coord, .rat).clone(allocator));
+                const rat = try makeIndividual(coord, .rat).clone(allocator);
+                rat.perceived_origin = rat_home;
+                try game_state.individuals.putNoClobber(next_id, rat);
                 next_id += 1;
             }
         }

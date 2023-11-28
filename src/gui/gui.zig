@@ -11,6 +11,7 @@ pub const LinearMenuState = struct {
     cursor_position: usize = 0,
     entry_count: usize = 0,
     enter_pressed: bool = false,
+    buffered_cheatcode: ?u64 = null,
 
     pub fn moveUp(self: *LinearMenuState, how_many: usize) void {
         if (self.cursor_position < how_many) {
