@@ -151,6 +151,6 @@ fn addCompileSpritesheet(
         },
     });
 
-    // TODO add .d file parsing to zig build system
-    // run.addPrefixedDepFileOutputArg("--deps=");
+    // TODO: add support to zig build system for directories as dependencies.
+    // run.addPrefixedDepFileOutputArg("--deps=", b.fmt("{s}.d", .{options.basename}));
 }

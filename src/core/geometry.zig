@@ -14,6 +14,12 @@ pub const Coord = struct {
             .y = a.y - b.y,
         };
     }
+    pub fn offset(a: Coord, dx: i32, dy: i32) Coord {
+        return Coord{
+            .x = a.x + dx,
+            .y = a.y + dy,
+        };
+    }
 
     pub fn scaled(a: Coord, s: i32) Coord {
         return Coord{
@@ -97,6 +103,7 @@ pub fn isOrthogonalVectorOfMagnitude(direction: Coord, scale: i32) bool {
 /// rotation is a number 0 <= r < 8
 /// representing the number of 45 degree clockwise turns from right.
 /// assert(isOrthogonalUnitVector(direction)).
+/// TODO: migrate to using Rotation type. also consider just switching to deltaToRotation.
 pub fn directionToRotation(direction: Coord) u3 {
     return @as(u3, @intFromEnum(deltaToCardinalDirection(direction))) * 2;
 }
@@ -122,6 +129,50 @@ pub fn cardinalDirectionToDelta(cardinal_index: CardinalDirection) Coord {
         .south => makeCoord(0, 1),
         .west => makeCoord(-1, 0),
         .north => makeCoord(0, -1),
+    };
+}
+
+///    6
+///  5 | 7
+/// 4 -*- 0
+///  3 | 1
+///    2
+pub const Rotation = enum(u3) {
+    east = 0,
+    southeast = 1,
+    south = 2,
+    southwest = 3,
+    west = 4,
+    northwest = 5,
+    north = 6,
+    northeast = 7,
+};
+
+/// assert(direction.magnitudeDiag() == 1)
+pub fn deltaToRotation(direction: Coord) Rotation {
+    return switch ((direction.y + 1) * 3 + (direction.x + 1)) {
+        0 + 0 => .northwest,
+        0 + 1 => .north,
+        0 + 2 => .east,
+        3 + 0 => .west,
+        3 + 1 => unreachable, // zero vector
+        3 + 2 => .east,
+        6 + 0 => .southwest,
+        6 + 1 => .south,
+        6 + 2 => .southeast,
+        else => unreachable, // non-normalized vector
+    };
+}
+pub fn rotationToDelta(rotation: Rotation) Coord {
+    return switch (rotation) {
+        .east => makeCoord(1, 0),
+        .southeast => makeCoord(1, 1),
+        .south => makeCoord(0, 1),
+        .southwest => makeCoord(-1, 1),
+        .west => makeCoord(-1, 0),
+        .northwest => makeCoord(-1, -1),
+        .north => makeCoord(0, -1),
+        .northeast => makeCoord(1, -1),
     };
 }
 
@@ -215,6 +266,14 @@ pub const Rect = struct {
         return makeRect(self.position().plus(offset), self.size());
     }
 
+    pub fn intersects(self: @This(), other: @This()) bool {
+        if (self.right() <= other.x) return false;
+        if (self.bottom() <= other.y) return false;
+        if (other.right() <= self.x) return false;
+        if (other.bottom() <= self.y) return false;
+        return true;
+    }
+
     pub fn rowMajorIterator(self: @This()) RowMajorIterator {
         return RowMajorIterator{
             .r = self,
@@ -249,4 +308,17 @@ pub fn makeRect(position: Coord, size: Coord) Rect {
         .width = size.x,
         .height = size.y,
     };
+}
+
+/// Move the left to the right by amount, move the right to the left by amount, and so on.
+/// Asserts this ends up with non-negative height and widths.
+pub fn shrinkRect(rect: Rect, amount: i32) Rect {
+    const result = Rect{
+        .x = rect.x + amount,
+        .y = rect.y + amount,
+        .width = rect.width - amount * 2,
+        .height = rect.height - amount * 2,
+    };
+    if (result.width < 0 or result.height < 0) unreachable;
+    return result;
 }

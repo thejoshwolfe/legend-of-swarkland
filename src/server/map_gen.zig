@@ -9,6 +9,8 @@ const makeCoord = core.geometry.makeCoord;
 const Rect = core.geometry.Rect;
 const makeRect = core.geometry.makeRect;
 const CardinalDirection = core.geometry.CardinalDirection;
+const shrinkRect = core.geometry.shrinkRect;
+const deltaToRotation = core.geometry.deltaToRotation;
 
 const NewGameSettings = core.protocol.NewGameSettings;
 const Species = core.protocol.Species;
@@ -72,208 +74,267 @@ pub fn generateRegular(game_state: *GameState, specified_seed: ?u64) !void {
 }
 
 fn generateMine(mg: *MapGenerator) !Rect {
-    // orcish mines
-    {
-        var rooms = ArrayList(Rect).init(mg.allocator);
-        // TODO: this design:
-        //  start ▓▓▓
-        //   orcs ▓▓▓
-        // dagger ▓▓▓----▓▓▓ rats
-        //               ▓▓▓
-        //               ▓▓▓  ▓▓▓ boss
-        //            door|   ▓▓▓ orcs
-        //                |   ▓▓▓ wolfs
-        //              |--    |
-        //              |      |    |---- exit
-        //             ▓▓▓    ▓▓▓   |
-        // rats ▓▓▓▓---▓▓▓----▓▓▓----
-        // orcs ▓▓▓▓   ▓▓▓    ▓▓▓ door
-        //            wolf    orcs
-        //            orcs
+    const max_area = 45;
+    // Example layout:
+    //
+    //  start ▓▓▓                            \
+    //   orcs ▓0▓                            |
+    // dagger ▓▓▓-----▓▓▓ rats               |
+    //                ▓1▓                    |row -1
+    //                ▓▓▓  ▓▓▓ boss          |
+    //                |    ▓5▓ orcs          |
+    //                |    ▓▓▓ wolfs         /
+    //              |--    |
+    //              |      |     |---- exit  \
+    //            ▓▓▓      ▓▓▓----           |
+    // rats ▓▓▓▓  ▓2▓------▓4▓               |row 0
+    // orcs ▓3▓▓--▓▓▓      ▓▓▓               /
+    //            orcs     wolf
+    //                     orcs
+    //      \---/ \-----/  \-/
+    //      col 0  col 1  col 2
 
-        var rooms_remaining: usize = 7;
-        while (rooms_remaining > 0) : (rooms_remaining -= 1) {
-            const size = makeCoord(
-                mg.r.intRangeAtMost(i32, 5, 9),
-                mg.r.intRangeAtMost(i32, 5, 9),
-            );
-            const position = makeCoord(
-                mg.r.intRangeAtMost(i32, mg.terrain.metrics.min_x - 5 - size.x, mg.terrain.metrics.max_x + 5),
-                mg.r.intRangeAtMost(i32, mg.terrain.metrics.min_y - 5 - size.y, mg.terrain.metrics.max_y + 5),
-            );
-            const room_rect = makeRect(position, size);
-            try rooms.append(room_rect);
+    // col, row.
+    var coarse_room_locations: [6]Coord = undefined;
+    // rooms 0 and 1 can be north or south of room 2.
+    coarse_room_locations[0] = makeCoord(0, choice(mg.r, [_]i32{ -1, 1 }));
+    coarse_room_locations[1] = makeCoord(1, coarse_room_locations[0].y);
+    coarse_room_locations[2] = makeCoord(1, 0);
+    // room 3 either goes in the depicted position (0, 0), or in (1, -1) or (1, 1) whichever doesn't collide with room 1.
+    coarse_room_locations[3].x = choice(mg.r, [_]i32{ 0, 1 });
+    coarse_room_locations[3].y = if (coarse_room_locations[3].x == 0) 0 else -coarse_room_locations[1].y;
+    coarse_room_locations[4] = makeCoord(2, 0);
+    // room 5 can be north or south of room 4.
+    coarse_room_locations[5] = makeCoord(2, choice(mg.r, [_]i32{ -1, 1 }));
 
-            var y = position.y;
-            while (y <= room_rect.bottom()) : (y += 1) {
-                var x = position.x;
-                while (x <= room_rect.right()) : (x += 1) {
-                    const cell_ptr = try mg.terrain.getOrPut(x, y);
-                    if (cell_ptr.wall == .air) {
-                        // already open
-                        continue;
-                    }
-                    if (x == position.x or y == position.y or x == room_rect.right() or y == room_rect.bottom()) {
-                        cell_ptr.* = TerrainSpace{
-                            .floor = .dirt,
-                            .wall = .dirt,
-                        };
-                    } else {
-                        cell_ptr.* = TerrainSpace{
-                            .floor = .dirt,
-                            .wall = .air,
-                        };
-                    }
-                }
-            }
-        }
-
-        // fill rooms with individuals
-        var rooms_for_spawn = try clone(mg.allocator, rooms);
-        var possible_spawn_locations = ArrayList(Coord).init(mg.allocator);
-        while (rooms_for_spawn.items.len > 1) {
-            const room = popRandom(mg.r, &rooms_for_spawn).?;
-            possible_spawn_locations.shrinkRetainingCapacity(0);
-            var it = (Rect{
-                .x = room.x + 1,
-                .y = room.y + 1,
-                .width = room.width - 2,
-                .height = room.height - 2,
-            }).rowMajorIterator();
-            while (it.next()) |coord| {
-                try possible_spawn_locations.append(coord);
-            }
-
-            var orc_count: usize = 1;
-            var wolf_count: usize = 0;
-            var rat_count: usize = 0;
-            var boss_room = false;
-            switch (rooms_for_spawn.items.len) {
-                0 => unreachable, // human starting room.
-                1 => {
-                    // boss room
-                    orc_count = 4;
-                    wolf_count = 2;
-                    boss_room = true;
-                },
-                2...3 => {
-                    // wolf room
-                    orc_count = mg.r.intRangeAtMost(usize, 2, 3);
-                    wolf_count = 1;
-                },
-                4...999 => {
-                    // rat room
-                    orc_count = 2;
-                    rat_count = 7;
-                },
-                else => unreachable,
-            }
-            var individuals_remaining = orc_count;
-            while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-                const coord = popRandom(mg.r, &possible_spawn_locations) orelse break;
-                const orc_id = mg.next_id;
-                try mg.individuals.putNoClobber(orc_id, try makeIndividual(coord, .orc).clone(mg.allocator));
-                mg.next_id += 1;
-                if (boss_room and individuals_remaining == 1) {
-                    // give the boss a shield
-                    try mg.items.putNoClobber(mg.next_id, try (Item{
-                        .location = .{ .held = .{ .holder_id = orc_id, .equipped_to_slot = .right_hand } },
-                        .kind = .shield,
-                    }).clone(mg.allocator));
-                    mg.next_id += 1;
-                }
-            }
-            individuals_remaining = wolf_count;
-            while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-                const coord = popRandom(mg.r, &possible_spawn_locations) orelse break;
-                try mg.individuals.putNoClobber(mg.next_id, try makeIndividual(coord, .wolf).clone(mg.allocator));
-                mg.next_id += 1;
-            }
-            individuals_remaining = rat_count;
-            // All the rats in a room use an arbitrary but matching origin coordinate to make caching their ai decision more efficient.
-            const rat_home = popRandom(mg.r, &possible_spawn_locations) orelse undefined;
-            while (individuals_remaining > 0) : (individuals_remaining -= 1) {
-                const coord = popRandom(mg.r, &possible_spawn_locations) orelse break;
-                const rat = try makeIndividual(coord, .rat).clone(mg.allocator);
-                rat.perceived_origin = rat_home;
-                try mg.individuals.putNoClobber(mg.next_id, rat);
-                mg.next_id += 1;
-            }
-        }
-
-        const start_point = makeCoord(
-            mg.r.intRangeLessThan(i32, rooms_for_spawn.items[0].x + 1, rooms_for_spawn.items[0].right() - 1),
-            mg.r.intRangeLessThan(i32, rooms_for_spawn.items[0].y + 1, rooms_for_spawn.items[0].bottom() - 1),
+    // traverse roughly backwards from right to left.
+    const iteration_order = [_]usize{ 4, 5, 2, 1, 0, 3 };
+    var rooms: [6]Rect = undefined;
+    for (iteration_order, 0..) |room_index, i| {
+        const center = coarse_room_locations[room_index].scaled(10).offset(
+            mg.r.intRangeAtMost(i32, -4, 4),
+            mg.r.intRangeAtMost(i32, -4, 4),
         );
-        const human = try makeIndividual(start_point, .human).clone(mg.allocator);
-        try mg.individuals.putNoClobber(1, human);
-        try mg.warp_points_list.append(start_point);
-        // It's dangerous to go alone. Take this.
-        try mg.items.putNoClobber(mg.next_id, try (Item{
-            .location = .{ .floor_coord = start_point },
-            .kind = .dagger,
-        }).clone(mg.allocator));
-        mg.next_id += 1;
-
-        // join rooms
-        var rooms_to_join = try clone(mg.allocator, rooms);
-        while (rooms_to_join.items.len > 1) {
-            const room_a = popRandom(mg.r, &rooms_to_join).?;
-            const room_b = choice(mg.r, rooms_to_join.items);
-
-            var cursor = makeCoord(
-                mg.r.intRangeAtMost(i32, room_a.x + 1, room_a.right() - 1),
-                mg.r.intRangeAtMost(i32, room_a.y + 1, room_a.bottom() - 1),
-            );
-            var dest = makeCoord(
-                mg.r.intRangeAtMost(i32, room_b.x + 1, room_b.right() - 1),
-                mg.r.intRangeAtMost(i32, room_b.y + 1, room_b.bottom() - 1),
-            );
-            const unit_diagonal = dest.minus(cursor).signumed();
-            while (!cursor.equals(dest)) : ({
-                // derpizontal, and then derpicle
-                if (cursor.x != dest.x) {
-                    cursor.x += unit_diagonal.x;
-                } else {
-                    cursor.y += unit_diagonal.y;
-                }
-            }) {
-                {
-                    const cell_ptr = try mg.terrain.getOrPutCoord(cursor);
-                    if (cell_ptr.wall == .air) {
-                        // already open
-                        continue;
-                    }
-                    cell_ptr.* = TerrainSpace{
-                        .floor = .dirt,
-                        .wall = .air,
-                    };
-                }
-                // Surround with dirt walls
-                for ([_]Coord{
-                    cursor.plus(makeCoord(-1, -1)),
-                    cursor.plus(makeCoord(0, -1)),
-                    cursor.plus(makeCoord(1, -1)),
-                    cursor.plus(makeCoord(-1, 0)),
-                    cursor.plus(makeCoord(1, 0)),
-                    cursor.plus(makeCoord(-1, 1)),
-                    cursor.plus(makeCoord(0, 1)),
-                    cursor.plus(makeCoord(1, 1)),
-                }) |wall_cursor| {
-                    const cell_ptr = try mg.terrain.getOrPutCoord(wall_cursor);
-                    if (cell_ptr.wall == .air) {
-                        continue;
-                    }
-                    cell_ptr.* = TerrainSpace{
-                        .floor = .dirt,
-                        .wall = .dirt,
-                    };
-                }
+        const area = mg.r.intRangeAtMost(i32, 35, max_area);
+        var size: Coord = undefined;
+        size.x = mg.r.intRangeAtMost(i32, 5, 9);
+        size.y = @divTrunc(area, size.x);
+        const position = center.minus(size.scaledDivTrunc(2));
+        rooms[room_index] = makeRect(position, size);
+        // don't overlap another room.
+        for (iteration_order[0..i]) |other_index| {
+            if (room_index == 2 and other_index == 4) {}
+            var failsafe: u8 = 255;
+            while (rooms[room_index].intersects(rooms[other_index])) {
+                // because we're iterating right to left, sliding left is a reliable conflict resolution.
+                rooms[room_index].x -= mg.r.intRangeLessThan(i32, 1, 3);
+                failsafe -= 1; // overflow means we're in an infinite loop.
             }
         }
-
-        return rooms_to_join.items[0];
     }
+
+    // dig out rooms
+    for (rooms) |room| {
+        var y = room.y;
+        while (y <= room.bottom()) : (y += 1) {
+            var x = room.x;
+            while (x <= room.right()) : (x += 1) {
+                try mg.terrain.put(x, y, if (x == room.x or y == room.y or x == room.right() or y == room.bottom())
+                    TerrainSpace{ .floor = .dirt, .wall = .dirt }
+                else
+                    TerrainSpace{ .floor = .dirt, .wall = .air });
+            }
+        }
+    }
+
+    debugTerrain(mg.terrain);
+
+    // dig hallways
+    const connections = [_][2]u8{
+        .{ 4, 5 },
+        .{ 4, 2 },
+        .{ 2, 3 },
+        .{ 2, 1 },
+        .{ 1, 0 },
+    };
+    for (connections) |pair| {
+        const inner_room_a = shrinkRect(rooms[pair[0]], 1);
+        const inner_room_b = shrinkRect(rooms[pair[1]], 1);
+        const direction_vector = Coord{
+            .x = if (inner_room_a.right() < inner_room_b.x)
+                1
+            else if (inner_room_b.right() < inner_room_a.x)
+                -1
+            else
+                0,
+            .y = if (inner_room_a.bottom() < inner_room_b.y)
+                1
+            else if (inner_room_b.bottom() < inner_room_a.y)
+                -1
+            else
+                0,
+        };
+        const direction_rotation = deltaToRotation(direction_vector);
+
+        // the orcmages used clairvoyance to know the optimal digging path.
+        switch (@as(union(enum) {
+            straight: struct {
+                start: Coord,
+                end: Coord,
+                step: Coord,
+                wall_offsets: [2]Coord,
+            },
+        }, switch (direction_rotation) {
+            .north => blk: {
+                const x = mg.r.intRangeAtMost(
+                    i32,
+                    @max(inner_room_a.x, inner_room_b.x),
+                    @min(inner_room_a.right(), inner_room_b.right()),
+                );
+                break :blk .{ .straight = .{
+                    .start = makeCoord(x, inner_room_a.y),
+                    .end = makeCoord(x, inner_room_b.bottom()),
+                    .step = makeCoord(0, -1),
+                    .wall_offsets = .{ makeCoord(-1, 0), makeCoord(1, 0) },
+                } };
+            },
+            .south => blk: {
+                const x = mg.r.intRangeAtMost(
+                    i32,
+                    @max(inner_room_a.x, inner_room_b.x),
+                    @min(inner_room_a.right(), inner_room_b.right()),
+                );
+                break :blk .{ .straight = .{
+                    .start = makeCoord(x, inner_room_a.bottom()),
+                    .end = makeCoord(x, inner_room_b.y),
+                    .step = makeCoord(0, 1),
+                    .wall_offsets = .{ makeCoord(-1, 0), makeCoord(1, 0) },
+                } };
+            },
+            .west => blk: {
+                const y = mg.r.intRangeAtMost(
+                    i32,
+                    @max(inner_room_a.y, inner_room_b.y),
+                    @min(inner_room_a.bottom(), inner_room_b.bottom()),
+                );
+                break :blk .{ .straight = .{
+                    .start = makeCoord(inner_room_a.x, y),
+                    .end = makeCoord(inner_room_b.right(), y),
+                    .step = makeCoord(-1, 0),
+                    .wall_offsets = .{ makeCoord(0, -1), makeCoord(0, 1) },
+                } };
+            },
+            .east,
+            .northeast,
+            .southeast,
+            .southwest,
+            .northwest,
+            => unreachable, // TODO
+        })) {
+            .straight => |data| {
+                var cursor = data.start.plus(data.step);
+                var failsafe: u8 = 255;
+                while (!cursor.equals(data.end)) : (cursor = cursor.plus(data.step)) {
+                    try mg.terrain.putCoord(cursor, TerrainSpace{ .floor = .dirt, .wall = .air });
+                    try mg.terrain.putCoord(cursor.plus(data.wall_offsets[0]), TerrainSpace{ .floor = .dirt, .wall = .dirt });
+                    try mg.terrain.putCoord(cursor.plus(data.wall_offsets[1]), TerrainSpace{ .floor = .dirt, .wall = .dirt });
+                    failsafe -= 1; // overflow means we're in an infinite loop.
+                }
+            },
+        }
+    }
+    debugTerrain(mg.terrain);
+
+    // Spawns
+    for (rooms, 0..) |room, room_index| {
+        var possible_spawn_locations: [max_area]Coord = undefined;
+        var possible_spawn_locations_len: usize = 0;
+        var it = shrinkRect(room, 1).rowMajorIterator();
+        while (it.next()) |coord| {
+            possible_spawn_locations[possible_spawn_locations_len] = coord;
+            possible_spawn_locations_len += 1;
+        }
+
+        var orc_count: usize = 0;
+        var wolf_count: usize = 0;
+        var rat_count: usize = 0;
+        var boss_room = false;
+        var starting_room = false;
+        switch (room_index) {
+            0 => {
+                starting_room = true;
+                orc_count = 1;
+            },
+            1 => {
+                rat_count = 5;
+            },
+            2 => {
+                orc_count = mg.r.intRangeAtMost(usize, 3, 4);
+            },
+            3 => {
+                orc_count = 2;
+                rat_count = 7;
+            },
+            4 => {
+                orc_count = mg.r.intRangeAtMost(usize, 2, 3);
+                wolf_count = 1;
+            },
+            5 => {
+                orc_count = 3;
+                wolf_count = 2;
+                boss_room = true;
+            },
+            else => unreachable,
+        }
+
+        if (starting_room) {
+            const start_point = popRandom2(mg.r, &possible_spawn_locations, &possible_spawn_locations_len) orelse break;
+            const human = try makeIndividual(start_point, .human).clone(mg.allocator);
+            try mg.individuals.putNoClobber(1, human);
+            try mg.warp_points_list.append(start_point);
+            // It's dangerous to go alone. Take this.
+            try mg.items.putNoClobber(mg.next_id, try (Item{
+                .location = .{ .floor_coord = start_point },
+                .kind = .dagger,
+            }).clone(mg.allocator));
+            mg.next_id += 1;
+        }
+
+        var individuals_remaining = orc_count;
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom2(mg.r, &possible_spawn_locations, &possible_spawn_locations_len) orelse break;
+            const orc_id = mg.next_id;
+            try mg.individuals.putNoClobber(orc_id, try makeIndividual(coord, .orc).clone(mg.allocator));
+            mg.next_id += 1;
+            if (boss_room and individuals_remaining == 1) {
+                // give the boss a shield
+                try mg.items.putNoClobber(mg.next_id, try (Item{
+                    .location = .{ .held = .{ .holder_id = orc_id, .equipped_to_slot = .right_hand } },
+                    .kind = .shield,
+                }).clone(mg.allocator));
+                mg.next_id += 1;
+            }
+        }
+        individuals_remaining = wolf_count;
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom2(mg.r, &possible_spawn_locations, &possible_spawn_locations_len) orelse break;
+            try mg.individuals.putNoClobber(mg.next_id, try makeIndividual(coord, .wolf).clone(mg.allocator));
+            mg.next_id += 1;
+        }
+        individuals_remaining = rat_count;
+        // All the rats in a room use an arbitrary but matching origin coordinate to make caching their ai decision more efficient.
+        const rat_home = popRandom2(mg.r, &possible_spawn_locations, &possible_spawn_locations_len) orelse undefined;
+        while (individuals_remaining > 0) : (individuals_remaining -= 1) {
+            const coord = popRandom2(mg.r, &possible_spawn_locations, &possible_spawn_locations_len) orelse break;
+            const rat = try makeIndividual(coord, .rat).clone(mg.allocator);
+            rat.perceived_origin = rat_home;
+            try mg.individuals.putNoClobber(mg.next_id, rat);
+            mg.next_id += 1;
+        }
+    }
+
+    // room 4 has the exit path.
+    return rooms[4];
 }
 
 fn generateForest(mg: *MapGenerator, last_mine_room: Rect) !Rect {
@@ -1297,6 +1358,14 @@ fn popRandom(r: Random, array_list: anytype) ?@TypeOf(array_list.*.items[0]) {
     if (array_list.items.len == 0) return null;
     return array_list.swapRemove(r.uintLessThan(usize, array_list.items.len));
 }
+fn popRandom2(r: Random, buf_pointer: anytype, slice_len_ptr: *usize) ?@TypeOf(buf_pointer[0]) {
+    if (slice_len_ptr.* == 0) return null;
+    const index = r.uintLessThan(usize, slice_len_ptr.*);
+    const item = buf_pointer[index];
+    buf_pointer[index] = buf_pointer[slice_len_ptr.* - 1];
+    slice_len_ptr.* -= 1;
+    return item;
+}
 
 fn rectFromCorners(x: i32, y: i32, right: i32, bottom: i32) Rect {
     return Rect{
@@ -1331,4 +1400,25 @@ fn appendInteriorCoords(coords: *ArrayList(Coord), room_rect: Rect) !void {
     while (it.next()) |coord| {
         try coords.append(coord);
     }
+}
+
+fn debugTerrain(terrain: *Terrain) void {
+    var line: [0x1000]u8 = undefined;
+    var y = terrain.metrics.min_y;
+    while (y <= terrain.metrics.max_y) : (y += 1) {
+        var x = terrain.metrics.min_x;
+        var i: usize = 0;
+        while (x <= terrain.metrics.max_x) : (x += 1) {
+            const cell = terrain.get(x, y);
+            line[i] = switch (cell.wall) {
+                .stone => ' ',
+                .dirt => '#',
+                .air => '.',
+                else => '?',
+            };
+            i += 1;
+        }
+        core.debug.map_gen.print("{s}", .{line[0..i]});
+    }
+    core.debug.map_gen.print("---", .{});
 }

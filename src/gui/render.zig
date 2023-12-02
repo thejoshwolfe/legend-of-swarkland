@@ -74,7 +74,14 @@ pub fn renderThings(state: *RunningState, renderer: *sdl.Renderer, now: i32) !vo
                 render_floor: {
                     const floor_texture = switch (cell.floor) {
                         .unknown => break :render_floor,
-                        .dirt => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
+                        .dirt,
+                        .dirt_and_minecart_north_east,
+                        .dirt_and_minecart_north_south,
+                        .dirt_and_minecart_north_west,
+                        .dirt_and_minecart_east_south,
+                        .dirt_and_minecart_east_west,
+                        .dirt_and_minecart_south_west,
+                        => selectAesthetic(textures.sprites.dirt_floor[0..], aesthetic_seed, cursor),
                         .grass,
                         .grass_and_water_edge_east,
                         .grass_and_water_edge_southeast,
@@ -97,6 +104,12 @@ pub fn renderThings(state: *RunningState, renderer: *sdl.Renderer, now: i32) !vo
                     };
                     textures.renderSprite(renderer, floor_texture, render_position);
                     const second_floor_texture = switch (cell.floor) {
+                        .dirt_and_minecart_north_east => textures.sprites.mine_tracks_turn, // TODO rotate
+                        .dirt_and_minecart_north_south => textures.sprites.mine_tracks_straight,
+                        .dirt_and_minecart_north_west => textures.sprites.mine_tracks_turn,
+                        .dirt_and_minecart_east_south => textures.sprites.mine_tracks_turn,
+                        .dirt_and_minecart_east_west => textures.sprites.mine_tracks_straight,
+                        .dirt_and_minecart_south_west => textures.sprites.mine_tracks_turn,
                         .grass_and_water_edge_east => textures.sprites.water_edge[0],
                         .grass_and_water_edge_southeast => textures.sprites.water_edge[1],
                         .grass_and_water_edge_south => textures.sprites.water_edge[2],

@@ -26,6 +26,12 @@ pub const Floor = enum {
     grass_and_water_edge_northwest,
     grass_and_water_edge_north,
     grass_and_water_edge_northeast,
+    dirt_and_minecart_north_east,
+    dirt_and_minecart_north_south,
+    dirt_and_minecart_north_west,
+    dirt_and_minecart_east_south,
+    dirt_and_minecart_east_west,
+    dirt_and_minecart_south_west,
     unknown_floor,
 };
 
