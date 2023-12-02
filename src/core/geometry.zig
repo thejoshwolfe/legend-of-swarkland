@@ -153,7 +153,7 @@ pub fn deltaToRotation(direction: Coord) Rotation {
     return switch ((direction.y + 1) * 3 + (direction.x + 1)) {
         0 + 0 => .northwest,
         0 + 1 => .north,
-        0 + 2 => .east,
+        0 + 2 => .northeast,
         3 + 0 => .west,
         3 + 1 => unreachable, // zero vector
         3 + 2 => .east,

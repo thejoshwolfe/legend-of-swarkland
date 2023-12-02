@@ -70,6 +70,8 @@ pub fn generateRegular(game_state: *GameState, specified_seed: ?u64) !void {
     const forest_rect = try generateForest(mg, last_mine_room);
     try generateDesert(mg, forest_rect);
 
+    //debugTerrain(mg.terrain);
+
     game_state.warp_points = try mg.warp_points_list.toOwnedSlice();
 }
 
@@ -134,7 +136,8 @@ fn generateMine(mg: *MapGenerator) !Rect {
     }
 
     // dig out rooms
-    for (rooms) |room| {
+    for (rooms, 0..) |room, room_index| {
+        core.debug.map_gen.print("room {}: {},{} {},{}", .{ room_index, room.x, room.y, room.width, room.height });
         var y = room.y;
         while (y <= room.bottom()) : (y += 1) {
             var x = room.x;
@@ -146,7 +149,7 @@ fn generateMine(mg: *MapGenerator) !Rect {
             }
         }
     }
-
+    core.debug.map_gen.print("map: {},{}, {},{}", .{ mg.terrain.metrics.min_x, mg.terrain.metrics.min_y, mg.terrain.metrics.max_x, mg.terrain.metrics.max_y });
     debugTerrain(mg.terrain);
 
     // dig hallways
@@ -177,12 +180,29 @@ fn generateMine(mg: *MapGenerator) !Rect {
         const direction_rotation = deltaToRotation(direction_vector);
 
         // the orcmages used clairvoyance to know the optimal digging path.
+        const HallwayCarving = struct {
+            start: Coord,
+            end: Coord,
+            step: Coord,
+            wall_offsets: [2]Coord,
+            fn dig(data: @This(), mg_: *MapGenerator) !void {
+                var cursor = data.start.plus(data.step);
+                var failsafe: u8 = 255;
+                while (!cursor.equals(data.end)) : (cursor = cursor.plus(data.step)) {
+                    try mg_.terrain.putCoord(cursor, TerrainSpace{ .floor = .dirt, .wall = .air });
+                    try mg_.terrain.putCoord(cursor.plus(data.wall_offsets[0]), TerrainSpace{ .floor = .dirt, .wall = .dirt });
+                    try mg_.terrain.putCoord(cursor.plus(data.wall_offsets[1]), TerrainSpace{ .floor = .dirt, .wall = .dirt });
+                    failsafe -= 1; // overflow means we're in an infinite loop.
+                }
+            }
+        };
+        const horizontal_wall_offsets = [2]Coord{ makeCoord(0, -1), makeCoord(0, 1) };
+        const vertical_wall_offsets = [2]Coord{ makeCoord(-1, 0), makeCoord(1, 0) };
         switch (@as(union(enum) {
-            straight: struct {
-                start: Coord,
-                end: Coord,
-                step: Coord,
-                wall_offsets: [2]Coord,
+            straight: HallwayCarving,
+            diagonal: struct {
+                hallways: [2]HallwayCarving,
+                corner_walls: [3]Coord,
             },
         }, switch (direction_rotation) {
             .north => blk: {
@@ -195,7 +215,7 @@ fn generateMine(mg: *MapGenerator) !Rect {
                     .start = makeCoord(x, inner_room_a.y),
                     .end = makeCoord(x, inner_room_b.bottom()),
                     .step = makeCoord(0, -1),
-                    .wall_offsets = .{ makeCoord(-1, 0), makeCoord(1, 0) },
+                    .wall_offsets = vertical_wall_offsets,
                 } };
             },
             .south => blk: {
@@ -208,7 +228,7 @@ fn generateMine(mg: *MapGenerator) !Rect {
                     .start = makeCoord(x, inner_room_a.bottom()),
                     .end = makeCoord(x, inner_room_b.y),
                     .step = makeCoord(0, 1),
-                    .wall_offsets = .{ makeCoord(-1, 0), makeCoord(1, 0) },
+                    .wall_offsets = vertical_wall_offsets,
                 } };
             },
             .west => blk: {
@@ -221,25 +241,133 @@ fn generateMine(mg: *MapGenerator) !Rect {
                     .start = makeCoord(inner_room_a.x, y),
                     .end = makeCoord(inner_room_b.right(), y),
                     .step = makeCoord(-1, 0),
-                    .wall_offsets = .{ makeCoord(0, -1), makeCoord(0, 1) },
+                    .wall_offsets = horizontal_wall_offsets,
                 } };
             },
-            .east,
-            .northeast,
-            .southeast,
-            .southwest,
-            .northwest,
-            => unreachable, // TODO
+            .east => blk: {
+                const y = mg.r.intRangeAtMost(
+                    i32,
+                    @max(inner_room_a.y, inner_room_b.y),
+                    @min(inner_room_a.bottom(), inner_room_b.bottom()),
+                );
+                break :blk .{ .straight = .{
+                    .start = makeCoord(inner_room_a.right(), y),
+                    .end = makeCoord(inner_room_b.x, y),
+                    .step = makeCoord(1, 0),
+                    .wall_offsets = horizontal_wall_offsets,
+                } };
+            },
+            .northeast => blk: {
+                // north, then east.
+                const turn = makeCoord(inner_room_a.right(), inner_room_b.bottom());
+                break :blk .{ .diagonal = .{
+                    .hallways = .{
+                        .{
+                            .start = makeCoord(inner_room_a.right(), inner_room_a.y),
+                            .end = turn,
+                            .step = makeCoord(0, -1),
+                            .wall_offsets = vertical_wall_offsets,
+                        },
+                        .{
+                            .start = turn,
+                            .end = makeCoord(inner_room_b.x, inner_room_b.bottom()),
+                            .step = makeCoord(1, 0),
+                            .wall_offsets = horizontal_wall_offsets,
+                        },
+                    },
+                    .corner_walls = .{
+                        turn.offset(-1, 0),
+                        turn.offset(-1, -1),
+                        turn.offset(0, -1),
+                    },
+                } };
+            },
+            .southeast => blk: {
+                // south, then east.
+                const turn = makeCoord(inner_room_a.right(), inner_room_b.y);
+                break :blk .{ .diagonal = .{
+                    .hallways = .{
+                        .{
+                            .start = makeCoord(inner_room_a.right(), inner_room_a.bottom()),
+                            .end = turn,
+                            .step = makeCoord(0, 1),
+                            .wall_offsets = vertical_wall_offsets,
+                        },
+                        .{
+                            .start = turn,
+                            .end = makeCoord(inner_room_b.x, inner_room_b.y),
+                            .step = makeCoord(1, 0),
+                            .wall_offsets = horizontal_wall_offsets,
+                        },
+                    },
+                    .corner_walls = .{
+                        turn.offset(-1, 0),
+                        turn.offset(-1, 1),
+                        turn.offset(0, 1),
+                    },
+                } };
+            },
+            .southwest => blk: {
+                // south, then west.
+                const turn = makeCoord(inner_room_a.x, inner_room_b.y);
+                break :blk .{ .diagonal = .{
+                    .hallways = .{
+                        .{
+                            .start = makeCoord(inner_room_a.x, inner_room_a.bottom()),
+                            .end = turn,
+                            .step = makeCoord(0, 1),
+                            .wall_offsets = vertical_wall_offsets,
+                        },
+                        .{
+                            .start = turn,
+                            .end = makeCoord(inner_room_b.right(), inner_room_b.y),
+                            .step = makeCoord(-1, 0),
+                            .wall_offsets = horizontal_wall_offsets,
+                        },
+                    },
+                    .corner_walls = .{
+                        turn.offset(1, 0),
+                        turn.offset(1, 1),
+                        turn.offset(0, 1),
+                    },
+                } };
+            },
+            .northwest => blk: {
+                // north, then west.
+                const turn = makeCoord(inner_room_a.x, inner_room_b.bottom());
+                break :blk .{ .diagonal = .{
+                    .hallways = .{
+                        .{
+                            .start = makeCoord(inner_room_a.x, inner_room_a.y),
+                            .end = turn,
+                            .step = makeCoord(0, -1),
+                            .wall_offsets = vertical_wall_offsets,
+                        },
+                        .{
+                            .start = turn,
+                            .end = makeCoord(inner_room_b.right(), inner_room_b.bottom()),
+                            .step = makeCoord(-1, 0),
+                            .wall_offsets = horizontal_wall_offsets,
+                        },
+                    },
+                    .corner_walls = .{
+                        turn.offset(1, 0),
+                        turn.offset(1, -1),
+                        turn.offset(0, -1),
+                    },
+                } };
+            },
         })) {
             .straight => |data| {
-                var cursor = data.start.plus(data.step);
-                var failsafe: u8 = 255;
-                while (!cursor.equals(data.end)) : (cursor = cursor.plus(data.step)) {
-                    try mg.terrain.putCoord(cursor, TerrainSpace{ .floor = .dirt, .wall = .air });
-                    try mg.terrain.putCoord(cursor.plus(data.wall_offsets[0]), TerrainSpace{ .floor = .dirt, .wall = .dirt });
-                    try mg.terrain.putCoord(cursor.plus(data.wall_offsets[1]), TerrainSpace{ .floor = .dirt, .wall = .dirt });
-                    failsafe -= 1; // overflow means we're in an infinite loop.
+                try data.dig(mg);
+            },
+            .diagonal => |data| {
+                try data.hallways[0].dig(mg);
+                try mg.terrain.putCoord(data.hallways[0].end, TerrainSpace{ .floor = .dirt, .wall = .air });
+                for (data.corner_walls) |coord| {
+                    try mg.terrain.putCoord(coord, TerrainSpace{ .floor = .dirt, .wall = .dirt });
                 }
+                try data.hallways[1].dig(mg);
             },
         }
     }
@@ -1410,12 +1538,8 @@ fn debugTerrain(terrain: *Terrain) void {
         var i: usize = 0;
         while (x <= terrain.metrics.max_x) : (x += 1) {
             const cell = terrain.get(x, y);
-            line[i] = switch (cell.wall) {
-                .stone => ' ',
-                .dirt => '#',
-                .air => '.',
-                else => '?',
-            };
+
+            line[i] = if (cell.wall == .stone) ' ' else if (core.game_logic.isOpenSpace(cell.wall)) '.' else '#';
             i += 1;
         }
         core.debug.map_gen.print("{s}", .{line[0..i]});
