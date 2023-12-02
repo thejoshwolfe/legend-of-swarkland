@@ -24,6 +24,7 @@ const Item = game_model.Item;
 const Terrain = game_model.Terrain;
 const IdMap = game_model.IdMap;
 const oob_terrain = game_model.oob_terrain;
+const isOpenSpace = core.game_logic.isOpenSpace;
 
 /// overwrites terrain. populates individuals.
 pub fn generate(game_state: *GameState, new_game_settings: NewGameSettings) !void {
@@ -136,8 +137,7 @@ fn generateMine(mg: *MapGenerator) !Rect {
     }
 
     // dig out rooms
-    for (rooms, 0..) |room, room_index| {
-        core.debug.map_gen.print("room {}: {},{} {},{}", .{ room_index, room.x, room.y, room.width, room.height });
+    for (rooms) |room| {
         var y = room.y;
         while (y <= room.bottom()) : (y += 1) {
             var x = room.x;
@@ -149,7 +149,12 @@ fn generateMine(mg: *MapGenerator) !Rect {
             }
         }
     }
-    core.debug.map_gen.print("map: {},{}, {},{}", .{ mg.terrain.metrics.min_x, mg.terrain.metrics.min_y, mg.terrain.metrics.max_x, mg.terrain.metrics.max_y });
+    debugTerrain(mg.terrain);
+
+    // cave in the corners a bit
+    for (rooms) |room| {
+        caveInCorners(mg, room, max_area, TerrainSpace{ .floor = .dirt, .wall = .dirt });
+    }
     debugTerrain(mg.terrain);
 
     // dig hallways
@@ -192,6 +197,16 @@ fn generateMine(mg: *MapGenerator) !Rect {
                     try mg_.terrain.putCoord(cursor, TerrainSpace{ .floor = .dirt, .wall = .air });
                     try mg_.terrain.putCoord(cursor.plus(data.wall_offsets[0]), TerrainSpace{ .floor = .dirt, .wall = .dirt });
                     try mg_.terrain.putCoord(cursor.plus(data.wall_offsets[1]), TerrainSpace{ .floor = .dirt, .wall = .dirt });
+                    failsafe -= 1; // overflow means we're in an infinite loop.
+                }
+                // the cave in phase may have gotten in our way.
+                while (!isOpenSpace(mg_.terrain.getCoord(cursor).wall)) : (cursor = cursor.plus(data.step)) {
+                    try mg_.terrain.putCoord(cursor, TerrainSpace{ .floor = .dirt, .wall = .air });
+                    failsafe -= 1; // overflow means we're in an infinite loop.
+                }
+                cursor = data.start;
+                while (!isOpenSpace(mg_.terrain.getCoord(cursor).wall)) : (cursor = cursor.minus(data.step)) {
+                    try mg_.terrain.putCoord(cursor, TerrainSpace{ .floor = .dirt, .wall = .air });
                     failsafe -= 1; // overflow means we're in an infinite loop.
                 }
             }
@@ -362,8 +377,8 @@ fn generateMine(mg: *MapGenerator) !Rect {
                 try data.dig(mg);
             },
             .diagonal => |data| {
-                try data.hallways[0].dig(mg);
                 try mg.terrain.putCoord(data.hallways[0].end, TerrainSpace{ .floor = .dirt, .wall = .air });
+                try data.hallways[0].dig(mg);
                 for (data.corner_walls) |coord| {
                     try mg.terrain.putCoord(coord, TerrainSpace{ .floor = .dirt, .wall = .dirt });
                 }
@@ -379,8 +394,10 @@ fn generateMine(mg: *MapGenerator) !Rect {
         var possible_spawn_locations_len: usize = 0;
         var it = shrinkRect(room, 1).rowMajorIterator();
         while (it.next()) |coord| {
-            possible_spawn_locations[possible_spawn_locations_len] = coord;
-            possible_spawn_locations_len += 1;
+            if (isOpenSpace(mg.terrain.getCoord(coord).wall)) {
+                possible_spawn_locations[possible_spawn_locations_len] = coord;
+                possible_spawn_locations_len += 1;
+            }
         }
 
         var orc_count: usize = 0;
@@ -1513,6 +1530,41 @@ fn digOutRect(terrain: *Terrain, room_rect: Rect) void {
         }
     }
 }
+fn caveInCorners(mg: *MapGenerator, room: Rect, comptime max_area: comptime_int, wall_terrain: TerrainSpace) void {
+    var iterations = mg.r.intRangeAtMost(u8, @intCast(@divTrunc(room.width * room.height, 3)), max_area / 2);
+    // wow this is inefficient. it would be better to check and add open spaces next to places we cave in instead of this O(n^3) shit.
+    while (iterations > 0) : (iterations -= 1) {
+        var corners: [max_area]Coord = undefined;
+        var corners_len: usize = 0;
+        var it = room.rowMajorIterator();
+        while (it.next()) |coord| {
+            var wall_mask: u4 = 0;
+            for ([_]Coord{
+                makeCoord(1, 0),
+                makeCoord(0, 1),
+                makeCoord(-1, 0),
+                makeCoord(0, -1),
+            }, 0..) |direction, i| {
+                if (!isOpenSpace(mg.terrain.getCoord(coord.plus(direction)).wall)) {
+                    wall_mask |= @as(u4, 1) << @intCast(i);
+                }
+            }
+            switch (wall_mask) {
+                // only cave in 2-sided corners.
+                // This ensures that the space's bounding box is still the entire room
+                // so that the hallway digging can simply extend straight to find open air.
+                // This also ensures that we don't cause disconnected separate spaces.
+                0b0011, 0b0110, 0b1100, 0b1001 => {
+                    corners[corners_len] = coord;
+                    corners_len += 1;
+                },
+                else => {},
+            }
+        }
+        const coord = popRandom2(mg.r, &corners, &corners_len) orelse break;
+        mg.terrain.putCoord(coord, wall_terrain) catch unreachable;
+    }
+}
 
 fn clearAndAppendInteriorCoords(coords: *ArrayList(Coord), room_rect: Rect) !void {
     coords.clearRetainingCapacity();
@@ -1539,7 +1591,7 @@ fn debugTerrain(terrain: *Terrain) void {
         while (x <= terrain.metrics.max_x) : (x += 1) {
             const cell = terrain.get(x, y);
 
-            line[i] = if (cell.wall == .stone) ' ' else if (core.game_logic.isOpenSpace(cell.wall)) '.' else '#';
+            line[i] = if (cell.wall == .stone) ' ' else if (isOpenSpace(cell.wall)) '.' else '#';
             i += 1;
         }
         core.debug.map_gen.print("{s}", .{line[0..i]});
