@@ -1531,7 +1531,8 @@ fn digOutRect(terrain: *Terrain, room_rect: Rect) void {
     }
 }
 fn caveInCorners(mg: *MapGenerator, room: Rect, comptime max_area: comptime_int, wall_terrain: TerrainSpace) void {
-    var iterations = mg.r.intRangeAtMost(u8, @intCast(@divTrunc(room.width * room.height, 3)), max_area / 2);
+    const inner_area = (room.width - 1) * (room.height - 1);
+    var iterations = mg.r.intRangeLessThan(u8, @intCast(@divTrunc(inner_area, 3)), @intCast(@divTrunc(inner_area, 2)));
     // wow this is inefficient. it would be better to check and add open spaces next to places we cave in instead of this O(n^3) shit.
     while (iterations > 0) : (iterations -= 1) {
         var corners: [max_area]Coord = undefined;
