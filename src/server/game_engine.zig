@@ -235,29 +235,76 @@ pub fn computeHappenings(allocator: Allocator, pristine_game_state: *GameState, 
     };
 }
 
+const HappeningsComputation = struct {
+    // this list is updated as individuals die. TODO: do we actually need this copy?
+    everybody: []u32,
+    // individuals that move.
+    budges_at_all: IdMap(void),
+
+    individual_to_perception: IdMap(*MutablePerceivedHappening),
+    total_deaths: IdMap(void),
+    polymorphers: IdMap(void),
+};
 fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerceivedHappening) {
-    // cache the set of keys so iterator is easier.
-    var everybody = try self.allocator.alloc(u32, self.state.individuals.count());
-    for (everybody, 0..) |*x, i| {
-        x.* = self.state.individuals.keys()[i];
-    }
-    const everybody_including_dead = try self.allocator.dupe(u32, everybody);
+    var hc_var = HappeningsComputation{
+        .everybody = try self.allocator.dupe(u32, self.state.individuals.keys()),
+        .budges_at_all = IdMap(void).init(self.allocator),
+        .individual_to_perception = IdMap(*MutablePerceivedHappening).init(self.allocator),
+        .total_deaths = IdMap(void).init(self.allocator),
+        .polymorphers = IdMap(void).init(self.allocator),
+    };
+    const hc = &hc_var;
 
-    var budges_at_all = IdMap(void).init(self.allocator);
-
-    var individual_to_perception = IdMap(*MutablePerceivedHappening).init(self.allocator);
-    for (everybody_including_dead) |id| {
+    for (hc.everybody) |id| {
+        // TODO: why is this on the heap?
         const h = try self.allocator.create(MutablePerceivedHappening);
         h.* = MutablePerceivedHappening.init(self.allocator);
-        try individual_to_perception.putNoClobber(id, h);
+        try hc.individual_to_perception.putNoClobber(id, h);
     }
 
-    var total_deaths = IdMap(void).init(self.allocator);
-    var polymorphers = IdMap(void).init(self.allocator);
+    try self.doCheatcodeActions(hc, actions);
 
+    try self.doIntentionalMovement(hc, actions);
+
+    try self.doOpenCloseDoors(hc, actions); // TODO: why is this separate from doItemInteractions()?
+
+    try self.doKicks(hc, actions);
+
+    try self.doItemInteractions(hc, actions);
+
+    try self.doStatusEffects(hc, actions);
+
+    try self.doAttacks(hc, actions);
+
+    try self.doGrappleAndDigestion(hc);
+
+    try self.checkEnvironmentalDeathTriggers(hc);
+
+    try self.doTraps(hc);
+
+    try self.checkPuzzleLevelComplete(hc);
+
+    // final observations
+    for (hc.total_deaths.keys()) |id| {
+        assert(self.state.individuals.swapRemove(id));
+    }
+
+    for (hc.everybody) |id| {
+        try observeFrame(
+            self,
+            id,
+            hc.individual_to_perception.get(id).?,
+            Activities.static_state,
+        );
+    }
+
+    return hc.individual_to_perception;
+}
+
+fn doCheatcodeActions(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
     // Cheating
     {
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const index = switch (actions.get(id).?) {
                 .cheatcode_warp => |index| index,
                 else => continue,
@@ -267,12 +314,15 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
     }
+}
+
+fn doIntentionalMovement(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
 
     // Shrinking
     {
         var shrinks = IdMap(u1).init(self.allocator);
         var next_positions = IdMap(ThingPosition).init(self.allocator);
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const index: u1 = switch (actions.get(id).?) {
                 .shrink => |index| index,
                 else => continue,
@@ -281,17 +331,17 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             try next_positions.putNoClobber(id, ThingPosition{ .small = old_position[index] });
             try shrinks.putNoClobber(id, index);
         }
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             try observeFrame(
                 self,
                 id,
-                individual_to_perception.get(id).?,
+                hc.individual_to_perception.get(id).?,
                 Activities{
                     .shrinks = &shrinks,
                 },
             );
         }
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const next_position = next_positions.get(id) orelse continue;
             self.state.individuals.get(id).?.abs_position = next_position;
         }
@@ -300,7 +350,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
     // Moving normally
     {
         var intended_moves = IdMap(Coord).init(self.allocator);
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             switch (actions.get(id).?) {
                 .move, .lunge => |direction| {
                     const move_delta = cardinalDirectionToDelta(direction);
@@ -318,7 +368,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             if (0 != individual.status_conditions & core.protocol.StatusCondition_grappling) {
                 // also move the grapplee
                 const coord = getHeadPosition(individual.abs_position);
-                for (everybody) |other_id| {
+                for (hc.everybody) |other_id| {
                     const other = self.state.individuals.get(other_id).?;
                     if (0 == other.status_conditions & core.protocol.StatusCondition_grappled) continue;
                     if (!coord.equals(getHeadPosition(other.abs_position))) continue;
@@ -327,20 +377,14 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
 
-        try self.doMovementAndCollisions(
-            &everybody,
-            &individual_to_perception,
-            &intended_moves,
-            &budges_at_all,
-            &total_deaths,
-        );
+        try self.doMovementAndCollisions(hc, &intended_moves);
     }
 
     // Growing
     {
         var intended_moves = IdMap(Coord).init(self.allocator);
         var next_positions = IdMap(ThingPosition).init(self.allocator);
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const move_delta: Coord = switch (actions.get(id).?) {
                 .grow => |direction| cardinalDirectionToDelta(direction),
                 else => continue,
@@ -355,11 +399,11 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             try next_positions.putNoClobber(id, ThingPosition{ .large = .{ new_head_coord, old_coord } });
         }
 
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             try observeFrame(
                 self,
                 id,
-                individual_to_perception.get(id).?,
+                hc.individual_to_perception.get(id).?,
                 Activities{
                     .growths = .{
                         .intended_moves = &intended_moves,
@@ -369,16 +413,18 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             );
         }
 
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const next_position = next_positions.get(id) orelse continue;
             self.state.individuals.get(id).?.abs_position = next_position;
         }
     }
+}
 
+fn doOpenCloseDoors(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
     // Using doors
     {
         var door_toggles = CoordMap(u2).init(self.allocator);
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const direction = switch (actions.get(id).?) {
                 .open_close => |direction| direction,
                 else => continue,
@@ -408,13 +454,16 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         }
         // Do we need to explicitly observe this? is there going to be an animation for it or something?
     }
+}
+
+fn doKicks(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
 
     // Kicks
     {
         var kicks = IdMap(Coord).init(self.allocator);
         var intended_moves = IdMap(Coord).init(self.allocator);
         var kicked_too_much = IdMap(void).init(self.allocator);
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const kick_direction: Coord = switch (actions.get(id).?) {
                 .kick => |direction| cardinalDirectionToDelta(direction),
                 else => continue,
@@ -424,7 +473,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             var kicked_anybody = false;
             const attacker_coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
             const kick_coord = attacker_coord.plus(kick_direction);
-            for (everybody) |other_id| {
+            for (hc.everybody) |other_id| {
                 const other = self.state.individuals.get(other_id).?;
                 const position = other.abs_position;
                 for (getAllPositions(&position)) |coord| {
@@ -460,11 +509,11 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
         if (kicks.count() > 0) {
-            for (everybody) |id| {
+            for (hc.everybody) |id| {
                 try observeFrame(
                     self,
                     id,
-                    individual_to_perception.get(id).?,
+                    hc.individual_to_perception.get(id).?,
                     Activities{
                         .kicks = &kicks,
                     },
@@ -476,20 +525,17 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 assert(intended_moves.swapRemove(key));
             }
 
-            try self.doMovementAndCollisions(
-                &everybody,
-                &individual_to_perception,
-                &intended_moves,
-                &budges_at_all,
-                &total_deaths,
-            );
+            try self.doMovementAndCollisions(hc, &intended_moves);
         }
     }
+}
+
+fn doItemInteractions(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
 
     // pick up, equip, unequp
     {
         var item_claims = IdMap(?struct { individual_id: u32, to_slot: EquipmentSlot }).init(self.allocator);
-        for (everybody) |individual_id| {
+        for (hc.everybody) |individual_id| {
             const action = actions.get(individual_id).?;
             switch (action) {
                 .pick_up_and_equip, .pick_up_unequipped => {
@@ -571,9 +617,11 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             self.state.items.get(item_id).?.location = .{ .held = .{ .holder_id = claim.individual_id, .equipped_to_slot = claim.to_slot } };
         }
     }
+}
 
+fn doStatusEffects(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
     // Wounds, limping, pain, etc.
-    for (everybody) |id| {
+    for (hc.everybody) |id| {
         const individual = self.state.individuals.get(id).?;
         const species = individual.species;
         if (self.state.terrain.getCoord(getHeadPosition(individual.abs_position)).floor == .marble) {
@@ -584,7 +632,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 core.protocol.StatusCondition_pain;
             individual.status_conditions &= ~healed_statuses;
         }
-        if (budges_at_all.contains(id)) {
+        if (hc.budges_at_all.contains(id)) {
             // You moved.
             if (0 != individual.status_conditions & core.protocol.StatusCondition_wounded_leg or //
                 isSlow(species) or //
@@ -607,8 +655,9 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             individual.status_conditions &= ~core.protocol.StatusCondition_pain;
         }
     }
+}
 
-    // Attacks
+fn doAttacks(self: *GameEngine, hc: *HappeningsComputation, actions: IdMap(Action)) !void {
     var attack_deaths = IdMap(void).init(self.allocator);
     {
         var attacks = IdMap(Activities.Attack).init(self.allocator);
@@ -617,7 +666,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
         var stomps = IdMap(void).init(self.allocator);
         var intended_moves = IdMap(Coord).init(self.allocator);
         var pushed_too_much = IdMap(void).init(self.allocator);
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             switch (actions.get(id).?) {
                 .defend => |direction| {
                     try defends.putNoClobber(id, direction);
@@ -625,7 +674,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 else => {},
             }
         }
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const action = actions.get(id).?;
             switch (action) {
                 .attack, .lunge, .fire_bow => |attack_direction| {
@@ -640,7 +689,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     while (attack_distance <= range) : (attack_distance += 1) {
                         var damage_position = attacker_coord.plus(attack_delta.scaled(attack_distance));
                         var stop_the_attack = false;
-                        for (everybody) |other_id| {
+                        for (hc.everybody) |other_id| {
                             const other = self.state.individuals.get(other_id).?;
                             const other_position_index = blk: for (getAllPositions(&other.abs_position), 0..) |coord, i| {
                                 if (coord.equals(damage_position)) break :blk i;
@@ -705,7 +754,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                                 if (@intFromEnum(whoosh_dir) +% 2 == @intFromEnum(attack_direction)) continue;
                                 const whoosh_delta = cardinalDirectionToDelta(whoosh_dir);
                                 const whoosh_coord = damage_position.plus(whoosh_delta);
-                                for (everybody) |other_id| {
+                                for (hc.everybody) |other_id| {
                                     const other = self.state.individuals.get(other_id).?;
                                     switch (getPhysicsLayer(other.species)) {
                                         // unaffected by whoosh.
@@ -736,7 +785,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                     const attacker_coord = getHeadPosition(attacker.abs_position);
                     const attacker_physics_layer = getPhysicsLayer(attacker.species);
                     const damage_position = attacker_coord;
-                    for (everybody) |other_id| {
+                    for (hc.everybody) |other_id| {
                         if (other_id == id) continue; // Don't hit yourself.
                         const other = self.state.individuals.get(other_id).?;
                         const other_physics_layer = getPhysicsLayer(other.species);
@@ -784,11 +833,11 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
 
         // observe
         if (attacks.count() + defends.count() + nibbles.count() + stomps.count() > 0) {
-            for (everybody) |id| {
+            for (hc.everybody) |id| {
                 try observeFrame(
                     self,
                     id,
-                    individual_to_perception.get(id).?,
+                    hc.individual_to_perception.get(id).?,
                     Activities{ .attacks = .{
                         .attacks = &attacks,
                         .defends = &defends,
@@ -805,18 +854,12 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 assert(intended_moves.swapRemove(key));
             }
 
-            try self.doMovementAndCollisions(
-                &everybody,
-                &individual_to_perception,
-                &intended_moves,
-                &budges_at_all,
-                &total_deaths,
-            );
+            try self.doMovementAndCollisions(hc, &intended_moves);
         }
     }
     // Lava (and deaths from attacks for some reason)
     {
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const position = self.state.individuals.get(id).?.abs_position;
             for (getAllPositions(&position)) |coord| {
                 if (self.state.terrain.getCoord(coord).floor == .lava) {
@@ -825,24 +868,26 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
         if (attack_deaths.count() > 0) {
-            for (everybody) |id| {
+            for (hc.everybody) |id| {
                 try observeFrame(
                     self,
                     id,
-                    individual_to_perception.get(id).?,
+                    hc.individual_to_perception.get(id).?,
                     Activities{ .deaths = &attack_deaths },
                 );
             }
         }
-        try self.flushDeaths(&total_deaths, &attack_deaths, &everybody);
+        try self.flushDeaths(hc, &attack_deaths);
     }
+}
 
+fn doGrappleAndDigestion(self: *GameEngine, hc: *HappeningsComputation) !void {
     // Grapple and digestion
     {
         var grappler_to_victim_count = IdMap(u32).init(self.allocator);
         var victim_to_has_multiple_attackers = IdMap(bool).init(self.allocator);
         var victim_to_unique_attacker = IdMap(u32).init(self.allocator);
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const individual = self.state.individuals.get(id).?;
             switch (individual.species) {
                 .blob, .ant => {},
@@ -850,7 +895,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
             // grappler
             const grappler_physics_layer = getPhysicsLayer(individual.species);
-            for (everybody) |other_id| {
+            for (hc.everybody) |other_id| {
                 if (other_id == id) continue;
                 const other = self.state.individuals.get(other_id).?;
                 switch (getPhysicsLayer(other.species)) {
@@ -893,7 +938,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
 
         var digestion_deaths = IdMap(void).init(self.allocator);
         var digesters = IdMap(void).init(self.allocator);
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const victim = self.state.individuals.get(id).?;
             if (!victim_to_has_multiple_attackers.contains(id)) {
                 // Not grappled.
@@ -938,14 +983,14 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                         if (blob_subspecies == .small_blob) {
                             // Grow up to be large.
                             self.state.individuals.get(attacker_id).?.species = .{ .blob = .large_blob };
-                            try polymorphers.put(attacker_id, {});
+                            try hc.polymorphers.put(attacker_id, {});
                         }
                     }
                 }
             }
         }
         // attacker-side statuses.
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const individual = self.state.individuals.get(id).?;
             if ((grappler_to_victim_count.get(id) orelse 0) > 0) {
                 individual.status_conditions |= core.protocol.StatusCondition_grappling;
@@ -959,23 +1004,25 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
 
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             if (digestion_deaths.count() != 0) {
                 try observeFrame(
                     self,
                     id,
-                    individual_to_perception.get(id).?,
+                    hc.individual_to_perception.get(id).?,
                     Activities{ .deaths = &digestion_deaths },
                 );
             }
         }
-        try self.flushDeaths(&total_deaths, &digestion_deaths, &everybody);
+        try self.flushDeaths(hc, &digestion_deaths);
     }
+}
 
+fn checkEnvironmentalDeathTriggers(self: *GameEngine, hc: *HappeningsComputation) !void {
     // Environmental death triggers
     {
         var check_bloody_water_near: ?Coord = null;
-        for (total_deaths.keys()) |id| {
+        for (hc.total_deaths.keys()) |id| {
             const coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
             const cell = self.state.terrain.getCoord(coord);
             switch (cell.floor) {
@@ -1042,10 +1089,12 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
     }
+}
 
+fn doTraps(self: *GameEngine, hc: *HappeningsComputation) !void {
     // Traps
     var intended_polymorphs = IdMap(Species).init(self.allocator);
-    for (everybody) |id| {
+    for (hc.everybody) |id| {
         const individual = self.state.individuals.get(id).?;
         const position = individual.abs_position;
         const from_species = individual.species;
@@ -1126,7 +1175,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
     if (intended_polymorphs.count() > 0) {
         var non_blob_individuals_to_be_present = CoordMap(u2).init(self.allocator);
 
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const individual = self.state.individuals.get(id).?;
             const from_species = individual.species;
             const position = individual.abs_position;
@@ -1152,7 +1201,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
                 }
             }
         }
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const individual = self.state.individuals.get(id).?;
             const dest_species = intended_polymorphs.get(id) orelse continue;
             const from_species = individual.species;
@@ -1179,7 +1228,7 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             } else {
                 // The polymoph succeeds.
                 self.state.individuals.get(id).?.species = dest_species;
-                try polymorphers.put(id, {});
+                try hc.polymorphers.put(id, {});
                 const blob_only_statuses = core.protocol.StatusCondition_grappling | //
                     core.protocol.StatusCondition_digesting;
                 const blob_immune_statuses = core.protocol.StatusCondition_grappled | //
@@ -1196,30 +1245,32 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             }
         }
     }
-    if (polymorphers.count() != 0) {
-        for (everybody) |id| {
+    if (hc.polymorphers.count() != 0) {
+        for (hc.everybody) |id| {
             try observeFrame(
                 self,
                 id,
-                individual_to_perception.get(id).?,
-                Activities{ .polymorphs = &polymorphers },
+                hc.individual_to_perception.get(id).?,
+                Activities{ .polymorphs = &hc.polymorphers },
             );
         }
     }
+}
 
+fn checkPuzzleLevelComplete(self: *GameEngine, hc: *HappeningsComputation) !void {
     // Check for completing and starting the next level.
     // We push these changes directly into the state diff after all the above is resolved,
     // because these changes don't affect any of the above logic.
     var open_the_way = false;
     var button_getting_pressed: ?Coord = null;
-    if (self.state.individuals.count() - total_deaths.count() == 1) {
+    if (self.state.individuals.count() - hc.total_deaths.count() == 1) {
         // Only one person left.
-        if (total_deaths.count() > 0) {
+        if (hc.total_deaths.count() > 0) {
             // Freshly completed level.
             open_the_way = true;
         }
         // check for someone on the button
-        for (everybody) |id| {
+        for (hc.everybody) |id| {
             const position = self.state.individuals.get(id).?.abs_position;
             for (getAllPositions(&position)) |coord| {
                 if (self.state.terrain.getCoord(coord).floor == .hatch) {
@@ -1292,35 +1343,12 @@ fn doAllTheThings(self: *GameEngine, actions: IdMap(Action)) !IdMap(*MutablePerc
             try self.state.individuals.putNoClobber(self.findAvailableId(), try individual.clone(self.allocator));
         }
     }
-
-    // final observations
-    for (total_deaths.keys()) |id| {
-        assert(self.state.individuals.swapRemove(id));
-    }
-
-    for (everybody) |id| {
-        try observeFrame(
-            self,
-            id,
-            individual_to_perception.get(id).?,
-            Activities.static_state,
-        );
-    }
-
-    return individual_to_perception;
 }
 
-fn doMovementAndCollisions(
-    self: *GameEngine,
-    everybody: *[]u32,
-    individual_to_perception: *IdMap(*MutablePerceivedHappening),
-    intended_moves: *IdMap(Coord),
-    budges_at_all: *IdMap(void),
-    total_deaths: *IdMap(void),
-) !void {
+fn doMovementAndCollisions(self: *GameEngine, hc: *HappeningsComputation, intended_moves: *IdMap(Coord)) !void {
     var next_positions = IdMap(ThingPosition).init(self.allocator);
 
-    for (everybody.*) |id| {
+    for (hc.everybody) |id| {
         // seek forward and stop at any wall.
         const position = self.state.individuals.get(id).?.abs_position;
         const initial_head_coord = getHeadPosition(position);
@@ -1367,7 +1395,7 @@ fn doMovementAndCollisions(
             CoordMap(Collision).init(self.allocator),
             CoordMap(Collision).init(self.allocator),
         };
-        for (everybody.*) |id| {
+        for (hc.everybody) |id| {
             const individual = self.state.individuals.get(id).?;
             const physics_layer = getPhysicsLayer(individual.species);
             if (physics_layer == 0) {
@@ -1419,7 +1447,7 @@ fn doMovementAndCollisions(
                 }
             }
         }
-        id_loop: for (everybody.*) |id| {
+        id_loop: for (hc.everybody) |id| {
             const next_position = next_positions.get(id) orelse continue;
             const physics_layer = getPhysicsLayer(self.state.individuals.get(id).?.species);
             if (physics_layer == 0) continue;
@@ -1439,7 +1467,7 @@ fn doMovementAndCollisions(
         //         V
         //   🐕 <- 🐕
         // This conga line would be unsuccessful because the head of the line isn't successfully moving.
-        for (everybody.*) |id| {
+        for (hc.everybody) |id| {
             // anyone who fails to move could be the head of a sad conga line.
             if (next_positions.contains(id)) continue;
             // You are not moving (successfully).
@@ -1467,11 +1495,11 @@ fn doMovementAndCollisions(
     }
 
     // Observe movement.
-    for (everybody.*) |id| {
+    for (hc.everybody) |id| {
         try observeFrame(
             self,
             id,
-            individual_to_perception.get(id).?,
+            hc.individual_to_perception.get(id).?,
             Activities{
                 .movement = .{
                     .intended_moves = intended_moves,
@@ -1482,25 +1510,25 @@ fn doMovementAndCollisions(
     }
 
     // Update positions from movement.
-    for (everybody.*) |id| {
+    for (hc.everybody) |id| {
         const next_position = next_positions.get(id) orelse continue;
         self.state.individuals.get(id).?.abs_position = next_position;
     }
 
-    for (everybody.*) |id| {
+    for (hc.everybody) |id| {
         // TODO: re-implement trample deaths.
         // trample deaths got removed when physics layers were introduced.
         try observeFrame(
             self,
             id,
-            individual_to_perception.get(id).?,
+            hc.individual_to_perception.get(id).?,
             Activities{ .deaths = &trample_deaths },
         );
     }
-    try self.flushDeaths(total_deaths, &trample_deaths, everybody);
+    try self.flushDeaths(hc, &trample_deaths);
 
     for (intended_moves.keys()) |id| {
-        _ = try budges_at_all.put(id, {});
+        _ = try hc.budges_at_all.put(id, {});
     }
 }
 
@@ -1766,14 +1794,14 @@ const MutablePerceivedHappening = struct {
 };
 
 /// write local deaths to total deaths, and drop items.
-fn flushDeaths(self: *GameEngine, total_deaths: *IdMap(void), local_deaths: *IdMap(void), everybody: *[]u32) !void {
+fn flushDeaths(self: *GameEngine, hc: *HappeningsComputation, local_deaths: *IdMap(void)) !void {
     for (local_deaths.keys()) |id| {
-        if (null != try total_deaths.fetchPut(id, {})) continue;
+        if (null != try hc.total_deaths.fetchPut(id, {})) continue;
         // remove from everybody
         {
-            const index = std.mem.indexOfScalar(u32, everybody.*, id).?;
-            everybody.*[index] = everybody.*[everybody.len - 1];
-            everybody.* = everybody.*[0 .. everybody.len - 1];
+            const index = std.mem.indexOfScalar(u32, hc.everybody, id).?;
+            hc.everybody[index] = hc.everybody[hc.everybody.len - 1];
+            hc.everybody = hc.everybody[0 .. hc.everybody.len - 1];
         }
         // drop items
         const coord = getHeadPosition(self.state.individuals.get(id).?.abs_position);
