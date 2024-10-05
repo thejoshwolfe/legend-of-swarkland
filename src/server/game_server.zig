@@ -16,7 +16,7 @@ const PerceivedHappening = core.protocol.PerceivedHappening;
 const validateAction = core.game_logic.validateAction;
 
 const StateDiff = game_model.StateDiff;
-const HistoryList = std.TailQueue([]StateDiff);
+const HistoryList = std.DoublyLinkedList([]StateDiff);
 const HistoryNode = HistoryList.Node;
 
 const allocator = std.heap.c_allocator;

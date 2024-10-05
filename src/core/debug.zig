@@ -121,7 +121,7 @@ fn deepPrintImpl(prefix: []const u8, something: anytype) void {
                 return std.debug.print("\n{s}}}", .{indentation});
             }
             switch (@typeInfo(T)) {
-                .Pointer => |ptr_info| switch (ptr_info.size) {
+                .pointer => |ptr_info| switch (ptr_info.size) {
                     .One => return recurse(obj.*, indent),
                     .Slice => {
                         if (obj.len == 0) {
@@ -139,10 +139,10 @@ fn deepPrintImpl(prefix: []const u8, something: anytype) void {
                         @compileError("shouldn't get here: " ++ @typeName(T));
                     },
                 },
-                .Array => {
+                .array => {
                     return recurse(obj[0..], indent);
                 },
-                .Struct => |StructT| {
+                .@"struct" => |StructT| {
                     const multiline = @sizeOf(T) >= 12;
                     std.debug.print(".{{", .{});
                     inline for (StructT.fields, 0..) |field, i| {
@@ -172,7 +172,7 @@ fn deepPrintImpl(prefix: []const u8, something: anytype) void {
                     }
                     return;
                 },
-                .Union => |info| {
+                .@"union" => |info| {
                     if (info.tag_type) |tag_type| {
                         std.debug.print(".{{ .{s} = ", .{@tagName(obj)});
                         inline for (info.fields) |u_field| {
@@ -189,10 +189,10 @@ fn deepPrintImpl(prefix: []const u8, something: anytype) void {
                         return;
                     }
                 },
-                .Enum => {
+                .@"enum" => {
                     return std.debug.print(".{s}", .{@tagName(obj)});
                 },
-                .Void => {
+                .void => {
                     return std.debug.print("{{}}", .{});
                 },
                 else => {},

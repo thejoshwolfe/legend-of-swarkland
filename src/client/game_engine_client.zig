@@ -77,7 +77,7 @@ const Connection = union(enum) {
     thread: ThreadData,
 
     const ChildProcessData = struct {
-        child_process: *std.ChildProcess,
+        child_process: *std.process.Child,
         adapter: *QueueToFdAdapter,
     };
     const ThreadData = struct {
@@ -115,9 +115,9 @@ pub const GameEngineClient = struct {
             .child_process = blk: {
                 const args = [_][]const u8{path};
                 core.debug.thread_lifecycle.print("starting child process: {s}", .{path});
-                var child_process = try std.ChildProcess.init(&args, allocator);
-                child_process.stdout_behavior = std.ChildProcess.StdIo.Pipe;
-                child_process.stdin_behavior = std.ChildProcess.StdIo.Pipe;
+                var child_process = try std.process.Child.init(&args, allocator);
+                child_process.stdout_behavior = std.process.Child.StdIo.Pipe;
+                child_process.stdin_behavior = std.process.Child.StdIo.Pipe;
                 try child_process.spawn();
 
                 const adapter = try allocator.create(QueueToFdAdapter);

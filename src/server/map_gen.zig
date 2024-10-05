@@ -1,5 +1,5 @@
 const std = @import("std");
-const Random = std.rand.Random;
+const Random = std.Random;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
@@ -40,7 +40,7 @@ pub fn generateRegular(game_state: *GameState) !void {
         std.options.cryptoRandomSeed(&buf);
         break :s @bitCast(buf);
     };
-    var _r = std.rand.DefaultPrng.init(random_seed);
+    var _r = Random.DefaultPrng.init(random_seed);
     var r = _r.random();
     var next_id: u32 = 2;
 
@@ -1219,7 +1219,11 @@ fn compileLevel(name: []const u8, comptime options: Options, comptime source: []
     std.debug.assert(traps_index == options.traps.len);
     std.debug.assert(facing_directions_index == options.facing_directions.len);
 
-    return level;
+    // Avoid "global variable contains reference to comptime var" errors.
+    const const_terrain = terrain;
+    level.terrain = &const_terrain;
+    const const_level = level;
+    return const_level;
 }
 
 fn buildTheTerrain(terrain: *Terrain) !void {

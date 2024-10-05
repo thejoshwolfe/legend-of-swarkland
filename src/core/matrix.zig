@@ -58,7 +58,7 @@ pub fn SparseChunkedMatrix(comptime T: type, comptime default_value: T, comptime
                     // chunks are clean after a clone.
                     chunk.is_dirty = false;
                 }
-                std.mem.copy(T, &chunk.data, &entry.value_ptr.*.data);
+                @memcpy(&chunk.data, &entry.value_ptr.*.data);
                 other.chunks.putAssumeCapacity(entry.key_ptr.*, chunk);
             }
             other.metrics = self.metrics;

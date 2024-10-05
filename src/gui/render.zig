@@ -872,7 +872,7 @@ fn hashCoordToRange(less_than_this: usize, seed: u32, coord: Coord) usize {
     hash = hashU32(hash);
     hash ^= @as(u32, @bitCast(coord.y));
     hash = hashU32(hash);
-    return std.rand.limitRangeBiased(u32, hash, @as(u32, @intCast(less_than_this)));
+    return std.Random.limitRangeBiased(u32, hash, @as(u32, @intCast(less_than_this)));
 }
 
 fn hashU32(input: u32) u32 {

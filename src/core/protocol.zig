@@ -320,20 +320,20 @@ pub fn OutChannel(comptime Writer: type) type {
         pub fn write(self: Self, x: anytype) !void {
             const T = @TypeOf(x);
             switch (@typeInfo(T)) {
-                .Int => return self.writeInt(x),
-                .Bool => return self.writeInt(@intFromBool(x)),
-                .Enum => return self.writeInt(@intFromEnum(x)),
-                .Struct => |info| {
+                .int => return self.writeInt(x),
+                .bool => return self.writeInt(@intFromBool(x)),
+                .@"enum" => return self.writeInt(@intFromEnum(x)),
+                .@"struct" => |info| {
                     inline for (info.fields) |field| {
                         try self.write(@field(x, field.name));
                     }
                 },
-                .Array => {
+                .array => {
                     for (x) |x_i| {
                         try self.write(x_i);
                     }
                 },
-                .Pointer => |info| {
+                .pointer => |info| {
                     switch (info.size) {
                         .Slice => {
                             // []T
@@ -354,7 +354,7 @@ pub fn OutChannel(comptime Writer: type) type {
                         else => @compileError("not supported: " ++ @typeName(T)),
                     }
                 },
-                .Union => |info| {
+                .@"union" => |info| {
                     const tag = @as(info.tag_type.?, x);
                     try self.writeInt(@intFromEnum(tag));
                     inline for (info.fields) |u_field| {
@@ -367,7 +367,7 @@ pub fn OutChannel(comptime Writer: type) type {
                     }
                     unreachable;
                 },
-                .Optional => {
+                .optional => {
                     if (x) |child| {
                         try self.write(true);
                         try self.write(child);
@@ -380,9 +380,9 @@ pub fn OutChannel(comptime Writer: type) type {
         }
 
         pub fn writeInt(self: Self, x: anytype) !void {
-            const int_info = @typeInfo(@TypeOf(x)).Int;
+            const int_info = @typeInfo(@TypeOf(x)).int;
             const T_aligned = @Type(std.builtin.Type{
-                .Int = .{
+                .int = .{
                     .signedness = int_info.signedness,
                     .bits = @divTrunc(int_info.bits + 7, 8) * 8,
                 },
@@ -410,24 +410,24 @@ pub fn InChannel(comptime Reader: type) type {
 
         pub fn read(self: Self, comptime T: type) !T {
             switch (@typeInfo(T)) {
-                .Int => return self.readInt(T),
-                .Bool => return 0 != try self.readInt(u1),
-                .Enum => return @as(T, @enumFromInt(try self.readInt(std.meta.Tag(T)))),
-                .Struct => |info| {
+                .int => return self.readInt(T),
+                .bool => return 0 != try self.readInt(u1),
+                .@"enum" => return @as(T, @enumFromInt(try self.readInt(std.meta.Tag(T)))),
+                .@"struct" => |info| {
                     var x: T = undefined;
                     inline for (info.fields) |field| {
                         @field(x, field.name) = try self.read(field.type);
                     }
                     return x;
                 },
-                .Array => {
+                .array => {
                     var x: T = undefined;
                     for (&x) |*x_i| {
                         x_i.* = try self.read(@TypeOf(x_i.*));
                     }
                     return x;
                 },
-                .Pointer => |info| {
+                .pointer => |info| {
                     switch (info.size) {
                         .Slice => {
                             const len = try self.readInt(usize);
@@ -440,7 +440,7 @@ pub fn InChannel(comptime Reader: type) type {
                         else => @compileError("not supported: " ++ @typeName(T)),
                     }
                 },
-                .Union => |info| {
+                .@"union" => |info| {
                     const tag = try self.read(info.tag_type.?);
                     inline for (info.fields) |u_field| {
                         if (tag == @field(T, u_field.name)) {
@@ -450,7 +450,7 @@ pub fn InChannel(comptime Reader: type) type {
                     }
                     unreachable;
                 },
-                .Optional => |info| {
+                .optional => |info| {
                     const non_null = try self.read(bool);
                     if (!non_null) return null;
                     return try self.read(info.child);
@@ -460,9 +460,9 @@ pub fn InChannel(comptime Reader: type) type {
         }
 
         pub fn readInt(self: Self, comptime T: type) !T {
-            const int_info = @typeInfo(T).Int;
+            const int_info = @typeInfo(T).int;
             const T_aligned = @Type(std.builtin.Type{
-                .Int = .{
+                .int = .{
                     .signedness = int_info.signedness,
                     .bits = @divTrunc(int_info.bits + 7, 8) * 8,
                 },
@@ -491,7 +491,7 @@ pub const SomeQueues = struct {
     }
 
     pub fn closeRequests(self: *SomeQueues) void {
-        self.requests_alive.store(false, .Monotonic);
+        self.requests_alive.store(false, .monotonic);
     }
     pub fn enqueueRequest(self: *SomeQueues, request: Request) !void {
         try self.queuePut(Request, &self.requests, request);
@@ -499,7 +499,7 @@ pub const SomeQueues = struct {
 
     /// null means requests have been closed
     pub fn waitAndTakeRequest(self: *SomeQueues) ?Request {
-        while (self.requests_alive.load(.Monotonic)) {
+        while (self.requests_alive.load(.monotonic)) {
             if (self.queueGet(Request, &self.requests)) |response| {
                 return response;
             }
@@ -510,7 +510,7 @@ pub const SomeQueues = struct {
     }
 
     pub fn closeResponses(self: *SomeQueues) void {
-        self.responses_alive.store(false, .Monotonic);
+        self.responses_alive.store(false, .monotonic);
     }
     pub fn enqueueResponse(self: *SomeQueues, response: Response) !void {
         try self.queuePut(Response, &self.responses, response);
@@ -521,7 +521,7 @@ pub const SomeQueues = struct {
 
     /// null means responses have been closed
     pub fn waitAndTakeResponse(self: *SomeQueues) ?Response {
-        while (self.responses_alive.load(.Monotonic)) {
+        while (self.responses_alive.load(.monotonic)) {
             if (self.takeResponse()) |response| {
                 return response;
             }
