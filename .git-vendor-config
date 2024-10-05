@@ -9,7 +9,8 @@ exclude=test
 
 ---
 
-dir=deps/zig-sdl
-url=https://github.com/andrewrk/zig-sdl/
-follow-branch=master
-commit=9f20fed745356c03fc38d9976a099011ad0d0846
+dir=deps/git-vendor
+url=https://github.com/thejoshwolfe/git-vendor.git
+follow-branch=release
+commit=5fa38a4aaa6ac9c3e4b8de053ea764a06a4a63cc
+include=/git-vendor

@@ -1,0 +1,1914 @@
+#!/usr/bin/env python3
+
+###############################################################################
+# Hello! If you're reading this, this script was probably imported into your  #
+# repository from https://github.com/thejoshwolfe/git-vendor . This is a      #
+# utility for importing files from another repo, similar to `git submodules`, #
+# but embeds the content into your repo directly so there's no need for extra #
+# steps after a `git pull`. This script is capable of updating the embedded   #
+# content, including itself, and likely that's done by:                       #
+#                                                                             #
+#     ./deps/git-vendor/git-vendor update                                     #
+#     git commit                                                              #
+#                                                                             #
+# Report bugs to: https://github.com/thejoshwolfe/git-vendor/issues           #
+###############################################################################
+
+__version__ = "v1.1.3"
+
+import os, sys, re
+import subprocess, shlex
+import fnmatch
+import collections, functools
+import tempfile
+
+class CliOptions:
+    verbose = False
+    super_verbose = False
+    dry_run = False
+
+def cli():
+    import argparse
+    formatter_class = argparse.HelpFormatter
+    if os.environ.get("GIT_VENDOR_RAW_HELP_FORMATTING", ""):
+        # Used by the documentation generator.
+        formatter_class = argparse.RawTextHelpFormatter
+
+    def issue(n):
+        # note the use of "%2d" instead of "-" is to prevent the url from getting brok-
+        # en by the word wrapping in the default help formatter. (And the double "%%" is
+        # because help strings go through % str templating.)
+        return "https://github.com/thejoshwolfe/git%%2dvendor/issues/{}".format(n)
+
+    subparsers_map = {}
+    def add_parser(subparsers, name, *aliases, **kwargs):
+        parser = subparsers.add_parser(name, aliases=aliases, formatter_class=formatter_class, **kwargs)
+        subparsers_map[name] = parser
+        for alias in aliases:
+            subparsers_map[alias] = parser
+        return parser
+
+    # Argument definitions that will be used multiple times.
+
+    def add_verbose(parser, dest="_subparser_verbose"):
+        parser.add_argument("-v", "--verbose", action="store_true", dest=dest, help="\n".join([
+            "Produce more output. The formatting and content is not specified;",
+            "it is intended for human eyes, not for machine parsing.",
+            "You can also set the GIT_VENDOR_SUPER_VERBOSE environment variable to non-blank for even more output.",
+        ]))
+    def add_dry_run(parser, dest="_subparser_dry_run"):
+        parser.add_argument("--dry-run", action="store_true", dest=dest, help=
+            "Do not cause any changes, but show what would be done.")
+
+    def add_required_dir(parser, to_be="is"):
+        parser.add_argument("dir", nargs="?", help=
+            "The directory in your repo where the vendored content {} located. "
+            "This option (or --dir) is required.".format(to_be))
+        parser.add_argument("--dir", metavar="dir", dest="_kwarg_dir", help=
+            "Alternate way of specifying the 'dir' argument.")
+    UNSPECIFIED_AND_NOT_REQUIRED = object()
+    def add_optional_dir(parser, default=UNSPECIFIED_AND_NOT_REQUIRED):
+        if default == UNSPECIFIED_AND_NOT_REQUIRED:
+            help = ("The single directory to operate on. "
+                    "If unspecified, operate on all of them.")
+        else:
+            help = ("The directory in your repo for the vendored content. "
+                    " The default is '%(default)s'.")
+        parser.add_argument("dir", nargs="?", default=default, help=help)
+        parser.add_argument("--dir", metavar="dir", dest="_kwarg_dir", help=
+            "Alternate way of specifying the 'dir' argument.")
+    def add_dir_and_new_dir(parser):
+        parser.add_argument("dir", nargs="?", help=
+            "The vendored directory to move.")
+        parser.add_argument("--dir", metavar="dir", dest="_kwarg_dir", help=
+            "Alternate way of specifying the 'dir' argument.")
+        parser.add_argument("new_dir", metavar="new-dir", nargs="?", help=
+            "The destination for the move.")
+        parser.add_argument("--new-dir", metavar="new-dir", dest="_kwarg_new_dir", help=
+            "Alternate way of specifying the 'new-dir' argument.")
+
+    def add_subdir(parser):
+        parser.add_argument("--subdir", help=
+            "Subdirectory within the external repo that is the root of the content to be vendored.")
+    def add_url(parser, required):
+        parser.add_argument("--url", required=required, help="\n".join([
+            "URL of the external git repo. See `git help clone` for acceptable URL formats.",
+            "Note that relative paths are sometimes accepted by git,",
+            "but git-vendor does not allow local path URLs that are relative paths;",
+            "use absolute paths instead (see also issue {} ).".format(issue(6)),
+        ]))
+    def add_follow_or_pin(parser):
+        follow_group = parser.add_mutually_exclusive_group()
+        follow_group.add_argument("--follow-branch", "--branch", metavar="BRANCH", help="\n".join([
+            "A branch name identifies the commit of the external repo to use.",
+            "This method of identifying a commit communicates with the remote server",
+            "whenever updating the local content to check if the branch points to a new commit.",
+            "If the branch specified does not begin with `refs/`, then a prefix of `refs/heads/`",
+            "is prepended automatically (this is how branches are named in git.).",
+            "If the given branch begins with `refs/`, then it will be used as-is,",
+            "regardless of whether it really refers to a branch (aka head).",
+            " ",
+            "This mode is the default during `git-vendor add` if none of",
+            "`--follow-branch`, `--pin-to-tag`, or `--pin-to-commit` are specified.",
+            "The branch to follow is determined by getting the 'HEAD' branch name from the remote.",
+            "This is typically 'main'.",
+            "(It is determined by `git ls-remote --symref <url> HEAD`.)",
+        ]))
+        follow_group.add_argument("--pin-to-tag", "--tag", metavar="TAG", help="\n".join([
+            "A tag name identifies the commit of the external repo to use.",
+            "This method of identifying a commit only communicates with the remote server",
+            "on initial configuration or in any other case where the resolved commit is unknown/uncached locally.",
+            "If the given name does not begin with `refs/`, then a prefix of `refs/tags/`",
+            "is prepended automatically (this is how tags are named in git.).",
+        ]))
+        follow_group.add_argument("--pin-to-commit", "--commit", metavar="COMMIT", help="\n".join([
+            "Identifies a specific commit to be used from the external repo.",
+            "This method of identifying a commit only communicates with the remote server",
+            "on initial configuration or in any other case where the object data for the commit is not cached locally.",
+            "Note that this option may not work for all git server configurations; see {} .".format(issue(4)),
+        ]))
+    def add_include_exclude(parser):
+        parser.add_argument("--include", action="append", metavar="PATTERN", help="\n".join([
+            "Indicates that only certain content is to be included from the external repo.",
+            "The given patterns identify files by name in a syntax similar to `git help ignore`,",
+            "but with some differences (see below).",
+            " ",
+            "If this option is unspecified, then all content is implicitly included.",
+            "This option can be specified multiple times, and the union of matches will be included.",
+            "When this option and --exclude are both specified, then --exclude is higher priority;",
+            "i.e. anything excluded by --exclude can never be un-excluded by --include or any other means.",
+            " ",
+            "The following specification for this option and --exclude is adapted from `git help ignore`:",
+            " ",
+            "1) The slash `/` is used as the directory separator.",
+            "   Separators may occur at the beginning, middle or end of each pattern.",
+            "2) If there is a separator at the beginning or middle (or both) of the pattern,",
+            "   then the pattern is relative to the external repo root.",
+            "   Otherwise the pattern may also match at any level within the external repo.",
+            "3) If there is a separator at the end of the pattern then the pattern will only match directories,",
+            "   otherwise the pattern can match both files and directories.",
+            "   For example, a pattern `doc/frotz/` matches `doc/frotz` directory, but not `a/doc/frotz` directory;",
+            "   however `frotz/` matches `frotz` and `a/frotz` that is a directory",
+            "   (all paths are relative from the external repo root).",
+            "4) An asterisk `*` matches anything except a slash. The character `?` matches any one character except `/`.",
+            "   The range notation, e.g. `[a-zA-Z]`, can be used to match one of the characters in a range.",
+            "   See https://docs.python.org/3/library/fnmatch.html for a more detailed description.",
+            "5) Two consecutive asterisks `**` in patterns matched against full pathname may have special meaning:",
+            "   5a) A leading `**` followed by a slash means match in all directories.",
+            "       For example, `**/foo` matches file or directory `foo` anywhere, the same as pattern `foo`.",
+            "       `**/foo/bar` matches file or directory `bar` anywhere that is directly under directory `foo`.",
+            "   5b) A trailing `/**` is *not allowed*. It is equivalent to omitting it, so please just omit it.",
+            "       (This is a deviation from the `git help ignore` specification.)",
+            "   5c) A slash followed by two consecutive asterisks then a slash matches zero or more directories.",
+            "       For example, `a/**/b` matches `a/b`, `a/x/b`, `a/x/y/b` and so on.",
+            "   5d) Other consecutive asterisks are considered regular asterisks and will match according to the previous rules.",
+            "6) After splitting the pattern on `/`, if any segment is empty, `.`, or `..`, the pattern is invalid.",
+            "   (This is a deviation from the `git help ignore` specification.)",
+            "7) Leading, trailing, or internal whitespace is supported by the normal quoting rules",
+            "   (your shell, or the .git-vendor-config file syntax, etc.).",
+        ]))
+        parser.add_argument("--exclude", action="append", metavar="PATTERN", help="\n".join([
+            "Indicates that some content is to be excluded from the external repo.",
+            "This option can be specified multiple times, and all matches are excluded.",
+            "The syntax for this option is identical to --include.",
+            "When this option and --include are both specified, then this option is higher priority;",
+            "i.e. anything excluded by this option can never be un-excluded by --include or any other means.",
+            " ",
+            "Note that if the external repo includes git submodules, those will be recursively fetched and included",
+            "unless they are excluded by this option (or not included by --include).",
+        ]))
+    def add_allow_dir_exists(parser, relevant_arg_name):
+        parser.add_argument("--allow-dir-exists", action="store_true", help=
+            "If the given '{}' already exists, this command will produce an error to prevent clobbering the existing content. "
+            "Specify this option to disable the error and allow clobbering the directory.".format(relevant_arg_name))
+
+    # Configure the parser and subparsers.
+    parser = argparse.ArgumentParser(formatter_class=formatter_class)
+    parser.add_argument("--version", action="version", version=__version__)
+    add_verbose(parser, dest=None)
+    add_dry_run(parser, dest=None)
+
+    subparsers = parser.add_subparsers(title="command", dest="command", required=True, help=
+        "Give --help after a command to see more help.")
+
+    subparser = add_parser(subparsers, "self", help=
+        "Add git-vendor itself to your repo following the 'release' branch. This is the recommended way to use git-vendor for keeping your other vendored content up to date.")
+    add_verbose(subparser)
+    add_dry_run(subparser)
+    add_optional_dir(subparser, default="deps/git-vendor")
+    add_allow_dir_exists(subparser, "dir")
+
+    subparser = add_parser(subparsers, "add", help=
+        "Add a new vendored dir from a url. See also the 'self' command.")
+    add_verbose(subparser)
+    add_dry_run(subparser)
+    add_required_dir(subparser, to_be="will be")
+    add_subdir(subparser)
+    add_url(subparser, True)
+    add_follow_or_pin(subparser)
+    add_include_exclude(subparser)
+    add_allow_dir_exists(subparser, "dir")
+
+    subparser = add_parser(subparsers, "set", help=
+        "Edits the settings for a vendored dir. "
+        "This option accepts much the same options as 'add', "
+        "however the location of the vendored dir cannot be changed with this option; "
+        "see the 'rename' command for that instead.")
+    add_verbose(subparser)
+    add_dry_run(subparser)
+    add_required_dir(subparser)
+    add_subdir(subparser)
+    add_url(subparser, False)
+    add_follow_or_pin(subparser)
+    add_include_exclude(subparser)
+
+    for name, aliases, help_content in [
+        ("list", ["ls"],
+            "List the vendored dirs and note how they are defined."),
+        ("update", ["up"],
+            "Download any necessary updates to the vendored content, and 'git add' the changes to the vendored dirs."),
+        ("status", ["st"],
+            "Show what would happen on an 'update' command. Equivalent to 'update --dry-run'."),
+        ("remove", ["rm"],
+            "Remove the vendored content from the .git-vendor-config file, "
+            "and 'git add' the removal of the directory from this repo."),
+    ]:
+        subparser = add_parser(subparsers, name, *aliases, help=help_content)
+        add_verbose(subparser)
+        add_dry_run(subparser)
+        add_optional_dir(subparser)
+
+    subparser = add_parser(subparsers, "rename", "mv", help=
+        "Move the vendored content from 'dir' to 'new-dir', "
+        "edit the .git-vendor-config file appropriately, and 'git add' the changes.")
+    add_verbose(subparser)
+    add_dry_run(subparser)
+    add_dir_and_new_dir(subparser)
+    add_allow_dir_exists(subparser, "new-dir")
+
+    if os.environ.get("GIT_VENDOR_ALLOW_EXPERIMENTAL_TREE_PATCH", ""):
+        for name, aliases, help_content in [
+            ("save-edits", ["save-patch"],
+                "EXPERIMENTAL: save edits to vendored content."),
+            ("diff-edits", ["diff-patch"],
+                "EXPERIMENTAL: show saved edits to vendored content."),
+        ]:
+            subparser = add_parser(subparsers, name, *aliases, help=help_content)
+            add_verbose(subparser)
+            add_dry_run(subparser)
+            add_required_dir(subparser)
+
+    # The stdlib part of the arg parsing.
+    args = parser.parse_args()
+    def get_active_subparser():
+        return subparsers_map[args.command]
+
+    # Resolve complex arg parsing cases.
+    for name in args.__dict__.keys():
+        if name.startswith("_subparser_"):
+            real_name = name[len("_subparser_"):]
+            # These are all action="store_true" options.
+            setattr(args, real_name, getattr(args, real_name) or getattr(args, name))
+        elif name.startswith("_kwarg_"):
+            real_name = name[len("_kwarg_"):]
+            real_value = getattr(args, real_name)
+            alias_value = getattr(args, name)
+            if real_value == None and alias_value == None:
+                get_active_subparser().error("one of the following arguments is required: {0}/--{0}".format(real_name.replace("_", "-")))
+            if real_value not in (None, UNSPECIFIED_AND_NOT_REQUIRED) and alias_value != None:
+                get_active_subparser().error("cannot specify both arguments: '{0}' and '--{0}'".format(real_name.replace("_", "-")))
+            if alias_value != None:
+                setattr(args, real_name, alias_value)
+            elif real_value == UNSPECIFIED_AND_NOT_REQUIRED:
+                # This placeholder has served its purpose.
+                setattr(args, real_name, None)
+
+    # Process general arguments.
+    if args.verbose:
+        CliOptions.verbose = True
+    if args.dry_run:
+        CliOptions.dry_run = True
+    if os.environ.get("GIT_VENDOR_SUPER_VERBOSE", ""):
+        CliOptions.verbose = True
+        CliOptions.super_verbose = True
+    if args.command in ("st", "status"):
+        # 'status' is an alias for 'update --dry-run'
+        args.command = "update"
+        CliOptions.dry_run = True
+
+    # Handle command
+    if args.command == "self":
+        do_add(
+            "https://github.com/thejoshwolfe/git-vendor.git",
+            dir=args.dir,
+            allow_dir_exists=args.allow_dir_exists,
+            follow_branch="release",
+            include=["/git-vendor"],
+            pin_to_tag=None, pin_to_commit=None, subdir=None, exclude=None,
+        )
+    elif args.command == "add":
+        assert args.url and args.dir
+        do_add(args.url, args.follow_branch, args.pin_to_tag, args.pin_to_commit, args.dir, args.subdir, args.include, args.exclude, args.allow_dir_exists)
+    elif args.command == "set":
+        assert args.dir
+        do_set(args.url, args.follow_branch, args.pin_to_tag, args.pin_to_commit, args.dir, args.subdir, args.include, args.exclude)
+    elif args.command in ("up", "update"): # and "status"
+        do_update(args.dir)
+    elif args.command in ("ls", "list"):
+        do_list(args.dir)
+    elif args.command in ("rm", "remove"):
+        assert args.dir
+        do_remove(args.dir)
+    elif args.command in ("mv", "rename"):
+        assert args.dir and args.new_dir
+        do_rename(args.dir, args.new_dir, args.allow_dir_exists)
+    elif args.command in ("save-edits", "save-patch"):
+        assert args.dir
+        do_save_patch(args.dir)
+    elif args.command in ("diff-edits", "diff-patch"):
+        assert args.dir
+        do_diff_patch(args.dir)
+    else: assert False
+
+def do_add(url, follow_branch, pin_to_tag, pin_to_commit, dir, subdir, include, exclude, allow_dir_exists):
+    new_config_item = ConfigItem()
+
+    new_config_item.dir = actual_dir_to_path_in_repo(dir, "--dir")
+    validate_dir(new_config_item.dir, "--dir")
+    existing_items = read_config_file()
+    validate_no_primary_key_conflicts(new_config_item.dir, "--dir", existing_items)
+    if not allow_dir_exists:
+        validate_dir_not_exists(new_config_item.dir, "--dir")
+
+    validate_url(url, warn=True)
+    new_config_item.url = url
+    if subdir != None:
+        new_config_item.subdir = canonicalize_relative_path(subdir, "--subdir")
+        validate_subdir(new_config_item.subdir, "--subdir")
+
+    if follow_branch != None:
+        validate_ref("--follow-branch", follow_branch)
+        new_config_item.follow_branch = follow_branch
+    elif pin_to_tag != None:
+        validate_ref("--pin-to-tag", pin_to_tag)
+        new_config_item.pin_to_tag = pin_to_tag
+    elif pin_to_commit != None:
+        validate_object_name("--pin-to-commit", pin_to_commit)
+        new_config_item.pin_to_commit = pin_to_commit
+    else:
+        # Default is --follow-branch <head-branch>
+        for line in git("ls-remote", "--symref", url, "HEAD", mode="newline_terminated_lines"):
+            try:
+                value, name = line.split("\t", maxsplit=1)
+            except ValueError:
+                continue
+            if not (name == "HEAD" and value.startswith("ref: ")): continue
+            ref_name = value[len("ref: "):]
+            if ref_name.startswith("refs/heads/"):
+                # It looks nicer in the config to omit this prefix.
+                ref_name = ref_name[len("refs/heads/"):]
+            new_config_item.follow_branch = ref_name
+            break
+        else:
+            raise UserError("no --follow-branch, --pin-to-tag, or --pin-to-commit given, and remote does not have a HEAD branch: " + shlex.quote(url))
+
+    if include:
+        new_config_item.include = include
+    if exclude:
+        new_config_item.exclude = exclude
+
+    download_the_thing(new_config_item, len(existing_items))
+
+def do_set(url, follow_branch, pin_to_tag, pin_to_commit, dir, subdir, include, exclude):
+    config_item, section_index = find_config_item_by_dir(dir)
+
+    if url != None:
+        validate_url(url, warn=True)
+        config_item.url = url
+    if subdir != None:
+        if subdir != "":
+            config_item.subdir = canonicalize_relative_path(subdir, "--subdir")
+            validate_subdir(config_item.subdir, "--subdir")
+        else:
+            config_item.subdir = None
+
+    if follow_branch != None:
+        validate_ref("--follow-branch", follow_branch)
+        config_item.follow_branch = follow_branch
+        config_item.pin_to_tag = None
+        config_item.pin_to_commit = None
+    elif pin_to_tag != None:
+        validate_ref("--pin-to-tag", pin_to_tag)
+        config_item.follow_branch = None
+        config_item.pin_to_tag = pin_to_tag
+        config_item.pin_to_commit = None
+    elif pin_to_commit != None:
+        validate_object_name("--pin-to-commit", pin_to_commit)
+        config_item.follow_branch = None
+        config_item.pin_to_tag = None
+        config_item.pin_to_commit = pin_to_commit
+
+    if include != None:
+        if include == [""]:
+            config_item.include = []
+        else:
+            config_item.include = include
+    if exclude != None:
+        if exclude == [""]:
+            config_item.exclude = []
+        else:
+            config_item.exclude = exclude
+
+    download_the_thing(config_item, section_index)
+    cleanup_refs([section_index], False)
+
+def do_update(maybe_dir):
+    if maybe_dir != None:
+        config_item, section_index = find_config_item_by_dir(maybe_dir)
+        the_things = [(section_index, config_item)]
+        visited_all_sections = False
+    else:
+        the_things = list(enumerate(read_config_file()))
+        visited_all_sections = True
+    for section_index, config_item in the_things:
+        download_the_thing(config_item, section_index)
+    cleanup_refs([section_index for (section_index, _) in the_things], visited_all_sections)
+
+def do_list(maybe_dir):
+    if maybe_dir != None:
+        config_item, _ = find_config_item_by_dir(maybe_dir)
+        the_things = [config_item]
+    else:
+        the_things = read_config_file()
+    for config_item in the_things:
+        annotations = []
+        if config_item.follow_branch != None:
+            annotations.append("follow: " + config_item.follow_branch)
+        elif config_item.pin_to_tag != None:
+            annotations.append("pinned: " + config_item.pin_to_tag)
+        elif config_item.pin_to_commit != None:
+            annotations.append("pinned: " + git("rev-parse", "--short", config_item.pin_to_commit, mode="single_line"))
+        else: assert False
+        if config_item.tree_patch != None:
+            annotations.append("patched")
+        print("{} ({})".format(config_item.dir, ", ".join(annotations)))
+
+def do_remove(actual_dir):
+    _, section_index = find_config_item_by_dir(actual_dir)
+    edit_config_file(None, section_index)
+
+    if CliOptions.dry_run:
+        print("")
+        print("would delete tree: " + os.path.normpath(actual_dir))
+        print("")
+    else:
+        git("rm",
+            "-r", "-q", "--force",
+            "--",
+            actual_dir,
+            mode="mutating")
+        # Tell the user to proceed with a git commit.
+        print("Changes staged to be committed:")
+        git("diff",
+            "--cached", "--shortstat",
+            mode="inherit_stdout")
+        print("")
+        print("Use \"git commit\" to proceed with the commit.")
+
+def do_rename(actual_dir, actual_new_dir, allow_dir_exists):
+    config_item, section_index = find_config_item_by_dir(actual_dir)
+
+    canonical_dir = actual_dir_to_path_in_repo(actual_new_dir, "--new-dir")
+    if config_item.dir == canonical_dir: raise UserError("cannot rename something to itself: " + shlex.quote(canonical_dir))
+    validate_no_primary_key_conflicts(canonical_dir, "--new-dir", read_config_file())
+    config_item.dir = canonical_dir
+    validate_dir(config_item.dir, "--new-dir")
+    if not allow_dir_exists:
+        validate_dir_not_exists(config_item.dir, "--dir")
+
+    edit_config_file(config_item, section_index)
+
+    # Trailing slashes on this parameter ruin everything.
+    actual_new_dir = os.path.normpath(actual_new_dir)
+
+    if CliOptions.dry_run:
+        print("")
+        print("would move tree: {} -> {}".format(
+            shlex.quote(os.path.normpath(actual_dir)),
+            shlex.quote(actual_new_dir),
+        ))
+        print("")
+    else:
+        os.makedirs(os.path.dirname(actual_new_dir), exist_ok=True)
+        git("mv",
+            os.path.normpath(actual_dir),
+            actual_new_dir,
+            mode="mutating")
+        # Tell the user to proceed with a git commit.
+        print("Changes staged to be committed:")
+        git("diff",
+            "--cached", "--shortstat",
+            mode="inherit_stdout")
+        print("")
+        print("Use \"git commit\" to proceed with the commit.")
+
+def do_save_patch(actual_dir):
+    config_item, section_index = find_config_item_by_dir(actual_dir)
+
+    dirty_lines = git_status(config_item)
+    for porcelain_status_line in dirty_lines:
+        worktree_status_code = porcelain_status_line[1]
+        if worktree_status_code != " ":
+            raise UserError("\n".join([
+                "There are unstaged changes in: " + shlex.quote(actual_dir),
+                "Use \"git add\" to stage the changes, then re-run this command."
+            ]))
+    new_tree_object_name = git("write-tree",
+        "--prefix", config_item.dir,
+        mode="single_line")
+
+    # Compute the post-filter pre-patch tree.
+    fetch_and_set_commit(config_item, section_index, refresh_ref=False)
+    old_tree_object_name = filter_tree(
+        get_git_commit_tree_object_name(config_item.commit), config_item.subdir,
+        config_item.include, config_item.exclude,
+        section_index)
+
+    new_tree_patch = "{}:{}:{}".format(config_item.commit, old_tree_object_name, new_tree_object_name)
+    if config_item.tree_patch == new_tree_patch:
+        # Already up to date.
+        print("Already up to date.")
+        return
+
+    config_item.tree_patch = new_tree_patch
+    edit_config_file(config_item, section_index)
+
+    # Tell the user to proceed with a git commit.
+    if CliOptions.dry_run:
+        print("")
+    print("Changes staged to be committed:")
+    git("diff",
+        "--cached", "--shortstat",
+        mode="inherit_stdout")
+    print("")
+    if not CliOptions.dry_run:
+        print("Use \"git commit\" to proceed with the commit.")
+
+def do_diff_patch(actual_dir):
+    config_item, section_index = find_config_item_by_dir(actual_dir)
+    if config_item.tree_patch == None:
+        return
+    old_commit, old_tree_object_name, new_tree_object_name = config_item.tree_patch.split(":")
+    if not is_git_object_resolvable_as_tree(old_tree_object_name):
+        git_fetch_to_cache(config_item.url, old_commit, section_index)
+    cmd = ["git", "diff", old_tree_object_name, new_tree_object_name]
+    if CliOptions.dry_run:
+        print(" ".join(shlex.quote(x) for x in cmd))
+    else:
+        os.execvp(cmd[0], cmd)
+
+
+def find_config_item_by_dir(actual_dir):
+    path_in_repo = actual_dir_to_path_in_repo(actual_dir, "--dir")
+    for section_index, config_item in enumerate(read_config_file()):
+        if config_item.dir == path_in_repo:
+            return (config_item, section_index)
+    raise UserError("\n".join([
+        "dir is not vendored content: " + shlex.quote(path_in_repo),
+        "tip: try \"git-vendor list\"",
+    ]))
+
+def fetch_and_set_commit(config_item, section_index, *, refresh_ref):
+    """ fetches the third-party data if necessary, and sets config_item.commit to the resolved object name """
+    resolve_ref = None
+    if config_item.follow_branch != None:
+        if config_item.follow_branch.startswith("refs/"):
+            # The user knows what they're doing.
+            resolve_ref = config_item.follow_branch
+        else:
+            # Presume it's a branch aka head.
+            resolve_ref = "refs/heads/{}".format(config_item.follow_branch)
+    elif config_item.pin_to_tag != None:
+        if config_item.commit != None:
+            # Assume the tag hasn't changed.
+            resolve_ref = None
+        elif config_item.pin_to_tag.startswith("refs/"):
+            # The user knows what they're doing.
+            resolve_ref = config_item.pin_to_tag
+        else:
+            # Presume it's a tag.
+            resolve_ref = "refs/tags/{}".format(config_item.pin_to_tag)
+    elif config_item.pin_to_commit != None:
+        resolve_ref = None
+        # Make sure this is copied over.
+        config_item.commit = config_item.pin_to_commit
+    else: assert False
+    if resolve_ref != None:
+        # Check for updates to the ref.
+        # We'd like to just fetch, but `git fetch` produces trash output when there's nothing to do.
+        # So first check if we would fetch anything, then do the fetch.
+        remote_lines = git("ls-remote",
+            config_item.url,
+            resolve_ref,
+            mode="newline_terminated_lines")
+        if len(remote_lines) != 1:
+            # Ref is deleted? Let's let `git fetch` report the error.
+            git_fetch_to_cache(config_item.url, resolve_ref, section_index)
+            assert False, "Expected ls-remote and fetch to agree on the non-existence of ref: " + resolve_ref
+        # e.g. "615624c2c2cfbed7e30a158493b704231b14ff8e\trefs/heads/main"
+        config_item.commit = remote_lines[0].split("\t", 1)[0]
+        # We might save this edit depending on later logic.
+
+    # Verify that we actually have the commit cached.
+    if is_git_object_resolvable_as_tree(config_item.commit):
+        return
+
+    # Recache the commit.
+    git_fetch_to_cache(config_item.url, config_item.commit, section_index)
+
+def download_the_thing(config_item, section_index):
+    fetch_and_set_commit(config_item, section_index, refresh_ref=True)
+
+    # Filter vendored tree and inline submodules.
+    vendored_tree_object_name = filter_tree(
+        get_git_commit_tree_object_name(config_item.commit), config_item.subdir,
+        config_item.include, config_item.exclude,
+        section_index)
+
+    # Apply patches.
+    if config_item.tree_patch != None:
+        old_commit, old_tree_object_name, new_tree_object_name = config_item.tree_patch.split(":")
+        if vendored_tree_object_name == old_tree_object_name:
+            vendored_tree_object_name = new_tree_object_name
+        else:
+            # We need to merge the patches with the new changes.
+            # Make sure we have the old tree fetched and cached. It may have been gc'ed.
+            if not is_git_object_resolvable_as_tree(old_tree_object_name):
+                # The old tree is based on the commit.
+                if not is_git_object_resolvable_as_tree(old_commit):
+                    # Start by fetching the commit.
+                    git_fetch_to_cache(config_item.url, old_commit, section_index)
+                # We need to run our filters on the old commit to recreate the old tree.
+                recreated_old_tree_object_name = filter_tree(
+                    get_git_commit_tree_object_name(old_commit), config_item.subdir,
+                    config_item.include, config_item.exclude,
+                    section_index)
+                if recreated_old_tree_object_name != old_tree_object_name:
+                    raise UserError("\n".join([
+                        "Something changed in the config file, and `git gc` has deleted an object critical for patching.",
+                        "Please revert your changes to `.git-vendor-config`, and run `git-vendor status` to recover the deleted object.",
+                        "Then redo your edits, and try again."
+                    ]))
+
+            pre_patch_tree_object_name = vendored_tree_object_name
+            vendored_tree_object_name = apply_tree_patch(vendored_tree_object_name, old_tree_object_name, new_tree_object_name)
+            if pre_patch_tree_object_name == vendored_tree_object_name:
+                # The upstream has merged all the changes.
+                config_item.tree_patch = None
+            else:
+                # Update the tree patch for the new commit.
+                config_item.tree_patch = "{}:{}:{}".format(config_item.commit, pre_patch_tree_object_name, vendored_tree_object_name)
+
+    # The config item metadata is finalized. Put it in the index.
+    edit_config_file(config_item, section_index)
+
+    current_complete_tree_object_name = git("write-tree", mode="single_line")
+    new_complete_tree_object_name = insert_tree_at_path(current_complete_tree_object_name, vendored_tree_object_name, config_item.dir)
+
+    index_is_correct = current_complete_tree_object_name == new_complete_tree_object_name
+    working_tree_is_clean = len(git_status(config_item)) == 0
+    if index_is_correct and working_tree_is_clean:
+        # Already up to date.
+        if not CliOptions.dry_run:
+            print("{}: Already up to date.".format(config_item.dir))
+        return
+
+    if CliOptions.dry_run:
+        # Show a diff of the incoming changes.
+        print("")
+        if not index_is_correct:
+            print("changes to to be applied to: " + config_item.dir)
+        elif not working_tree_is_clean:
+            print("would discard local modifications to: " + config_item.dir)
+        else: assert False
+        git("diff",
+            "--shortstat",
+            current_complete_tree_object_name, new_complete_tree_object_name,
+            mode="inherit_stdout")
+    else:
+        # Update the index.
+        git("read-tree",
+            new_complete_tree_object_name,
+            mode="mutating")
+        # Update the work tree.
+        repo_root = get_repo_root()
+        actual_dir = os.path.join(repo_root, config_item.dir)
+        os.makedirs(actual_dir, exist_ok=True)
+        git(
+            "--work-tree", actual_dir,
+            "restore",
+            "--source", vendored_tree_object_name,
+            ".",
+            mode="mutating")
+        # This clean only works because of the `git read-tree` updating the index above.
+        while True:
+            # We have to repeatedly clean in case the first clean deletes a .gitignore file that reveals more untracked content.
+            # Reproduce this scenario by running the following bash command in a freshly initialized git repo:
+            #   (for i in {0..5}; do echo /a/.gitignore > .gitignore && mkdir a && cd a; done; cp ../.gitignore .)
+            lines = git("clean",
+                "-ffd",
+                actual_dir,
+                mode="newline_terminated_lines")
+            if len(lines) == 0:
+                break
+
+        if len(git_status(config_item)) != 0:
+            # Tell the user to proceed with a git commit.
+            print("Changes staged to be committed:")
+            git("diff",
+                "--cached", "--shortstat",
+                mode="inherit_stdout")
+            print("")
+            print("Use \"git commit\" to proceed with the commit.")
+        else:
+            # If we got to this point past the above "Already up to date" check, it means we discard local modifications.
+            print("{}: Local modifications discarded".format(config_item.dir))
+
+class ConfigItem:
+    def __init__(self):
+        self.dir = None
+        self.url = None
+        self.follow_branch = None
+        self.pin_to_tag = None
+        self.pin_to_commit = None
+        self.commit = None
+        self.subdir = None
+        self.include = []
+        self.exclude = []
+        self.tree_patch = None
+config_name_to_field_name = {
+    k.replace("_", "-"): k
+    for k in ConfigItem().__dict__.keys()
+}
+required_config_property_names = ["dir", "url"]
+config_name_order = ["dir", "url", "follow-branch", "pin-to-tag", "pin-to-commit", "commit", "subdir", "include", "exclude", "tree-patch"]
+assert set(config_name_order) == set(config_name_to_field_name.keys())
+assert set(required_config_property_names) <= set(config_name_order)
+
+def read_config_file():
+    repo_root = get_repo_root()
+    config_file_path = os.path.join(repo_root, ".git-vendor-config")
+    try:
+        with open(config_file_path) as f:
+            lines = list(f)
+    except FileNotFoundError:
+        lines = []
+    if all(line.strip()[:1] in ("", "#") for line in lines):
+        return []
+
+    primary_keys = set()
+
+    sections = []
+    current_config_item = ConfigItem()
+    current_config_item_has_any_properties = False
+    def line_error(line_index, msg):
+        raise UserError("{}:{}: error: {}\n{}\n{}".format(
+            os.path.relpath(config_file_path), line_index + 1, msg,
+            lines[line_index].rstrip(),
+            "^" * len(lines[line_index].rstrip()),
+        ))
+    def flush_section(line_index):
+        nonlocal current_config_item_has_any_properties, current_config_item
+        if not current_config_item_has_any_properties:
+            line_error(line_index, "empty section?")
+        for required_property in required_config_property_names:
+            if current_config_item.__dict__[required_property] == None:
+                line_error(line_index, "missing required property: {}".format(required_property))
+        if sum(int(current_config_item.__dict__[name] != None) for name in ["follow_branch", "pin_to_tag", "pin_to_commit"]) != 1:
+            line_error(line_index, "must specify exactly one of: follow-branch, pin-to-tag, pin-to-commit")
+        sections.append(current_config_item)
+        current_config_item = ConfigItem()
+        current_config_item_has_any_properties = False
+
+    for line_index, line in enumerate(lines):
+        line = line.strip()
+        if line[:1] in ("", "#"):
+            # Blank line or comment.
+            continue
+
+        if line == "---":
+            flush_section(line_index)
+            continue
+
+        try:
+            name, value = line.split("=", 1)
+        except ValueError:
+            line_error(line_index, "Syntax error")
+        name = name.strip()
+        value = value.strip()
+        try:
+            field_name = config_name_to_field_name[name]
+        except KeyError:
+            line_error(line_index, "unrecognized property name: " + repr(name))
+
+        try:
+            value_split = shlex.split(value)
+        except ValueError as e:
+            line_error(line_index, "Invalid quoting in value: " + str(e))
+        if len(value_split) == 0:
+            value = ""
+        elif len(value_split) == 1:
+            [value] = value_split
+        else:
+            line_error(line_index, "value with spaces must be quoted: " + shlex.quote(value))
+
+        validate_field(field_name, value, lambda msg: line_error(line_index, msg))
+        if field_name == "dir":
+            if value in primary_keys:
+                line_error(line_index, "multiple sections with the same dir")
+            primary_keys.add(value)
+
+        if current_config_item.__dict__[field_name] == None:
+            current_config_item.__dict__[field_name] = value
+        elif type(current_config_item.__dict__[field_name]) == list:
+            current_config_item.__dict__[field_name].append(value)
+        else:
+            line_error(line_index, "scalar property specified more than once: " + repr(name))
+        current_config_item_has_any_properties = True
+
+    flush_section(len(lines) - 1)
+
+    return sections
+
+def edit_config_file(new_config_item, section_index):
+    repo_root = get_repo_root()
+    config_file_path = os.path.join(repo_root, ".git-vendor-config")
+    try:
+        with open(config_file_path) as f:
+            lines = list(f)
+    except FileNotFoundError:
+        if section_index != 0: raise
+        lines = []
+    if len(lines) == 0:
+        lines = [
+            "# This is a git-vendor config file.",
+            "# For details see https://github.com/thejoshwolfe/git-vendor/blob/main/README.md#reference",
+            "",
+        ]
+
+    def format_line(name, value):
+        return "{}={}".format(name, shlex.quote(value))
+
+    theres_at_least_one_section = False
+    current_section_index = 0
+    property_new_line_indexes = collections.defaultdict(list, {
+        # "dir": 3,
+        # "include": [4, 5],
+    })
+    new_lines = []
+    def flush_section():
+        nonlocal current_section_index
+        if new_config_item == None or current_section_index != section_index:
+            current_section_index += 1
+            return
+        current_section_index += 1
+
+        # These will be sorted backwards, and must be processed in this order:
+        EDIT = -1
+        DELETE = -2
+        INSERT = -3
+        line_edits = [
+            # (index, DELETE),
+            # (index, INSERT or EDIT, line),
+        ]
+        def check_edit_value(line_index, new_value):
+            old_line = new_lines[line_index]
+            old_value_start_index = old_line.index("=") + 1
+            while old_line[old_value_start_index:old_value_start_index+1].isspace():
+                old_value_start_index += 1
+            [old_value] = shlex.split(old_line[old_value_start_index:].rstrip())
+            if old_value == new_value:
+                # Already correct.
+                return
+            # Edit
+            new_line = old_line[:old_value_start_index] + shlex.quote(new_value)
+            line_edits.append((line_index, EDIT, new_line))
+        last_seen_property_line = None # Should always be initialized by the required fields.
+        for name in config_name_order:
+            field_name = config_name_to_field_name[name]
+            value = new_config_item.__dict__[field_name]
+            if value == None:
+                # Scalar property shouldn't exist.
+                if field_name in property_new_line_indexes:
+                    line_edits.append((property_new_line_indexes[field_name], DELETE))
+                continue
+            if value == []:
+                # List property shouldn't exist.
+                if field_name in property_new_line_indexes:
+                    for line_index in property_new_line_indexes[field_name]:
+                        line_edits.append((line_index, DELETE))
+                continue
+            if type(value) == list:
+                # List property should have values.
+                for i in range(max(len(value), len(property_new_line_indexes[field_name]))):
+                    if i >= len(value):
+                        # Delete extraneous values.
+                        line_edits.append((property_new_line_indexes[field_name][i], DELETE))
+                    elif i >= len(property_new_line_indexes[field_name]):
+                        # Add new values.
+                        line_edits.append((last_seen_property_line + 1, INSERT, format_line(name, value[i])))
+                    else:
+                        # Check/edit existing values.
+                        check_edit_value(property_new_line_indexes[field_name][i], value[i])
+                        last_seen_property_line = property_new_line_indexes[field_name][i]
+            else:
+                # Scalar property should have a value.
+                if field_name in property_new_line_indexes:
+                    # Check/edit existing value.
+                    check_edit_value(property_new_line_indexes[field_name], value)
+                    # Note that this block of code should execute before any other,
+                    # so this is where this variable gets initialized the first time:
+                    last_seen_property_line = property_new_line_indexes[field_name]
+                else:
+                    # Add new value.
+                    line_edits.append((last_seen_property_line + 1, INSERT, format_line(name, value)))
+
+        # Process line edits.
+        for edit in sorted(line_edits, reverse=True):
+            line_index = edit[0]
+            edit_code = edit[1]
+            if edit_code == EDIT:
+                new_lines[line_index] = edit[2]
+            elif edit_code == DELETE:
+                del new_lines[line_index]
+            elif edit_code == INSERT:
+                new_lines[line_index:line_index] = [edit[2]]
+            else: assert False
+
+    for line in lines:
+        if new_config_item == None and current_section_index == section_index:
+            # We're deleting this section.
+            if not theres_at_least_one_section and line.lstrip()[:1] == "#":
+                # This is comments before the first section starts, so don't actually delete this part yet.
+                new_lines.append(line)
+                continue
+            elif line.strip() == "---":
+                if current_section_index == 0:
+                    # This is the separator at the end of the first section, which we are deleting.
+                    flush_section()
+                    continue
+                else:
+                    # This is the separator at the end of the section we're deleting,
+                    # but we already deleted the separator at the beginning of this section so keep this one.
+                    pass
+            else:
+                # This is the content of the section we're deleting. Goodbye.
+                theres_at_least_one_section = True
+                continue
+
+        if line.lstrip()[:1] in ("", "#"):
+            # Blank line or comment.
+            new_lines.append(line)
+            continue
+
+        if line.strip() == "---":
+            flush_section()
+            if new_config_item == None and current_section_index == section_index:
+                # We're about to delete the next section, so omit this separator.
+                pass
+            else:
+                new_lines.append(line)
+            continue
+
+        theres_at_least_one_section = True
+        if current_section_index != section_index:
+            # not the section we're looking for
+            new_lines.append(line)
+            continue
+
+        try:
+            name, _ = line.split("=", 1)
+        except ValueError:
+            # i don't care.
+            new_lines.append(line)
+            continue
+        name = name.strip()
+        try:
+            field_name = config_name_to_field_name[name]
+        except KeyError:
+            # i don't care.
+            new_lines.append(line)
+            continue
+        if type(new_config_item.__dict__[field_name]) == list:
+            property_new_line_indexes[field_name].append(len(new_lines))
+        else:
+            property_new_line_indexes[field_name] = len(new_lines)
+        new_lines.append(line)
+
+    if theres_at_least_one_section:
+        flush_section()
+    total_sections = current_section_index
+
+    if section_index == total_sections:
+        # Create a new section.
+        if theres_at_least_one_section:
+            # Insert a separator.
+            if new_lines[-1] != "":
+                new_lines.append("")
+            new_lines.append("---")
+            new_lines.append("")
+
+        for name in config_name_order:
+            field_name = config_name_to_field_name[name]
+            if new_config_item.__dict__[field_name] in (None, []):
+                continue
+            if type(new_config_item.__dict__[field_name]) == list:
+                for value in new_config_item.__dict__[field_name]:
+                    new_lines.append(format_line(name, value))
+            else:
+                new_lines.append(format_line(name, new_config_item.__dict__[field_name]))
+    elif new_config_item == None and section_index == total_sections - 1:
+        # We deleted the last section. Trim any blank lines we left at the end of the file.
+        while len(new_lines) > 0 and len(new_lines[-1].strip()) == 0:
+            del new_lines[-1]
+
+    # Save the file
+    if new_lines != lines:
+        if CliOptions.dry_run:
+            if new_config_item == None and total_sections == 1:
+                # Deleted the last item.
+                print("")
+                print("would delete file: " + os.path.relpath(config_file_path))
+                print("")
+            elif not os.path.exists(config_file_path):
+                print("")
+                print("would create file: " + os.path.relpath(config_file_path))
+                print("with contents:")
+                print("")
+                for line in new_lines:
+                    print(line.rstrip())
+                print("")
+            else:
+                # use `git diff <blob> <blob>` to show the changes
+                git("diff",
+                    git("hash-object",
+                        "-w",
+                        os.path.relpath(config_file_path),
+                        mode="single_line",
+                    ),
+                    git("hash-object",
+                        "-w", "--stdin",
+                        input="".join(
+                            line.rstrip() + "\n"
+                            for line in new_lines
+                        ),
+                        mode="single_line",
+                    ),
+                    mode="inherit_stdout",
+                )
+        else:
+            # Actually do it.
+            if new_config_item == None and total_sections == 1:
+                # Deleted the last item.
+                try:
+                    os.remove(config_file_path)
+                except FileNotFoundError:
+                    pass
+                git("update-index",
+                    "--remove",
+                    os.path.relpath(config_file_path),
+                    mode="mutating")
+            else:
+                with open(config_file_path, "w") as f:
+                    for line in new_lines:
+                        f.write(line.rstrip() + "\n")
+                git("update-index",
+                    "--add",
+                    os.path.relpath(config_file_path),
+                    mode="mutating")
+
+    # Done
+
+
+def insert_tree_at_path(base_tree_object_name, new_tree_object_name, new_tree_subdir_path):
+    def recurse(base, subdir_path):
+        if "/" in subdir_path:
+            name, rest_of_subdir_path = subdir_path.split("/", 1)
+        else:
+            name, rest_of_subdir_path = subdir_path, None
+        new_ls_tree_lines = []
+        inserted_yet = False
+        if base != None:
+            for ls_tree_line in git("ls-tree",
+                "--full-tree",
+                "-z",
+                base,
+                mode="null_terminated_lines",
+            ):
+                stuff, this_name = ls_tree_line.split("\t", 1)
+                if this_name == name:
+                    # Update this node.
+                    mode_and_type, object_name = stuff.rsplit(" ", 1)
+                    assert mode_and_type == "040000 tree", "A non-directory file is in the way: " + new_tree_subdir_path
+                    if rest_of_subdir_path != None:
+                        ls_tree_line = "040000 tree {}\t{}".format(recurse(object_name, rest_of_subdir_path), name)
+                    else:
+                        # Overwrite existing content.
+                        ls_tree_line = "040000 tree {}\t{}".format(new_tree_object_name, name)
+                    inserted_yet = True
+                new_ls_tree_lines.append(ls_tree_line)
+        if not inserted_yet:
+            if rest_of_subdir_path != None:
+                tree_object_name = recurse(None, rest_of_subdir_path)
+            else:
+                tree_object_name = new_tree_object_name
+            ls_tree_line = "040000 tree {}\t{}".format(tree_object_name, name)
+            new_ls_tree_lines.append(ls_tree_line)
+        return git("mktree",
+            "-z",
+            input="".join(
+                line + "\x00"
+                for line in new_ls_tree_lines
+            ),
+            mode="single_line")
+    return recurse(base_tree_object_name, new_tree_subdir_path)
+
+def filter_tree(tree_object_name, start_at_subdir, include, exclude, section_index):
+    include_so_far = MAYBE
+    if len(include) == 0:
+        include_so_far = True
+        include_filter_fns = None
+    else:
+        include_filter_fns = [compile_filter(pattern, "--include=" + shlex.quote(pattern), return_maybe_on_prefix_match=True) for pattern in include]
+    exclude_filter_fns = [compile_filter(pattern, "--exclude=" + shlex.quote(pattern)) for pattern in exclude]
+    if start_at_subdir != None:
+        ls_tree_lines = git("ls-tree",
+            "-z", "-d", "--full-tree",
+            tree_object_name,
+            "--",
+            start_at_subdir,
+            mode="null_terminated_lines")
+        if len(ls_tree_lines) == 0:
+            raise UserError("not found in external repo: --subdir={}".format(shlex.quote(start_at_subdir)))
+        [ls_tree_line] = ls_tree_lines
+        tree_object_name = ls_tree_line.split("\t", 1)[0].rsplit(" ", 1)[1]
+
+    depth_to_parent_to_ls_tree_lines = collections.defaultdict(lambda: collections.defaultdict(list), {
+        # 3: {"a/b/c": ["100644 blob 615a35da50b4aa9c4525e26aba1cd830010e4e46\t.gitignore"]},
+    })
+
+    def make_get_submodule_path_to_url_fn(tree_object_name):
+        # Don't try to parse .gitmodules eagerly, because it usually doesn't exist.
+        submodule_path_to_url = None
+        def get_submodule_path_to_url():
+            nonlocal submodule_path_to_url
+            if submodule_path_to_url == None:
+                # Need to parse .gitmodules file.
+                submodule_path_to_url = parse_submodule_path_to_url_from_gitmodules_config_content(
+                    git("cat-file",
+                        "blob",
+                        "{}:.gitmodules".format(tree_object_name),
+                        mode="raw_bytes"),
+                )
+            return submodule_path_to_url
+        return get_submodule_path_to_url
+    def recurse(tree_object_name, path_so_far, submodule_root_tree_depth, include_so_far, get_submodule_path_to_url_fn):
+        submodule_path_to_url = None # filled in lazily.
+        for ls_tree_line in git("ls-tree",
+            "--full-tree",
+            "-z",
+            tree_object_name,
+            mode="null_terminated_lines",
+        ):
+            stuff, name = ls_tree_line.split("\t", 1)
+            mode_and_type, object_name = stuff.rsplit(" ", 1)
+            if path_so_far != None:
+                # This is *not* an os path, so don't use os.path.join. It must use forward slashes.
+                full_path = path_so_far + "/" + name
+            else:
+                full_path = name
+            is_tree = mode_and_type in ("040000 tree", "160000 commit")
+            segments = full_path.split("/")
+            if include_so_far == MAYBE:
+                # Check include filters
+                include_this_item = False
+                for fn in include_filter_fns:
+                    result = fn(is_tree, segments)
+                    if result == True:
+                        include_this_item = True
+                        # This is as sure as it gets.
+                        break
+                    if result == False:
+                        # Check other include rules.
+                        continue
+                    # Prefix match.
+                    assert result == MAYBE and is_tree == True
+                    include_this_item = MAYBE
+                    # There might be an even better match. Keep checking.
+                if include_this_item == False:
+                    # Not explicitly included.
+                    continue
+            else:
+                assert include_so_far == True
+                include_this_item = True
+            if any(fn(is_tree, segments) for fn in exclude_filter_fns):
+                # Explicitly excluded.
+                continue
+            if mode_and_type == "040000 tree":
+                # Recurse into tree.
+                recurse(object_name, full_path, submodule_root_tree_depth, include_this_item, get_submodule_path_to_url_fn)
+                continue
+            if mode_and_type == "160000 commit":
+                # Inline submoudle.
+                try:
+                    # Resolve commit to a tree.
+                    object_name = get_git_commit_tree_object_name(object_name)
+                except subprocess.CalledProcessError:
+                    # Need to fetch.
+                    path_in_submodule = full_path.split("/", submodule_root_tree_depth)[-1]
+                    git_fetch_to_cache(get_submodule_path_to_url_fn()[path_in_submodule], object_name, section_index)
+                    # Try again to resolve the commit to a tree.
+                    object_name = get_git_commit_tree_object_name(object_name)
+                recurse(object_name, full_path, len(full_path.split("/")), include_this_item, make_get_submodule_path_to_url_fn(object_name))
+                continue
+            # Keep this blob.
+            assert mode_and_type in (
+                "100644 blob", # non-executable file
+                "100755 blob", # executable file
+                "120000 blob", # symlink
+            )
+            if "/" in full_path:
+                parent, child = full_path.rsplit("/", 1)
+                depth_to_parent_to_ls_tree_lines[len(parent.split("/"))][parent].append("{}\t{}".format(stuff, child))
+            else:
+                depth_to_parent_to_ls_tree_lines[0][""].append(ls_tree_line)
+    recurse(tree_object_name, None, 0, include_so_far, make_get_submodule_path_to_url_fn(tree_object_name))
+
+    if len(depth_to_parent_to_ls_tree_lines) == 0:
+        raise UserError("no content after filters!")
+
+    # Build new trees from leaves up.
+    root_tree = None
+    for depth in reversed(range(max(depth_to_parent_to_ls_tree_lines.keys()) + 1)):
+        parent_to_ls_tree_lines = depth_to_parent_to_ls_tree_lines[depth]
+        assert root_tree == None
+
+        parent_and_ls_tree_lines = list(parent_to_ls_tree_lines.items())
+        tree_object_names = git("mktree",
+            "-z", "--batch",
+            input="".join(
+                "".join(
+                    ls_tree_line + "\x00"
+                    for ls_tree_line in ls_tree_lines
+                ) + "\x00"
+                for _, ls_tree_lines in parent_and_ls_tree_lines
+            ),
+            mode="newline_terminated_lines",
+        )
+        for tree_object_name, (name, _) in zip(tree_object_names, parent_and_ls_tree_lines):
+            assert root_tree == None
+            if "/" in name:
+                parent, child = name.rsplit("/", 1)
+                ls_tree_line = "040000 tree {}\t{}".format(tree_object_name, child)
+                depth_to_parent_to_ls_tree_lines[len(parent.split("/"))][parent].append(ls_tree_line)
+            elif len(name) > 0:
+                ls_tree_line = "040000 tree {}\t{}".format(tree_object_name, name)
+                depth_to_parent_to_ls_tree_lines[0][""].append(ls_tree_line)
+            else:
+                # Root tree.
+                root_tree = tree_object_name
+    assert root_tree != None
+    return root_tree
+
+def apply_tree_patch(base_tree_object_name, old_tree_object_name, new_tree_object_name):
+    def read_tree(tree_object_name):
+        name_to_stuff = {
+            # "path/to/foo.txt", "100644 blob 225788ba527ad53693819c1945849451d80beda3"
+        }
+        for line in git("ls-tree",
+            "--full-tree", "-r",
+            "-z",
+            tree_object_name,
+            mode="null_terminated_lines",
+        ):
+            stuff, name = line.split("\t", 1)
+            name_to_stuff[name] = stuff
+        return name_to_stuff
+    base_tree = read_tree(base_tree_object_name)
+    old_tree = read_tree(old_tree_object_name)
+    new_tree = read_tree(new_tree_object_name)
+    conflicts = []
+    updated_names = []
+
+    for name, new_stuff in new_tree.items():
+        old_stuff = old_tree.get(name, None)
+        if old_stuff == new_stuff: continue
+        # There is a change to be applied here.
+
+        if old_stuff == None:
+            # Create file.
+            if name in base_tree:
+                conflicts.append(name)
+            else:
+                base_tree[name] = new_stuff
+                updated_names.append(name)
+            continue
+        # 3-way merge.
+        try:
+            base_stuff = base_tree[name]
+        except KeyError:
+            conflicts.append(name)
+            continue
+        # Check the types of the objects.
+        base_mode_and_type = base_stuff.rsplit(" ", 1)[0]
+        old_mode_and_type = old_stuff.rsplit(" ", 1)[0]
+        new_mode_and_type = new_stuff.rsplit(" ", 1)[0]
+        # We should only be dealing with the 3 different types of blobs at this point.
+        if old_mode_and_type == base_mode_and_type:
+            # Any patch to the mode will apply cleanly.
+            use_mode_and_type = new_mode_and_type
+        elif new_mode_and_type == base_mode_and_type:
+            # The patch to the mode is already applied.
+            use_mode_and_type = new_mode_and_type
+        else:
+            # Something changed with the mode that we can't handle.
+            # Perhaps the upstream replaced a file with a symlink.
+            conflicts.append(name)
+            continue
+        with tempfile.NamedTemporaryFile() as base_f, tempfile.NamedTemporaryFile() as old_f, tempfile.NamedTemporaryFile() as new_f:
+            # Put the file contentses in temp files.
+            git("cat-file",
+                "blob",
+                base_stuff.rsplit(" ", 1)[1],
+                output_path=base_f.name,
+                mode="mutating")
+            git("cat-file",
+                "blob",
+                old_stuff.rsplit(" ", 1)[1],
+                output_path=old_f.name,
+                mode="mutating")
+            git("cat-file",
+                "blob",
+                new_stuff.rsplit(" ", 1)[1],
+                output_path=new_f.name,
+                mode="mutating")
+            # Merge the files.
+            try:
+                git("merge-file",
+                    base_f.name, old_f.name, new_f.name,
+                    mode="inherit_stdout")
+            except subprocess.CalledProcessError as e:
+                # From `git help merge-file`:
+                # > The exit value of this program is negative on error,
+                # > and the number of conflicts otherwise (truncated to 127 if there are more than that many conflicts).
+                # > If the merge was clean, the exit value is 0.
+                if e.returncode < 0:
+                    raise
+                # There were conflicts.
+                conflicts.append(name)
+                continue
+            # The base file has now been modified with the patched content.
+            use_stuff = "{} {}".format(
+                use_mode_and_type,
+                git("hash-object",
+                    "-w", base_f.name,
+                    mode="single_line"),
+            )
+            base_tree[name] = use_stuff
+            updated_names.append(name)
+
+    # Patches could remove items, although this is typically done by ignoring things.
+    for name in old_tree.keys() - new_tree.keys():
+        old_stuff = old_tree[name]
+        base_stuff = base_tree.get(name, None)
+        if base_stuff != old_stuff:
+            conflicts.append(name)
+            continue
+        del base_stuff[name]
+        updated_names.append(name)
+
+    if len(conflicts) > 0:
+        raise UserError("applying tree patch would produce conflicts in these files:\n" + "\n".join(
+            "  " + shlex.quote(name)
+            for name in conflicts
+        ))
+
+    # Create a tree with the new content.
+    depth_to_parent_to_updated_children = collections.defaultdict(lambda: collections.defaultdict(set), {
+        # 2: {"a/b": {"c.txt"}},
+    })
+    for name in updated_names:
+        if "/" in name:
+            parent, child = name.rsplit("/", 1)
+            depth_to_parent_to_updated_children[len(parent.split("/"))][parent].add(child)
+        else:
+            depth_to_parent_to_updated_children[0][""].add(name)
+
+    for depth in reversed(range(max(depth_to_parent_to_updated_children.keys()) + 1)):
+        for parent, updated_children in depth_to_parent_to_updated_children[depth].items():
+            new_ls_tree_lines = []
+            for ls_tree_line in git("ls-tree",
+                "--full-tree",
+                "-z",
+                base_tree_object_name if depth == 0 else "{}:{}".format(base_tree_object_name, parent),
+                mode="null_terminated_lines",
+            ):
+                stuff, name = ls_tree_line.split("\t", 1)
+                if name not in updated_children:
+                    new_ls_tree_lines.append(ls_tree_line)
+                    continue
+                # This item was changed somehow.
+                updated_children.remove(name)
+                if depth > 0:
+                    full_name = "{}/{}".format(parent, name)
+                else:
+                    full_name = name
+                try:
+                    updated_stuff = base_tree[full_name]
+                except KeyError:
+                    # Item was deleted
+                    continue
+                # Item was edited.
+                new_ls_tree_lines.append("{}\t{}".format(updated_stuff, name))
+            for name in updated_children:
+                # Item was added
+                if depth > 0:
+                    full_name = "{}/{}".format(parent, name)
+                else:
+                    full_name = name
+                updated_stuff = base_tree[full_name]
+                new_ls_tree_lines.append("{}\t{}".format(updated_stuff, name))
+            updated_tree_object_name = git("mktree",
+                "-z",
+                input="".join(
+                    line + "\x00"
+                    for line in new_ls_tree_lines
+                ),
+                mode="single_line")
+
+            if depth == 0:
+                root_tree = updated_tree_object_name
+            else:
+                base_tree[parent] = "040000 tree {}".format(updated_tree_object_name)
+                # Be sure to catch this update as we ascend from the depths.
+                if "/" in parent:
+                    grandparent, parent_name = parent.rsplit("/", 1)
+                    depth_to_parent_to_updated_children[len(grandparent.split("/"))][grandparent].add(parent_name)
+                else:
+                    depth_to_parent_to_updated_children[0][""].add(parent)
+
+    return root_tree
+
+MAYBE = "maybe"
+def compile_filter(pattern, error_hint, *, return_maybe_on_prefix_match=False):
+    # See `git help gitignore`.
+    if "//" in pattern or pattern == "/":
+        raise UserError("Invalid pattern: " + error_hint)
+    if pattern == "**":
+        raise UserError("To match anything, please use the pattern '*' instead: " + error_hint)
+    if pattern == "**/":
+        raise UserError("To match any directory, please use the pattern '*/' instead: " + error_hint)
+    # Consume leading and trailing slashes.
+    tree_only = False
+    absolute = False
+    if pattern.startswith("/"):
+        absolute = True
+        pattern = pattern[1:]
+    if pattern.endswith("/"):
+        tree_only = True
+        pattern = pattern[:-1]
+    # Any inner slash turns the pattern absolute.
+    if "/" in pattern:
+        absolute = True
+    # Split the pattern.
+    pattern_segments = pattern.split("/")
+    if pattern_segments[-1] == "**":
+        raise UserError("Ending a pattern with ** is the same as omitting it. please omit it: " + error_hint)
+    # Find "**" segments.
+    # "a/b/**/c/**/d" => [["a", "b"], ["c"], []] # ("d" is the tip.)
+    pattern_segment_runs = [[]]
+    tip_pattern = pattern_segments[-1]
+    for pattern_segment in pattern_segments[:-1]:
+        if pattern_segment in (".", ".."):
+            raise UserError("Pattern cannot contain {} segments: {}".format(repr(pattern_segment), error_hint))
+        if pattern_segment == "**":
+            pattern_segment_runs.append([])
+        else:
+            pattern_segment_runs[-1].append(pattern_segment)
+    total_non_tip_pattern_segments = sum(len(pattern_segment_run) for pattern_segment_run in pattern_segment_runs)
+    def filter_fn(is_tree, segments):
+        if tree_only and not is_tree:
+            return False
+        negative = False
+        if return_maybe_on_prefix_match and is_tree:
+            if not absolute:
+                # All relative includes could potentially be matches.
+                negative = MAYBE
+            else:
+                # Check for a prefix match.
+                pattern_segment_run = pattern_segment_runs[0]
+                prefix_size = min(len(segments), len(pattern_segment_run))
+                for segment, pattern_segment in zip(segments[:prefix_size], pattern_segment_run[:prefix_size]):
+                    if not fnmatch.fnmatch(segment, pattern_segment):
+                        # Not even a prefix match.
+                        return False
+                # Prefix matches. The worst we can do from here is a maybe.
+                negative = MAYBE
+                # (We'll end up checking aginst the prefix again below.
+                #  A possible optimization is to signal skipping the first run below somehow.)
+        # Check the tip first. It's the one that changes the fastest.
+        if not fnmatch.fnmatch(segments[-1], tip_pattern):
+            return negative
+        if not absolute:
+            return True
+        # Match everything around the ** segments.
+        pattern_segment_alignment = 0
+        available_forward_shifts = len(segments[:-1]) - total_non_tip_pattern_segments
+        if len(pattern_segment_runs) == 1:
+            # There's only one run, which must consume all the segments.
+            if total_non_tip_pattern_segments != len(segments[:-1]):
+                # Wrong number of segments. There's no way this can be a match.
+                return negative
+        segments_consumed = 0
+        for run_index, pattern_segment_run in enumerate(pattern_segment_runs):
+            if run_index == len(pattern_segment_runs) - 1:
+                # The last run has to be aligned to the end.
+                pattern_segment_alignment = available_forward_shifts
+            while pattern_segment_alignment <= available_forward_shifts:
+                index = pattern_segment_alignment + segments_consumed
+                for segment, pattern_segment in zip(segments[index:index + len(pattern_segment_run)], pattern_segment_run):
+                    if not fnmatch.fnmatch(segment, pattern_segment):
+                        # This run is not aligned correctly.
+                        break
+                else:
+                    segments_consumed += len(pattern_segment_run)
+                    break
+                # This run is not aligned correctly.
+                if run_index == 0:
+                    # The first run has to start at the beginning. If it didn't work, it's all wrong.
+                    return negative
+                # Try shifting forward.
+                pattern_segment_alignment += 1
+            else:
+                # Out of space to match.
+                return negative
+        # All runs matched.
+        return True
+    return filter_fn
+
+# At the end of an operation, we want to delete any unused refs/vendor/* refs we may have created in the past.
+# This set holds a set of commits we just used during this run of the program, and so these should be kept pinned by named refs.
+_git_commits_to_keep = set()
+
+def get_git_commit_tree_object_name(commit_object_name):
+    _git_commits_to_keep.add(commit_object_name)
+    return git("rev-parse",
+        "--verify",
+        commit_object_name + "^{tree}",
+        mode="single_line",
+    )
+
+def is_git_object_resolvable_as_tree(object_name):
+    # This might actually be a tree instead of a commit, but it's harmless to add it to this set anyway.
+    _git_commits_to_keep.add(object_name)
+    try:
+        git("rev-parse",
+            "--verify",
+            object_name + "^{tree}",
+            suppress_stderr=True,
+            mode="single_line")
+    except subprocess.CalledProcessError:
+        return False
+    return True
+
+def git_fetch_to_cache(url, ref, section_index):
+    # This name can be anything, but ideally we don't get collisions.
+    external_ref_local_name = "refs/vendor/{}/ref-{}".format(section_index, hex(0xffffffffffffffff & hash(url + "\x00" + ref))[2:])
+    git("fetch",
+        "--no-tags", "--force",
+        "--depth", "1",
+        url,
+        "{}:{}".format(ref, external_ref_local_name),
+        mode="inherit_stdout")
+    # Make sure to keep this ref from getting gc'ed at the end of this operation.
+    _git_commits_to_keep.add(git("rev-parse",
+        "--verify",
+        external_ref_local_name,
+        mode="single_line",
+    ))
+
+def cleanup_refs(section_indexes, visited_all_sections):
+    section_indexes = set(section_indexes)
+    instructions = []
+    for line in git("show-ref", mode="newline_terminated_lines"):
+        object_name, ref_name = line.split(" ", maxsplit=1)
+        match = re.match(r'^refs/vendor/(-?\d+)/.*$', ref_name)
+        if match == None: continue
+        section_index = int(match.group(1))
+        if section_index not in section_indexes:
+            if visited_all_sections:
+                # The section index is entirely out of bounds.
+                # This can happen when a 'rm' has been done.
+                instructions.append("delete {}\x00{}\x00".format(ref_name, object_name))
+            else:
+                # This is for a section we didn't visit, so we don't really know whether we can keep it or not.
+                continue
+        else:
+            # We visited this section.
+            if object_name in _git_commits_to_keep:
+                # Keep any vaguely in-bounds references to objects we know we care about.
+                continue
+            else:
+                # We visited this section, but we never encountered the object this ref points to.
+                # We must not need it anymore.
+                instructions.append("delete {}\x00{}\x00".format(ref_name, object_name))
+
+    if len(instructions) > 0:
+        git("update-ref",
+            "--stdin", "-z",
+            input="".join(instructions),
+            mode="mutating", skip_in_dry_run=True)
+
+
+def parse_submodule_path_to_url_from_gitmodules_config_content(content_bytes):
+    path_configs = {
+        # For this file content:
+        #     [submodule "foo"]
+        #         path = vendor/foo
+        # We get this entry:
+        # "foo": "vendor/foo",
+    }
+    url_configs = {
+        # For this file content:
+        #     [submodule "foo"]
+        #         url = https://foo.com/
+        # We get this entry:
+        # "foo": "https://foo.com/",
+    }
+    for line in git("config",
+        "-z", "--list",
+        "-f", "-",
+        input=content_bytes,
+        mode="null_terminated_lines",
+    ):
+        # Format of config -z --list is:
+        #   <name>\n<value>\x00
+        name, value = line.split("\n", 1)
+        # Format of <name> is:
+        #   <section>.<almost-any-string>.<field>
+        # Note that <almost-any-string> can contain ".", but not "\n" or "\x00".
+        try:
+            section, name = name.split(".", 1)
+            if section != "submodule":
+                continue
+            name, field = name.rsplit(".", 1)
+        except ValueError:
+            # Alternate formats for <name> include:
+            #   <section>.<field>
+            continue
+        if field == "path":
+            path_configs[name] = value
+        elif field == "url":
+            url_configs[name] = value
+        # Ignore other submodule fields such as "update", "branch", etc.
+    return {
+        path_configs[name]: url_configs[name]
+        for name in path_configs.keys() & url_configs.keys()
+    }
+
+@functools.lru_cache()
+def get_repo_root():
+    return git("rev-parse",
+        "--show-toplevel",
+        mode="single_line")
+
+def git_status(config_item):
+    dirty_lines = git("status",
+        "-z",
+        "--",
+        config_item.dir,
+        cwd=get_repo_root(),
+        mode="null_terminated_lines")
+    return dirty_lines
+
+def git(*args, mode, cwd=".", input=None, output_path=None, suppress_stderr=False, skip_in_dry_run=False):
+    if type(input) == str:
+        input = input.encode("utf8")
+
+    cmd = ["git"]
+    cmd.extend(args)
+
+    stderr = None
+    if suppress_stderr:
+        stderr = subprocess.DEVNULL
+
+    if output_path != None:
+        assert mode == "mutating"
+
+    if CliOptions.super_verbose or (CliOptions.verbose and mode == "mutating"):
+        shell_script = " ".join(shlex.quote(arg) for arg in cmd)
+        if input == b"":
+            shell_script = shell_script + " <&-"
+        if suppress_stderr:
+            shell_script = shell_script + " 2>/dev/null"
+        if cwd != None and cwd != ".":
+            shell_script = "(cd {} && {})".format(shlex.quote(cwd), shell_script)
+        if output_path != None:
+            shell_script += " > " + output_path
+        if input == None or input == b"":
+            if CliOptions.dry_run and skip_in_dry_run:
+                shell_script = "# " + shell_script
+        else:
+            # some rough heuristic to split the input into "lines" or whatever.
+            lines = re.findall(b".+?(?:[\x00\n]+|$)", input, flags=re.DOTALL)
+            def quote_for_echo(line):
+                if line == b"":
+                    return "''"
+                if line[0] == b"-":
+                    starts_with_hyphen = True
+                    line = line[1:]
+                else:
+                    starts_with_hyphen = False
+                # Replace strange bytes with hex escapes (for echo -e).
+                def escape_byte(b):
+                    if b == b"\n": return b"\\n"
+                    if b == b"\t": return b"\\t"
+                    return b"\\x" + hex(ord(b))[2:].zfill(2).encode("utf8")
+                # We need to keep bytes up through here so we can escape non-ascii correctly.
+                s = re.sub(b"[\x00-\x1f\\\\'\x7f-\xff]", (lambda m: escape_byte(m.group())), line).decode("utf8")
+                if starts_with_hyphen:
+                    # Because you can't echo "-n" literally, this needs extra support
+                    s = "\\x2d" + s
+                return "'" + s + "'"
+            input_script = "{" + "".join(
+                "\n  echo -ne " + quote_for_echo(line)
+                for line in lines
+            ) + "\n}"
+            if CliOptions.dry_run and skip_in_dry_run:
+                shell_script = ": #" + shell_script
+            shell_script = input_script + " | " + shell_script
+        sys.stderr.write(shell_script + "\n"); sys.stderr.flush()
+
+    if mode == "mutating":
+        if CliOptions.dry_run and skip_in_dry_run:
+            return None
+        if output_path != None:
+            with open(output_path, "wb") as f:
+                subprocess.run(cmd, cwd=cwd, input=input, stdout=f, stderr=stderr, check=True)
+        else:
+            subprocess.run(cmd, cwd=cwd, input=input, stderr=stderr, check=True)
+        return None
+
+    # read-only or otherwise no-observable-change command.
+
+    if mode == "inherit_stdout":
+        subprocess.run(cmd, cwd=cwd, input=input, stderr=stderr, check=True)
+        return
+
+    if mode == "yield_newline_terminated_lines":
+        assert input == None, "not supported"
+        process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=stderr, encoding="utf8")
+        def yield_lines_and_check():
+            for line in process.stdout:
+                assert line[-1:] == "\n"
+                yield line[:-1]
+            if process.wait() != 0:
+                raise subprocess.CalledProcessError(process.returncode, cmd)
+        return yield_lines_and_check()
+
+    output = subprocess.run(cmd, cwd=cwd, input=input, stderr=stderr, check=True, stdout=subprocess.PIPE).stdout
+    if mode == "raw_bytes":
+        return output
+    if mode == "single_line":
+        lines = output.decode("utf8").split("\n")
+        assert lines[-1] == ""
+        [line] = lines[:-1]
+        return line
+    if mode == "null_terminated_lines":
+        lines = output.decode("utf8").split("\x00")
+        assert lines[-1] == ""
+        return lines[:-1]
+    if mode == "newline_terminated_lines":
+        lines = output.decode("utf8").split("\n")
+        assert lines[-1] == ""
+        return lines[:-1]
+    assert False, mode
+
+def is_path_within(super_dir, sub_dir):
+    super_dir = os.path.abspath(super_dir)
+    sub_dir = os.path.abspath(sub_dir)
+    return os.path.commonpath([super_dir, sub_dir]).startswith(super_dir)
+
+def validate_field(field_name, value, error_fn):
+    try:
+        if field_name == "dir":
+            validate_dir(value, "dir")
+        elif field_name == "url":
+            validate_url(value, warn=False)
+        elif field_name == "subdir":
+            validate_subdir(value, "subdir")
+        elif field_name == "follow_branch":
+            validate_ref("follow-branch", value)
+        elif field_name == "pin_to_tag":
+            validate_ref("pin-to-tag", value)
+        elif field_name == "pin_to_commit":
+            validate_object_name("--pin-to-commit", value)
+        elif field_name == "include":
+            compile_filter(value, "include=" + shlex.quote(value))
+        elif field_name == "exclude":
+            compile_filter(value, "exclude=" + shlex.quote(value))
+        elif field_name == "commit":
+            validate_object_name("(commit)", value)
+        elif field_name == "tree_patch":
+            validate_tree_patch(value)
+        else: assert False, "unhandled field name: " + field_name
+    except UserError as e:
+        error_fn(e.args[0])
+
+def actual_dir_to_path_in_repo(actual_dir, param_name):
+    return canonicalize_relative_path(os.path.relpath(actual_dir, get_repo_root()), param_name)
+
+def canonicalize_relative_path(dir, param_name):
+    if os.path.isabs(dir): raise UserError("{} must be a relative path: {}".format(param_name, shlex.quote(dir)))
+    dir = os.path.normpath(dir).replace(os.path.sep, "/")
+    if dir in (".", "..") or dir.startswith("../"): raise UserError("{} is invalid: {}".format(param_name, shlex.quote(dir)))
+    return dir
+
+def validate_dir_not_exists(dir, param_name):
+    actual_dir = os.path.join(get_repo_root(), dir)
+    if os.path.exists(actual_dir):
+        raise UserError("\n".join([
+            "{} already exists: {}".format(param_name, shlex.quote(os.path.relpath(actual_dir))),
+            "try giving --allow-dir-exists.",
+        ]))
+
+def validate_dir(dir, param_name):
+    validate_canonicalized_relative_path(dir, param_name)
+def validate_subdir(subdir, param_name):
+    validate_canonicalized_relative_path(subdir, param_name)
+def validate_canonicalized_relative_path(dir, param_name):
+    if canonicalize_relative_path(dir, param_name) != dir:
+        raise UserError("{} must be normalized: {}".format(param_name, shlex.quote(dir)))
+
+def validate_no_primary_key_conflicts(dir, param_name, existing_items):
+    for item in existing_items:
+        if dir == item.dir:
+            raise UserError("{} is already a vendored dir: {}".format(param_name, shlex.quote(dir)))
+        if dir.startswith(item.dir + "/"):
+            raise UserError("{} is within an already vendored dir: {}".format(param_name, shlex.quote(dir)))
+        if item.dir.startswith(dir + "/"):
+            raise UserError("{} would completely contain another vendored dir: {}".format(param_name, shlex.quote(dir)))
+
+def validate_url(url, *, warn):
+    # See `git help fetch` section GIT URLS.
+    if re.match(r'^[a-z+.-]+://.*', url) != None:
+        # Some kind of url. Should be safe to try at least.
+        return
+    if re.match(r'^[A-Za-z0-9._-]+@[^/]+:.*', url) != None:
+        # Looks like "scp-like syntax"
+        return
+
+    if os.path.isabs(url):
+        # Absolute paths work as git repo urls.
+        if os.path.exists(url):
+            if warn:
+                warning("Absolute path urls are not portable! (But you probably already knew that.)",
+                    "--url={}".format(url))
+            return
+    else:
+        # Relative paths are accepted in some git commands, but they're usually canonicalized to be absolute.
+        # To actually use a relative path url with this program, please just convert it to absolute first.
+        pass
+
+    raise UserError("Invalid --url={}".format(url))
+
+def validate_ref(param_name, ref):
+    # This is really the only thing to check for, because it's interpreted specially during `git fetch` and such.
+    if "*" in ref:
+        raise UserError("Invalid {}={}".format(param_name, ref))
+# 40 for sha1, 64 for experimental sha256.
+git_object_name_re = re.compile(r'^[0-9a-f]{40}(?:[0-9a-f]{24})?$')
+def validate_object_name(param_name, object_name):
+    if git_object_name_re.match(object_name):
+        return
+    raise UserError("Invalid {}={}".format(param_name, object_name))
+
+def validate_tree_patch(tree_patch):
+    segments = tree_patch.split(":")
+    if len(segments) != 3:
+        raise UserError("Invalid tree-patch format: " + tree_patch)
+    for i, segment in enumerate(segments):
+        validate_object_name("(tree-patch[{}])".format(i), segment)
+
+def warning(*lines):
+    for line in lines:
+        print("WARNING: " + line, file=sys.stderr, flush=True)
+
+class UserError(Exception):
+    pass
+
+if __name__ == "__main__":
+    try:
+        cli()
+    except UserError as e:
+        sys.exit("\n".join("ERROR: " + line for line in e.args[0].split("\n")))
