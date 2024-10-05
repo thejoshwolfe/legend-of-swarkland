@@ -1,0 +1,336 @@
+#!/usr/bin/env python3
+
+__doc__ = """
+Cleans up old branches on GitHub via the `git` command line interface.
+Must be run from a git repo root directory.
+
+This script classifies branches based on several criteria:
+- if the branch is already merged and pointing to a 30+ day old commit, delete it.
+- if the branch is associated with a closed PR, delete it.
+- if the branch is associated with an open PR, leave it be.
+- if the branch hasn't been touched in a long time, archive it.
+
+Archived branches get moved from the default branch location refs/heads/<name>
+to an out-of-the-way path refs/archive/<year>/<name>.
+In case of a name collision, a suffix will by applied like '-1' or '-2' to
+avoid the collision.
+
+By default, your .git/config probably does not fetch anything from the remote's
+'refs/archive/*' path.
+To recover an archived branch, find the name of the branch with:
+`git ls-remote origin 'refs/archive/*'`, then fetch it with
+`git fetch origin refs/archive/<year>/<name>`, then recreate the branch with
+`git push origin FETCH_HEAD:refs/heads/<name>`.
+
+There is a case for explicitly preserving some branches despite meeting the above
+criteria for deletion/archival. You can configure which branches to keep by adding
+a `.git-cleanup-remote.config` file to your repo root with json contents like this:
+`{"keep-branches":["branch-name","for-example","integration","production"]}`.
+The remote "HEAD" revision is always preserved,
+which is often "main" or "master".
+
+Run this script without any --do-* switches to simply do an analysis.
+Provide --verbose for fully detailed analysis. You can audit the actual command
+that will be run by supplying the --do-* switches along with --dry-run.
+
+This script starts with a `git fetch --prune [remote]` for analysis.
+"""
+
+import os, sys, subprocess
+import time
+import re, json
+import collections
+
+yyyy_mm_dd_pattern = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__,
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument("remote", nargs="?", default="origin", help=
+        "default is %(default)s")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False)
+    parser.add_argument("--dry-run", action="store_true", default=False, help=
+        "don't push any changes, but show what command would be run")
+
+    parser.add_argument("--archive-before", help=
+        "enable analysis for archiving old dev branches. "
+        "format must be YYYY-MM-DD. "
+        "analysis uses the committer date of the tip commit.")
+    parser.add_argument("--do-archive", action="store_true", default=False, help=
+        "this is required to actually push the 'archive' cleanups. "
+        "this option requires --archive-before.")
+
+    parser.add_argument("--do-delete", action="store_true", default=False, help=
+        "equivalent to --do-delete-closed --do-delete-merged --do-delete-archived.")
+    parser.add_argument("--do-delete-closed", action="store_true", default=False, help=
+        "this is required to actually push the cleanups to delete branches for closed PRs.")
+    parser.add_argument("--do-delete-merged", action="store_true", default=False, help=
+        "this is required to actually push the cleanups to delete merged branches.")
+    parser.add_argument("--do-delete-archived", action="store_true", default=False, help=
+        "this is required to actually push the cleanups to delete already-archived branches.")
+
+    args = parser.parse_args()
+
+    # args
+    remote = args.remote
+
+    archive_before_str = args.archive_before
+    if archive_before_str != None:
+        if yyyy_mm_dd_pattern.match(archive_before_str) == None:
+            parser.error("--archive-before format should be YYYY-MM-DD")
+
+    if args.do_delete:
+        args.do_delete_closed = True
+        args.do_delete_merged = True
+        args.do_delete_archived = True
+
+    # repo root is not configurable
+    if not os.path.samefile(".", git_output("rev-parse", "--show-toplevel")):
+        sys.exit("ERROR: must be run from repo root")
+
+    # sanity check that `git fetch` does what we think it does.
+    # this also checks that the remote provided is real.
+    expected_fetch_config = "+refs/heads/*:refs/remotes/{}/*".format(remote)
+    actual_fetch_config = git_output("config", "remote.{}.fetch".format(remote))
+    if actual_fetch_config != expected_fetch_config:
+        sys.exit("\n".join("ERROR: " + line for line in [
+            "unepxected fetch configuration. refusing to do anything.",
+            "expected: " + repr(expected_fetch_config),
+            "found:    " + repr(actual_fetch_config),
+        ]))
+
+    # git fetch
+    subprocess.run(["git", "fetch", "--prune", remote], check=True)
+
+    # this is usually "main" or "master"
+    main_branch_name = get_main_branch_name(remote)
+
+    keep_branches = {
+        "HEAD": "(default)",
+        main_branch_name: "the {}/HEAD branch".format(remote),
+    }
+
+    # read config file
+    cfg_path = ".git-cleanup-remote.config"
+    try:
+        with open(cfg_path) as f:
+            cfg = json.load(f)
+    except IOError:
+        pass
+    else:
+        assert type(cfg) == dict
+        if "keep-branches" in cfg:
+            assert type(cfg["keep-branches"]) == list
+            for branch_name in cfg["keep-branches"]:
+                assert type(branch_name) == str
+                keep_branches[branch_name] = "configured in: " + cfg_path
+
+    merged_branches = {
+        remove_prefix(ref_name, "refs/remotes/{}/".format(remote)): sha1
+        for (sha1, ref_name) in [
+            line.split("\t")
+            for line in git_output_lines("branch", "-r", "--merged", "{}/{}".format(remote, main_branch_name), "--format", "%(objectname)\t%(refname)")
+        ]
+    }
+    all_remote_refs = {
+        remove_prefix(ref_name, "refs/heads/"): sha1
+        for (sha1, ref_name) in [
+            line.split(maxsplit=1)
+            for line in git_output_lines("ls-remote", remote, "refs/heads/*")
+        ]
+    }
+
+    all_archived_refs = {
+        remove_prefix(ref_name, "refs/archive/"): sha1
+        for (sha1, ref_name) in [
+            line.split(maxsplit=1)
+            for line in git_output_lines("ls-remote", remote, "refs/archive/*")
+        ]
+    }
+    all_achived_sha1s = set(all_archived_refs.values())
+
+    all_pull_refs = {
+        remove_prefix(head_branch, "refs/pull/"): sha1
+        for (sha1, head_branch) in [
+            line.split(maxsplit=1)
+            for line in git_output_lines("ls-remote", remote, "refs/pull/*")
+        ]
+    }
+    all_prs = [
+        {
+            "sha1": sha1,
+            "number": remove_suffix(ref_name, "/head"),
+            "open": False, # adjusted below
+        }
+        for ref_name, sha1 in all_pull_refs.items()
+        if ref_name.endswith("/head")
+    ]
+    number_to_pr = {pr["number"]: pr for pr in all_prs}
+    sha1_to_pr = {pr["sha1"]: pr for pr in all_prs}
+    for ref_name in all_pull_refs.keys():
+        # if a /merge exists, then it's still open
+        if not ref_name.endswith("/merge"): continue
+        number = remove_suffix(ref_name, "/merge")
+        number_to_pr[number]["open"] = True
+
+    a_month_ago_or_so = time.strftime("%Y-%m-%d", time.localtime(time.time() - 30 * 24 * 60 * 60))
+
+    keep_alive_branches = {}
+    delete_merged_branches = set()
+    recent_merged_branches = {}
+    delete_archived_branches = set()
+    delete_pr_closed_branches = set()
+    unmerged_branches = set()
+    open_pr_branches = {}
+    for branch_name, sha1 in all_remote_refs.items():
+        try:
+            keep_alive_branches[branch_name] = keep_branches[branch_name]
+            continue
+        except KeyError:
+            pass
+
+        if branch_name in merged_branches:
+            date = get_commit_date(merged_branches[branch_name])
+            if date < a_month_ago_or_so:
+                delete_merged_branches.add(branch_name)
+            else:
+                recent_merged_branches[branch_name] = date
+            continue
+
+        if sha1 in all_achived_sha1s:
+            delete_archived_branches.add(branch_name)
+            continue
+
+        try:
+            pr = sha1_to_pr[sha1]
+        except KeyError:
+            # no pr
+            unmerged_branches.add(branch_name)
+        else:
+            if pr["open"]:
+                open_pr_branches[branch_name] = pr["number"]
+            else:
+                delete_pr_closed_branches.add(branch_name)
+
+    archive_branches = {}
+    active_wip_branches = {}
+    if archive_before_str != None:
+        for branch_name in unmerged_branches:
+            sha1 = all_remote_refs[branch_name]
+            date = get_commit_date(sha1)
+            if date < archive_before_str:
+                # archive it
+                year = date[:4]
+                archived_branch_name = "{}/{}".format(year, branch_name)
+                unique_archived_branch_name = archived_branch_name
+                i = 0
+                while unique_archived_branch_name in all_archived_refs:
+                    print("warning: working around archived name collision: {}. ".format(repr(unique_archived_branch_name)))
+                    i += 1
+                    unique_archived_branch_name = "{}-{}".format(archived_branch_name, i)
+                archive_branches[branch_name] = unique_archived_branch_name
+            else:
+                # leave it open
+                active_wip_branches[branch_name] = date
+
+    print("analysis:")
+    def summarize_dict(name, d, verbose_value_formatter=lambda x: x):
+        if len(d) == 0: return
+        if args.verbose:
+            print("\n{} ({}):{}".format(name, len(d), "".join(
+                "\n    - {} -> {}".format(k, verbose_value_formatter(v))
+                for k, v in sorted(d.items())
+            )))
+        else:
+            print("{}({}): {}{}".format(name, len(d), ", ".join(sorted(d.keys())[:3]), (", ..." if len(d) > 3 else "")))
+    def summarize_set(name, s):
+        if len(s) == 0: return
+        if args.verbose:
+            print("\n{} ({}):{}".format(name, len(s), "".join(
+                "\n    - {}".format(v)
+                for v in sorted(s)
+            )))
+        else:
+            print("{}({}): {}{}".format(name, len(s), ", ".join(sorted(s)[:3]), (", ..." if len(s) > 3 else "")))
+    summarize_dict("froce keep branches", keep_alive_branches)
+    summarize_dict("keep branches for open PRs", open_pr_branches, lambda pr_number: "#{}".format(pr_number))
+    summarize_dict("keep active dev branches", active_wip_branches, lambda date: "last commit on: " + date)
+    summarize_dict("keep recent empty/merged branches", recent_merged_branches, lambda date: "at least as recent as: " + date)
+    summarize_set("delete older empty/merged branches (--do-delete-merged)", delete_merged_branches)
+    summarize_set("delete branches for closed PRs (--do-delete-closed)", delete_pr_closed_branches)
+    summarize_set("delete already archived branches (--do-delete-archived)", delete_archived_branches)
+    summarize_dict("move stale dev branches to archive (--do-archive)", archive_branches, lambda path: "refs/archive/{}".format(path))
+
+    if not (args.do_delete_closed or args.do_delete_merged or args.do_delete_archived or args.do_archive):
+        print("\nnot doing anything without --do-*")
+        return
+
+    operations = []
+    if args.do_delete_merged:
+        operations.extend(":{}".format(branch_name) for branch_name in sorted(delete_merged_branches))
+    if args.do_delete_closed:
+        operations.extend(":{}".format(branch_name) for branch_name in sorted(delete_pr_closed_branches))
+    if args.do_delete_archived:
+        operations.extend(":{}".format(branch_name) for branch_name in sorted(delete_archived_branches))
+
+    if args.do_archive:
+        for branch_name, archive_path in sorted(archive_branches.items()):
+            sha1 = all_remote_refs[branch_name]
+            archive_ref_name = "refs/archive/{}".format(archive_path)
+            # copy to destination
+            operations.append("{}:{}".format(sha1, archive_ref_name))
+            # delete source
+            operations.append(":{}".format(branch_name))
+
+    if len(operations) > 0:
+        git_do("push", remote, "--atomic", *operations, verbose=args.verbose, dry_run=args.dry_run)
+    else:
+        print("nothing to do!")
+
+def get_commit_date(sha1):
+    """MMMM-DD-YY"""
+    date = git_output("log", "-n", "1", "--pretty=tformat:%cs", sha1)
+    assert yyyy_mm_dd_pattern.match(date) != None
+    return date
+
+def get_main_branch_name(remote):
+    for line in git_output_lines("ls-remote", "--symref", remote, "HEAD"):
+        if not line.startswith("ref: "):
+            # We also get a resolved sha1 for HEAD, which we don't care about.
+            continue
+        return remove_prefix(line.split("\t", 1)[0], "ref: refs/heads/")
+    sys.exit("ERROR: remote did not report a HEAD symref")
+
+def git_output(*args):
+    cmd = ["git"]
+    cmd.extend(args)
+    return subprocess.check_output(cmd, encoding="utf8")[:-1]
+def git_output_lines(*args):
+    output = git_output(*args)
+    if output == "":
+        # if we split "", we get [""]
+        return []
+    return output.split("\n")
+def git_do(*args, verbose, dry_run):
+    cmd = ["git"]
+    cmd.extend(args)
+    if verbose or dry_run:
+        print("Popen: " + repr(cmd))
+    if not dry_run:
+        subprocess.run(cmd, check=True)
+
+def remove_prefix(s, prefix):
+    if not s.startswith(prefix):
+        raise ValueError("string does not start with prefix: " + repr((s, prefix)))
+    return s[len(prefix):]
+def remove_suffix(s, suffix):
+    if not s.endswith(suffix):
+        raise ValueError("string does not end with suffix: " + repr((s, suffix)))
+    assert len(suffix) > 0
+    return s[:-len(suffix)]
+
+if __name__ == "__main__":
+    main()
+

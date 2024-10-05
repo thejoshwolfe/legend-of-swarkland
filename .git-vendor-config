@@ -14,3 +14,11 @@ url=https://github.com/thejoshwolfe/git-vendor.git
 follow-branch=release
 commit=5fa38a4aaa6ac9c3e4b8de053ea764a06a4a63cc
 include=/git-vendor
+
+---
+
+dir=deps/util
+url=https://github.com/thejoshwolfe/util.git
+follow-branch=master
+commit=f61b52d425d108152f4a6c060a0966936bb94973
+include=/git-cleanup-remote
