@@ -1,7 +1,7 @@
 const std = @import("std");
-const Builder = std.build.Builder;
+const Build = std.Build;
 
-pub fn build(b: *Builder) void {
+pub fn build(b: *Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
 
@@ -57,22 +57,20 @@ pub fn build(b: *Builder) void {
         });
         break :v std.mem.trim(u8, git_describe_untrimmed, " \n\r");
     });
-    gui_build.addOptions("config", config);
+    gui_build.root_module.addOptions("config", config);
 }
 
 fn make_binary_variant(
-    b: *Builder,
+    b: *Build,
     optimize: std.builtin.Mode,
-    target: std.zig.CrossTarget,
+    target: std.Build.ResolvedTarget,
     name: []const u8,
     headless: bool,
     use_llvm: ?bool,
-) *std.build.Step.Compile {
+) *std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = name,
-        .root_source_file = .{
-            .path = if (headless) "src/server/server_main.zig" else "src/gui/gui_main.zig",
-        },
+        .root_source_file = b.path(if (headless) "src/server/server_main.zig" else "src/gui/gui_main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -81,28 +79,28 @@ fn make_binary_variant(
     b.installArtifact(exe);
 
     const core = b.addModule("core", .{
-        .source_file = .{ .path = "src/index.zig" },
+        .root_source_file = b.path("src/index.zig"),
     });
     const server = b.addModule("server", .{
-        .source_file = .{ .path = "src/server/game_server.zig" },
-        .dependencies = &.{
+        .root_source_file = b.path("src/server/game_server.zig"),
+        .imports = &.{
             .{ .name = "core", .module = core },
         },
     });
     const client = b.addModule("client", .{
-        .source_file = .{ .path = "src/client/main.zig" },
-        .dependencies = &.{
+        .root_source_file = b.path("src/client/main.zig"),
+        .imports = &.{
             .{ .name = "core", .module = core },
             .{ .name = "server", .module = server },
         },
     });
 
-    exe.addModule("core", core);
-    exe.addModule("server", server);
-    exe.addModule("client", client);
+    exe.root_module.addImport("core", core);
+    exe.root_module.addImport("server", server);
+    exe.root_module.addImport("client", client);
 
     if (!headless) {
-        if ((target.getOsTag() == .windows and target.getAbi() == .gnu) or target.getOsTag() == .macos) {
+        if ((target.result.os.tag == .windows and target.result.abi == .gnu) or target.result.os.tag == .macos) {
             const zig_sdl = b.dependency("zig_sdl", .{
                 .target = target,
                 .optimize = .ReleaseFast,
@@ -141,15 +139,13 @@ fn addCompileSpritesheet(
     run.setEnvironmentVariable("PYTHONPATH", "deps/simplepng.py/");
 
     const zig_name = b.fmt("{s}.zig", .{options.basename});
-    gui.addAnonymousModule(options.module_name, .{
-        .source_file = run.addPrefixedOutputFileArg("--defs-path=", zig_name),
-        .dependencies = &.{
-            .{
-                .name = "core",
-                .module = gui.modules.get("core").?,
-            },
+    const spritesheet = b.addModule(options.module_name, .{
+        .root_source_file = run.addPrefixedOutputFileArg("--defs-path=", zig_name),
+        .imports = &.{
+            .{ .name = "core", .module = gui.root_module.import_table.get("core").? },
         },
     });
+    gui.root_module.addImport(options.module_name, spritesheet);
 
     // TODO add .d file parsing to zig build system
     // run.addPrefixedDepFileOutputArg("--deps=");
