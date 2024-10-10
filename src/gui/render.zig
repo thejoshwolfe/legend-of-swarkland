@@ -8,7 +8,7 @@ const textures = @import("textures.zig");
 const gui = @import("gui.zig");
 
 const RunningState = @import("./gui_main.zig").RunningState;
-const isFloorItemSuggestedEquip = @import("./gui_main.zig").isFloorItemSuggestedEquip;
+const isFloorItemSuggestedEquip = @import("./game_input.zig").isFloorItemSuggestedEquip;
 
 const Coord = core.geometry.Coord;
 const makeCoord = core.geometry.makeCoord;
