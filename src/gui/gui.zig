@@ -87,6 +87,15 @@ pub const Gui = struct {
         self._cursor.y += self._marginBottom * self._scale;
     }
 
+    pub fn textWrapped(self: *Gui, string: []const u8, text_wrap_width: u32) void {
+        var cursor: usize = 0;
+        while (cursor < string.len) {
+            const end = @min(cursor + text_wrap_width, string.len);
+            self.text(string[cursor..end]);
+            cursor = end;
+        }
+    }
+
     pub fn imageAndText(self: *Gui, sprite: Rect, string: []const u8) void {
         textures.renderSprite(self._renderer, sprite, self._cursor);
         const text_heigh = textures.getCharRect(' ', self._font).height * self._scale;

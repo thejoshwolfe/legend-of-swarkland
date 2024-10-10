@@ -140,27 +140,9 @@ pub const RunningState = struct {
 
 fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     var input_engine = InputEngine.init();
-
-    var save_file = SaveFile.load();
-    var save_file_text_lines = ArrayList([]const u8).init(allocator);
-    {
-        const save_file_abs_path = try std.fs.path.join(allocator, &[_][]const u8{
-            try std.fs.cwd().realpathAlloc(allocator, "."),
-            SaveFile.filename,
-        });
-        const text_wrap_width = @divTrunc(logical_window_size.w - 64, 12);
-        var path_remaining = save_file_abs_path;
-        while (path_remaining.len > 0) {
-            if (path_remaining.len <= text_wrap_width) {
-                try save_file_text_lines.append(try std.mem.concat(allocator, u8, &[_][]const u8{ " ", path_remaining }));
-                break;
-            }
-            try save_file_text_lines.append(try std.mem.concat(allocator, u8, &[_][]const u8{ " ", path_remaining[0..text_wrap_width] }));
-            path_remaining = path_remaining[text_wrap_width..];
-        }
-    }
-
+    var save_file = try SaveFile.load(allocator);
     var game_state = mainMenuState(&save_file);
+
     defer switch (game_state) {
         .running => |*state| state.client.client.stopEngine(),
         else => {},
@@ -485,9 +467,10 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 menu_renderer.text(" (Just resize the window)");
                 menu_renderer.text(" ");
                 menu_renderer.text("Save file path:");
-                for (save_file_text_lines.items) |line| {
-                    menu_renderer.text(line);
-                }
+                menu_renderer.seekRelative(12, 0);
+                const text_wrap_width: u32 = @intCast(@divTrunc(logical_window_size.w, 12) - 2);
+                menu_renderer.textWrapped(save_file.filename, text_wrap_width);
+                menu_renderer.seekRelative(-12, 0);
                 menu_renderer.text(" ");
                 menu_renderer.text(" ");
                 menu_renderer.text("version: " ++ textures.version_string);
