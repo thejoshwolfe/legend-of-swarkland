@@ -143,6 +143,7 @@ fn doMainLoop(window: *gui.Window) !void {
             },
         }
 
+        // Process inputs from the user.
         while (input_engine.pollInput()) |input| {
             if (input == .shutdown) {
                 core.debug.thread_lifecycle.print("gui quit", .{});
@@ -166,6 +167,7 @@ fn doMainLoop(window: *gui.Window) !void {
             }
         }
 
+        // Render to screen buffer.
         switch (game_state) {
             .main_menu => |*menu_state| {
                 switch (doMainMenu(window.renderer, menu_state, save_file.filename)) {
@@ -198,6 +200,7 @@ fn doMainLoop(window: *gui.Window) !void {
             },
         }
 
+        // Present screen buffer and sleep.
         window.present();
         input_engine.sleepUntilNextFrame();
     }
