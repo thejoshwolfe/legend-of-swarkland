@@ -23,6 +23,9 @@ const PerceivedFrame = core.protocol.PerceivedFrame;
 const handleGameInput = @import("game_input.zig").handleGameInput;
 const updateTutorialData = @import("game_input.zig").updateTutorialData;
 
+const doMainMenu = @import("menus.zig").doMainMenu;
+const doPuzzleLevelsMenu = @import("menus.zig").doPuzzleLevelsMenu;
+
 const the_levels = @import("server").the_levels;
 
 const logical_window_size = Rect{ .x = 0, .y = 0, .width = 712, .height = 512 };
@@ -165,83 +168,31 @@ fn doMainLoop(window: *gui.Window) !void {
 
         switch (game_state) {
             .main_menu => |*menu_state| {
-                var menu_renderer = gui.Gui.initInteractive(window.renderer, menu_state, textures.sprites.dagger);
-
-                menu_renderer.seek(10, 10);
-                menu_renderer.scale(2);
-                menu_renderer.font(.large_bold);
-                menu_renderer.marginBottom(5);
-                menu_renderer.text("Legend of Swarkland");
-                menu_renderer.scale(1);
-                menu_renderer.font(.large);
-                menu_renderer.seekRelative(70, 30);
-                if (menu_renderer.button("New Game")) {
-                    // Workaround compiler bug (feature?)
-                    // For more information, watch ATTACK of the KILLER FEATURES by Martin Wickham.
-                    // https://www.youtube.com/watch?v=dEIsJPpCZYg
-                    const avoid_pointer_aliasing = (struct { a: ?u64 }){ .a = menu_state.buffered_cheatcode };
-                    try startGame(&game_state, avoid_pointer_aliasing.a);
-                    continue :main_loop;
+                switch (doMainMenu(window.renderer, menu_state, save_file.filename)) {
+                    .none => {},
+                    .new_game => |cheatcode_game_seed| {
+                        try startGame(&game_state, cheatcode_game_seed);
+                        continue :main_loop;
+                    },
+                    .puzzle_levels => {
+                        game_state = puzzleLevels(&save_file);
+                        continue :main_loop;
+                    },
                 }
-                if (menu_renderer.button("Puzzle Levels")) {
-                    game_state = puzzleLevels(&save_file);
-                    continue :main_loop;
-                }
-
-                menu_renderer.seekRelative(-70, 50);
-                menu_renderer.text("Menu Controls:");
-                menu_renderer.text(" Arrow keys + Enter");
-                menu_renderer.text(" ");
-                menu_renderer.text("Display Size: 712x512");
-                menu_renderer.text(" (Just resize the window)");
-                menu_renderer.text(" ");
-                menu_renderer.text("Save file path:");
-                menu_renderer.seekRelative(12, 0);
-                const text_wrap_width: u32 = @intCast(@divTrunc(logical_window_size.width, 12) - 2);
-                menu_renderer.textWrapped(save_file.filename, text_wrap_width);
-                menu_renderer.seekRelative(-12, 0);
-                menu_renderer.text(" ");
-                menu_renderer.text(" ");
-                menu_renderer.text("version: " ++ textures.version_string);
             },
 
             .level_select => |*menu_state| {
-                var menu_renderer = gui.Gui.initInteractive(window.renderer, menu_state, textures.sprites.dagger);
-                menu_renderer.seek(32, 32);
-                menu_renderer.marginBottom(3);
-
-                for (the_levels[0 .. the_levels.len - 1], 0..) |level, i| {
-                    if (i < save_file.completed_levels) {
-                        // Past levels
-                        if (menu_renderer.button(level.name)) {
-                            try startPuzzleGame(&game_state, i);
-                            continue :main_loop;
-                        }
-                    } else if (i == save_file.completed_levels) {
-                        // Current level
-                        menu_renderer.font(.large_bold);
-                        if (menu_renderer.button("??? (New)")) {
-                            try startPuzzleGame(&game_state, i);
-                            continue :main_loop;
-                        }
-                        menu_renderer.font(.large);
-                    } else {
-                        // Future level
-                        menu_renderer.text("---");
-                    }
+                switch (doPuzzleLevelsMenu(window.renderer, menu_state, save_file.completed_levels)) {
+                    .none => {},
+                    .new_game => |level_index| {
+                        try startPuzzleGame(&game_state, level_index);
+                        continue :main_loop;
+                    },
                 }
-
-                menu_renderer.seek(448, 32);
-                menu_renderer.text("Menu Controls:");
-                menu_renderer.text(" Arrow keys");
-                menu_renderer.text(" Ctrl+Arrows");
-                menu_renderer.text(" PageUp/PageDown");
-                menu_renderer.text(" Home/End");
-                menu_renderer.text(" Enter/Escape");
             },
 
             .running => |*state| blk: {
-                if (state.client_state == null) break :blk;
+                if (state.client_state == null) break :blk; // waiting for first frame from server.
 
                 try renderThings(state, window.renderer, now);
             },
