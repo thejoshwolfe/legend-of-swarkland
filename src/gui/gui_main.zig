@@ -38,9 +38,6 @@ const the_levels = @import("server").the_levels;
 
 const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 712, .height = 512 });
 
-/// changes when the window resizes
-var output_rect = logical_window_size;
-
 pub fn main() anyerror!void {
     core.debug.init();
     core.debug.nameThisThread("gui");
@@ -48,55 +45,17 @@ pub fn main() anyerror!void {
     core.debug.thread_lifecycle.print("init", .{});
     defer core.debug.thread_lifecycle.print("shutdown", .{});
 
-    // SDL handling SIGINT blocks propagation to child threads.
-    if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, "1", sdl.c.SDL_HINT_OVERRIDE) != sdl.c.SDL_FALSE)) {
-        std.debug.panic("failed to disable sdl signal handlers\n", .{});
-    }
-    if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
-        std.debug.panic("SDL_Init failed: {s}\n", .{sdl.c.SDL_GetError()});
-    }
-    defer sdl.c.SDL_Quit();
-
-    const screen = sdl.c.SDL_CreateWindow(
+    var window = try gui.Window.init(
         "Legend of Swarkland",
-        sdl.SDL_WINDOWPOS_UNDEFINED,
-        sdl.SDL_WINDOWPOS_UNDEFINED,
         logical_window_size.w,
         logical_window_size.h,
-        sdl.c.SDL_WINDOW_RESIZABLE,
-    ) orelse {
-        std.debug.panic("SDL_CreateWindow failed: {s}\n", .{sdl.c.SDL_GetError()});
-    };
-    defer sdl.c.SDL_DestroyWindow(screen);
+    );
+    defer window.deinit();
 
-    const renderer: *sdl.Renderer = sdl.c.SDL_CreateRenderer(screen, -1, 0) orelse {
-        std.debug.panic("SDL_CreateRenderer failed: {s}\n", .{sdl.c.SDL_GetError()});
-    };
-    defer sdl.c.SDL_DestroyRenderer(renderer);
-
-    {
-        var renderer_info: sdl.c.SDL_RendererInfo = undefined;
-        sdl.assertZero(sdl.c.SDL_GetRendererInfo(renderer, &renderer_info));
-        if (renderer_info.flags & @as(u32, @bitCast(sdl.c.SDL_RENDERER_TARGETTEXTURE)) == 0) {
-            std.debug.panic("rendering to a temporary texture is not supported", .{});
-        }
-    }
-
-    const screen_buffer: *sdl.Texture = sdl.c.SDL_CreateTexture(
-        renderer,
-        sdl.c.SDL_PIXELFORMAT_ABGR8888,
-        sdl.c.SDL_TEXTUREACCESS_TARGET,
-        logical_window_size.w,
-        logical_window_size.h,
-    ) orelse {
-        std.debug.panic("SDL_CreateTexture failed: {s}\n", .{sdl.c.SDL_GetError()});
-    };
-    defer sdl.c.SDL_DestroyTexture(screen_buffer);
-
-    textures.init(renderer);
+    textures.init(window.renderer);
     defer textures.deinit();
 
-    try doMainLoop(renderer, screen_buffer);
+    try doMainLoop(&window);
 }
 
 const InputPrompt = enum {
@@ -138,7 +97,7 @@ pub const RunningState = struct {
     },
 };
 
-fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
+fn doMainLoop(window: *gui.Window) !void {
     var input_engine = InputEngine.init();
     var save_file = try SaveFile.load(allocator);
     var game_state = mainMenuState(&save_file);
@@ -426,12 +385,9 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             }
         }
 
-        sdl.assertZero(sdl.c.SDL_SetRenderTarget(renderer, screen_buffer));
-        sdl.assertZero(sdl.c.SDL_RenderClear(renderer));
-
         switch (game_state) {
             .main_menu => |*menu_state| {
-                var menu_renderer = gui.Gui.initInteractive(renderer, menu_state, textures.sprites.dagger);
+                var menu_renderer = gui.Gui.initInteractive(window.renderer, menu_state, textures.sprites.dagger);
 
                 menu_renderer.seek(10, 10);
                 menu_renderer.scale(2);
@@ -477,7 +433,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             },
 
             .level_select => |*menu_state| {
-                var menu_renderer = gui.Gui.initInteractive(renderer, menu_state, textures.sprites.dagger);
+                var menu_renderer = gui.Gui.initInteractive(window.renderer, menu_state, textures.sprites.dagger);
                 menu_renderer.seek(32, 32);
                 menu_renderer.marginBottom(3);
 
@@ -514,35 +470,11 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
             .running => |*state| blk: {
                 if (state.client_state == null) break :blk;
 
-                try renderThings(state, renderer, now);
+                try renderThings(state, window.renderer, now);
             },
         }
 
-        {
-            sdl.assertZero(sdl.c.SDL_SetRenderTarget(renderer, null));
-            sdl.assertZero(sdl.c.SDL_GetRendererOutputSize(renderer, &output_rect.w, &output_rect.h));
-            // preserve aspect ratio
-            const source_aspect_ratio = comptime @as(f32, @floatFromInt(logical_window_size.w)) / @as(f32, @floatFromInt(logical_window_size.h));
-            const dest_aspect_ratio = @as(f32, @floatFromInt(output_rect.w)) / @as(f32, @floatFromInt(output_rect.h));
-            if (source_aspect_ratio > dest_aspect_ratio) {
-                // use width
-                const new_height = @as(c_int, @intFromFloat(@as(f32, @floatFromInt(output_rect.w)) / source_aspect_ratio));
-                output_rect.x = 0;
-                output_rect.y = @divTrunc(output_rect.h - new_height, 2);
-                output_rect.h = new_height;
-            } else {
-                // use height
-                const new_width = @as(c_int, @intFromFloat(@as(f32, @floatFromInt(output_rect.h)) * source_aspect_ratio));
-                output_rect.x = @divTrunc(output_rect.w - new_width, 2);
-                output_rect.y = 0;
-                output_rect.w = new_width;
-            }
-
-            sdl.assertZero(sdl.c.SDL_RenderClear(renderer));
-            sdl.assertZero(sdl.c.SDL_RenderCopy(renderer, screen_buffer, &logical_window_size, &output_rect));
-        }
-
-        sdl.c.SDL_RenderPresent(renderer);
+        window.present();
 
         // delay until the next multiple of 17 milliseconds
         const delay_millis = 17 - (sdl.c.SDL_GetTicks() % 17);

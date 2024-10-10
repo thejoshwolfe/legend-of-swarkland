@@ -1,3 +1,4 @@
+const std = @import("std");
 const sdl = @import("./sdl.zig");
 const core = @import("core");
 const geometry = core.geometry;
@@ -125,5 +126,124 @@ pub const Gui = struct {
             return self._menu_state.?.enter_pressed;
         }
         return false;
+    }
+};
+
+pub const Window = struct {
+    screen: *sdl.c.SDL_Window,
+    renderer: *sdl.Renderer,
+    screen_buffer: *sdl.Texture,
+
+    pub fn init(title: [:0]const u8, width: i32, height: i32) !Window {
+        // SDL handling SIGINT blocks propagation to child threads.
+        if (!(sdl.c.SDL_SetHintWithPriority(sdl.c.SDL_HINT_NO_SIGNAL_HANDLERS, "1", sdl.c.SDL_HINT_OVERRIDE) != sdl.c.SDL_FALSE)) {
+            std.debug.panic("failed to disable sdl signal handlers\n", .{});
+        }
+        if (sdl.c.SDL_Init(sdl.c.SDL_INIT_VIDEO) != 0) {
+            std.debug.panic("SDL_Init failed: {s}\n", .{sdl.c.SDL_GetError()});
+        }
+        errdefer sdl.c.SDL_Quit();
+
+        const screen = sdl.c.SDL_CreateWindow(
+            title,
+            sdl.SDL_WINDOWPOS_UNDEFINED,
+            sdl.SDL_WINDOWPOS_UNDEFINED,
+            width,
+            height,
+            sdl.c.SDL_WINDOW_RESIZABLE,
+        ) orelse {
+            std.debug.panic("SDL_CreateWindow failed: {s}\n", .{sdl.c.SDL_GetError()});
+        };
+        errdefer sdl.c.SDL_DestroyWindow(screen);
+
+        const renderer: *sdl.Renderer = sdl.c.SDL_CreateRenderer(screen, -1, 0) orelse {
+            std.debug.panic("SDL_CreateRenderer failed: {s}\n", .{sdl.c.SDL_GetError()});
+        };
+        errdefer sdl.c.SDL_DestroyRenderer(renderer);
+
+        // Make sure this works.
+        {
+            var renderer_info: sdl.c.SDL_RendererInfo = undefined;
+            sdl.assertZero(sdl.c.SDL_GetRendererInfo(renderer, &renderer_info));
+            if (renderer_info.flags & @as(u32, @bitCast(sdl.c.SDL_RENDERER_TARGETTEXTURE)) == 0) {
+                std.debug.panic("rendering to a temporary texture is not supported", .{});
+            }
+        }
+
+        const screen_buffer: *sdl.Texture = sdl.c.SDL_CreateTexture(
+            renderer,
+            sdl.c.SDL_PIXELFORMAT_ABGR8888,
+            sdl.c.SDL_TEXTUREACCESS_TARGET,
+            width,
+            height,
+        ) orelse {
+            std.debug.panic("SDL_CreateTexture failed: {s}\n", .{sdl.c.SDL_GetError()});
+        };
+        errdefer sdl.c.SDL_DestroyTexture(screen_buffer);
+
+        beginFrame(renderer, screen_buffer);
+
+        return Window{
+            .screen = screen,
+            .renderer = renderer,
+            .screen_buffer = screen_buffer,
+        };
+    }
+    pub fn deinit(window: *Window) void {
+        sdl.c.SDL_DestroyTexture(window.screen_buffer);
+        sdl.c.SDL_DestroyRenderer(window.renderer);
+        sdl.c.SDL_DestroyWindow(window.screen);
+        sdl.c.SDL_Quit();
+        window.* = undefined;
+    }
+
+    fn beginFrame(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) void {
+        sdl.assertZero(sdl.c.SDL_SetRenderTarget(renderer, screen_buffer));
+        sdl.assertZero(sdl.c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255));
+        sdl.assertZero(sdl.c.SDL_RenderClear(renderer));
+    }
+
+    pub fn present(window: *const Window) void {
+        var logical_window_size = sdl.c.SDL_Rect{
+            .x = 0,
+            .y = 0,
+            .w = undefined,
+            .h = undefined,
+        };
+        sdl.assertZero(sdl.c.SDL_GetRendererOutputSize(window.renderer, &logical_window_size.w, &logical_window_size.h));
+        // Switch to rendering to the window.
+        sdl.assertZero(sdl.c.SDL_SetRenderTarget(window.renderer, null));
+        var output_rect = sdl.c.SDL_Rect{
+            .x = 0,
+            .y = 0,
+            .w = undefined,
+            .h = undefined,
+        };
+        sdl.assertZero(sdl.c.SDL_GetRendererOutputSize(window.renderer, &output_rect.w, &output_rect.h));
+        // Center the screen buffer preserving the aspect ratio.
+        const source_aspect_ratio = @as(f32, @floatFromInt(logical_window_size.w)) / @as(f32, @floatFromInt(logical_window_size.h));
+        const dest_aspect_ratio = @as(f32, @floatFromInt(output_rect.w)) / @as(f32, @floatFromInt(output_rect.h));
+        if (source_aspect_ratio > dest_aspect_ratio) {
+            // Scale width exactly. Letterbox on top/bottom.
+            const new_height = @as(c_int, @intFromFloat(@as(f32, @floatFromInt(output_rect.w)) / source_aspect_ratio));
+            output_rect.x = 0;
+            output_rect.y = @divTrunc(output_rect.h - new_height, 2);
+            output_rect.h = new_height;
+        } else {
+            // Scale height exactly. Letterbox on left/right.
+            const new_width = @as(c_int, @intFromFloat(@as(f32, @floatFromInt(output_rect.h)) * source_aspect_ratio));
+            output_rect.x = @divTrunc(output_rect.w - new_width, 2);
+            output_rect.y = 0;
+            output_rect.w = new_width;
+        }
+
+        // Blit and present.
+        sdl.assertZero(sdl.c.SDL_SetRenderDrawColor(window.renderer, 0, 0, 0, 255));
+        sdl.assertZero(sdl.c.SDL_RenderClear(window.renderer));
+        sdl.assertZero(sdl.c.SDL_RenderCopy(window.renderer, window.screen_buffer, &logical_window_size, &output_rect));
+        sdl.c.SDL_RenderPresent(window.renderer);
+
+        // Switch back to rendering to the screen buffer.
+        beginFrame(window.renderer, window.screen_buffer);
     }
 };
