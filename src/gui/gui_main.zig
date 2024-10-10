@@ -108,8 +108,7 @@ fn doMainLoop(window: *gui.Window) !void {
     };
 
     main_loop: while (true) {
-        // TODO: use better source of time (that doesn't crash after running for a month)
-        const now = @as(i32, @intCast(sdl.c.SDL_GetTicks()));
+        const now = input_engine.now();
         switch (game_state) {
             .main_menu => |*menu_state| {
                 menu_state.beginFrame();
@@ -176,212 +175,191 @@ fn doMainLoop(window: *gui.Window) !void {
             },
         }
 
-        var event: sdl.c.SDL_Event = undefined;
-        while (sdl.SDL_PollEvent(&event) != 0) {
-            switch (event.type) {
-                sdl.c.SDL_QUIT => {
-                    core.debug.thread_lifecycle.print("sdl quit", .{});
-                    return;
+        while (input_engine.pollInput()) |input| {
+            if (input == .shutdown) {
+                core.debug.thread_lifecycle.print("sdl quit", .{});
+                return;
+            }
+            switch (game_state) {
+                .main_menu => |*menu_state| {
+                    switch (input) {
+                        .up => {
+                            menu_state.moveUp(1);
+                        },
+                        .down => {
+                            menu_state.moveDown(1);
+                        },
+                        .page_up => {
+                            menu_state.moveUp(5);
+                        },
+                        .page_down => {
+                            menu_state.moveDown(5);
+                        },
+                        .home => {
+                            menu_state.cursor_position = 0;
+                        },
+                        .end => {
+                            menu_state.cursor_position = menu_state.entry_count -| 1;
+                        },
+                        .enter => {
+                            menu_state.enter();
+                        },
+                        .equip_0 => menu_state.buffered_cheatcode = 1,
+                        .equip_1 => menu_state.buffered_cheatcode = 2,
+                        .equip_2 => menu_state.buffered_cheatcode = 3,
+                        .equip_3 => menu_state.buffered_cheatcode = 4,
+                        .equip_4 => menu_state.buffered_cheatcode = 5,
+                        .equip_5 => menu_state.buffered_cheatcode = 6,
+                        .equip_6 => menu_state.buffered_cheatcode = 7,
+                        .equip_7 => menu_state.buffered_cheatcode = null,
+                        else => {},
+                    }
                 },
-                sdl.c.SDL_WINDOWEVENT => {
-                    switch (event.window.event) {
-                        sdl.c.SDL_WINDOWEVENT_FOCUS_GAINED => {
-                            input_engine.inputs_considered_harmful = true;
+                .level_select => |*menu_state| {
+                    switch (input) {
+                        .up => {
+                            menu_state.moveUp(1);
+                        },
+                        .down => {
+                            menu_state.moveDown(1);
+                        },
+                        .page_up => {
+                            menu_state.moveUp(5);
+                        },
+                        .page_down => {
+                            menu_state.moveDown(5);
+                        },
+                        .home => {
+                            menu_state.cursor_position = 0;
+                        },
+                        .end => {
+                            menu_state.cursor_position = menu_state.entry_count -| 1;
+                        },
+                        .enter => {
+                            menu_state.enter();
+                        },
+                        .escape => {
+                            game_state = mainMenuState(&save_file);
+                            continue :main_loop;
                         },
                         else => {},
                     }
                 },
-                sdl.c.SDL_KEYDOWN, sdl.c.SDL_KEYUP => {
-                    if (input_engine.handleEvent(event)) |button| {
-                        if (input_engine.inputs_considered_harmful) {
-                            // when we first get focus, SDL gives a friendly digest of all the buttons that are already held down.
-                            // these are not inputs for us.
-                            continue;
-                        }
-                        switch (game_state) {
-                            .main_menu => |*menu_state| {
-                                switch (button) {
-                                    .up => {
-                                        menu_state.moveUp(1);
-                                    },
-                                    .down => {
-                                        menu_state.moveDown(1);
-                                    },
-                                    .page_up => {
-                                        menu_state.moveUp(5);
-                                    },
-                                    .page_down => {
-                                        menu_state.moveDown(5);
-                                    },
-                                    .home => {
-                                        menu_state.cursor_position = 0;
-                                    },
-                                    .end => {
-                                        menu_state.cursor_position = menu_state.entry_count -| 1;
-                                    },
-                                    .enter => {
-                                        menu_state.enter();
-                                    },
-                                    .equip_0 => menu_state.buffered_cheatcode = 1,
-                                    .equip_1 => menu_state.buffered_cheatcode = 2,
-                                    .equip_2 => menu_state.buffered_cheatcode = 3,
-                                    .equip_3 => menu_state.buffered_cheatcode = 4,
-                                    .equip_4 => menu_state.buffered_cheatcode = 5,
-                                    .equip_5 => menu_state.buffered_cheatcode = 6,
-                                    .equip_6 => menu_state.buffered_cheatcode = 7,
-                                    .equip_7 => menu_state.buffered_cheatcode = null,
-                                    else => {},
+                .running => |*state| {
+                    switch (input) {
+                        .left => try doDirectionInput(state, makeCoord(-1, 0)),
+                        .right => try doDirectionInput(state, makeCoord(1, 0)),
+                        .up => try doDirectionInput(state, makeCoord(0, -1)),
+                        .down => try doDirectionInput(state, makeCoord(0, 1)),
+
+                        .shift_left => try doAutoDirectionInput(state, makeCoord(-1, 0)),
+                        .shift_right => try doAutoDirectionInput(state, makeCoord(1, 0)),
+                        .shift_up => try doAutoDirectionInput(state, makeCoord(0, -1)),
+                        .shift_down => try doAutoDirectionInput(state, makeCoord(0, 1)),
+
+                        .greaterthan => {
+                            if (state.input_prompt == .kick) {
+                                clearInputState(state);
+                                try doActionOrShowTutorialForError(state, .stomp);
+                            }
+                        },
+
+                        .start_attack => {
+                            if (validateAndShowTotorialForError(state, .attack)) {
+                                state.input_prompt = .attack;
+                            }
+                        },
+                        .start_kick => {
+                            _ = validateAndShowTotorialForError(state, .kick);
+                            state.input_prompt = .kick;
+                        },
+                        .start_open_close => {
+                            _ = validateAndShowTotorialForError(state, .open_close);
+                            state.input_prompt = .open_close;
+                        },
+                        .start_defend => {
+                            _ = validateAndShowTotorialForError(state, .defend);
+                            state.input_prompt = .defend;
+                        },
+                        .charge => {
+                            try doActionOrShowTutorialForError(state, .charge);
+                            state.input_prompt = .none;
+                        },
+                        .stomp => {
+                            try doActionOrShowTutorialForError(state, .stomp);
+                            state.input_prompt = .none;
+                        },
+                        .pick_up => {
+                            if (isFloorItemSuggestedEquip(state.client_state.?)) |should_equip| {
+                                if (should_equip) {
+                                    try doActionOrShowTutorialForError(state, .pick_up_and_equip);
+                                } else {
+                                    try doActionOrShowTutorialForError(state, .pick_up_unequipped);
                                 }
-                            },
-                            .level_select => |*menu_state| {
-                                switch (button) {
-                                    .up => {
-                                        menu_state.moveUp(1);
-                                    },
-                                    .down => {
-                                        menu_state.moveDown(1);
-                                    },
-                                    .page_up => {
-                                        menu_state.moveUp(5);
-                                    },
-                                    .page_down => {
-                                        menu_state.moveDown(5);
-                                    },
-                                    .home => {
-                                        menu_state.cursor_position = 0;
-                                    },
-                                    .end => {
-                                        menu_state.cursor_position = menu_state.entry_count -| 1;
-                                    },
-                                    .enter => {
-                                        menu_state.enter();
-                                    },
-                                    .escape => {
-                                        game_state = mainMenuState(&save_file);
-                                        continue :main_loop;
-                                    },
-                                    else => {},
-                                }
-                            },
-                            .running => |*state| {
-                                switch (button) {
-                                    .left => try doDirectionInput(state, makeCoord(-1, 0)),
-                                    .right => try doDirectionInput(state, makeCoord(1, 0)),
-                                    .up => try doDirectionInput(state, makeCoord(0, -1)),
-                                    .down => try doDirectionInput(state, makeCoord(0, 1)),
+                            }
+                            state.input_prompt = .none;
+                        },
 
-                                    .shift_left => try doAutoDirectionInput(state, makeCoord(-1, 0)),
-                                    .shift_right => try doAutoDirectionInput(state, makeCoord(1, 0)),
-                                    .shift_up => try doAutoDirectionInput(state, makeCoord(0, -1)),
-                                    .shift_down => try doAutoDirectionInput(state, makeCoord(0, 1)),
+                        .equip_0 => try doEquipmentAction(state, .dagger, false),
+                        .force_equip_0 => try doEquipmentAction(state, .dagger, true),
+                        .equip_1 => try doEquipmentAction(state, .torch, false),
+                        .force_equip_1 => try doEquipmentAction(state, .torch, true),
 
-                                    .greaterthan => {
-                                        if (state.input_prompt == .kick) {
-                                            clearInputState(state);
-                                            try doActionOrShowTutorialForError(state, .stomp);
-                                        }
-                                    },
+                        .backspace => {
+                            if (state.input_prompt == .none) {
+                                try state.client.rewind();
+                                state.consecutive_undos +|= 1;
+                            }
+                            clearInputState(state);
+                        },
+                        .spacebar => {
+                            if (state.input_prompt == .none) {
+                                clearInputState(state);
+                                try state.client.act(.wait);
+                                state.wait_performed = true;
+                            }
+                        },
+                        .escape => {
+                            clearInputState(state);
+                            state.animations = null;
+                        },
+                        .restart => {
+                            if (state.new_game_settings == .puzzle_level) {
+                                try state.client.restartLevel();
+                                clearInputState(state);
+                                state.performed_restart = true;
+                            }
+                        },
+                        .quit => {
+                            state.client.client.stopEngine();
+                            game_state = mainMenuState(&save_file);
+                            continue :main_loop;
+                        },
 
-                                    .start_attack => {
-                                        if (validateAndShowTotorialForError(state, .attack)) {
-                                            state.input_prompt = .attack;
-                                        }
-                                    },
-                                    .start_kick => {
-                                        _ = validateAndShowTotorialForError(state, .kick);
-                                        state.input_prompt = .kick;
-                                    },
-                                    .start_open_close => {
-                                        _ = validateAndShowTotorialForError(state, .open_close);
-                                        state.input_prompt = .open_close;
-                                    },
-                                    .start_defend => {
-                                        _ = validateAndShowTotorialForError(state, .defend);
-                                        state.input_prompt = .defend;
-                                    },
-                                    .charge => {
-                                        try doActionOrShowTutorialForError(state, .charge);
-                                        state.input_prompt = .none;
-                                    },
-                                    .stomp => {
-                                        try doActionOrShowTutorialForError(state, .stomp);
-                                        state.input_prompt = .none;
-                                    },
-                                    .pick_up => {
-                                        if (isFloorItemSuggestedEquip(state.client_state.?)) |should_equip| {
-                                            if (should_equip) {
-                                                try doActionOrShowTutorialForError(state, .pick_up_and_equip);
-                                            } else {
-                                                try doActionOrShowTutorialForError(state, .pick_up_unequipped);
-                                            }
-                                        }
-                                        state.input_prompt = .none;
-                                    },
+                        .beat_level => {
+                            try state.client.beatLevelMacro(1);
+                        },
+                        .beat_level_5 => {
+                            try state.client.beatLevelMacro(5);
+                        },
+                        .unbeat_level => {
+                            try state.client.unbeatLevelMacro(1);
+                        },
+                        .unbeat_level_5 => {
+                            try state.client.unbeatLevelMacro(5);
+                        },
+                        .warp_0 => try state.client.act(Action{ .cheatcode_warp = 0 }),
+                        .warp_1 => try state.client.act(Action{ .cheatcode_warp = 1 }),
+                        .warp_2 => try state.client.act(Action{ .cheatcode_warp = 2 }),
+                        .warp_3 => try state.client.act(Action{ .cheatcode_warp = 3 }),
+                        .warp_4 => try state.client.act(Action{ .cheatcode_warp = 4 }),
+                        .warp_5 => try state.client.act(Action{ .cheatcode_warp = 5 }),
+                        .warp_6 => try state.client.act(Action{ .cheatcode_warp = 6 }),
+                        .warp_7 => try state.client.act(Action{ .cheatcode_warp = 7 }),
 
-                                    .equip_0 => try doEquipmentAction(state, .dagger, false),
-                                    .force_equip_0 => try doEquipmentAction(state, .dagger, true),
-                                    .equip_1 => try doEquipmentAction(state, .torch, false),
-                                    .force_equip_1 => try doEquipmentAction(state, .torch, true),
-
-                                    .backspace => {
-                                        if (state.input_prompt == .none) {
-                                            try state.client.rewind();
-                                            state.consecutive_undos +|= 1;
-                                        }
-                                        clearInputState(state);
-                                    },
-                                    .spacebar => {
-                                        if (state.input_prompt == .none) {
-                                            clearInputState(state);
-                                            try state.client.act(.wait);
-                                            state.wait_performed = true;
-                                        }
-                                    },
-                                    .escape => {
-                                        clearInputState(state);
-                                        state.animations = null;
-                                    },
-                                    .restart => {
-                                        if (state.new_game_settings == .puzzle_level) {
-                                            try state.client.restartLevel();
-                                            clearInputState(state);
-                                            state.performed_restart = true;
-                                        }
-                                    },
-                                    .quit => {
-                                        state.client.client.stopEngine();
-                                        game_state = mainMenuState(&save_file);
-                                        continue :main_loop;
-                                    },
-
-                                    .beat_level => {
-                                        try state.client.beatLevelMacro(1);
-                                    },
-                                    .beat_level_5 => {
-                                        try state.client.beatLevelMacro(5);
-                                    },
-                                    .unbeat_level => {
-                                        try state.client.unbeatLevelMacro(1);
-                                    },
-                                    .unbeat_level_5 => {
-                                        try state.client.unbeatLevelMacro(5);
-                                    },
-                                    .warp_0 => try state.client.act(Action{ .cheatcode_warp = 0 }),
-                                    .warp_1 => try state.client.act(Action{ .cheatcode_warp = 1 }),
-                                    .warp_2 => try state.client.act(Action{ .cheatcode_warp = 2 }),
-                                    .warp_3 => try state.client.act(Action{ .cheatcode_warp = 3 }),
-                                    .warp_4 => try state.client.act(Action{ .cheatcode_warp = 4 }),
-                                    .warp_5 => try state.client.act(Action{ .cheatcode_warp = 5 }),
-                                    .warp_6 => try state.client.act(Action{ .cheatcode_warp = 6 }),
-                                    .warp_7 => try state.client.act(Action{ .cheatcode_warp = 7 }),
-
-                                    else => {},
-                                }
-                            },
-                        }
+                        else => {},
                     }
                 },
-                else => {},
             }
         }
 
@@ -475,11 +453,7 @@ fn doMainLoop(window: *gui.Window) !void {
         }
 
         window.present();
-
-        // delay until the next multiple of 17 milliseconds
-        const delay_millis = 17 - (sdl.c.SDL_GetTicks() % 17);
-        sdl.c.SDL_Delay(delay_millis);
-        input_engine.inputs_considered_harmful = false;
+        input_engine.sleepUntilNextFrame();
     }
 }
 

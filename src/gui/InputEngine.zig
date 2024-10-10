@@ -9,7 +9,9 @@ const InputEngine = @This();
 
 inputs_considered_harmful: bool = true,
 
-pub const Button = enum {
+pub const Input = enum {
+    shutdown,
+
     up,
     down,
     left,
@@ -74,20 +76,49 @@ pub fn init() InputEngine {
     return InputEngine{};
 }
 
-pub fn handleEvent(self: *InputEngine, event: sdl.c.SDL_Event) ?Button {
-    switch (event.type) {
-        sdl.c.SDL_KEYUP => {
-            return null;
-        },
-        sdl.c.SDL_KEYDOWN => {
-            if (event.key.repeat != 0) return null;
-            return self.handleKeydown(self.getModifiers(), event.key.keysym.scancode);
-        },
-        else => unreachable,
-    }
+pub fn now(_: *const InputEngine) i32 {
+    // TODO: use better source of time (that doesn't crash after running for a month)
+    return @as(i32, @intCast(sdl.c.SDL_GetTicks()));
 }
 
-fn handleKeydown(_: InputEngine, modifiers: Modifiers, scancode: c_uint) ?Button {
+pub fn sleepUntilNextFrame(self: *InputEngine) void {
+    // delay until the next multiple of 17 milliseconds
+    const delay_millis = 17 - (sdl.c.SDL_GetTicks() % 17);
+    sdl.c.SDL_Delay(delay_millis);
+    self.inputs_considered_harmful = false;
+}
+
+pub fn pollInput(self: *InputEngine) ?Input {
+    var event: sdl.c.SDL_Event = undefined;
+    while (sdl.SDL_PollEvent(&event) != 0) {
+        switch (event.type) {
+            sdl.c.SDL_QUIT => {
+                return .shutdown;
+            },
+            sdl.c.SDL_WINDOWEVENT => {
+                switch (event.window.event) {
+                    sdl.c.SDL_WINDOWEVENT_FOCUS_GAINED => {
+                        self.inputs_considered_harmful = true;
+                    },
+                    else => {},
+                }
+            },
+            sdl.c.SDL_KEYDOWN => {
+                if (self.inputs_considered_harmful) {
+                    // when we first get focus, SDL gives a friendly digest of all the buttons that are already held down.
+                    // these are not inputs for us.
+                    continue;
+                }
+                if (event.key.repeat != 0) continue;
+                return self.fromKeydown(self.getModifiers(), event.key.keysym.scancode);
+            },
+            else => {},
+        }
+    }
+    return null;
+}
+
+fn fromKeydown(_: InputEngine, modifiers: Modifiers, scancode: c_uint) ?Input {
     switch (scancode) {
         sdl.c.SDL_SCANCODE_LEFT => if (modifiers == 0)
             return .left
