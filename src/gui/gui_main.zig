@@ -5,7 +5,7 @@ const allocator = std.heap.c_allocator;
 const sdl = @import("sdl.zig");
 const textures = @import("textures.zig");
 const gui = @import("gui.zig");
-const InputEngine = @import("input_engine.zig").InputEngine;
+const InputEngine = @import("InputEngine.zig");
 const SaveFile = @import("SaveFile.zig");
 const renderThings = @import("render.zig").renderThings;
 const loadAnimations = @import("render.zig").loadAnimations;
@@ -39,13 +39,7 @@ const the_levels = @import("server").the_levels;
 const logical_window_size = sdl.makeRect(Rect{ .x = 0, .y = 0, .width = 712, .height = 512 });
 
 /// changes when the window resizes
-/// FIXME: should initialize to logical_window_size, but workaround https://github.com/ziglang/zig/issues/2855
-var output_rect = sdl.makeRect(Rect{
-    .x = logical_window_size.x,
-    .y = logical_window_size.y,
-    .width = logical_window_size.w,
-    .height = logical_window_size.h,
-});
+var output_rect = logical_window_size;
 
 pub fn main() anyerror!void {
     core.debug.init();
@@ -106,7 +100,7 @@ pub fn main() anyerror!void {
 }
 
 const InputPrompt = enum {
-    none, // TODO: https://github.com/ziglang/zig/issues/1332 and use null instead of this.
+    none,
     attack,
     kick,
     open_close,
@@ -146,7 +140,6 @@ pub const RunningState = struct {
 
 fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
     var input_engine = InputEngine.init();
-    var inputs_considered_harmful = true;
 
     var save_file = SaveFile.load();
     var save_file_text_lines = ArrayList([]const u8).init(allocator);
@@ -252,14 +245,14 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
                 sdl.c.SDL_WINDOWEVENT => {
                     switch (event.window.event) {
                         sdl.c.SDL_WINDOWEVENT_FOCUS_GAINED => {
-                            inputs_considered_harmful = true;
+                            input_engine.inputs_considered_harmful = true;
                         },
                         else => {},
                     }
                 },
                 sdl.c.SDL_KEYDOWN, sdl.c.SDL_KEYUP => {
                     if (input_engine.handleEvent(event)) |button| {
-                        if (inputs_considered_harmful) {
+                        if (input_engine.inputs_considered_harmful) {
                             // when we first get focus, SDL gives a friendly digest of all the buttons that are already held down.
                             // these are not inputs for us.
                             continue;
@@ -571,7 +564,7 @@ fn doMainLoop(renderer: *sdl.Renderer, screen_buffer: *sdl.Texture) !void {
         // delay until the next multiple of 17 milliseconds
         const delay_millis = 17 - (sdl.c.SDL_GetTicks() % 17);
         sdl.c.SDL_Delay(delay_millis);
-        inputs_considered_harmful = false;
+        input_engine.inputs_considered_harmful = false;
     }
 }
 
