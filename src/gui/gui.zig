@@ -7,6 +7,7 @@ const Rect = geometry.Rect;
 const makeCoord = geometry.makeCoord;
 const textures = @import("./textures.zig");
 const Font = textures.Font;
+const InputEngine = @import("InputEngine.zig");
 
 pub const LinearMenuState = struct {
     cursor_position: usize = 0,
@@ -14,14 +15,53 @@ pub const LinearMenuState = struct {
     enter_pressed: bool = false,
     buffered_cheatcode: ?u64 = null,
 
-    pub fn moveUp(self: *LinearMenuState, how_many: usize) void {
+    pub fn handleInput(self: *LinearMenuState, input: InputEngine.Input) ?enum { back } {
+        switch (input) {
+            .up => {
+                self.moveUp(1);
+            },
+            .down => {
+                self.moveDown(1);
+            },
+            .page_up => {
+                self.moveUp(5);
+            },
+            .page_down => {
+                self.moveDown(5);
+            },
+            .home => {
+                self.cursor_position = 0;
+            },
+            .end => {
+                self.cursor_position = self.entry_count -| 1;
+            },
+            .enter => {
+                self.enter();
+            },
+            .escape => {
+                return .back;
+            },
+            .equip_0 => self.buffered_cheatcode = 1,
+            .equip_1 => self.buffered_cheatcode = 2,
+            .equip_2 => self.buffered_cheatcode = 3,
+            .equip_3 => self.buffered_cheatcode = 4,
+            .equip_4 => self.buffered_cheatcode = 5,
+            .equip_5 => self.buffered_cheatcode = 6,
+            .equip_6 => self.buffered_cheatcode = 7,
+            .equip_7 => self.buffered_cheatcode = null,
+            else => {},
+        }
+        return null;
+    }
+
+    fn moveUp(self: *LinearMenuState, how_many: usize) void {
         if (self.cursor_position < how_many) {
             self.cursor_position = 0;
         } else {
             self.cursor_position -= how_many;
         }
     }
-    pub fn moveDown(self: *LinearMenuState, how_many: usize) void {
+    fn moveDown(self: *LinearMenuState, how_many: usize) void {
         if (self.cursor_position + how_many >= self.entry_count) {
             self.cursor_position = self.entry_count -| 1;
         } else {
@@ -33,7 +73,7 @@ pub const LinearMenuState = struct {
             self.entry_count = button_count;
         }
     }
-    pub fn enter(self: *LinearMenuState) void {
+    fn enter(self: *LinearMenuState) void {
         self.enter_pressed = true;
     }
     pub fn beginFrame(self: *LinearMenuState) void {
