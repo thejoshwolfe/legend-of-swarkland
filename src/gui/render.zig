@@ -981,7 +981,7 @@ pub const Animations = struct {
         } else return;
         self.start_time = now - ( //
             self.time_per_frame * @as(i32, @intCast(data.frame_index)) + //
-            @divFloor(data.progress * self.time_per_frame, old_time_per_frame) //
+                @divFloor(data.progress * self.time_per_frame, old_time_per_frame) //
         );
     }
 };

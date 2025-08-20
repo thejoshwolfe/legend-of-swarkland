@@ -337,14 +337,14 @@ pub fn OutChannel(comptime Writer: type) type {
                 },
                 .pointer => |info| {
                     switch (info.size) {
-                        .Slice => {
+                        .slice => {
                             // []T
                             try self.writeInt(x.len);
                             for (x) |x_i| {
                                 try self.write(x_i);
                             }
                         },
-                        .One => {
+                        .one => {
                             if (info.is_const and @typeInfo(info.child) == .Array) {
                                 // *const [N]T
                                 try self.writeInt(x.len);
@@ -431,7 +431,7 @@ pub fn InChannel(comptime Reader: type) type {
                 },
                 .pointer => |info| {
                     switch (info.size) {
-                        .Slice => {
+                        .slice => {
                             const len = try self.readInt(usize);
                             var x = try self.allocator.alloc(info.child, len);
                             for (&x) |*x_i| {

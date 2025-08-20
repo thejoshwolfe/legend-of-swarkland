@@ -1,10 +1,11 @@
 .{
-    .name = "legend-of-swarkland",
+    .name = .legend_of_swarkland,
+    .fingerprint = 0x9f5b9ceaad91ff47,
     .version = "0.0.0",
     .dependencies = .{
         .zig_sdl = .{
-            .url = "https://github.com/andrewrk/SDL/archive/f9637dbccad95197ec4094d696f2dedac1356ea9.tar.gz",
-            .hash = "12202607781309738d498f29a481642f0b166d94d83e4c30256b2d59fdebbdf6f099",
+            .url = "https://github.com/andrewrk/SDL/archive/6f426d8f1bfbc796ff41e6fda2890790ed34f2c7.tar.gz",
+            .hash = "SDL-2.32.2-JToi31GUEgGOf7m8tPCktmPE1Z0cO8bfst98IDm6xJw4",
         },
     },
     .paths = .{
